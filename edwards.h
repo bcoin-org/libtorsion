@@ -740,7 +740,7 @@ curve_init(curve_t *ec, const curve_def_t *def) {
 
 static void
 curve_clamp(curve_t *ec, unsigned char *raw) {
-  ec->clamp(ec);
+  ec->clamp(raw);
 }
 
 static void

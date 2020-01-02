@@ -569,8 +569,8 @@ static int
 gej_equal_r(curve_t *ec, const gej_t *p, const sc_t x) {
   prime_field_t *fe = &ec->fe;
   scalar_field_t *sc = &ec->sc;
-  mp_limb_t cp[MAX_FIELD_LIMBS];
-  mp_size_t cn = fe->limbs;
+  mp_limb_t cp[MAX_FIELD_LIMBS + 1];
+  mp_size_t cn = fe->limbs + 1;
   fe_t zz, rx, rn;
 
   assert(fe->limbs >= sc->limbs);
@@ -590,6 +590,9 @@ gej_equal_r(curve_t *ec, const gej_t *p, const sc_t x) {
   mpn_copyi(cp, x, sc->limbs);
 
   fe_mul(fe, rn, ec->red_n, zz);
+
+  assert(sc->n[cn - 1] == 0);
+  assert(fe->p[cn - 1] == 0);
 
   for (;;) {
     mpn_add_n(cp, cp, sc->n, cn);

@@ -995,7 +995,7 @@ scalar_field_set(scalar_field_t *sc,
     mpn_zero(sc->m, ARRAY_SIZE(sc->m));
     mpn_zero(x, ARRAY_SIZE(x));
 
-    x[index] = 1 << bit;
+    x[index] = (mp_limb_t)1 << bit;
 
     mpn_tdiv_qr(sc->m, x, 0, x, index + 1, sc->n, sc->limbs);
   }
