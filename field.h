@@ -825,6 +825,29 @@ fe_invert_var(prime_field_t *fe, fe_t r, const fe_t a) {
   int ret = !fe_is_zero(fe, a);
 
   if (ret) {
+#ifdef BCRYPTO_HAS_GMP
+    mp_limb_t gp[MAX_FIELD_LIMBS + 1];
+    mp_limb_t sp[MAX_FIELD_LIMBS + 1];
+    mp_limb_t up[MAX_FIELD_LIMBS + 1];
+    mp_limb_t vp[MAX_FIELD_LIMBS + 1];
+    mp_size_t sn = fe->limbs + 1;
+    mp_size_t gn;
+
+    fe_get_limbs(fe, up, a);
+    mpn_copyi(vp, fe->p, fe->limbs);
+
+    gn = mpn_gcdext(gp, sp, &sn, up, fe->limbs, vp, fe->limbs);
+
+    assert(gn == 1);
+    assert(gp[0] == 1);
+
+    if (sn < 0) {
+      mpn_sub(sp, fe->p, fe->limbs, sp, -sn);
+      sn = fe->limbs;
+    }
+
+    fe_set_limbs(fe, r, sp, sn);
+#else
     mp_limb_t ap[MAX_FIELD_LIMBS];
     mpz_t rn, an, pn;
 
@@ -839,6 +862,7 @@ fe_invert_var(prime_field_t *fe, fe_t r, const fe_t a) {
     fe_set_num(fe, r, rn);
 
     mpz_clear(rn);
+#endif
   } else {
     fe_zero(fe, r);
   }
