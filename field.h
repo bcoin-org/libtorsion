@@ -804,6 +804,15 @@ fe_mul121666(prime_field_t *fe, fe_t r, const fe_t a) {
   fe->scmul_121666(r, a);
 }
 
+static void
+fe_mulm3(prime_field_t *fe, fe_t r, const fe_t a) {
+  fe_t t;
+  fe->add(t, a, a);
+  fe->add(t, t, a);
+  fe->opp(t, t);
+  fe->carry(r, t);
+}
+
 static int
 fe_invert_var(prime_field_t *fe, fe_t r, const fe_t a) {
   int ret = !fe_is_zero(fe, a);
@@ -1116,7 +1125,7 @@ static const prime_def_t field_p224 = {
   .to_bytes = fiat_p224_to_bytes,
   .from_bytes = fiat_p224_from_bytes,
   .carry = NULL,
-  .invert = NULL,
+  .invert = p224_fe_invert,
   .sqrt = NULL,
   .isqrt = NULL,
   .scmul_121666 = NULL
