@@ -586,7 +586,7 @@ gej_equal_r(curve_t *ec, const gej_t *p, const sc_t x) {
   if (fe_equal(fe, p->x, rx))
     return 1;
 
-  mpn_zero(cp, cn);
+  mpn_zero(cp + sc->limbs, cn - sc->limbs);
   mpn_copyi(cp, x, sc->limbs);
 
   fe_mul(fe, rn, ec->red_n, zz);
