@@ -975,18 +975,7 @@ scalar_field_set(scalar_field_t *sc,
    *
    *   m = (1 << (bits * 2)) / n
    */
-#ifndef BCRYPTO_HAS_GMP
-  {
-    mpz_t m, n;
-    mpz_init(m);
-    mpz_roinit_n(n, sc->n, sc->limbs);
-    mpz_set_ui(m, 0);
-    mpz_setbit(m, sc->shift);
-    mpz_tdiv_q(m, m, n);
-    mpn_set_mpz(sc->m, m, ARRAY_SIZE(sc->m));
-    mpz_clear(m);
-  }
-#else
+#ifdef BCRYPTO_HAS_GMP
   {
     /* Maintain the philosophy of zero allocations. */
     mp_limb_t x[MAX_SCALAR_LIMBS * 2 + 1];
@@ -999,6 +988,17 @@ scalar_field_set(scalar_field_t *sc,
     x[index] = (mp_limb_t)1 << bit;
 
     mpn_tdiv_qr(sc->m, x, 0, x, index + 1, sc->n, sc->limbs);
+  }
+#else
+  {
+    mpz_t m, n;
+    mpz_init(m);
+    mpz_roinit_n(n, sc->n, sc->limbs);
+    mpz_set_ui(m, 0);
+    mpz_setbit(m, sc->shift);
+    mpz_tdiv_q(m, m, n);
+    mpn_set_mpz(sc->m, m, ARRAY_SIZE(sc->m));
+    mpz_clear(m);
   }
 #endif
 
