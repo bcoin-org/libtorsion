@@ -210,11 +210,7 @@ mpn_invert_n(mp_limb_t *rp,
              const mp_limb_t *yp,
              mp_size_t n) {
 #ifdef BCRYPTO_HAS_GMP
-#ifdef BCRYPTO_EC_64BIT
-#define MAX_EGCD_LIMBS 9
-#else
-#define MAX_EGCD_LIMBS 17
-#endif
+#define MAX_EGCD_LIMBS ((521 + GMP_NUMB_BITS - 1) / GMP_NUMB_BITS)
     mp_limb_t gp[MAX_EGCD_LIMBS + 1];
     mp_limb_t sp[MAX_EGCD_LIMBS + 1];
     mp_limb_t up[MAX_EGCD_LIMBS + 1];
