@@ -106,3 +106,26 @@ p384_fe_invert(p384_fe_t out, const p384_fe_t in) {
   p384_fe_mul(r, r, in);
   p384_fe_set(out, r);
 }
+
+/* Mathematical routines for the NIST prime elliptic curves
+ *
+ * See: http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.204.9073&rep=rep1&type=pdf
+ *
+ * Chain:
+ *
+ *   1: t1 <- c^2; t1 <- t1 * c
+ *   2: t2 <- t1^2^2; t2 <- t2 * t1
+ *   3: t2 <- t2^2; t2 <- t2 * c
+ *   4: t3 <- t2^2^5; t3 <- t3 * t2
+ *   5: t4 <- t3^2^5; t4 <- t4 * t2
+ *   6: t2 <- t4^2^15; t2 <- t2 * t4
+ *   7: t3 <- t2^2^2
+ *   8: t1 <- t3 * t1
+ *   9: t3 <- t3^2^28; t2 <- t2 * t3
+ *   10: t3 <- t2^2^60; t3 <- t3 * t2
+ *   11: r <- t3^2^120; r <- r * t3
+ *   12: r <- r^2^15; r <- r * t4
+ *   13: r <- r^2^33; r <- r * t1
+ *   14: r <- r^2^64; r <- r * c
+ *   15: r <- r^2^30
+ */

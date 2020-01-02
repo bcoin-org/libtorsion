@@ -40,6 +40,22 @@ p521_fe_set(p521_fe_t out, const p521_fe_t in) {
 #endif
 }
 
+static int
+p521_fe_equal(const p521_fe_t a, const p521_fe_t b) {
+  uint32_t z = 0;
+  uint8_t u[66];
+  uint8_t v[66];
+  size_t i;
+
+  fiat_p521_to_bytes(u, a);
+  fiat_p521_to_bytes(v, b);
+
+  for (i = 0; i < 66; i++)
+    z |= (uint32_t)u[i] ^ (uint32_t)v[i];
+
+  return (z - 1) >> 31;
+}
+
 static void
 p521_fe_sqrn(p521_fe_t out, const p521_fe_t in, int rounds) {
   int i;
@@ -105,4 +121,30 @@ p521_fe_invert(p521_fe_t out, const p521_fe_t in) {
   p521_fe_mul(r, r, in);
 
   p521_fe_set(out, r);
+}
+
+/* Mathematical routines for the NIST prime elliptic curves
+ *
+ * See: http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.204.9073&rep=rep1&type=pdf
+ *
+ *   r <- c
+ *   for i = 1 to 519 do
+ *     r <- r^2
+ *   end for
+ */
+
+static int
+p521_fe_sqrt(p521_fe_t out, const p521_fe_t in) {
+  p521_fe_t r, t;
+  int ret;
+
+  p521_fe_set(r, in);
+  p521_fe_sqrn(r, r, 519);
+  p521_fe_sqr(t, r);
+
+  ret = p521_fe_equal(t, in);
+
+  p521_fe_set(out, r);
+
+  return ret;
 }

@@ -1255,7 +1255,7 @@ static const prime_def_t field_p521 = {
   .from_bytes = fiat_p521_from_bytes,
   .carry = fiat_p521_carry,
   .invert = p521_fe_invert,
-  .sqrt = NULL,
+  .sqrt = p521_fe_sqrt,
   .isqrt = NULL,
   .scmul_121666 = NULL
 };
