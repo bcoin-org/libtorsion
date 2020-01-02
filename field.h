@@ -62,6 +62,7 @@ typedef void fe_carry_func(fe_word_t *out1, const fe_word_t *arg1);
 typedef void fe_invert_func(fe_word_t *out, const fe_word_t *in);
 typedef int fe_sqrt_func(fe_word_t *out, const fe_word_t *in);
 typedef int fe_isqrt_func(fe_word_t *out, const fe_word_t *u, const fe_word_t *v);
+typedef void fe_scmul_121666(fe_word_t *out1, const fe_word_t *arg1);
 
 typedef fe_word_t fe_t[MAX_FIELD_WORDS];
 typedef fe_word_t *fe_ptr;
@@ -110,6 +111,7 @@ typedef struct prime_field_s {
   fe_invert_func *invert;
   fe_sqrt_func *sqrt;
   fe_isqrt_func *isqrt;
+  fe_scmul_121666 *scmul_121666;
   fe_t zero;
   fe_t one;
   fe_t two;
@@ -134,6 +136,7 @@ typedef struct prime_def_s {
   fe_invert_func *invert;
   fe_sqrt_func *sqrt;
   fe_isqrt_func *isqrt;
+  fe_scmul_121666 *scmul_121666;
 } prime_def_t;
 
 /*
@@ -489,7 +492,7 @@ fe_import(prime_field_t *fe, fe_t r, const unsigned char *raw) {
     mp_limb_t xp[MAX_FIELD_LIMBS * 4];
 
     /* We must be aligned to the limb size. */
-    /* Every montgomerized curve satisfies this requirement. */
+    /* Every montgomerized field satisfies this requirement. */
     assert((fe->shift % GMP_NUMB_BITS) == 0);
 
     /* x = (x << shift) mod p */
@@ -640,19 +643,13 @@ fe_get_sc(prime_field_t *fe, scalar_field_t *sc, sc_t r, const fe_t a) {
 }
 
 static void
-fe_set_word(prime_field_t *fe, fe_t r, fe_word_t word) {
+fe_set_word(prime_field_t *fe, fe_t r, uint32_t word) {
   if (fe->from_montgomery) {
     unsigned char tmp[MAX_FIELD_SIZE];
 
     memset(tmp, 0, sizeof(tmp));
 
     if (fe->endian == 1) {
-#if FIELD_WORD_SIZE == 64
-      tmp[fe->size - 8] = (word >> 56) & 0xff;
-      tmp[fe->size - 7] = (word >> 48) & 0xff;
-      tmp[fe->size - 6] = (word >> 40) & 0xff;
-      tmp[fe->size - 5] = (word >> 32) & 0xff;
-#endif
       tmp[fe->size - 4] = (word >> 24) & 0xff;
       tmp[fe->size - 3] = (word >> 16) & 0xff;
       tmp[fe->size - 2] = (word >> 8) & 0xff;
@@ -662,12 +659,6 @@ fe_set_word(prime_field_t *fe, fe_t r, fe_word_t word) {
       tmp[1] = (word >> 8) & 0xff;
       tmp[2] = (word >> 16) & 0xff;
       tmp[3] = (word >> 24) & 0xff;
-#if FIELD_WORD_SIZE == 64
-      tmp[4] = (word >> 32) & 0xff;
-      tmp[5] = (word >> 40) & 0xff;
-      tmp[6] = (word >> 48) & 0xff;
-      tmp[7] = (word >> 56) & 0xff;
-#endif
     }
 
     fe_import(fe, r, tmp);
@@ -734,6 +725,11 @@ fe_neg(prime_field_t *fe, fe_t r, const fe_t a) {
 }
 
 static void
+fe_neg_noreduce(prime_field_t *fe, fe_t r, const fe_t a) {
+  fe->opp(r, a);
+}
+
+static void
 fe_neg_cond(prime_field_t *fe, fe_t r, const fe_t a, unsigned int flag) {
   fe_t b;
   fe_neg(fe, b, a);
@@ -754,11 +750,27 @@ fe_add(prime_field_t *fe, fe_t r, const fe_t a, const fe_t b) {
 }
 
 static void
+fe_add_noreduce(prime_field_t *fe, fe_t r, const fe_t a, const fe_t b) {
+  fe->add(r, a, b);
+}
+
+static void
 fe_sub(prime_field_t *fe, fe_t r, const fe_t a, const fe_t b) {
   fe->sub(r, a, b);
 
   if (fe->carry)
     fe->carry(r, r);
+}
+
+static void
+fe_sub_noreduce(prime_field_t *fe, fe_t r, const fe_t a, const fe_t b) {
+  fe->sub(r, a, b);
+}
+
+static void
+fe_reduce(prime_field_t *fe, fe_t r, const fe_t a) {
+  if (fe->carry)
+    fe->carry(r, a);
 }
 
 static void
@@ -800,6 +812,12 @@ fe_mul(prime_field_t *fe, fe_t r, const fe_t a, const fe_t b) {
 static void
 fe_sqr(prime_field_t *fe, fe_t r, const fe_t a) {
   fe->square(r, a);
+}
+
+static void
+fe_mul121666(prime_field_t *fe, fe_t r, const fe_t a) {
+  assert(fe->scmul_121666 != NULL);
+  fe->scmul_121666(r, a);
 }
 
 static int
@@ -988,7 +1006,7 @@ scalar_field_set(scalar_field_t *sc,
 #else
   {
     /* Maintain the philosophy of zero allocations. */
-    mp_limb_t x[MAX_SCALAR_LIMBS * 2];
+    mp_limb_t x[MAX_SCALAR_LIMBS * 2 + 1];
     mp_size_t index = sc->shift / GMP_NUMB_BITS;
     mp_limb_t bit = sc->shift % GMP_NUMB_BITS;
 
@@ -1045,6 +1063,7 @@ prime_field_init(prime_field_t *fe, const prime_def_t *def, int endian) {
   fe->invert = def->invert;
   fe->sqrt = def->sqrt;
   fe->isqrt = def->isqrt;
+  fe->scmul_121666 = def->scmul_121666;
 
   fe_set_word(fe, fe->zero, 0);
   fe_set_word(fe, fe->one, 1);
@@ -1082,7 +1101,8 @@ static const prime_def_t field_p192 = {
   .carry = NULL,
   .invert = NULL,
   .sqrt = NULL,
-  .isqrt = NULL
+  .isqrt = NULL,
+  .scmul_121666 = NULL
 };
 
 static const scalar_def_t field_q192 = {
@@ -1121,7 +1141,8 @@ static const prime_def_t field_p224 = {
   .carry = NULL,
   .invert = NULL,
   .sqrt = NULL,
-  .isqrt = NULL
+  .isqrt = NULL,
+  .scmul_121666 = NULL
 };
 
 static const scalar_def_t field_q224 = {
@@ -1161,7 +1182,8 @@ static const prime_def_t field_p256 = {
   .carry = NULL,
   .invert = p256_fe_invert,
   .sqrt = p256_fe_sqrt,
-  .isqrt = NULL
+  .isqrt = NULL,
+  .scmul_121666 = NULL
 };
 
 static const scalar_def_t field_q256 = {
@@ -1203,7 +1225,8 @@ static const prime_def_t field_p384 = {
   .carry = NULL,
   .invert = p384_fe_invert,
   .sqrt = NULL,
-  .isqrt = NULL
+  .isqrt = NULL,
+  .scmul_121666 = NULL
 };
 
 static const scalar_def_t field_q384 = {
@@ -1250,7 +1273,8 @@ static const prime_def_t field_p521 = {
   .carry = fiat_p521_carry,
   .invert = p521_fe_invert,
   .sqrt = NULL,
-  .isqrt = NULL
+  .isqrt = NULL,
+  .scmul_121666 = NULL
 };
 
 static const scalar_def_t field_q521 = {
@@ -1295,7 +1319,8 @@ static const prime_def_t field_p256k1 = {
   .carry = NULL,
   .invert = secp256k1_fe_invert,
   .sqrt = secp256k1_fe_sqrt,
-  .isqrt = secp256k1_fe_isqrt
+  .isqrt = secp256k1_fe_isqrt,
+  .scmul_121666 = NULL
 };
 
 static const scalar_def_t field_q256k1 = {
@@ -1335,7 +1360,8 @@ static const prime_def_t field_p25519 = {
   .carry = fiat_25519_carry,
   .invert = p25519_fe_invert,
   .sqrt = p25519_fe_sqrt,
-  .isqrt = p25519_fe_isqrt
+  .isqrt = p25519_fe_isqrt,
+  .scmul_121666 = fiat_25519_carry_scmul_121666
 };
 
 static const scalar_def_t field_q25519 = {
@@ -1378,7 +1404,8 @@ static const prime_def_t field_p448 = {
   .carry = fiat_p448_carry,
   .invert = p448_fe_invert,
   .sqrt = p448_fe_sqrt,
-  .isqrt = p448_fe_isqrt
+  .isqrt = p448_fe_isqrt,
+  .scmul_121666 = NULL
 };
 
 static const scalar_def_t field_q448 = {

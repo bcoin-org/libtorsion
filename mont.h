@@ -137,11 +137,9 @@ ge_import(curve_t *ec, ge_t *r, const unsigned char *raw) {
 
     tmp[fe->size - 1] &= mask;
 
-    if (!fe_import(fe, r->x, tmp))
-      return 0;
+    fe_import(fe, r->x, tmp);
   } else {
-    if (!fe_import(fe, r->x, raw))
-      return 0;
+    fe_import(fe, r->x, raw);
   }
 
   /* Take the principle square root. */
@@ -416,7 +414,7 @@ gej_validate(curve_t *ec, const gej_t *p) {
   return y2.redMul(z).redJacobi() !== -1;
 }
 
-static int
+static void
 gej_import(curve_t *ec, gej_t *r, const unsigned char *raw) {
   /* [RFC7748] Section 5. */
   prime_field_t *fe = &ec->fe;
@@ -431,10 +429,10 @@ gej_import(curve_t *ec, gej_t *r, const unsigned char *raw) {
 
     tmp[fe->size - 1] &= mask;
 
-    return fe_import(fe, r->x, tmp);
+    fe_import(fe, r->x, tmp);
+  } else {
+    fe_import(fe, r->x, raw);
   }
-
-  return fe_import(fe, r->x, raw);
 }
 
 static int
@@ -636,9 +634,7 @@ ladderConst(k, rng) {
   return [a, b];
 }
 
-
-
-static void
+static int
 gej_to_ge(curve_t *ec, ge_t *r, const gej_t *p) {
   // https://hyperelliptic.org/EFD/g1p/auto-montgom-xz.html#scaling-scale
   // 1I + 1M
@@ -651,7 +647,7 @@ gej_to_ge(curve_t *ec, ge_t *r, const gej_t *p) {
   /* X3 = X1 * A */
   fe_mul(fe, r->x, p->x, a);
 
-  ge_set_x(ec, r, r->x, -1);
+  return ge_set_x(ec, r, r->x, -1);
 }
 
 static void
