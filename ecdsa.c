@@ -82,6 +82,9 @@ ecdsa_pubkey_create(curve_t *ec,
   if (!sc_import(sc, a, priv))
     goto fail;
 
+  if (sc_is_zero(sc, a))
+    goto fail;
+
   curve_mul_g(ec, &A, a);
 
   if (!ge_export(ec, pub, pub_len, &A, compact))
@@ -113,6 +116,9 @@ ecdsa_sign(curve_t *ec,
     *param = 0;
 
   if (!sc_import(sc, a, priv))
+    goto fail;
+
+  if (sc_is_zero(sc, a))
     goto fail;
 
   ecdsa_reduce(ec, m, msg, msg_len);
@@ -197,6 +203,9 @@ ecdsa_verify(curve_t *ec,
   if (!sc_import(sc, s, sig + sc->size))
     return 0;
 
+  if (sc_is_zero(sc, r) || sc_is_zero(sc, s))
+    return 0;
+
   sc_invert_var(sc, s, s);
   sc_mul(sc, u1, m, s);
   sc_mul(sc, u2, r, s);
@@ -238,6 +247,9 @@ ecdsa_recover(curve_t *ec,
   if (!sc_import(sc, s, sig + sc->size))
     return 0;
 
+  if (sc_is_zero(sc, r) || sc_is_zero(sc, s))
+    return 0;
+
   /* Assumes n < p. */
   fe_set_sc(fe, sc, x, r);
 
@@ -274,6 +286,9 @@ ecdsa_derive(curve_t *ec,
   int ret = 0;
 
   if (!sc_import(sc, a, priv))
+    goto fail;
+
+  if (sc_is_zero(sc, a))
     goto fail;
 
   if (!ge_import(ec, &A, pub, pub_len))
@@ -355,6 +370,29 @@ main(void) {
     sc_print(sc, z);
   }
 #endif
+
+  {
+    mp_limb_t r[MAX_SCALAR_LIMBS];
+    mp_limb_t t[MAX_SCALAR_LIMBS * 4];
+
+    mpn_zero(r, ARRAY_SIZE(r));
+    mpn_zero(t, ARRAY_SIZE(t));
+
+    mpn_copyi(t, sc->n, sc->limbs);
+
+    sc_reduce(sc, r, t);
+
+    assert(sc_is_zero(sc, r));
+
+    assert(!sc_import(sc, r, sc->raw));
+  }
+
+  {
+    fe_t t;
+
+    assert(!fe_import(fe, t, fe->raw));
+  }
+
 
   {
     const unsigned char g_raw[33] = {

@@ -155,12 +155,8 @@ sc_cleanse(scalar_field_t *sc, sc_t r) {
 
 static int
 sc_import(scalar_field_t *sc, sc_t r, const unsigned char *raw) {
-  int zero = is_zero(raw, sc->size);
-  int lt = less_than(raw, sc->raw, sc->size, sc->endian);
-
   mpn_import(r, sc->limbs, raw, sc->size, sc->endian);
-
-  return (zero ^ 1) & lt;
+  return less_than(raw, sc->raw, sc->size, sc->endian);
 }
 
 static void
@@ -168,8 +164,6 @@ sc_reduce(scalar_field_t *sc, sc_t r, const sc_t ap);
 
 static int
 sc_import_lax(scalar_field_t *sc, sc_t r, const unsigned char *raw) {
-  int zero = is_zero(raw, sc->size);
-  int lt = less_than(raw, sc->raw, sc->size, sc->endian);
   mp_limb_t tmp[MAX_SCALAR_LIMBS * 4];
 
   mpn_import(tmp, sc->limbs * 4, raw, sc->size, sc->endian);
@@ -178,7 +172,7 @@ sc_import_lax(scalar_field_t *sc, sc_t r, const unsigned char *raw) {
 
   cleanse(tmp, sizeof(tmp));
 
-  return (zero ^ 1) & lt;
+  return less_than(raw, sc->raw, sc->size, sc->endian);
 }
 
 static void
