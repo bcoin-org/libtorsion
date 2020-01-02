@@ -358,22 +358,12 @@ sc_sqr(scalar_field_t *sc, sc_t r, const sc_t a) {
 
 static int
 sc_invert_var(scalar_field_t *sc, sc_t r, const sc_t a) {
-  mpz_t rn, an, nn;
-
   if (sc_is_zero(sc, a)) {
     sc_zero(sc, r);
     return 0;
   }
 
-  mpz_init(rn); /* Warning: allocation. */
-  mpz_roinit_n(an, a, sc->limbs);
-  mpz_roinit_n(nn, sc->n, sc->limbs);
-
-  assert(mpz_invert(rn, an, nn));
-
-  mpn_set_mpz(r, rn, sc->limbs);
-
-  mpz_clear(rn);
+  mpn_invert_n(r, a, sc->n, sc->limbs);
 
   return 1;
 }
@@ -825,44 +815,13 @@ fe_invert_var(prime_field_t *fe, fe_t r, const fe_t a) {
   int ret = !fe_is_zero(fe, a);
 
   if (ret) {
-#ifdef BCRYPTO_HAS_GMP
-    mp_limb_t gp[MAX_FIELD_LIMBS + 1];
-    mp_limb_t sp[MAX_FIELD_LIMBS + 1];
-    mp_limb_t up[MAX_FIELD_LIMBS + 1];
-    mp_limb_t vp[MAX_FIELD_LIMBS + 1];
-    mp_size_t sn = fe->limbs + 1;
-    mp_size_t gn;
+    mp_limb_t rp[MAX_FIELD_LIMBS];
 
-    fe_get_limbs(fe, up, a);
-    mpn_copyi(vp, fe->p, fe->limbs);
+    fe_get_limbs(fe, rp, a);
 
-    gn = mpn_gcdext(gp, sp, &sn, up, fe->limbs, vp, fe->limbs);
+    mpn_invert_n(rp, rp, fe->p, fe->limbs);
 
-    assert(gn == 1);
-    assert(gp[0] == 1);
-
-    if (sn < 0) {
-      mpn_sub(sp, fe->p, fe->limbs, sp, -sn);
-      sn = fe->limbs;
-    }
-
-    fe_set_limbs(fe, r, sp, sn);
-#else
-    mp_limb_t ap[MAX_FIELD_LIMBS];
-    mpz_t rn, an, pn;
-
-    fe_get_limbs(fe, ap, a);
-
-    mpz_init(rn); /* Warning: allocation. */
-    mpz_roinit_n(an, ap, fe->limbs);
-    mpz_roinit_n(pn, fe->p, fe->limbs);
-
-    assert(mpz_invert(rn, an, pn));
-
-    fe_set_num(fe, r, rn);
-
-    mpz_clear(rn);
-#endif
+    fe_set_limbs(fe, r, rp, fe->limbs);
   } else {
     fe_zero(fe, r);
   }
