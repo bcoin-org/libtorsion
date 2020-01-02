@@ -210,7 +210,7 @@ sc_print(scalar_field_t *sc, const sc_t a) {
 }
 
 static void
-sc_set_word(scalar_field_t *sc, sc_t r, mp_limb_t word) {
+sc_set_word(scalar_field_t *sc, sc_t r, uint32_t word) {
   mpn_zero(r, sc->limbs);
   r[0] = word;
 }

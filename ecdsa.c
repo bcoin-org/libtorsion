@@ -178,7 +178,13 @@ ecdsa_verify(curve_t *ec,
   scalar_field_t *sc = &ec->sc;
   sc_t m, r, s, u1, u2;
   ge_t A;
+#ifdef WITH_TRICK
   gej_t R;
+#else
+  prime_field_t *fe = &ec->fe;
+  ge_t R;
+  sc_t re;
+#endif
 
   ecdsa_reduce(ec, m, msg, msg_len);
 
@@ -194,9 +200,17 @@ ecdsa_verify(curve_t *ec,
   sc_invert_var(sc, s, s);
   sc_mul(sc, u1, m, s);
   sc_mul(sc, u2, r, s);
+#ifdef WITH_TRICK
   curve_jmul_double_var(ec, &R, u1, &A, u2);
 
   return gej_equal_r(ec, &R, r);
+#else
+  curve_mul_double_var(ec, &R, u1, &A, u2);
+
+  fe_get_sc(fe, sc, re, R.x);
+
+  return sc_equal(sc, r, re);
+#endif
 }
 
 static int
