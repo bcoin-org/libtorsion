@@ -10,6 +10,10 @@
 #include <windows.h>
 #endif
 
+#ifndef __has_builtin
+#define __has_builtin(x) 0
+#endif
+
 static void
 cleanse(void *ptr, size_t len) {
 #if defined(_WIN32)
@@ -58,3 +62,19 @@ less_than(const unsigned char *a,
 
   return (uint32_t)(~eq & 1 & gt);
 }
+
+#if __has_builtin(__builtin_clz)
+#define count_bits(x) (sizeof(unsigned int) * CHAR_BIT - __builtin_clz(x))
+#else
+static int
+count_bits(unsigned int x) {
+  int bits = 0;
+
+  while (x != 0) {
+    bits += 1;
+    x >>= 1;
+  }
+
+  return bits;
+}
+#endif

@@ -733,11 +733,6 @@ fe_neg(prime_field_t *fe, fe_t r, const fe_t a) {
 }
 
 static void
-fe_neg_noreduce(prime_field_t *fe, fe_t r, const fe_t a) {
-  fe->opp(r, a);
-}
-
-static void
 fe_neg_cond(prime_field_t *fe, fe_t r, const fe_t a, unsigned int flag) {
   fe_t b;
   fe_neg(fe, b, a);
@@ -758,11 +753,6 @@ fe_add(prime_field_t *fe, fe_t r, const fe_t a, const fe_t b) {
 }
 
 static void
-fe_add_noreduce(prime_field_t *fe, fe_t r, const fe_t a, const fe_t b) {
-  fe->add(r, a, b);
-}
-
-static void
 fe_sub(prime_field_t *fe, fe_t r, const fe_t a, const fe_t b) {
   fe->sub(r, a, b);
 
@@ -771,45 +761,28 @@ fe_sub(prime_field_t *fe, fe_t r, const fe_t a, const fe_t b) {
 }
 
 static void
-fe_sub_noreduce(prime_field_t *fe, fe_t r, const fe_t a, const fe_t b) {
-  fe->sub(r, a, b);
-}
+fe_mulw(prime_field_t *fe, fe_t r, const fe_t a, unsigned int b) {
+  int bits = count_bits(b);
+  int i;
 
-static void
-fe_reduce(prime_field_t *fe, fe_t r, const fe_t a) {
-  if (fe->carry)
-    fe->carry(r, a);
-}
+  if (b > 1 && (b & (b - 1)) == 0) {
+    fe_add(fe, r, a, a);
 
-static void
-fe_mulw(prime_field_t *fe, fe_t r, const fe_t a, long b) {
-  fe_t c;
-  long bits = 0;
-  int neg = (b < 0);
-  long tmp, i;
+    for (i = 1; i < bits - 1; i++)
+      fe_add(fe, r, r, r);
+  } else {
+    fe_t c;
 
-  if (neg)
-    b = -b;
+    fe_set(fe, c, a);
+    fe_zero(fe, r);
 
-  tmp = b;
+    for (i = bits - 1; i >= 0; i--) {
+      fe_add(fe, r, r, r);
 
-  while (tmp != 0) {
-    bits += 1;
-    tmp >>= 1;
+      if ((b >> i) & 1)
+        fe_add(fe, r, r, c);
+    }
   }
-
-  fe_set(fe, c, a);
-  fe_zero(fe, r);
-
-  for (i = bits - 1; i >= 0; i--) {
-    fe_add(fe, r, r, r);
-
-    if ((b >> i) & 1)
-      fe_add(fe, r, r, c);
-  }
-
-  if (neg)
-    fe_neg(fe, r, r);
 }
 
 static void
@@ -830,11 +803,10 @@ fe_mul121666(prime_field_t *fe, fe_t r, const fe_t a) {
 
 static void
 fe_mulm3(prime_field_t *fe, fe_t r, const fe_t a) {
-  fe_t t;
-  fe->add(t, a, a);
-  fe->add(t, t, a);
-  fe->opp(t, t);
-  fe->carry(r, t);
+  fe_t c;
+  fe_add(fe, c, a, a);
+  fe_add(fe, c, c, a);
+  fe_neg(fe, r, c);
 }
 
 static int
