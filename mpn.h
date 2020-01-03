@@ -211,45 +211,45 @@ mpn_invert_n(mp_limb_t *rp,
              mp_size_t n) {
 #ifdef BCRYPTO_HAS_GMP
 #define MAX_EGCD_LIMBS ((521 + GMP_NUMB_BITS - 1) / GMP_NUMB_BITS)
-    mp_limb_t gp[MAX_EGCD_LIMBS + 1];
-    mp_limb_t sp[MAX_EGCD_LIMBS + 1];
-    mp_limb_t up[MAX_EGCD_LIMBS + 1];
-    mp_limb_t vp[MAX_EGCD_LIMBS + 1];
-    mp_size_t sn = n + 1;
-    mp_size_t gn;
+  mp_limb_t gp[MAX_EGCD_LIMBS + 1];
+  mp_limb_t sp[MAX_EGCD_LIMBS + 1];
+  mp_limb_t up[MAX_EGCD_LIMBS + 1];
+  mp_limb_t vp[MAX_EGCD_LIMBS + 1];
+  mp_size_t sn = n + 1;
+  mp_size_t gn;
 
-    assert(n <= MAX_EGCD_LIMBS);
+  assert(n <= MAX_EGCD_LIMBS);
 
-    mpn_copyi(up, xp, n);
-    mpn_copyi(vp, yp, n);
+  mpn_copyi(up, xp, n);
+  mpn_copyi(vp, yp, n);
 
-    gn = mpn_gcdext(gp, sp, &sn, up, n, vp, n);
+  gn = mpn_gcdext(gp, sp, &sn, up, n, vp, n);
 
-    assert(gn == 1);
-    assert(gp[0] == 1);
+  assert(gn == 1);
+  assert(gp[0] == 1);
 
-    if (sn < 0) {
-      mpn_sub(sp, yp, n, sp, -sn);
-      sn = n;
-    }
+  if (sn < 0) {
+    mpn_sub(sp, yp, n, sp, -sn);
+    sn = n;
+  }
 
-    assert(sn <= n);
+  assert(sn <= n);
 
-    mpn_zero(rp + sn, n - sn);
-    mpn_copyi(rp, sp, sn);
+  mpn_zero(rp + sn, n - sn);
+  mpn_copyi(rp, sp, sn);
 #undef MAX_EGCD_LIMBS
 #else
-    mpz_t rn, un, vn;
+  mpz_t rn, un, vn;
 
-    mpz_init(rn);
-    mpz_roinit_n(un, xp, n);
-    mpz_roinit_n(vn, yp, n);
+  mpz_init(rn);
+  mpz_roinit_n(un, xp, n);
+  mpz_roinit_n(vn, yp, n);
 
-    assert(mpz_invert(rn, un, vn));
+  assert(mpz_invert(rn, un, vn));
 
-    mpn_set_mpz(rp, rn, n);
+  mpn_set_mpz(rp, rn, n);
 
-    mpz_clear(rn);
+  mpz_clear(rn);
 #endif
 }
 
