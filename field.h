@@ -512,10 +512,14 @@ fe_import(prime_field_t *fe, fe_t r, const unsigned char *raw) {
     mpn_import(xp + shift, fe->limbs, raw, fe->size, fe->endian);
     sc_reduce(&fe->sc, xp, xp);
 
+#if GMP_NUMB_BITS == FIELD_WORD_SIZE
+    assert(sizeof(mp_limb_t) == sizeof(fe_word_t));
+    memcpy(r, xp, fe->limbs * sizeof(mp_limb_t));
+#else
     /* Export as little endian. */
     mpn_export_le(tmp, fe->size, xp, fe->limbs);
-
     fe->from_bytes(r, tmp);
+#endif
   } else {
     if (fe->endian == 1) {
       /* Swap endianness. */
