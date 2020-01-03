@@ -361,14 +361,7 @@ sc_sqr(scalar_field_t *sc, sc_t r, const sc_t a) {
 
 static int
 sc_invert_var(scalar_field_t *sc, sc_t r, const sc_t a) {
-  if (sc_is_zero(sc, a)) {
-    sc_zero(sc, r);
-    return 0;
-  }
-
-  mpn_invert_n(r, a, sc->n, sc->limbs);
-
-  return 1;
+  return mpn_invert_n(r, a, sc->n, sc->limbs);
 }
 
 static int
@@ -829,19 +822,14 @@ fe_mulm3(prime_field_t *fe, fe_t r, const fe_t a) {
 
 static int
 fe_invert_var(prime_field_t *fe, fe_t r, const fe_t a) {
-  int ret = !fe_is_zero(fe, a);
+  mp_limb_t rp[MAX_FIELD_LIMBS];
+  int ret;
 
-  if (ret) {
-    mp_limb_t rp[MAX_FIELD_LIMBS];
+  fe_get_limbs(fe, rp, a);
 
-    fe_get_limbs(fe, rp, a);
+  ret = mpn_invert_n(rp, rp, fe->p, fe->limbs);
 
-    mpn_invert_n(rp, rp, fe->p, fe->limbs);
-
-    fe_set_limbs(fe, r, rp, fe->limbs);
-  } else {
-    fe_zero(fe, r);
-  }
+  fe_set_limbs(fe, r, rp, fe->limbs);
 
   return ret;
 }

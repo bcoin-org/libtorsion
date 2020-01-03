@@ -204,7 +204,7 @@ mpn_export(unsigned char *rp, size_t rn,
     mpn_export_le(rp, rn, xp, xn);
 }
 
-static void
+static int
 mpn_invert_n(mp_limb_t *rp,
              const mp_limb_t *xp,
              const mp_limb_t *yp,
@@ -219,6 +219,11 @@ mpn_invert_n(mp_limb_t *rp,
   mp_size_t gn;
 
   assert(n <= MAX_EGCD_LIMBS);
+
+  if (mpn_zero_p(xp, n)) {
+    mpn_zero(rp, n);
+    return 0;
+  }
 
   mpn_copyi(up, xp, n);
   mpn_copyi(vp, yp, n);
@@ -237,9 +242,16 @@ mpn_invert_n(mp_limb_t *rp,
 
   mpn_zero(rp + sn, n - sn);
   mpn_copyi(rp, sp, sn);
+
+  return 1;
 #undef MAX_EGCD_LIMBS
 #else
   mpz_t rn, un, vn;
+
+  if (mpn_zero_p(xp, n)) {
+    mpn_zero(rp, n);
+    return 0;
+  }
 
   mpz_init(rn);
   mpz_roinit_n(un, xp, n);
@@ -250,6 +262,8 @@ mpn_invert_n(mp_limb_t *rp,
   mpn_set_mpz(rp, rn, n);
 
   mpz_clear(rn);
+
+  return 1;
 #endif
 }
 
