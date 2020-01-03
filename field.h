@@ -483,10 +483,6 @@ fe_import(prime_field_t *fe, fe_t r, const unsigned char *raw) {
      * to montgomerize the field element.
      *
      * We must be aligned to the limb size.
-     * Nearly every montgomerized field will
-     * satisfy this requirement except for
-     * the 64 bit p224 backend.
-     *
      * Normally we could just shift left by
      * the remainder after the import, but we
      * can only handle 2*max limbs in sc_reduce.
@@ -497,6 +493,18 @@ fe_import(prime_field_t *fe, fe_t r, const unsigned char *raw) {
      *
      * but this should never occur with a
      * proper build of the library.
+     *
+     * In particular, an assertion error
+     * will be triggered with P224 when:
+     *
+     *   GMP_NUM_BITS == 64 && FIELD_WORD_SIZE == 32
+     *
+     * As the P224 `shift` is already aligned
+     * to the field words, it does not align
+     * the to the gmp limbs. Note:
+     *
+     *   224 mod 64 == 32
+     *   224 mod 32 == 0
      */
     mp_limb_t xp[MAX_FIELD_LIMBS * 4];
     mp_size_t shift = fe->shift / GMP_NUMB_BITS;
