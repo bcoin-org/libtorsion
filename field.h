@@ -34,6 +34,14 @@
 #define MAX_FIELD_LIMBS \
   ((MAX_FIELD_BITS + GMP_NUMB_BITS - 1) / GMP_NUMB_BITS)
 
+#ifndef GMP_LIMB_BITS
+#define GMP_LIMB_BITS (sizeof(mp_limb_t) * CHAR_BIT)
+#endif
+
+#ifndef GMP_NUMB_BITS
+#define GMP_NUMB_BITS GMP_LIMB_BITS
+#endif
+
 #ifdef BCRYPTO_EC_64BIT
 typedef uint64_t fe_word_t;
 #define FIELD_WORD_SIZE 64
