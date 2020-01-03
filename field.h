@@ -36,11 +36,7 @@
 
 #ifndef BCRYPTO_HAS_GMP
 #define GMP_LIMB_BITS (sizeof(mp_limb_t) * CHAR_BIT)
-#define GMP_NAIL_BITS 0
-#define GMP_NUMB_BITS (GMP_LIMB_BITS - GMP_NAIL_BITS)
-#define GMP_NUMB_MASK ((~((mp_limb_t)0)) >> GMP_NAIL_BITS)
-#define GMP_NUMB_MAX GMP_NUMB_MASK
-#define GMP_NAIL_MASK (~GMP_NUMB_MASK)
+#define GMP_NUMB_BITS GMP_LIMB_BITS
 #endif
 
 #ifdef BCRYPTO_EC_64BIT
