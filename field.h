@@ -513,7 +513,9 @@ fe_import(prime_field_t *fe, fe_t r, const unsigned char *raw) {
     sc_reduce(&fe->sc, xp, xp);
 
 #if GMP_NUMB_BITS == FIELD_WORD_SIZE
+    /* Import directly. */
     assert(sizeof(mp_limb_t) == sizeof(fe_word_t));
+    assert((size_t)fe->limbs == fe->words);
     memcpy(r, xp, fe->limbs * sizeof(mp_limb_t));
 #else
     /* Export as little endian. */
