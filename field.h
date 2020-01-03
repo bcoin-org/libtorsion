@@ -470,18 +470,37 @@ fe_import(prime_field_t *fe, fe_t r, const unsigned char *raw) {
   size_t i;
 
   if (fe->from_montgomery) {
-    /* Hack: Use a constant time barret reduction
-     *       to montgomerize the field element.
+    /* Use a constant time barret reduction
+     * to montgomerize the field element.
+     *
+     * We must be aligned to the limb size.
+     * Nearly every montgomerized field will
+     * satisfy this requirement except for
+     * the 64 bit p224 backend.
+     *
+     * Normally we could just shift left by
+     * the remainder after the import, but we
+     * can only handle 2*max limbs in sc_reduce.
+     *
+     * This should only be an issue when
+     *
+     *   GMP_NUMB_BITS != FIELD_WORD_SIZE
+     *
+     * but this should never occur with a
+     * proper build of the library.
      */
     mp_limb_t xp[MAX_FIELD_LIMBS * 4];
+    mp_size_t shift = fe->shift / GMP_NUMB_BITS;
 
-    /* We must be aligned to the limb size. */
-    /* Every montgomerized field satisfies this requirement. */
+    /* Check alignment. */
     assert((fe->shift % GMP_NUMB_BITS) == 0);
+
+    /* We can only handle 2*max limbs. */
+    assert(shift <= fe->limbs);
 
     /* x = (x << shift) mod p */
     mpn_zero(xp, fe->limbs * 4);
-    mpn_import(xp + fe->limbs, fe->limbs, raw, fe->size, fe->endian);
+    mpn_import(xp + shift, fe->limbs, raw, fe->size, fe->endian);
     sc_reduce(&fe->sc, xp, xp);
 
     /* Export as little endian. */
