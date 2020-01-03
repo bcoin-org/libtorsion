@@ -6,16 +6,28 @@
 #include <limits.h>
 #include <gmp.h>
 
-static size_t
+static mp_size_t
 mpn_bitlen(const mp_limb_t *xp, mp_size_t n) {
-  mpz_t x;
+  mp_size_t i, b;
+  mp_limb_t w;
 
-  mpz_roinit_n(x, xp, n);
+  for (i = n - 1; i >= 0; i--) {
+    if (xp[i] != 0)
+      break;
+  }
 
-  if (mpz_sgn(x) == 0)
+  if (i < 0)
     return 0;
 
-  return mpz_sizeinbase(x, 2);
+  w = xp[i];
+  b = 0;
+
+  while (w != 0) {
+    w >>= 1;
+    b += 1;
+  }
+
+  return i * GMP_NUMB_BITS + b;
 }
 
 static void

@@ -37,10 +37,8 @@ mpz_jacobi(const mpz_t x, const mpz_t y) {
   unsigned long s, bmod8;
   int j;
 
-  /* Undefined behavior. */
-  /* if y == 0 or y mod 2 == 0 */
-  if (mpz_sgn(y) == 0 || mpz_even_p(y))
-    return 0;
+  assert(mpz_sgn(y) > 0);
+  assert(mpz_odd_p(y));
 
   mpz_init(a);
   mpz_init(b);
@@ -119,36 +117,33 @@ mpz_jacobi(const mpz_t x, const mpz_t y) {
 static int
 mpz_legendre(const mpz_t x, const mpz_t y) {
   mpz_t e, s;
-  int r = -2;
+  int a, b, c;
+
+  assert(mpz_sgn(y) > 0);
+  assert(mpz_odd_p(y));
 
   mpz_init(e);
   mpz_init(s);
-
-  if (mpz_sgn(y) <= 0 || mpz_even_p(y))
-    goto done;
 
   /* e = (y - 1) >> 1 */
   mpz_sub_ui(e, y, 1);
   mpz_tdiv_q_2exp(e, e, 1);
 
-  /* Euler's criterion. */
   /* s = x^e mod y */
   mpz_powm(s, x, e, y);
 
-  if (mpz_sgn(s) == 0) {
-    r = 0;
-  } else if (mpz_cmp_ui(s, 1) == 0) {
-    r = 1;
-  } else {
-    mpz_add_ui(s, s, 1);
-    if (mpz_cmp(s, y) == 0)
-      r = -1;
-  }
+  a = mpz_sgn(s) == 0;
+  b = mpz_cmp_ui(s, 1) == 0;
+  mpz_add_ui(s, s, 1);
+  c = mpz_cmp(s, y) == 0;
 
-done:
+  assert(a + b + c == 1);
+
   mpz_clear(e);
   mpz_clear(s);
-  return r;
+
+  /* 0, 1, or -1. */
+  return b - c;
 }
 #endif
 
