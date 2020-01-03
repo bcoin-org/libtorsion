@@ -9,6 +9,15 @@
 #include <limits.h>
 #include <gmp.h>
 
+#ifndef BCRYPTO_HAS_GMP
+#define GMP_LIMB_BITS (sizeof(mp_limb_t) * CHAR_BIT)
+#define GMP_NAIL_BITS 0
+#define GMP_NUMB_BITS GMP_LIMB_BITS
+#define GMP_NUMB_MASK (~((mp_limb_t)0))
+#define GMP_NUMB_MAX GMP_NUMB_MASK
+#define GMP_NAIL_MASK (~GMP_NUMB_MASK)
+#endif
+
 #include "util.h"
 #include "mpn.h"
 #include "mpz.h"
@@ -33,15 +42,6 @@
 
 #define MAX_FIELD_LIMBS \
   ((MAX_FIELD_BITS + GMP_NUMB_BITS - 1) / GMP_NUMB_BITS)
-
-#ifndef BCRYPTO_HAS_GMP
-#define GMP_LIMB_BITS (sizeof(mp_limb_t) * CHAR_BIT)
-#define GMP_NAIL_BITS 0
-#define GMP_NUMB_BITS GMP_LIMB_BITS
-#define GMP_NUMB_MASK (~((mp_limb_t)0))
-#define GMP_NUMB_MAX GMP_NUMB_MASK
-#define GMP_NAIL_MASK (~GMP_NUMB_MASK)
-#endif
 
 #ifdef BCRYPTO_EC_64BIT
 typedef uint64_t fe_word_t;
