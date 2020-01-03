@@ -15,7 +15,7 @@
 #define GMP_NUMB_BITS GMP_LIMB_BITS
 #define GMP_NUMB_MASK (~((mp_limb_t)0))
 #define GMP_NUMB_MAX GMP_NUMB_MASK
-#define GMP_NAIL_MASK (~GMP_NUMB_MASK)
+#define GMP_NAIL_MASK 0
 #endif
 
 #include "util.h"
