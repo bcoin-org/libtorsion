@@ -107,25 +107,108 @@ p384_fe_invert(p384_fe_t out, const p384_fe_t in) {
   p384_fe_set(out, r);
 }
 
-/* Mathematical routines for the NIST prime elliptic curves
- *
- * See: http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.204.9073&rep=rep1&type=pdf
- *
- * Chain:
- *
- *   1: t1 <- c^2; t1 <- t1 * c
- *   2: t2 <- t1^2^2; t2 <- t2 * t1
- *   3: t2 <- t2^2; t2 <- t2 * c
- *   4: t3 <- t2^2^5; t3 <- t3 * t2
- *   5: t4 <- t3^2^5; t4 <- t4 * t2
- *   6: t2 <- t4^2^15; t2 <- t2 * t4
- *   7: t3 <- t2^2^2
- *   8: t1 <- t3 * t1
- *   9: t3 <- t3^2^28; t2 <- t2 * t3
- *   10: t3 <- t2^2^60; t3 <- t3 * t2
- *   11: r <- t3^2^120; r <- r * t3
- *   12: r <- r^2^15; r <- r * t4
- *   13: r <- r^2^33; r <- r * t1
- *   14: r <- r^2^64; r <- r * c
- *   15: r <- r^2^30
- */
+static int
+p384_fe_sqrt(p384_fe_t out, const p384_fe_t in) {
+  /* See: Mathematical routines for the NIST prime elliptic curves
+   * http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.204.9073&rep=rep1&type=pdf
+   *
+   * Chain:
+   *
+   *    1: t1 <- c^2
+   *       t1 <- t1 * c
+   *    2: t2 <- t1^(2^2)
+   *       t2 <- t2 * t1
+   *    3: t2 <- t2^2
+   *       t2 <- t2 * c
+   *    4: t3 <- t2^(2^5)
+   *       t3 <- t3 * t2
+   *    5: t4 <- t3^(2^5)
+   *       t4 <- t4 * t2
+   *    6: t2 <- t4^(2^15)
+   *       t2 <- t2 * t4
+   *    7: t3 <- t2^(2^2)
+   *    8: t1 <- t3 * t1
+   *    9: t3 <- t3^(2^28)
+   *       t2 <- t2 * t3
+   *   10: t3 <- t2^(2^60)
+   *       t3 <- t3 * t2
+   *   11:  r <- t3^(2^120)
+   *        r <- r * t3
+   *   12:  r <- r^(2^15)
+   *        r <- r * t4
+   *   13:  r <- r^(2^33)
+   *        r <- r * t1
+   *   14:  r <- r^(2^64)
+   *        r <- r * c
+   *   15:  r <- r^(2^30)
+   */
+  p384_fe_t r, t1, t2, t3, t4;
+  p384_fe_word_t ret;
+
+  /* 1 */
+  p384_fe_sqr(t1, in);
+  p384_fe_mul(t1, t1, in);
+
+  /* 2 */
+  p384_fe_sqrn(t2, t1, 2);
+  p384_fe_mul(t2, t2, t1);
+
+  /* 3 */
+  p384_fe_sqr(t2, t2);
+  p384_fe_mul(t2, t2, in);
+
+  /* 4 */
+  p384_fe_sqrn(t3, t2, 5);
+  p384_fe_mul(t3, t3, t2);
+
+  /* 5 */
+  p384_fe_sqrn(t4, t3, 5);
+  p384_fe_mul(t4, t4, t2);
+
+  /* 6 */
+  p384_fe_sqrn(t2, t4, 15);
+  p384_fe_mul(t2, t2, t4);
+
+  /* 7 */
+  p384_fe_sqrn(t3, t2, 2);
+
+  /* 8 */
+  p384_fe_mul(t1, t3, t1);
+
+  /* 9 */
+  p384_fe_sqrn(t3, t3, 28);
+  p384_fe_mul(t3, t3, t2);
+
+  /* 10 */
+  p384_fe_sqrn(t3, t2, 60);
+  p384_fe_mul(t3, t3, t2);
+
+  /* 11 */
+  p384_fe_sqrn(r, t3, 120);
+  p384_fe_mul(r, r, t3);
+
+  /* 12 */
+  p384_fe_sqrn(r, r, 15);
+  p384_fe_mul(r, r, t4);
+
+  /* 13 */
+  p384_fe_sqrn(r, r, 33);
+  p384_fe_mul(r, r, t1);
+
+  /* 14 */
+  p384_fe_sqrn(r, r, 64);
+  p384_fe_mul(r, r, in);
+
+  /* 15 */
+  p384_fe_sqrn(r, r, 30);
+
+  /* Check. */
+  p384_fe_sqr(t1, r);
+  p384_fe_sub(t1, t1, in);
+  fiat_p384_nonzero(&ret, t1);
+
+  /* Output. */
+  p384_fe_set(out, r);
+
+  return ret == 0;
+}
