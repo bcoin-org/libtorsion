@@ -195,6 +195,7 @@ p224_fe_invert(p224_fe_t out, const p224_fe_t in) {
   p224_fe_set(out, tmp); /* 2^224 - 2^96 - 1 */
 }
 
+#if 0
 static int
 p224_fe_legendre(const p224_fe_t in) {
   p224_fe_t t;
@@ -202,35 +203,12 @@ p224_fe_legendre(const p224_fe_t in) {
 
   p224_fe_set(t, in);
 
-  /* TODO: optimize */
   for (i = 1; i < 128; i++) {
     p224_fe_sqr(t, t);
     p224_fe_mul(t, t, in);
   }
 
   p224_fe_sqrn(t, t, 95);
-
-#if 0
-  /* (p - 1) / 2 = 0x7fffffffffffffffffffffffffffffff800000000000000000000000 */
-  /* 128 1s, 95 0s */
-  static const uint32_t p224_legendre[7] = {
-    0x00000000, 0x00000000, 0x80000000, 0xffffffff,
-    0xffffffff, 0xffffffff, 0x7fffffff
-  };
-
-  uint32_t bit;
-
-  p224_fe_set(t, p224_one);
-
-  for (i = 224 - 1; i >= 0; i--) {
-    bit = p224_legendre[i >> 5] >> (i & 31);
-
-    p224_fe_sqr(t, t);
-
-    if (bit & 1)
-      p224_fe_mul(t, t, in);
-  }
-#endif
 
   a = p224_fe_equal(t, p224_zero);
   b = p224_fe_equal(t, p224_one);
@@ -241,10 +219,11 @@ p224_fe_legendre(const p224_fe_t in) {
 
   return b - c;
 }
+#endif
 
 static void
 p224_fe_pow_s(p224_fe_t out, const p224_fe_t in) {
-  /* Compute x^(2^128 - 1) */
+  /* Compute x^(2^128 - 1) mod p */
   p224_fe_t t;
   int i;
 
@@ -260,36 +239,9 @@ p224_fe_pow_s(p224_fe_t out, const p224_fe_t in) {
 
 static void
 p224_fe_pow_e(p224_fe_t out, const p224_fe_t in) {
-  /* Compute x^(2^127) */
+  /* Compute x^(2^127) mod p */
   p224_fe_sqrn(out, in, 127);
 }
-
-#if 0
-const unsigned char p224_prime[28] = {
-  0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-  0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-  0x00, 0x00, 0x00, 0x01
-};
-
-static int
-p224_fe_jacobi(const p224_fe_t in) {
-  unsigned char bytes[28];
-  mp_limb_t xp[7];
-  mp_limb_t yp[7];
-  mpz_t x, y;
-
-  fiat_p224_to_bytes(bytes, in);
-
-  mpn_import_le(xp, 7, bytes, 28);
-  mpn_import_be(yp, 7, p224_prime, 28);
-
-  mpz_roinit_n(x, xp, 7);
-  mpz_roinit_n(y, yp, 7);
-
-  return mpz_jacobi(x, y);
-}
-#endif
 
 static int
 p224_fe_sqrt_var(p224_fe_t out, const p224_fe_t in) {
@@ -328,18 +280,8 @@ p224_fe_sqrt_var(p224_fe_t out, const p224_fe_t in) {
    *
    *   ret = y
    */
-  p224_fe_t y, b, g, t, l;
+  p224_fe_t y, b, g, t;
   int k, m;
-
-#if 0
-  switch (p224_fe_legendre(in)) {
-    case 0:
-      p224_fe_set(out, p224_zero);
-      return 1;
-    case -1:
-      return 0;
-  }
-#endif
 
   p224_fe_pow_e(y, in);
   p224_fe_pow_s(b, in);
@@ -350,16 +292,16 @@ p224_fe_sqrt_var(p224_fe_t out, const p224_fe_t in) {
    * it 95 times more gives us the Legendre
    * symbol.
    */
-  p224_fe_sqrn(l, b, 95);
+  p224_fe_sqrn(t, b, 95);
 
   /* Zero. */
-  if (p224_fe_equal(l, p224_zero)) {
+  if (p224_fe_equal(t, p224_zero)) {
     p224_fe_set(out, p224_zero);
     return 1;
   }
 
   /* Quadratic non-residue. */
-  if (!p224_fe_equal(l, p224_one))
+  if (!p224_fe_equal(t, p224_one))
     return 0;
 
   /* Loop until we find a solution. */
