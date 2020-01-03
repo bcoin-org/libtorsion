@@ -64,7 +64,7 @@ cnd_select(mp_limb_t cnd,
            mp_size_t n) {
   mp_limb_t cond = (cnd != 0);
   mp_limb_t mask0 = cond - 1;
-  mp_limb_t mask1 = ~mask1;
+  mp_limb_t mask1 = ~mask0;
   mp_size_t i;
 
   for (i = 0; i < n; i++)
