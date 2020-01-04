@@ -5223,7 +5223,7 @@ ecdh_pubkey_create(mont_t *ec,
 
   mont_clamp(ec, clamped, priv);
 
-  sc_import_reduce(sc, a, clamped);
+  sc_import(sc, a, clamped);
 
   mont_mul_g(ec, &A, a);
 
