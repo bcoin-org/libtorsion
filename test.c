@@ -975,26 +975,26 @@ test_ecdh_vector_x25519(void) {
   u[0] = 9;
 
   for (; i < 1; i++) {
-    memcpy(t, k, 32);
-    assert(ecdh_derive(&ec, k, u, k));
-    memcpy(u, t, 32);
+    assert(ecdh_derive(&ec, t, u, k));
+    memcpy(u, k, 32);
+    memcpy(k, t, 32);
   }
 
   assert(memcmp(k, intervals[0], 32) == 0);
 
   for (; i < 1000; i++) {
-    memcpy(t, k, 32);
-    assert(ecdh_derive(&ec, k, u, k));
-    memcpy(u, t, 32);
+    assert(ecdh_derive(&ec, t, u, k));
+    memcpy(u, k, 32);
+    memcpy(k, t, 32);
   }
 
   assert(memcmp(k, intervals[1], 32) == 0);
 
 #if 0
   for (; i < 1000000; i++) {
-    memcpy(t, k, 32);
-    assert(ecdh_derive(&ec, k, u, k));
-    memcpy(u, t, 32);
+    assert(ecdh_derive(&ec, t, u, k));
+    memcpy(u, k, 32);
+    memcpy(k, t, 32);
   }
 
   assert(memcmp(k, intervals[2], 32) == 0);
@@ -1061,34 +1061,34 @@ test_ecdh_vector_x448(void) {
   u[0] = 5;
 
   for (; i < 1; i++) {
-    memcpy(t, k, 56);
-    assert(ecdh_derive(&ec, k, u, k));
-    memcpy(u, t, 56);
+    assert(ecdh_derive(&ec, t, u, k));
+    memcpy(u, k, 56);
+    memcpy(k, t, 56);
   }
 
   assert(memcmp(k, intervals[0], 56) == 0);
 
   for (; i < 100; i++) {
-    memcpy(t, k, 56);
-    assert(ecdh_derive(&ec, k, u, k));
-    memcpy(u, t, 56);
+    assert(ecdh_derive(&ec, t, u, k));
+    memcpy(u, k, 56);
+    memcpy(k, t, 56);
   }
 
   assert(memcmp(k, intervals[1], 56) == 0);
 
   for (; i < 1000; i++) {
-    memcpy(t, k, 56);
-    assert(ecdh_derive(&ec, k, u, k));
-    memcpy(u, t, 56);
+    assert(ecdh_derive(&ec, t, u, k));
+    memcpy(u, k, 56);
+    memcpy(k, t, 56);
   }
 
   assert(memcmp(k, intervals[2], 56) == 0);
 
 #if 0
   for (; i < 1000000; i++) {
-    memcpy(t, k, 56);
-    assert(ecdh_derive(&ec, k, u, k));
-    memcpy(u, t, 56);
+    assert(ecdh_derive(&ec, t, u, k));
+    memcpy(u, k, 56);
+    memcpy(k, t, 56);
   }
 
   assert(memcmp(k, intervals[3], 56) == 0);
