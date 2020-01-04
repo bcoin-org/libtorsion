@@ -1494,8 +1494,6 @@ bench_eddsa(void) {
   random_bytes(priv, sizeof(priv));
   random_bytes(msg, sizeof(msg));
 
-  priv[0] = 0;
-
   edwards_randomize(&ec, entropy);
 
   eddsa_sign(&ec, sig, msg, 32, priv, -1, NULL, 0);
