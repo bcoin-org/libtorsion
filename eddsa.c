@@ -5,7 +5,7 @@
 #include <stdint.h>
 #include <limits.h>
 #include <gmp.h>
-#include "edwards.h"
+#include "field.h"
 
 /*
  * ECDSA
