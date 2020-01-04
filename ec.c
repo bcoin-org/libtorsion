@@ -1498,14 +1498,10 @@ fe_invert(prime_field_t *fe, fe_t r, const fe_t a) {
   }
 
 #ifdef EC_TEST
-  if (ret) {
-    fe_t t;
-    fe_mul(fe, t, a, r);
-    assert(fe_equal(fe, t, fe->one));
-    assert(!fe_equal(fe, t, fe->zero));
-  } else {
-    assert(fe_equal(fe, r, fe->zero));
-    assert(!fe_equal(fe, r, fe->one));
+  {
+    fe_t expect;
+    assert(fe_invert_var(fe, expect, a) == ret);
+    assert(fe_equal(fe, r, expect));
   }
 #endif
 

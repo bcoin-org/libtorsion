@@ -26,26 +26,12 @@ static const p224_fe_t p224_one = {
   0x0000000000000000, 0x0000000000000000
 };
 
-/* 32 bit alignment as 64 bit */
-static const p224_fe_t p224_one_32 = {
-  0xffffffffffffffff, 0xffffffff00000000,
-  0x0000000000000000, 0x0000000000000000
-};
-
 /* 11^(2^128 - 1) mod p */
 /* mont: 0xa31b1da46d3e2af0dd915e4b7869be5d866c223b174131b85ee27c6c */
 /* 64 bit alignment */
 static const p224_fe_t p224_g = {
   0x174131b85ee27c6c, 0x7869be5d866c223b,
   0x6d3e2af0dd915e4b, 0x00000000a31b1da4
-};
-
-/* 11^(2^128 - 1) mod p */
-/* mont: 0xa11d8394a31b1da46d3e2af0dd915e4ad74c3ac9866c223b174131b9 */
-/* 32 bit alignment as 64 bit */
-static const p224_fe_t p224_g_32 = {
-  0x174131b9866c223b, 0xd74c3ac9dd915e4a,
-  0x6d3e2af0a31b1da4, 0x00000000a11d8394
 };
 #else
 static const p224_fe_t p224_zero = {0, 0, 0, 0, 0, 0, 0};
@@ -100,126 +86,54 @@ p224_fe_sqrn(p224_fe_t out, const p224_fe_t in, int rounds) {
 }
 
 /* https://github.com/openssl/openssl/blob/master/crypto/ec/ecp_nistp224.c#L701 */
-/* TODO: optimize */
 static void
 p224_fe_invert(p224_fe_t out, const p224_fe_t in) {
-  p224_fe_t ftmp, ftmp2, ftmp3, ftmp4;
-  p224_fe_t tmp;
-  unsigned int i;
+  p224_fe_t t1, t2, t3, t4;
 
-  p224_fe_sqr(tmp, in);
-  p224_fe_set(ftmp, tmp); /* 2 */
-  p224_fe_mul(tmp, in, ftmp);
-  p224_fe_set(ftmp, tmp); /* 2^2 - 1 */
-  p224_fe_sqr(tmp, ftmp);
-  p224_fe_set(ftmp, tmp); /* 2^3 - 2 */
-  p224_fe_mul(tmp, in, ftmp);
-  p224_fe_set(ftmp, tmp); /* 2^3 - 1 */
-  p224_fe_sqr(tmp, ftmp);
-  p224_fe_set(ftmp2, tmp); /* 2^4 - 2 */
-  p224_fe_sqr(tmp, ftmp2);
-  p224_fe_set(ftmp2, tmp); /* 2^5 - 4 */
-  p224_fe_sqr(tmp, ftmp2);
-  p224_fe_set(ftmp2, tmp); /* 2^6 - 8 */
-  p224_fe_mul(tmp, ftmp2, ftmp);
-  p224_fe_set(ftmp, tmp); /* 2^6 - 1 */
-  p224_fe_sqr(tmp, ftmp);
-  p224_fe_set(ftmp2, tmp); /* 2^7 - 2 */
+  p224_fe_sqr(t1, in);
+  p224_fe_mul(t1, in, t1);
+  p224_fe_sqr(t1, t1);
+  p224_fe_mul(t1, in, t1);
+  p224_fe_sqr(t2, t1);
+  p224_fe_sqr(t2, t2);
+  p224_fe_sqr(t2, t2);
+  p224_fe_mul(t1, t2, t1);
+  p224_fe_sqr(t2, t1);
 
-  for (i = 0; i < 5; ++i) { /* 2^12 - 2^6 */
-    p224_fe_sqr(tmp, ftmp2);
-    p224_fe_set(ftmp2, tmp);
-  }
+  p224_fe_sqrn(t2, t2, 5);
 
-  p224_fe_mul(tmp, ftmp2, ftmp);
-  p224_fe_set(ftmp2, tmp); /* 2^12 - 1 */
-  p224_fe_sqr(tmp, ftmp2);
-  p224_fe_set(ftmp3, tmp); /* 2^13 - 2 */
+  p224_fe_mul(t2, t2, t1);
+  p224_fe_sqr(t3, t2);
 
-  for (i = 0; i < 11; ++i) { /* 2^24 - 2^12 */
-    p224_fe_sqr(tmp, ftmp3);
-    p224_fe_set(ftmp3, tmp);
-  }
+  p224_fe_sqrn(t3, t3, 11);
 
-  p224_fe_mul(tmp, ftmp3, ftmp2);
-  p224_fe_set(ftmp2, tmp); /* 2^24 - 1 */
-  p224_fe_sqr(tmp, ftmp2);
-  p224_fe_set(ftmp3, tmp); /* 2^25 - 2 */
+  p224_fe_mul(t2, t3, t2);
+  p224_fe_sqr(t3, t2);
 
-  for (i = 0; i < 23; ++i) { /* 2^48 - 2^24 */
-    p224_fe_sqr(tmp, ftmp3);
-    p224_fe_set(ftmp3, tmp);
-  }
+  p224_fe_sqrn(t3, t3, 23);
 
-  p224_fe_mul(tmp, ftmp3, ftmp2);
-  p224_fe_set(ftmp3, tmp); /* 2^48 - 1 */
-  p224_fe_sqr(tmp, ftmp3);
-  p224_fe_set(ftmp4, tmp); /* 2^49 - 2 */
+  p224_fe_mul(t3, t3, t2);
+  p224_fe_sqr(t4, t3);
 
-  for (i = 0; i < 47; ++i) { /* 2^96 - 2^48 */
-    p224_fe_sqr(tmp, ftmp4);
-    p224_fe_set(ftmp4, tmp);
-  }
+  p224_fe_sqrn(t4, t4, 47);
 
-  p224_fe_mul(tmp, ftmp3, ftmp4);
-  p224_fe_set(ftmp3, tmp); /* 2^96 - 1 */
-  p224_fe_sqr(tmp, ftmp3);
-  p224_fe_set(ftmp4, tmp); /* 2^97 - 2 */
+  p224_fe_mul(t3, t3, t4);
+  p224_fe_sqr(t4, t3);
 
-  for (i = 0; i < 23; ++i) { /* 2^120 - 2^24 */
-    p224_fe_sqr(tmp, ftmp4);
-    p224_fe_set(ftmp4, tmp);
-  }
+  p224_fe_sqrn(t4, t4, 23);
 
-  p224_fe_mul(tmp, ftmp2, ftmp4);
-  p224_fe_set(ftmp2, tmp); /* 2^120 - 1 */
+  p224_fe_mul(t2, t2, t4);
 
-  for (i = 0; i < 6; ++i) { /* 2^126 - 2^6 */
-    p224_fe_sqr(tmp, ftmp2);
-    p224_fe_set(ftmp2, tmp);
-  }
+  p224_fe_sqrn(t2, t2, 6);
 
-  p224_fe_mul(tmp, ftmp2, ftmp);
-  p224_fe_set(ftmp, tmp); /* 2^126 - 1 */
-  p224_fe_sqr(tmp, ftmp);
-  p224_fe_set(ftmp, tmp); /* 2^127 - 2 */
-  p224_fe_mul(tmp, ftmp, in);
-  p224_fe_set(ftmp, tmp); /* 2^127 - 1 */
+  p224_fe_mul(t1, t2, t1);
+  p224_fe_sqr(t1, t1);
+  p224_fe_mul(t1, t1, in);
 
-  for (i = 0; i < 97; ++i) { /* 2^224 - 2^97 */
-    p224_fe_sqr(tmp, ftmp);
-    p224_fe_set(ftmp, tmp);
-  }
+  p224_fe_sqrn(t1, t1, 97);
 
-  p224_fe_mul(tmp, ftmp, ftmp3);
-  p224_fe_set(out, tmp); /* 2^224 - 2^96 - 1 */
+  p224_fe_mul(out, t1, t3);
 }
-
-#if 0
-static int
-p224_fe_legendre(const p224_fe_t in) {
-  p224_fe_t t;
-  int i, a, b, c;
-
-  p224_fe_set(t, in);
-
-  for (i = 1; i < 128; i++) {
-    p224_fe_sqr(t, t);
-    p224_fe_mul(t, t, in);
-  }
-
-  p224_fe_sqrn(t, t, 95);
-
-  a = p224_fe_equal(t, p224_zero);
-  b = p224_fe_equal(t, p224_one);
-  c = (a ^ 1) & (b ^ 1);
-
-  assert((a | b | c) != 0);
-  assert(a + b + c == 1);
-
-  return b - c;
-}
-#endif
 
 static void
 p224_fe_pow_s(p224_fe_t out, const p224_fe_t in) {
