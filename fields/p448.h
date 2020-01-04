@@ -15,7 +15,7 @@ typedef uint64_t p448_fe_word_t;
 #include "p448_64.h"
 #else
 typedef uint32_t p448_fe_word_t;
-#define P448_FIELD_WORDS 16
+#define P448_FIELD_WORDS 15
 #include "p448_32.h"
 #endif
 
