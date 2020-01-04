@@ -8,7 +8,8 @@
 #include <limits.h>
 #include <sys/time.h>
 
-static const wei_def_t *wei_curves[5] = {
+static const wei_def_t *wei_curves[6] = {
+  &curve_p192,
   &curve_p224,
   &curve_p256,
   &curve_p384,

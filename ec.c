@@ -13,6 +13,7 @@
 #include <windows.h>
 #endif
 
+#include "fields/p192.h"
 #include "fields/p224.h"
 #include "fields/p256.h"
 #include "fields/p384.h"
@@ -5639,24 +5640,24 @@ eddsa_derive(edwards_t *ec,
 
 static const prime_def_t field_p192 = {
   .bits = 192,
-  .words = 192 / FIELD_WORD_SIZE,
+  .words = P192_FIELD_WORDS,
   /* 2^192 - 2^64 - 1 (= 3 mod 4) */
   .p = {
     0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
     0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xfe,
     0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff
   },
-  .add = NULL,
-  .sub = NULL,
-  .opp = NULL,
-  .mul = NULL,
-  .square = NULL,
+  .add = fiat_p192_add,
+  .sub = fiat_p192_sub,
+  .opp = fiat_p192_opp,
+  .mul = fiat_p192_carry_mul,
+  .square = fiat_p192_carry_square,
   .from_montgomery = NULL,
   .nonzero = NULL,
-  .selectznz = NULL,
-  .to_bytes = NULL,
-  .from_bytes = NULL,
-  .carry = NULL,
+  .selectznz = fiat_p192_selectznz,
+  .to_bytes = fiat_p192_to_bytes,
+  .from_bytes = fiat_p192_from_bytes,
+  .carry = fiat_p192_carry,
   .invert = NULL,
   .sqrt = NULL,
   .isqrt = NULL,
