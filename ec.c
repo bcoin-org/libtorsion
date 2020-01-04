@@ -3707,6 +3707,8 @@ pge_import(mont_t *ec, pge_t *r, const unsigned char *raw) {
   } else {
     fe_import(fe, r->x, raw);
   }
+
+  fe_set(fe, r->z, fe->one);
 }
 
 static int
@@ -3856,15 +3858,18 @@ pge_to_mge(mont_t *ec, mge_t *r, const pge_t *p) {
    */
   prime_field_t *fe = &ec->fe;
   fe_t a;
+  int ret = 1;
 
   /* A = 1 / Z1 */
-  fe_invert(fe, a, p->z);
+  ret &= fe_invert(fe, a, p->z);
 
   /* X3 = X1 * A */
   fe_mul(fe, r->x, p->x, a);
 
   /* Take the principle square root. */
-  return mge_set_x(ec, r, r->x, -1);
+  ret &= mge_set_x(ec, r, r->x, -1);
+
+  return ret;
 }
 
 static void
@@ -5242,7 +5247,7 @@ ecdh_derive(mont_t *ec,
 
   mont_clamp(ec, clamped, priv);
 
-  sc_import_reduce(sc, a, clamped);
+  sc_import(sc, a, clamped);
 
   pge_import(ec, &A, pub);
 
@@ -5592,11 +5597,12 @@ eddsa_derive_with_scalar(edwards_t *ec,
 
   edwards_clamp(ec, clamped, scalar);
 
-  sc_import_reduce(sc, a, clamped);
+  sc_import(sc, a, clamped);
 
   if (!ege_import(ec, &A, pub))
     goto fail;
 
+  /* XXX need constant time ladder which goes by fe->bits */
   edwards_mul(ec, &P, &A, a);
 
   ege_export(ec, secret, &P);
