@@ -86,7 +86,7 @@ typedef struct scalar_field_s {
   int endian;
   size_t size;
   size_t bits;
-  size_t shift;
+  mp_size_t shift;
   mp_limb_t n[MAX_SCALAR_LIMBS * 4];
   mp_limb_t nh[MAX_SCALAR_LIMBS * 4];
   mp_limb_t m[MAX_SCALAR_LIMBS * 4];
@@ -912,7 +912,6 @@ sc_reduce(scalar_field_t *sc, sc_t r, const mp_limb_t *ap) {
   /* Barrett reduction. */
   const mp_limb_t *np = sc->n;
   const mp_limb_t *mp = sc->m;
-  mp_size_t shift = sc->shift;
   mp_size_t nn = sc->limbs;
   mp_limb_t qp[MAX_SCALAR_LIMBS * 4];
   mp_limb_t up[MAX_SCALAR_LIMBS * 4];
@@ -928,14 +927,9 @@ sc_reduce(scalar_field_t *sc, sc_t r, const mp_limb_t *ap) {
   mpn_mul_n(qp, ap, mp, nn * 2);
 
   /* h = q >> k */
-  hp += shift / GMP_NUMB_BITS;
-  shift %= GMP_NUMB_BITS;
+  hp += sc->shift;
 
-  /* Realign (necessary for curves like p521). */
-  if (shift != 0)
-    mpn_rshift(hp, hp, nn * 2, shift);
-
-  /* u = r - h * n */
+  /* u = a - h * n */
   mpn_mul_n(vp, hp, np, nn * 2);
   c = mpn_sub_n(up, ap, vp, nn * 4);
   assert(c == 0);
@@ -1658,13 +1652,7 @@ scalar_field_set(scalar_field_t *sc,
   sc->limbs = (bits + GMP_NUMB_BITS - 1) / GMP_NUMB_BITS;
   sc->size = (bits + 7) / 8;
   sc->bits = bits;
-  /* sc->shift = sc->limbs * GMP_NUMB_BITS * 2; */
-  sc->shift = bits;
-
-  if ((sc->shift % GMP_NUMB_BITS) != 0)
-    sc->shift += GMP_NUMB_BITS - (sc->shift % GMP_NUMB_BITS);
-
-  sc->shift *= 2;
+  sc->shift = sc->limbs * 2;
 
   mpn_import_be(sc->n, ARRAY_SIZE(sc->n), modulus, sc->size);
 
@@ -1678,15 +1666,13 @@ scalar_field_set(scalar_field_t *sc,
   {
     /* Maintain the philosophy of zero allocations. */
     mp_limb_t x[MAX_SCALAR_LIMBS * 2 + 1];
-    mp_size_t index = sc->shift / GMP_NUMB_BITS;
-    mp_limb_t bit = sc->shift % GMP_NUMB_BITS;
 
     mpn_zero(sc->m, ARRAY_SIZE(sc->m));
     mpn_zero(x, ARRAY_SIZE(x));
 
-    x[index] = (mp_limb_t)1 << bit;
+    x[sc->shift] = 1;
 
-    mpn_tdiv_qr(sc->m, x, 0, x, index + 1, sc->n, sc->limbs);
+    mpn_tdiv_qr(sc->m, x, 0, x, sc->shift + 1, sc->n, sc->limbs);
   }
 #else
   {
@@ -1694,7 +1680,7 @@ scalar_field_set(scalar_field_t *sc,
     mpz_init(m);
     mpz_roinit_n(n, sc->n, sc->limbs);
     mpz_set_ui(m, 0);
-    mpz_setbit(m, sc->shift);
+    mpz_setbit(m, sc->shift * GMP_NUMB_BITS);
     mpz_tdiv_q(m, m, n);
     mpn_set_mpz(sc->m, m, ARRAY_SIZE(sc->m));
     mpz_clear(m);
@@ -5456,7 +5442,7 @@ eddsa_hash_final(edwards_t *ec, sc_t r, hash_t *h) {
 
   mpn_import(k, ARRAY_SIZE(k), bytes, fe->size * 2, sc->endian);
 
-  assert(fe->bits * 2 <= sc->shift);
+  assert(fe->bits * 2 <= (size_t)sc->shift * GMP_NUMB_BITS);
 
   sc_reduce(sc, r, k);
 
