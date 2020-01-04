@@ -1173,12 +1173,24 @@ fe_export(prime_field_t *fe, unsigned char *raw, const fe_t a) {
 
   if (fe->from_montgomery) {
     fe_t tmp;
+
+    /* Demontgomerize. */
     fe->from_montgomery(tmp, a);
-    if (fe->bits == 224 && FIELD_WORD_SIZE == 64) {
-      /* hack for p224 fiat backend -- it wants to serialize 32 bytes */
-      unsigned char buf[32];
+
+    if (fe->size != fe->words * (FIELD_WORD_SIZE / 8)) {
+      /* Fiat accepts bytes serialized as full
+       * words. In particular, this affects the
+       * P224 64 bit backend. This is a non-issue
+       * during deserialization as fiat will zero
+       * the remaining limbs.
+       */
+      unsigned char buf[MAX_FIELD_SIZE];
+
+      assert(fe->bits == 224);
+      assert(FIELD_WORD_SIZE == 64);
+
       fe->to_bytes(buf, tmp);
-      memcpy(raw, buf, 28);
+      memcpy(raw, buf, fe->size);
     } else {
       fe->to_bytes(raw, tmp);
     }
