@@ -4043,6 +4043,10 @@ ege_set_y(edwards_t *ec, ege_t *r, const fe_t y, int sign) {
   fe_set(fe, r->x, x);
   fe_set(fe, r->y, y);
 
+#ifdef EC_TEST
+  assert(ege_validate(ec, r) == ret);
+#endif
+
   return ret;
 }
 
