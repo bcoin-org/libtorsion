@@ -1,7 +1,12 @@
 #ifdef BCRYPTO_EC_64BIT
 typedef uint64_t secp256k1_fe_word_t;
+#ifdef USE_LIBSECP256K1_REDUCTION
+#define SECP256K1_FIELD_WORDS 5
+#include "libsecp256k1_64.h"
+#else
 #define SECP256K1_FIELD_WORDS 4
 #include "secp256k1_64.h"
+#endif
 #else
 typedef uint32_t secp256k1_fe_word_t;
 #define SECP256K1_FIELD_WORDS 8
@@ -13,8 +18,13 @@ typedef secp256k1_fe_word_t secp256k1_fe_t[SECP256K1_FIELD_WORDS];
 #define secp256k1_fe_add fiat_secp256k1_add
 #define secp256k1_fe_sub fiat_secp256k1_sub
 #define secp256k1_fe_neg fiat_secp256k1_opp
+#ifdef USE_LIBSECP256K1_REDUCTION
+#define secp256k1_fe_mul fiat_secp256k1_carry_mul
+#define secp256k1_fe_sqr fiat_secp256k1_carry_square
+#else
 #define secp256k1_fe_mul fiat_secp256k1_mul
 #define secp256k1_fe_sqr fiat_secp256k1_square
+#endif
 #define secp256k1_fe_nonzero fiat_secp256k1_nonzero
 
 static void
@@ -23,6 +33,9 @@ secp256k1_fe_set(secp256k1_fe_t out, const secp256k1_fe_t in) {
   out[1] = in[1];
   out[2] = in[2];
   out[3] = in[3];
+#if SECP256K1_FIELD_WORDS == 5
+  out[4] = in[4];
+#endif
 #if SECP256K1_FIELD_WORDS == 8
   out[4] = in[4];
   out[5] = in[5];

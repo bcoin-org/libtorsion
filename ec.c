@@ -4,6 +4,9 @@
  * https://github.com/chjj/ec
  */
 
+#define USE_LIBSECP256K1_REDUCTION
+#define BCRYPTO_USE_ASM
+
 #include <assert.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -152,6 +155,7 @@ typedef struct prime_field_s {
   fe_sqrt_func *sqrt;
   fe_isqrt_func *isqrt;
   fe_scmul_121666 *scmul_121666;
+  int is_optimized;
   fe_t zero;
   fe_t one;
   fe_t two;
@@ -179,6 +183,7 @@ typedef struct prime_def_s {
   fe_sqrt_func *sqrt;
   fe_isqrt_func *isqrt;
   fe_scmul_121666 *scmul_121666;
+  int is_optimized;
 } prime_def_t;
 
 /*
@@ -1266,7 +1271,9 @@ fe_import(prime_field_t *fe, fe_t r, const unsigned char *raw) {
   unsigned char tmp[MAX_FIELD_SIZE];
   size_t i;
 
-  if (fe->from_montgomery) {
+  if (fe->is_optimized) {
+    fe->from_bytes(r, raw);
+  } else if (fe->from_montgomery) {
     /* Use a constant time barrett reduction
      * to montgomerize the field element.
      */
@@ -1332,6 +1339,11 @@ static void
 fe_export(prime_field_t *fe, unsigned char *raw, const fe_t a) {
   int i = 0;
   int j = fe->size - 1;
+
+  if (fe->is_optimized) {
+    fe->to_bytes(raw, a);
+    return;
+  }
 
   if (fe->from_montgomery) {
     fe_t tmp;
@@ -1876,6 +1888,7 @@ prime_field_init(prime_field_t *fe, const prime_def_t *def, int endian) {
   fe->sqrt = def->sqrt;
   fe->isqrt = def->isqrt;
   fe->scmul_121666 = def->scmul_121666;
+  fe->is_optimized = def->is_optimized;
 
   fe_set_word(fe, fe->zero, 0);
   fe_set_word(fe, fe->one, 1);
@@ -2563,7 +2576,7 @@ jge_dblj(wei_t *ec, jge_t *r, const jge_t *p) {
   fe_sub(fe, t, t, s);
 
   /* Z3 = 2 * Y1 * Z1 */
-  fe_mul(fe, r->z, p->y, p->z);
+  fe_mul(fe, r->z, p->z, p->y);
   fe_add(fe, r->z, r->z, r->z);
 
   /* X3 = T */
@@ -2612,7 +2625,7 @@ jge_dbl0(wei_t *ec, jge_t *r, const jge_t *p) {
   fe_sqr(fe, f, e);
 
   /* Z3 = 2 * Y1 * Z1 */
-  fe_mul(fe, r->z, p->y, p->z);
+  fe_mul(fe, r->z, p->z, p->y);
   fe_add(fe, r->z, r->z, r->z);
 
   /* X3 = F - 2 * D */
@@ -6462,7 +6475,8 @@ static const prime_def_t field_p192 = {
   .invert = NULL,
   .sqrt = NULL,
   .isqrt = NULL,
-  .scmul_121666 = NULL
+  .scmul_121666 = NULL,
+  .is_optimized = 0
 };
 
 static const scalar_def_t field_q192 = {
@@ -6502,7 +6516,8 @@ static const prime_def_t field_p224 = {
   .invert = p224_fe_invert,
   .sqrt = p224_fe_sqrt_var,
   .isqrt = NULL,
-  .scmul_121666 = NULL
+  .scmul_121666 = NULL,
+  .is_optimized = 0
 };
 
 static const scalar_def_t field_q224 = {
@@ -6543,7 +6558,8 @@ static const prime_def_t field_p256 = {
   .invert = p256_fe_invert,
   .sqrt = p256_fe_sqrt,
   .isqrt = NULL,
-  .scmul_121666 = NULL
+  .scmul_121666 = NULL,
+  .is_optimized = 0
 };
 
 static const scalar_def_t field_q256 = {
@@ -6586,7 +6602,8 @@ static const prime_def_t field_p384 = {
   .invert = p384_fe_invert,
   .sqrt = p384_fe_sqrt,
   .isqrt = NULL,
-  .scmul_121666 = NULL
+  .scmul_121666 = NULL,
+  .is_optimized = 0
 };
 
 static const scalar_def_t field_q384 = {
@@ -6634,7 +6651,8 @@ static const prime_def_t field_p521 = {
   .invert = p521_fe_invert,
   .sqrt = p521_fe_sqrt,
   .isqrt = NULL,
-  .scmul_121666 = NULL
+  .scmul_121666 = NULL,
+  .is_optimized = 0
 };
 
 static const scalar_def_t field_q521 = {
@@ -6666,6 +6684,24 @@ static const prime_def_t field_p256k1 = {
     0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
     0xff, 0xff, 0xff, 0xfe, 0xff, 0xff, 0xfc, 0x2f
   },
+#ifdef USE_LIBSECP256K1_REDUCTION
+  .add = fiat_secp256k1_add,
+  .sub = fiat_secp256k1_sub,
+  .opp = fiat_secp256k1_opp,
+  .mul = fiat_secp256k1_carry_mul,
+  .square = fiat_secp256k1_carry_square,
+  .from_montgomery = NULL,
+  .nonzero = fiat_secp256k1_nonzero,
+  .selectznz = fiat_secp256k1_selectznz,
+  .to_bytes = fiat_secp256k1_to_bytes,
+  .from_bytes = fiat_secp256k1_from_bytes,
+  .carry = fiat_secp256k1_carry,
+  .invert = secp256k1_fe_invert,
+  .sqrt = secp256k1_fe_sqrt,
+  .isqrt = secp256k1_fe_isqrt,
+  .scmul_121666 = NULL,
+  .is_optimized = 1
+#else
   .add = fiat_secp256k1_add,
   .sub = fiat_secp256k1_sub,
   .opp = fiat_secp256k1_opp,
@@ -6680,7 +6716,9 @@ static const prime_def_t field_p256k1 = {
   .invert = secp256k1_fe_invert,
   .sqrt = secp256k1_fe_sqrt,
   .isqrt = secp256k1_fe_isqrt,
-  .scmul_121666 = NULL
+  .scmul_121666 = NULL,
+  .is_optimized = 0
+#endif
 };
 
 static const scalar_def_t field_q256k1 = {
@@ -6721,7 +6759,8 @@ static const prime_def_t field_p25519 = {
   .invert = p25519_fe_invert,
   .sqrt = p25519_fe_sqrt,
   .isqrt = p25519_fe_isqrt,
-  .scmul_121666 = fiat_25519_carry_scmul_121666
+  .scmul_121666 = fiat_25519_carry_scmul_121666,
+  .is_optimized = 0
 };
 
 static const scalar_def_t field_q25519 = {
@@ -6765,7 +6804,8 @@ static const prime_def_t field_p448 = {
   .invert = p448_fe_invert,
   .sqrt = p448_fe_sqrt,
   .isqrt = p448_fe_isqrt,
-  .scmul_121666 = NULL
+  .scmul_121666 = NULL,
+  .is_optimized = 0
 };
 
 static const scalar_def_t field_q448 = {
