@@ -58,7 +58,7 @@ typedef uint64_t fe_word_t;
 #else
 typedef uint32_t fe_word_t;
 #define FIELD_WORD_SIZE 32
-#define MAX_FIELD_WORDS 17
+#define MAX_FIELD_WORDS 18
 #endif
 
 #define MAX_FIELD_BITS 521
@@ -1088,36 +1088,10 @@ fe_import(prime_field_t *fe, fe_t r, const unsigned char *raw) {
   if (fe->from_montgomery) {
     /* Use a constant time barret reduction
      * to montgomerize the field element.
-     *
-     * We must be aligned to the limb size.
-     * Normally we could just shift left by
-     * the remainder after the import, but we
-     * can only handle 2*max limbs in sc_reduce.
-     *
-     * This should only be an issue when
-     *
-     *   GMP_NUMB_BITS != FIELD_WORD_SIZE
-     *
-     * but this should never occur with a
-     * proper build of the library.
-     *
-     * In particular, an assertion error
-     * will be triggered with P224 when:
-     *
-     *   GMP_NUM_BITS == 64 && FIELD_WORD_SIZE == 32
-     *
-     * As the P224 `shift` is already aligned
-     * to the field words, it does not align
-     * the to the gmp limbs. Note:
-     *
-     *   224 mod 64 == 32
-     *   224 mod 32 == 0
      */
     mp_limb_t xp[MAX_FIELD_LIMBS * 4];
     mp_size_t shift = fe->shift / GMP_NUMB_BITS;
-
-    /* Check alignment. */
-    assert((fe->shift % GMP_NUMB_BITS) == 0);
+    mp_size_t left = fe->shift % GMP_NUMB_BITS;
 
     /* We can only handle 2*max limbs. */
     assert(shift <= fe->limbs);
@@ -1125,6 +1099,11 @@ fe_import(prime_field_t *fe, fe_t r, const unsigned char *raw) {
     /* x = (x << shift) mod p */
     mpn_zero(xp, fe->limbs * 4);
     mpn_import(xp + shift, fe->limbs, raw, fe->size, fe->endian);
+
+    /* Align if necessary. */
+    if (left != 0)
+      assert(mpn_lshift(xp, xp, shift + fe->limbs, left) == 0);
+
     sc_reduce(&fe->sc, xp, xp);
 
 #if GMP_NUMB_BITS == FIELD_WORD_SIZE

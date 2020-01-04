@@ -38,7 +38,7 @@ p448_fe_set(p448_fe_t out, const p448_fe_t in) {
   out[5] = in[5];
   out[6] = in[6];
   out[7] = in[7];
-#if P448_FIELD_WORDS == 16
+#if P448_FIELD_WORDS == 15
   out[8] = in[8];
   out[9] = in[9];
   out[10] = in[10];
@@ -46,7 +46,6 @@ p448_fe_set(p448_fe_t out, const p448_fe_t in) {
   out[12] = in[12];
   out[13] = in[13];
   out[14] = in[14];
-  out[15] = in[15];
 #endif
 }
 
