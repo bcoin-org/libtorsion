@@ -128,8 +128,10 @@ typedef struct prime_field_s {
   size_t bits;
   size_t shift;
   size_t words;
+  size_t adj_size;
   mp_limb_t p[MAX_SCALAR_LIMBS * 4];
   mp_size_t limbs;
+  mp_size_t adj_limbs;
   unsigned char raw[MAX_FIELD_SIZE];
   scalar_field_t sc;
   fe_add_func *add;
@@ -753,6 +755,35 @@ mpz_jacobi(const mpz_t x, const mpz_t y) {
   mpz_clear(c);
 
   return j;
+}
+
+/* `mpn_tdiv_qr` is not exposed in mini-gmp. */
+static void
+mpn_tdiv_qr(mp_limb_t *qp,
+            mp_limb_t *rp,
+            mp_size_t qxn,
+            const mp_limb_t *np,
+            mp_size_t nn,
+            const mp_limb_t *dp,
+            mp_size_t dn) {
+  mpz_t q, r, n, d;
+
+  assert(nn >= dn);
+  assert(qxn == 0);
+  assert(dp[dn - 1] != 0);
+
+  mpz_init(q);
+  mpz_init(r);
+  mpz_roinit_n(n, np, nn);
+  mpz_roinit_n(d, dp, dn);
+
+  mpz_tdiv_qr(q, r, n, d);
+
+  mpn_set_mpz(qp, q, nn - dn + 1);
+  mpn_set_mpz(rp, r, dn);
+
+  mpz_clear(q);
+  mpz_clear(r);
 }
 #endif
 
@@ -1641,7 +1672,6 @@ scalar_field_set(scalar_field_t *sc,
    *
    *   m = (1 << (bits * 2)) / n
    */
-#ifdef BCRYPTO_HAS_GMP
   {
     /* Maintain the philosophy of zero allocations. */
     mp_limb_t x[MAX_SCALAR_LIMBS * 2 + 1];
@@ -1653,18 +1683,6 @@ scalar_field_set(scalar_field_t *sc,
 
     mpn_tdiv_qr(sc->m, x, 0, x, sc->shift + 1, sc->n, sc->limbs);
   }
-#else
-  {
-    mpz_t m, n;
-    mpz_init(m);
-    mpz_roinit_n(n, sc->n, sc->limbs);
-    mpz_set_ui(m, 0);
-    mpz_setbit(m, sc->shift * GMP_NUMB_BITS);
-    mpz_tdiv_q(m, m, n);
-    mpn_set_mpz(sc->m, m, ARRAY_SIZE(sc->m));
-    mpz_clear(m);
-  }
-#endif
 
   mpn_export(sc->raw, sc->size, sc->n, ARRAY_SIZE(sc->n), sc->endian);
 }
@@ -1686,6 +1704,8 @@ prime_field_init(prime_field_t *fe, const prime_def_t *def, int endian) {
   fe->bits = def->bits;
   fe->shift = def->bits;
   fe->words = def->words;
+  fe->adj_size = fe->size + ((fe->bits & 7) == 0);
+  fe->adj_limbs = ((fe->adj_size * 8) + GMP_NUMB_BITS - 1) / GMP_NUMB_BITS;
 
   if ((fe->shift % FIELD_WORD_SIZE) != 0)
     fe->shift += FIELD_WORD_SIZE - (fe->shift % FIELD_WORD_SIZE);
@@ -5385,8 +5405,8 @@ eddsa_privkey_hash(edwards_t *ec,
   hash_t h;
 
   hash_init(&h, ec->hash);
-  hash_update(&h, priv, fe->size);
-  hash_final(&h, out, fe->size * 2);
+  hash_update(&h, priv, fe->adj_size);
+  hash_final(&h, out, fe->adj_size * 2);
 
   edwards_clamp(ec, out, out);
 }
@@ -5414,18 +5434,26 @@ eddsa_hash_init(edwards_t *ec,
 
 static void
 eddsa_hash_final(edwards_t *ec, sc_t r, hash_t *h) {
-  unsigned char bytes[MAX_FIELD_SIZE * 2];
+  unsigned char bytes[(MAX_FIELD_SIZE + 1) * 2];
   mp_limb_t k[MAX_FIELD_LIMBS * 4];
   prime_field_t *fe = &ec->fe;
   scalar_field_t *sc = &ec->sc;
 
-  hash_final(h, bytes, fe->size * 2);
+  hash_final(h, bytes, fe->adj_size * 2);
 
-  mpn_import(k, ARRAY_SIZE(k), bytes, fe->size * 2, sc->endian);
+  mpn_import(k, ARRAY_SIZE(k), bytes, fe->adj_size * 2, sc->endian);
 
-  assert(fe->bits * 2 <= (size_t)sc->shift * GMP_NUMB_BITS);
+  if ((fe->bits % GMP_NUMB_BITS) == 0) {
+    mp_limb_t q[(MAX_FIELD_LIMBS + 1) * 2];
+    mp_size_t kn = fe->adj_limbs * 2;
+    mp_size_t nn = sc->limbs;
 
-  sc_reduce(sc, r, k);
+    mpn_tdiv_qr(q, k, 0, k, kn, sc->n, nn);
+    mpn_copyi(r, k, nn);
+    mpn_cleanse(k, kn);
+  } else {
+    sc_reduce(sc, r, k);
+  }
 
   cleanse(bytes, sizeof(bytes));
   mpn_cleanse(k, ARRAY_SIZE(k));
@@ -5478,14 +5506,14 @@ eddsa_privkey_expand(edwards_t *ec,
                      unsigned char *scalar,
                      unsigned char *prefix,
                      const unsigned char *priv) {
-  unsigned char bytes[MAX_FIELD_SIZE * 2];
+  unsigned char bytes[(MAX_FIELD_SIZE + 1) * 2];
   prime_field_t *fe = &ec->fe;
   scalar_field_t *sc = &ec->sc;
 
   eddsa_privkey_hash(ec, bytes, priv);
 
   memcpy(scalar, bytes, sc->size);
-  memcpy(prefix, bytes + fe->size, fe->size);
+  memcpy(prefix, bytes + fe->adj_size, fe->adj_size);
 
   cleanse(bytes, sizeof(bytes));
 }
@@ -5494,7 +5522,7 @@ static void
 eddsa_privkey_convert(edwards_t *ec,
                       unsigned char *scalar,
                       const unsigned char *priv) {
-  unsigned char bytes[MAX_FIELD_SIZE * 2];
+  unsigned char bytes[(MAX_FIELD_SIZE + 1) * 2];
   scalar_field_t *sc = &ec->sc;
 
   eddsa_privkey_hash(ec, bytes, priv);
@@ -5576,7 +5604,7 @@ eddsa_sign_with_scalar(edwards_t *ec,
   prime_field_t *fe = &ec->fe;
   scalar_field_t *sc = &ec->sc;
   unsigned char *Rraw = sig;
-  unsigned char *sraw = sig + fe->size;
+  unsigned char *sraw = sig + fe->adj_size;
   unsigned char pub[MAX_FIELD_SIZE];
   sc_t k, a, e, s;
   ege_t R, A;
@@ -5597,8 +5625,8 @@ eddsa_sign_with_scalar(edwards_t *ec,
   sc_add(sc, s, s, k);
   sc_export(sc, sraw, s);
 
-  if (sc->size < fe->size)
-    sraw[sc->size] = 0;
+  if ((fe->bits & 7) == 0)
+    sraw[fe->size] = 0;
 
   cleanse(pub, sizeof(pub));
   sc_cleanse(sc, k);
@@ -5665,7 +5693,7 @@ eddsa_verify(edwards_t *ec,
   prime_field_t *fe = &ec->fe;
   scalar_field_t *sc = &ec->sc;
   const unsigned char *Rraw = sig;
-  const unsigned char *sraw = sig + fe->size;
+  const unsigned char *sraw = sig + fe->adj_size;
   ege_t R, A;
   xge_t R1, R2;
   sc_t s, e;
@@ -5679,8 +5707,8 @@ eddsa_verify(edwards_t *ec,
   if (!sc_import(sc, s, sraw))
     return 0;
 
-  if (sc->size < fe->size) {
-    if (sraw[sc->size] != 0)
+  if ((fe->bits & 7) == 0) {
+    if (sraw[fe->size] != 0)
       return 0;
   }
 
