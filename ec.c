@@ -1712,7 +1712,6 @@ prime_field_init(prime_field_t *fe, const prime_def_t *def, int endian) {
   fe->limbs = (def->bits + GMP_NUMB_BITS - 1) / GMP_NUMB_BITS;
   fe->size = (def->bits + 7) / 8;
   fe->bits = def->bits;
-  /* fe->shift = def->words * FIELD_WORD_SIZE; */
   fe->shift = def->bits;
   fe->words = def->words;
 
