@@ -4594,7 +4594,7 @@ xge_add_m1(edwards_t *ec, xge_t *r, const xge_t *a, const xge_t *b) {
 
 static void
 xge_add(edwards_t *ec, xge_t *r, const xge_t *a, const xge_t *b) {
-  if (ec->fe.bits == 255)
+  if (ec->mone_a)
     xge_add_m1(ec, r, a, b);
   else
     xge_add_a(ec, r, a, b);
@@ -5067,6 +5067,8 @@ ecdsa_reduce(wei_t *ec, sc_t r, const unsigned char *msg, size_t msg_len) {
     sc_reduce(sc, r, mp);
   else
     sc_set(sc, r, mp);
+
+  mpn_cleanse(mp, mn);
 
   return !zero && cmp < 0;
 }
