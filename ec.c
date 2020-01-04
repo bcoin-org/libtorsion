@@ -3898,6 +3898,12 @@ mont_init(mont_t *ec, const mont_def_t *def) {
 }
 
 static void
+mont_clamp(mont_t *ec, unsigned char *out, const unsigned char *in) {
+  memcpy(out, in, ec->sc.size);
+  ec->clamp(out);
+}
+
+static void
 mont_mul(mont_t *ec, pge_t *r, const pge_t *p, const sc_t k) {
   /* Multiply with the Montgomery Ladder.
    *
@@ -4619,8 +4625,9 @@ edwards_init(edwards_t *ec, const edwards_def_t *def) {
 }
 
 static void
-edwards_clamp(edwards_t *ec, unsigned char *raw) {
-  ec->clamp(raw);
+edwards_clamp(edwards_t *ec, unsigned char *out, const unsigned char *in) {
+  memcpy(out, in, ec->sc.size);
+  ec->clamp(out);
 }
 
 static void
@@ -5186,7 +5193,7 @@ eddsa_privkey_hash(edwards_t *ec,
   hash_update(&h, priv, fe->size);
   hash_final(&h, out, fe->size * 2);
 
-  edwards_clamp(ec, out);
+  edwards_clamp(ec, out, out);
 }
 
 static void
@@ -5198,7 +5205,7 @@ eddsa_hash_init(edwards_t *ec,
   hash_init(h, ec->hash);
 
   if (ec->context || ph != -1 || ctx_len > 0) {
-    unsigned char prehash = ph > 0;
+    unsigned char prehash = (ph > 0);
     unsigned char length = ctx_len & 0xff;
 
     if (ec->prefix != NULL)
@@ -5212,20 +5219,20 @@ eddsa_hash_init(edwards_t *ec,
 
 static void
 eddsa_hash_final(edwards_t *ec, sc_t r, hash_t *h) {
-  unsigned char raw[MAX_FIELD_SIZE * 2];
+  unsigned char bytes[MAX_FIELD_SIZE * 2];
   mp_limb_t k[MAX_FIELD_LIMBS * 4];
   prime_field_t *fe = &ec->fe;
   scalar_field_t *sc = &ec->sc;
 
-  hash_final(h, raw, fe->size * 2);
+  hash_final(h, bytes, fe->size * 2);
 
-  mpn_import(k, ARRAY_SIZE(k), raw, fe->size * 2, sc->endian);
+  mpn_import(k, ARRAY_SIZE(k), bytes, fe->size * 2, sc->endian);
 
-  assert((size_t)mpn_bitlen(k, ARRAY_SIZE(k)) <= sc->shift);
+  assert(fe->bits * 2 <= sc->shift);
 
   sc_reduce(sc, r, k);
 
-  cleanse(raw, sizeof(raw));
+  cleanse(bytes, sizeof(bytes));
   mpn_cleanse(k, ARRAY_SIZE(k));
 }
 
@@ -5503,8 +5510,7 @@ eddsa_derive_with_scalar(edwards_t *ec,
   ege_t A, P;
   int ret = 0;
 
-  memcpy(clamped, scalar, sc->size);
-  edwards_clamp(ec, clamped);
+  edwards_clamp(ec, clamped, scalar);
 
   sc_import_reduce(sc, a, clamped);
 
