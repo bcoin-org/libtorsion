@@ -24,7 +24,7 @@ montgomery="$prefix/src/ExtractionOCaml/word_by_word_montgomery"
 "$montgomery" --static 'p384' '2^384 - 2^128 - 2^96 + 2^32 - 1' '64' > ./fields/p384_64.h
 
 # 2^521 - 1
-"$solinas" --static 'p521' '17' '2^521 - 1' '32' > ./fields/p521_32.h
+"$solinas" --static 'p521' '18' '2^521 - 1' '32' > ./fields/p521_32.h
 "$solinas" --static 'p521' '9' '2^521 - 1' '64' > ./fields/p521_64.h
 
 # 2^256 - 2^32 - 977

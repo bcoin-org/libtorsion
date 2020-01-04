@@ -4,7 +4,7 @@ typedef uint64_t p521_fe_word_t;
 #include "p521_64.h"
 #else
 typedef uint32_t p521_fe_word_t;
-#define P521_FIELD_WORDS 17
+#define P521_FIELD_WORDS 18
 #include "p521_32.h"
 #endif
 
