@@ -7,7 +7,12 @@
 #include <string.h>
 #include <stdint.h>
 #include <limits.h>
+
+#ifdef BCRYPTO_HAS_GMP
 #include <gmp.h>
+#else
+#include "mini-gmp.h"
+#endif
 
 #ifndef BCRYPTO_HAS_GMP
 #define GMP_LIMB_BITS (sizeof(mp_limb_t) * CHAR_BIT)
@@ -19,8 +24,16 @@
 #endif
 
 /* Nails probably break our code. */
-#if GMP_NAIL_BITS != 0
+#if GMP_NAIL_BITS != 0 || GMP_LIMB_BITS != GMP_NUMB_BITS
 #error "please use a build of gmp without nails"
+#endif
+
+#if (GMP_NUMB_BITS & 31) != 0
+#error "invalid gmp bit alignment"
+#endif
+
+#if CHAR_BIT != 8
+#error "sane char widths please"
 #endif
 
 #include "util.h"
@@ -35,7 +48,19 @@
 #include "fields/p25519.h"
 #include "fields/p448.h"
 
+#ifdef BCRYPTO_EC_64BIT
+typedef uint64_t fe_word_t;
+#define FIELD_WORD_SIZE 64
+#define MAX_FIELD_WORDS 9
+#else
+typedef uint32_t fe_word_t;
+#define FIELD_WORD_SIZE 32
+#define MAX_FIELD_WORDS 17
+#endif
+
+#ifndef ARRAY_SIZE
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
+#endif
 
 #define MAX_FIELD_BITS 521
 #define MAX_SCALAR_BITS 521
@@ -47,16 +72,6 @@
 
 #define MAX_FIELD_LIMBS \
   ((MAX_FIELD_BITS + GMP_NUMB_BITS - 1) / GMP_NUMB_BITS)
-
-#ifdef BCRYPTO_EC_64BIT
-typedef uint64_t fe_word_t;
-#define FIELD_WORD_SIZE 64
-#define MAX_FIELD_WORDS 9
-#else
-typedef uint32_t fe_word_t;
-#define FIELD_WORD_SIZE 32
-#define MAX_FIELD_WORDS 17
-#endif
 
 /*
  * Structs
@@ -1188,7 +1203,7 @@ static const prime_def_t field_p224 = {
   .from_bytes = fiat_p224_from_bytes,
   .carry = NULL,
   .invert = p224_fe_invert,
-  .sqrt = p224_fe_sqrt,
+  .sqrt = p224_fe_sqrt_var,
   .isqrt = NULL,
   .scmul_121666 = NULL
 };
