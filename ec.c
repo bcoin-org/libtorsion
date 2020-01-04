@@ -198,10 +198,13 @@ typedef struct wei_s {
   int hash;
   prime_field_t fe;
   scalar_field_t sc;
+  unsigned int h;
   mp_limb_t pmodn[MAX_SCALAR_LIMBS * 4];
   fe_t red_n;
   fe_t a;
   fe_t b;
+  int zero_a;
+  int three_a;
   wge_t g;
   sc_t blind;
   wge_t unblind;
@@ -245,6 +248,7 @@ typedef struct mont_s {
   const char *prefix;
   prime_field_t fe;
   scalar_field_t sc;
+  unsigned int h;
   fe_t a;
   fe_t b;
   fe_t bi;
@@ -295,9 +299,12 @@ typedef struct edwards_s {
   const char *prefix;
   prime_field_t fe;
   scalar_field_t sc;
+  unsigned int h;
   fe_t a;
   fe_t d;
   fe_t k;
+  int mone_a;
+  int one_a;
   ege_t g;
   sc_t blind;
   xge_t unblind;
@@ -1543,7 +1550,7 @@ fe_sqrt(prime_field_t *fe, fe_t r, const fe_t a) {
       fe_t a2, c;
 
       /* a2 = a * 2 mod p */
-      fe_mulw(fe, a2, a, 2);
+      fe_add(fe, a2, a, a);
 
       /* c = a2^((p - 5) / 8) mod p */
       mpn_copyi(e, fe->p, fe->limbs);
@@ -1991,7 +1998,7 @@ wge_neg(wei_t *ec, wge_t *r, const wge_t *a) {
 }
 
 static void
-wge_dbl(wei_t *ec, wge_t *r, const wge_t *a) {
+wge_dbl(wei_t *ec, wge_t *r, const wge_t *p) {
   /* [GECC] Page 80, Section 3.1.2.
    *
    * Addition Law (doubling):
@@ -2006,34 +2013,35 @@ wge_dbl(wei_t *ec, wge_t *r, const wge_t *a) {
   fe_t l, t, x3, y3;
 
   /* P = O */
-  if (a->inf) {
+  if (p->inf) {
     wge_zero(ec, r);
     return;
   }
 
   /* Y1 = 0 */
-  if (fe_is_zero(fe, a->y)) {
+  if (ec->h > 1 && fe_is_zero(fe, p->y)) {
     wge_zero(ec, r);
     return;
   }
 
   /* L = (3 * X1^2 + a) / (2 * Y1) */
-  fe_sqr(fe, l, a->x);
-  fe_mulw(fe, l, l, 3);
+  fe_sqr(fe, l, p->x);
+  fe_add(fe, t, l, l);
+  fe_add(fe, l, t, l);
   fe_add(fe, l, l, ec->a);
-  fe_mulw(fe, t, a->y, 2);
+  fe_add(fe, t, p->y, p->y);
   fe_invert_var(fe, t, t);
   fe_mul(fe, l, l, t);
 
   /* X3 = L^2 - 2 * X1 */
   fe_sqr(fe, x3, l);
-  fe_sub(fe, x3, x3, a->x);
-  fe_sub(fe, x3, x3, a->x);
+  fe_sub(fe, x3, x3, p->x);
+  fe_sub(fe, x3, x3, p->x);
 
   /* Y3 = L * (X1 - X3) - Y1 */
-  fe_sub(fe, t, a->x, x3);
+  fe_sub(fe, t, p->x, x3);
   fe_mul(fe, y3, l, t);
-  fe_sub(fe, y3, y3, a->y);
+  fe_sub(fe, y3, y3, p->y);
 
   fe_set(fe, r->x, x3);
   fe_set(fe, r->y, y3);
@@ -2337,39 +2345,31 @@ static void
 jge_to_wge(wei_t *ec, wge_t *r, const jge_t *p);
 
 static void
-jge_dbl(wei_t *ec, jge_t *r, const jge_t *a) {
+jge_dblj(wei_t *ec, jge_t *r, const jge_t *p) {
   /* https://hyperelliptic.org/EFD/g1p/auto-shortw-jacobian.html#doubling-dbl-1998-cmo-2
    * 3M + 6S + 4A + 1*a + 2*2 + 1*3 + 1*4 + 1*8
    * (implemented as: 3M + 6S + 5A + 1*a + 1*2 + 1*3 + 1*4 + 1*8)
    */
   prime_field_t *fe = &ec->fe;
-  fe_t xx, yy, zz, s, m, t, t0, t1, x3, y3, z3;
-
-  if (jge_is_zero(ec, a)) {
-    jge_zero(ec, r);
-    return;
-  }
-
-  if (fe_is_zero(fe, a->y)) {
-    jge_zero(ec, r);
-    return;
-  }
+  fe_t xx, yy, zz, s, m, t;
 
   /* XX = X1^2 */
-  fe_sqr(fe, xx, a->x);
+  fe_sqr(fe, xx, p->x);
 
   /* YY = Y1^2 */
-  fe_sqr(fe, yy, a->y);
+  fe_sqr(fe, yy, p->y);
 
   /* ZZ = Z1^2 */
-  fe_sqr(fe, zz, a->z);
+  fe_sqr(fe, zz, p->z);
 
   /* S = 4 * X1 * YY */
-  fe_mul(fe, s, a->x, yy);
-  fe_mulw(fe, s, s, 4);
+  fe_mul(fe, s, p->x, yy);
+  fe_add(fe, s, s, s);
+  fe_add(fe, s, s, s);
 
   /* M = 3 * XX + a * ZZ^2 */
-  fe_mulw(fe, m, xx, 3);
+  fe_add(fe, m, xx, xx);
+  fe_add(fe, m, m, xx);
   fe_sqr(fe, t, zz);
   fe_mul(fe, t, t, ec->a);
   fe_add(fe, m, m, t);
@@ -2379,23 +2379,144 @@ jge_dbl(wei_t *ec, jge_t *r, const jge_t *a) {
   fe_sub(fe, t, t, s);
   fe_sub(fe, t, t, s);
 
+  /* Z3 = 2 * Y1 * Z1 */
+  fe_mul(fe, r->z, p->y, p->z);
+  fe_add(fe, r->z, r->z, r->z);
+
   /* X3 = T */
-  fe_set(fe, x3, t);
+  fe_set(fe, r->x, t);
 
   /* Y3 = M * (S - T) - 8 * YY^2 */
-  fe_sub(fe, t0, s, t);
-  fe_sqr(fe, t1, yy);
-  fe_mulw(fe, t1, t1, 8);
-  fe_mul(fe, y3, m, t0);
-  fe_sub(fe, y3, y3, t1);
+  fe_sub(fe, xx, s, t);
+  fe_sqr(fe, zz, yy);
+  fe_add(fe, zz, zz, zz);
+  fe_add(fe, zz, zz, zz);
+  fe_add(fe, zz, zz, zz);
+  fe_mul(fe, r->y, m, xx);
+  fe_sub(fe, r->y, r->y, zz);
+}
+
+static void
+jge_dbl0(wei_t *ec, jge_t *r, const jge_t *p) {
+  /* Assumes a = 0.
+   * https://hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-0.html#doubling-dbl-2009-l
+   * 2M + 5S + 6A + 3*2 + 1*3 + 1*8
+   * (implemented as: 2M + 5S + 7A + 2*2 + 1*3 + 1*8)
+   */
+  prime_field_t *fe = &ec->fe;
+  fe_t a, b, c, d, e, f;
+
+  /* A = X1^2 */
+  fe_sqr(fe, a, p->x);
+
+  /* B = Y1^2 */
+  fe_sqr(fe, b, p->y);
+
+  /* C = B^2 */
+  fe_sqr(fe, c, b);
+
+  /* D = 2 * ((X1 + B)^2 - A - C) */
+  fe_add(fe, d, p->x, b);
+  fe_sqr(fe, d, d);
+  fe_sub(fe, d, d, a);
+  fe_sub(fe, d, d, c);
+  fe_add(fe, d, d, d);
+
+  /* E = 3 * A */
+  fe_add(fe, e, a, a);
+  fe_add(fe, e, e, a);
+
+  /* F = E^2 */
+  fe_sqr(fe, f, e);
 
   /* Z3 = 2 * Y1 * Z1 */
-  fe_mul(fe, z3, a->y, a->z);
-  fe_mulw(fe, z3, z3, 2);
+  fe_mul(fe, r->z, p->y, p->z);
+  fe_add(fe, r->z, r->z, r->z);
 
-  fe_set(fe, r->x, x3);
-  fe_set(fe, r->y, y3);
-  fe_set(fe, r->z, z3);
+  /* X3 = F - 2 * D */
+  fe_add(fe, r->x, d, d);
+  fe_sub(fe, r->x, f, r->x);
+
+  /* Y3 = E * (D - X3) - 8 * C */
+  fe_add(fe, c, c, c);
+  fe_add(fe, c, c, c);
+  fe_add(fe, c, c, c);
+  fe_sub(fe, d, d, r->x);
+  fe_mul(fe, r->y, e, d);
+  fe_sub(fe, r->y, r->y, c);
+}
+
+static void
+jge_dbl3(wei_t *ec, jge_t *r, const jge_t *p) {
+  /* Assumes a = -3.
+   * https://hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-3.html#doubling-dbl-2001-b
+   * 3M + 5S + 8A + 1*3 + 1*4 + 2*8
+   * (implemented as: 3M + 5S + 8A + 1*2 + 1*3 + 1*4 + 1*8)
+   */
+  prime_field_t *fe = &ec->fe;
+  fe_t delta, gamma, beta, alpha, t1, t2;
+
+  /* delta = Z1^2 */
+  fe_sqr(fe, delta, p->z);
+
+  /* gamma = Y1^2 */
+  fe_sqr(fe, gamma, p->y);
+
+  /* beta = X1 * gamma */
+  fe_mul(fe, beta, p->x, gamma);
+
+  /* alpha = 3 * (X1 - delta) * (X1 + delta) */
+  fe_sub(fe, t1, p->x, delta);
+  fe_add(fe, t2, p->x, delta);
+  fe_add(fe, alpha, t1, t1);
+  fe_add(fe, alpha, alpha, t1);
+  fe_mul(fe, alpha, t1, t2);
+
+  /* Z3 = (Y1 + Z1)^2 - gamma - delta */
+  fe_add(fe, r->z, p->y, p->z);
+  fe_sqr(fe, r->z, r->z);
+  fe_sub(fe, r->z, r->z, gamma);
+  fe_sub(fe, r->z, r->z, delta);
+
+  /* X3 = alpha^2 - 8 * beta */
+  fe_add(fe, t1, beta, beta);
+  fe_add(fe, t1, t1, t1);
+  fe_add(fe, t2, t1, t1);
+  fe_sqr(fe, r->x, alpha);
+  fe_sub(fe, r->x, r->x, t2);
+
+  /* Y3 = alpha * (4 * beta - X3) - 8 * gamma^2 */
+  fe_sub(fe, r->y, t1, r->x);
+  fe_mul(fe, r->y, r->y, alpha);
+  fe_sqr(fe, gamma, gamma);
+  fe_add(fe, gamma, gamma, gamma);
+  fe_add(fe, gamma, gamma, gamma);
+  fe_add(fe, gamma, gamma, gamma);
+  fe_sub(fe, r->y, r->y, gamma);
+}
+
+static void
+jge_dbl(wei_t *ec, jge_t *r, const jge_t *p) {
+  prime_field_t *fe = &ec->fe;
+
+  /* P = O */
+  if (jge_is_zero(ec, p)) {
+    jge_zero(ec, r);
+    return;
+  }
+
+  /* Y1 = 0 */
+  if (ec->h > 1 && fe_is_zero(fe, p->y)) {
+    jge_zero(ec, r);
+    return;
+  }
+
+  if (ec->zero_a)
+    jge_dbl0(ec, r, p);
+  else if (ec->three_a)
+    jge_dbl3(ec, r, p);
+  else
+    jge_dblj(ec, r, p);
 }
 
 static void
@@ -2405,13 +2526,15 @@ jge_add(wei_t *ec, jge_t *r, const jge_t *a, const jge_t *b) {
    * 12M + 4S + 6A + 1*2 (implemented as: 12M + 4S + 7A)
    */
   prime_field_t *fe = &ec->fe;
-  fe_t z1z1, z2z2, u1, u2, s1, s2, h, r0, hh, hhh, v, x3, y3, z3;
+  fe_t z1z1, z2z2, u1, u2, s1, s2, h, r0, hh, hhh, v;
 
+  /* O + P = P */
   if (jge_is_zero(ec, a)) {
     jge_set(ec, r, b);
     return;
   }
 
+  /* P + O = P */
   if (jge_is_zero(ec, b)) {
     jge_set(ec, r, a);
     return;
@@ -2463,25 +2586,21 @@ jge_add(wei_t *ec, jge_t *r, const jge_t *a, const jge_t *b) {
   /* V = U1 * HH */
   fe_mul(fe, v, u1, hh);
 
+  /* Z3 = Z1 * Z2 * H */
+  fe_mul(fe, r->z, a->z, b->z);
+  fe_mul(fe, r->z, r->z, h);
+
   /* X3 = r^2 - HHH - 2 * V */
-  fe_sqr(fe, x3, r0);
-  fe_sub(fe, x3, x3, hhh);
-  fe_sub(fe, x3, x3, v);
-  fe_sub(fe, x3, x3, v);
+  fe_sqr(fe, r->x, r0);
+  fe_sub(fe, r->x, r->x, hhh);
+  fe_sub(fe, r->x, r->x, v);
+  fe_sub(fe, r->x, r->x, v);
 
   /* Y3 = r * (V - X3) - S1 * HHH */
-  fe_sub(fe, u1, v, x3);
+  fe_sub(fe, u1, v, r->x);
   fe_mul(fe, u2, s1, hhh);
-  fe_mul(fe, y3, r0, u1);
-  fe_sub(fe, y3, y3, u2);
-
-  /* Z3 = Z1 * Z2 * H */
-  fe_mul(fe, z3, a->z, b->z);
-  fe_mul(fe, z3, z3, h);
-
-  fe_set(fe, r->x, x3);
-  fe_set(fe, r->y, y3);
-  fe_set(fe, r->z, z3);
+  fe_mul(fe, r->y, r0, u1);
+  fe_sub(fe, r->y, r->y, u2);
 }
 
 static void
@@ -2498,13 +2617,15 @@ jge_mixed_add(wei_t *ec, jge_t *r, const jge_t *a, const wge_t *b) {
    * 8M + 3S + 6A + 5*2 (implemented as: 8M + 3S + 7A + 4*2)
    */
   prime_field_t *fe = &ec->fe;
-  fe_t z1z1, u2, s2, h, r0, i, j, v, x3, y3, z3;
+  fe_t z1z1, u2, s2, h, r0, i, j, v;
 
+  /* O + P = P */
   if (jge_is_zero(ec, a)) {
     wge_to_jge(ec, r, b);
     return;
   }
 
+  /* P + O = P */
   if (wge_is_zero(ec, b)) {
     jge_set(ec, r, a);
     return;
@@ -2525,7 +2646,7 @@ jge_mixed_add(wei_t *ec, jge_t *r, const jge_t *a, const wge_t *b) {
 
   /* r = 2 * (S2 - Y1) */
   fe_sub(fe, r0, s2, a->y);
-  fe_mulw(fe, r0, r0, 2);
+  fe_add(fe, r0, r0, r0);
 
   /* H = 0 */
   if (fe_is_zero(fe, h)) {
@@ -2539,7 +2660,7 @@ jge_mixed_add(wei_t *ec, jge_t *r, const jge_t *a, const wge_t *b) {
   }
 
   /* I = (2 * H)^2 */
-  fe_mulw(fe, i, h, 2);
+  fe_add(fe, i, h, h);
   fe_sqr(fe, i, i);
 
   /* J = H * I */
@@ -2549,25 +2670,21 @@ jge_mixed_add(wei_t *ec, jge_t *r, const jge_t *a, const wge_t *b) {
   fe_mul(fe, v, a->x, i);
 
   /* X3 = r^2 - J - 2 * V */
-  fe_sqr(fe, x3, r0);
-  fe_sub(fe, x3, x3, j);
-  fe_sub(fe, x3, x3, v);
-  fe_sub(fe, x3, x3, v);
+  fe_sqr(fe, r->x, r0);
+  fe_sub(fe, r->x, r->x, j);
+  fe_sub(fe, r->x, r->x, v);
+  fe_sub(fe, r->x, r->x, v);
 
   /* Y3 = r * (V - X3) - 2 * Y1 * J */
-  fe_sub(fe, u2, v, x3);
+  fe_sub(fe, u2, v, r->x);
   fe_mul(fe, s2, a->y, j);
-  fe_mulw(fe, s2, s2, 2);
-  fe_mul(fe, y3, r0, u2);
-  fe_sub(fe, y3, y3, s2);
+  fe_add(fe, s2, s2, s2);
+  fe_mul(fe, r->y, r0, u2);
+  fe_sub(fe, r->y, r->y, s2);
 
   /* Z3 = 2 * Z1 * H */
-  fe_mul(fe, z3, a->z, h);
-  fe_mulw(fe, z3, z3, 2);
-
-  fe_set(fe, r->x, x3);
-  fe_set(fe, r->y, y3);
-  fe_set(fe, r->z, z3);
+  fe_mul(fe, r->z, a->z, h);
+  fe_add(fe, r->z, r->z, r->z);
 }
 
 static void
@@ -2723,7 +2840,7 @@ jge_zaddc(wei_t *ec, jge_t *r, jge_t *s, const jge_t *a, const jge_t *b) {
   fe_sub(fe, t2, t2, t5);
 
   /* T5 = 2 * T5 */
-  fe_mulw(fe, t5, t5, 2);
+  fe_add(fe, t5, t5, t5);
 
   /* T5 = T2 + T5 */
   fe_add(fe, t5, t2, t5);
@@ -2777,7 +2894,7 @@ jge_zdblu(wei_t *ec, jge_t *r, jge_t *p, const jge_t *a) {
   fe_set(fe, t2, a->y);
 
   /* T3 = 2 * T2 */
-  fe_mulw(fe, t3, t2, 2);
+  fe_add(fe, t3, t2, t2);
 
   /* T2 = T2^2 */
   fe_sqr(fe, t2, t2);
@@ -2801,13 +2918,13 @@ jge_zdblu(wei_t *ec, jge_t *r, jge_t *p, const jge_t *a) {
   fe_sub(fe, t4, t4, t2);
 
   /* T1 = 2 * T4 */
-  fe_mulw(fe, t1, t4, 2);
+  fe_add(fe, t1, t4, t4);
 
   /* T0 = T0 + T5 */
   fe_add(fe, t0, t0, t5);
 
   /* T5 = 2 * T5 */
-  fe_mulw(fe, t5, t5, 2);
+  fe_add(fe, t5, t5, t5);
 
   /* T0 = T0 + T5 */
   fe_add(fe, t0, t0, t5);
@@ -2816,13 +2933,15 @@ jge_zdblu(wei_t *ec, jge_t *r, jge_t *p, const jge_t *a) {
   fe_sqr(fe, t4, t0);
 
   /* T5 = 2 * T1 */
-  fe_mulw(fe, t5, t1, 2);
+  fe_add(fe, t5, t1, t1);
 
   /* T4 = T4 - T5 */
   fe_sub(fe, t4, t4, t5);
 
   /* T2 = 8 * T2 */
-  fe_mulw(fe, t2, t2, 8);
+  fe_add(fe, t2, t2, t2);
+  fe_add(fe, t2, t2, t2);
+  fe_add(fe, t2, t2, t2);
 
   /* T5 = T1 - T4 */
   fe_sub(fe, t5, t1, t4);
@@ -2845,10 +2964,10 @@ jge_zdblu(wei_t *ec, jge_t *r, jge_t *p, const jge_t *a) {
 }
 
 static void
-jge_dblp(wei_t *ec, jge_t *r, const jge_t *a, size_t pow) {
+jge_dblp(wei_t *ec, jge_t *r, const jge_t *p, size_t pow) {
   size_t i;
 
-  jge_set(ec, r, a);
+  jge_set(ec, r, p);
 
   for (i = 0; i < pow; i++)
     jge_dbl(ec, r, r);
@@ -2985,6 +3104,7 @@ wei_init(wei_t *ec, const wei_def_t *def) {
   scalar_field_t *sc = &ec->sc;
 
   ec->hash = def->hash;
+  ec->h = def->h;
 
   prime_field_init(fe, def->fe, 1);
   scalar_field_init(sc, def->sc, 1);
@@ -2994,6 +3114,9 @@ wei_init(wei_t *ec, const wei_def_t *def) {
   fe_set_limbs(fe, ec->red_n, sc->n, sc->limbs);
   fe_import(fe, ec->a, def->a);
   fe_import(fe, ec->b, def->b);
+
+  ec->zero_a = fe_is_zero(fe, ec->a);
+  ec->three_a = fe_equal(fe, ec->a, fe->three);
 
   fe_import(fe, ec->g.x, def->x);
   fe_import(fe, ec->g.y, def->y);
@@ -3495,7 +3618,7 @@ mge_neg(mont_t *ec, mge_t *r, const mge_t *a) {
 }
 
 static void
-mge_dbl(mont_t *ec, mge_t *r, const mge_t *a) {
+mge_dbl(mont_t *ec, mge_t *r, const mge_t *p) {
   /* [MONT1] Page 8, Section 4.3.2.
    *
    * Addition Law (doubling):
@@ -3510,25 +3633,26 @@ mge_dbl(mont_t *ec, mge_t *r, const mge_t *a) {
   fe_t l, t, x3, y3;
 
   /* P = O */
-  if (a->inf) {
+  if (p->inf) {
     mge_zero(ec, r);
     return;
   }
 
   /* Y1 = 0 */
-  if (fe_is_zero(fe, a->y)) {
+  if (fe_is_zero(fe, p->y)) {
     mge_zero(ec, r);
     return;
   }
 
   /* L = (3 * X1^2 + 2 * a * X1 + 1) / (2 * b * Y1) */
-  fe_mulw(fe, x3, ec->a, 2);
-  fe_mul(fe, x3, x3, a->x);
+  fe_add(fe, x3, ec->a, ec->a);
+  fe_mul(fe, x3, x3, p->x);
   fe_add(fe, x3, x3, fe->one);
-  fe_sqr(fe, l, a->x);
-  fe_mulw(fe, l, l, 3);
+  fe_sqr(fe, l, p->x);
+  fe_add(fe, t, l, l);
+  fe_add(fe, l, t, l);
   fe_add(fe, l, l, x3);
-  fe_mulw(fe, t, a->y, 2);
+  fe_add(fe, t, p->y, p->y);
   fe_mul(fe, t, t, ec->b);
   fe_invert_var(fe, t, t);
   fe_mul(fe, l, l, t);
@@ -3537,13 +3661,13 @@ mge_dbl(mont_t *ec, mge_t *r, const mge_t *a) {
   fe_sqr(fe, x3, l);
   fe_mul(fe, x3, x3, ec->b);
   fe_sub(fe, x3, x3, ec->a);
-  fe_sub(fe, x3, x3, a->x);
-  fe_sub(fe, x3, x3, a->x);
+  fe_sub(fe, x3, x3, p->x);
+  fe_sub(fe, x3, x3, p->x);
 
   /* Y3 = L * (X1 - X3) - Y1 */
-  fe_sub(fe, t, a->x, x3);
+  fe_sub(fe, t, p->x, x3);
   fe_mul(fe, y3, l, t);
-  fe_sub(fe, y3, y3, a->y);
+  fe_sub(fe, y3, y3, p->y);
 
   fe_set(fe, r->x, x3);
   fe_set(fe, r->y, y3);
@@ -3910,6 +4034,7 @@ mont_init(mont_t *ec, const mont_def_t *def) {
   prime_field_t *fe = &ec->fe;
   scalar_field_t *sc = &ec->sc;
 
+  ec->h = def->h;
   ec->clamp = def->clamp;
 
   prime_field_init(fe, def->fe, -1);
@@ -4190,8 +4315,8 @@ ege_add(edwards_t *ec, ege_t *r, const ege_t *a, const ege_t *b) {
 }
 
 static void
-ege_dbl(edwards_t *ec, ege_t *r, const ege_t *a) {
-  ege_add(ec, r, a, a);
+ege_dbl(edwards_t *ec, ege_t *r, const ege_t *p) {
+  ege_add(ec, r, p, p);
 }
 
 static void
@@ -4202,11 +4327,11 @@ ege_sub(edwards_t *ec, ege_t *r, const ege_t *a, const ege_t *b) {
 }
 
 static void
-ege_to_xge(edwards_t *ec, xge_t *r, const ege_t *a) {
+ege_to_xge(edwards_t *ec, xge_t *r, const ege_t *p) {
   prime_field_t *fe = &ec->fe;
 
-  fe_set(fe, r->x, a->x);
-  fe_set(fe, r->y, a->y);
+  fe_set(fe, r->x, p->x);
+  fe_set(fe, r->y, p->y);
   fe_set(fe, r->z, fe->one);
   fe_mul(fe, r->t, r->x, r->y);
 }
@@ -4350,30 +4475,30 @@ xge_neg_cond(edwards_t *ec, xge_t *r, const xge_t *a, unsigned int flag) {
 }
 
 static void
-xge_dbl(edwards_t *ec, xge_t *r, const xge_t *a) {
+xge_dbl(edwards_t *ec, xge_t *r, const xge_t *p) {
   /* https://hyperelliptic.org/EFD/g1p/auto-twisted-extended.html#doubling-dbl-2008-hwcd
    * 4M + 4S + 6A + 1*a + 1*2
    */
   prime_field_t *fe = &ec->fe;
-  fe_t A, b, c, d, e, g, f, h;
+  fe_t a, b, c, d, e, g, f, h;
 
   /* A = X1^2 */
-  fe_sqr(fe, A, a->x);
+  fe_sqr(fe, a, p->x);
 
   /* B = Y1^2 */
-  fe_sqr(fe, b, a->y);
+  fe_sqr(fe, b, p->y);
 
   /* C = 2 * Z1^2 */
-  fe_sqr(fe, c, a->z);
-  fe_mulw(fe, c, c, 2);
+  fe_sqr(fe, c, p->z);
+  fe_add(fe, c, c, c);
 
   /* D = a * A */
-  edwards_mul_a(ec, d, A);
+  edwards_mul_a(ec, d, a);
 
   /* E = (X1 + Y1)^2 - A - B */
-  fe_add(fe, e, a->x, a->y);
+  fe_add(fe, e, p->x, p->y);
   fe_sqr(fe, e, e);
-  fe_sub(fe, e, e, A);
+  fe_sub(fe, e, e, a);
   fe_sub(fe, e, e, b);
 
   /* G = D + B */
@@ -4475,7 +4600,7 @@ xge_add_m1(edwards_t *ec, xge_t *r, const xge_t *a, const xge_t *b) {
 
   /* D = Z1 * 2 * Z2 */
   fe_mul(fe, d, a->z, b->z);
-  fe_mulw(fe, d, d, 2);
+  fe_add(fe, d, d, d);
 
   /* E = B - A */
   fe_sub(fe, e, B, A);
@@ -4518,10 +4643,10 @@ xge_sub(edwards_t *ec, xge_t *r, const xge_t *a, const xge_t *b) {
 }
 
 static void
-xge_dblp(edwards_t *ec, xge_t *r, const xge_t *a, size_t pow) {
+xge_dblp(edwards_t *ec, xge_t *r, const xge_t *p, size_t pow) {
   size_t i;
 
-  xge_set(ec, r, a);
+  xge_set(ec, r, p);
 
   for (i = 0; i < pow; i++)
     xge_dbl(ec, r, r);
@@ -4645,6 +4770,7 @@ edwards_init(edwards_t *ec, const edwards_def_t *def) {
   ec->hash = def->hash;
   ec->context = def->context;
   ec->prefix = def->prefix;
+  ec->h = def->h;
   ec->clamp = def->clamp;
 
   prime_field_init(fe, def->fe, -1);
@@ -4655,7 +4781,10 @@ edwards_init(edwards_t *ec, const edwards_def_t *def) {
 
   fe_import_be(fe, ec->a, def->a);
   fe_import_be(fe, ec->d, def->d);
-  fe_mulw(fe, ec->k, ec->d, 2);
+  fe_add(fe, ec->k, ec->d, ec->d);
+
+  ec->mone_a = fe_equal(fe, ec->a, fe->mone);
+  ec->one_a = fe_equal(fe, ec->a, fe->one);
 
   fe_import_be(fe, ec->g.x, def->x);
   fe_import_be(fe, ec->g.y, def->y);
@@ -4674,12 +4803,14 @@ edwards_clamp(edwards_t *ec, unsigned char *out, const unsigned char *in) {
 
 static void
 edwards_mul_a(edwards_t *ec, fe_t r, const fe_t x) {
-  if (ec->fe.bits == 255)
-    fe_neg(&ec->fe, r, x); /* a = -1 */
-  else if (ec->fe.bits == 448)
-    fe_set(&ec->fe, r, x); /* a = 1 */
+  prime_field_t *fe = &ec->fe;
+
+  if (ec->mone_a)
+    fe_neg(fe, r, x); /* a = -1 */
+  else if (ec->one_a)
+    fe_set(fe, r, x); /* a = 1 */
   else
-    fe_mul(&ec->fe, r, x, ec->a);
+    fe_mul(fe, r, x, ec->a);
 }
 
 static void
