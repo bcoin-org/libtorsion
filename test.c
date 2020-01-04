@@ -150,7 +150,6 @@ test_field_element(void) {
   assert(!fe_import(fe, t, raw));
 }
 
-
 static void
 test_wei_points_p256(void) {
   const unsigned char g_raw[33] = {
