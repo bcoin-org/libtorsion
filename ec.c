@@ -3006,7 +3006,7 @@ jge_to_wge_var(wei_t *ec, wge_t *r, const jge_t *p) {
 
   /* P = O */
   if (jge_is_zero(ec, p)) {
-    r->inf = 1;
+    wge_zero(ec, r);
     return;
   }
 
