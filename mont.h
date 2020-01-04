@@ -128,24 +128,11 @@ static int
 mge_import(mont_t *ec, mge_t *r, const unsigned char *raw) {
   /* [RFC7748] Section 5. */
   prime_field_t *fe = &ec->fe;
+  pge_t p;
 
-  if ((fe->bits & 7) != 0) {
-    /* Ignore the hi bit for curve25519. */
-    unsigned char tmp[MAX_FIELD_SIZE];
-    unsigned int ignore = fe->size * 8 - fe->bits;
-    unsigned int mask = (1 << (8 - ignore)) - 1;
+  pge_import(ec, &p, raw);
 
-    memcpy(tmp, raw, fe->size);
-
-    tmp[fe->size - 1] &= mask;
-
-    fe_import(fe, r->x, tmp);
-  } else {
-    fe_import(fe, r->x, raw);
-  }
-
-  /* Take the principle square root. */
-  return mge_set_x(ec, r, r->x, -1);
+  return pge_to_mge(ec, r, &p);
 }
 
 static int
@@ -467,18 +454,6 @@ pge_swap(mont_t *ec, pge_t *a, pge_t *b, unsigned int flag) {
 }
 
 static void
-pge_select(mont_t *ec,
-           pge_t *r,
-           const pge_t *a,
-           const pge_t *b,
-           unsigned int flag) {
-  prime_field_t *fe = &ec->fe;
-
-  fe_select(fe, r->x, a->x, b->x, flag);
-  fe_select(fe, r->z, a->z, b->z, flag);
-}
-
-static void
 pge_set(mont_t *ec, pge_t *r, const pge_t *a) {
   prime_field_t *fe = &ec->fe;
 
@@ -506,39 +481,32 @@ pge_equal(mont_t *ec, const pge_t *a, const pge_t *b) {
 }
 
 static void
-pge_zero_cond(mont_t *ec, pge_t *r, const pge_t *a, unsigned int flag) {
-  prime_field_t *fe = &ec->fe;
-
-  fe_select(fe, r->x, a->x, fe->one, flag);
-  fe_select(fe, r->z, a->z, fe->zero, flag);
-}
-
-static void
 pge_dbl(mont_t *ec, pge_t *p3, const pge_t *p1) {
-  // https://hyperelliptic.org/EFD/g1p/auto-montgom-xz.html#doubling-dbl-1987-m-3
-  // 2M + 2S + 4A + 1*a24
+  /* https://hyperelliptic.org/EFD/g1p/auto-montgom-xz.html#doubling-dbl-1987-m-3
+   * 2M + 2S + 4A + 1*a24
+   */
   prime_field_t *fe = &ec->fe;
   fe_t a, aa, b, bb, c, t;
 
-  // A = X1 + Z1
+  /* A = X1 + Z1 */
   fe_add(fe, a, p1->x, p1->z);
 
-  // AA = A^2
+  /* AA = A^2 */
   fe_sqr(fe, aa, a);
 
-  // B = X1 - Z1
+  /* B = X1 - Z1 */
   fe_sub(fe, b, p1->x, p1->z);
 
-  // BB = B^2
+  /* BB = B^2 */
   fe_sqr(fe, bb, b);
 
-  // C = AA - BB
+  /* C = AA - BB */
   fe_sub(fe, c, aa, bb);
 
-  // X3 = AA * BB
+  /* X3 = AA * BB */
   fe_mul(fe, p3->x, aa, bb);
 
-  // Z3 = C * (BB + a24 * C)
+  /* Z3 = C * (BB + a24 * C) */
   fe_mul(fe, t, c, ec->a24);
   fe_add(fe, t, bb, t);
   fe_mul(fe, p3->z, c, t);
@@ -546,100 +514,65 @@ pge_dbl(mont_t *ec, pge_t *p3, const pge_t *p1) {
 
 static void
 pge_dad(mont_t *ec, pge_t *p5, pge_t *p4, const pge_t *p1, const pge_t *p3, const pge_t *p2) {
-  // https://hyperelliptic.org/EFD/g1p/auto-montgom-xz.html#ladder-ladd-1987-m-3
-  // 6M + 4S + 8A + 1*a24
+  /* https://hyperelliptic.org/EFD/g1p/auto-montgom-xz.html#ladder-ladd-1987-m-3
+   * 6M + 4S + 8A + 1*a24
+   */
   prime_field_t *fe = &ec->fe;
   fe_t a, aa, b, bb, e, c, d, da, cb, t;
 
   assert(p5 != p1);
 
-  // A = X2 + Z2
+  /* A = X2 + Z2 */
   fe_add(fe, a, p2->x, p2->z);
 
-  // AA = A^2
+  /* AA = A^2 */
   fe_sqr(fe, aa, a);
 
-  // B = X2 - Z2
+  /* B = X2 - Z2 */
   fe_sub(fe, b, p2->x, p2->z);
 
-  // BB = B^2
+  /* BB = B^2 */
   fe_sqr(fe, bb, b);
 
-  // E = AA - BB
+  /* E = AA - BB */
   fe_sub(fe, aa, bb);
 
-  // C = X3 + Z3
+  /* C = X3 + Z3 */
   fe_add(fe, c, p3->x, p3->z);
 
-  // D = X3 - Z3
+  /* D = X3 - Z3 */
   fe_sub(fe, d, p3->x, p3->z);
 
-  // DA = D * A
+  /* DA = D * A */
   fe_mul(fe, da, d, a);
 
-  // CB = C * B
+  /* CB = C * B */
   fe_mul(fe, cb, c, b);
 
-  // X5 = Z1 * (DA + CB)^2
+  /* X5 = Z1 * (DA + CB)^2 */
   fe_add(fe, t, da, cb);
   fe_sqr(fe, t, t);
   fe_mul(fe, p5->x, p1->z, t);
 
-  // Z5 = X1 * (DA - CB)^2
+  /* Z5 = X1 * (DA - CB)^2 */
   fe_sub(fe, t, da, cb);
   fe_sqr(fe, t, t);
   fe_mul(fe, p5->z, p1->x, t);
 
-  // X4 = AA * BB
+  /* X4 = AA * BB */
   fe_mul(fe, p4->x, aa, bb);
 
-  // Z4 = E * (BB + a24 * E)
+  /* Z4 = E * (BB + a24 * E) */
   fe_mul(fe, t, ec->a24, e);
   fe_add(fe, t, bb, t);
   fe_mul(fe, p4->z, e, t);
 }
 
-static void
-mont_ladder(mont_t *ec, scalar_field_t *sc, pge_t *r, const pge_t *p, const sc_t k) {
-  // Multiply with the Montgomery Ladder.
-  //
-  // [MONT3] Algorithm 7, Page 16, Section 5.3.
-  //         Algorithm 8, Page 16, Section 5.3.
-  //
-  // [RFC7748] Page 7, Section 5.
-  //
-  // Note that any clamping is meant to
-  // be done _outside_ of this function.
-  pge_t a, b;
-  int swap = 0;
-
-  // Clone points (for safe swapping).
-  pge_set(ec, a, p);
-  pge_zero(ec, b, b);
-
-  // Climb the ladder.
-  for (let i = sc->bits - 1; i >= 0; i--) {
-    mp_limb_t bit = (k[i >> 3] >> (i & 7)) & 1;
-
-    // Maybe swap.
-    pge_swap(ec, a, b, swap ^ bit);
-
-    // Single coordinate add+double.
-    pge_dad(ec, a, b, point, a, b);
-
-    swap = bit;
-  }
-
-  // Finalize loop.
-  pge_swap(ec, a, b, swap);
-
-  pge_set(ec, r, b);
-}
-
 static int
 pge_to_mge(mont_t *ec, mge_t *r, const pge_t *p) {
-  // https://hyperelliptic.org/EFD/g1p/auto-montgom-xz.html#scaling-scale
-  // 1I + 1M
+  /* https://hyperelliptic.org/EFD/g1p/auto-montgom-xz.html#scaling-scale
+   * 1I + 1M
+   */
   prime_field_t *fe = &ec->fe;
   fe_t a;
 
@@ -649,6 +582,7 @@ pge_to_mge(mont_t *ec, mge_t *r, const pge_t *p) {
   /* X3 = X1 * A */
   fe_mul(fe, r->x, p->x, a);
 
+  /* Take the principle square root. */
   return mge_set_x(ec, r, r->x, -1);
 }
 
@@ -692,6 +626,52 @@ mont_init(mont_t *ec, const mont_def_t *def) {
   fe_import_be(fe, ec->g.x, def->x);
   fe_import_be(fe, ec->g.y, def->y);
   ec->g.inf = 0;
+}
+
+static void
+mont_mul(mont_t *ec, pge_t *r, const pge_t *p, const sc_t k) {
+  /* Multiply with the Montgomery Ladder.
+   *
+   * [MONT3] Algorithm 7, Page 16, Section 5.3.
+   *         Algorithm 8, Page 16, Section 5.3.
+   *
+   * [RFC7748] Page 7, Section 5.
+   *
+   * Note that any clamping is meant to
+   * be done _outside_ of this function.
+   */
+  pge_t a, b;
+  int swap = 0;
+  mp_size_t i;
+
+  /* Clone points (for safe swapping). */
+  pge_set(ec, a, p);
+  pge_zero(ec, b, b);
+
+  /* Climb the ladder. */
+  for (i = fe->bits - 1; i >= 0; i--) {
+    mp_limb_t bit = (k[i / GMP_NUMB_BITS] >> (i % GMP_NUMB_BITS)) & 1;
+
+    /* Maybe swap. */
+    pge_swap(ec, a, b, swap ^ bit);
+
+    /* Single coordinate add+double. */
+    pge_dad(ec, a, b, p, a, b);
+
+    swap = bit;
+  }
+
+  /* Finalize loop. */
+  pge_swap(ec, a, b, swap);
+
+  pge_set(ec, r, b);
+}
+
+static void
+mont_mul_g(mont_t *ec, pge_t *r, const sc_t k) {
+  pge_t g;
+  mge_to_pge(ec, &g, &ec->g);
+  mont_ladder(ec, r, &g, k);
 }
 
 /*
