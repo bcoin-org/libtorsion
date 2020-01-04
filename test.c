@@ -6,6 +6,32 @@
 #include <limits.h>
 #include "ec.c"
 
+int RAND_status(void);
+int RAND_poll();
+int RAND_bytes(unsigned char *buf, int num);
+
+static int
+random_bytes(unsigned char *dst, size_t len) {
+  memset(dst, 0x00, len);
+
+  if (len > (size_t)INT_MAX)
+    return 0;
+
+  for (;;) {
+    int status = RAND_status();
+
+    assert(status >= 0);
+
+    if (status != 0)
+      break;
+
+    if (RAND_poll() == 0)
+      break;
+  }
+
+  return RAND_bytes(dst, (int)len) == 1;
+}
+
 int
 main(void) {
   wei_t *ec = malloc(sizeof(wei_t));
@@ -24,7 +50,7 @@ main(void) {
   fe = &ec->fe;
   sc = &ec->sc;
 
-  ecdsa_random_bytes(entropy, sizeof(entropy));
+  random_bytes(entropy, sizeof(entropy));
 
   wei_randomize(ec, entropy);
 
@@ -420,9 +446,9 @@ main(void) {
 
     wei_init(ec, &curve_secp256k1);
 
-    ecdsa_random_bytes(entropy, sizeof(entropy));
-    ecdsa_random_bytes(priv, sizeof(priv));
-    ecdsa_random_bytes(msg, sizeof(msg));
+    random_bytes(entropy, sizeof(entropy));
+    random_bytes(priv, sizeof(priv));
+    random_bytes(msg, sizeof(msg));
 
     priv[0] &= 0x7f;
 
@@ -485,7 +511,7 @@ main(void) {
 
     wei_init(ec, &curve_p521);
 
-    ecdsa_random_bytes(entropy, sizeof(entropy));
+    random_bytes(entropy, sizeof(entropy));
 
     wei_randomize(ec, entropy);
 
@@ -573,9 +599,9 @@ main(void) {
 
     wei_init(ec, &curve_p521);
 
-    ecdsa_random_bytes(entropy, sizeof(entropy));
-    ecdsa_random_bytes(priv, sizeof(priv));
-    ecdsa_random_bytes(msg, sizeof(msg));
+    random_bytes(entropy, sizeof(entropy));
+    random_bytes(priv, sizeof(priv));
+    random_bytes(msg, sizeof(msg));
 
     priv[0] = 0;
 
@@ -622,7 +648,7 @@ main(void) {
 
     edwards_init(ec, &curve_ed25519);
 
-    ecdsa_random_bytes(entropy, sizeof(entropy));
+    random_bytes(entropy, sizeof(entropy));
 
     edwards_randomize(ec, entropy);
 

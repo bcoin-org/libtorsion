@@ -20,6 +20,7 @@
 #include "fields/secp256k1.h"
 #include "fields/p25519.h"
 #include "fields/p448.h"
+#include "hash.h"
 
 #ifdef BCRYPTO_HAS_GMP
 #include <gmp.h>
@@ -72,11 +73,6 @@ typedef uint32_t fe_word_t;
 
 #define NAF_WIDTH 4
 #define NAF_WIDTH_PRE 8
-
-#define HASH_SHA256 0
-#define HASH_SHA384 1
-#define HASH_SHA512 2
-#define HASH_SHAKE256 3
 
 /*
  * Scalar Field
@@ -4896,32 +4892,6 @@ edwards_randomize(edwards_t *ec, const unsigned char *entropy) {
  * ECDSA
  */
 
-int RAND_status(void);
-int RAND_poll();
-int RAND_bytes(unsigned char *buf, int num);
-
-static int
-ecdsa_random_bytes(unsigned char *dst, size_t len) {
-  memset(dst, 0x00, len);
-
-  if (len > (size_t)INT_MAX)
-    return 0;
-
-  for (;;) {
-    int status = RAND_status();
-
-    assert(status >= 0);
-
-    if (status != 0)
-      break;
-
-    if (RAND_poll() == 0)
-      break;
-  }
-
-  return RAND_bytes(dst, (int)len) == 1;
-}
-
 static int
 ecdsa_reduce(wei_t *ec, sc_t r, const unsigned char *msg, size_t msg_len) {
   scalar_field_t *sc = &ec->sc;
@@ -4991,9 +4961,10 @@ ecdsa_sign(wei_t *ec,
            const unsigned char *priv) {
   prime_field_t *fe = &ec->fe;
   scalar_field_t *sc = &ec->sc;
+  drbg_t rng;
   sc_t a, m, k, r, s;
   wge_t R;
-  unsigned char bytes[MAX_SCALAR_SIZE];
+  unsigned char bytes[MAX_SCALAR_SIZE * 2];
   unsigned int hint;
   int ret = 0;
 
@@ -5008,9 +4979,13 @@ ecdsa_sign(wei_t *ec,
 
   ecdsa_reduce(ec, m, msg, msg_len);
 
+  memcpy(bytes, priv, sc->size);
+  sc_export(sc, bytes + sc->size, m);
+
+  drbg_init(&rng, ec->hash, bytes, sc->size * 2);
+
   for (;;) {
-    if (!ecdsa_random_bytes(bytes, sc->size))
-      goto fail;
+    drbg_generate(&rng, bytes, sc->size);
 
     if (!ecdsa_reduce(ec, k, bytes, sc->size))
       continue;
@@ -5049,13 +5024,14 @@ ecdsa_sign(wei_t *ec,
 
   ret = 1;
 fail:
-  cleanse(bytes, sizeof(bytes));
+  cleanse(&rng, sizeof(drbg_t));
   sc_cleanse(sc, a);
   sc_cleanse(sc, m);
   sc_cleanse(sc, k);
   sc_cleanse(sc, r);
   sc_cleanse(sc, s);
   wge_cleanse(ec, &R);
+  cleanse(bytes, sizeof(bytes));
   return ret;
 }
 
