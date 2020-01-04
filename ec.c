@@ -1,6 +1,3 @@
-#define BCRYPTO_HAS_GMP
-#define BCRYPTO_EC_64BIT
-
 #include <assert.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -25,18 +22,6 @@
 
 #ifdef BCRYPTO_HAS_GMP
 #include <gmp.h>
-#else
-#include "mini-gmp.h"
-#endif
-
-#ifndef BCRYPTO_HAS_GMP
-#define GMP_LIMB_BITS (sizeof(mp_limb_t) * CHAR_BIT)
-#define GMP_NAIL_BITS 0
-#define GMP_NUMB_BITS GMP_LIMB_BITS
-#define GMP_NUMB_MASK (~((mp_limb_t)0))
-#define GMP_NUMB_MAX GMP_NUMB_MASK
-#define GMP_NAIL_MASK 0
-#endif
 
 /* Nails probably break our code. */
 #if GMP_NAIL_BITS != 0 || GMP_LIMB_BITS != GMP_NUMB_BITS
@@ -46,6 +31,16 @@
 #if (GMP_NUMB_BITS & 31) != 0
 #error "invalid gmp bit alignment"
 #endif
+#else /* BCRYPTO_HAS_GMP */
+#include "mini-gmp.h"
+
+#define GMP_LIMB_BITS (sizeof(mp_limb_t) * CHAR_BIT)
+#define GMP_NAIL_BITS 0
+#define GMP_NUMB_BITS GMP_LIMB_BITS
+#define GMP_NUMB_MASK (~((mp_limb_t)0))
+#define GMP_NUMB_MAX GMP_NUMB_MASK
+#define GMP_NAIL_MASK 0
+#endif /* BCRYPTO_HAS_GMP */
 
 #if CHAR_BIT != 8
 #error "sane char widths please"
@@ -1137,16 +1132,16 @@ fe_import(prime_field_t *fe, fe_t r, const unsigned char *raw) {
 
     sc_reduce(&fe->sc, xp, xp);
 
-#if GMP_NUMB_BITS == FIELD_WORD_SIZE
-    /* Import directly. */
-    assert(sizeof(mp_limb_t) == sizeof(fe_word_t));
-    assert((size_t)fe->limbs == fe->words);
-    memcpy(r, xp, fe->limbs * sizeof(mp_limb_t));
-#else
-    /* Export as little endian. */
-    mpn_export_le(tmp, fe->size, xp, fe->limbs);
-    fe->from_bytes(r, tmp);
-#endif
+    if (GMP_NUMB_BITS == FIELD_WORD_SIZE) {
+      /* Import directly. */
+      assert(sizeof(mp_limb_t) == sizeof(fe_word_t));
+      assert((size_t)fe->limbs == fe->words);
+      memcpy(r, xp, fe->limbs * sizeof(mp_limb_t));
+    } else {
+      /* Export as little endian. */
+      mpn_export_le(tmp, fe->size, xp, fe->limbs);
+      fe->from_bytes(r, tmp);
+    }
   } else {
     if (fe->endian == 1) {
       /* Swap endianness. */
