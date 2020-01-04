@@ -1755,6 +1755,7 @@ wge_zero(wei_t *ec, wge_t *r) {
 static void
 wge_cleanse(wei_t *ec, wge_t *r) {
   prime_field_t *fe = &ec->fe;
+
   fe_cleanse(fe, r->x);
   fe_cleanse(fe, r->y);
   r->inf = 1;
@@ -4115,6 +4116,7 @@ ege_zero(edwards_t *ec, ege_t *r) {
 static void
 ege_cleanse(edwards_t *ec, ege_t *r) {
   prime_field_t *fe = &ec->fe;
+
   fe_cleanse(fe, r->x);
   fe_cleanse(fe, r->y);
 }
