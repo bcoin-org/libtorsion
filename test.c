@@ -15,6 +15,11 @@ static const wei_def_t *wei_curves[5] = {
   &curve_secp256k1
 };
 
+static const mont_def_t *mont_curves[2] = {
+  &curve_x25519,
+  &curve_x448
+};
+
 static const edwards_def_t *edwards_curves[1] = {
   &curve_ed25519
 };
@@ -88,7 +93,7 @@ print_hex(const unsigned char *data, size_t len) {
 }
 
 static void
-test_sc(void) {
+test_scalar(void) {
   wei_t curve;
   wei_t *ec = &curve;
   scalar_field_t *sc = &ec->sc;
@@ -122,7 +127,7 @@ test_sc(void) {
 }
 
 static void
-test_fe(void) {
+test_field_element(void) {
   wei_t curve;
   wei_t *ec = &curve;
   prime_field_t *fe = &ec->fe;
@@ -1092,126 +1097,171 @@ test_eddsa_vector_ed25519(void) {
 
 static void
 test_ecdsa_random(void) {
-  size_t i;
+  size_t i, j;
+  wei_t ec;
+  prime_field_t *fe = &ec.fe;
+  scalar_field_t *sc = &ec.sc;
 
   printf("Randomized ECDSA testing...\n");
 
   for (i = 0; i < ARRAY_SIZE(wei_curves); i++) {
     const wei_def_t *def = wei_curves[i];
-    wei_t ec;
-    prime_field_t *fe = &ec.fe;
-    scalar_field_t *sc = &ec.sc;
-    unsigned char entropy[MAX_SCALAR_SIZE];
-    unsigned char priv[MAX_SCALAR_SIZE];
-    unsigned char msg[MAX_SCALAR_SIZE];
-    unsigned char sig[MAX_SCALAR_SIZE * 2];
-    unsigned char pub[MAX_FIELD_SIZE + 1];
-    unsigned char rec[MAX_FIELD_SIZE + 1];
-    size_t pub_len, rec_len;
-    unsigned int param;
-    size_t i;
 
     printf("  - %s\n", def->id);
 
     wei_init(&ec, def);
 
-    random_bytes(entropy, sizeof(entropy));
-    random_bytes(priv, sizeof(priv));
-    random_bytes(msg, sizeof(msg));
+    for (j = 0; j < 100; j++) {
+      unsigned char entropy[MAX_SCALAR_SIZE];
+      unsigned char priv[MAX_SCALAR_SIZE];
+      unsigned char msg[MAX_SCALAR_SIZE];
+      unsigned char sig[MAX_SCALAR_SIZE * 2];
+      unsigned char pub[MAX_FIELD_SIZE + 1];
+      unsigned char rec[MAX_FIELD_SIZE + 1];
+      size_t pub_len, rec_len;
+      unsigned int param;
+      size_t k;
 
-    priv[0] = 0;
+      random_bytes(entropy, sizeof(entropy));
+      random_bytes(priv, sizeof(priv));
+      random_bytes(msg, sizeof(msg));
 
-    wei_randomize(&ec, entropy);
+      priv[0] = 0;
 
-    assert(ecdsa_sign(&ec, sig, &param, msg, sc->size, priv));
-    assert(ecdsa_pubkey_create(&ec, pub, &pub_len, priv, 1));
-    assert(pub_len == fe->size + 1);
-    assert(ecdsa_verify(&ec, msg, sc->size, sig, pub, fe->size + 1));
-    assert(ecdsa_recover(&ec, rec, &rec_len, msg, sc->size, sig, param, 1));
-    assert(rec_len == fe->size + 1);
-    assert(memcmp(pub, rec, fe->size + 1) == 0);
+      wei_randomize(&ec, entropy);
 
-    i = random_int(sc->size);
+      assert(ecdsa_sign(&ec, sig, &param, msg, sc->size, priv));
+      assert(ecdsa_pubkey_create(&ec, pub, &pub_len, priv, 1));
+      assert(pub_len == fe->size + 1);
+      assert(ecdsa_verify(&ec, msg, sc->size, sig, pub, fe->size + 1));
+      assert(ecdsa_recover(&ec, rec, &rec_len, msg, sc->size, sig, param, 1));
+      assert(rec_len == fe->size + 1);
+      assert(memcmp(pub, rec, fe->size + 1) == 0);
 
-    msg[i] ^= 1;
-    assert(!ecdsa_verify(&ec, msg, sc->size, sig, pub, fe->size + 1));
-    msg[i] ^= 1;
+      k = random_int(sc->size);
 
-    pub[i] ^= 1;
-    assert(!ecdsa_verify(&ec, msg, sc->size, sig, pub, fe->size + 1));
-    pub[i] ^= 1;
+      if (fe->bits != 521) {
+        msg[k] ^= 1;
+        assert(!ecdsa_verify(&ec, msg, sc->size, sig, pub, fe->size + 1));
+        msg[k] ^= 1;
+      }
 
-    sig[i] ^= 1;
-    assert(!ecdsa_verify(&ec, msg, sc->size, sig, pub, fe->size + 1));
-    sig[i] ^= 1;
+      pub[k] ^= 1;
+      assert(!ecdsa_verify(&ec, msg, sc->size, sig, pub, fe->size + 1));
+      pub[k] ^= 1;
 
-    sig[sc->size + i] ^= 1;
-    assert(!ecdsa_verify(&ec, msg, sc->size, sig, pub, fe->size + 1));
-    sig[sc->size + i] ^= 1;
+      sig[k] ^= 1;
+      assert(!ecdsa_verify(&ec, msg, sc->size, sig, pub, fe->size + 1));
+      sig[k] ^= 1;
 
-    assert(ecdsa_verify(&ec, msg, sc->size, sig, pub, fe->size + 1));
+      sig[sc->size + k] ^= 1;
+      assert(!ecdsa_verify(&ec, msg, sc->size, sig, pub, fe->size + 1));
+      sig[sc->size + k] ^= 1;
+
+      assert(ecdsa_verify(&ec, msg, sc->size, sig, pub, fe->size + 1));
+    }
+  }
+}
+
+static void
+test_ecdh_random(void) {
+  size_t i, j;
+  mont_t ec;
+  prime_field_t *fe = &ec.fe;
+
+  printf("Randomized ECDH testing...\n");
+
+  for (i = 0; i < ARRAY_SIZE(mont_curves); i++) {
+    const mont_def_t *def = mont_curves[i];
+
+    printf("  - %s\n", def->id);
+
+    mont_init(&ec, def);
+
+    for (j = 0; j < 100; j++) {
+      unsigned char alice_priv[MAX_SCALAR_SIZE];
+      unsigned char alice_pub[MAX_FIELD_SIZE];
+      unsigned char alice_secret[MAX_FIELD_SIZE];
+      unsigned char bob_priv[MAX_SCALAR_SIZE];
+      unsigned char bob_pub[MAX_FIELD_SIZE];
+      unsigned char bob_secret[MAX_FIELD_SIZE];
+
+      random_bytes(alice_priv, sizeof(alice_priv));
+      random_bytes(bob_priv, sizeof(bob_priv));
+
+      ecdh_pubkey_create(&ec, alice_pub, alice_priv);
+      ecdh_pubkey_create(&ec, bob_pub, bob_priv);
+
+      assert(ecdh_derive(&ec, alice_secret, bob_pub, alice_priv));
+      assert(ecdh_derive(&ec, bob_secret, alice_pub, bob_priv));
+
+      assert(memcmp(alice_secret, bob_secret, fe->size) == 0);
+    }
   }
 }
 
 static void
 test_eddsa_random(void) {
-  size_t i;
+  size_t i, j;
+  edwards_t ec;
+  prime_field_t *fe = &ec.fe;
+  scalar_field_t *sc = &ec.sc;
 
   printf("Randomized EdDSA testing...\n");
 
   for (i = 0; i < ARRAY_SIZE(edwards_curves); i++) {
     const edwards_def_t *def = edwards_curves[i];
-    edwards_t ec;
-    prime_field_t *fe = &ec.fe;
-    scalar_field_t *sc = &ec.sc;
-    unsigned char entropy[MAX_SCALAR_SIZE];
-    unsigned char priv[MAX_FIELD_SIZE];
-    unsigned char msg[MAX_SCALAR_SIZE];
-    unsigned char sig[MAX_FIELD_SIZE * 2];
-    unsigned char pub[MAX_FIELD_SIZE];
-    size_t i;
 
     printf("  - %s\n", def->id);
 
     edwards_init(&ec, def);
 
-    random_bytes(entropy, sizeof(entropy));
-    random_bytes(priv, sizeof(priv));
-    random_bytes(msg, sizeof(msg));
+    for (j = 0; j < 100; j++) {
+      unsigned char entropy[MAX_SCALAR_SIZE];
+      unsigned char priv[MAX_FIELD_SIZE];
+      unsigned char msg[MAX_SCALAR_SIZE];
+      unsigned char sig[MAX_FIELD_SIZE * 2];
+      unsigned char pub[MAX_FIELD_SIZE];
+      size_t k;
 
-    edwards_randomize(&ec, entropy);
+      random_bytes(entropy, sizeof(entropy));
+      random_bytes(priv, sizeof(priv));
+      random_bytes(msg, sizeof(msg));
 
-    eddsa_sign(&ec, sig, msg, sc->size, priv, -1, NULL, 0);
-    eddsa_pubkey_create(&ec, pub, priv);
+      edwards_randomize(&ec, entropy);
 
-    assert(eddsa_verify(&ec, msg, sc->size, sig, pub, -1, NULL, 0));
+      eddsa_sign(&ec, sig, msg, sc->size, priv, -1, NULL, 0);
+      eddsa_pubkey_create(&ec, pub, priv);
 
-    i = random_int(sc->size);
+      assert(eddsa_verify(&ec, msg, sc->size, sig, pub, -1, NULL, 0));
 
-    msg[i] ^= 1;
-    assert(!eddsa_verify(&ec, msg, sc->size, sig, pub, -1, NULL, 0));
-    msg[i] ^= 1;
+      k = random_int(sc->size);
 
-    pub[i] ^= 1;
-    assert(!eddsa_verify(&ec, msg, sc->size, sig, pub, -1, NULL, 0));
-    pub[i] ^= 1;
+      msg[k] ^= 1;
+      assert(!eddsa_verify(&ec, msg, sc->size, sig, pub, -1, NULL, 0));
+      msg[k] ^= 1;
 
-    sig[i] ^= 1;
-    assert(!eddsa_verify(&ec, msg, sc->size, sig, pub, -1, NULL, 0));
-    sig[i] ^= 1;
+      pub[k] ^= 1;
+      assert(!eddsa_verify(&ec, msg, sc->size, sig, pub, -1, NULL, 0));
+      pub[k] ^= 1;
 
-    sig[fe->size + i] ^= 1;
-    assert(!eddsa_verify(&ec, msg, sc->size, sig, pub, -1, NULL, 0));
-    sig[fe->size + i] ^= 1;
+      sig[k] ^= 1;
+      assert(!eddsa_verify(&ec, msg, sc->size, sig, pub, -1, NULL, 0));
+      sig[k] ^= 1;
 
-    assert(eddsa_verify(&ec, msg, sc->size, sig, pub, -1, NULL, 0));
+      sig[fe->size + k] ^= 1;
+      assert(!eddsa_verify(&ec, msg, sc->size, sig, pub, -1, NULL, 0));
+      sig[fe->size + k] ^= 1;
+
+      assert(eddsa_verify(&ec, msg, sc->size, sig, pub, -1, NULL, 0));
+    }
   }
 }
 
 int
 main(void) {
-  test_sc();
-  test_fe();
+  test_scalar();
+  test_field_element();
   test_wei_points_p256();
   test_wei_points_p521();
   test_wei_mul_g();
@@ -1225,6 +1275,7 @@ main(void) {
   test_edwards_points_ed25519();
   test_eddsa_vector_ed25519();
   test_ecdsa_random();
+  test_ecdh_random();
   test_eddsa_random();
   return 0;
 }
