@@ -1623,7 +1623,12 @@ scalar_field_set(scalar_field_t *sc,
   sc->limbs = (bits + GMP_NUMB_BITS - 1) / GMP_NUMB_BITS;
   sc->size = (bits + 7) / 8;
   sc->bits = bits;
-  sc->shift = bits * 2;
+  sc->shift = bits;
+
+  if ((sc->shift % GMP_NUMB_BITS) != 0)
+    sc->shift += GMP_NUMB_BITS - (sc->shift % GMP_NUMB_BITS);
+
+  sc->shift *= 2;
 
   mpn_import_be(sc->n, ARRAY_SIZE(sc->n), modulus, sc->size);
 
@@ -4045,7 +4050,7 @@ ege_import(edwards_t *ec, ege_t *r, const unsigned char *raw) {
   return ege_set_y(ec, r, r->y, sign);
 }
 
-static int
+static void
 ege_export(edwards_t *ec,
           unsigned char *raw,
           const ege_t *p) {
@@ -4059,8 +4064,6 @@ ege_export(edwards_t *ec,
     raw[fe->size] = fe_is_odd(fe, p->x) << 7;
   else
     raw[fe->size - 1] |= fe_is_odd(fe, p->x) << 7;
-
-  return 1;
 }
 
 static void
@@ -5165,6 +5168,376 @@ fail:
   sc_cleanse(sc, a);
   wge_cleanse(ec, &A);
   wge_cleanse(ec, &P);
+  return ret;
+}
+
+/*
+ * EdDSA
+ */
+
+static void
+eddsa_privkey_hash(edwards_t *ec,
+                   unsigned char *out,
+                   const unsigned char *priv) {
+  prime_field_t *fe = &ec->fe;
+  hash_t h;
+
+  hash_init(&h, ec->hash);
+  hash_update(&h, priv, fe->size);
+  hash_final(&h, out, fe->size * 2);
+
+  edwards_clamp(ec, out);
+}
+
+static void
+eddsa_hash_init(edwards_t *ec,
+                hash_t *h,
+                int ph,
+                const unsigned char *ctx,
+                size_t ctx_len) {
+  hash_init(h, ec->hash);
+
+  if (ec->context || ph != -1 || ctx_len > 0) {
+    unsigned char prehash = ph > 0;
+    unsigned char length = ctx_len & 0xff;
+
+    if (ec->prefix != NULL)
+      hash_update(h, ec->prefix, strlen(ec->prefix));
+
+    hash_update(h, &prehash, sizeof(prehash));
+    hash_update(h, &length, sizeof(length));
+    hash_update(h, ctx, length);
+  }
+}
+
+static void
+eddsa_hash_final(edwards_t *ec, sc_t r, hash_t *h) {
+  unsigned char raw[MAX_FIELD_SIZE * 2];
+  mp_limb_t k[MAX_FIELD_LIMBS * 4];
+  prime_field_t *fe = &ec->fe;
+  scalar_field_t *sc = &ec->sc;
+
+  hash_final(h, raw, fe->size * 2);
+
+  mpn_import(k, ARRAY_SIZE(k), raw, fe->size * 2, sc->endian);
+
+  assert((size_t)mpn_bitlen(k, ARRAY_SIZE(k)) <= sc->shift);
+
+  sc_reduce(sc, r, k);
+
+  cleanse(raw, sizeof(raw));
+  mpn_cleanse(k, ARRAY_SIZE(k));
+}
+
+static void
+eddsa_hash_am(edwards_t *ec,
+              sc_t r,
+              int ph,
+              const unsigned char *ctx,
+              size_t ctx_len,
+              const unsigned char *prefix,
+              const unsigned char *msg,
+              size_t msg_len) {
+  prime_field_t *fe = &ec->fe;
+  hash_t h;
+
+  eddsa_hash_init(ec, &h, ph, ctx, ctx_len);
+
+  hash_update(&h, prefix, fe->size);
+  hash_update(&h, msg, msg_len);
+
+  eddsa_hash_final(ec, r, &h);
+}
+
+static void
+eddsa_hash_ram(edwards_t *ec,
+               sc_t r,
+               int ph,
+               const unsigned char *ctx,
+               size_t ctx_len,
+               const unsigned char *R,
+               const unsigned char *A,
+               const unsigned char *msg,
+               size_t msg_len) {
+  prime_field_t *fe = &ec->fe;
+  hash_t h;
+
+  eddsa_hash_init(ec, &h, ph, ctx, ctx_len);
+
+  hash_update(&h, R, fe->size);
+  hash_update(&h, A, fe->size);
+  hash_update(&h, msg, msg_len);
+
+  eddsa_hash_final(ec, r, &h);
+}
+
+static void
+eddsa_privkey_expand(edwards_t *ec,
+                     unsigned char *scalar,
+                     unsigned char *prefix,
+                     const unsigned char *priv) {
+  unsigned char bytes[MAX_FIELD_SIZE * 2];
+  prime_field_t *fe = &ec->fe;
+  scalar_field_t *sc = &ec->sc;
+
+  eddsa_privkey_hash(ec, bytes, priv);
+
+  memcpy(scalar, bytes, sc->size);
+  memcpy(prefix, bytes, fe->size);
+
+  cleanse(bytes, sizeof(bytes));
+}
+
+static void
+eddsa_privkey_convert(edwards_t *ec,
+                      unsigned char *scalar,
+                      const unsigned char *priv) {
+  unsigned char bytes[MAX_FIELD_SIZE * 2];
+  scalar_field_t *sc = &ec->sc;
+
+  eddsa_privkey_hash(ec, bytes, priv);
+
+  memcpy(scalar, bytes, sc->size);
+
+  cleanse(bytes, sizeof(bytes));
+}
+
+static void
+eddsa_pubkey_from_scalar(edwards_t *ec,
+                         unsigned char *pub,
+                         const unsigned char *scalar) {
+  scalar_field_t *sc = &ec->sc;
+  sc_t a;
+  ege_t A;
+
+  sc_import_reduce(sc, a, scalar);
+
+  edwards_mul_g(ec, &A, a);
+
+  ege_export(ec, pub, &A);
+
+  sc_cleanse(sc, a);
+  ege_cleanse(ec, &A);
+}
+
+static void
+eddsa_pubkey_create(edwards_t *ec,
+                    unsigned char *pub,
+                    const unsigned char *priv) {
+  unsigned char scalar[MAX_SCALAR_SIZE];
+
+  eddsa_privkey_convert(ec, scalar, priv);
+  eddsa_pubkey_from_scalar(ec, pub, scalar);
+
+  cleanse(scalar, sizeof(scalar));
+}
+
+static void
+eddsa_sign_with_scalar(edwards_t *ec,
+                       unsigned char *sig,
+                       const unsigned char *msg,
+                       size_t msg_len,
+                       const unsigned char *scalar,
+                       const unsigned char *prefix,
+                       int ph,
+                       const unsigned char *ctx,
+                       size_t ctx_len) {
+  /* EdDSA Signing.
+   *
+   * [EDDSA] Page 12, Section 4.
+   * [RFC8032] Page 8, Section 3.3.
+   *
+   * Assumptions:
+   *
+   *   - Let `H` be a cryptographic hash function.
+   *   - Let `m` be a byte array of arbitrary size.
+   *   - Let `a` be a secret scalar.
+   *   - Let `w` be a secret byte array.
+   *
+   * Computation:
+   *
+   *   k = H(w, m) mod n
+   *   R = G * k
+   *   A = G * a
+   *   e = H(R, A, m) mod n
+   *   s = (k + e * a) mod n
+   *   S = (R, s)
+   *
+   * Note that `k` must remain secret,
+   * otherwise an attacker can compute:
+   *
+   *   a = (s - k) / e mod n
+   *
+   * The same is true of `w` as `k`
+   * can be re-derived as `H(w, m)`.
+   */
+  prime_field_t *fe = &ec->fe;
+  scalar_field_t *sc = &ec->sc;
+  unsigned char *Rraw = sig;
+  unsigned char *sraw = sig + fe->size;
+  unsigned char pub[MAX_FIELD_SIZE];
+  sc_t k, a, e, s;
+  ege_t R, A;
+
+  eddsa_hash_am(ec, k, ph, ctx, ctx_len, prefix, msg, msg_len);
+
+  edwards_mul_g(ec, &R, k);
+  ege_export(ec, Rraw, &R);
+
+  sc_import_reduce(sc, a, scalar);
+
+  edwards_mul_g(ec, &A, a);
+  ege_export(ec, pub, &A);
+
+  eddsa_hash_ram(ec, e, ph, ctx, ctx_len, Rraw, pub, msg, msg_len);
+
+  sc_mul(sc, s, e, a);
+  sc_add(sc, s, s, k);
+  sc_export(sc, sraw, s);
+
+  if (sc->size < fe->size)
+    sraw[sc->size] = 0;
+
+  cleanse(pub, sizeof(pub));
+  sc_cleanse(sc, k);
+  sc_cleanse(sc, a);
+  sc_cleanse(sc, e);
+  sc_cleanse(sc, s);
+  ege_cleanse(ec, &R);
+  ege_cleanse(ec, &A);
+}
+
+static void
+eddsa_sign(edwards_t *ec,
+           unsigned char *sig,
+           const unsigned char *msg,
+           size_t msg_len,
+           const unsigned char *priv,
+           int ph,
+           const unsigned char *ctx,
+           size_t ctx_len) {
+  unsigned char scalar[MAX_SCALAR_SIZE];
+  unsigned char prefix[MAX_FIELD_SIZE];
+
+  eddsa_privkey_expand(ec, scalar, prefix, priv);
+
+  eddsa_sign_with_scalar(ec, sig, msg, msg_len,
+                         scalar, prefix,
+                         ph, ctx, ctx_len);
+}
+
+static int
+eddsa_verify(edwards_t *ec,
+             const unsigned char *msg,
+             size_t msg_len,
+             const unsigned char *sig,
+             const unsigned char *pub,
+             int ph,
+             const unsigned char *ctx,
+             size_t ctx_len) {
+  /* EdDSA Verification.
+   *
+   * [EDDSA] Page 15, Section 5.
+   * [RFC8032] Page 8, Section 3.4.
+   *
+   * Assumptions:
+   *
+   *   - Let `H` be a cryptographic hash function.
+   *   - Let `m` be a byte array of arbitrary size.
+   *   - Let `R` and `s` be signature elements.
+   *   - Let `A` be a valid group element.
+   *   - s < n.
+   *
+   * Computation:
+   *
+   *   e = H(R, A, m) mod n
+   *   G * s == R + A * e
+   *
+   * Alternatively, we can compute:
+   *
+   *   R == G * s - A * e
+   *
+   * This allows us to make use of a
+   * multi-exponentiation algorithm.
+   */
+  prime_field_t *fe = &ec->fe;
+  scalar_field_t *sc = &ec->sc;
+  const unsigned char *Rraw = sig;
+  const unsigned char *sraw = sig + fe->size;
+  ege_t R, A;
+  xge_t R1, R2;
+  sc_t s, e;
+
+  if (!ege_import(ec, &R, Rraw))
+    return 0;
+
+  if (!ege_import(ec, &A, pub))
+    return 0;
+
+  if (!sc_import(sc, s, sraw))
+    return 0;
+
+  if (sc->size < fe->size) {
+    if (sraw[sc->size] != 0)
+      return 0;
+  }
+
+  eddsa_hash_ram(ec, e, ph, ctx, ctx_len, Rraw, pub, msg, msg_len);
+
+  ege_to_xge(ec, &R1, &R);
+
+  ege_neg(ec, &A, &A);
+  edwards_jmul_double_var(ec, &R2, s, &A, e);
+
+  return xge_equal(ec, &R1, &R2);
+}
+
+static int
+eddsa_derive_with_scalar(edwards_t *ec,
+                         unsigned char *secret,
+                         const unsigned char *pub,
+                         const unsigned char *scalar) {
+  scalar_field_t *sc = &ec->sc;
+  unsigned char clamped[MAX_SCALAR_SIZE];
+  sc_t a;
+  ege_t A, P;
+  int ret = 0;
+
+  memcpy(clamped, scalar, sc->size);
+  edwards_clamp(ec, clamped);
+
+  sc_import_reduce(sc, a, clamped);
+
+  if (!ege_import(ec, &A, pub))
+    goto fail;
+
+  edwards_mul(ec, &P, &A, a);
+
+  ege_export(ec, secret, &P);
+
+  ret = 1;
+fail:
+  cleanse(clamped, sizeof(clamped));
+  sc_cleanse(sc, a);
+  ege_cleanse(ec, &A);
+  ege_cleanse(ec, &P);
+  return ret;
+}
+
+static int
+eddsa_derive(edwards_t *ec,
+             unsigned char *secret,
+             const unsigned char *pub,
+             const unsigned char *priv) {
+  unsigned char scalar[MAX_SCALAR_SIZE];
+  int ret;
+
+  eddsa_privkey_convert(ec, scalar, priv);
+
+  ret = eddsa_derive_with_scalar(ec, secret, pub, scalar);
+
+  cleanse(scalar, sizeof(scalar));
+
   return ret;
 }
 

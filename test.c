@@ -714,7 +714,7 @@ main(void) {
 
     assert(ege_equal(ec, &p, &q));
 
-    assert(ege_export(ec, p_raw, &p));
+    ege_export(ec, p_raw, &p);
     assert(memcmp(p_raw, g2_raw, 32) == 0);
 
     free(ec);
