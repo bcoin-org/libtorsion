@@ -18,6 +18,11 @@
 #define GMP_NAIL_MASK 0
 #endif
 
+/* Nails probably break our code. */
+#if GMP_NAIL_BITS != 0
+#error "please use a build of gmp without nails"
+#endif
+
 #include "util.h"
 #include "mpn.h"
 #include "mpz.h"
@@ -125,6 +130,7 @@ typedef struct prime_field_s {
   fe_t one;
   fe_t two;
   fe_t three;
+  fe_t mone;
 } prime_field_t;
 
 typedef struct prime_def_s {
@@ -364,14 +370,11 @@ sc_invert_var(scalar_field_t *sc, sc_t r, const sc_t a) {
   return mpn_invert_n(r, a, sc->n, sc->limbs);
 }
 
-static int
-sc_invert(scalar_field_t *sc, sc_t r, const sc_t a) {
-  mp_limb_t zero = sc_is_zero(sc, a);
+static void
+sc_pow(scalar_field_t *sc, sc_t r, const sc_t a, const sc_t e) {
+  /* Used for inversion if not available otherwise. */
   mp_size_t i;
-  sc_t e, b;
-
-  mpn_copyi(e, sc->n, sc->limbs);
-  mpn_sub_1(e, e, sc->limbs, 2);
+  sc_t b;
 
   sc_set_word(sc, b, 1);
 
@@ -384,8 +387,23 @@ sc_invert(scalar_field_t *sc, sc_t r, const sc_t a) {
       sc_mul(sc, b, b, a);
   }
 
+  sc_set(sc, r, b);
+}
+
+static int
+sc_invert(scalar_field_t *sc, sc_t r, const sc_t a) {
+  mp_limb_t zero = sc_is_zero(sc, a);
+  mp_size_t i;
+  sc_t e;
+
+  /* e = n - 2 */
+  mpn_copyi(e, sc->n, sc->limbs);
+  mpn_sub_1(e, e, sc->limbs, 2);
+
+  sc_pow(sc, r, a, e);
+
   for (i = 0; i < sc->limbs; i++)
-    r[i] = b[i] & -(zero ^ 1);
+    r[i] &= -(zero ^ 1);
 
   return zero ^ 1;
 }
@@ -820,6 +838,26 @@ fe_mulm3(prime_field_t *fe, fe_t r, const fe_t a) {
   fe_neg(fe, r, c);
 }
 
+static void
+fe_pow(prime_field_t *fe, fe_t r, const fe_t a, const mp_limb_t *e) {
+  /* Used for inversion and legendre if not available otherwise. */
+  mp_size_t i;
+  fe_t b;
+
+  fe_set(fe, b, fe->one);
+
+  for (i = fe->bits - 1; i >= 0; i--) {
+    mp_limb_t bit = e[i / GMP_NUMB_BITS] >> (i % GMP_NUMB_BITS);
+
+    fe_sqr(fe, b, b);
+
+    if (bit & 1)
+      fe_mul(fe, b, b, a);
+  }
+
+  fe_set(fe, r, b);
+}
+
 static int
 fe_invert_var(prime_field_t *fe, fe_t r, const fe_t a) {
   mp_limb_t rp[MAX_FIELD_LIMBS];
@@ -835,43 +873,30 @@ fe_invert_var(prime_field_t *fe, fe_t r, const fe_t a) {
 }
 
 static int
-fe_invert_slow(prime_field_t *fe, fe_t r, const fe_t a) {
-  mp_limb_t e[MAX_FIELD_LIMBS];
-  fe_word_t zero = fe_is_zero(fe, a);
-  mp_size_t i;
-  size_t j;
-  fe_t b;
-
-  mpn_copyi(e, fe->p, fe->limbs);
-  mpn_sub_1(e, e, fe->limbs, 2);
-
-  fe_set(fe, b, fe->one);
-
-  for (i = fe->bits - 1; i >= 0; i--) {
-    mp_limb_t bit = e[i / GMP_NUMB_BITS] >> (i % GMP_NUMB_BITS);
-
-    fe_sqr(fe, b, b);
-
-    if (bit & 1)
-      fe_mul(fe, b, b, a);
-  }
-
-  for (j = 0; j < fe->words; j++)
-    r[j] = b[j] & -(zero ^ 1);
-
-  return zero ^ 1;
-}
-
-static int
 fe_invert(prime_field_t *fe, fe_t r, const fe_t a) {
+  int zero = fe_is_zero(fe, a);
+  int ret = zero ^ 1;
+
   if (fe->invert) {
-    /* Faster inversion chain. */
-    int zero = fe_is_zero(fe, a);
+    /* Fast inversion chain. */
     fe->invert(r, a);
-    return zero ^ 1;
+  } else {
+    /* Fermat's little theorem. */
+    mp_limb_t e[MAX_FIELD_LIMBS];
+    fe_word_t zero = fe_is_zero(fe, a);
+    size_t i;
+
+    /* e = p - 2 */
+    mpn_copyi(e, fe->p, fe->limbs);
+    mpn_sub_1(e, e, fe->limbs, 2);
+
+    fe_pow(fe, r, a, e);
+
+    for (i = 0; i < fe->words; i++)
+      r[i] &= -(zero ^ 1);
   }
 
-  return fe_invert_slow(fe, r, a);
+  return ret;
 }
 
 static int
@@ -879,24 +904,47 @@ fe_sqrt(prime_field_t *fe, fe_t r, const fe_t a) {
   int ret;
 
   if (fe->sqrt) {
-    /* Faster square root chain. */
+    /* Fast square root chain. */
     ret = fe->sqrt(r, a);
   } else {
-    mp_limb_t ap[MAX_FIELD_LIMBS];
-    mpz_t rn, an, pn;
+    /* Handle p = 3 mod 4 and p = 5 mod 8. */
+    mp_limb_t e[MAX_FIELD_LIMBS + 1];
+    fe_t b, b2;
 
-    fe_get_limbs(fe, ap, a);
+    if ((fe->p[0] & 3) == 3) {
+      /* b = a^((p + 1) / 4) mod p */
+      mpn_copyi(e, fe->p, fe->limbs + 1);
+      mpn_add_1(e, e, fe->limbs + 1, 1);
+      mpn_rshift(e, e, fe->limbs + 1, 2);
+      fe_pow(fe, b, a, e);
+    } else if ((fe->p[0] & 7) == 5) {
+      fe_t a2, c;
 
-    mpz_init(rn); /* Warning: allocation. */
-    mpz_roinit_n(an, ap, fe->limbs);
-    mpz_roinit_n(pn, fe->p, fe->limbs);
+      /* a2 = a * 2 mod p */
+      fe_mulw(fe, a2, a, 2);
 
-    ret = mpz_sqrtm(rn, an, pn);
+      /* c = a2^((p - 5) / 8) mod p */
+      mpn_copyi(e, fe->p, fe->limbs);
+      mpn_sub_1(e, e, fe->limbs, 5);
+      mpn_rshift(e, e, fe->limbs, 3);
+      fe_pow(fe, c, a2, e);
 
-    if (ret)
-      fe_set_num(fe, r, rn);
+      /* b = (c^2 * a2 - 1) * a * c mod p */
+      fe_sqr(fe, b, c);
+      fe_mul(fe, b, b, a2);
+      fe_sub(fe, b, b, fe->one);
+      fe_mul(fe, b, b, a);
+      fe_mul(fe, b, b, c);
+    } else {
+      assert(0 && "no sqrt implementation");
+    }
 
-    mpz_clear(rn);
+    /* b2 = b^2 mod p */
+    fe_sqr(fe, b2, b);
+
+    ret = fe_equal(fe, b2, a);
+
+    fe_set(fe, r, b);
   }
 
   return ret;
@@ -919,19 +967,30 @@ static int
 fe_is_square(prime_field_t *fe, const fe_t a) {
   int ret;
 
-  if (fe->sqrt) {
+  if (fe->sqrt && fe->bits != 224) {
+    /* Fast square root chain. */
     fe_t tmp;
     ret = fe->sqrt(tmp, a);
   } else {
-    mp_limb_t ap[MAX_FIELD_LIMBS];
-    mpz_t an, pn;
+    /* Euler's criterion. */
+    mp_limb_t e[MAX_FIELD_LIMBS];
+    int x, y, z;
+    fe_t b;
 
-    fe_get_limbs(fe, ap, a);
+    /* e = (p - 1) / 2 */
+    mpn_copyi(e, fe->p, fe->limbs);
+    mpn_sub_1(e, e, fe->limbs, 1);
+    mpn_rshift(e, e, fe->limbs, 1);
 
-    mpz_roinit_n(an, ap, fe->limbs);
-    mpz_roinit_n(pn, fe->p, fe->limbs);
+    fe_pow(fe, b, a, e);
 
-    ret = mpz_legendre(an, pn) >= 0;
+    x = fe_is_zero(fe, a);
+    y = fe_equal(fe, b, fe->one);
+    z = fe_equal(fe, b, fe->mone);
+
+    assert(x + y + z == 1);
+
+    ret = x | y;
   }
 
   return ret;
@@ -1057,6 +1116,7 @@ prime_field_init(prime_field_t *fe, const prime_def_t *def, int endian) {
   fe_set_word(fe, fe->one, 1);
   fe_set_word(fe, fe->two, 2);
   fe_set_word(fe, fe->three, 3);
+  fe_neg(fe, fe->mone, fe->one);
 }
 
 /*
@@ -1128,7 +1188,7 @@ static const prime_def_t field_p224 = {
   .from_bytes = fiat_p224_from_bytes,
   .carry = NULL,
   .invert = p224_fe_invert,
-  .sqrt = NULL,
+  .sqrt = p224_fe_sqrt,
   .isqrt = NULL,
   .scmul_121666 = NULL
 };
@@ -1212,7 +1272,7 @@ static const prime_def_t field_p384 = {
   .from_bytes = fiat_p384_from_bytes,
   .carry = NULL,
   .invert = p384_fe_invert,
-  .sqrt = NULL,
+  .sqrt = p384_fe_sqrt,
   .isqrt = NULL,
   .scmul_121666 = NULL
 };
