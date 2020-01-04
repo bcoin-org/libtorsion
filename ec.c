@@ -1173,7 +1173,14 @@ fe_export(prime_field_t *fe, unsigned char *raw, const fe_t a) {
   if (fe->from_montgomery) {
     fe_t tmp;
     fe->from_montgomery(tmp, a);
-    fe->to_bytes(raw, tmp);
+    if (fe->bits == 224 && FIELD_WORD_SIZE == 64) {
+      /* hack for p224 fiat backend -- it wants to serialize 32 bytes */
+      unsigned char buf[32];
+      fe->to_bytes(buf, tmp);
+      memcpy(raw, buf, 28);
+    } else {
+      fe->to_bytes(raw, tmp);
+    }
   } else {
     fe->to_bytes(raw, a);
   }
@@ -1490,6 +1497,18 @@ fe_invert(prime_field_t *fe, fe_t r, const fe_t a) {
       r[i] &= -(zero ^ 1);
   }
 
+#ifdef EC_TEST
+  if (ret) {
+    fe_t t;
+    fe_mul(fe, t, a, r);
+    assert(fe_equal(fe, t, fe->one));
+    assert(!fe_equal(fe, t, fe->zero));
+  } else {
+    assert(fe_equal(fe, r, fe->zero));
+    assert(!fe_equal(fe, r, fe->one));
+  }
+#endif
+
   return ret;
 }
 
@@ -1623,6 +1642,7 @@ scalar_field_set(scalar_field_t *sc,
   sc->limbs = (bits + GMP_NUMB_BITS - 1) / GMP_NUMB_BITS;
   sc->size = (bits + 7) / 8;
   sc->bits = bits;
+  /* sc->shift = sc->limbs * GMP_NUMB_BITS * 2; */
   sc->shift = bits;
 
   if ((sc->shift % GMP_NUMB_BITS) != 0)
@@ -1683,6 +1703,7 @@ prime_field_init(prime_field_t *fe, const prime_def_t *def, int endian) {
   fe->limbs = (def->bits + GMP_NUMB_BITS - 1) / GMP_NUMB_BITS;
   fe->size = (def->bits + 7) / 8;
   fe->bits = def->bits;
+  /* fe->shift = def->words * FIELD_WORD_SIZE; */
   fe->shift = def->bits;
   fe->words = def->words;
 
@@ -1783,6 +1804,10 @@ wge_set_x(wei_t *ec, wge_t *r, const fe_t x, int sign) {
   fe_set(fe, r->x, x);
   fe_set(fe, r->y, y);
   r->inf = 0;
+
+#ifdef EC_TEST
+  assert(wge_validate(ec, r) == ret);
+#endif
 
   return ret;
 }
@@ -5290,7 +5315,7 @@ eddsa_privkey_expand(edwards_t *ec,
   eddsa_privkey_hash(ec, bytes, priv);
 
   memcpy(scalar, bytes, sc->size);
-  memcpy(prefix, bytes, fe->size);
+  memcpy(prefix, bytes + fe->size, fe->size);
 
   cleanse(bytes, sizeof(bytes));
 }

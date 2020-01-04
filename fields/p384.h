@@ -177,7 +177,7 @@ p384_fe_sqrt(p384_fe_t out, const p384_fe_t in) {
 
   /* 9 */
   p384_fe_sqrn(t3, t3, 28);
-  p384_fe_mul(t3, t3, t2);
+  p384_fe_mul(t2, t2, t3);
 
   /* 10 */
   p384_fe_sqrn(t3, t2, 60);
