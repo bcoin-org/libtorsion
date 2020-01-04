@@ -7,36 +7,15 @@
 #include <gmp.h>
 
 #ifndef BCRYPTO_HAS_GMP
-static unsigned long
-mpz_zerobits(const mpz_t n) {
-  /* Note: mpz_ptr is undocumented. */
-  /* https://gmplib.org/list-archives/gmp-discuss/2009-May/003769.html */
-  /* https://gmplib.org/list-archives/gmp-devel/2013-February/002775.html */
-  int sgn = mpz_sgn(n);
-  unsigned long bits;
-
-  if (sgn == 0)
-    return 0;
-
-  if (sgn < 0)
-    mpz_neg((mpz_ptr)n, n);
-
-  bits = mpz_scan1(n, 0);
-
-  if (sgn < 0)
-    mpz_neg((mpz_ptr)n, n);
-
-  return bits;
-}
-
 /* `mpz_jacobi` is not implemented in mini-gmp. */
 /* https://github.com/golang/go/blob/aadaec5/src/math/big/int.go#L754 */
 static int
 mpz_jacobi(const mpz_t x, const mpz_t y) {
   mpz_t a, b, c;
   unsigned long s, bmod8;
-  int j;
+  int j = 1;
 
+  assert(mpz_sgn(x) >= 0);
   assert(mpz_sgn(y) > 0);
   assert(mpz_odd_p(y));
 
@@ -49,18 +28,6 @@ mpz_jacobi(const mpz_t x, const mpz_t y) {
 
   /* b = y */
   mpz_set(b, y);
-
-  j = 1;
-
-  /* if b < 0 */
-  if (mpz_sgn(b) < 0) {
-    /* if a < 0 */
-    if (mpz_sgn(a) < 0)
-      j = -1;
-
-    /* b = -b */
-    mpz_neg(b, b);
-  }
 
   for (;;) {
     /* if b == 1 */
@@ -83,7 +50,7 @@ mpz_jacobi(const mpz_t x, const mpz_t y) {
     }
 
     /* s = a factors of 2 */
-    s = mpz_zerobits(a);
+    s = mpz_scan1(a, 0);
 
     if (s & 1) {
       /* bmod8 = b mod 8 */
