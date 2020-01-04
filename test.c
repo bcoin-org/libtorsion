@@ -1,11 +1,12 @@
+#define EC_TEST
+#include "ec.c"
 #include <assert.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdint.h>
 #include <limits.h>
-#define EC_TEST
-#include "ec.c"
+#include <sys/time.h>
 
 static const wei_def_t *wei_curves[5] = {
   &curve_p224,
@@ -1257,8 +1258,97 @@ test_eddsa_random(void) {
   }
 }
 
+static void
+bench_start(struct timeval *start) {
+  gettimeofday(start, NULL);
+}
+
+static void
+bench_end(struct timeval *start, size_t ops) {
+  struct timeval end;
+  double sec;
+
+  gettimeofday(&end, NULL);
+
+  sec = (end.tv_sec - start->tv_sec) * 1e6;
+  sec = (sec + (end.tv_usec - start->tv_usec)) * 1e-6;
+
+  printf("  Ops: %lu\n", ops);
+  printf("  Sec: %f\n", sec);
+  printf("  Ops/Sec: %f\n", (double)ops / sec);
+}
+
+static void
+bench_ecdsa(void) {
+  size_t i;
+  wei_t ec;
+  unsigned char entropy[32];
+  unsigned char priv[32];
+  unsigned char msg[32];
+  unsigned char sig[64];
+  unsigned char pub[33];
+  struct timeval tv;
+
+  printf("Benchmarking ECDSA...\n");
+
+  wei_init(&ec, &curve_secp256k1);
+
+  random_bytes(entropy, sizeof(entropy));
+  random_bytes(priv, sizeof(priv));
+  random_bytes(msg, sizeof(msg));
+
+  priv[0] = 0;
+
+  wei_randomize(&ec, entropy);
+
+  assert(ecdsa_sign(&ec, sig, NULL, msg, 32, priv));
+  assert(ecdsa_pubkey_create(&ec, pub, NULL, priv, 1));
+
+  bench_start(&tv);
+
+  for (i = 0; i < 10000; i++)
+    assert(ecdsa_verify(&ec, msg, 32, sig, pub, 33));
+
+  bench_end(&tv, i);
+}
+
+static void
+bench_eddsa(void) {
+  size_t i;
+  edwards_t ec;
+  unsigned char entropy[32];
+  unsigned char priv[32];
+  unsigned char msg[32];
+  unsigned char sig[64];
+  unsigned char pub[32];
+  struct timeval tv;
+
+  printf("Benchmarking EdDSA...\n");
+
+  edwards_init(&ec, &curve_ed25519);
+
+  random_bytes(entropy, sizeof(entropy));
+  random_bytes(priv, sizeof(priv));
+  random_bytes(msg, sizeof(msg));
+
+  priv[0] = 0;
+
+  edwards_randomize(&ec, entropy);
+
+  eddsa_sign(&ec, sig, msg, 32, priv, -1, NULL, 0);
+  eddsa_pubkey_create(&ec, pub, priv);
+
+  bench_start(&tv);
+
+  for (i = 0; i < 10000; i++)
+    assert(eddsa_verify(&ec, msg, 32, sig, pub, -1, NULL, 0));
+
+  bench_end(&tv, i);
+}
+
 int
 main(void) {
+#ifndef BENCH
   test_scalar();
   test_field_element();
   test_wei_points_p256();
@@ -1276,5 +1366,9 @@ main(void) {
   test_ecdsa_random();
   test_ecdh_random();
   test_eddsa_random();
+#else
+  bench_ecdsa();
+  bench_eddsa();
+#endif
   return 0;
 }
