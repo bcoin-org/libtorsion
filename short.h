@@ -19,19 +19,19 @@
  * Structs
  */
 
-typedef struct ge_s {
+typedef struct wge_s {
   fe_t x;
   fe_t y;
   int inf;
-} ge_t;
+} wge_t;
 
-typedef struct gej_s {
+typedef struct jge_s {
   fe_t x;
   fe_t y;
   fe_t z;
-} gej_t;
+} jge_t;
 
-typedef struct curve_s {
+typedef struct wei_s {
   int hash;
   prime_field_t fe;
   scalar_field_t sc;
@@ -39,13 +39,13 @@ typedef struct curve_s {
   fe_t red_n;
   fe_t a;
   fe_t b;
-  ge_t g;
+  wge_t g;
   sc_t blind;
-  ge_t unblind;
-  ge_t points[(1 << NAF_WIDTH_PRE) - 1];
-} curve_t;
+  wge_t unblind;
+  wge_t points[(1 << NAF_WIDTH_PRE) - 1];
+} wei_t;
 
-typedef struct curve_def_s {
+typedef struct wei_def_s {
   const char *id;
   int hash;
   const prime_def_t *fe;
@@ -57,14 +57,14 @@ typedef struct curve_def_s {
   const unsigned char c[MAX_FIELD_SIZE];
   const unsigned char x[MAX_FIELD_SIZE];
   const unsigned char y[MAX_FIELD_SIZE];
-} curve_def_t;
+} wei_def_t;
 
 /*
  * Affine Point
  */
 
 static void
-ge_zero(curve_t *ec, ge_t *r) {
+wge_zero(wei_t *ec, wge_t *r) {
   prime_field_t *fe = &ec->fe;
 
   fe_zero(fe, r->x);
@@ -73,7 +73,7 @@ ge_zero(curve_t *ec, ge_t *r) {
 }
 
 static void
-ge_cleanse(curve_t *ec, ge_t *r) {
+wge_cleanse(wei_t *ec, wge_t *r) {
   prime_field_t *fe = &ec->fe;
   fe_cleanse(fe, r->x);
   fe_cleanse(fe, r->y);
@@ -81,7 +81,7 @@ ge_cleanse(curve_t *ec, ge_t *r) {
 }
 
 static int
-ge_validate(curve_t *ec, const ge_t *p) {
+wge_validate(wei_t *ec, const wge_t *p) {
   /* [GECC] Page 89, Section 3.2.2. */
   prime_field_t *fe = &ec->fe;
   fe_t lhs, rhs, ax;
@@ -98,7 +98,7 @@ ge_validate(curve_t *ec, const ge_t *p) {
 }
 
 static int
-ge_set_x(curve_t *ec, ge_t *r, const fe_t x, int sign) {
+wge_set_x(wei_t *ec, wge_t *r, const fe_t x, int sign) {
   /* [GECC] Page 89, Section 3.2.2. */
   prime_field_t *fe = &ec->fe;
   fe_t y, ax;
@@ -124,7 +124,7 @@ ge_set_x(curve_t *ec, ge_t *r, const fe_t x, int sign) {
 }
 
 static void
-ge_set_xy(curve_t *ec, ge_t *r, const fe_t x, const fe_t y) {
+wge_set_xy(wei_t *ec, wge_t *r, const fe_t x, const fe_t y) {
   prime_field_t *fe = &ec->fe;
   fe_set(fe, r->x, x);
   fe_set(fe, r->y, y);
@@ -132,7 +132,7 @@ ge_set_xy(curve_t *ec, ge_t *r, const fe_t x, const fe_t y) {
 }
 
 static int
-ge_import(curve_t *ec, ge_t *r, const unsigned char *raw, size_t len) {
+wge_import(wei_t *ec, wge_t *r, const unsigned char *raw, size_t len) {
   /* [SEC1] Page 11, Section 2.3.4. */
   prime_field_t *fe = &ec->fe;
   int form;
@@ -151,7 +151,7 @@ ge_import(curve_t *ec, ge_t *r, const unsigned char *raw, size_t len) {
       if (!fe_import(fe, r->x, raw + 1))
         return 0;
 
-      if (!ge_set_x(ec, r, r->x, form & 1))
+      if (!wge_set_x(ec, r, r->x, form & 1))
         return 0;
 
       return 1;
@@ -173,7 +173,7 @@ ge_import(curve_t *ec, ge_t *r, const unsigned char *raw, size_t len) {
       if (form != 0x04 && form != (0x06 | fe_is_odd(fe, r->y)))
         return 0;
 
-      if (!ge_validate(ec, r))
+      if (!wge_validate(ec, r))
         return 0;
 
       return 1;
@@ -185,10 +185,10 @@ ge_import(curve_t *ec, ge_t *r, const unsigned char *raw, size_t len) {
 }
 
 static int
-ge_export(curve_t *ec,
+wge_export(wei_t *ec,
           unsigned char *raw,
           size_t *len,
-          const ge_t *p,
+          const wge_t *p,
           int compact) {
   /* [SEC1] Page 10, Section 2.3.3. */
   prime_field_t *fe = &ec->fe;
@@ -215,18 +215,18 @@ ge_export(curve_t *ec,
 }
 
 static int
-ge_import_x(curve_t *ec, ge_t *r, const unsigned char *raw) {
+wge_import_x(wei_t *ec, wge_t *r, const unsigned char *raw) {
   /* [SCHNORR] "Specification". */
   prime_field_t *fe = &ec->fe;
 
   if (!fe_import(fe, r->x, raw))
     return 0;
 
-  return ge_set_x(ec, r, r->x, -1);
+  return wge_set_x(ec, r, r->x, -1);
 }
 
 static int
-ge_export_x(curve_t *ec, unsigned char *raw, const ge_t *p) {
+wge_export_x(wei_t *ec, unsigned char *raw, const wge_t *p) {
   /* [SCHNORR] "Specification". */
   prime_field_t *fe = &ec->fe;
 
@@ -239,7 +239,7 @@ ge_export_x(curve_t *ec, unsigned char *raw, const ge_t *p) {
 }
 
 static void
-ge_swap(curve_t *ec, ge_t *a, ge_t *b, unsigned int flag) {
+wge_swap(wei_t *ec, wge_t *a, wge_t *b, unsigned int flag) {
   prime_field_t *fe = &ec->fe;
   int cond = (flag != 0);
   int inf1 = a->inf;
@@ -253,7 +253,7 @@ ge_swap(curve_t *ec, ge_t *a, ge_t *b, unsigned int flag) {
 }
 
 static void
-ge_set(curve_t *ec, ge_t *r, const ge_t *a) {
+wge_set(wei_t *ec, wge_t *r, const wge_t *a) {
   prime_field_t *fe = &ec->fe;
 
   fe_set(fe, r->x, a->x);
@@ -262,7 +262,7 @@ ge_set(curve_t *ec, ge_t *r, const ge_t *a) {
 }
 
 static int
-ge_equal(curve_t *ec, const ge_t *a, const ge_t *b) {
+wge_equal(wei_t *ec, const wge_t *a, const wge_t *b) {
   prime_field_t *fe = &ec->fe;
   int both = a->inf & b->inf;
   int ret = 1;
@@ -280,12 +280,12 @@ ge_equal(curve_t *ec, const ge_t *a, const ge_t *b) {
 }
 
 static int
-ge_is_zero(curve_t *ec, const ge_t *a) {
+wge_is_zero(wei_t *ec, const wge_t *a) {
   return a->inf;
 }
 
 static void
-ge_neg(curve_t *ec, ge_t *r, const ge_t *a) {
+wge_neg(wei_t *ec, wge_t *r, const wge_t *a) {
   prime_field_t *fe = &ec->fe;
 
   fe_set(fe, r->x, a->x);
@@ -294,7 +294,7 @@ ge_neg(curve_t *ec, ge_t *r, const ge_t *a) {
 }
 
 static void
-ge_dbl(curve_t *ec, ge_t *r, const ge_t *a) {
+wge_dbl(wei_t *ec, wge_t *r, const wge_t *a) {
   /* [GECC] Page 80, Section 3.1.2.
    *
    * Addition Law (doubling):
@@ -310,13 +310,13 @@ ge_dbl(curve_t *ec, ge_t *r, const ge_t *a) {
 
   /* P = O */
   if (a->inf) {
-    ge_zero(ec, r);
+    wge_zero(ec, r);
     return;
   }
 
   /* Y1 = 0 */
   if (fe_is_zero(fe, a->y)) {
-    ge_zero(ec, r);
+    wge_zero(ec, r);
     return;
   }
 
@@ -344,7 +344,7 @@ ge_dbl(curve_t *ec, ge_t *r, const ge_t *a) {
 }
 
 static void
-ge_add(curve_t *ec, ge_t *r, const ge_t *a, const ge_t *b) {
+wge_add(wei_t *ec, wge_t *r, const wge_t *a, const wge_t *b) {
   /* [GECC] Page 80, Section 3.1.2.
    *
    * Addition Law:
@@ -360,13 +360,13 @@ ge_add(curve_t *ec, ge_t *r, const ge_t *a, const ge_t *b) {
 
   /* O + P = P */
   if (a->inf) {
-    ge_set(ec, r, b);
+    wge_set(ec, r, b);
     return;
   }
 
   /* P + O = P */
   if (b->inf) {
-    ge_set(ec, r, a);
+    wge_set(ec, r, a);
     return;
   }
 
@@ -374,12 +374,12 @@ ge_add(curve_t *ec, ge_t *r, const ge_t *a, const ge_t *b) {
   if (fe_equal(fe, a->x, b->x)) {
     /* P + -P = O */
     if (!fe_equal(fe, a->y, b->y)) {
-      ge_zero(ec, r);
+      wge_zero(ec, r);
       return;
     }
 
     /* P + P = 2P */
-    ge_dbl(ec, r, a);
+    wge_dbl(ec, r, a);
     return;
   }
 
@@ -418,14 +418,14 @@ ge_add(curve_t *ec, ge_t *r, const ge_t *a, const ge_t *b) {
 }
 
 static void
-ge_sub(curve_t *ec, ge_t *r, const ge_t *a, const ge_t *b) {
-  ge_t c;
-  ge_neg(ec, &c, b);
-  ge_add(ec, r, a, &c);
+wge_sub(wei_t *ec, wge_t *r, const wge_t *a, const wge_t *b) {
+  wge_t c;
+  wge_neg(ec, &c, b);
+  wge_add(ec, r, a, &c);
 }
 
 static void
-ge_to_gej(curve_t *ec, gej_t *r, const ge_t *a) {
+wge_to_jge(wei_t *ec, jge_t *r, const wge_t *a) {
   prime_field_t *fe = &ec->fe;
 
   if (a->inf) {
@@ -441,23 +441,23 @@ ge_to_gej(curve_t *ec, gej_t *r, const ge_t *a) {
 }
 
 static void
-ge_naf_points(curve_t *ec, ge_t *points, const ge_t *p, size_t width) {
+wge_naf_points(wei_t *ec, wge_t *points, const wge_t *p, size_t width) {
   size_t size = (1 << width) - 1;
-  ge_t dbl;
+  wge_t dbl;
   size_t i;
 
-  ge_dbl(ec, &dbl, p);
-  ge_set(ec, &points[0], p);
+  wge_dbl(ec, &dbl, p);
+  wge_set(ec, &points[0], p);
 
   for (i = 1; i < size; i++)
-    ge_add(ec, &points[i], &points[i - 1], &dbl);
+    wge_add(ec, &points[i], &points[i - 1], &dbl);
 }
 
 static void
-ge_print(curve_t *ec, const ge_t *p) {
+wge_print(wei_t *ec, const wge_t *p) {
   prime_field_t *fe = &ec->fe;
 
-  if (ge_is_zero(ec, p)) {
+  if (wge_is_zero(ec, p)) {
     printf("(infinity)\n");
   } else {
     mp_limb_t xp[MAX_FIELD_LIMBS];
@@ -479,7 +479,7 @@ ge_print(curve_t *ec, const ge_t *p) {
  */
 
 static void
-gej_zero(curve_t *ec, gej_t *r) {
+jge_zero(wei_t *ec, jge_t *r) {
   prime_field_t *fe = &ec->fe;
 
   fe_set(fe, r->x, fe->one);
@@ -488,7 +488,7 @@ gej_zero(curve_t *ec, gej_t *r) {
 }
 
 static void
-gej_cleanse(curve_t *ec, gej_t *r) {
+jge_cleanse(wei_t *ec, jge_t *r) {
   prime_field_t *fe = &ec->fe;
 
   fe_cleanse(fe, r->x);
@@ -497,7 +497,7 @@ gej_cleanse(curve_t *ec, gej_t *r) {
 }
 
 static void
-gej_swap(curve_t *ec, gej_t *a, gej_t *b, unsigned int flag) {
+jge_swap(wei_t *ec, jge_t *a, jge_t *b, unsigned int flag) {
   prime_field_t *fe = &ec->fe;
 
   fe_swap(fe, a->x, b->x, flag);
@@ -506,10 +506,10 @@ gej_swap(curve_t *ec, gej_t *a, gej_t *b, unsigned int flag) {
 }
 
 static void
-gej_select(curve_t *ec,
-           gej_t *r,
-           const gej_t *a,
-           const gej_t *b,
+jge_select(wei_t *ec,
+           jge_t *r,
+           const jge_t *a,
+           const jge_t *b,
            unsigned int flag) {
   prime_field_t *fe = &ec->fe;
 
@@ -519,7 +519,7 @@ gej_select(curve_t *ec,
 }
 
 static void
-gej_set(curve_t *ec, gej_t *r, const gej_t *a) {
+jge_set(wei_t *ec, jge_t *r, const jge_t *a) {
   prime_field_t *fe = &ec->fe;
 
   fe_set(fe, r->x, a->x);
@@ -528,18 +528,18 @@ gej_set(curve_t *ec, gej_t *r, const gej_t *a) {
 }
 
 static int
-gej_is_zero(curve_t *ec, const gej_t *a) {
+jge_is_zero(wei_t *ec, const jge_t *a) {
   prime_field_t *fe = &ec->fe;
 
   return fe_is_zero(fe, a->z);
 }
 
 static int
-gej_equal(curve_t *ec, const gej_t *a, const gej_t *b) {
+jge_equal(wei_t *ec, const jge_t *a, const jge_t *b) {
   prime_field_t *fe = &ec->fe;
   fe_t z1, z2, e1, e2;
-  int inf1 = gej_is_zero(ec, a);
-  int inf2 = gej_is_zero(ec, b);
+  int inf1 = jge_is_zero(ec, a);
+  int inf2 = jge_is_zero(ec, b);
   int both = inf1 & inf2;
   int ret = 1;
 
@@ -566,7 +566,7 @@ gej_equal(curve_t *ec, const gej_t *a, const gej_t *b) {
 }
 
 static int
-gej_equal_r(curve_t *ec, const gej_t *p, const sc_t x) {
+jge_equal_r(wei_t *ec, const jge_t *p, const sc_t x) {
   prime_field_t *fe = &ec->fe;
   scalar_field_t *sc = &ec->sc;
   mp_limb_t cp[MAX_FIELD_LIMBS + 1];
@@ -575,7 +575,7 @@ gej_equal_r(curve_t *ec, const gej_t *p, const sc_t x) {
 
   assert(fe->limbs >= sc->limbs);
 
-  if (gej_is_zero(ec, p))
+  if (jge_is_zero(ec, p))
     return 0;
 
   fe_sqr(fe, zz, p->z);
@@ -610,7 +610,7 @@ gej_equal_r(curve_t *ec, const gej_t *p, const sc_t x) {
 }
 
 static void
-gej_neg(curve_t *ec, gej_t *r, const gej_t *a) {
+jge_neg(wei_t *ec, jge_t *r, const jge_t *a) {
   prime_field_t *fe = &ec->fe;
 
   fe_set(fe, r->x, a->x);
@@ -619,7 +619,7 @@ gej_neg(curve_t *ec, gej_t *r, const gej_t *a) {
 }
 
 static void
-gej_zero_cond(curve_t *ec, gej_t *r, const gej_t *a, unsigned int flag) {
+jge_zero_cond(wei_t *ec, jge_t *r, const jge_t *a, unsigned int flag) {
   prime_field_t *fe = &ec->fe;
 
   fe_select(fe, r->x, a->x, fe->one, flag);
@@ -628,7 +628,7 @@ gej_zero_cond(curve_t *ec, gej_t *r, const gej_t *a, unsigned int flag) {
 }
 
 static void
-gej_neg_cond(curve_t *ec, gej_t *r, const gej_t *a, unsigned int flag) {
+jge_neg_cond(wei_t *ec, jge_t *r, const jge_t *a, unsigned int flag) {
   prime_field_t *fe = &ec->fe;
 
   fe_set(fe, r->x, a->x);
@@ -637,10 +637,10 @@ gej_neg_cond(curve_t *ec, gej_t *r, const gej_t *a, unsigned int flag) {
 }
 
 static void
-gej_to_ge(curve_t *ec, ge_t *r, const gej_t *p);
+jge_to_wge(wei_t *ec, wge_t *r, const jge_t *p);
 
 static void
-gej_dbl(curve_t *ec, gej_t *r, const gej_t *a) {
+jge_dbl(wei_t *ec, jge_t *r, const jge_t *a) {
   /* https://hyperelliptic.org/EFD/g1p/auto-shortw-jacobian.html#doubling-dbl-1998-cmo-2
    * 3M + 6S + 4A + 1*a + 2*2 + 1*3 + 1*4 + 1*8
    * (implemented as: 3M + 6S + 5A + 1*a + 1*2 + 1*3 + 1*4 + 1*8)
@@ -648,13 +648,13 @@ gej_dbl(curve_t *ec, gej_t *r, const gej_t *a) {
   prime_field_t *fe = &ec->fe;
   fe_t xx, yy, zz, s, m, t, t0, t1, x3, y3, z3;
 
-  if (gej_is_zero(ec, a)) {
-    gej_zero(ec, r);
+  if (jge_is_zero(ec, a)) {
+    jge_zero(ec, r);
     return;
   }
 
   if (fe_is_zero(fe, a->y)) {
-    gej_zero(ec, r);
+    jge_zero(ec, r);
     return;
   }
 
@@ -702,7 +702,7 @@ gej_dbl(curve_t *ec, gej_t *r, const gej_t *a) {
 }
 
 static void
-gej_add(curve_t *ec, gej_t *r, const gej_t *a, const gej_t *b) {
+jge_add(wei_t *ec, jge_t *r, const jge_t *a, const jge_t *b) {
   /* No assumptions.
    * https://hyperelliptic.org/EFD/g1p/auto-shortw-jacobian.html#addition-add-1998-cmo-2
    * 12M + 4S + 6A + 1*2 (implemented as: 12M + 4S + 7A)
@@ -710,13 +710,13 @@ gej_add(curve_t *ec, gej_t *r, const gej_t *a, const gej_t *b) {
   prime_field_t *fe = &ec->fe;
   fe_t z1z1, z2z2, u1, u2, s1, s2, h, r0, hh, hhh, v, x3, y3, z3;
 
-  if (gej_is_zero(ec, a)) {
-    gej_set(ec, r, b);
+  if (jge_is_zero(ec, a)) {
+    jge_set(ec, r, b);
     return;
   }
 
-  if (gej_is_zero(ec, b)) {
-    gej_set(ec, r, a);
+  if (jge_is_zero(ec, b)) {
+    jge_set(ec, r, a);
     return;
   }
 
@@ -749,11 +749,11 @@ gej_add(curve_t *ec, gej_t *r, const gej_t *a, const gej_t *b) {
   /* H = 0 */
   if (fe_is_zero(fe, h)) {
     if (!fe_is_zero(fe, r0)) {
-      gej_zero(ec, r);
+      jge_zero(ec, r);
       return;
     }
 
-    gej_dbl(ec, r, a);
+    jge_dbl(ec, r, a);
     return;
   }
 
@@ -788,14 +788,14 @@ gej_add(curve_t *ec, gej_t *r, const gej_t *a, const gej_t *b) {
 }
 
 static void
-gej_sub(curve_t *ec, gej_t *r, const gej_t *a, const gej_t *b) {
-  gej_t c;
-  gej_neg(ec, &c, b);
-  gej_add(ec, r, a, &c);
+jge_sub(wei_t *ec, jge_t *r, const jge_t *a, const jge_t *b) {
+  jge_t c;
+  jge_neg(ec, &c, b);
+  jge_add(ec, r, a, &c);
 }
 
 static void
-gej_mixed_add(curve_t *ec, gej_t *r, const gej_t *a, const ge_t *b) {
+jge_mixed_add(wei_t *ec, jge_t *r, const jge_t *a, const wge_t *b) {
   /* Assumes Z2 = 1.
    * https://hyperelliptic.org/EFD/g1p/auto-shortw-jacobian.html#addition-madd
    * 8M + 3S + 6A + 5*2 (implemented as: 8M + 3S + 7A + 4*2)
@@ -803,13 +803,13 @@ gej_mixed_add(curve_t *ec, gej_t *r, const gej_t *a, const ge_t *b) {
   prime_field_t *fe = &ec->fe;
   fe_t z1z1, u2, s2, h, r0, i, j, v, x3, y3, z3;
 
-  if (gej_is_zero(ec, a)) {
-    ge_to_gej(ec, r, b);
+  if (jge_is_zero(ec, a)) {
+    wge_to_jge(ec, r, b);
     return;
   }
 
-  if (ge_is_zero(ec, b)) {
-    gej_set(ec, r, a);
+  if (wge_is_zero(ec, b)) {
+    jge_set(ec, r, a);
     return;
   }
 
@@ -833,11 +833,11 @@ gej_mixed_add(curve_t *ec, gej_t *r, const gej_t *a, const ge_t *b) {
   /* H = 0 */
   if (fe_is_zero(fe, h)) {
     if (!fe_is_zero(fe, r0)) {
-      gej_zero(ec, r);
+      jge_zero(ec, r);
       return;
     }
 
-    gej_dbl(ec, r, a);
+    jge_dbl(ec, r, a);
     return;
   }
 
@@ -874,14 +874,14 @@ gej_mixed_add(curve_t *ec, gej_t *r, const gej_t *a, const ge_t *b) {
 }
 
 static void
-gej_mixed_sub(curve_t *ec, gej_t *r, const gej_t *a, const ge_t *b) {
-  ge_t c;
-  ge_neg(ec, &c, b);
-  gej_mixed_add(ec, r, a, &c);
+jge_mixed_sub(wei_t *ec, jge_t *r, const jge_t *a, const wge_t *b) {
+  wge_t c;
+  wge_neg(ec, &c, b);
+  jge_mixed_add(ec, r, a, &c);
 }
 
 static void
-gej_zaddu(curve_t *ec, gej_t *r, gej_t *p, const gej_t *a, const gej_t *b) {
+jge_zaddu(wei_t *ec, jge_t *r, jge_t *p, const jge_t *a, const jge_t *b) {
   /* Co-Z addition with update (ZADDU) */
   /* Algorithm 19, Page 15, Appendix C */
   prime_field_t *fe = &ec->fe;
@@ -956,7 +956,7 @@ gej_zaddu(curve_t *ec, gej_t *r, gej_t *p, const gej_t *a, const gej_t *b) {
 }
 
 static void
-gej_zaddc(curve_t *ec, gej_t *r, gej_t *s, const gej_t *a, const gej_t *b) {
+jge_zaddc(wei_t *ec, jge_t *r, jge_t *s, const jge_t *a, const jge_t *b) {
   /* Conjugate co-Z addition (ZADDC) */
   /* Algorithm 20, Page 15, Appendix C */
   prime_field_t *fe = &ec->fe;
@@ -1064,7 +1064,7 @@ gej_zaddc(curve_t *ec, gej_t *r, gej_t *s, const gej_t *a, const gej_t *b) {
 }
 
 static void
-gej_zdblu(curve_t *ec, gej_t *r, gej_t *p, const gej_t *a) {
+jge_zdblu(wei_t *ec, jge_t *r, jge_t *p, const jge_t *a) {
   /* Co-Z doubling with update (DBLU) */
   /* Algorithm 21, Page 15, Appendix C */
   prime_field_t *fe = &ec->fe;
@@ -1148,17 +1148,17 @@ gej_zdblu(curve_t *ec, gej_t *r, gej_t *p, const gej_t *a) {
 }
 
 static void
-gej_dblp(curve_t *ec, gej_t *r, const gej_t *a, size_t pow) {
+jge_dblp(wei_t *ec, jge_t *r, const jge_t *a, size_t pow) {
   size_t i;
 
-  gej_set(ec, r, a);
+  jge_set(ec, r, a);
 
   for (i = 0; i < pow; i++)
-    gej_dbl(ec, r, r);
+    jge_dbl(ec, r, r);
 }
 
 static void
-gej_to_ge(curve_t *ec, ge_t *r, const gej_t *p) {
+jge_to_wge(wei_t *ec, wge_t *r, const jge_t *p) {
   /* https://hyperelliptic.org/EFD/g1p/auto-shortw-jacobian.html#scaling-z
    * 1I + 3M + 1S
    */
@@ -1181,7 +1181,7 @@ gej_to_ge(curve_t *ec, ge_t *r, const gej_t *p) {
 }
 
 static void
-gej_to_ge_var(curve_t *ec, ge_t *r, const gej_t *p) {
+jge_to_wge_var(wei_t *ec, wge_t *r, const jge_t *p) {
   /* https://hyperelliptic.org/EFD/g1p/auto-shortw-jacobian.html#scaling-z
    * 1I + 3M + 1S
    */
@@ -1189,7 +1189,7 @@ gej_to_ge_var(curve_t *ec, ge_t *r, const gej_t *p) {
   fe_t a, aa;
 
   /* P = O */
-  if (gej_is_zero(ec, p)) {
+  if (jge_is_zero(ec, p)) {
     r->inf = 1;
     return;
   }
@@ -1218,7 +1218,7 @@ gej_to_ge_var(curve_t *ec, ge_t *r, const gej_t *p) {
 }
 
 static int
-gej_validate(curve_t *ec, const gej_t *p) {
+jge_validate(wei_t *ec, const jge_t *p) {
   /* [GECC] Example 3.20, Page 88, Section 3. */
   prime_field_t *fe = &ec->fe;
   fe_t lhs, x3, z2, z4, z6, rhs;
@@ -1237,27 +1237,27 @@ gej_validate(curve_t *ec, const gej_t *p) {
   fe_add(fe, rhs, rhs, x3);
 
   return fe_equal(fe, lhs, rhs)
-       | gej_is_zero(ec, p);
+       | jge_is_zero(ec, p);
 }
 
 static void
-gej_naf_points(curve_t *ec, gej_t *points, const ge_t *p, size_t width) {
+jge_naf_points(wei_t *ec, jge_t *points, const wge_t *p, size_t width) {
   size_t size = (1 << width) - 1;
-  gej_t dbl;
+  jge_t dbl;
   size_t i;
 
-  ge_to_gej(ec, &points[0], p);
-  gej_dbl(ec, &dbl, &points[0]);
+  wge_to_jge(ec, &points[0], p);
+  jge_dbl(ec, &dbl, &points[0]);
 
   for (i = 1; i < size; i++)
-    gej_add(ec, &points[i], &points[i - 1], &dbl);
+    jge_add(ec, &points[i], &points[i - 1], &dbl);
 }
 
 static void
-gej_print(curve_t *ec, const gej_t *p) {
+jge_print(wei_t *ec, const jge_t *p) {
   prime_field_t *fe = &ec->fe;
 
-  if (gej_is_zero(ec, p)) {
+  if (jge_is_zero(ec, p)) {
     printf("(infinity)\n");
   } else {
     mp_limb_t xp[MAX_FIELD_LIMBS];
@@ -1283,7 +1283,7 @@ gej_print(curve_t *ec, const gej_t *p) {
  */
 
 static void
-curve_init(curve_t *ec, const curve_def_t *def) {
+wei_init(wei_t *ec, const wei_def_t *def) {
   prime_field_t *fe = &ec->fe;
   scalar_field_t *sc = &ec->sc;
 
@@ -1303,24 +1303,24 @@ curve_init(curve_t *ec, const curve_def_t *def) {
   ec->g.inf = 0;
 
   sc_zero(sc, ec->blind);
-  ge_zero(ec, &ec->unblind);
+  wge_zero(ec, &ec->unblind);
 
-  ge_naf_points(ec, ec->points, &ec->g, NAF_WIDTH_PRE);
+  wge_naf_points(ec, ec->points, &ec->g, NAF_WIDTH_PRE);
 }
 
 static void
-curve_jmul_g_var(curve_t *ec, gej_t *r, const sc_t k) {
+wei_jmul_g_var(wei_t *ec, jge_t *r, const sc_t k) {
   /* Window NAF method for point multiplication.
    *
    * [GECC] Algorithm 3.36, Page 100, Section 3.3.
    */
   scalar_field_t *sc = &ec->sc;
-  ge_t *points = ec->points;
+  wge_t *points = ec->points;
   int32_t naf[MAX_SCALAR_BITS + 1];
   size_t max;
   int32_t i;
   sc_t k0;
-  gej_t acc;
+  jge_t acc;
 
   /* Blind if available. */
   sc_add(sc, k0, k, ec->blind);
@@ -1332,7 +1332,7 @@ curve_jmul_g_var(curve_t *ec, gej_t *r, const sc_t k) {
   sc_naf(sc, naf, k0, NAF_WIDTH_PRE, max);
 
   /* Add `this`*(N+1) for every w-NAF index. */
-  gej_zero(ec, &acc);
+  jge_zero(ec, &acc);
 
   for (i = max - 1; i >= 0; i--) {
     /* Count zeroes. */
@@ -1345,7 +1345,7 @@ curve_jmul_g_var(curve_t *ec, gej_t *r, const sc_t k) {
     if (i >= 0)
       k += 1;
 
-    gej_dblp(ec, &acc, &acc, k);
+    jge_dblp(ec, &acc, &acc, k);
 
     if (i < 0)
       break;
@@ -1355,40 +1355,40 @@ curve_jmul_g_var(curve_t *ec, gej_t *r, const sc_t k) {
     assert(z != 0);
 
     if (z > 0)
-      gej_mixed_add(ec, &acc, &acc, &points[(z - 1) >> 1]);
+      jge_mixed_add(ec, &acc, &acc, &points[(z - 1) >> 1]);
     else
-      gej_mixed_sub(ec, &acc, &acc, &points[(-z - 1) >> 1]);
+      jge_mixed_sub(ec, &acc, &acc, &points[(-z - 1) >> 1]);
   }
 
   /* Unblind. */
-  gej_mixed_add(ec, &acc, &acc, &ec->unblind);
+  jge_mixed_add(ec, &acc, &acc, &ec->unblind);
 
-  gej_set(ec, r, &acc);
+  jge_set(ec, r, &acc);
 
   sc_cleanse(sc, k0);
 }
 
 static void
-curve_jmul_var(curve_t *ec, gej_t *r, const ge_t *p, const sc_t k) {
+wei_jmul_var(wei_t *ec, jge_t *r, const wge_t *p, const sc_t k) {
   /* Window NAF method for point multiplication.
    *
    * [GECC] Algorithm 3.36, Page 100, Section 3.3.
    */
   scalar_field_t *sc = &ec->sc;
-  ge_t points[(1 << NAF_WIDTH) - 1];
+  wge_t points[(1 << NAF_WIDTH) - 1];
   int32_t naf[MAX_SCALAR_BITS + 1];
   size_t max = sc_bitlen(sc, k) + 1;
   int32_t i;
-  gej_t acc;
+  jge_t acc;
 
   /* Precompute window. */
-  ge_naf_points(ec, points, p, NAF_WIDTH);
+  wge_naf_points(ec, points, p, NAF_WIDTH);
 
   /* Get NAF form. */
   sc_naf(sc, naf, k, NAF_WIDTH, max);
 
   /* Add `this`*(N+1) for every w-NAF index. */
-  gej_zero(ec, &acc);
+  jge_zero(ec, &acc);
 
   for (i = max - 1; i >= 0; i--) {
     /* Count zeroes. */
@@ -1401,7 +1401,7 @@ curve_jmul_var(curve_t *ec, gej_t *r, const ge_t *p, const sc_t k) {
     if (i >= 0)
       k += 1;
 
-    gej_dblp(ec, &acc, &acc, k);
+    jge_dblp(ec, &acc, &acc, k);
 
     if (i < 0)
       break;
@@ -1411,19 +1411,19 @@ curve_jmul_var(curve_t *ec, gej_t *r, const ge_t *p, const sc_t k) {
     assert(z != 0);
 
     if (z > 0)
-      gej_mixed_add(ec, &acc, &acc, &points[(z - 1) >> 1]);
+      jge_mixed_add(ec, &acc, &acc, &points[(z - 1) >> 1]);
     else
-      gej_mixed_sub(ec, &acc, &acc, &points[(-z - 1) >> 1]);
+      jge_mixed_sub(ec, &acc, &acc, &points[(-z - 1) >> 1]);
   }
 
-  gej_set(ec, r, &acc);
+  jge_set(ec, r, &acc);
 }
 
 static void
-curve_jmul_double_var(curve_t *ec,
-                      gej_t *r,
+wei_jmul_double_var(wei_t *ec,
+                      jge_t *r,
                       const sc_t k1,
-                      const ge_t *p2,
+                      const wge_t *p2,
                       const sc_t k2) {
   /* Multiple point multiplication, also known
    * as "Shamir's trick" (with interleaved NAFs).
@@ -1432,23 +1432,23 @@ curve_jmul_double_var(curve_t *ec,
    *        Algorithm 3.51, Page 112, Section 3.3.
    */
   scalar_field_t *sc = &ec->sc;
-  ge_t *wnd1 = ec->points;
-  ge_t wnd2[(1 << NAF_WIDTH) - 1];
+  wge_t *wnd1 = ec->points;
+  wge_t wnd2[(1 << NAF_WIDTH) - 1];
   int32_t naf1[MAX_SCALAR_BITS + 1];
   int32_t naf2[MAX_SCALAR_BITS + 1];
   size_t max1 = sc_bitlen(sc, k1) + 1;
   size_t max2 = sc_bitlen(sc, k2) + 1;
   size_t max = max1 > max2 ? max1 : max2;
   int32_t i;
-  gej_t acc;
+  jge_t acc;
 
   sc_naf(sc, naf1, k1, NAF_WIDTH_PRE, max);
   sc_naf(sc, naf2, k2, NAF_WIDTH, max);
 
-  ge_naf_points(ec, wnd2, p2, NAF_WIDTH);
+  wge_naf_points(ec, wnd2, p2, NAF_WIDTH);
 
   /* Multiply and add. */
-  gej_zero(ec, &acc);
+  jge_zero(ec, &acc);
 
   for (i = max - 1; i >= 0; i--) {
     size_t k = 0;
@@ -1465,7 +1465,7 @@ curve_jmul_double_var(curve_t *ec,
     if (i >= 0)
       k += 1;
 
-    gej_dblp(ec, &acc, &acc, k);
+    jge_dblp(ec, &acc, &acc, k);
 
     if (i < 0)
       break;
@@ -1474,27 +1474,27 @@ curve_jmul_double_var(curve_t *ec,
     z2 = naf2[i];
 
     if (z1 > 0)
-      gej_mixed_add(ec, &acc, &acc, &wnd1[(z1 - 1) >> 1]);
+      jge_mixed_add(ec, &acc, &acc, &wnd1[(z1 - 1) >> 1]);
     else if (z1 < 0)
-      gej_mixed_sub(ec, &acc, &acc, &wnd1[(-z1 - 1) >> 1]);
+      jge_mixed_sub(ec, &acc, &acc, &wnd1[(-z1 - 1) >> 1]);
 
     if (z2 > 0)
-      gej_mixed_add(ec, &acc, &acc, &wnd2[(z2 - 1) >> 1]);
+      jge_mixed_add(ec, &acc, &acc, &wnd2[(z2 - 1) >> 1]);
     else if (z2 < 0)
-      gej_mixed_sub(ec, &acc, &acc, &wnd2[(-z2 - 1) >> 1]);
+      jge_mixed_sub(ec, &acc, &acc, &wnd2[(-z2 - 1) >> 1]);
   }
 
-  gej_set(ec, r, &acc);
+  jge_set(ec, r, &acc);
 }
 
 static void
-curve_jmul(curve_t *ec, gej_t *r, const ge_t *p, const sc_t k) {
+wei_jmul(wei_t *ec, jge_t *r, const wge_t *p, const sc_t k) {
   /* Co-Z Montgomery Ladder.
    *
    * [COZ] Algorithm 9, Page 6, Section 4.
    */
   scalar_field_t *sc = &ec->sc;
-  gej_t a, b, c;
+  jge_t a, b, c;
   mp_limb_t swap = 0;
   sc_t u, v;
   uint32_t ub, vb, negated, zero, minus1;
@@ -1526,34 +1526,34 @@ curve_jmul(curve_t *ec, gej_t *r, const ge_t *p, const sc_t k) {
   minus1 = sc_equal(sc, u, v);
 
   /* Multiply with Co-Z arithmetic. */
-  ge_to_gej(ec, &c, p);
-  gej_zdblu(ec, &a, &b, &c);
+  wge_to_jge(ec, &c, p);
+  jge_zdblu(ec, &a, &b, &c);
 
   for (i = bits - 2; i >= 0; i--) {
     mp_limb_t bit = (u[i / GMP_NUMB_BITS] >> (i % GMP_NUMB_BITS)) & 1;
 
-    gej_swap(ec, &a, &b, swap ^ bit);
-    gej_zaddc(ec, &a, &b, &b, &a);
-    gej_zaddu(ec, &b, &a, &a, &b);
+    jge_swap(ec, &a, &b, swap ^ bit);
+    jge_zaddc(ec, &a, &b, &b, &a);
+    jge_zaddu(ec, &b, &a, &a, &b);
 
     swap = bit;
   }
 
   /* Finalize loop. */
-  gej_swap(ec, &a, &b, swap);
+  jge_swap(ec, &a, &b, swap);
 
   /* Handle edge case (k = 0). */
-  gej_zero_cond(ec, &b, &b, zero);
+  jge_zero_cond(ec, &b, &b, zero);
 
   /* Handle edge case (k = -1). */
-  gej_neg(ec, &c, &c);
-  gej_swap(ec, &b, &c, minus1);
+  jge_neg(ec, &c, &c);
+  jge_swap(ec, &b, &c, minus1);
 
   /* Adjust sign. */
-  gej_neg_cond(ec, &b, &b, negated);
+  jge_neg_cond(ec, &b, &b, negated);
 
   /* Result. */
-  gej_set(ec, r, &b);
+  jge_set(ec, r, &b);
 
   /* Zero scalars. */
   sc_cleanse(sc, u);
@@ -1561,32 +1561,32 @@ curve_jmul(curve_t *ec, gej_t *r, const ge_t *p, const sc_t k) {
 }
 
 static void
-curve_mul_g_var(curve_t *ec, ge_t *r, const sc_t k) {
-  gej_t j;
-  curve_jmul_g_var(ec, &j, k);
-  gej_to_ge_var(ec, r, &j);
+wei_mul_g_var(wei_t *ec, wge_t *r, const sc_t k) {
+  jge_t j;
+  wei_jmul_g_var(ec, &j, k);
+  jge_to_wge_var(ec, r, &j);
 }
 
 static void
-curve_mul_var(curve_t *ec, ge_t *r, const ge_t *p, const sc_t k) {
-  gej_t j;
-  curve_jmul_var(ec, &j, p, k);
-  gej_to_ge_var(ec, r, &j);
+wei_mul_var(wei_t *ec, wge_t *r, const wge_t *p, const sc_t k) {
+  jge_t j;
+  wei_jmul_var(ec, &j, p, k);
+  jge_to_wge_var(ec, r, &j);
 }
 
 static void
-curve_mul_double_var(curve_t *ec,
-                     ge_t *r,
+wei_mul_double_var(wei_t *ec,
+                     wge_t *r,
                      const sc_t k1,
-                     const ge_t *p2,
+                     const wge_t *p2,
                      const sc_t k2) {
-  gej_t j;
-  curve_jmul_double_var(ec, &j, k1, p2, k2);
-  gej_to_ge_var(ec, r, &j);
+  jge_t j;
+  wei_jmul_double_var(ec, &j, k1, p2, k2);
+  jge_to_wge_var(ec, r, &j);
 }
 
 static void
-curve_jmul_g(curve_t *ec, gej_t *r, const sc_t k) {
+wei_jmul_g(wei_t *ec, jge_t *r, const sc_t k) {
   scalar_field_t *sc = &ec->sc;
   sc_t k0;
 
@@ -1594,51 +1594,51 @@ curve_jmul_g(curve_t *ec, gej_t *r, const sc_t k) {
   sc_add(sc, k0, k, ec->blind);
 
   /* Multiply in constant time. */
-  curve_jmul(ec, r, &ec->g, k0);
+  wei_jmul(ec, r, &ec->g, k0);
 
   /* Unblind. */
-  gej_mixed_add(ec, r, r, &ec->unblind);
+  jge_mixed_add(ec, r, r, &ec->unblind);
 
   /* Cleanse. */
   sc_cleanse(sc, k0);
 }
 
 static void
-curve_mul(curve_t *ec, ge_t *r, const ge_t *p, const sc_t k) {
-  gej_t j;
-  curve_jmul(ec, &j, p, k);
-  gej_to_ge(ec, r, &j);
+wei_mul(wei_t *ec, wge_t *r, const wge_t *p, const sc_t k) {
+  jge_t j;
+  wei_jmul(ec, &j, p, k);
+  jge_to_wge(ec, r, &j);
 }
 
 static void
-curve_mul_g(curve_t *ec, ge_t *r, const sc_t k) {
-  gej_t j;
-  curve_jmul_g(ec, &j, k);
-  gej_to_ge(ec, r, &j);
+wei_mul_g(wei_t *ec, wge_t *r, const sc_t k) {
+  jge_t j;
+  wei_jmul_g(ec, &j, k);
+  jge_to_wge(ec, r, &j);
 }
 
 static void
-curve_randomize(curve_t *ec, const unsigned char *entropy) {
+wei_randomize(wei_t *ec, const unsigned char *entropy) {
   scalar_field_t *sc = &ec->sc;
   sc_t blind;
-  ge_t unblind;
+  wge_t unblind;
 
   sc_import_lax(sc, blind, entropy);
-  curve_mul_g(ec, &unblind, blind);
-  ge_neg(ec, &unblind, &unblind);
+  wei_mul_g(ec, &unblind, blind);
+  wge_neg(ec, &unblind, &unblind);
 
   sc_set(sc, ec->blind, blind);
-  ge_set(ec, &ec->unblind, &unblind);
+  wge_set(ec, &ec->unblind, &unblind);
 
   sc_cleanse(sc, blind);
-  ge_cleanse(ec, &unblind);
+  wge_cleanse(ec, &unblind);
 }
 
 /*
  * Curves
  */
 
-static const curve_def_t curve_p192 = {
+static const wei_def_t curve_p192 = {
   .id = "P192",
   .hash = HASH_SHA256,
   .fe = &field_p192,
@@ -1669,7 +1669,7 @@ static const curve_def_t curve_p192 = {
   }
 };
 
-static const curve_def_t curve_p224 = {
+static const wei_def_t curve_p224 = {
   .id = "P224",
   .hash = HASH_SHA256,
   .fe = &field_p224,
@@ -1704,7 +1704,7 @@ static const curve_def_t curve_p224 = {
   }
 };
 
-static const curve_def_t curve_p256 = {
+static const wei_def_t curve_p256 = {
   .id = "P256",
   .hash = HASH_SHA256,
   .fe = &field_p256,
@@ -1739,7 +1739,7 @@ static const curve_def_t curve_p256 = {
   }
 };
 
-static const curve_def_t curve_p384 = {
+static const wei_def_t curve_p384 = {
   .id = "P384",
   .hash = HASH_SHA384,
   .fe = &field_p384,
@@ -1782,7 +1782,7 @@ static const curve_def_t curve_p384 = {
   }
 };
 
-static const curve_def_t curve_p521 = {
+static const wei_def_t curve_p521 = {
   .id = "P521",
   .hash = HASH_SHA512,
   .fe = &field_p521,
@@ -1837,7 +1837,7 @@ static const curve_def_t curve_p521 = {
   }
 };
 
-static const curve_def_t curve_secp256k1 = {
+static const wei_def_t curve_secp256k1 = {
   .id = "SECP256K1",
   .hash = HASH_SHA256,
   .fe = &field_p256k1,

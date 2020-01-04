@@ -11,28 +11,30 @@
  * Structs
  */
 
-typedef struct ge_s {
+/* mge = montgomery group element (affine) */
+typedef struct mge_s {
   fe_t x;
   fe_t y;
   int inf;
-} ge_t;
+} mge_t;
 
-typedef struct gej_s {
+/* pge = projective group element (x/z) */
+typedef struct pge_s {
   fe_t x;
   fe_t z;
-} gej_t;
+} pge_t;
 
-typedef struct curve_s {
+typedef struct mont_s {
   const char *prefix;
   prime_field_t fe;
   scalar_field_t sc;
   fe_t a;
   fe_t b;
   fe_t bi;
-  ge_t g;
-} curve_t;
+  mge_t g;
+} mont_t;
 
-typedef struct curve_def_s {
+typedef struct mont_def_s {
   const char *id;
   const char *prefix;
   const prime_def_t *fe;
@@ -44,14 +46,14 @@ typedef struct curve_def_s {
   const unsigned char c[MAX_FIELD_SIZE];
   const unsigned char x[MAX_FIELD_SIZE];
   const unsigned char y[MAX_FIELD_SIZE];
-} curve_def_t;
+} mont_def_t;
 
 /*
  * Affine Point
  */
 
 static void
-ge_zero(curve_t *ec, ge_t *r) {
+mge_zero(mont_t *ec, mge_t *r) {
   prime_field_t *fe = &ec->fe;
 
   fe_zero(fe, r->x);
@@ -60,7 +62,7 @@ ge_zero(curve_t *ec, ge_t *r) {
 }
 
 static void
-ge_cleanse(curve_t *ec, ge_t *r) {
+mge_cleanse(mont_t *ec, mge_t *r) {
   prime_field_t *fe = &ec->fe;
 
   fe_cleanse(fe, r->x);
@@ -69,7 +71,7 @@ ge_cleanse(curve_t *ec, ge_t *r) {
 }
 
 static int
-ge_validate(curve_t *ec, const ge_t *p) {
+mge_validate(mont_t *ec, const mge_t *p) {
   /* [MONT3] Page 3, Section 2. */
   /* B * y^2 = x^3 + A * x^2 + x */
   prime_field_t *fe = &ec->fe;
@@ -87,7 +89,7 @@ ge_validate(curve_t *ec, const ge_t *p) {
 }
 
 static int
-ge_set_x(curve_t *ec, ge_t *r, const fe_t x, int sign) {
+mge_set_x(mont_t *ec, mge_t *r, const fe_t x, int sign) {
   /* [MONT3] Page 3, Section 2. */
   /* B * y^2 = x^3 + A * x^2 + x */
   prime_field_t *fe = &ec->fe;
@@ -114,7 +116,7 @@ ge_set_x(curve_t *ec, ge_t *r, const fe_t x, int sign) {
 }
 
 static void
-ge_set_xy(curve_t *ec, ge_t *r, const fe_t x, const fe_t y) {
+mge_set_xy(mont_t *ec, mge_t *r, const fe_t x, const fe_t y) {
   prime_field_t *fe = &ec->fe;
 
   fe_set(fe, r->x, x);
@@ -123,15 +125,15 @@ ge_set_xy(curve_t *ec, ge_t *r, const fe_t x, const fe_t y) {
 }
 
 static int
-ge_import(curve_t *ec, ge_t *r, const unsigned char *raw) {
+mge_import(mont_t *ec, mge_t *r, const unsigned char *raw) {
   /* [RFC7748] Section 5. */
   prime_field_t *fe = &ec->fe;
 
   if ((fe->bits & 7) != 0) {
     /* Ignore the hi bit for curve25519. */
     unsigned char tmp[MAX_FIELD_SIZE];
-    uint32_t ignore = fe->size * 8 - fe->bits;
-    uint32_t mask = (1 << (8 - ignore)) - 1;
+    unsigned int ignore = fe->size * 8 - fe->bits;
+    unsigned int mask = (1 << (8 - ignore)) - 1;
 
     memcpy(tmp, raw, fe->size);
 
@@ -143,13 +145,13 @@ ge_import(curve_t *ec, ge_t *r, const unsigned char *raw) {
   }
 
   /* Take the principle square root. */
-  return ge_set_x(ec, r, r->x, -1);
+  return mge_set_x(ec, r, r->x, -1);
 }
 
 static int
-ge_export(curve_t *ec,
+mge_export(mont_t *ec,
           unsigned char *raw,
-          const ge_t *p) {
+          const mge_t *p) {
   /* [RFC7748] Section 5. */
   prime_field_t *fe = &ec->fe;
 
@@ -162,7 +164,7 @@ ge_export(curve_t *ec,
 }
 
 static void
-ge_swap(curve_t *ec, ge_t *a, ge_t *b, unsigned int flag) {
+mge_swap(mont_t *ec, mge_t *a, mge_t *b, unsigned int flag) {
   prime_field_t *fe = &ec->fe;
   int cond = (flag != 0);
   int inf1 = a->inf;
@@ -176,7 +178,7 @@ ge_swap(curve_t *ec, ge_t *a, ge_t *b, unsigned int flag) {
 }
 
 static void
-ge_set(curve_t *ec, ge_t *r, const ge_t *a) {
+mge_set(mont_t *ec, mge_t *r, const mge_t *a) {
   prime_field_t *fe = &ec->fe;
 
   fe_set(fe, r->x, a->x);
@@ -185,7 +187,7 @@ ge_set(curve_t *ec, ge_t *r, const ge_t *a) {
 }
 
 static int
-ge_equal(curve_t *ec, const ge_t *a, const ge_t *b) {
+mge_equal(mont_t *ec, const mge_t *a, const mge_t *b) {
   prime_field_t *fe = &ec->fe;
   int both = a->inf & b->inf;
   int ret = 1;
@@ -203,12 +205,12 @@ ge_equal(curve_t *ec, const ge_t *a, const ge_t *b) {
 }
 
 static int
-ge_is_zero(curve_t *ec, const ge_t *a) {
+mge_is_zero(mont_t *ec, const mge_t *a) {
   return a->inf;
 }
 
 static void
-ge_neg(curve_t *ec, ge_t *r, const ge_t *a) {
+mge_neg(mont_t *ec, mge_t *r, const mge_t *a) {
   prime_field_t *fe = &ec->fe;
 
   fe_set(fe, r->x, a->x);
@@ -217,7 +219,7 @@ ge_neg(curve_t *ec, ge_t *r, const ge_t *a) {
 }
 
 static void
-ge_dbl(curve_t *ec, ge_t *r, const ge_t *a) {
+mge_dbl(mont_t *ec, mge_t *r, const mge_t *a) {
   /* [MONT1] Page 8, Section 4.3.2.
    *
    * Addition Law (doubling):
@@ -233,13 +235,13 @@ ge_dbl(curve_t *ec, ge_t *r, const ge_t *a) {
 
   /* P = O */
   if (a->inf) {
-    ge_zero(ec, r);
+    mge_zero(ec, r);
     return;
   }
 
   /* Y1 = 0 */
   if (fe_is_zero(fe, a->y)) {
-    ge_zero(ec, r);
+    mge_zero(ec, r);
     return;
   }
 
@@ -273,7 +275,7 @@ ge_dbl(curve_t *ec, ge_t *r, const ge_t *a) {
 }
 
 static void
-ge_add(curve_t *ec, ge_t *r, const ge_t *a, const ge_t *b) {
+mge_add(mont_t *ec, mge_t *r, const mge_t *a, const mge_t *b) {
   /* [MONT1] Page 8, Section 4.3.2.
    *
    * Addition Law:
@@ -289,13 +291,13 @@ ge_add(curve_t *ec, ge_t *r, const ge_t *a, const ge_t *b) {
 
   /* O + P = P */
   if (a->inf) {
-    ge_set(ec, r, b);
+    mge_set(ec, r, b);
     return;
   }
 
   /* P + O = P */
   if (b->inf) {
-    ge_set(ec, r, a);
+    mge_set(ec, r, a);
     return;
   }
 
@@ -303,12 +305,12 @@ ge_add(curve_t *ec, ge_t *r, const ge_t *a, const ge_t *b) {
   if (fe_equal(fe, a->x, b->x)) {
     /* P + -P = O */
     if (!fe_equal(fe, a->y, b->y)) {
-      ge_zero(ec, r);
+      mge_zero(ec, r);
       return;
     }
 
     /* P + P = 2P */
-    ge_dbl(ec, r, a);
+    mge_dbl(ec, r, a);
     return;
   }
 
@@ -336,14 +338,14 @@ ge_add(curve_t *ec, ge_t *r, const ge_t *a, const ge_t *b) {
 }
 
 static void
-ge_sub(curve_t *ec, ge_t *r, const ge_t *a, const ge_t *b) {
-  ge_t c;
-  ge_neg(ec, &c, b);
-  ge_add(ec, r, a, &c);
+mge_sub(mont_t *ec, mge_t *r, const mge_t *a, const mge_t *b) {
+  mge_t c;
+  mge_neg(ec, &c, b);
+  mge_add(ec, r, a, &c);
 }
 
 static void
-ge_to_gej(curve_t *ec, gej_t *r, const ge_t *a) {
+mge_to_pge(mont_t *ec, pge_t *r, const mge_t *a) {
   prime_field_t *fe = &ec->fe;
 
   if (a->inf) {
@@ -357,10 +359,10 @@ ge_to_gej(curve_t *ec, gej_t *r, const ge_t *a) {
 }
 
 static void
-ge_print(curve_t *ec, const ge_t *p) {
+mge_print(mont_t *ec, const mge_t *p) {
   prime_field_t *fe = &ec->fe;
 
-  if (ge_is_zero(ec, p)) {
+  if (mge_is_zero(ec, p)) {
     printf("(infinity)\n");
   } else {
     mp_limb_t xp[MAX_FIELD_LIMBS];
@@ -382,7 +384,7 @@ ge_print(curve_t *ec, const ge_t *p) {
  */
 
 static void
-gej_zero(curve_t *ec, gej_t *r) {
+pge_zero(mont_t *ec, pge_t *r) {
   prime_field_t *fe = &ec->fe;
 
   fe_set(fe, r->x, fe->one);
@@ -390,7 +392,7 @@ gej_zero(curve_t *ec, gej_t *r) {
 }
 
 static void
-gej_cleanse(curve_t *ec, gej_t *r) {
+pge_cleanse(mont_t *ec, pge_t *r) {
   prime_field_t *fe = &ec->fe;
 
   fe_cleanse(fe, r->x);
@@ -398,32 +400,36 @@ gej_cleanse(curve_t *ec, gej_t *r) {
 }
 
 static int
-gej_validate(curve_t *ec, const gej_t *p) {
+pge_validate(mont_t *ec, const pge_t *p) {
   prime_field_t *fe = &ec->fe;
+  fe_t x2, x3, z2, ax2, xz2, y2;
 
   // B * y^2 * z = x^3 + A * x^2 * z + x * z^2
-  const {x, z} = this;
-  const x2 = x.redSqr();
-  const x3 = x2.redMul(x);
-  const z2 = z.redSqr();
-  const ax2 = this.curve.a.redMul(x2).redMul(z);
-  const by2 = x3.redIAdd(ax2).redIAdd(x.redMul(z2));
-  const y2 = by2.redMul(this.curve.bi);
+  fe_sqr(fe, x2, p->x);
+  fe_mul(fe, x3, x2, p->x);
+  fe_sqr(fe, z2, p->z);
+  fe_mul(fe, ax2, ec->a, x2);
+  fe_mul(fe, ax2, x2, p->z);
+  fe_mul(fe, xz2, p->x, z2);
+  fe_add(fe, y2, x3, ax2);
+  fe_add(fe, y2, y2, xz2);
+  fe_mul(fe, y2, y2, ec->bi);
+  fe_mul(fe, y2, y2, p->z);
 
   // sqrt(y^2 * z^4) = y * z^2
-  return y2.redMul(z).redJacobi() !== -1;
+  return fe_is_square(fe, y2);
 }
 
 static void
-gej_import(curve_t *ec, gej_t *r, const unsigned char *raw) {
+pge_import(mont_t *ec, pge_t *r, const unsigned char *raw) {
   /* [RFC7748] Section 5. */
   prime_field_t *fe = &ec->fe;
 
   if ((fe->bits & 7) != 0) {
     /* Ignore the hi bit for curve25519. */
     unsigned char tmp[MAX_FIELD_SIZE];
-    uint32_t ignore = fe->size * 8 - fe->bits;
-    uint32_t mask = (1 << (8 - ignore)) - 1;
+    unsigned int ignore = fe->size * 8 - fe->bits;
+    unsigned int mask = (1 << (8 - ignore)) - 1;
 
     memcpy(tmp, raw, fe->size);
 
@@ -436,22 +442,24 @@ gej_import(curve_t *ec, gej_t *r, const unsigned char *raw) {
 }
 
 static int
-gej_export(curve_t *ec,
+pge_export(mont_t *ec,
           unsigned char *raw,
-          const gej_t *p) {
+          const pge_t *p) {
   /* [RFC7748] Section 5. */
   prime_field_t *fe = &ec->fe;
+  int ret;
   fe_t x;
 
-  fe_invert(fe, x, p->z);
+  ret = fe_invert(fe, x, p->z);
+
   fe_mul(fe, x, x, p->x);
   fe_export(fe, raw, x);
 
-  return fe_is_zero(fe, p->z) ^ 1;
+  return ret;
 }
 
 static void
-gej_swap(curve_t *ec, gej_t *a, gej_t *b, unsigned int flag) {
+pge_swap(mont_t *ec, pge_t *a, pge_t *b, unsigned int flag) {
   prime_field_t *fe = &ec->fe;
 
   fe_swap(fe, a->x, b->x, flag);
@@ -459,10 +467,10 @@ gej_swap(curve_t *ec, gej_t *a, gej_t *b, unsigned int flag) {
 }
 
 static void
-gej_select(curve_t *ec,
-           gej_t *r,
-           const gej_t *a,
-           const gej_t *b,
+pge_select(mont_t *ec,
+           pge_t *r,
+           const pge_t *a,
+           const pge_t *b,
            unsigned int flag) {
   prime_field_t *fe = &ec->fe;
 
@@ -471,7 +479,7 @@ gej_select(curve_t *ec,
 }
 
 static void
-gej_set(curve_t *ec, gej_t *r, const gej_t *a) {
+pge_set(mont_t *ec, pge_t *r, const pge_t *a) {
   prime_field_t *fe = &ec->fe;
 
   fe_set(fe, r->x, a->x);
@@ -479,14 +487,14 @@ gej_set(curve_t *ec, gej_t *r, const gej_t *a) {
 }
 
 static int
-gej_is_zero(curve_t *ec, const gej_t *a) {
+pge_is_zero(mont_t *ec, const pge_t *a) {
   prime_field_t *fe = &ec->fe;
 
   return fe_is_zero(fe, a->z);
 }
 
 static int
-gej_equal(curve_t *ec, const gej_t *a, const gej_t *b) {
+pge_equal(mont_t *ec, const pge_t *a, const pge_t *b) {
   prime_field_t *fe = &ec->fe;
   fe_t e1, e2;
 
@@ -498,7 +506,7 @@ gej_equal(curve_t *ec, const gej_t *a, const gej_t *b) {
 }
 
 static void
-gej_zero_cond(curve_t *ec, gej_t *r, const gej_t *a, unsigned int flag) {
+pge_zero_cond(mont_t *ec, pge_t *r, const pge_t *a, unsigned int flag) {
   prime_field_t *fe = &ec->fe;
 
   fe_select(fe, r->x, a->x, fe->one, flag);
@@ -506,89 +514,93 @@ gej_zero_cond(curve_t *ec, gej_t *r, const gej_t *a, unsigned int flag) {
 }
 
 static void
-gej_dbl(curve_t *ec, gej_t *r, const gej_t *a) {
-  prime_field_t *fe = &ec->fe;
-
+pge_dbl(mont_t *ec, pge_t *p3, const pge_t *p1) {
   // https://hyperelliptic.org/EFD/g1p/auto-montgom-xz.html#doubling-dbl-1987-m-3
   // 2M + 2S + 4A + 1*a24
+  prime_field_t *fe = &ec->fe;
+  fe_t a, aa, b, bb, c, t;
 
   // A = X1 + Z1
-  const a = this.x.redAdd(this.z);
+  fe_add(fe, a, p1->x, p1->z);
 
   // AA = A^2
-  const aa = a.redSqr();
+  fe_sqr(fe, aa, a);
 
   // B = X1 - Z1
-  const b = this.x.redSub(this.z);
+  fe_sub(fe, b, p1->x, p1->z);
 
   // BB = B^2
-  const bb = b.redSqr();
+  fe_sqr(fe, bb, b);
 
   // C = AA - BB
-  const c = aa.redSub(bb);
+  fe_sub(fe, c, aa, bb);
 
   // X3 = AA * BB
-  const nx = aa.redMul(bb);
+  fe_mul(fe, p3->x, aa, bb);
 
   // Z3 = C * (BB + a24 * C)
-  const nz = c.redMul(bb.redIAdd(this.curve.a24.redMul(c)));
-
-  return this.curve.xpoint(nx, nz);
+  fe_mul(fe, t, c, ec->a24);
+  fe_add(fe, t, bb, t);
+  fe_mul(fe, p3->z, c, t);
 }
 
-diffAddDbl(p, q) {
+static void
+pge_dad(mont_t *ec, pge_t *p5, pge_t *p4, const pge_t *p1, const pge_t *p3, const pge_t *p2) {
   // https://hyperelliptic.org/EFD/g1p/auto-montgom-xz.html#ladder-ladd-1987-m-3
-  // Note that we swap P2 and P3 here (for consistency).
   // 6M + 4S + 8A + 1*a24
-  assert(p instanceof XPoint);
-  assert(q instanceof XPoint);
+  prime_field_t *fe = &ec->fe;
+  fe_t a, aa, b, bb, e, c, d, da, cb, t;
+
+  assert(p5 != p1);
 
   // A = X2 + Z2
-  const a = q.x.redAdd(q.z);
+  fe_add(fe, a, p2->x, p2->z);
 
   // AA = A^2
-  const aa = a.redSqr();
+  fe_sqr(fe, aa, a);
 
   // B = X2 - Z2
-  const b = q.x.redSub(q.z);
+  fe_sub(fe, b, p2->x, p2->z);
 
   // BB = B^2
-  const bb = b.redSqr();
+  fe_sqr(fe, bb, b);
 
   // E = AA - BB
-  const e = aa.redSub(bb);
+  fe_sub(fe, aa, bb);
 
   // C = X3 + Z3
-  const c = p.x.redAdd(p.z);
+  fe_add(fe, c, p3->x, p3->z);
 
   // D = X3 - Z3
-  const d = p.x.redSub(p.z);
+  fe_sub(fe, d, p3->x, p3->z);
 
   // DA = D * A
-  const da = d.redMul(a);
+  fe_mul(fe, da, d, a);
 
   // CB = C * B
-  const cb = c.redMul(b);
+  fe_mul(fe, cb, c, b);
 
   // X5 = Z1 * (DA + CB)^2
-  const nx = this.z.redMul(da.redAdd(cb).redSqr());
+  fe_add(fe, t, da, cb);
+  fe_sqr(fe, t, t);
+  fe_mul(fe, p5->x, p1->z, t);
 
   // Z5 = X1 * (DA - CB)^2
-  const nz = this.x.redMul(da.redISub(cb).redSqr());
+  fe_sub(fe, t, da, cb);
+  fe_sqr(fe, t, t);
+  fe_mul(fe, p5->z, p1->x, t);
 
   // X4 = AA * BB
-  const dx = aa.redMul(bb);
+  fe_mul(fe, p4->x, aa, bb);
 
   // Z4 = E * (BB + a24 * E)
-  const dz = e.redMul(bb.redIAdd(this.curve.a24.redMul(e)));
-
-  return [
-    this.curve.xpoint(nx, nz),
-    this.curve.xpoint(dx, dz)
-  ];
+  fe_mul(fe, t, ec->a24, e);
+  fe_add(fe, t, bb, t);
+  fe_mul(fe, p4->z, e, t);
 }
 
-ladderConst(k, rng) {
+static void
+mont_ladder(mont_t *ec, scalar_field_t *sc, pge_t *r, const pge_t *p, const sc_t k) {
   // Multiply with the Montgomery Ladder.
   //
   // [MONT3] Algorithm 7, Page 16, Section 5.3.
@@ -598,44 +610,34 @@ ladderConst(k, rng) {
   //
   // Note that any clamping is meant to
   // be done _outside_ of this function.
-  assert(k instanceof BN);
-  assert(!k.red);
-
-  const bits = Math.max(k.bitLength(), this.curve.fieldBits);
-  const bytes = (bits + 7) >>> 3;
-
-  // Recode scalar to base256.
-  const exp = k.toArray('le', bytes);
-
-  // Randomize if available.
-  const point = rng ? this.randomize(rng) : this;
+  pge_t a, b;
+  int swap = 0;
 
   // Clone points (for safe swapping).
-  let a = point.clone();
-  let b = this.curve.xpoint().clone();
-  let swap = 0;
+  pge_set(ec, a, p);
+  pge_zero(ec, b, b);
 
   // Climb the ladder.
-  for (let i = bits - 1; i >= 0; i--) {
-    const bit = (exp[i >> 3] >> (i & 7)) & 1;
+  for (let i = sc->bits - 1; i >= 0; i--) {
+    mp_limb_t bit = (k[i >> 3] >> (i & 7)) & 1;
 
     // Maybe swap.
-    a.swap(b, swap ^ bit);
+    pge_swap(ec, a, b, swap ^ bit);
 
     // Single coordinate add+double.
-    [a, b] = point.diffAddDbl(a, b);
+    pge_dad(ec, a, b, point, a, b);
 
     swap = bit;
   }
 
   // Finalize loop.
-  a.swap(b, swap);
+  pge_swap(ec, a, b, swap);
 
-  return [a, b];
+  pge_set(ec, r, b);
 }
 
 static int
-gej_to_ge(curve_t *ec, ge_t *r, const gej_t *p) {
+pge_to_mge(mont_t *ec, mge_t *r, const pge_t *p) {
   // https://hyperelliptic.org/EFD/g1p/auto-montgom-xz.html#scaling-scale
   // 1I + 1M
   prime_field_t *fe = &ec->fe;
@@ -647,14 +649,14 @@ gej_to_ge(curve_t *ec, ge_t *r, const gej_t *p) {
   /* X3 = X1 * A */
   fe_mul(fe, r->x, p->x, a);
 
-  return ge_set_x(ec, r, r->x, -1);
+  return mge_set_x(ec, r, r->x, -1);
 }
 
 static void
-gej_print(curve_t *ec, const gej_t *p) {
+pge_print(mont_t *ec, const pge_t *p) {
   prime_field_t *fe = &ec->fe;
 
-  if (gej_is_zero(ec, p)) {
+  if (pge_is_zero(ec, p)) {
     printf("(infinity)\n");
   } else {
     mp_limb_t xp[MAX_FIELD_LIMBS];
@@ -676,7 +678,7 @@ gej_print(curve_t *ec, const gej_t *p) {
  */
 
 static void
-curve_init(curve_t *ec, const curve_def_t *def) {
+mont_init(mont_t *ec, const mont_def_t *def) {
   prime_field_t *fe = &ec->fe;
   scalar_field_t *sc = &ec->sc;
 

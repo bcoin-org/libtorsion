@@ -38,7 +38,7 @@ ecdsa_random_bytes(unsigned char *dst, size_t len) {
 }
 
 static int
-ecdsa_reduce(curve_t *ec, sc_t r, const unsigned char *msg, size_t msg_len) {
+ecdsa_reduce(wei_t *ec, sc_t r, const unsigned char *msg, size_t msg_len) {
   scalar_field_t *sc = &ec->sc;
   mp_limb_t *np = sc->n;
   mp_limb_t mp[MAX_SCALAR_LIMBS * 4];
@@ -69,14 +69,14 @@ ecdsa_reduce(curve_t *ec, sc_t r, const unsigned char *msg, size_t msg_len) {
 }
 
 static int
-ecdsa_pubkey_create(curve_t *ec,
+ecdsa_pubkey_create(wei_t *ec,
                     unsigned char *pub,
                     size_t *pub_len,
                     const unsigned char *priv,
                     int compact) {
   scalar_field_t *sc = &ec->sc;
   sc_t a;
-  ge_t A;
+  wge_t A;
   int ret = 0;
 
   if (!sc_import(sc, a, priv))
@@ -85,20 +85,20 @@ ecdsa_pubkey_create(curve_t *ec,
   if (sc_is_zero(sc, a))
     goto fail;
 
-  curve_mul_g(ec, &A, a);
+  wei_mul_g(ec, &A, a);
 
-  if (!ge_export(ec, pub, pub_len, &A, compact))
+  if (!wge_export(ec, pub, pub_len, &A, compact))
     goto fail;
 
   ret = 1;
 fail:
   sc_cleanse(sc, a);
-  ge_cleanse(ec, &A);
+  wge_cleanse(ec, &A);
   return ret;
 }
 
 static int
-ecdsa_sign(curve_t *ec,
+ecdsa_sign(wei_t *ec,
            unsigned char *sig,
            unsigned int *param,
            const unsigned char *msg,
@@ -107,7 +107,7 @@ ecdsa_sign(curve_t *ec,
   prime_field_t *fe = &ec->fe;
   scalar_field_t *sc = &ec->sc;
   sc_t a, m, k, r, s;
-  ge_t R;
+  wge_t R;
   unsigned char bytes[MAX_SCALAR_SIZE];
   unsigned int hint;
   int ret = 0;
@@ -130,9 +130,9 @@ ecdsa_sign(curve_t *ec,
     if (!ecdsa_reduce(ec, k, bytes, sc->size))
       continue;
 
-    curve_mul_g(ec, &R, k);
+    wei_mul_g(ec, &R, k);
 
-    if (ge_is_zero(ec, &R))
+    if (wge_is_zero(ec, &R))
       continue;
 
     hint = fe_is_odd(fe, R.y);
@@ -170,12 +170,12 @@ fail:
   sc_cleanse(sc, k);
   sc_cleanse(sc, r);
   sc_cleanse(sc, s);
-  ge_cleanse(ec, &R);
+  wge_cleanse(ec, &R);
   return ret;
 }
 
 static int
-ecdsa_verify(curve_t *ec,
+ecdsa_verify(wei_t *ec,
              const unsigned char *msg,
              size_t msg_len,
              const unsigned char *sig,
@@ -183,18 +183,18 @@ ecdsa_verify(curve_t *ec,
              size_t pub_len) {
   scalar_field_t *sc = &ec->sc;
   sc_t m, r, s, u1, u2;
-  ge_t A;
+  wge_t A;
 #ifdef WITH_TRICK
-  gej_t R;
+  jge_t R;
 #else
   prime_field_t *fe = &ec->fe;
-  ge_t R;
+  wge_t R;
   sc_t re;
 #endif
 
   ecdsa_reduce(ec, m, msg, msg_len);
 
-  if (!ge_import(ec, &A, pub, pub_len))
+  if (!wge_import(ec, &A, pub, pub_len))
     return 0;
 
   if (!sc_import(sc, r, sig))
@@ -210,11 +210,11 @@ ecdsa_verify(curve_t *ec,
   sc_mul(sc, u1, m, s);
   sc_mul(sc, u2, r, s);
 #ifdef WITH_TRICK
-  curve_jmul_double_var(ec, &R, u1, &A, u2);
+  wei_jmul_double_var(ec, &R, u1, &A, u2);
 
-  return gej_equal_r(ec, &R, r);
+  return jge_equal_r(ec, &R, r);
 #else
-  curve_mul_double_var(ec, &R, u1, &A, u2);
+  wei_mul_double_var(ec, &R, u1, &A, u2);
 
   fe_get_sc(fe, sc, re, R.x);
 
@@ -223,7 +223,7 @@ ecdsa_verify(curve_t *ec,
 }
 
 static int
-ecdsa_recover(curve_t *ec,
+ecdsa_recover(wei_t *ec,
               unsigned char *pub,
               size_t *pub_len,
               const unsigned char *msg,
@@ -237,7 +237,7 @@ ecdsa_recover(curve_t *ec,
   unsigned int high = param >> 1;
   sc_t m, r, s, s1, s2;
   fe_t x;
-  ge_t R, A;
+  wge_t R, A;
 
   ecdsa_reduce(ec, m, msg, msg_len);
 
@@ -260,20 +260,20 @@ ecdsa_recover(curve_t *ec,
     fe_add(fe, x, x, ec->red_n);
   }
 
-  if (!ge_set_x(ec, &R, x, sign))
+  if (!wge_set_x(ec, &R, x, sign))
     return 0;
 
   sc_invert_var(sc, r, r);
   sc_mul(sc, s1, m, r);
   sc_mul(sc, s2, s, r);
   sc_neg(sc, s1, s1);
-  curve_mul_double_var(ec, &A, s1, &R, s2);
+  wei_mul_double_var(ec, &A, s1, &R, s2);
 
-  return ge_export(ec, pub, pub_len, &A, compact);
+  return wge_export(ec, pub, pub_len, &A, compact);
 }
 
 static int
-ecdsa_derive(curve_t *ec,
+ecdsa_derive(wei_t *ec,
              unsigned char *secret,
              size_t *secret_len,
              const unsigned char *pub,
@@ -282,7 +282,7 @@ ecdsa_derive(curve_t *ec,
              int compact) {
   scalar_field_t *sc = &ec->sc;
   sc_t a;
-  ge_t A, P;
+  wge_t A, P;
   int ret = 0;
 
   if (!sc_import(sc, a, priv))
@@ -291,28 +291,28 @@ ecdsa_derive(curve_t *ec,
   if (sc_is_zero(sc, a))
     goto fail;
 
-  if (!ge_import(ec, &A, pub, pub_len))
+  if (!wge_import(ec, &A, pub, pub_len))
     goto fail;
 
-  curve_mul(ec, &P, &A, a);
+  wei_mul(ec, &P, &A, a);
 
-  if (!ge_export(ec, secret, secret_len, &P, compact))
+  if (!wge_export(ec, secret, secret_len, &P, compact))
     goto fail;
 
   ret = 1;
 fail:
   sc_cleanse(sc, a);
-  ge_cleanse(ec, &A);
-  ge_cleanse(ec, &P);
+  wge_cleanse(ec, &A);
+  wge_cleanse(ec, &P);
   return ret;
 }
 
 int
 main(void) {
-  curve_t *ec = malloc(sizeof(curve_t));
+  wei_t *ec = malloc(sizeof(wei_t));
   sc_t k, k1, k2;
-  ge_t g, p, q, r, expect;
-  gej_t jg, jp, jq, jr;
+  wge_t g, p, q, r, expect;
+  jge_t jg, jp, jq, jr;
   unsigned char entropy[32];
   unsigned char p_raw[33], q_raw[33];
   size_t p_size, q_size;
@@ -321,16 +321,16 @@ main(void) {
 
   assert(ec != NULL);
 
-  curve_init(ec, &curve_p256);
+  wei_init(ec, &curve_p256);
   fe = &ec->fe;
   sc = &ec->sc;
 
   ecdsa_random_bytes(entropy, sizeof(entropy));
 
-  curve_randomize(ec, entropy);
+  wei_randomize(ec, entropy);
 
-  ge_set(ec, &g, &ec->g);
-  ge_to_gej(ec, &jg, &ec->g);
+  wge_set(ec, &g, &ec->g);
+  wge_to_jge(ec, &jg, &ec->g);
 
 #if 0
   fe_print(fe, ec->a);
@@ -419,66 +419,66 @@ main(void) {
       0x6c
     };
 
-    assert(ge_import(ec, &p, g_raw, 33));
+    assert(wge_import(ec, &p, g_raw, 33));
 
-    ge_to_gej(ec, &jp, &p);
-    ge_to_gej(ec, &jq, &ec->g);
+    wge_to_jge(ec, &jp, &p);
+    wge_to_jge(ec, &jq, &ec->g);
 
-    assert(ge_validate(ec, &p));
-    assert(gej_validate(ec, &jp));
-    assert(gej_validate(ec, &jq));
-    assert(ge_equal(ec, &p, &ec->g));
-    assert(gej_equal(ec, &jp, &jq));
+    assert(wge_validate(ec, &p));
+    assert(jge_validate(ec, &jp));
+    assert(jge_validate(ec, &jq));
+    assert(wge_equal(ec, &p, &ec->g));
+    assert(jge_equal(ec, &jp, &jq));
 
-    assert(ge_import(ec, &q, g2_raw, 33));
-    assert(ge_import(ec, &r, g3_raw, 33));
+    assert(wge_import(ec, &q, g2_raw, 33));
+    assert(wge_import(ec, &r, g3_raw, 33));
 
-    ge_to_gej(ec, &jq, &q);
-    ge_to_gej(ec, &jr, &r);
+    wge_to_jge(ec, &jq, &q);
+    wge_to_jge(ec, &jr, &r);
 
-    ge_dbl(ec, &p, &ec->g);
+    wge_dbl(ec, &p, &ec->g);
 
-    assert(ge_equal(ec, &p, &q));
+    assert(wge_equal(ec, &p, &q));
 
-    ge_add(ec, &p, &p, &ec->g);
+    wge_add(ec, &p, &p, &ec->g);
 
-    assert(ge_equal(ec, &p, &r));
+    assert(wge_equal(ec, &p, &r));
 
-    gej_dbl(ec, &jp, &jg);
+    jge_dbl(ec, &jp, &jg);
 
-    assert(gej_equal(ec, &jp, &jq));
+    assert(jge_equal(ec, &jp, &jq));
 
-    gej_add(ec, &jp, &jp, &jg);
+    jge_add(ec, &jp, &jp, &jg);
 
-    assert(gej_equal(ec, &jp, &jr));
+    assert(jge_equal(ec, &jp, &jr));
 
-    gej_sub(ec, &jp, &jp, &jg);
+    jge_sub(ec, &jp, &jp, &jg);
 
-    assert(gej_equal(ec, &jp, &jq));
+    assert(jge_equal(ec, &jp, &jq));
 
-    gej_mixed_add(ec, &jp, &jp, &g);
+    jge_mixed_add(ec, &jp, &jp, &g);
 
-    assert(gej_equal(ec, &jp, &jr));
+    assert(jge_equal(ec, &jp, &jr));
 
-    gej_mixed_sub(ec, &jp, &jp, &g);
+    jge_mixed_sub(ec, &jp, &jp, &g);
 
-    assert(gej_equal(ec, &jp, &jq));
+    assert(jge_equal(ec, &jp, &jq));
 
-    assert(gej_validate(ec, &jg));
-    assert(gej_validate(ec, &jp));
-    assert(gej_validate(ec, &jq));
-    assert(gej_validate(ec, &jr));
+    assert(jge_validate(ec, &jg));
+    assert(jge_validate(ec, &jp));
+    assert(jge_validate(ec, &jq));
+    assert(jge_validate(ec, &jr));
 
-    assert(!gej_is_zero(ec, &jg));
-    assert(!gej_is_zero(ec, &jp));
-    assert(!gej_is_zero(ec, &jq));
-    assert(!gej_is_zero(ec, &jr));
+    assert(!jge_is_zero(ec, &jg));
+    assert(!jge_is_zero(ec, &jp));
+    assert(!jge_is_zero(ec, &jq));
+    assert(!jge_is_zero(ec, &jr));
 
-    gej_to_ge(ec, &p, &jp);
+    jge_to_wge(ec, &p, &jp);
 
-    assert(ge_equal(ec, &p, &q));
+    assert(wge_equal(ec, &p, &q));
 
-    assert(ge_export(ec, p_raw, &p_size, &p, 1));
+    assert(wge_export(ec, p_raw, &p_size, &p, 1));
     assert(p_size == 33);
 
     assert(memcmp(p_raw, g2_raw, 33) == 0);
@@ -501,26 +501,26 @@ main(void) {
     };
 
     assert(sc_import(sc, k, k_raw));
-    assert(ge_import(ec, &expect, expect_raw, 33));
+    assert(wge_import(ec, &expect, expect_raw, 33));
 
-    assert(ge_validate(ec, &expect));
-    assert(ge_equal(ec, &expect, &expect));
-    assert(!ge_equal(ec, &expect, &ec->g));
+    assert(wge_validate(ec, &expect));
+    assert(wge_equal(ec, &expect, &expect));
+    assert(!wge_equal(ec, &expect, &ec->g));
 
-    curve_mul_g(ec, &q, k);
+    wei_mul_g(ec, &q, k);
 
-    assert(ge_equal(ec, &q, &expect));
+    assert(wge_equal(ec, &q, &expect));
 
-    assert(ge_export(ec, q_raw, &q_size, &q, 1));
+    assert(wge_export(ec, q_raw, &q_size, &q, 1));
     assert(q_size == 33);
 
     assert(memcmp(q_raw, expect_raw, 33) == 0);
 
-    curve_mul_g_var(ec, &q, k);
+    wei_mul_g_var(ec, &q, k);
 
-    assert(ge_equal(ec, &q, &expect));
+    assert(wge_equal(ec, &q, &expect));
 
-    assert(ge_export(ec, q_raw, &q_size, &q, 1));
+    assert(wge_export(ec, q_raw, &q_size, &q, 1));
     assert(q_size == 33);
 
     assert(memcmp(q_raw, expect_raw, 33) == 0);
@@ -550,29 +550,29 @@ main(void) {
       0x56
     };
 
-    assert(ge_import(ec, &p, p_raw, 33));
+    assert(wge_import(ec, &p, p_raw, 33));
     assert(sc_import(sc, k, k_raw));
-    assert(ge_import(ec, &expect, expect_raw, 33));
+    assert(wge_import(ec, &expect, expect_raw, 33));
 
-    assert(ge_validate(ec, &p));
-    assert(ge_validate(ec, &expect));
-    assert(ge_equal(ec, &expect, &expect));
-    assert(!ge_equal(ec, &expect, &ec->g));
+    assert(wge_validate(ec, &p));
+    assert(wge_validate(ec, &expect));
+    assert(wge_equal(ec, &expect, &expect));
+    assert(!wge_equal(ec, &expect, &ec->g));
 
-    curve_mul(ec, &q, &p, k);
+    wei_mul(ec, &q, &p, k);
 
-    assert(ge_equal(ec, &q, &expect));
+    assert(wge_equal(ec, &q, &expect));
 
-    assert(ge_export(ec, q_raw, &q_size, &q, 1));
+    assert(wge_export(ec, q_raw, &q_size, &q, 1));
     assert(q_size == 33);
 
     assert(memcmp(q_raw, expect_raw, 33) == 0);
 
-    curve_mul_var(ec, &q, &p, k);
+    wei_mul_var(ec, &q, &p, k);
 
-    assert(ge_equal(ec, &q, &expect));
+    assert(wge_equal(ec, &q, &expect));
 
-    assert(ge_export(ec, q_raw, &q_size, &q, 1));
+    assert(wge_export(ec, q_raw, &q_size, &q, 1));
     assert(q_size == 33);
 
     assert(memcmp(q_raw, expect_raw, 33) == 0);
@@ -609,21 +609,21 @@ main(void) {
       0x6d
     };
 
-    assert(ge_import(ec, &p, p_raw, 33));
+    assert(wge_import(ec, &p, p_raw, 33));
     assert(sc_import(sc, k1, k1_raw));
     assert(sc_import(sc, k2, k2_raw));
-    assert(ge_import(ec, &expect, expect_raw, 33));
+    assert(wge_import(ec, &expect, expect_raw, 33));
 
-    assert(ge_validate(ec, &p));
-    assert(ge_validate(ec, &expect));
-    assert(ge_equal(ec, &expect, &expect));
-    assert(!ge_equal(ec, &expect, &ec->g));
+    assert(wge_validate(ec, &p));
+    assert(wge_validate(ec, &expect));
+    assert(wge_equal(ec, &expect, &expect));
+    assert(!wge_equal(ec, &expect, &ec->g));
 
-    curve_mul_double_var(ec, &q, k1, &p, k2);
+    wei_mul_double_var(ec, &q, k1, &p, k2);
 
-    assert(ge_equal(ec, &q, &expect));
+    assert(wge_equal(ec, &q, &expect));
 
-    assert(ge_export(ec, q_raw, &q_size, &q, 1));
+    assert(wge_export(ec, q_raw, &q_size, &q, 1));
     assert(q_size == 33);
 
     assert(memcmp(q_raw, expect_raw, 33) == 0);
@@ -708,7 +708,7 @@ main(void) {
   }
 
   {
-    curve_t *ec = malloc(sizeof(curve_t));
+    wei_t *ec = malloc(sizeof(wei_t));
     unsigned char entropy[32];
     unsigned char priv[32];
     unsigned char msg[32];
@@ -719,7 +719,7 @@ main(void) {
     size_t pub2_len;
     unsigned int param;
 
-    curve_init(ec, &curve_secp256k1);
+    wei_init(ec, &curve_secp256k1);
 
     ecdsa_random_bytes(entropy, sizeof(entropy));
     ecdsa_random_bytes(priv, sizeof(priv));
@@ -727,7 +727,7 @@ main(void) {
 
     priv[0] &= 0x7f;
 
-    curve_randomize(ec, entropy);
+    wei_randomize(ec, entropy);
 
     assert(ecdsa_sign(ec, sig, &param, msg, 32, priv));
     assert(ecdsa_pubkey_create(ec, pub, &pub_len, priv, 1));
@@ -741,9 +741,9 @@ main(void) {
   }
 
   {
-    curve_t *ec = malloc(sizeof(curve_t));
-    ge_t g, p, q, r;
-    gej_t jg, jp, jq, jr;
+    wei_t *ec = malloc(sizeof(wei_t));
+    wge_t g, p, q, r;
+    jge_t jg, jp, jq, jr;
     unsigned char entropy[66];
     unsigned char p_raw[67];
     size_t p_size;
@@ -784,75 +784,75 @@ main(void) {
       0x37, 0xad, 0x7d
     };
 
-    curve_init(ec, &curve_p521);
+    wei_init(ec, &curve_p521);
 
     ecdsa_random_bytes(entropy, sizeof(entropy));
 
-    curve_randomize(ec, entropy);
+    wei_randomize(ec, entropy);
 
-    ge_set(ec, &g, &ec->g);
-    ge_to_gej(ec, &jg, &ec->g);
+    wge_set(ec, &g, &ec->g);
+    wge_to_jge(ec, &jg, &ec->g);
 
-    assert(ge_import(ec, &p, g_raw, 67));
+    assert(wge_import(ec, &p, g_raw, 67));
 
-    ge_to_gej(ec, &jp, &p);
-    ge_to_gej(ec, &jq, &ec->g);
+    wge_to_jge(ec, &jp, &p);
+    wge_to_jge(ec, &jq, &ec->g);
 
-    assert(ge_validate(ec, &p));
-    assert(gej_validate(ec, &jp));
-    assert(gej_validate(ec, &jq));
-    assert(ge_equal(ec, &p, &ec->g));
-    assert(gej_equal(ec, &jp, &jq));
+    assert(wge_validate(ec, &p));
+    assert(jge_validate(ec, &jp));
+    assert(jge_validate(ec, &jq));
+    assert(wge_equal(ec, &p, &ec->g));
+    assert(jge_equal(ec, &jp, &jq));
 
-    assert(ge_import(ec, &q, g2_raw, 67));
-    assert(ge_import(ec, &r, g3_raw, 67));
+    assert(wge_import(ec, &q, g2_raw, 67));
+    assert(wge_import(ec, &r, g3_raw, 67));
 
-    ge_to_gej(ec, &jq, &q);
-    ge_to_gej(ec, &jr, &r);
+    wge_to_jge(ec, &jq, &q);
+    wge_to_jge(ec, &jr, &r);
 
-    ge_dbl(ec, &p, &ec->g);
+    wge_dbl(ec, &p, &ec->g);
 
-    assert(ge_equal(ec, &p, &q));
+    assert(wge_equal(ec, &p, &q));
 
-    ge_add(ec, &p, &p, &ec->g);
+    wge_add(ec, &p, &p, &ec->g);
 
-    assert(ge_equal(ec, &p, &r));
+    assert(wge_equal(ec, &p, &r));
 
-    gej_dbl(ec, &jp, &jg);
+    jge_dbl(ec, &jp, &jg);
 
-    assert(gej_equal(ec, &jp, &jq));
+    assert(jge_equal(ec, &jp, &jq));
 
-    gej_add(ec, &jp, &jp, &jg);
+    jge_add(ec, &jp, &jp, &jg);
 
-    assert(gej_equal(ec, &jp, &jr));
+    assert(jge_equal(ec, &jp, &jr));
 
-    gej_sub(ec, &jp, &jp, &jg);
+    jge_sub(ec, &jp, &jp, &jg);
 
-    assert(gej_equal(ec, &jp, &jq));
+    assert(jge_equal(ec, &jp, &jq));
 
-    gej_mixed_add(ec, &jp, &jp, &g);
+    jge_mixed_add(ec, &jp, &jp, &g);
 
-    assert(gej_equal(ec, &jp, &jr));
+    assert(jge_equal(ec, &jp, &jr));
 
-    gej_mixed_sub(ec, &jp, &jp, &g);
+    jge_mixed_sub(ec, &jp, &jp, &g);
 
-    assert(gej_equal(ec, &jp, &jq));
+    assert(jge_equal(ec, &jp, &jq));
 
-    assert(gej_validate(ec, &jg));
-    assert(gej_validate(ec, &jp));
-    assert(gej_validate(ec, &jq));
-    assert(gej_validate(ec, &jr));
+    assert(jge_validate(ec, &jg));
+    assert(jge_validate(ec, &jp));
+    assert(jge_validate(ec, &jq));
+    assert(jge_validate(ec, &jr));
 
-    assert(!gej_is_zero(ec, &jg));
-    assert(!gej_is_zero(ec, &jp));
-    assert(!gej_is_zero(ec, &jq));
-    assert(!gej_is_zero(ec, &jr));
+    assert(!jge_is_zero(ec, &jg));
+    assert(!jge_is_zero(ec, &jp));
+    assert(!jge_is_zero(ec, &jq));
+    assert(!jge_is_zero(ec, &jr));
 
-    gej_to_ge(ec, &p, &jp);
+    jge_to_wge(ec, &p, &jp);
 
-    assert(ge_equal(ec, &p, &q));
+    assert(wge_equal(ec, &p, &q));
 
-    assert(ge_export(ec, p_raw, &p_size, &p, 1));
+    assert(wge_export(ec, p_raw, &p_size, &p, 1));
     assert(p_size == 67);
 
     assert(memcmp(p_raw, g2_raw, 67) == 0);
@@ -861,7 +861,7 @@ main(void) {
   }
 
   {
-    curve_t *ec = malloc(sizeof(curve_t));
+    wei_t *ec = malloc(sizeof(wei_t));
     unsigned char entropy[66];
     unsigned char priv[66];
     unsigned char msg[66];
@@ -872,7 +872,7 @@ main(void) {
     size_t pub2_len;
     unsigned int param;
 
-    curve_init(ec, &curve_p521);
+    wei_init(ec, &curve_p521);
 
     ecdsa_random_bytes(entropy, sizeof(entropy));
     ecdsa_random_bytes(priv, sizeof(priv));
@@ -880,7 +880,7 @@ main(void) {
 
     priv[0] = 0;
 
-    curve_randomize(ec, entropy);
+    wei_randomize(ec, entropy);
 
     assert(ecdsa_sign(ec, sig, &param, msg, 66, priv));
     assert(ecdsa_pubkey_create(ec, pub, &pub_len, priv, 1));

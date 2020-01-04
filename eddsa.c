@@ -40,9 +40,9 @@ ecdsa_random_bytes(unsigned char *dst, size_t len) {
 int
 main(void) {
   {
-    curve_t *ec = malloc(sizeof(curve_t));
-    ge_t g, p, q, r;
-    gej_t jg, jp, jq, jr;
+    edwards_t *ec = malloc(sizeof(edwards_t));
+    ege_t g, p, q, r;
+    xge_t jg, jp, jq, jr;
     unsigned char entropy[32];
     unsigned char p_raw[32];
 
@@ -67,75 +67,75 @@ main(void) {
       0xab, 0x69, 0xee, 0x77, 0xd1, 0xb1, 0x67, 0x12
     };
 
-    curve_init(ec, &curve_ed25519);
+    edwards_init(ec, &curve_ed25519);
 
     ecdsa_random_bytes(entropy, sizeof(entropy));
 
-    curve_randomize(ec, entropy);
+    edwards_randomize(ec, entropy);
 
-    ge_set(ec, &g, &ec->g);
-    ge_to_gej(ec, &jg, &ec->g);
+    ege_set(ec, &g, &ec->g);
+    ege_to_xge(ec, &jg, &ec->g);
 
-    assert(ge_import(ec, &p, g_raw));
+    assert(ege_import(ec, &p, g_raw));
 
-    ge_to_gej(ec, &jp, &p);
-    ge_to_gej(ec, &jq, &ec->g);
+    ege_to_xge(ec, &jp, &p);
+    ege_to_xge(ec, &jq, &ec->g);
 
-    assert(ge_validate(ec, &p));
-    assert(gej_validate(ec, &jp));
-    assert(gej_validate(ec, &jq));
-    assert(ge_equal(ec, &p, &ec->g));
-    assert(gej_equal(ec, &jp, &jq));
+    assert(ege_validate(ec, &p));
+    assert(xge_validate(ec, &jp));
+    assert(xge_validate(ec, &jq));
+    assert(ege_equal(ec, &p, &ec->g));
+    assert(xge_equal(ec, &jp, &jq));
 
-    assert(ge_import(ec, &q, g2_raw));
-    assert(ge_import(ec, &r, g3_raw));
+    assert(ege_import(ec, &q, g2_raw));
+    assert(ege_import(ec, &r, g3_raw));
 
-    ge_to_gej(ec, &jq, &q);
-    ge_to_gej(ec, &jr, &r);
+    ege_to_xge(ec, &jq, &q);
+    ege_to_xge(ec, &jr, &r);
 
-    ge_dbl(ec, &p, &ec->g);
+    ege_dbl(ec, &p, &ec->g);
 
-    assert(ge_equal(ec, &p, &q));
+    assert(ege_equal(ec, &p, &q));
 
-    ge_add(ec, &p, &p, &ec->g);
+    ege_add(ec, &p, &p, &ec->g);
 
-    assert(ge_equal(ec, &p, &r));
+    assert(ege_equal(ec, &p, &r));
 
-    gej_dbl(ec, &jp, &jg);
+    xge_dbl(ec, &jp, &jg);
 
-    assert(gej_equal(ec, &jp, &jq));
+    assert(xge_equal(ec, &jp, &jq));
 
-    gej_add(ec, &jp, &jp, &jg);
+    xge_add(ec, &jp, &jp, &jg);
 
-    assert(gej_equal(ec, &jp, &jr));
+    assert(xge_equal(ec, &jp, &jr));
 
-    gej_sub(ec, &jp, &jp, &jg);
+    xge_sub(ec, &jp, &jp, &jg);
 
-    assert(gej_equal(ec, &jp, &jq));
+    assert(xge_equal(ec, &jp, &jq));
 
-    gej_add(ec, &jp, &jp, &jg);
+    xge_add(ec, &jp, &jp, &jg);
 
-    assert(gej_equal(ec, &jp, &jr));
+    assert(xge_equal(ec, &jp, &jr));
 
-    gej_sub(ec, &jp, &jp, &jg);
+    xge_sub(ec, &jp, &jp, &jg);
 
-    assert(gej_equal(ec, &jp, &jq));
+    assert(xge_equal(ec, &jp, &jq));
 
-    assert(gej_validate(ec, &jg));
-    assert(gej_validate(ec, &jp));
-    assert(gej_validate(ec, &jq));
-    assert(gej_validate(ec, &jr));
+    assert(xge_validate(ec, &jg));
+    assert(xge_validate(ec, &jp));
+    assert(xge_validate(ec, &jq));
+    assert(xge_validate(ec, &jr));
 
-    assert(!gej_is_zero(ec, &jg));
-    assert(!gej_is_zero(ec, &jp));
-    assert(!gej_is_zero(ec, &jq));
-    assert(!gej_is_zero(ec, &jr));
+    assert(!xge_is_zero(ec, &jg));
+    assert(!xge_is_zero(ec, &jp));
+    assert(!xge_is_zero(ec, &jq));
+    assert(!xge_is_zero(ec, &jr));
 
-    gej_to_ge(ec, &p, &jp);
+    xge_to_ege(ec, &p, &jp);
 
-    assert(ge_equal(ec, &p, &q));
+    assert(ege_equal(ec, &p, &q));
 
-    assert(ge_export(ec, p_raw, &p));
+    assert(ege_export(ec, p_raw, &p));
     assert(memcmp(p_raw, g2_raw, 32) == 0);
 
     free(ec);
