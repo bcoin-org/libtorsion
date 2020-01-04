@@ -20,7 +20,6 @@ typedef p224_fe_word_t p224_fe_t[P224_FIELD_WORDS];
 #ifdef BCRYPTO_EC_64BIT
 static const p224_fe_t p224_zero = {0, 0, 0, 0};
 
-/* 64 bit alignment */
 static const p224_fe_t p224_one = {
   0xffffffff00000000, 0xffffffffffffffff,
   0x0000000000000000, 0x0000000000000000
@@ -28,7 +27,6 @@ static const p224_fe_t p224_one = {
 
 /* 11^(2^128 - 1) mod p */
 /* mont: 0xa31b1da46d3e2af0dd915e4b7869be5d866c223b174131b85ee27c6c */
-/* 64 bit alignment */
 static const p224_fe_t p224_g = {
   0x174131b85ee27c6c, 0x7869be5d866c223b,
   0x6d3e2af0dd915e4b, 0x00000000a31b1da4
@@ -36,7 +34,6 @@ static const p224_fe_t p224_g = {
 #else
 static const p224_fe_t p224_zero = {0, 0, 0, 0, 0, 0, 0};
 
-/* 32 bit alignment */
 static const p224_fe_t p224_one = {
   0xffffffff, 0xffffffff, 0xffffffff, 0x00000000,
   0x00000000, 0x00000000, 0x00000000
@@ -44,7 +41,6 @@ static const p224_fe_t p224_one = {
 
 /* 11^(2^128 - 1) mod p */
 /* mont: 0xa11d8394a31b1da46d3e2af0dd915e4ad74c3ac9866c223b174131b9 */
-/* 32 bit alignment */
 static const p224_fe_t p224_g = {
   0x174131b9, 0x866c223b, 0xd74c3ac9, 0xdd915e4a,
   0x6d3e2af0, 0xa31b1da4, 0xa11d8394
