@@ -4,7 +4,7 @@
 #include <string.h>
 #include <stdint.h>
 #include <limits.h>
-#include "field.h"
+#include "ec.c"
 
 int
 main(void) {
