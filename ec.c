@@ -3566,10 +3566,10 @@ wei_jmul_var(wei_t *ec, jge_t *r, const wge_t *p, const sc_t k) {
 
 static void
 wei_jmul_double_var(wei_t *ec,
-                      jge_t *r,
-                      const sc_t k1,
-                      const wge_t *p2,
-                      const sc_t k2) {
+                    jge_t *r,
+                    const sc_t k1,
+                    const wge_t *p2,
+                    const sc_t k2) {
   /* Multiple point multiplication, also known
    * as "Shamir's trick" (with interleaved NAFs).
    *
@@ -3627,6 +3627,119 @@ wei_jmul_double_var(wei_t *ec,
       jge_add_var(ec, &acc, &acc, &wnd2[(z2 - 1) >> 1]);
     else if (z2 < 0)
       jge_sub_var(ec, &acc, &acc, &wnd2[(-z2 - 1) >> 1]);
+  }
+
+  jge_set(ec, r, &acc);
+}
+
+static void
+wei_jmul_multi_var(wei_t *ec,
+                   jge_t *r,
+                   const sc_t k0,
+                   const wge_t *points,
+                   const sc_t *coeffs,
+                   size_t len,
+                   wei_scratch_t *scratch) {
+  /* Multiple point multiplication, also known
+   * as "Shamir's trick" (with interleaved NAFs).
+   *
+   * [GECC] Algorithm 3.48, Page 109, Section 3.3.3.
+   *        Algorithm 3.51, Page 112, Section 3.3.
+   */
+  scalar_field_t *sc = &ec->sc;
+  wge_t *wnd0 = ec->points;
+  int32_t naf0[MAX_SCALAR_BITS + 1];
+  jge_t *wnds[32];
+  int32_t *nafs[32];
+  int32_t tmp[32];
+  int max = sc_bitlen_var(sc, k0) + 1;
+  int i;
+  jge_t acc;
+
+  assert((len & 1) == 0);
+  assert(len <= 64);
+
+  /* Setup scratch. */
+  for (i = 0; i < 32; i++) {
+    wnds[i] = &scratch->wnd[i * 4];
+    nafs[i] = &scratch->naf[i * (MAX_SCALAR_BITS + 1)];
+    tmp[i] = 0;
+  }
+
+  /* Compute max scalar size. */
+  for (i = 0; i < (int)len; i++) {
+    int bits = sc_bitlen_var(sc, coeffs[i]) + 1;
+
+    if (bits > max)
+      max = bits;
+  }
+
+  /* Compute NAFs. */
+  sc_naf_var(sc, naf0, k0, NAF_WIDTH_PRE, max);
+
+  for (i = 0; i < (int)len; i += 2) {
+    const wge_t *p1 = &points[i + 0];
+    const wge_t *p2 = &points[i + 1];
+    const sc_t *k1 = &coeffs[i + 0];
+    const sc_t *k2 = &coeffs[i + 1];
+
+    wge_jsf_points_var(ec, wnds[i >> 1], p1, p2);
+    sc_jsf_var(sc, nafs[i >> 1], *k1, *k2, max);
+  }
+
+  len >>= 1;
+
+  /* Multiply and add. */
+  jge_zero(ec, &acc);
+
+  for (i = max - 1; i >= 0; i--) {
+    size_t k = 0;
+    size_t j;
+    int32_t z;
+
+    while (i >= 0) {
+      int zero = 1;
+
+      if (naf0[i] != 0)
+        zero = 0;
+
+      for (j = 0; j < len; j++) {
+        tmp[j] = nafs[j][i];
+
+        if (tmp[j] != 0)
+          zero = 0;
+      }
+
+      if (!zero)
+        break;
+
+      k += 1;
+      i -= 1;
+    }
+
+    if (i >= 0)
+      k += 1;
+
+    jge_dblp_var(ec, &acc, &acc, k);
+
+    if (i < 0)
+      break;
+
+    z = naf0[i];
+
+    if (z > 0)
+      jge_mixed_add_var(ec, &acc, &acc, &wnd0[(z - 1) >> 1]);
+    else if (z < 0)
+      jge_mixed_add_var(ec, &acc, &acc, &wnd0[(-z - 1) >> 1]);
+
+    for (j = 0; j < len; j++) {
+      z = tmp[j];
+
+      if (z > 0)
+        jge_add_var(ec, &acc, &acc, &wnds[j][(z - 1) >> 1]);
+      else if (z < 0)
+        jge_sub_var(ec, &acc, &acc, &wnds[j][(-z - 1) >> 1]);
+    }
   }
 
   jge_set(ec, r, &acc);
@@ -5405,11 +5518,11 @@ edwards_jmul_multi_var(edwards_t *ec,
     const sc_t *k1 = &coeffs[i + 0];
     const sc_t *k2 = &coeffs[i + 1];
 
-    xge_jsf_points(ec, wnds[i / 2], p1, p2);
-    sc_jsf_var(sc, nafs[i / 2], *k1, *k2, max);
+    xge_jsf_points(ec, wnds[i >> 1], p1, p2);
+    sc_jsf_var(sc, nafs[i >> 1], *k1, *k2, max);
   }
 
-  len /= 2;
+  len >>= 1;
 
   /* Multiply and add. */
   xge_zero(ec, &acc);
