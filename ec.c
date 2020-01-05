@@ -1093,8 +1093,10 @@ sc_naf_var(scalar_field_t *sc, int32_t *naf,
 
     naf[i++] = z;
 
-    mpn_rshift(k, k, kn, 1);
-    kn -= (k[kn - 1] == 0);
+    if (kn > 0) {
+      mpn_rshift(k, k, kn, 1);
+      kn -= (k[kn - 1] == 0);
+    }
   }
 
   assert(i <= max);
