@@ -1,3 +1,9 @@
+/*!
+ * ec.c - elliptic curves for C89
+ * Copyright (c) 2020, Christopher Jeffrey (MIT License).
+ * https://github.com/chjj/ec
+ */
+
 #include <assert.h>
 #include <stdlib.h>
 #include <stdio.h>
