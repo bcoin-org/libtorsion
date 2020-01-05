@@ -2329,7 +2329,6 @@ static void
 jge_dblj(wei_t *ec, jge_t *r, const jge_t *p) {
   /* https://hyperelliptic.org/EFD/g1p/auto-shortw-jacobian.html#doubling-dbl-1998-cmo-2
    * 3M + 6S + 4A + 1*a + 2*2 + 1*3 + 1*4 + 1*8
-   * (implemented as: 3M + 6S + 5A + 1*a + 1*2 + 1*3 + 1*4 + 1*8)
    */
   prime_field_t *fe = &ec->fe;
   fe_t xx, yy, zz, s, m, t;
@@ -2382,7 +2381,6 @@ jge_dbl0(wei_t *ec, jge_t *r, const jge_t *p) {
   /* Assumes a = 0.
    * https://hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-0.html#doubling-dbl-2009-l
    * 2M + 5S + 6A + 3*2 + 1*3 + 1*8
-   * (implemented as: 2M + 5S + 7A + 2*2 + 1*3 + 1*8)
    */
   prime_field_t *fe = &ec->fe;
   fe_t a, b, c, d, e, f;
@@ -2432,7 +2430,6 @@ jge_dbl3(wei_t *ec, jge_t *r, const jge_t *p) {
   /* Assumes a = -3.
    * https://hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-3.html#doubling-dbl-2001-b
    * 3M + 5S + 8A + 1*3 + 1*4 + 2*8
-   * (implemented as: 3M + 5S + 8A + 1*2 + 1*3 + 1*4 + 1*8)
    */
   prime_field_t *fe = &ec->fe;
   fe_t delta, gamma, beta, alpha, t1, t2;
@@ -2504,7 +2501,7 @@ static void
 jge_add(wei_t *ec, jge_t *r, const jge_t *a, const jge_t *b) {
   /* No assumptions.
    * https://hyperelliptic.org/EFD/g1p/auto-shortw-jacobian.html#addition-add-1998-cmo-2
-   * 12M + 4S + 6A + 1*2 (implemented as: 12M + 4S + 7A)
+   * 12M + 4S + 6A + 1*2
    */
   prime_field_t *fe = &ec->fe;
   fe_t z1z1, z2z2, u1, u2, s1, s2, h, r0, hh, hhh, v;
@@ -2595,7 +2592,7 @@ static void
 jge_mixed_add(wei_t *ec, jge_t *r, const jge_t *a, const wge_t *b) {
   /* Assumes Z2 = 1.
    * https://hyperelliptic.org/EFD/g1p/auto-shortw-jacobian.html#addition-madd
-   * 8M + 3S + 6A + 5*2 (implemented as: 8M + 3S + 7A + 4*2)
+   * 8M + 3S + 6A + 5*2
    */
   prime_field_t *fe = &ec->fe;
   fe_t z1z1, u2, s2, h, r0, i, j, v;
@@ -2677,8 +2674,10 @@ jge_mixed_sub(wei_t *ec, jge_t *r, const jge_t *a, const wge_t *b) {
 
 static void
 jge_zaddu(wei_t *ec, jge_t *r, jge_t *p, const jge_t *a, const jge_t *b) {
-  /* Co-Z addition with update (ZADDU) */
-  /* Algorithm 19, Page 15, Appendix C */
+  /* Co-Z addition with update (ZADDU).
+   * [COZ] Algorithm 19, Page 15, Appendix C.
+   * 5M + 2S + 7A
+   */
   prime_field_t *fe = &ec->fe;
   fe_t t1, t2, t3, t4, t5, t6;
 
@@ -2752,8 +2751,10 @@ jge_zaddu(wei_t *ec, jge_t *r, jge_t *p, const jge_t *a, const jge_t *b) {
 
 static void
 jge_zaddc(wei_t *ec, jge_t *r, jge_t *s, const jge_t *a, const jge_t *b) {
-  /* Conjugate co-Z addition (ZADDC) */
-  /* Algorithm 20, Page 15, Appendix C */
+  /* Co-Z addition with conjugate (ZADDC).
+   * [COZ] Algorithm 20, Page 15, Appendix C.
+   * 6M + 3S + 14A + 1*2
+   */
   prime_field_t *fe = &ec->fe;
   fe_t t1, t2, t3, t4, t5, t6, t7;
 
@@ -2860,8 +2861,10 @@ jge_zaddc(wei_t *ec, jge_t *r, jge_t *s, const jge_t *a, const jge_t *b) {
 
 static void
 jge_zdblu(wei_t *ec, jge_t *r, jge_t *p, const jge_t *a) {
-  /* Co-Z doubling with update (DBLU) */
-  /* Algorithm 21, Page 15, Appendix C */
+  /* Co-Z doubling with update (DBLU).
+   * [COZ] Algorithm 21, Page 15, Appendix C.
+   * 1M + 5S + 8A + 4*2 + 1*8
+   */
   prime_field_t *fe = &ec->fe;
   fe_t t0, t1, t2, t3, t4, t5;
 
@@ -3877,21 +3880,21 @@ pge_equal(mont_t *ec, const pge_t *a, const pge_t *b) {
 }
 
 static void
-pge_dbl(mont_t *ec, pge_t *p3, const pge_t *p1) {
+pge_dbl(mont_t *ec, pge_t *r, const pge_t *p) {
   /* https://hyperelliptic.org/EFD/g1p/auto-montgom-xz.html#doubling-dbl-1987-m-3
    * 2M + 2S + 4A + 1*a24
    */
   prime_field_t *fe = &ec->fe;
-  fe_t a, aa, b, bb, c, t;
+  fe_t a, aa, b, bb, c;
 
   /* A = X1 + Z1 */
-  fe_add(fe, a, p1->x, p1->z);
+  fe_add(fe, a, p->x, p->z);
 
   /* AA = A^2 */
   fe_sqr(fe, aa, a);
 
   /* B = X1 - Z1 */
-  fe_sub(fe, b, p1->x, p1->z);
+  fe_sub(fe, b, p->x, p->z);
 
   /* BB = B^2 */
   fe_sqr(fe, bb, b);
@@ -3900,21 +3903,26 @@ pge_dbl(mont_t *ec, pge_t *p3, const pge_t *p1) {
   fe_sub(fe, c, aa, bb);
 
   /* X3 = AA * BB */
-  fe_mul(fe, p3->x, aa, bb);
+  fe_mul(fe, r->x, aa, bb);
 
   /* Z3 = C * (BB + a24 * C) */
-  fe_mul(fe, t, c, ec->a24);
-  fe_add(fe, t, bb, t);
-  fe_mul(fe, p3->z, c, t);
+  fe_mul(fe, r->z, c, ec->a24);
+  fe_add(fe, r->z, r->z, bb);
+  fe_mul(fe, r->z, r->z, c);
 }
 
 static void
-pge_dad(mont_t *ec, pge_t *p5, pge_t *p4, const pge_t *p1, const pge_t *p3, const pge_t *p2) {
+pge_dad(mont_t *ec,
+        pge_t *p5,
+        pge_t *p4,
+        const pge_t *p1,
+        const pge_t *p3,
+        const pge_t *p2) {
   /* https://hyperelliptic.org/EFD/g1p/auto-montgom-xz.html#ladder-ladd-1987-m-3
    * 6M + 4S + 8A + 1*a24
    */
   prime_field_t *fe = &ec->fe;
-  fe_t a, aa, b, bb, e, c, d, da, cb, t;
+  fe_t a, aa, b, bb, e, c, d, da, cb;
 
   assert(p5 != p1);
 
@@ -3946,22 +3954,22 @@ pge_dad(mont_t *ec, pge_t *p5, pge_t *p4, const pge_t *p1, const pge_t *p3, cons
   fe_mul(fe, cb, c, b);
 
   /* X5 = Z1 * (DA + CB)^2 */
-  fe_add(fe, t, da, cb);
-  fe_sqr(fe, t, t);
-  fe_mul(fe, p5->x, p1->z, t);
+  fe_add(fe, p5->x, da, cb);
+  fe_sqr(fe, p5->x, p5->x);
+  fe_mul(fe, p5->x, p5->x, p1->z);
 
   /* Z5 = X1 * (DA - CB)^2 */
-  fe_sub(fe, t, da, cb);
-  fe_sqr(fe, t, t);
-  fe_mul(fe, p5->z, p1->x, t);
+  fe_sub(fe, p5->z, da, cb);
+  fe_sqr(fe, p5->z, p5->z);
+  fe_mul(fe, p5->z, p5->z, p1->x);
 
   /* X4 = AA * BB */
   fe_mul(fe, p4->x, aa, bb);
 
   /* Z4 = E * (BB + a24 * E) */
-  fe_mul(fe, t, ec->a24, e);
-  fe_add(fe, t, bb, t);
-  fe_mul(fe, p4->z, e, t);
+  fe_mul(fe, p4->z, ec->a24, e);
+  fe_add(fe, p4->z, p4->z, bb);
+  fe_mul(fe, p4->z, p4->z, e);
 }
 
 static int

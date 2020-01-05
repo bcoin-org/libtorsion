@@ -1442,8 +1442,36 @@ bench_end(struct timeval *start, size_t ops) {
 }
 
 static void
-bench_ecdsa(void) {
+bench_double_mul(void) {
+  wei_t curve;
+  wei_t *ec = &curve;
+  unsigned char slab[96];
+  sc_t k0, k1, k2;
+  wge_t p, r;
+  struct timeval tv;
   size_t i;
+
+  printf("Benching double mul...\n");
+
+  wei_init(ec, &curve_p256);
+
+  random_bytes(slab, 96);
+  sc_import_reduce(&ec->sc, k0, slab + 0);
+  sc_import_reduce(&ec->sc, k1, slab + 32);
+  sc_import_reduce(&ec->sc, k2, slab + 64);
+
+  wei_mul_g(ec, &p, k0);
+
+  bench_start(&tv);
+
+  for (i = 0; i < 10000; i++)
+    wei_mul_double_var(ec, &r, k1, &p, k2);
+
+  bench_end(&tv, i);
+}
+
+static void
+bench_ecdsa(void) {
   wei_t ec;
   unsigned char entropy[32];
   unsigned char priv[32];
@@ -1451,6 +1479,7 @@ bench_ecdsa(void) {
   unsigned char sig[64];
   unsigned char pub[33];
   struct timeval tv;
+  size_t i;
 
   printf("Benchmarking ECDSA...\n");
 
@@ -1530,6 +1559,7 @@ main(void) {
   test_ecdh_random();
   test_eddsa_random();
 #else
+  bench_double_mul();
   bench_ecdsa();
   bench_eddsa();
 #endif
