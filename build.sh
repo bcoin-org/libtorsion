@@ -18,7 +18,6 @@ if test x"$2" = x'mini'; then
     -std=c89 \
     -O3 \
     "$def" \
-    -lcrypto \
     -o test \
     mini-gmp.c \
     test.c
@@ -33,7 +32,6 @@ else
     -O3 \
     "$def" \
     -DBCRYPTO_HAS_GMP \
-    -lcrypto \
     -lgmp \
     -o test \
     test.c

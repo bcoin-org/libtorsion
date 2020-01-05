@@ -27,40 +27,81 @@ static const edwards_def_t *edwards_curves[2] = {
   &curve_ed448
 };
 
-int RAND_status(void);
-int RAND_poll();
-int RAND_bytes(unsigned char *buf, int num);
+#ifndef _WIN32
+#include <sys/types.h>
+#include <fcntl.h>
+#include <unistd.h>
+
+#ifndef O_CLOEXEC
+#define O_CLOEXEC 0
+#endif
+#endif
 
 static int
-random_bytes(void *dst, size_t len) {
-  memset(dst, 0x00, len);
+get_entropy(void *dst, size_t len) {
+#ifndef _WIN32
+  char *ptr = (char *)dst;
+  size_t left = len;
+  int fd = open("/dev/urandom", O_RDONLY | O_CLOEXEC);
 
-  if (len > (size_t)INT_MAX)
-    return 0;
-
-  for (;;) {
-    int status = RAND_status();
-
-    assert(status >= 0);
-
-    if (status != 0)
-      break;
-
-    if (RAND_poll() == 0)
-      break;
+  if (fd == -1) {
+    fd = open("/dev/random", O_RDONLY | O_CLOEXEC);
+    if (fd == -1)
+      return 0;
   }
 
-  return RAND_bytes(dst, (int)len) == 1;
+  while (left > 0) {
+    int bytes = read(fd, ptr, left);
+
+    if (bytes <= 0) {
+      close(fd);
+      return 0;
+    }
+
+    assert((size_t)bytes <= left);
+
+    left -= bytes;
+    ptr += bytes;
+  }
+
+  assert(left == 0);
+  assert(ptr == (char *)dst + len);
+
+  close(fd);
+
+  return 1;
+#else
+  return 0;
+#endif
+}
+
+static void
+random_init(drbg_t *rng) {
+  unsigned char entropy[32];
+
+  if (!get_entropy(entropy, sizeof(entropy))) {
+    size_t i;
+
+    for (i = 0; i < 32; i++)
+      entropy[i] = (unsigned char)rand();
+  }
+
+  drbg_init(rng, HASH_SHA256, entropy, 32);
+}
+
+static void
+random_bytes(drbg_t *rng, void *dst, size_t len) {
+  drbg_generate(rng, dst, len);
 }
 
 static unsigned int
-random_int(unsigned int mod) {
+random_int(drbg_t *rng, unsigned int mod) {
   unsigned int x;
 
   if (mod == 0)
     return 0;
 
-  assert(random_bytes(&x, sizeof(x)));
+  random_bytes(rng, &x, sizeof(x));
 
   return x % mod;
 }
@@ -156,7 +197,7 @@ test_field_element(void) {
 }
 
 static void
-test_wei_points_p256(void) {
+test_wei_points_p256(drbg_t *rng) {
   const unsigned char g_raw[33] = {
     0x03, 0x6b, 0x17, 0xd1, 0xf2, 0xe1, 0x2c, 0x42,
     0x47, 0xf8, 0xbc, 0xe6, 0xe5, 0x63, 0xa4, 0x40,
@@ -193,7 +234,7 @@ test_wei_points_p256(void) {
 
   wei_init(ec, &curve_p256);
 
-  random_bytes(entropy, sizeof(entropy));
+  random_bytes(rng, entropy, sizeof(entropy));
 
   wei_randomize(ec, entropy);
 
@@ -266,7 +307,7 @@ test_wei_points_p256(void) {
 }
 
 static void
-test_wei_points_p521(void) {
+test_wei_points_p521(drbg_t *rng) {
   wei_t curve;
   wei_t *ec = &curve;
   wge_t g, p, q, r;
@@ -315,7 +356,7 @@ test_wei_points_p521(void) {
 
   wei_init(ec, &curve_p521);
 
-  random_bytes(entropy, sizeof(entropy));
+  random_bytes(rng, entropy, sizeof(entropy));
 
   wei_randomize(ec, entropy);
 
@@ -388,7 +429,7 @@ test_wei_points_p521(void) {
 }
 
 static void
-test_wei_mul_g(void) {
+test_wei_mul_g(drbg_t *rng) {
   const unsigned char k_raw[32] = {
     0x38, 0xf8, 0x62, 0x0b, 0xa6, 0x0b, 0xed, 0x7c,
     0xf9, 0x0c, 0x7a, 0x99, 0xac, 0x35, 0xa4, 0x4e,
@@ -417,7 +458,7 @@ test_wei_mul_g(void) {
 
   wei_init(ec, &curve_p256);
 
-  random_bytes(entropy, sizeof(entropy));
+  random_bytes(rng, entropy, sizeof(entropy));
 
   wei_randomize(ec, entropy);
 
@@ -448,7 +489,7 @@ test_wei_mul_g(void) {
 }
 
 static void
-test_wei_mul(void) {
+test_wei_mul(drbg_t *rng) {
   const unsigned char p_raw[33] = {
     0x03, 0x42, 0x67, 0xab, 0xc7, 0xde, 0x72, 0x0f,
     0x14, 0x5a, 0xbc, 0x94, 0xb9, 0x5b, 0x33, 0x50,
@@ -485,7 +526,7 @@ test_wei_mul(void) {
 
   wei_init(ec, &curve_p256);
 
-  random_bytes(entropy, sizeof(entropy));
+  random_bytes(rng, entropy, sizeof(entropy));
 
   wei_randomize(ec, entropy);
 
@@ -518,7 +559,7 @@ test_wei_mul(void) {
 }
 
 static void
-test_wei_double_mul(void) {
+test_wei_double_mul(drbg_t *rng) {
   const unsigned char p_raw[33] = {
     0x02, 0x65, 0x26, 0x45, 0xad, 0x1a, 0x36, 0x8c,
     0xdc, 0xcf, 0x81, 0x90, 0x56, 0x3b, 0x2a, 0x12,
@@ -562,7 +603,7 @@ test_wei_double_mul(void) {
 
   wei_init(ec, &curve_p256);
 
-  random_bytes(entropy, sizeof(entropy));
+  random_bytes(rng, entropy, sizeof(entropy));
 
   wei_randomize(ec, entropy);
 
@@ -587,7 +628,7 @@ test_wei_double_mul(void) {
 }
 
 static void
-test_ecdsa_vector_p224(void) {
+test_ecdsa_vector_p224(drbg_t *rng) {
   const unsigned char priv[28] = {
     0x03, 0x18, 0x4c, 0xae, 0x2f, 0x68, 0x48, 0x28,
     0xfb, 0xe6, 0x84, 0x68, 0x5e, 0xbe, 0xad, 0xe4,
@@ -632,7 +673,7 @@ test_ecdsa_vector_p224(void) {
 
   wei_init(ec, &curve_p224);
 
-  random_bytes(entropy, sizeof(entropy));
+  random_bytes(rng, entropy, sizeof(entropy));
 
   wei_randomize(ec, entropy);
 
@@ -649,7 +690,7 @@ test_ecdsa_vector_p224(void) {
 }
 
 static void
-test_ecdsa_vector_p256(void) {
+test_ecdsa_vector_p256(drbg_t *rng) {
   const unsigned char priv[32] = {
     0x43, 0xf7, 0x29, 0xcc, 0x1d, 0x94, 0x94, 0xfe,
     0xb2, 0x8c, 0x1e, 0x1d, 0x36, 0xdb, 0xcd, 0xdf,
@@ -696,7 +737,7 @@ test_ecdsa_vector_p256(void) {
 
   wei_init(ec, &curve_p256);
 
-  random_bytes(entropy, sizeof(entropy));
+  random_bytes(rng, entropy, sizeof(entropy));
 
   wei_randomize(ec, entropy);
 
@@ -713,7 +754,7 @@ test_ecdsa_vector_p256(void) {
 }
 
 static void
-test_ecdsa_vector_p384(void) {
+test_ecdsa_vector_p384(drbg_t *rng) {
   const unsigned char priv[48] = {
     0x91, 0x4f, 0xea, 0xd3, 0x24, 0xc1, 0x96, 0xe2,
     0x13, 0x21, 0x3b, 0x2b, 0x95, 0xb3, 0x96, 0x80,
@@ -770,7 +811,7 @@ test_ecdsa_vector_p384(void) {
 
   wei_init(ec, &curve_p384);
 
-  random_bytes(entropy, sizeof(entropy));
+  random_bytes(rng, entropy, sizeof(entropy));
 
   wei_randomize(ec, entropy);
 
@@ -787,7 +828,7 @@ test_ecdsa_vector_p384(void) {
 }
 
 static void
-test_ecdsa_vector_p521(void) {
+test_ecdsa_vector_p521(drbg_t *rng) {
   const unsigned char priv[66] = {
     0x00, 0x31, 0x70, 0x3d, 0x94, 0x34, 0xb1, 0x2a,
     0xfc, 0x32, 0xb5, 0x51, 0x23, 0x39, 0xa2, 0xc7,
@@ -856,7 +897,7 @@ test_ecdsa_vector_p521(void) {
 
   wei_init(ec, &curve_p521);
 
-  random_bytes(entropy, sizeof(entropy));
+  random_bytes(rng, entropy, sizeof(entropy));
 
   wei_randomize(ec, entropy);
 
@@ -873,7 +914,7 @@ test_ecdsa_vector_p521(void) {
 }
 
 static void
-test_ecdsa_vector_secp256k1(void) {
+test_ecdsa_vector_secp256k1(drbg_t *rng) {
   const unsigned char priv[32] = {
     0xcc, 0x52, 0x4c, 0x2f, 0xe6, 0x2c, 0xc8, 0xb8,
     0x20, 0xbc, 0x83, 0x08, 0x90, 0xbe, 0xdd, 0x62,
@@ -920,7 +961,7 @@ test_ecdsa_vector_secp256k1(void) {
 
   wei_init(ec, &curve_secp256k1);
 
-  random_bytes(entropy, sizeof(entropy));
+  random_bytes(rng, entropy, sizeof(entropy));
 
   wei_randomize(ec, entropy);
 
@@ -1099,7 +1140,7 @@ test_ecdh_vector_x448(void) {
 }
 
 static void
-test_edwards_points_ed25519(void) {
+test_edwards_points_ed25519(drbg_t *rng) {
   edwards_t curve;
   edwards_t *ec = &curve;
   ege_t g, p, q, r;
@@ -1132,7 +1173,7 @@ test_edwards_points_ed25519(void) {
 
   edwards_init(ec, &curve_ed25519);
 
-  random_bytes(entropy, sizeof(entropy));
+  random_bytes(rng, entropy, sizeof(entropy));
 
   edwards_randomize(ec, entropy);
 
@@ -1203,7 +1244,7 @@ test_edwards_points_ed25519(void) {
 }
 
 static void
-test_eddsa_vector_ed25519(void) {
+test_eddsa_vector_ed25519(drbg_t *rng) {
   const unsigned char priv[32] = {
     0xd7, 0x4c, 0x01, 0x53, 0xc5, 0xcd, 0xf4, 0x8b,
     0x7b, 0x3e, 0x60, 0x2c, 0x2e, 0x4b, 0x36, 0xaf,
@@ -1246,7 +1287,7 @@ test_eddsa_vector_ed25519(void) {
 
   edwards_init(ec, &curve_ed25519);
 
-  random_bytes(entropy, sizeof(entropy));
+  random_bytes(rng, entropy, sizeof(entropy));
 
   edwards_randomize(ec, entropy);
 
@@ -1262,7 +1303,7 @@ test_eddsa_vector_ed25519(void) {
 }
 
 static void
-test_eddsa_vector_ed448(void) {
+test_eddsa_vector_ed448(drbg_t *rng) {
   const unsigned char priv[57] = {
     0x12, 0xf0, 0x24, 0xe8, 0x42, 0x61, 0x96, 0x2a,
     0x6f, 0x9b, 0x41, 0x1a, 0xb0, 0x32, 0xdc, 0x66,
@@ -1320,7 +1361,7 @@ test_eddsa_vector_ed448(void) {
 
   edwards_init(ec, &curve_ed448);
 
-  random_bytes(entropy, sizeof(entropy));
+  random_bytes(rng, entropy, sizeof(entropy));
 
   edwards_randomize(ec, entropy);
 
@@ -1336,7 +1377,7 @@ test_eddsa_vector_ed448(void) {
 }
 
 static void
-test_ecdsa_random(void) {
+test_ecdsa_random(drbg_t *rng) {
   size_t i, j;
   wei_t ec;
   prime_field_t *fe = &ec.fe;
@@ -1362,9 +1403,9 @@ test_ecdsa_random(void) {
       unsigned int param;
       size_t k;
 
-      random_bytes(entropy, sizeof(entropy));
-      random_bytes(priv, sizeof(priv));
-      random_bytes(msg, sizeof(msg));
+      random_bytes(rng, entropy, sizeof(entropy));
+      random_bytes(rng, priv, sizeof(priv));
+      random_bytes(rng, msg, sizeof(msg));
 
       priv[0] = 0;
 
@@ -1378,7 +1419,7 @@ test_ecdsa_random(void) {
       assert(rec_len == fe->size + 1);
       assert(memcmp(pub, rec, fe->size + 1) == 0);
 
-      k = random_int(sc->size);
+      k = random_int(rng, sc->size);
 
       if (fe->bits != 521) {
         msg[k] ^= 1;
@@ -1404,7 +1445,7 @@ test_ecdsa_random(void) {
 }
 
 static void
-test_ecdh_random(void) {
+test_ecdh_random(drbg_t *rng) {
   size_t i, j;
   mont_t ec;
   prime_field_t *fe = &ec.fe;
@@ -1426,8 +1467,8 @@ test_ecdh_random(void) {
       unsigned char bob_pub[MAX_FIELD_SIZE];
       unsigned char bob_secret[MAX_FIELD_SIZE];
 
-      random_bytes(alice_priv, sizeof(alice_priv));
-      random_bytes(bob_priv, sizeof(bob_priv));
+      random_bytes(rng, alice_priv, sizeof(alice_priv));
+      random_bytes(rng, bob_priv, sizeof(bob_priv));
 
       ecdh_pubkey_create(&ec, alice_pub, alice_priv);
       ecdh_pubkey_create(&ec, bob_pub, bob_priv);
@@ -1441,7 +1482,7 @@ test_ecdh_random(void) {
 }
 
 static void
-test_eddsa_random(void) {
+test_eddsa_random(drbg_t *rng) {
   size_t i, j;
   edwards_t ec;
   prime_field_t *fe = &ec.fe;
@@ -1464,9 +1505,9 @@ test_eddsa_random(void) {
       unsigned char pub[MAX_FIELD_SIZE];
       size_t k;
 
-      random_bytes(entropy, sizeof(entropy));
-      random_bytes(priv, sizeof(priv));
-      random_bytes(msg, sizeof(msg));
+      random_bytes(rng, entropy, sizeof(entropy));
+      random_bytes(rng, priv, sizeof(priv));
+      random_bytes(rng, msg, sizeof(msg));
 
       edwards_randomize(&ec, entropy);
 
@@ -1475,7 +1516,7 @@ test_eddsa_random(void) {
 
       assert(eddsa_verify(&ec, msg, sc->size, sig, pub, -1, NULL, 0));
 
-      k = random_int(sc->size);
+      k = random_int(rng, sc->size);
 
       msg[k] ^= 1;
       assert(!eddsa_verify(&ec, msg, sc->size, sig, pub, -1, NULL, 0));
@@ -1519,7 +1560,7 @@ bench_end(struct timeval *start, size_t ops) {
 }
 
 static void
-bench_double_mul(void) {
+bench_double_mul(drbg_t *rng) {
   wei_t curve;
   wei_t *ec = &curve;
   unsigned char slab[96];
@@ -1533,7 +1574,7 @@ bench_double_mul(void) {
 
   wei_init(ec, &curve_secp256k1);
 
-  random_bytes(slab, 96);
+  random_bytes(rng, slab, 96);
   sc_import_reduce(&ec->sc, k0, slab + 0);
   sc_import_reduce(&ec->sc, k1, slab + 32);
   sc_import_reduce(&ec->sc, k2, slab + 64);
@@ -1549,7 +1590,7 @@ bench_double_mul(void) {
 }
 
 static void
-bench_ecdsa(void) {
+bench_ecdsa(drbg_t *rng) {
   wei_t ec;
   unsigned char entropy[32];
   unsigned char priv[32];
@@ -1563,9 +1604,9 @@ bench_ecdsa(void) {
 
   wei_init(&ec, &curve_secp256k1);
 
-  random_bytes(entropy, sizeof(entropy));
-  random_bytes(priv, sizeof(priv));
-  random_bytes(msg, sizeof(msg));
+  random_bytes(rng, entropy, sizeof(entropy));
+  random_bytes(rng, priv, sizeof(priv));
+  random_bytes(rng, msg, sizeof(msg));
 
   priv[0] = 0;
 
@@ -1583,7 +1624,7 @@ bench_ecdsa(void) {
 }
 
 static void
-bench_ecdh(void) {
+bench_ecdh(drbg_t *rng) {
   mont_t ec;
   unsigned char priv[MAX_SCALAR_SIZE];
   unsigned char pub[MAX_FIELD_SIZE];
@@ -1595,7 +1636,7 @@ bench_ecdh(void) {
 
   mont_init(&ec, &curve_x25519);
 
-  random_bytes(priv, sizeof(priv));
+  random_bytes(rng, priv, sizeof(priv));
 
   ecdh_pubkey_create(&ec, pub, priv);
 
@@ -1608,7 +1649,7 @@ bench_ecdh(void) {
 }
 
 static void
-bench_eddsa(void) {
+bench_eddsa(drbg_t *rng) {
   size_t i;
   edwards_t ec;
   unsigned char entropy[32];
@@ -1622,9 +1663,9 @@ bench_eddsa(void) {
 
   edwards_init(&ec, &curve_ed25519);
 
-  random_bytes(entropy, sizeof(entropy));
-  random_bytes(priv, sizeof(priv));
-  random_bytes(msg, sizeof(msg));
+  random_bytes(rng, entropy, sizeof(entropy));
+  random_bytes(rng, priv, sizeof(priv));
+  random_bytes(rng, msg, sizeof(msg));
 
   edwards_randomize(&ec, entropy);
 
@@ -1641,32 +1682,36 @@ bench_eddsa(void) {
 
 int
 main(int argc, char **argv) {
+  drbg_t rng;
+
+  random_init(&rng);
+
   if (argc > 1 && strcmp(argv[1], "bench") == 0) {
-    bench_double_mul();
-    bench_ecdsa();
-    bench_ecdh();
-    bench_eddsa();
+    bench_double_mul(&rng);
+    bench_ecdsa(&rng);
+    bench_ecdh(&rng);
+    bench_eddsa(&rng);
   } else {
     test_scalar();
     test_field_element();
-    test_wei_points_p256();
-    test_wei_points_p521();
-    test_wei_mul_g();
-    test_wei_mul();
-    test_wei_double_mul();
-    test_ecdsa_vector_p224();
-    test_ecdsa_vector_p256();
-    test_ecdsa_vector_p384();
-    test_ecdsa_vector_p521();
-    test_ecdsa_vector_secp256k1();
+    test_wei_points_p256(&rng);
+    test_wei_points_p521(&rng);
+    test_wei_mul_g(&rng);
+    test_wei_mul(&rng);
+    test_wei_double_mul(&rng);
+    test_ecdsa_vector_p224(&rng);
+    test_ecdsa_vector_p256(&rng);
+    test_ecdsa_vector_p384(&rng);
+    test_ecdsa_vector_p521(&rng);
+    test_ecdsa_vector_secp256k1(&rng);
     test_ecdh_vector_x25519();
     test_ecdh_vector_x448();
-    test_edwards_points_ed25519();
-    test_eddsa_vector_ed25519();
-    test_eddsa_vector_ed448();
-    test_ecdsa_random();
-    test_ecdh_random();
-    test_eddsa_random();
+    test_edwards_points_ed25519(&rng);
+    test_eddsa_vector_ed25519(&rng);
+    test_eddsa_vector_ed448(&rng);
+    test_ecdsa_random(&rng);
+    test_ecdh_random(&rng);
+    test_eddsa_random(&rng);
   }
   return 0;
 }
