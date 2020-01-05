@@ -1,4 +1,4 @@
 #!/bin/sh
 
 ./build.sh
-./test "$@"
+exec ./test "$@"
