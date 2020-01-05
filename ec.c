@@ -60,6 +60,7 @@ typedef uint32_t fe_word_t;
 #define MAX_SCALAR_BITS 521
 #define MAX_FIELD_SIZE 66
 #define MAX_SCALAR_SIZE 66
+#define MAX_REDUCE_LIMBS ((MAX_SCALAR_LIMBS + 1) * 4)
 
 #define MAX_SCALAR_LIMBS \
   ((MAX_SCALAR_BITS + GMP_NUMB_BITS - 1) / GMP_NUMB_BITS)
@@ -82,9 +83,9 @@ typedef struct scalar_field_s {
   size_t size;
   size_t bits;
   mp_size_t shift;
-  mp_limb_t n[MAX_SCALAR_LIMBS * 4];
-  mp_limb_t nh[MAX_SCALAR_LIMBS * 4];
-  mp_limb_t m[MAX_SCALAR_LIMBS * 4];
+  mp_limb_t n[MAX_REDUCE_LIMBS];
+  mp_limb_t nh[MAX_REDUCE_LIMBS];
+  mp_limb_t m[MAX_REDUCE_LIMBS];
   mp_size_t limbs;
   unsigned char raw[MAX_SCALAR_SIZE];
 } scalar_field_t;
@@ -124,7 +125,7 @@ typedef struct prime_field_s {
   size_t shift;
   size_t words;
   size_t adj_size;
-  mp_limb_t p[MAX_SCALAR_LIMBS * 4];
+  mp_limb_t p[MAX_REDUCE_LIMBS];
   mp_size_t limbs;
   mp_size_t adj_limbs;
   unsigned char raw[MAX_FIELD_SIZE];
@@ -196,7 +197,7 @@ typedef struct wei_s {
   prime_field_t fe;
   scalar_field_t sc;
   unsigned int h;
-  mp_limb_t pmodn[MAX_SCALAR_LIMBS * 4];
+  mp_limb_t pmodn[MAX_REDUCE_LIMBS];
   fe_t red_n;
   fe_t a;
   fe_t b;
@@ -818,9 +819,9 @@ sc_reduce(scalar_field_t *sc, sc_t r, const sc_t ap);
 
 static int
 sc_import_reduce(scalar_field_t *sc, sc_t r, const unsigned char *raw) {
-  mp_limb_t tmp[MAX_SCALAR_LIMBS * 4];
+  mp_limb_t tmp[MAX_REDUCE_LIMBS];
 
-  mpn_import(tmp, sc->limbs * 4, raw, sc->size, sc->endian);
+  mpn_import(tmp, sc->shift * 2, raw, sc->size, sc->endian);
 
   sc_reduce(sc, r, tmp);
 
@@ -949,40 +950,40 @@ sc_reduce(scalar_field_t *sc, sc_t r, const mp_limb_t *ap) {
   /* Barrett reduction. */
   const mp_limb_t *np = sc->n;
   const mp_limb_t *mp = sc->m;
-  mp_size_t nn = sc->limbs;
-  mp_limb_t qp[MAX_SCALAR_LIMBS * 4];
-  mp_limb_t up[MAX_SCALAR_LIMBS * 4];
-  mp_limb_t vp[MAX_SCALAR_LIMBS * 4];
+  mp_size_t sh = sc->shift;
+  mp_limb_t qp[MAX_REDUCE_LIMBS];
+  mp_limb_t up[MAX_REDUCE_LIMBS];
+  mp_limb_t vp[MAX_REDUCE_LIMBS];
   mp_limb_t *hp = qp;
   mp_limb_t c;
 
-  mpn_zero(qp, nn * 4);
-  mpn_zero(up, nn * 4);
-  mpn_zero(vp, nn * 4);
+  mpn_zero(qp, sh * 2);
+  mpn_zero(up, sh * 2);
+  mpn_zero(vp, sh * 2);
 
   /* q = a * m */
-  mpn_mul_n(qp, ap, mp, nn * 2);
+  mpn_mul_n(qp, ap, mp, sh);
 
   /* h = q >> k */
-  hp += sc->shift;
+  hp += sh;
 
   /* u = a - h * n */
-  mpn_mul_n(vp, hp, np, nn * 2);
-  c = mpn_sub_n(up, ap, vp, nn * 4);
+  mpn_mul_n(vp, hp, np, sh);
+  c = mpn_sub_n(up, ap, vp, sh * 2);
   assert(c == 0);
 
   /* u = u - n if u >= n */
-  c = mpn_sub_n(vp, up, np, nn * 2);
-  cnd_swap(c == 0, up, vp, nn * 2);
+  c = mpn_sub_n(vp, up, np, sh);
+  cnd_swap(c == 0, up, vp, sh);
 
-  mpn_copyi(r, up, nn);
+  mpn_copyi(r, up, sc->limbs);
 }
 
 static void
 sc_mul(scalar_field_t *sc, sc_t r, const sc_t a, const sc_t b) {
-  mp_limb_t ap[MAX_SCALAR_LIMBS * 4];
+  mp_limb_t ap[MAX_REDUCE_LIMBS];
 
-  mpn_zero(ap, sc->limbs * 4);
+  mpn_zero(ap, sc->shift * 2);
   mpn_mul_n(ap, a, b, sc->limbs);
 
   sc_reduce(sc, r, ap);
@@ -990,9 +991,9 @@ sc_mul(scalar_field_t *sc, sc_t r, const sc_t a, const sc_t b) {
 
 static void
 sc_sqr(scalar_field_t *sc, sc_t r, const sc_t a) {
-  mp_limb_t ap[MAX_SCALAR_LIMBS * 4];
+  mp_limb_t ap[MAX_REDUCE_LIMBS];
 
-  mpn_zero(ap, sc->limbs * 4);
+  mpn_zero(ap, sc->shift * 2);
   mpn_sqr(ap, a, sc->limbs);
 
   sc_reduce(sc, r, ap);
@@ -1232,15 +1233,15 @@ fe_import(prime_field_t *fe, fe_t r, const unsigned char *raw) {
     /* Use a constant time barret reduction
      * to montgomerize the field element.
      */
-    mp_limb_t xp[MAX_FIELD_LIMBS * 4];
+    mp_limb_t xp[MAX_REDUCE_LIMBS];
     mp_size_t shift = fe->shift / GMP_NUMB_BITS;
     mp_size_t left = fe->shift % GMP_NUMB_BITS;
 
-    /* We can only handle 2*max limbs. */
-    assert(shift <= fe->limbs);
+    /* We can only handle 2*(max+1) limbs. */
+    assert(shift + (left != 0) <= fe->sc.shift);
 
     /* x = (x << shift) mod p */
-    mpn_zero(xp, fe->limbs * 4);
+    mpn_zero(xp, fe->sc.shift * 2);
     mpn_import(xp + shift, fe->limbs, raw, fe->size, fe->endian);
 
     /* Align if necessary. */
@@ -1776,7 +1777,7 @@ scalar_field_set(scalar_field_t *sc,
   sc->limbs = (bits + GMP_NUMB_BITS - 1) / GMP_NUMB_BITS;
   sc->size = (bits + 7) / 8;
   sc->bits = bits;
-  sc->shift = sc->limbs * 2;
+  sc->shift = (sc->limbs + 1) * 2;
 
   mpn_import_be(sc->n, ARRAY_SIZE(sc->n), modulus, sc->size);
 
@@ -1787,8 +1788,7 @@ scalar_field_set(scalar_field_t *sc,
    *   m = (1 << (bits * 2)) / n
    */
   {
-    /* Maintain the philosophy of zero allocations. */
-    mp_limb_t x[MAX_SCALAR_LIMBS * 2 + 1];
+    mp_limb_t x[(MAX_SCALAR_LIMBS + 1) * 2 + 1];
 
     mpn_zero(sc->m, ARRAY_SIZE(sc->m));
     mpn_zero(x, ARRAY_SIZE(x));
@@ -5240,7 +5240,6 @@ static void
 edwards_init(edwards_t *ec, const edwards_def_t *def) {
   prime_field_t *fe = &ec->fe;
   scalar_field_t *sc = &ec->sc;
-  mpz_t p, n;
 
   ec->hash = def->hash;
   ec->context = def->context;
@@ -5250,9 +5249,6 @@ edwards_init(edwards_t *ec, const edwards_def_t *def) {
 
   prime_field_init(fe, def->fe, -1);
   scalar_field_init(sc, def->sc, -1);
-
-  mpz_roinit_n(p, fe->p, fe->limbs);
-  mpz_roinit_n(n, sc->n, sc->limbs);
 
   fe_import_be(fe, ec->a, def->a);
   fe_import_be(fe, ec->d, def->d);
@@ -5699,9 +5695,9 @@ static int
 ecdsa_reduce(wei_t *ec, sc_t r, const unsigned char *msg, size_t msg_len) {
   scalar_field_t *sc = &ec->sc;
   mp_limb_t *np = sc->n;
-  mp_limb_t mp[MAX_SCALAR_LIMBS * 4];
+  mp_limb_t mp[MAX_REDUCE_LIMBS];
   mp_size_t nn = sc->limbs;
-  mp_size_t mn = nn * 4;
+  mp_size_t mn = sc->shift * 2;
   long shift;
   int zero, cmp;
 
@@ -6073,7 +6069,7 @@ eddsa_hash_init(edwards_t *ec,
 static void
 eddsa_hash_final(edwards_t *ec, sc_t r, hash_t *h) {
   unsigned char bytes[(MAX_FIELD_SIZE + 1) * 2];
-  mp_limb_t k[MAX_FIELD_LIMBS * 4];
+  mp_limb_t k[MAX_REDUCE_LIMBS];
   prime_field_t *fe = &ec->fe;
   scalar_field_t *sc = &ec->sc;
 
@@ -6081,17 +6077,7 @@ eddsa_hash_final(edwards_t *ec, sc_t r, hash_t *h) {
 
   mpn_import(k, ARRAY_SIZE(k), bytes, fe->adj_size * 2, sc->endian);
 
-  if ((fe->bits & 7) == 0) {
-    mp_limb_t q[(MAX_FIELD_LIMBS + 1) * 2];
-    mp_size_t kn = fe->adj_limbs * 2;
-    mp_size_t nn = sc->limbs;
-
-    mpn_tdiv_qr(q, k, 0, k, kn, sc->n, nn);
-    mpn_copyi(r, k, nn);
-    mpn_cleanse(k, kn);
-  } else {
-    sc_reduce(sc, r, k);
-  }
+  sc_reduce(sc, r, k);
 
   cleanse(bytes, sizeof(bytes));
   mpn_cleanse(k, ARRAY_SIZE(k));
