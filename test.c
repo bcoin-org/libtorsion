@@ -1687,10 +1687,22 @@ main(int argc, char **argv) {
   random_init(&rng);
 
   if (argc > 1 && strcmp(argv[1], "bench") == 0) {
-    bench_double_mul(&rng);
-    bench_ecdsa(&rng);
-    bench_ecdh(&rng);
-    bench_eddsa(&rng);
+    if (argc == 2) {
+      bench_double_mul(&rng);
+      bench_ecdsa(&rng);
+      bench_ecdh(&rng);
+      bench_eddsa(&rng);
+    } else if (strcmp(argv[2], "double") == 0) {
+      bench_double_mul(&rng);
+    } else if (strcmp(argv[2], "ecdsa") == 0) {
+      bench_ecdsa(&rng);
+    } else if (strcmp(argv[2], "ecdh") == 0) {
+      bench_ecdh(&rng);
+    } else if (strcmp(argv[2], "eddsa") == 0) {
+      bench_eddsa(&rng);
+    } else {
+      return 1;
+    }
   } else {
     test_scalar();
     test_field_element();
