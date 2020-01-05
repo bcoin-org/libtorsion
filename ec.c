@@ -1031,7 +1031,7 @@ sc_invert(scalar_field_t *sc, sc_t r, const sc_t a) {
 }
 
 static size_t
-sc_bitlen(scalar_field_t *sc, const sc_t a) {
+sc_bitlen_var(scalar_field_t *sc, const sc_t a) {
   return mpn_bitlen(a, sc->limbs);
 }
 
@@ -1586,6 +1586,11 @@ fe_invert(prime_field_t *fe, fe_t r, const fe_t a) {
   int zero = fe_is_zero(fe, a);
   int ret = zero ^ 1;
 
+#ifdef EC_TEST
+  fe_t a0;
+  fe_set(fe, a0, a);
+#endif
+
   if (fe->invert) {
     /* Fast inversion chain. */
     fe->invert(r, a);
@@ -1606,11 +1611,8 @@ fe_invert(prime_field_t *fe, fe_t r, const fe_t a) {
   }
 
 #ifdef EC_TEST
-  {
-    fe_t expect;
-    assert(fe_invert_var(fe, expect, a) == ret);
-    assert(fe_equal(fe, r, expect));
-  }
+  assert(fe_invert_var(fe, a0, a0) == ret);
+  assert(fe_equal(fe, r, a0));
 #endif
 
   return ret;
@@ -1827,6 +1829,18 @@ prime_field_init(prime_field_t *fe, const prime_def_t *def, int endian) {
 /*
  * Short Weierstrass
  */
+
+static void
+wge_to_jge(wei_t *ec, jge_t *r, const wge_t *a);
+
+static void
+jge_dbl(wei_t *ec, jge_t *r, const jge_t *p);
+
+static void
+jge_add(wei_t *ec, jge_t *r, const jge_t *a, const jge_t *b);
+
+static void
+jge_to_wge(wei_t *ec, wge_t *r, const jge_t *p);
 
 /*
  * Short Weierstrass Affine Point
@@ -2193,10 +2207,38 @@ wge_add_var(wei_t *ec, wge_t *r, const wge_t *a, const wge_t *b) {
 }
 
 static void
-wge_sub(wei_t *ec, wge_t *r, const wge_t *a, const wge_t *b) {
+wge_sub_var(wei_t *ec, wge_t *r, const wge_t *a, const wge_t *b) {
   wge_t c;
   wge_neg(ec, &c, b);
   wge_add_var(ec, r, a, &c);
+}
+
+static void
+wge_dbl(wei_t *ec, wge_t *r, const wge_t *p) {
+  jge_t j;
+
+  wge_to_jge(ec, &j, p);
+  jge_dbl(ec, &j, &j);
+  jge_to_wge(ec, r, &j);
+}
+
+static void
+wge_add(wei_t *ec, wge_t *r, const wge_t *a, const wge_t *b) {
+  jge_t ja, jb;
+
+  wge_to_jge(ec, &ja, a);
+  wge_to_jge(ec, &jb, b);
+
+  jge_add(ec, &ja, &ja, &jb);
+
+  jge_to_wge(ec, r, &ja);
+}
+
+static void
+wge_sub(wei_t *ec, wge_t *r, const wge_t *a, const wge_t *b) {
+  wge_t c;
+  wge_neg(ec, &c, b);
+  wge_add(ec, r, a, &c);
 }
 
 static void
@@ -2206,7 +2248,7 @@ wge_to_jge(wei_t *ec, jge_t *r, const wge_t *a) {
   if (a->inf) {
     fe_set(fe, r->x, fe->one);
     fe_set(fe, r->y, fe->one);
-    fe_zero(fe, r->z);
+    fe_set(fe, r->z, fe->zero);
     return;
   }
 
@@ -2216,7 +2258,7 @@ wge_to_jge(wei_t *ec, jge_t *r, const wge_t *a) {
 }
 
 static void
-wge_naf_points(wei_t *ec, wge_t *points, const wge_t *p, size_t width) {
+wge_naf_points_var(wei_t *ec, wge_t *points, const wge_t *p, size_t width) {
   size_t size = (1 << width) - 1;
   wge_t dbl;
   size_t i;
@@ -2410,9 +2452,6 @@ jge_neg_cond(wei_t *ec, jge_t *r, const jge_t *a, unsigned int flag) {
   fe_neg_cond(fe, r->y, a->y, flag);
   fe_set(fe, r->z, a->z);
 }
-
-static void
-jge_to_wge(wei_t *ec, wge_t *r, const jge_t *p);
 
 static void
 jge_dblj(wei_t *ec, jge_t *r, const jge_t *p) {
@@ -2755,7 +2794,36 @@ jge_mixed_add_var(wei_t *ec, jge_t *r, const jge_t *a, const wge_t *b) {
 }
 
 static void
-jge_add_const(wei_t *ec, jge_t *r, const jge_t *a, const jge_t *b) {
+jge_mixed_sub_var(wei_t *ec, jge_t *r, const jge_t *a, const wge_t *b) {
+  wge_t c;
+  wge_neg(ec, &c, b);
+  jge_mixed_add_var(ec, r, a, &c);
+}
+
+static void
+jge_dbl(wei_t *ec, jge_t *r, const jge_t *p) {
+  prime_field_t *fe = &ec->fe;
+  int inf = 0;
+
+  /* P = O */
+  inf |= jge_is_zero(ec, p);
+
+  /* Y1 = 0 */
+  if (ec->h > 1)
+    inf |= fe_is_zero(fe, p->y);
+
+  if (ec->zero_a)
+    jge_dbl0(ec, r, p);
+  else if (ec->three_a)
+    jge_dbl3(ec, r, p);
+  else
+    jge_dblj(ec, r, p);
+
+  jge_zero_cond(ec, r, r, inf);
+}
+
+static void
+jge_add(wei_t *ec, jge_t *r, const jge_t *a, const jge_t *b) {
   /* Strongly unified Jacobian addition (Brier and Joye).
    *
    * [SIDE2] Page 6, Section 3.
@@ -2882,10 +2950,10 @@ jge_add_const(wei_t *ec, jge_t *r, const jge_t *a, const jge_t *b) {
 }
 
 static void
-jge_mixed_sub_var(wei_t *ec, jge_t *r, const jge_t *a, const wge_t *b) {
-  wge_t c;
-  wge_neg(ec, &c, b);
-  jge_mixed_add_var(ec, r, a, &c);
+jge_sub(wei_t *ec, jge_t *r, const jge_t *a, const jge_t *b) {
+  jge_t c;
+  jge_neg(ec, &c, b);
+  jge_add(ec, r, a, &c);
 }
 
 static void
@@ -3325,7 +3393,7 @@ wei_init(wei_t *ec, const wei_def_t *def) {
   sc_zero(sc, ec->blind);
   wge_zero(ec, &ec->unblind);
 
-  wge_naf_points(ec, ec->points, &ec->g, NAF_WIDTH_PRE);
+  wge_naf_points_var(ec, ec->points, &ec->g, NAF_WIDTH_PRE);
 }
 
 static void
@@ -3346,7 +3414,7 @@ wei_jmul_g_var(wei_t *ec, jge_t *r, const sc_t k) {
   sc_add(sc, k0, k, ec->blind);
 
   /* Calculate max size. */
-  max = sc_bitlen(sc, k0) + 1;
+  max = sc_bitlen_var(sc, k0) + 1;
 
   /* Get NAF form. */
   sc_naf_var(sc, naf, k0, NAF_WIDTH_PRE, max);
@@ -3397,7 +3465,7 @@ wei_jmul_var(wei_t *ec, jge_t *r, const wge_t *p, const sc_t k) {
   scalar_field_t *sc = &ec->sc;
   jge_t points[(1 << NAF_WIDTH) - 1];
   int32_t naf[MAX_SCALAR_BITS + 1];
-  size_t max = sc_bitlen(sc, k) + 1;
+  size_t max = sc_bitlen_var(sc, k) + 1;
   int32_t i;
   jge_t acc;
 
@@ -3456,8 +3524,8 @@ wei_jmul_double_var(wei_t *ec,
   jge_t wnd2[(1 << NAF_WIDTH) - 1];
   int32_t naf1[MAX_SCALAR_BITS + 1];
   int32_t naf2[MAX_SCALAR_BITS + 1];
-  size_t max1 = sc_bitlen(sc, k1) + 1;
-  size_t max2 = sc_bitlen(sc, k2) + 1;
+  size_t max1 = sc_bitlen_var(sc, k1) + 1;
+  size_t max2 = sc_bitlen_var(sc, k2) + 1;
   size_t max = max1 > max2 ? max1 : max2;
   int32_t i;
   jge_t acc;
@@ -3525,8 +3593,8 @@ wei_jmul(wei_t *ec, jge_t *r, const wge_t *p, const sc_t k) {
   sc_neg(sc, v, k);
 
   /* Get bit lengths. */
-  ub = sc_bitlen(sc, u);
-  vb = sc_bitlen(sc, v);
+  ub = sc_bitlen_var(sc, u);
+  vb = sc_bitlen_var(sc, v);
 
   /* Negate if ceil(log2(k)) < ceil(log2(-k)). */
   negated = (ub - vb) >> 31;
@@ -3535,7 +3603,7 @@ wei_jmul(wei_t *ec, jge_t *r, const wge_t *p, const sc_t k) {
   sc_swap(sc, u, v, negated);
 
   /* Calculate the new scalar's length. */
-  bits = sc_bitlen(sc, u);
+  bits = sc_bitlen_var(sc, u);
 
   /* Edge case (k = 0). */
   zero = sc_is_zero(sc, u);
@@ -3658,6 +3726,9 @@ wei_randomize(wei_t *ec, const unsigned char *entropy) {
  * Montgomery
  */
 
+static void
+mont_mula24(mont_t *ec, fe_t r, const fe_t a);
+
 /*
  * Montgomery Affine Point
  */
@@ -3721,6 +3792,10 @@ mge_set_x(mont_t *ec, mge_t *r, const fe_t x, int sign) {
   fe_set(fe, r->x, x);
   fe_set(fe, r->y, y);
   r->inf = 0;
+
+#ifdef EC_TEST
+  assert(mge_validate(ec, r) == ret);
+#endif
 
   return ret;
 }
@@ -3950,7 +4025,7 @@ mge_to_pge(mont_t *ec, pge_t *r, const mge_t *a) {
 
   if (a->inf) {
     fe_set(fe, r->x, fe->one);
-    fe_zero(fe, r->z);
+    fe_set(fe, r->z, fe->zero);
     return;
   }
 
@@ -4122,7 +4197,7 @@ pge_dbl(mont_t *ec, pge_t *r, const pge_t *p) {
   fe_mul(fe, r->x, aa, bb);
 
   /* Z3 = C * (BB + a24 * C) */
-  fe_mul(fe, r->z, c, ec->a24);
+  mont_mula24(ec, r->z, c);
   fe_add(fe, r->z, r->z, bb);
   fe_mul(fe, r->z, r->z, c);
 }
@@ -4183,7 +4258,7 @@ pge_dad(mont_t *ec,
   fe_mul(fe, p4->x, aa, bb);
 
   /* Z4 = E * (BB + a24 * E) */
-  fe_mul(fe, p4->z, ec->a24, e);
+  mont_mula24(ec, p4->z, e);
   fe_add(fe, p4->z, p4->z, bb);
   fe_mul(fe, p4->z, p4->z, e);
 }
@@ -4272,6 +4347,16 @@ mont_clamp(mont_t *ec, unsigned char *out, const unsigned char *in) {
 }
 
 static void
+mont_mula24(mont_t *ec, fe_t r, const fe_t a) {
+  prime_field_t *fe = &ec->fe;
+
+  if (fe->scmul_121666)
+    fe_mul121666(fe, r, a);
+  else
+    fe_mul(fe, r, a, ec->a24);
+}
+
+static void
 mont_mul(mont_t *ec, pge_t *r, const pge_t *p, const sc_t k) {
   /* Multiply with the Montgomery Ladder.
    *
@@ -4326,7 +4411,7 @@ mont_mul_g(mont_t *ec, pge_t *r, const sc_t k) {
  */
 
 static void
-edwards_mul_a(edwards_t *ec, fe_t r, const fe_t x);
+edwards_mula(edwards_t *ec, fe_t r, const fe_t x);
 
 /*
  * Edwards Affine Point
@@ -4505,7 +4590,7 @@ ege_add(edwards_t *ec, ege_t *r, const ege_t *a, const ege_t *b) {
   fe_mul(fe, y1x2, a->y, b->x);
 
   fe_add(fe, x3, x1y2, y1x2);
-  edwards_mul_a(ec, y3, x1x2);
+  edwards_mula(ec, y3, x1x2);
   fe_sub(fe, y3, y1y2, y3);
 
   fe_mul(fe, z, x1x2, y1y2);
@@ -4514,7 +4599,7 @@ ege_add(edwards_t *ec, ege_t *r, const ege_t *a, const ege_t *b) {
   fe_sub(fe, z2, fe->one, z);
   fe_mul(fe, z, z1, z2);
 
-  fe_invert_var(fe, z, z);
+  fe_invert(fe, z, z);
 
   fe_mul(fe, x3, x3, z);
   fe_mul(fe, y3, y3, z);
@@ -4524,15 +4609,15 @@ ege_add(edwards_t *ec, ege_t *r, const ege_t *a, const ege_t *b) {
 }
 
 static void
-ege_dbl(edwards_t *ec, ege_t *r, const ege_t *p) {
-  ege_add(ec, r, p, p);
-}
-
-static void
 ege_sub(edwards_t *ec, ege_t *r, const ege_t *a, const ege_t *b) {
   ege_t c;
   ege_neg(ec, &c, b);
   ege_add(ec, r, a, &c);
+}
+
+static void
+ege_dbl(edwards_t *ec, ege_t *r, const ege_t *p) {
+  ege_add(ec, r, p, p);
 }
 
 static void
@@ -4702,7 +4787,7 @@ xge_dbl(edwards_t *ec, xge_t *r, const xge_t *p) {
   fe_add(fe, c, c, c);
 
   /* D = a * A */
-  edwards_mul_a(ec, d, a);
+  edwards_mula(ec, d, a);
 
   /* E = (X1 + Y1)^2 - A - B */
   fe_add(fe, e, p->x, p->y);
@@ -4767,7 +4852,7 @@ xge_add_a(edwards_t *ec, xge_t *r, const xge_t *a, const xge_t *b) {
   fe_add(fe, g, d, c);
 
   /* H = B - a * A */
-  edwards_mul_a(ec, h, A);
+  edwards_mula(ec, h, A);
   fe_sub(fe, h, B, h);
 
   /* X3 = E * F */
@@ -5011,7 +5096,7 @@ edwards_clamp(edwards_t *ec, unsigned char *out, const unsigned char *in) {
 }
 
 static void
-edwards_mul_a(edwards_t *ec, fe_t r, const fe_t x) {
+edwards_mula(edwards_t *ec, fe_t r, const fe_t x) {
   prime_field_t *fe = &ec->fe;
 
   if (ec->mone_a)
@@ -5040,7 +5125,7 @@ edwards_jmul_g_var(edwards_t *ec, xge_t *r, const sc_t k) {
   sc_add(sc, k0, k, ec->blind);
 
   /* Calculate max size. */
-  max = sc_bitlen(sc, k0) + 1;
+  max = sc_bitlen_var(sc, k0) + 1;
 
   /* Get NAF form. */
   sc_naf_var(sc, naf, k0, NAF_WIDTH_PRE, max);
@@ -5091,7 +5176,7 @@ edwards_jmul_var(edwards_t *ec, xge_t *r, const ege_t *p, const sc_t k) {
   scalar_field_t *sc = &ec->sc;
   xge_t points[(1 << NAF_WIDTH) - 1];
   int32_t naf[MAX_SCALAR_BITS + 1];
-  size_t max = sc_bitlen(sc, k) + 1;
+  size_t max = sc_bitlen_var(sc, k) + 1;
   int32_t i;
   xge_t acc;
 
@@ -5150,8 +5235,8 @@ edwards_jmul_double_var(edwards_t *ec,
   xge_t wnd2[(1 << NAF_WIDTH) - 1];
   int32_t naf1[MAX_SCALAR_BITS + 1];
   int32_t naf2[MAX_SCALAR_BITS + 1];
-  size_t max1 = sc_bitlen(sc, k1) + 1;
-  size_t max2 = sc_bitlen(sc, k2) + 1;
+  size_t max1 = sc_bitlen_var(sc, k1) + 1;
+  size_t max2 = sc_bitlen_var(sc, k2) + 1;
   size_t max = max1 > max2 ? max1 : max2;
   int32_t i;
   xge_t acc;

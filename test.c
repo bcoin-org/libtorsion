@@ -1447,7 +1447,8 @@ bench_double_mul(void) {
   wei_t *ec = &curve;
   unsigned char slab[96];
   sc_t k0, k1, k2;
-  wge_t p, r;
+  wge_t p;
+  jge_t r;
   struct timeval tv;
   size_t i;
 
@@ -1465,7 +1466,7 @@ bench_double_mul(void) {
   bench_start(&tv);
 
   for (i = 0; i < 10000; i++)
-    wei_mul_double_var(ec, &r, k1, &p, k2);
+    wei_jmul_double_var(ec, &r, k1, &p, k2);
 
   bench_end(&tv, i);
 }
@@ -1500,6 +1501,31 @@ bench_ecdsa(void) {
 
   for (i = 0; i < 10000; i++)
     assert(ecdsa_verify(&ec, msg, 32, sig, pub, 33));
+
+  bench_end(&tv, i);
+}
+
+static void
+bench_ecdh(void) {
+  mont_t ec;
+  unsigned char priv[MAX_SCALAR_SIZE];
+  unsigned char pub[MAX_FIELD_SIZE];
+  unsigned char secret[MAX_FIELD_SIZE];
+  struct timeval tv;
+  size_t i;
+
+  printf("Benchmarking ECDH...\n");
+
+  mont_init(&ec, &curve_x25519);
+
+  random_bytes(priv, sizeof(priv));
+
+  ecdh_pubkey_create(&ec, pub, priv);
+
+  bench_start(&tv);
+
+  for (i = 0; i < 10000; i++)
+    assert(ecdh_derive(&ec, secret, pub, priv));
 
   bench_end(&tv, i);
 }
@@ -1561,6 +1587,7 @@ main(void) {
 #else
   bench_double_mul();
   bench_ecdsa();
+  bench_ecdh();
   bench_eddsa();
 #endif
   return 0;
