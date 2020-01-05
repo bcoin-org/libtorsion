@@ -2755,6 +2755,133 @@ jge_mixed_add(wei_t *ec, jge_t *r, const jge_t *a, const wge_t *b) {
 }
 
 static void
+jge_add_const(wei_t *ec, jge_t *r, const jge_t *a, const jge_t *b) {
+  /* Strongly unified Jacobian addition (Brier and Joye).
+   *
+   * [SIDE2] Page 6, Section 3.
+   * [SIDE3] Page 4, Section 3.
+   *
+   * The above documents use projective coordinates[1]. The
+   * formula below was heavily adapted from libsecp256k1[2].
+   *
+   * [1] https://hyperelliptic.org/EFD/g1p/auto-shortw-projective.html#addition-add-2002-bj
+   * [2] https://github.com/bitcoin-core/secp256k1/blob/ee9e68c/src/group_impl.h#L525
+   *
+   * 11M + 8S + 7A + 1*a + 2*4 + 1*3 + 2*2 (a != 0)
+   * 11M + 6S + 6A + 2*4 + 1*3 + 2*2 (a = 0)
+   */
+  prime_field_t *fe = &ec->fe;
+  fe_t z1z1, z2z2, u1, u2, s1, s2, z, t, m, r0, l, g, ll, w, f, h;
+  int degenerate, inf1, inf2, inf3;
+
+  /* Z1Z1 = Z1^2 */
+  fe_sqr(fe, z1z1, a->z);
+
+  /* Z2Z2 = Z2^2 */
+  fe_sqr(fe, z2z2, b->z);
+
+  /* U1 = X1 * Z2Z2 */
+  fe_mul(fe, u1, a->x, z2z2);
+
+  /* U2 = X2 * Z1Z1 */
+  fe_mul(fe, u2, b->x, z1z1);
+
+  /* S1 = Y1 * Z2Z2 * Z2 */
+  fe_mul(fe, s1, a->y, z2z2);
+  fe_mul(fe, s1, s1, b->z);
+
+  /* S2 = Y2 * Z1Z1 * Z1 */
+  fe_mul(fe, s2, b->y, z1z1);
+  fe_mul(fe, s2, s2, a->z);
+
+  /* Z = Z1 * Z2 */
+  fe_mul(fe, z, a->z, b->z);
+
+  /* T = U1 + U2 */
+  fe_add(fe, t, u1, u2);
+
+  /* M = S1 + S2 */
+  fe_add(fe, m, s1, s2);
+
+  /* R = T^2 - U1 * U2 */
+  fe_sqr(fe, r0, t);
+  fe_mul(fe, l, u1, u2);
+  fe_sub(fe, r0, r0, l);
+
+  /* R = R + a * Z^4 (if a != 0) */
+  if (!ec->zero_a) {
+    fe_sqr(fe, l, z);
+    fe_sqr(fe, l, l);
+    fe_mul(fe, l, l, ec->a);
+    fe_add(fe, r0, r0, l);
+  }
+
+  /* Check for degenerate case (X1 != X2, Y1 = -Y2). */
+  degenerate = fe_is_zero(fe, m) & fe_is_zero(fe, r0);
+
+  /* M = U1 - U2 (if degenerate) */
+  fe_sub(fe, l, u1, u2);
+  fe_select(fe, m, m, l, degenerate);
+
+  /* R = S1 - S2 (if degenerate) */
+  fe_sub(fe, l, s1, s2);
+  fe_select(fe, r0, r0, l, degenerate);
+
+  /* L = M^2 */
+  fe_sqr(fe, l, m);
+
+  /* G = T * L */
+  fe_mul(fe, g, t, l);
+
+  /* LL = L^2 */
+  fe_sqr(fe, ll, l);
+
+  /* LL = 0 (if degenerate) */
+  fe_zero(fe, w);
+  fe_select(fe, ll, ll, w, degenerate);
+
+  /* W = R^2 */
+  fe_sqr(fe, w, r0);
+
+  /* F = Z * M */
+  fe_mul(fe, f, z, m);
+
+  /* H = 3 * G - 2 * W */
+  fe_add(fe, h, g, g);
+  fe_add(fe, h, h, g);
+  fe_sub(fe, h, h, w);
+  fe_sub(fe, h, h, w);
+
+  /* X3 = 4 * (W - G) */
+  fe_sub(fe, r->x, w, g);
+  fe_add(fe, r->x, r->x, r->x);
+  fe_add(fe, r->x, r->x, r->x);
+
+  /* Y3 = 4 * (R * H - LL) */
+  fe_mul(fe, r->y, r0, h);
+  fe_sub(fe, r->y, r->y, ll);
+  fe_add(fe, r->y, r->y, r->y);
+  fe_add(fe, r->y, r->y, r->y);
+
+  /* Z3 = 2 * F */
+  fe_add(fe, r->z, f, f);
+
+  /* Check for infinity. */
+  inf1 = fe_is_zero(fe, a->z);
+  inf2 = fe_is_zero(fe, b->z);
+  inf3 = fe_is_zero(fe, r->z) & ((inf1 | inf2) ^ 1);
+
+  /* Case 1: O + P = P */
+  jge_select(ec, r, r, b, inf1);
+
+  /* Case 2: P + O = P */
+  jge_select(ec, r, r, a, inf2);
+
+  /* Case 3: P + -P = O */
+  jge_zero_cond(ec, r, r, inf3);
+}
+
+static void
 jge_mixed_sub(wei_t *ec, jge_t *r, const jge_t *a, const wge_t *b) {
   wge_t c;
   wge_neg(ec, &c, b);
