@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include <string.h>
 #include <openssl/sha.h>
+#include "keccak.h"
 
 #define HASH_SHA256 0
 #define HASH_SHA384 1
@@ -21,6 +22,7 @@ typedef struct hash_s {
     SHA256_CTX sha256;
     SHA512_CTX sha384;
     SHA512_CTX sha512;
+    keccak_t keccak;
   } ctx;
 } hash_t;
 
@@ -61,6 +63,9 @@ hash_init(hash_t *hash, int type) {
     case HASH_SHA512:
       SHA512_Init(&hash->ctx.sha512);
       break;
+    case HASH_SHAKE256:
+      keccak_init(&hash->ctx.keccak, 256);
+      break;
     default:
       assert(0);
       break;
@@ -78,6 +83,9 @@ hash_update(hash_t *hash, const void *data, size_t len) {
       break;
     case HASH_SHA512:
       SHA512_Update(&hash->ctx.sha512, data, len);
+      break;
+    case HASH_SHAKE256:
+      keccak_update(&hash->ctx.keccak, data, len);
       break;
     default:
       assert(0);
@@ -97,6 +105,9 @@ hash_final(hash_t *hash, unsigned char *out, size_t len) {
     case HASH_SHA512:
       SHA512_Final(out, &hash->ctx.sha512);
       break;
+    case HASH_SHAKE256:
+      keccak_final(&hash->ctx.keccak, out, 0x1f, len);
+      break;
     default:
       assert(0);
       break;
@@ -112,6 +123,8 @@ hash_output_size(int type) {
       return 48;
     case HASH_SHA512:
       return 64;
+    case HASH_SHAKE256:
+      return 32;
     default:
       assert(0);
       break;
@@ -127,6 +140,8 @@ hash_block_size(int type) {
       return 128;
     case HASH_SHA512:
       return 128;
+    case HASH_SHAKE256:
+      return 136;
     default:
       assert(0);
       break;

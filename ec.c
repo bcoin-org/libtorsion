@@ -5926,16 +5926,19 @@ eddsa_hash_init(edwards_t *ec,
                 size_t ctx_len) {
   hash_init(h, ec->hash);
 
+  if (ctx_len > 255)
+    ctx_len = 255;
+
   if (ec->context || ph != -1 || ctx_len > 0) {
     unsigned char prehash = (ph > 0);
-    unsigned char length = ctx_len & 0xff;
+    unsigned char length = ctx_len;
 
     if (ec->prefix != NULL)
       hash_update(h, ec->prefix, strlen(ec->prefix));
 
     hash_update(h, &prehash, sizeof(prehash));
     hash_update(h, &length, sizeof(length));
-    hash_update(h, ctx, length);
+    hash_update(h, ctx, ctx_len);
   }
 }
 
@@ -5950,7 +5953,7 @@ eddsa_hash_final(edwards_t *ec, sc_t r, hash_t *h) {
 
   mpn_import(k, ARRAY_SIZE(k), bytes, fe->adj_size * 2, sc->endian);
 
-  if ((fe->bits % GMP_NUMB_BITS) == 0) {
+  if ((fe->bits & 7) == 0) {
     mp_limb_t q[(MAX_FIELD_LIMBS + 1) * 2];
     mp_size_t kn = fe->adj_limbs * 2;
     mp_size_t nn = sc->limbs;
@@ -5980,7 +5983,7 @@ eddsa_hash_am(edwards_t *ec,
 
   eddsa_hash_init(ec, &h, ph, ctx, ctx_len);
 
-  hash_update(&h, prefix, fe->size);
+  hash_update(&h, prefix, fe->adj_size);
   hash_update(&h, msg, msg_len);
 
   eddsa_hash_final(ec, r, &h);
@@ -6001,8 +6004,8 @@ eddsa_hash_ram(edwards_t *ec,
 
   eddsa_hash_init(ec, &h, ph, ctx, ctx_len);
 
-  hash_update(&h, R, fe->size);
-  hash_update(&h, A, fe->size);
+  hash_update(&h, R, fe->adj_size);
+  hash_update(&h, A, fe->adj_size);
   hash_update(&h, msg, msg_len);
 
   eddsa_hash_final(ec, r, &h);
