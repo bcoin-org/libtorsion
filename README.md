@@ -42,7 +42,6 @@ Intended to be the new EC backend for [bcrypto].
 - Batch verification.
 - bip-schnorr support.
 - Elligators.
-- SHA256 and SHA512 support (in order to remove the openssl dependency).
 
 [bcrypto]: https://github.com/bcoin-org/bcrypto
 [fiat-crypto]: https://github.com/mit-plv/fiat-crypto
