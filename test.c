@@ -214,31 +214,31 @@ test_wei_points_p256(void) {
   wge_to_jge(ec, &jq, &q);
   wge_to_jge(ec, &jr, &r);
 
-  wge_dbl(ec, &p, &ec->g);
+  wge_dbl_var(ec, &p, &ec->g);
 
   assert(wge_equal(ec, &p, &q));
 
-  wge_add(ec, &p, &p, &ec->g);
+  wge_add_var(ec, &p, &p, &ec->g);
 
   assert(wge_equal(ec, &p, &r));
 
-  jge_dbl(ec, &jp, &jg);
+  jge_dbl_var(ec, &jp, &jg);
 
   assert(jge_equal(ec, &jp, &jq));
 
-  jge_add(ec, &jp, &jp, &jg);
+  jge_add_var(ec, &jp, &jp, &jg);
 
   assert(jge_equal(ec, &jp, &jr));
 
-  jge_sub(ec, &jp, &jp, &jg);
+  jge_sub_var(ec, &jp, &jp, &jg);
 
   assert(jge_equal(ec, &jp, &jq));
 
-  jge_mixed_add(ec, &jp, &jp, &g);
+  jge_mixed_add_var(ec, &jp, &jp, &g);
 
   assert(jge_equal(ec, &jp, &jr));
 
-  jge_mixed_sub(ec, &jp, &jp, &g);
+  jge_mixed_sub_var(ec, &jp, &jp, &g);
 
   assert(jge_equal(ec, &jp, &jq));
 
@@ -336,31 +336,31 @@ test_wei_points_p521(void) {
   wge_to_jge(ec, &jq, &q);
   wge_to_jge(ec, &jr, &r);
 
-  wge_dbl(ec, &p, &ec->g);
+  wge_dbl_var(ec, &p, &ec->g);
 
   assert(wge_equal(ec, &p, &q));
 
-  wge_add(ec, &p, &p, &ec->g);
+  wge_add_var(ec, &p, &p, &ec->g);
 
   assert(wge_equal(ec, &p, &r));
 
-  jge_dbl(ec, &jp, &jg);
+  jge_dbl_var(ec, &jp, &jg);
 
   assert(jge_equal(ec, &jp, &jq));
 
-  jge_add(ec, &jp, &jp, &jg);
+  jge_add_var(ec, &jp, &jp, &jg);
 
   assert(jge_equal(ec, &jp, &jr));
 
-  jge_sub(ec, &jp, &jp, &jg);
+  jge_sub_var(ec, &jp, &jp, &jg);
 
   assert(jge_equal(ec, &jp, &jq));
 
-  jge_mixed_add(ec, &jp, &jp, &g);
+  jge_mixed_add_var(ec, &jp, &jp, &g);
 
   assert(jge_equal(ec, &jp, &jr));
 
-  jge_mixed_sub(ec, &jp, &jp, &g);
+  jge_mixed_sub_var(ec, &jp, &jp, &g);
 
   assert(jge_equal(ec, &jp, &jq));
 

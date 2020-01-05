@@ -1036,8 +1036,8 @@ sc_bitlen(scalar_field_t *sc, const sc_t a) {
 }
 
 static void
-sc_naf(scalar_field_t *sc, int32_t *naf,
-       const sc_t x, size_t width, size_t max) {
+sc_naf_var(scalar_field_t *sc, int32_t *naf,
+           const sc_t x, size_t width, size_t max) {
   /* Computing the NAF of a positive integer.
    *
    * [GECC] Algorithm 3.30, Page 98, Section 3.3.
@@ -1093,8 +1093,8 @@ sc_naf(scalar_field_t *sc, int32_t *naf,
 }
 
 static void
-sc_jsf(scalar_field_t *sc, int32_t *naf,
-       const sc_t x1, const sc_t x2, size_t max) {
+sc_jsf_var(scalar_field_t *sc, int32_t *naf,
+           const sc_t x1, const sc_t x2, size_t max) {
   /* Joint sparse form.
    *
    * [GECC] Algorithm 3.50, Page 111, Section 3.3.
@@ -2068,7 +2068,7 @@ wge_neg(wei_t *ec, wge_t *r, const wge_t *a) {
 }
 
 static void
-wge_dbl(wei_t *ec, wge_t *r, const wge_t *p) {
+wge_dbl_var(wei_t *ec, wge_t *r, const wge_t *p) {
   /* [GECC] Page 80, Section 3.1.2.
    *
    * Addition Law (doubling):
@@ -2119,7 +2119,7 @@ wge_dbl(wei_t *ec, wge_t *r, const wge_t *p) {
 }
 
 static void
-wge_add(wei_t *ec, wge_t *r, const wge_t *a, const wge_t *b) {
+wge_add_var(wei_t *ec, wge_t *r, const wge_t *a, const wge_t *b) {
   /* [GECC] Page 80, Section 3.1.2.
    *
    * Addition Law:
@@ -2154,7 +2154,7 @@ wge_add(wei_t *ec, wge_t *r, const wge_t *a, const wge_t *b) {
     }
 
     /* P + P = 2P */
-    wge_dbl(ec, r, a);
+    wge_dbl_var(ec, r, a);
     return;
   }
 
@@ -2196,7 +2196,7 @@ static void
 wge_sub(wei_t *ec, wge_t *r, const wge_t *a, const wge_t *b) {
   wge_t c;
   wge_neg(ec, &c, b);
-  wge_add(ec, r, a, &c);
+  wge_add_var(ec, r, a, &c);
 }
 
 static void
@@ -2221,11 +2221,11 @@ wge_naf_points(wei_t *ec, wge_t *points, const wge_t *p, size_t width) {
   wge_t dbl;
   size_t i;
 
-  wge_dbl(ec, &dbl, p);
+  wge_dbl_var(ec, &dbl, p);
   wge_set(ec, &points[0], p);
 
   for (i = 1; i < size; i++)
-    wge_add(ec, &points[i], &points[i - 1], &dbl);
+    wge_add_var(ec, &points[i], &points[i - 1], &dbl);
 }
 
 static void
@@ -2563,7 +2563,7 @@ jge_dbl3(wei_t *ec, jge_t *r, const jge_t *p) {
 }
 
 static void
-jge_dbl(wei_t *ec, jge_t *r, const jge_t *p) {
+jge_dbl_var(wei_t *ec, jge_t *r, const jge_t *p) {
   prime_field_t *fe = &ec->fe;
 
   /* P = O */
@@ -2587,7 +2587,7 @@ jge_dbl(wei_t *ec, jge_t *r, const jge_t *p) {
 }
 
 static void
-jge_add(wei_t *ec, jge_t *r, const jge_t *a, const jge_t *b) {
+jge_add_var(wei_t *ec, jge_t *r, const jge_t *a, const jge_t *b) {
   /* No assumptions.
    * https://hyperelliptic.org/EFD/g1p/auto-shortw-jacobian.html#addition-add-1998-cmo-2
    * 12M + 4S + 6A + 1*2
@@ -2640,7 +2640,7 @@ jge_add(wei_t *ec, jge_t *r, const jge_t *a, const jge_t *b) {
       return;
     }
 
-    jge_dbl(ec, r, a);
+    jge_dbl_var(ec, r, a);
     return;
   }
 
@@ -2671,14 +2671,14 @@ jge_add(wei_t *ec, jge_t *r, const jge_t *a, const jge_t *b) {
 }
 
 static void
-jge_sub(wei_t *ec, jge_t *r, const jge_t *a, const jge_t *b) {
+jge_sub_var(wei_t *ec, jge_t *r, const jge_t *a, const jge_t *b) {
   jge_t c;
   jge_neg(ec, &c, b);
-  jge_add(ec, r, a, &c);
+  jge_add_var(ec, r, a, &c);
 }
 
 static void
-jge_mixed_add(wei_t *ec, jge_t *r, const jge_t *a, const wge_t *b) {
+jge_mixed_add_var(wei_t *ec, jge_t *r, const jge_t *a, const wge_t *b) {
   /* Assumes Z2 = 1.
    * https://hyperelliptic.org/EFD/g1p/auto-shortw-jacobian.html#addition-madd
    * 8M + 3S + 6A + 5*2
@@ -2722,7 +2722,7 @@ jge_mixed_add(wei_t *ec, jge_t *r, const jge_t *a, const wge_t *b) {
       return;
     }
 
-    jge_dbl(ec, r, a);
+    jge_dbl_var(ec, r, a);
     return;
   }
 
@@ -2882,10 +2882,10 @@ jge_add_const(wei_t *ec, jge_t *r, const jge_t *a, const jge_t *b) {
 }
 
 static void
-jge_mixed_sub(wei_t *ec, jge_t *r, const jge_t *a, const wge_t *b) {
+jge_mixed_sub_var(wei_t *ec, jge_t *r, const jge_t *a, const wge_t *b) {
   wge_t c;
   wge_neg(ec, &c, b);
-  jge_mixed_add(ec, r, a, &c);
+  jge_mixed_add_var(ec, r, a, &c);
 }
 
 static void
@@ -3164,13 +3164,13 @@ jge_zdblu(wei_t *ec, jge_t *r, jge_t *p, const jge_t *a) {
 }
 
 static void
-jge_dblp(wei_t *ec, jge_t *r, const jge_t *p, size_t pow) {
+jge_dblp_var(wei_t *ec, jge_t *r, const jge_t *p, size_t pow) {
   size_t i;
 
   jge_set(ec, r, p);
 
   for (i = 0; i < pow; i++)
-    jge_dbl(ec, r, r);
+    jge_dbl_var(ec, r, r);
 }
 
 static void
@@ -3257,16 +3257,16 @@ jge_validate(wei_t *ec, const jge_t *p) {
 }
 
 static void
-jge_naf_points(wei_t *ec, jge_t *points, const wge_t *p, size_t width) {
+jge_naf_points_var(wei_t *ec, jge_t *points, const wge_t *p, size_t width) {
   size_t size = (1 << width) - 1;
   jge_t dbl;
   size_t i;
 
   wge_to_jge(ec, &points[0], p);
-  jge_dbl(ec, &dbl, &points[0]);
+  jge_dbl_var(ec, &dbl, &points[0]);
 
   for (i = 1; i < size; i++)
-    jge_add(ec, &points[i], &points[i - 1], &dbl);
+    jge_add_var(ec, &points[i], &points[i - 1], &dbl);
 }
 
 static void
@@ -3349,7 +3349,7 @@ wei_jmul_g_var(wei_t *ec, jge_t *r, const sc_t k) {
   max = sc_bitlen(sc, k0) + 1;
 
   /* Get NAF form. */
-  sc_naf(sc, naf, k0, NAF_WIDTH_PRE, max);
+  sc_naf_var(sc, naf, k0, NAF_WIDTH_PRE, max);
 
   /* Add `this`*(N+1) for every w-NAF index. */
   jge_zero(ec, &acc);
@@ -3365,7 +3365,7 @@ wei_jmul_g_var(wei_t *ec, jge_t *r, const sc_t k) {
     if (i >= 0)
       k += 1;
 
-    jge_dblp(ec, &acc, &acc, k);
+    jge_dblp_var(ec, &acc, &acc, k);
 
     if (i < 0)
       break;
@@ -3375,13 +3375,13 @@ wei_jmul_g_var(wei_t *ec, jge_t *r, const sc_t k) {
     assert(z != 0);
 
     if (z > 0)
-      jge_mixed_add(ec, &acc, &acc, &points[(z - 1) >> 1]);
+      jge_mixed_add_var(ec, &acc, &acc, &points[(z - 1) >> 1]);
     else
-      jge_mixed_sub(ec, &acc, &acc, &points[(-z - 1) >> 1]);
+      jge_mixed_sub_var(ec, &acc, &acc, &points[(-z - 1) >> 1]);
   }
 
   /* Unblind. */
-  jge_mixed_add(ec, &acc, &acc, &ec->unblind);
+  jge_mixed_add_var(ec, &acc, &acc, &ec->unblind);
 
   jge_set(ec, r, &acc);
 
@@ -3402,10 +3402,10 @@ wei_jmul_var(wei_t *ec, jge_t *r, const wge_t *p, const sc_t k) {
   jge_t acc;
 
   /* Precompute window. */
-  jge_naf_points(ec, points, p, NAF_WIDTH);
+  jge_naf_points_var(ec, points, p, NAF_WIDTH);
 
   /* Get NAF form. */
-  sc_naf(sc, naf, k, NAF_WIDTH, max);
+  sc_naf_var(sc, naf, k, NAF_WIDTH, max);
 
   /* Add `this`*(N+1) for every w-NAF index. */
   jge_zero(ec, &acc);
@@ -3421,7 +3421,7 @@ wei_jmul_var(wei_t *ec, jge_t *r, const wge_t *p, const sc_t k) {
     if (i >= 0)
       k += 1;
 
-    jge_dblp(ec, &acc, &acc, k);
+    jge_dblp_var(ec, &acc, &acc, k);
 
     if (i < 0)
       break;
@@ -3431,9 +3431,9 @@ wei_jmul_var(wei_t *ec, jge_t *r, const wge_t *p, const sc_t k) {
     assert(z != 0);
 
     if (z > 0)
-      jge_add(ec, &acc, &acc, &points[(z - 1) >> 1]);
+      jge_add_var(ec, &acc, &acc, &points[(z - 1) >> 1]);
     else
-      jge_sub(ec, &acc, &acc, &points[(-z - 1) >> 1]);
+      jge_sub_var(ec, &acc, &acc, &points[(-z - 1) >> 1]);
   }
 
   jge_set(ec, r, &acc);
@@ -3462,10 +3462,10 @@ wei_jmul_double_var(wei_t *ec,
   int32_t i;
   jge_t acc;
 
-  sc_naf(sc, naf1, k1, NAF_WIDTH_PRE, max);
-  sc_naf(sc, naf2, k2, NAF_WIDTH, max);
+  sc_naf_var(sc, naf1, k1, NAF_WIDTH_PRE, max);
+  sc_naf_var(sc, naf2, k2, NAF_WIDTH, max);
 
-  jge_naf_points(ec, wnd2, p2, NAF_WIDTH);
+  jge_naf_points_var(ec, wnd2, p2, NAF_WIDTH);
 
   /* Multiply and add. */
   jge_zero(ec, &acc);
@@ -3485,7 +3485,7 @@ wei_jmul_double_var(wei_t *ec,
     if (i >= 0)
       k += 1;
 
-    jge_dblp(ec, &acc, &acc, k);
+    jge_dblp_var(ec, &acc, &acc, k);
 
     if (i < 0)
       break;
@@ -3494,14 +3494,14 @@ wei_jmul_double_var(wei_t *ec,
     z2 = naf2[i];
 
     if (z1 > 0)
-      jge_mixed_add(ec, &acc, &acc, &wnd1[(z1 - 1) >> 1]);
+      jge_mixed_add_var(ec, &acc, &acc, &wnd1[(z1 - 1) >> 1]);
     else if (z1 < 0)
-      jge_mixed_sub(ec, &acc, &acc, &wnd1[(-z1 - 1) >> 1]);
+      jge_mixed_sub_var(ec, &acc, &acc, &wnd1[(-z1 - 1) >> 1]);
 
     if (z2 > 0)
-      jge_add(ec, &acc, &acc, &wnd2[(z2 - 1) >> 1]);
+      jge_add_var(ec, &acc, &acc, &wnd2[(z2 - 1) >> 1]);
     else if (z2 < 0)
-      jge_sub(ec, &acc, &acc, &wnd2[(-z2 - 1) >> 1]);
+      jge_sub_var(ec, &acc, &acc, &wnd2[(-z2 - 1) >> 1]);
   }
 
   jge_set(ec, r, &acc);
@@ -3617,7 +3617,7 @@ wei_jmul_g(wei_t *ec, jge_t *r, const sc_t k) {
   wei_jmul(ec, r, &ec->g, k0);
 
   /* Unblind. */
-  jge_mixed_add(ec, r, r, &ec->unblind);
+  jge_mixed_add_var(ec, r, r, &ec->unblind);
 
   /* Cleanse. */
   sc_cleanse(sc, k0);
@@ -3818,7 +3818,7 @@ mge_neg(mont_t *ec, mge_t *r, const mge_t *a) {
 }
 
 static void
-mge_dbl(mont_t *ec, mge_t *r, const mge_t *p) {
+mge_dbl_var(mont_t *ec, mge_t *r, const mge_t *p) {
   /* [MONT1] Page 8, Section 4.3.2.
    *
    * Addition Law (doubling):
@@ -3875,7 +3875,7 @@ mge_dbl(mont_t *ec, mge_t *r, const mge_t *p) {
 }
 
 static void
-mge_add(mont_t *ec, mge_t *r, const mge_t *a, const mge_t *b) {
+mge_add_var(mont_t *ec, mge_t *r, const mge_t *a, const mge_t *b) {
   /* [MONT1] Page 8, Section 4.3.2.
    *
    * Addition Law:
@@ -3910,7 +3910,7 @@ mge_add(mont_t *ec, mge_t *r, const mge_t *a, const mge_t *b) {
     }
 
     /* P + P = 2P */
-    mge_dbl(ec, r, a);
+    mge_dbl_var(ec, r, a);
     return;
   }
 
@@ -3938,10 +3938,10 @@ mge_add(mont_t *ec, mge_t *r, const mge_t *a, const mge_t *b) {
 }
 
 static void
-mge_sub(mont_t *ec, mge_t *r, const mge_t *a, const mge_t *b) {
+mge_sub_var(mont_t *ec, mge_t *r, const mge_t *a, const mge_t *b) {
   mge_t c;
   mge_neg(ec, &c, b);
-  mge_add(ec, r, a, &c);
+  mge_add_var(ec, r, a, &c);
 }
 
 static void
@@ -5043,7 +5043,7 @@ edwards_jmul_g_var(edwards_t *ec, xge_t *r, const sc_t k) {
   max = sc_bitlen(sc, k0) + 1;
 
   /* Get NAF form. */
-  sc_naf(sc, naf, k0, NAF_WIDTH_PRE, max);
+  sc_naf_var(sc, naf, k0, NAF_WIDTH_PRE, max);
 
   /* Add `this`*(N+1) for every w-NAF index. */
   xge_zero(ec, &acc);
@@ -5099,7 +5099,7 @@ edwards_jmul_var(edwards_t *ec, xge_t *r, const ege_t *p, const sc_t k) {
   xge_naf_points(ec, points, p, NAF_WIDTH);
 
   /* Get NAF form. */
-  sc_naf(sc, naf, k, NAF_WIDTH, max);
+  sc_naf_var(sc, naf, k, NAF_WIDTH, max);
 
   /* Add `this`*(N+1) for every w-NAF index. */
   xge_zero(ec, &acc);
@@ -5156,8 +5156,8 @@ edwards_jmul_double_var(edwards_t *ec,
   int32_t i;
   xge_t acc;
 
-  sc_naf(sc, naf1, k1, NAF_WIDTH_PRE, max);
-  sc_naf(sc, naf2, k2, NAF_WIDTH, max);
+  sc_naf_var(sc, naf1, k1, NAF_WIDTH_PRE, max);
+  sc_naf_var(sc, naf2, k2, NAF_WIDTH, max);
 
   xge_naf_points(ec, wnd2, p2, NAF_WIDTH);
 
