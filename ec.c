@@ -1087,6 +1087,7 @@ sc_naf_var(scalar_field_t *sc, int32_t *naf,
 
       kn -= (k[kn - 1] == 0);
 
+      assert(kn <= nn);
       assert(cy == 0);
     }
 
