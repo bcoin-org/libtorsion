@@ -4157,6 +4157,7 @@ mont_mul(mont_t *ec, pge_t *r, const pge_t *p, const sc_t k) {
    * be done _outside_ of this function.
    */
   prime_field_t *fe = &ec->fe;
+  scalar_field_t *sc = &ec->sc;
   pge_t a, b;
   int swap = 0;
   mp_size_t i;
@@ -4164,6 +4165,8 @@ mont_mul(mont_t *ec, pge_t *r, const pge_t *p, const sc_t k) {
   /* Clone points (for safe swapping). */
   pge_set(ec, &a, p);
   pge_zero(ec, &b);
+
+  assert((size_t)sc->limbs * GMP_NUMB_BITS >= fe->bits);
 
   /* Climb the ladder. */
   for (i = fe->bits - 1; i >= 0; i--) {
@@ -5073,7 +5076,39 @@ edwards_jmul_double_var(edwards_t *ec,
 
 static void
 edwards_jmul(edwards_t *ec, xge_t *r, const ege_t *p, const sc_t k) {
-  edwards_jmul_var(ec, r, p, k);
+  /* Generalized Montgomery Ladder.
+   *
+   * [MONT1] Page 24, Section 4.6.2.
+   */
+  prime_field_t *fe = &ec->fe;
+  scalar_field_t *sc = &ec->sc;
+  xge_t a, b;
+  mp_limb_t swap = 0;
+  int i;
+
+  /* Clone points (for safe swapping). */
+  ege_to_xge(ec, &a, p);
+  xge_zero(ec, &b);
+
+  assert((size_t)sc->limbs * GMP_NUMB_BITS >= fe->bits);
+
+  /* Climb the ladder. */
+  for (i = fe->bits - 1; i >= 0; i--) {
+    mp_limb_t bit = (k[i / GMP_NUMB_BITS] >> (i % GMP_NUMB_BITS)) & 1;
+
+    /* Maybe swap. */
+    xge_swap(ec, &a, &b, swap ^ bit);
+
+    /* Constant-time addition. */
+    xge_add(ec, &a, &a, &b);
+    xge_dbl(ec, &b, &b);
+
+    swap = bit;
+  }
+
+  /* Finalize loop. */
+  xge_swap(ec, &a, &b, swap);
+  xge_set(ec, r, &b);
 }
 
 static void
@@ -5834,7 +5869,6 @@ eddsa_derive_with_scalar(edwards_t *ec,
   if (!ege_import(ec, &A, pub))
     goto fail;
 
-  /* XXX need constant time ladder which goes by fe->bits */
   edwards_mul(ec, &P, &A, a);
 
   ege_export(ec, secret, &P);
