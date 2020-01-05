@@ -1640,33 +1640,33 @@ bench_eddsa(void) {
 }
 
 int
-main(void) {
-#ifndef BENCH
-  test_scalar();
-  test_field_element();
-  test_wei_points_p256();
-  test_wei_points_p521();
-  test_wei_mul_g();
-  test_wei_mul();
-  test_wei_double_mul();
-  test_ecdsa_vector_p224();
-  test_ecdsa_vector_p256();
-  test_ecdsa_vector_p384();
-  test_ecdsa_vector_p521();
-  test_ecdsa_vector_secp256k1();
-  test_ecdh_vector_x25519();
-  test_ecdh_vector_x448();
-  test_edwards_points_ed25519();
-  test_eddsa_vector_ed25519();
-  test_eddsa_vector_ed448();
-  test_ecdsa_random();
-  test_ecdh_random();
-  test_eddsa_random();
-#else
-  bench_double_mul();
-  bench_ecdsa();
-  bench_ecdh();
-  bench_eddsa();
-#endif
+main(int argc, char **argv) {
+  if (argc > 1 && strcmp(argv[1], "bench") == 0) {
+    bench_double_mul();
+    bench_ecdsa();
+    bench_ecdh();
+    bench_eddsa();
+  } else {
+    test_scalar();
+    test_field_element();
+    test_wei_points_p256();
+    test_wei_points_p521();
+    test_wei_mul_g();
+    test_wei_mul();
+    test_wei_double_mul();
+    test_ecdsa_vector_p224();
+    test_ecdsa_vector_p256();
+    test_ecdsa_vector_p384();
+    test_ecdsa_vector_p521();
+    test_ecdsa_vector_secp256k1();
+    test_ecdh_vector_x25519();
+    test_ecdh_vector_x448();
+    test_edwards_points_ed25519();
+    test_eddsa_vector_ed25519();
+    test_eddsa_vector_ed448();
+    test_ecdsa_random();
+    test_ecdh_random();
+    test_eddsa_random();
+  }
   return 0;
 }
