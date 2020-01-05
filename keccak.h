@@ -29,6 +29,7 @@ keccak_init(keccak_t *ctx, size_t bits) {
 
 static void
 keccak_permute(keccak_t *ctx) {
+  /* borrowed from nettle */
   static const uint64_t rc[24] = {
     0x0000000000000001ULL, 0X0000000000008082ULL,
     0X800000000000808AULL, 0X8000000080008000ULL,

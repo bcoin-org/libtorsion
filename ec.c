@@ -405,7 +405,7 @@ count_bits(unsigned int x) {
 #endif
 
 /*
- * GMP Extras
+ * GMP Extras (some borrowed from nettle)
  */
 
 static mp_size_t
