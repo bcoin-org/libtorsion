@@ -3179,14 +3179,14 @@ wei_jmul_var(wei_t *ec, jge_t *r, const wge_t *p, const sc_t k) {
    * [GECC] Algorithm 3.36, Page 100, Section 3.3.
    */
   scalar_field_t *sc = &ec->sc;
-  wge_t points[(1 << NAF_WIDTH) - 1];
+  jge_t points[(1 << NAF_WIDTH) - 1];
   int32_t naf[MAX_SCALAR_BITS + 1];
   size_t max = sc_bitlen(sc, k) + 1;
   int32_t i;
   jge_t acc;
 
   /* Precompute window. */
-  wge_naf_points(ec, points, p, NAF_WIDTH);
+  jge_naf_points(ec, points, p, NAF_WIDTH);
 
   /* Get NAF form. */
   sc_naf(sc, naf, k, NAF_WIDTH, max);
@@ -3215,9 +3215,9 @@ wei_jmul_var(wei_t *ec, jge_t *r, const wge_t *p, const sc_t k) {
     assert(z != 0);
 
     if (z > 0)
-      jge_mixed_add(ec, &acc, &acc, &points[(z - 1) >> 1]);
+      jge_add(ec, &acc, &acc, &points[(z - 1) >> 1]);
     else
-      jge_mixed_sub(ec, &acc, &acc, &points[(-z - 1) >> 1]);
+      jge_sub(ec, &acc, &acc, &points[(-z - 1) >> 1]);
   }
 
   jge_set(ec, r, &acc);
@@ -3237,7 +3237,7 @@ wei_jmul_double_var(wei_t *ec,
    */
   scalar_field_t *sc = &ec->sc;
   wge_t *wnd1 = ec->points;
-  wge_t wnd2[(1 << NAF_WIDTH) - 1];
+  jge_t wnd2[(1 << NAF_WIDTH) - 1];
   int32_t naf1[MAX_SCALAR_BITS + 1];
   int32_t naf2[MAX_SCALAR_BITS + 1];
   size_t max1 = sc_bitlen(sc, k1) + 1;
@@ -3249,7 +3249,7 @@ wei_jmul_double_var(wei_t *ec,
   sc_naf(sc, naf1, k1, NAF_WIDTH_PRE, max);
   sc_naf(sc, naf2, k2, NAF_WIDTH, max);
 
-  wge_naf_points(ec, wnd2, p2, NAF_WIDTH);
+  jge_naf_points(ec, wnd2, p2, NAF_WIDTH);
 
   /* Multiply and add. */
   jge_zero(ec, &acc);
@@ -3283,9 +3283,9 @@ wei_jmul_double_var(wei_t *ec,
       jge_mixed_sub(ec, &acc, &acc, &wnd1[(-z1 - 1) >> 1]);
 
     if (z2 > 0)
-      jge_mixed_add(ec, &acc, &acc, &wnd2[(z2 - 1) >> 1]);
+      jge_add(ec, &acc, &acc, &wnd2[(z2 - 1) >> 1]);
     else if (z2 < 0)
-      jge_mixed_sub(ec, &acc, &acc, &wnd2[(-z2 - 1) >> 1]);
+      jge_sub(ec, &acc, &acc, &wnd2[(-z2 - 1) >> 1]);
   }
 
   jge_set(ec, r, &acc);
