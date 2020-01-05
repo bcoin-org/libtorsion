@@ -205,6 +205,7 @@ typedef struct wei_s {
   wge_t g;
   sc_t blind;
   wge_t unblind;
+  jge_t junblind;
   wge_t points[(1 << NAF_WIDTH_PRE) - 1];
 } wei_t;
 
@@ -2882,7 +2883,8 @@ jge_add(wei_t *ec, jge_t *r, const jge_t *a, const jge_t *b) {
    * 11M + 6S + 6A + 2*4 + 1*3 + 2*2 (a = 0)
    */
   prime_field_t *fe = &ec->fe;
-  fe_t z1z1, z2z2, u1, u2, s1, s2, z, t, m, r0, l, g, ll, w, f, h;
+  fe_t z1z1, z2z2, u1, u2, s1, s2, z, t, m;
+  fe_t r0, l, g, ll, w, f, h, x3, y3, z3;
   int degenerate, inf1, inf2, inf3;
 
   /* Z1Z1 = Z1^2 */
@@ -2964,32 +2966,43 @@ jge_add(wei_t *ec, jge_t *r, const jge_t *a, const jge_t *b) {
   fe_sub(fe, h, h, w);
 
   /* X3 = 4 * (W - G) */
-  fe_sub(fe, r->x, w, g);
-  fe_add(fe, r->x, r->x, r->x);
-  fe_add(fe, r->x, r->x, r->x);
+  fe_sub(fe, x3, w, g);
+  fe_add(fe, x3, x3, x3);
+  fe_add(fe, x3, x3, x3);
 
   /* Y3 = 4 * (R * H - LL) */
-  fe_mul(fe, r->y, r0, h);
-  fe_sub(fe, r->y, r->y, ll);
-  fe_add(fe, r->y, r->y, r->y);
-  fe_add(fe, r->y, r->y, r->y);
+  fe_mul(fe, y3, r0, h);
+  fe_sub(fe, y3, y3, ll);
+  fe_add(fe, y3, y3, y3);
+  fe_add(fe, y3, y3, y3);
 
   /* Z3 = 2 * F */
-  fe_add(fe, r->z, f, f);
+  fe_add(fe, z3, f, f);
 
   /* Check for infinity. */
   inf1 = fe_is_zero(fe, a->z);
   inf2 = fe_is_zero(fe, b->z);
-  inf3 = fe_is_zero(fe, r->z) & ((inf1 | inf2) ^ 1);
+  inf3 = fe_is_zero(fe, z3) & ((inf1 | inf2) ^ 1);
 
   /* Case 1: O + P = P */
-  jge_select(ec, r, r, b, inf1);
+  fe_select(fe, x3, x3, b->x, inf1);
+  fe_select(fe, y3, y3, b->y, inf1);
+  fe_select(fe, z3, z3, b->z, inf1);
 
   /* Case 2: P + O = P */
-  jge_select(ec, r, r, a, inf2);
+  fe_select(fe, x3, x3, a->x, inf2);
+  fe_select(fe, y3, y3, a->y, inf2);
+  fe_select(fe, z3, z3, a->z, inf2);
 
   /* Case 3: P + -P = O */
-  jge_zero_cond(ec, r, r, inf3);
+  fe_select(fe, x3, x3, fe->one, inf3);
+  fe_select(fe, y3, y3, fe->one, inf3);
+  fe_select(fe, z3, z3, fe->zero, inf3);
+
+  /* R = (X3, Y3, Z3) */
+  fe_set(fe, r->x, x3);
+  fe_set(fe, r->y, y3);
+  fe_set(fe, r->z, z3);
 }
 
 static void
@@ -3435,6 +3448,7 @@ wei_init(wei_t *ec, const wei_def_t *def) {
 
   sc_zero(sc, ec->blind);
   wge_zero(ec, &ec->unblind);
+  jge_zero(ec, &ec->junblind);
 
   wge_naf_points_var(ec, ec->points, &ec->g, NAF_WIDTH_PRE);
 }
@@ -3728,7 +3742,7 @@ wei_jmul_g(wei_t *ec, jge_t *r, const sc_t k) {
   wei_jmul(ec, r, &ec->g, k0);
 
   /* Unblind. */
-  jge_mixed_add_var(ec, r, r, &ec->unblind);
+  jge_add(ec, r, r, &ec->junblind);
 
   /* Cleanse. */
   sc_cleanse(sc, k0);
@@ -3752,17 +3766,18 @@ static void
 wei_randomize(wei_t *ec, const unsigned char *entropy) {
   scalar_field_t *sc = &ec->sc;
   sc_t blind;
-  wge_t unblind;
+  jge_t unblind;
 
   sc_import_reduce(sc, blind, entropy);
-  wei_mul_g(ec, &unblind, blind);
-  wge_neg(ec, &unblind, &unblind);
+  wei_jmul_g(ec, &unblind, blind);
+  jge_neg(ec, &unblind, &unblind);
 
   sc_set(sc, ec->blind, blind);
-  wge_set(ec, &ec->unblind, &unblind);
+  jge_set(ec, &ec->junblind, &unblind);
+  jge_to_wge(ec, &ec->unblind, &unblind);
 
   sc_cleanse(sc, blind);
-  wge_cleanse(ec, &unblind);
+  jge_cleanse(ec, &unblind);
 }
 
 /*
