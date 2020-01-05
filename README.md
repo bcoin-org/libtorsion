@@ -30,5 +30,6 @@ of correctness, formal verification, etc).
 - Batch verification.
 - bip-schnorr support.
 - Elligators.
+- Hash functions (remove openssl dependency for this).
 
 [fiat-crypto]: https://github.com/mit-plv/fiat-crypto
