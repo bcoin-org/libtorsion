@@ -222,6 +222,11 @@ typedef struct wei_def_s {
   const unsigned char y[MAX_FIELD_SIZE];
 } wei_def_t;
 
+typedef struct wei_scratch_s {
+  jge_t wnd[32 * 4]; /* 27kb */
+  int32_t naf[32 * (MAX_SCALAR_BITS + 1)]; /* 65kb */
+} wei_scratch_t;
+
 /*
  * Montgomery
  */
@@ -325,6 +330,11 @@ typedef struct edwards_def_s {
   const unsigned char y[MAX_FIELD_SIZE];
   clamp_func *clamp;
 } edwards_def_t;
+
+typedef struct edwards_scratch_s {
+  xge_t wnd[32 * 4]; /* 36kb */
+  int32_t naf[32 * (MAX_SCALAR_BITS + 1)]; /* 65kb */
+} edwards_scratch_t;
 
 /*
  * Helpers
@@ -1043,20 +1053,22 @@ sc_naf_var(scalar_field_t *sc, int32_t *naf,
    * [GECC] Algorithm 3.30, Page 98, Section 3.3.
    *        Algorithm 3.35, Page 100, Section 3.3.
    */
+  mp_limb_t k[MAX_SCALAR_LIMBS + 1];
   mp_size_t nn = sc->limbs;
-  mp_limb_t k[MAX_SCALAR_LIMBS];
+  mp_size_t kn = sc->limbs;
+  mp_limb_t cy;
   int32_t size = 1 << (width + 1);
   size_t i = 0;
 
-  assert(width + 1 < GMP_LIMB_BITS);
-
-  mpn_zero(k, MAX_SCALAR_LIMBS);
   mpn_copyi(k, x, nn);
 
-  while (k[0] != 0) {
+  k[nn] = 0;
+
+  while (kn > 0 && k[kn - 1] == 0)
+    kn -= 1;
+
+  while (kn > 0) {
     int32_t z = 0;
-    size_t shift = 1;
-    size_t j;
 
     if (k[0] & 1) {
       int32_t mod = k[0] & (size - 1);
@@ -1066,22 +1078,22 @@ sc_naf_var(scalar_field_t *sc, int32_t *naf,
       else
         z = mod;
 
-      if (z < 0)
-        mpn_add_1(k, k, nn, -z);
-      else
-        mpn_sub_1(k, k, nn, z);
+      if (z < 0) {
+        kn += 1;
+        cy = mpn_add_1(k, k, kn, -z);
+      } else {
+        cy = mpn_sub_1(k, k, kn, z);
+      }
+
+      kn -= (k[kn - 1] == 0);
+
+      assert(cy == 0);
     }
 
     naf[i++] = z;
 
-    /* Optimization: shift by word if possible. */
-    if (k[0] != 0 && (k[0] & (size - 1)) == 0)
-      shift = width + 1;
-
-    for (j = 1; j < shift; j++)
-      naf[i++] = 0;
-
-    mpn_rshift(k, k, nn, shift);
+    mpn_rshift(k, k, kn, 1);
+    kn -= (k[kn - 1] == 0);
   }
 
   assert(i <= max);
@@ -1099,14 +1111,17 @@ sc_jsf_var(scalar_field_t *sc, int32_t *naf,
    *
    * [GECC] Algorithm 3.50, Page 111, Section 3.3.
    */
-  mp_size_t nn = sc->limbs;
   mp_limb_t k1[MAX_SCALAR_LIMBS];
   mp_limb_t k2[MAX_SCALAR_LIMBS];
+  mp_size_t nn = sc->limbs;
+  mp_size_t n1 = sc->limbs;
+  mp_size_t n2 = sc->limbs;
   size_t i = 0;
   int32_t d1 = 0;
   int32_t d2 = 0;
 
-  static const int32_t jsf_index[9] = {
+  /* JSF->NAF conversion table. */
+  static const int32_t table[9] = {
     -3, /* -1 -1 */
     -1, /* -1 0 */
     -5, /* -1 1 */
@@ -1118,14 +1133,16 @@ sc_jsf_var(scalar_field_t *sc, int32_t *naf,
     3  /* 1 1 */
   };
 
-  mpn_zero(k1, MAX_SCALAR_LIMBS);
   mpn_copyi(k1, x1, nn);
-
-  mpn_zero(k2, MAX_SCALAR_LIMBS);
   mpn_copyi(k2, x2, nn);
 
-  while ((d1 < 0 || k1[0] > (mp_limb_t)-d1)
-      || (d2 < 0 || k2[0] > (mp_limb_t)-d2)) {
+  while (n1 > 0 && k1[n1 - 1] == 0)
+    n1 -= 1;
+
+  while (n2 > 0 && k2[n2 - 1] == 0)
+    n2 -= 1;
+
+  while (n1 > 0 || n2 > 0) {
     /* First phase. */
     int32_t m14 = ((k1[0] & 3) + d1) & 3;
     int32_t m24 = ((k2[0] & 3) + d2) & 3;
@@ -1157,7 +1174,7 @@ sc_jsf_var(scalar_field_t *sc, int32_t *naf,
     }
 
     /* JSF -> NAF conversion. */
-    naf[i] = jsf_index[(u1 + 1) * 3 + (u2 + 1)];
+    naf[i] = table[(u1 + 1) * 3 + (u2 + 1)];
 
     /* Second phase. */
     if (2 * d1 == u1 + 1)
@@ -1166,8 +1183,15 @@ sc_jsf_var(scalar_field_t *sc, int32_t *naf,
     if (2 * d2 == u2 + 1)
       d2 = 1 - d2;
 
-    mpn_rshift(k1, k1, nn, 1);
-    mpn_rshift(k2, k2, nn, 1);
+    if (n1 > 0) {
+      mpn_rshift(k1, k1, n1, 1);
+      n1 -= (k1[n1 - 1] == 0);
+    }
+
+    if (n2 > 0) {
+      mpn_rshift(k2, k2, n2, 1);
+      n2 -= (k2[n2 - 1] == 0);
+    }
 
     i += 1;
   }
@@ -1834,6 +1858,12 @@ static void
 wge_to_jge(wei_t *ec, jge_t *r, const wge_t *a);
 
 static void
+jge_add_var(wei_t *ec, jge_t *r, const jge_t *a, const jge_t *b);
+
+static void
+jge_sub_var(wei_t *ec, jge_t *r, const jge_t *a, const jge_t *b);
+
+static void
 jge_dbl(wei_t *ec, jge_t *r, const jge_t *p);
 
 static void
@@ -2268,6 +2298,16 @@ wge_naf_points_var(wei_t *ec, wge_t *points, const wge_t *p, size_t width) {
 
   for (i = 1; i < size; i++)
     wge_add_var(ec, &points[i], &points[i - 1], &dbl);
+}
+
+static void
+wge_jsf_points_var(wei_t *ec, jge_t *points, const wge_t *p1, const wge_t *p2) {
+  /* Create comb for JSF. */
+  wge_to_jge(ec, &points[0], p1); /* 1 */
+  wge_to_jge(ec, &points[3], p2); /* 7 */
+
+  jge_add_var(ec, &points[1], &points[0], &points[3]); /* 3 */
+  jge_sub_var(ec, &points[2], &points[0], &points[3]); /* 5 */
 }
 
 static void
@@ -3406,7 +3446,7 @@ wei_jmul_g_var(wei_t *ec, jge_t *r, const sc_t k) {
   wge_t *points = ec->points;
   int32_t naf[MAX_SCALAR_BITS + 1];
   size_t max;
-  int32_t i;
+  int i;
   sc_t k0;
   jge_t acc;
 
@@ -3466,7 +3506,7 @@ wei_jmul_var(wei_t *ec, jge_t *r, const wge_t *p, const sc_t k) {
   jge_t points[(1 << NAF_WIDTH) - 1];
   int32_t naf[MAX_SCALAR_BITS + 1];
   size_t max = sc_bitlen_var(sc, k) + 1;
-  int32_t i;
+  int i;
   jge_t acc;
 
   /* Precompute window. */
@@ -3527,7 +3567,7 @@ wei_jmul_double_var(wei_t *ec,
   size_t max1 = sc_bitlen_var(sc, k1) + 1;
   size_t max2 = sc_bitlen_var(sc, k2) + 1;
   size_t max = max1 > max2 ? max1 : max2;
-  int32_t i;
+  int i;
   jge_t acc;
 
   sc_naf_var(sc, naf1, k1, NAF_WIDTH_PRE, max);
@@ -5027,6 +5067,16 @@ xge_naf_points(edwards_t *ec, xge_t *points, const ege_t *p, size_t width) {
 }
 
 static void
+xge_jsf_points(edwards_t *ec, xge_t *points, const ege_t *p1, const ege_t *p2) {
+  /* Create comb for JSF. */
+  ege_to_xge(ec, &points[0], p1); /* 1 */
+  ege_to_xge(ec, &points[3], p2); /* 7 */
+
+  xge_add(ec, &points[1], &points[0], &points[3]); /* 3 */
+  xge_sub(ec, &points[2], &points[0], &points[3]); /* 5 */
+}
+
+static void
 xge_print(edwards_t *ec, const xge_t *p) {
   prime_field_t *fe = &ec->fe;
 
@@ -5117,7 +5167,7 @@ edwards_jmul_g_var(edwards_t *ec, xge_t *r, const sc_t k) {
   xge_t *points = ec->points;
   int32_t naf[MAX_SCALAR_BITS + 1];
   size_t max;
-  int32_t i;
+  int i;
   sc_t k0;
   xge_t acc;
 
@@ -5177,7 +5227,7 @@ edwards_jmul_var(edwards_t *ec, xge_t *r, const ege_t *p, const sc_t k) {
   xge_t points[(1 << NAF_WIDTH) - 1];
   int32_t naf[MAX_SCALAR_BITS + 1];
   size_t max = sc_bitlen_var(sc, k) + 1;
-  int32_t i;
+  int i;
   xge_t acc;
 
   /* Precompute window. */
@@ -5238,7 +5288,7 @@ edwards_jmul_double_var(edwards_t *ec,
   size_t max1 = sc_bitlen_var(sc, k1) + 1;
   size_t max2 = sc_bitlen_var(sc, k2) + 1;
   size_t max = max1 > max2 ? max1 : max2;
-  int32_t i;
+  int i;
   xge_t acc;
 
   sc_naf_var(sc, naf1, k1, NAF_WIDTH_PRE, max);
@@ -5281,6 +5331,119 @@ edwards_jmul_double_var(edwards_t *ec,
       xge_add(ec, &acc, &acc, &wnd2[(z2 - 1) >> 1]);
     else if (z2 < 0)
       xge_sub(ec, &acc, &acc, &wnd2[(-z2 - 1) >> 1]);
+  }
+
+  xge_set(ec, r, &acc);
+}
+
+static void
+edwards_jmul_multi_var(edwards_t *ec,
+                       xge_t *r,
+                       const sc_t k0,
+                       const ege_t *points,
+                       const sc_t *coeffs,
+                       size_t len,
+                       edwards_scratch_t *scratch) {
+  /* Multiple point multiplication, also known
+   * as "Shamir's trick" (with interleaved NAFs).
+   *
+   * [GECC] Algorithm 3.48, Page 109, Section 3.3.3.
+   *        Algorithm 3.51, Page 112, Section 3.3.
+   */
+  scalar_field_t *sc = &ec->sc;
+  xge_t *wnd0 = ec->points;
+  int32_t naf0[MAX_SCALAR_BITS + 1];
+  xge_t *wnds[32];
+  int32_t *nafs[32];
+  int32_t tmp[32];
+  int max = sc_bitlen_var(sc, k0) + 1;
+  int i;
+  xge_t acc;
+
+  assert((len & 1) == 0);
+  assert(len <= 64);
+
+  /* Setup scratch. */
+  for (i = 0; i < 32; i++) {
+    wnds[i] = &scratch->wnd[i * 4];
+    nafs[i] = &scratch->naf[i * (MAX_SCALAR_BITS + 1)];
+    tmp[i] = 0;
+  }
+
+  /* Compute max scalar size. */
+  for (i = 0; i < (int)len; i++) {
+    int bits = sc_bitlen_var(sc, coeffs[i]) + 1;
+
+    if (bits > max)
+      max = bits;
+  }
+
+  /* Compute NAFs. */
+  sc_naf_var(sc, naf0, k0, NAF_WIDTH_PRE, max);
+
+  for (i = 0; i < (int)len; i += 2) {
+    const ege_t *p1 = &points[i + 0];
+    const ege_t *p2 = &points[i + 1];
+    const sc_t *k1 = &coeffs[i + 0];
+    const sc_t *k2 = &coeffs[i + 1];
+
+    xge_jsf_points(ec, wnds[i / 2], p1, p2);
+    sc_jsf_var(sc, nafs[i / 2], *k1, *k2, max);
+  }
+
+  len /= 2;
+
+  /* Multiply and add. */
+  xge_zero(ec, &acc);
+
+  for (i = max - 1; i >= 0; i--) {
+    size_t k = 0;
+    size_t j;
+    int32_t z;
+
+    while (i >= 0) {
+      int zero = 1;
+
+      if (naf0[i] != 0)
+        zero = 0;
+
+      for (j = 0; j < len; j++) {
+        tmp[j] = nafs[j][i];
+
+        if (tmp[j] != 0)
+          zero = 0;
+      }
+
+      if (!zero)
+        break;
+
+      k += 1;
+      i -= 1;
+    }
+
+    if (i >= 0)
+      k += 1;
+
+    xge_dblp(ec, &acc, &acc, k);
+
+    if (i < 0)
+      break;
+
+    z = naf0[i];
+
+    if (z > 0)
+      xge_add(ec, &acc, &acc, &wnd0[(z - 1) >> 1]);
+    else if (z < 0)
+      xge_sub(ec, &acc, &acc, &wnd0[(-z - 1) >> 1]);
+
+    for (j = 0; j < len; j++) {
+      z = tmp[j];
+
+      if (z > 0)
+        xge_add(ec, &acc, &acc, &wnds[j][(z - 1) >> 1]);
+      else if (z < 0)
+        xge_sub(ec, &acc, &acc, &wnds[j][(-z - 1) >> 1]);
+    }
   }
 
   xge_set(ec, r, &acc);
