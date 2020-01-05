@@ -1454,7 +1454,7 @@ bench_double_mul(void) {
 
   printf("Benching double mul...\n");
 
-  wei_init(ec, &curve_p256);
+  wei_init(ec, &curve_secp256k1);
 
   random_bytes(slab, 96);
   sc_import_reduce(&ec->sc, k0, slab + 0);
