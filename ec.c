@@ -1089,7 +1089,96 @@ sc_naf(scalar_field_t *sc, int32_t *naf,
   for (; i < max; i++)
     naf[i] = 0;
 
-  mpn_zero(k, nn);
+  mpn_cleanse(k, nn);
+}
+
+static void
+sc_jsf(scalar_field_t *sc, int32_t *naf,
+       const sc_t x1, const sc_t x2, size_t max) {
+  /* Joint sparse form.
+   *
+   * [GECC] Algorithm 3.50, Page 111, Section 3.3.
+   */
+  mp_size_t nn = sc->limbs;
+  mp_limb_t k1[MAX_SCALAR_LIMBS];
+  mp_limb_t k2[MAX_SCALAR_LIMBS];
+  size_t i = 0;
+  int32_t d1 = 0;
+  int32_t d2 = 0;
+
+  static const int32_t jsf_index[9] = {
+    -3, /* -1 -1 */
+    -1, /* -1 0 */
+    -5, /* -1 1 */
+    -7, /* 0 -1 */
+    0, /* 0 0 */
+    7, /* 0 1 */
+    5, /* 1 -1 */
+    1, /* 1 0 */
+    3  /* 1 1 */
+  };
+
+  mpn_zero(k1, MAX_SCALAR_LIMBS);
+  mpn_copyi(k1, x1, nn);
+
+  mpn_zero(k2, MAX_SCALAR_LIMBS);
+  mpn_copyi(k2, x2, nn);
+
+  while ((d1 < 0 || k1[0] > (mp_limb_t)-d1)
+      || (d2 < 0 || k2[0] > (mp_limb_t)-d2)) {
+    /* First phase. */
+    int32_t m14 = ((k1[0] & 3) + d1) & 3;
+    int32_t m24 = ((k2[0] & 3) + d2) & 3;
+    int32_t u1 = 0;
+    int32_t u2 = 0;
+
+    if (m14 == 3)
+      m14 = -1;
+
+    if (m24 == 3)
+      m24 = -1;
+
+    if (m14 & 1) {
+      int32_t m8 = ((k1[0] & 7) + d1) & 7;
+
+      if ((m8 == 3 || m8 == 5) && m24 == 2)
+        u1 = -m14;
+      else
+        u1 = m14;
+    }
+
+    if (m24 & 1) {
+      int32_t m8 = ((k2[0] & 7) + d2) & 7;
+
+      if ((m8 == 3 || m8 == 5) && m14 == 2)
+        u2 = -m24;
+      else
+        u2 = m24;
+    }
+
+    /* JSF -> NAF conversion. */
+    naf[i] = jsf_index[(u1 + 1) * 3 + (u2 + 1)];
+
+    /* Second phase. */
+    if (2 * d1 == u1 + 1)
+      d1 = 1 - d1;
+
+    if (2 * d2 == u2 + 1)
+      d2 = 1 - d2;
+
+    mpn_rshift(k1, k1, nn, 1);
+    mpn_rshift(k2, k2, nn, 1);
+
+    i += 1;
+  }
+
+  assert(i <= max);
+
+  for (; i < max; i++)
+    naf[i] = 0;
+
+  mpn_cleanse(k1, nn);
+  mpn_cleanse(k2, nn);
 }
 
 /*
