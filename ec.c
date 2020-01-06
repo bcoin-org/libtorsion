@@ -805,6 +805,9 @@ mpn_tdiv_qr(mp_limb_t *qp,
  */
 
 static void
+sc_reduce(scalar_field_t *sc, sc_t r, const sc_t ap);
+
+static void
 sc_zero(scalar_field_t *sc, sc_t r) {
   mpn_zero(r, sc->limbs);
 }
@@ -820,33 +823,46 @@ sc_import(scalar_field_t *sc, sc_t r, const unsigned char *raw) {
   return less_than(raw, sc->raw, sc->size, sc->endian);
 }
 
-static void
-sc_reduce(scalar_field_t *sc, sc_t r, const sc_t ap);
+static int
+sc_import_weak(scalar_field_t *sc, sc_t r, const unsigned char *raw) {
+  /* Weak reduction if we're aligned to 8 bits. */
+  const mp_limb_t *np = sc->n;
+  mp_size_t nn = sc->limbs;
+  mp_limb_t sp[MAX_SCALAR_LIMBS];
+  mp_limb_t cy;
+
+  assert((sc->bits & 7) == 0);
+
+  mpn_import(r, sc->limbs, raw, sc->size, sc->endian);
+
+  cy = mpn_sub_n(sp, r, np, nn);
+
+  cnd_select(cy == 0, r, r, sp, nn);
+
+  cleanse(sp, sizeof(sp));
+
+  return cy != 0;
+}
+
+static int
+sc_import_strong(scalar_field_t *sc, sc_t r, const unsigned char *raw) {
+  /* Otherwise, a full reduction. */
+  mp_limb_t rp[MAX_REDUCE_LIMBS];
+
+  mpn_import(rp, sc->shift * 2, raw, sc->size, sc->endian);
+
+  sc_reduce(sc, r, rp);
+
+  cleanse(rp, sizeof(rp));
+
+  return less_than(raw, sc->raw, sc->size, sc->endian);
+}
 
 static int
 sc_import_reduce(scalar_field_t *sc, sc_t r, const unsigned char *raw) {
-  const mp_limb_t *np = sc->n;
-  mp_size_t nn = sc->limbs;
-  mp_limb_t tmp[MAX_REDUCE_LIMBS];
-
-  mpn_import(tmp, sc->shift * 2, raw, sc->size, sc->endian);
-
-  /* Weak reduction if we're aligned to 8 bits. */
-  if ((sc->bits & 7) == 0) {
-    mp_limb_t *up = &tmp[0];
-    mp_limb_t *uv = &tmp[sc->limbs];
-    mp_limb_t cy = mpn_sub_n(uv, up, np, nn);
-
-    cnd_select(cy == 0, r, up, uv, nn);
-
-    return cy != 0;
-  }
-
-  sc_reduce(sc, r, tmp);
-
-  cleanse(tmp, sizeof(tmp));
-
-  return less_than(raw, sc->raw, sc->size, sc->endian);
+  if ((sc->bits & 7) == 0)
+    return sc_import_weak(sc, r, raw);
+  return sc_import_strong(sc, r, raw);
 }
 
 static void
