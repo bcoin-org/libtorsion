@@ -140,36 +140,151 @@ print_hex(const unsigned char *data, size_t len) {
 
 static void
 test_scalar(void) {
-  wei_t curve;
-  wei_t *ec = &curve;
-  scalar_field_t *sc = &ec->sc;
-  mp_limb_t r[MAX_SCALAR_LIMBS];
-  mp_limb_t t[MAX_SCALAR_LIMBS * 4];
-  unsigned char raw[MAX_SCALAR_SIZE];
-
   printf("Scalar sanity check.\n");
 
-  wei_init(ec, &curve_p256);
+  {
+    wei_t curve;
+    wei_t *ec = &curve;
+    scalar_field_t *sc = &ec->sc;
+    mp_limb_t r[MAX_SCALAR_LIMBS];
+    mp_limb_t t[MAX_REDUCE_LIMBS];
+    unsigned char raw[MAX_SCALAR_SIZE];
 
-  memcpy(raw, sc->raw, sc->size);
+    const unsigned char expect1[32] = {
+      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+    };
 
-  mpn_zero(r, ARRAY_SIZE(r));
-  mpn_zero(t, ARRAY_SIZE(t));
+    const unsigned char expect2[32] = {
+      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01
+    };
 
-  mpn_copyi(t, sc->n, sc->limbs);
+    wei_init(ec, &curve_secp256k1);
 
-  sc_reduce(sc, r, t);
+    memcpy(raw, sc->raw, sc->size);
 
-  assert(sc_is_zero(sc, r));
+    mpn_zero(r, ARRAY_SIZE(r));
+    mpn_zero(t, ARRAY_SIZE(t));
 
-  raw[sc->size - 1] -= 1;
-  assert(sc_import(sc, r, raw));
+    mpn_copyi(t, sc->n, sc->limbs);
 
-  raw[sc->size - 1] += 1;
-  assert(!sc_import(sc, r, raw));
+    sc_reduce(sc, r, t);
 
-  raw[sc->size - 1] += 1;
-  assert(!sc_import(sc, r, raw));
+    assert(sc_is_zero(sc, r));
+
+    raw[sc->size - 1] -= 1;
+    assert(sc_import(sc, r, raw));
+
+    raw[sc->size - 1] += 1;
+    assert(!sc_import(sc, r, raw));
+
+    raw[sc->size - 1] += 1;
+    assert(!sc_import(sc, r, raw));
+
+    memcpy(raw, sc->raw, sc->size);
+
+    assert(!sc_import_reduce(sc, r, raw));
+    sc_export(sc, raw, r);
+
+    assert(memcmp(raw, expect1, 32) == 0);
+
+    memcpy(raw, sc->raw, sc->size);
+
+    raw[sc->size - 1] += 1;
+    assert(!sc_import_reduce(sc, r, raw));
+    sc_export(sc, raw, r);
+
+    assert(memcmp(raw, expect2, 32) == 0);
+  }
+
+  {
+    edwards_t curve;
+    edwards_t *ec = &curve;
+    scalar_field_t *sc = &ec->sc;
+    mp_limb_t r[MAX_SCALAR_LIMBS];
+    mp_limb_t t[MAX_REDUCE_LIMBS];
+    unsigned char raw[MAX_SCALAR_SIZE];
+
+    const unsigned char expect1[32] = {
+      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+    };
+
+    const unsigned char expect2[32] = {
+      0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+    };
+
+    edwards_init(ec, &curve_ed25519);
+
+    memcpy(raw, sc->raw, sc->size);
+
+    mpn_zero(r, ARRAY_SIZE(r));
+    mpn_zero(t, ARRAY_SIZE(t));
+
+    mpn_copyi(t, sc->n, sc->limbs);
+
+    sc_reduce(sc, r, t);
+
+    assert(sc_is_zero(sc, r));
+
+    raw[0] -= 1;
+    assert(sc_import(sc, r, raw));
+
+    raw[0] += 1;
+    assert(!sc_import(sc, r, raw));
+
+    raw[0] += 1;
+    assert(!sc_import(sc, r, raw));
+
+    memcpy(raw, sc->raw, sc->size);
+
+    assert(!sc_import_reduce(sc, r, raw));
+    sc_export(sc, raw, r);
+
+    assert(memcmp(raw, expect1, 32) == 0);
+
+    memcpy(raw, sc->raw, sc->size);
+
+    raw[0] += 1;
+    assert(!sc_import_reduce(sc, r, raw));
+    sc_export(sc, raw, r);
+
+    assert(memcmp(raw, expect2, 32) == 0);
+  }
+
+  {
+    wei_t curve;
+    wei_t *ec = &curve;
+    scalar_field_t *sc = &ec->sc;
+    mp_limb_t r[MAX_SCALAR_LIMBS];
+    unsigned char max[32];
+
+    wei_init(ec, &curve_secp256k1);
+
+    const unsigned char expect[32] = {
+      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01,
+      0x45, 0x51, 0x23, 0x19, 0x50, 0xb7, 0x5f, 0xc4,
+      0x40, 0x2d, 0xa1, 0x73, 0x2f, 0xc9, 0xbe, 0xbe
+    };
+
+    memset(max, 0xff, 32);
+
+    assert(!sc_import_reduce(sc, r, max));
+    sc_export(sc, max, r);
+
+    assert(memcmp(max, expect, 32) == 0);
+  }
 }
 
 static void

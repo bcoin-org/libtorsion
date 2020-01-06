@@ -825,9 +825,22 @@ sc_reduce(scalar_field_t *sc, sc_t r, const sc_t ap);
 
 static int
 sc_import_reduce(scalar_field_t *sc, sc_t r, const unsigned char *raw) {
+  const mp_limb_t *np = sc->n;
+  mp_size_t nn = sc->limbs;
   mp_limb_t tmp[MAX_REDUCE_LIMBS];
 
   mpn_import(tmp, sc->shift * 2, raw, sc->size, sc->endian);
+
+  /* Weak reduction if we're aligned to 8 bits. */
+  if ((sc->bits & 7) == 0) {
+    mp_limb_t *up = &tmp[0];
+    mp_limb_t *uv = &tmp[sc->limbs];
+    mp_limb_t cy = mpn_sub_n(uv, up, np, nn);
+
+    cnd_select(cy == 0, r, up, uv, nn);
+
+    return cy != 0;
+  }
 
   sc_reduce(sc, r, tmp);
 
@@ -923,12 +936,12 @@ sc_add(scalar_field_t *sc, sc_t r, const sc_t ap, const sc_t bp) {
   mp_size_t nn = sc->limbs + 1;
   mp_limb_t up[MAX_SCALAR_LIMBS + 1];
   mp_limb_t vp[MAX_SCALAR_LIMBS + 1];
-  mp_limb_t c;
+  mp_limb_t cy;
 
   assert(np[nn - 1] == 0);
 
-  mpn_copyi(up, ap, nn - 1);
-  mpn_copyi(vp, bp, nn - 1);
+  mpn_copyi(up, ap, sc->limbs);
+  mpn_copyi(vp, bp, sc->limbs);
 
   up[nn - 1] = 0;
   vp[nn - 1] = 0;
@@ -937,10 +950,8 @@ sc_add(scalar_field_t *sc, sc_t r, const sc_t ap, const sc_t bp) {
   mpn_add_n(up, up, vp, nn);
 
   /* r = r - n if u >= n */
-  c = mpn_sub_n(vp, up, np, nn);
-  cnd_swap(c == 0, up, vp, nn);
-
-  mpn_copyi(r, up, nn - 1);
+  cy = mpn_sub_n(vp, up, np, nn);
+  cnd_select(cy == 0, r, up, vp, sc->limbs);
 }
 
 static void
@@ -961,7 +972,7 @@ sc_reduce(scalar_field_t *sc, sc_t r, const mp_limb_t *ap) {
   mp_limb_t up[MAX_REDUCE_LIMBS];
   mp_limb_t vp[MAX_REDUCE_LIMBS];
   mp_limb_t *hp = qp;
-  mp_limb_t c;
+  mp_limb_t cy;
 
   mpn_zero(qp, sh * 2);
   mpn_zero(up, sh * 2);
@@ -975,14 +986,12 @@ sc_reduce(scalar_field_t *sc, sc_t r, const mp_limb_t *ap) {
 
   /* u = a - h * n */
   mpn_mul_n(vp, hp, np, sh);
-  c = mpn_sub_n(up, ap, vp, sh * 2);
-  assert(c == 0);
+  cy = mpn_sub_n(up, ap, vp, sh * 2);
+  assert(cy == 0);
 
   /* u = u - n if u >= n */
-  c = mpn_sub_n(vp, up, np, sh);
-  cnd_swap(c == 0, up, vp, sh);
-
-  mpn_copyi(r, up, sc->limbs);
+  cy = mpn_sub_n(vp, up, np, sh);
+  cnd_select(cy == 0, r, up, vp, sc->limbs);
 }
 
 static void
@@ -5700,34 +5709,42 @@ edwards_randomize(edwards_t *ec, const unsigned char *entropy) {
 static int
 ecdsa_reduce(wei_t *ec, sc_t r, const unsigned char *msg, size_t msg_len) {
   scalar_field_t *sc = &ec->sc;
-  mp_limb_t *np = sc->n;
-  mp_limb_t mp[MAX_REDUCE_LIMBS];
-  mp_size_t nn = sc->limbs;
-  mp_size_t mn = sc->shift * 2;
-  long shift;
-  int zero, cmp;
+  unsigned char tmp[MAX_SCALAR_SIZE];
+  int ret;
 
+  /* Truncate. */
   if (msg_len > sc->size)
     msg_len = sc->size;
 
-  mpn_import(mp, mn, msg, msg_len, sc->endian);
+  /* Copy and pad. */
+  memset(tmp, 0x00, sc->size - msg_len);
+  memcpy(tmp + sc->size - msg_len, msg, msg_len);
 
-  shift = (long)msg_len * 8 - (long)sc->bits;
+  assert(sc->endian == 1);
 
-  if (shift > 0)
-    mpn_rshift(mp, mp, mn, shift);
+  /* Shift by the remaining bits. */
+  /* Note that the message length is not secret. */
+  if (msg_len * 8 > sc->bits) {
+    size_t shift = msg_len * 8 - sc->bits;
+    unsigned char mask = (1 << shift) - 1;
+    unsigned char cy = 0;
+    size_t i;
 
-  zero = mpn_zero_p(mp, nn);
-  cmp = mpn_cmp(mp, np, nn);
+    assert(shift < 8);
 
-  if (cmp >= 0)
-    sc_reduce(sc, r, mp);
-  else
-    sc_set(sc, r, mp);
+    for (i = 0; i < msg_len; i++) {
+      unsigned char ch = msg[i];
 
-  mpn_cleanse(mp, mn);
+      tmp[i] = (cy << (8 - shift)) | (ch >> shift);
+      cy = ch & mask;
+    }
+  }
 
-  return !zero && cmp < 0;
+  ret = sc_import_reduce(sc, r, tmp);
+
+  cleanse(tmp, sizeof(tmp));
+
+  return ret;
 }
 
 static int
@@ -5795,6 +5812,9 @@ ecdsa_sign(wei_t *ec,
     drbg_generate(&rng, bytes, sc->size);
 
     if (!ecdsa_reduce(ec, k, bytes, sc->size))
+      continue;
+
+    if (sc_is_zero(sc, k))
       continue;
 
     wei_mul_g(ec, &R, k);
