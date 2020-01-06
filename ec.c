@@ -1917,6 +1917,12 @@ static void
 jge_sub_var(wei_t *ec, jge_t *r, const jge_t *a, const jge_t *b);
 
 static void
+jge_mixed_add_var(wei_t *ec, jge_t *r, const jge_t *a, const wge_t *b);
+
+static void
+jge_mixed_sub_var(wei_t *ec, jge_t *r, const jge_t *a, const wge_t *b);
+
+static void
 jge_dbl(wei_t *ec, jge_t *r, const jge_t *p);
 
 static void
@@ -2357,10 +2363,9 @@ static void
 wge_jsf_points_var(wei_t *ec, jge_t *points, const wge_t *p1, const wge_t *p2) {
   /* Create comb for JSF. */
   wge_to_jge(ec, &points[0], p1); /* 1 */
+  jge_mixed_add_var(ec, &points[1], &points[0], p2); /* 3 */
+  jge_mixed_sub_var(ec, &points[2], &points[0], p2); /* 5 */
   wge_to_jge(ec, &points[3], p2); /* 7 */
-
-  jge_add_var(ec, &points[1], &points[0], &points[3]); /* 3 */
-  jge_sub_var(ec, &points[2], &points[0], &points[3]); /* 5 */
 }
 
 static void
