@@ -6509,7 +6509,7 @@ static const prime_def_t field_p192 = {
   .from_bytes = fiat_p192_from_bytes,
   .carry = fiat_p192_carry,
   .invert = NULL,
-  .sqrt = NULL,
+  .sqrt = p192_fe_sqrt,
   .isqrt = NULL,
   .scmul_121666 = NULL
 };

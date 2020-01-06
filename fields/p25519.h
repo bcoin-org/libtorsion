@@ -15,7 +15,6 @@ typedef p25519_fe_word_t p25519_fe_t[P25519_FIELD_WORDS];
 #define p25519_fe_neg fiat_25519_opp
 #define p25519_fe_mul fiat_25519_carry_mul
 #define p25519_fe_sqr fiat_25519_carry_square
-#define p25519_fe_nonzero fiat_25519_nonzero
 #define p25519_fe_select(r, a, b, flag) \
   fiat_25519_selectznz(r, (flag) != 0, a, b)
 

@@ -26,7 +26,6 @@ typedef p448_fe_word_t p448_fe_t[P448_FIELD_WORDS];
 #define p448_fe_neg fiat_p448_opp
 #define p448_fe_mul fiat_p448_carry_mul
 #define p448_fe_sqr fiat_p448_carry_square
-#define p448_fe_nonzero fiat_p448_nonzero
 
 static void
 p448_fe_set(p448_fe_t out, const p448_fe_t in) {

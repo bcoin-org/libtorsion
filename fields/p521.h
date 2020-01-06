@@ -15,7 +15,6 @@ typedef p521_fe_word_t p521_fe_t[P521_FIELD_WORDS];
 #define p521_fe_neg fiat_p521_opp
 #define p521_fe_mul fiat_p521_carry_mul
 #define p521_fe_sqr fiat_p521_carry_square
-#define p521_fe_nonzero fiat_p521_nonzero
 
 static void
 p521_fe_set(p521_fe_t out, const p521_fe_t in) {
