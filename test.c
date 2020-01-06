@@ -545,6 +545,116 @@ test_wei_points_p521(drbg_t *rng) {
 }
 
 static void
+test_wei_points_secp256k1(drbg_t *rng) {
+  const unsigned char g_raw[33] = {
+    0x02, 0x79, 0xbe, 0x66, 0x7e, 0xf9, 0xdc, 0xbb,
+    0xac, 0x55, 0xa0, 0x62, 0x95, 0xce, 0x87, 0x0b,
+    0x07, 0x02, 0x9b, 0xfc, 0xdb, 0x2d, 0xce, 0x28,
+    0xd9, 0x59, 0xf2, 0x81, 0x5b, 0x16, 0xf8, 0x17,
+    0x98
+  };
+
+  const unsigned char g2_raw[33] = {
+    0x02, 0xc6, 0x04, 0x7f, 0x94, 0x41, 0xed, 0x7d,
+    0x6d, 0x30, 0x45, 0x40, 0x6e, 0x95, 0xc0, 0x7c,
+    0xd8, 0x5c, 0x77, 0x8e, 0x4b, 0x8c, 0xef, 0x3c,
+    0xa7, 0xab, 0xac, 0x09, 0xb9, 0x5c, 0x70, 0x9e,
+    0xe5
+  };
+
+  const unsigned char g3_raw[33] = {
+    0x02, 0xf9, 0x30, 0x8a, 0x01, 0x92, 0x58, 0xc3,
+    0x10, 0x49, 0x34, 0x4f, 0x85, 0xf8, 0x9d, 0x52,
+    0x29, 0xb5, 0x31, 0xc8, 0x45, 0x83, 0x6f, 0x99,
+    0xb0, 0x86, 0x01, 0xf1, 0x13, 0xbc, 0xe0, 0x36,
+    0xf9
+  };
+
+  wei_t curve;
+  wei_t *ec = &curve;
+  wge_t g, p, q, r;
+  jge_t jg, jp, jq, jr;
+  unsigned char entropy[32];
+  unsigned char p_raw[33];
+  size_t p_size;
+
+  printf("Testing Weierstrass group law (SECP256K1).\n");
+
+  wei_init(ec, &curve_secp256k1);
+
+  random_bytes(rng, entropy, sizeof(entropy));
+
+  wei_randomize(ec, entropy);
+
+  wge_set(ec, &g, &ec->g);
+  wge_to_jge(ec, &jg, &ec->g);
+
+  assert(wge_import(ec, &p, g_raw, 33));
+
+  wge_to_jge(ec, &jp, &p);
+  wge_to_jge(ec, &jq, &ec->g);
+
+  assert(wge_validate(ec, &p));
+  assert(jge_validate(ec, &jp));
+  assert(jge_validate(ec, &jq));
+  assert(wge_equal(ec, &p, &ec->g));
+  assert(jge_equal(ec, &jp, &jq));
+
+  assert(wge_import(ec, &q, g2_raw, 33));
+  assert(wge_import(ec, &r, g3_raw, 33));
+
+  wge_to_jge(ec, &jq, &q);
+  wge_to_jge(ec, &jr, &r);
+
+  wge_dbl_var(ec, &p, &ec->g);
+
+  assert(wge_equal(ec, &p, &q));
+
+  wge_add_var(ec, &p, &p, &ec->g);
+
+  assert(wge_equal(ec, &p, &r));
+
+  jge_dbl_var(ec, &jp, &jg);
+
+  assert(jge_equal(ec, &jp, &jq));
+
+  jge_add_var(ec, &jp, &jp, &jg);
+
+  assert(jge_equal(ec, &jp, &jr));
+
+  jge_sub_var(ec, &jp, &jp, &jg);
+
+  assert(jge_equal(ec, &jp, &jq));
+
+  jge_mixed_add_var(ec, &jp, &jp, &g);
+
+  assert(jge_equal(ec, &jp, &jr));
+
+  jge_mixed_sub_var(ec, &jp, &jp, &g);
+
+  assert(jge_equal(ec, &jp, &jq));
+
+  assert(jge_validate(ec, &jg));
+  assert(jge_validate(ec, &jp));
+  assert(jge_validate(ec, &jq));
+  assert(jge_validate(ec, &jr));
+
+  assert(!jge_is_zero(ec, &jg));
+  assert(!jge_is_zero(ec, &jp));
+  assert(!jge_is_zero(ec, &jq));
+  assert(!jge_is_zero(ec, &jr));
+
+  jge_to_wge(ec, &p, &jp);
+
+  assert(wge_equal(ec, &p, &q));
+
+  assert(wge_export(ec, p_raw, &p_size, &p, 1));
+  assert(p_size == 33);
+
+  assert(memcmp(p_raw, g2_raw, 33) == 0);
+}
+
+static void
 test_wei_mul_g(drbg_t *rng) {
   const unsigned char k_raw[32] = {
     0x38, 0xf8, 0x62, 0x0b, 0xa6, 0x0b, 0xed, 0x7c,
@@ -718,6 +828,205 @@ test_wei_double_mul(drbg_t *rng) {
   printf("Testing double mul (vector).\n");
 
   wei_init(ec, &curve_p256);
+
+  random_bytes(rng, entropy, sizeof(entropy));
+
+  wei_randomize(ec, entropy);
+
+  assert(wge_import(ec, &p, p_raw, 33));
+  assert(sc_import(sc, k1, k1_raw));
+  assert(sc_import(sc, k2, k2_raw));
+  assert(wge_import(ec, &expect, expect_raw, 33));
+
+  assert(wge_validate(ec, &p));
+  assert(wge_validate(ec, &expect));
+  assert(wge_equal(ec, &expect, &expect));
+  assert(!wge_equal(ec, &expect, &ec->g));
+
+  wei_mul_double_var(ec, &q, k1, &p, k2);
+
+  assert(wge_equal(ec, &q, &expect));
+
+  assert(wge_export(ec, q_raw, &q_size, &q, 1));
+  assert(q_size == 33);
+
+  assert(memcmp(q_raw, expect_raw, 33) == 0);
+}
+
+static void
+test_wei_mul_g2(drbg_t *rng) {
+  const unsigned char k_raw[32] = {
+    0xf7, 0x6c, 0xd0, 0xed, 0xfb, 0x89, 0x7f, 0x39,
+    0xf6, 0x3e, 0x2c, 0x16, 0xc5, 0x73, 0x81, 0xb7,
+    0x23, 0x5a, 0x1c, 0x5c, 0xe7, 0x8a, 0xab, 0xf2,
+    0xbd, 0x88, 0xb0, 0xd2, 0xb2, 0x5d, 0xf8, 0x52
+  };
+
+  const unsigned char expect_raw[33] = {
+    0x03, 0x44, 0x81, 0x79, 0xe0, 0x0a, 0xb1, 0xbf,
+    0x6f, 0x33, 0x92, 0xeb, 0x3c, 0xdb, 0xe0, 0xff,
+    0xbc, 0x69, 0x40, 0xd0, 0x0d, 0x72, 0x0d, 0xcd,
+    0x1a, 0xc7, 0x80, 0xab, 0x95, 0xb0, 0xe2, 0xab,
+    0x82
+  };
+
+  wei_t curve;
+  wei_t *ec = &curve;
+  sc_t k;
+  wge_t q, expect;
+  unsigned char entropy[32];
+  unsigned char q_raw[33];
+  size_t q_size;
+  scalar_field_t *sc = &ec->sc;
+
+  printf("Testing mul_g (vector, secp256k1).\n");
+
+  wei_init(ec, &curve_secp256k1);
+
+  random_bytes(rng, entropy, sizeof(entropy));
+
+  wei_randomize(ec, entropy);
+
+  assert(sc_import(sc, k, k_raw));
+  assert(wge_import(ec, &expect, expect_raw, 33));
+
+  assert(wge_validate(ec, &expect));
+  assert(wge_equal(ec, &expect, &expect));
+  assert(!wge_equal(ec, &expect, &ec->g));
+
+  wei_mul_g(ec, &q, k);
+
+  assert(wge_equal(ec, &q, &expect));
+
+  assert(wge_export(ec, q_raw, &q_size, &q, 1));
+  assert(q_size == 33);
+
+  assert(memcmp(q_raw, expect_raw, 33) == 0);
+
+  wei_mul_g_var(ec, &q, k);
+
+  assert(wge_equal(ec, &q, &expect));
+
+  assert(wge_export(ec, q_raw, &q_size, &q, 1));
+  assert(q_size == 33);
+
+  assert(memcmp(q_raw, expect_raw, 33) == 0);
+}
+
+static void
+test_wei_mul2(drbg_t *rng) {
+  const unsigned char p_raw[33] = {
+    0x02, 0x0a, 0xfc, 0xf3, 0x56, 0xdb, 0x98, 0x4f,
+    0xa0, 0x33, 0x98, 0x35, 0xfe, 0xb4, 0xd9, 0x65,
+    0x15, 0x82, 0xee, 0xdf, 0x7a, 0x90, 0x46, 0xa1,
+    0x24, 0x85, 0xf5, 0x48, 0xec, 0x75, 0x6f, 0x1a,
+    0xe1
+  };
+
+  const unsigned char k_raw[32] = {
+    0x86, 0xdc, 0xca, 0x82, 0x3e, 0xab, 0x1e, 0x30,
+    0x65, 0xbb, 0xe2, 0x58, 0xce, 0xd4, 0xb3, 0x17,
+    0xe5, 0x5c, 0x8a, 0x9e, 0x9d, 0x4e, 0xb1, 0x5c,
+    0x3e, 0x6e, 0x06, 0xe4, 0x19, 0xf7, 0xcb, 0x15
+  };
+
+  const unsigned char expect_raw[33] = {
+    0x02, 0xe4, 0xbe, 0xe4, 0x40, 0xb7, 0xa4, 0x75,
+    0xb6, 0x8c, 0x82, 0x1a, 0xbd, 0x37, 0x3d, 0x29,
+    0x05, 0xd5, 0xb2, 0x52, 0x66, 0xdd, 0x68, 0x4a,
+    0xe0, 0x6f, 0x31, 0xb1, 0x6e, 0x15, 0x7c, 0xaf,
+    0xd2
+  };
+
+  wei_t curve;
+  wei_t *ec = &curve;
+  sc_t k;
+  wge_t p, q, expect;
+  unsigned char entropy[32];
+  unsigned char q_raw[33];
+  size_t q_size;
+  scalar_field_t *sc = &ec->sc;
+
+  printf("Testing mul (vector, secp256k1).\n");
+
+  wei_init(ec, &curve_secp256k1);
+
+  random_bytes(rng, entropy, sizeof(entropy));
+
+  wei_randomize(ec, entropy);
+
+  assert(wge_import(ec, &p, p_raw, 33));
+  assert(sc_import(sc, k, k_raw));
+  assert(wge_import(ec, &expect, expect_raw, 33));
+
+  assert(wge_validate(ec, &p));
+  assert(wge_validate(ec, &expect));
+  assert(wge_equal(ec, &expect, &expect));
+  assert(!wge_equal(ec, &expect, &ec->g));
+
+  wei_mul(ec, &q, &p, k);
+
+  assert(wge_equal(ec, &q, &expect));
+
+  assert(wge_export(ec, q_raw, &q_size, &q, 1));
+  assert(q_size == 33);
+
+  assert(memcmp(q_raw, expect_raw, 33) == 0);
+
+  wei_mul_var(ec, &q, &p, k);
+
+  assert(wge_equal(ec, &q, &expect));
+
+  assert(wge_export(ec, q_raw, &q_size, &q, 1));
+  assert(q_size == 33);
+
+  assert(memcmp(q_raw, expect_raw, 33) == 0);
+}
+
+static void
+test_wei_double_mul2(drbg_t *rng) {
+  const unsigned char p_raw[33] = {
+    0x02, 0x08, 0x0d, 0x86, 0xe7, 0x20, 0x89, 0x5f,
+    0xde, 0x96, 0x2c, 0x69, 0x75, 0xff, 0x3a, 0x34,
+    0x32, 0x0f, 0x3c, 0x33, 0x56, 0x25, 0x79, 0x9a,
+    0xd6, 0x47, 0xf3, 0x7f, 0x2d, 0xe5, 0x2f, 0x53,
+    0x36
+  };
+
+  const unsigned char k1_raw[32] = {
+    0x54, 0x69, 0xaf, 0x11, 0xd5, 0x5d, 0xe5, 0x4e,
+    0x35, 0xef, 0xaa, 0x84, 0xbb, 0x2c, 0xe7, 0xa8,
+    0xac, 0xce, 0xb4, 0xe3, 0x74, 0x79, 0xd6, 0xdd,
+    0xea, 0x7a, 0xf6, 0x13, 0x0d, 0x2d, 0x2a, 0x0b
+  };
+
+  const unsigned char k2_raw[32] = {
+    0x21, 0x6d, 0x1f, 0xc1, 0xe2, 0x3a, 0x4c, 0xae,
+    0x2f, 0x35, 0xda, 0xff, 0x69, 0xb0, 0x15, 0x2b,
+    0x66, 0x11, 0x46, 0xa2, 0x2e, 0x82, 0xb7, 0x81,
+    0xb5, 0xd0, 0x30, 0xef, 0xb1, 0xdd, 0xa1, 0x0b
+  };
+
+  const unsigned char expect_raw[33] = {
+    0x03, 0x80, 0x2c, 0x75, 0x2d, 0x04, 0xea, 0x64,
+    0x0b, 0x6a, 0x8e, 0x8d, 0x11, 0x82, 0x08, 0x9c,
+    0xc3, 0x12, 0x14, 0xd2, 0xc5, 0x07, 0xc0, 0xac,
+    0x70, 0x11, 0x21, 0x46, 0x1d, 0x42, 0xb1, 0x73,
+    0x12
+  };
+
+  wei_t curve;
+  wei_t *ec = &curve;
+  sc_t k1, k2;
+  wge_t p, q, expect;
+  unsigned char entropy[32];
+  unsigned char q_raw[33];
+  size_t q_size;
+  scalar_field_t *sc = &ec->sc;
+
+  printf("Testing double mul (vector, secp256k1).\n");
+
+  wei_init(ec, &curve_secp256k1);
 
   random_bytes(rng, entropy, sizeof(entropy));
 
@@ -1824,9 +2133,13 @@ main(int argc, char **argv) {
     test_field_element();
     test_wei_points_p256(&rng);
     test_wei_points_p521(&rng);
+    test_wei_points_secp256k1(&rng);
     test_wei_mul_g(&rng);
     test_wei_mul(&rng);
     test_wei_double_mul(&rng);
+    test_wei_mul_g2(&rng);
+    test_wei_mul2(&rng);
+    test_wei_double_mul2(&rng);
     test_ecdsa_vector_p224(&rng);
     test_ecdsa_vector_p256(&rng);
     test_ecdsa_vector_p384(&rng);
