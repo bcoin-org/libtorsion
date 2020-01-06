@@ -2363,7 +2363,7 @@ test_ecdsa_random(drbg_t *rng) {
 
       k = random_int(rng, sc->size);
 
-      if (fe->bits != 521) {
+      if (fe->bits != 521 || k < 65) {
         msg[k] ^= 1;
         assert(!ecdsa_verify(&ec, msg, sc->size, sig, pub, fe->size + 1));
         msg[k] ^= 1;
