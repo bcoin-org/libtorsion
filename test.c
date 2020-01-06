@@ -1499,6 +1499,90 @@ test_ecdsa_vector_secp256k1(drbg_t *rng) {
 }
 
 static void
+test_mont_points_x25519(void) {
+  const unsigned char g_raw[32] = {
+    0x09, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+  };
+
+  const unsigned char g2_raw[32] = {
+    0xfb, 0x4e, 0x68, 0xdd, 0x9c, 0x46, 0xae, 0x5c,
+    0x5c, 0x0b, 0x35, 0x1e, 0xed, 0x5c, 0x3f, 0x8f,
+    0x14, 0x71, 0x15, 0x7d, 0x68, 0x0c, 0x75, 0xd9,
+    0xb7, 0xf1, 0x73, 0x18, 0xd5, 0x42, 0xd3, 0x20
+  };
+
+  const unsigned char g3_raw[32] = {
+    0x12, 0x3c, 0x71, 0xfb, 0xaf, 0x03, 0x0a, 0xc0,
+    0x59, 0x08, 0x1c, 0x62, 0x67, 0x4e, 0x82, 0xf8,
+    0x64, 0xba, 0x1b, 0xc2, 0x91, 0x4d, 0x53, 0x45,
+    0xe6, 0xab, 0x57, 0x6d, 0x1a, 0xbc, 0x12, 0x1c
+  };
+
+  mont_t curve;
+  mont_t *ec = &curve;
+  mge_t g, p, q, r;
+  pge_t jg, jp, jq, jr;
+  unsigned char p_raw[32];
+
+  printf("Testing Montgomery group law (X25519).\n");
+
+  mont_init(ec, &curve_x25519);
+
+  mge_set(ec, &g, &ec->g);
+  mge_to_pge(ec, &jg, &ec->g);
+
+  assert(mge_import(ec, &p, g_raw, 1));
+
+  mge_to_pge(ec, &jp, &p);
+  mge_to_pge(ec, &jq, &ec->g);
+
+  assert(mge_validate(ec, &p));
+  assert(pge_validate(ec, &jp));
+  assert(pge_validate(ec, &jq));
+  assert(mge_equal(ec, &p, &ec->g));
+  assert(pge_equal(ec, &jp, &jq));
+
+  assert(mge_import(ec, &q, g2_raw, 1));
+  assert(mge_import(ec, &r, g3_raw, 1));
+
+  mge_to_pge(ec, &jq, &q);
+  mge_to_pge(ec, &jr, &r);
+
+  mge_dbl_var(ec, &p, &ec->g);
+
+  assert(mge_equal(ec, &p, &q));
+
+  mge_add_var(ec, &p, &p, &ec->g);
+
+  assert(mge_equal(ec, &p, &r));
+
+  pge_dbl(ec, &jp, &jg);
+
+  assert(pge_equal(ec, &jp, &jq));
+
+  assert(pge_validate(ec, &jg));
+  assert(pge_validate(ec, &jp));
+  assert(pge_validate(ec, &jq));
+  assert(pge_validate(ec, &jr));
+
+  assert(!pge_is_zero(ec, &jg));
+  assert(!pge_is_zero(ec, &jp));
+  assert(!pge_is_zero(ec, &jq));
+  assert(!pge_is_zero(ec, &jr));
+
+  pge_to_mge(ec, &p, &jp, 1);
+
+  assert(mge_equal(ec, &p, &q));
+
+  assert(mge_export(ec, p_raw, &p));
+
+  assert(memcmp(p_raw, g2_raw, 32) == 0);
+}
+
+static void
 test_ecdh_vector_x25519(void) {
   unsigned char k[32];
   unsigned char u[32];
@@ -2242,6 +2326,7 @@ main(int argc, char **argv) {
     test_ecdsa_vector_p384(&rng);
     test_ecdsa_vector_p521(&rng);
     test_ecdsa_vector_secp256k1(&rng);
+    test_mont_points_x25519();
     test_ecdh_vector_x25519();
     test_ecdh_vector_x448();
     test_edwards_points_ed25519(&rng);

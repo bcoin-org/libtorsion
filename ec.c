@@ -4321,7 +4321,7 @@ pge_validate(mont_t *ec, const pge_t *p) {
   fe_mul(fe, x3, x2, p->x);
   fe_sqr(fe, z2, p->z);
   fe_mul(fe, ax2, ec->a, x2);
-  fe_mul(fe, ax2, x2, p->z);
+  fe_mul(fe, ax2, ax2, p->z);
   fe_mul(fe, xz2, p->x, z2);
   fe_add(fe, y2, x3, ax2);
   fe_add(fe, y2, y2, xz2);
