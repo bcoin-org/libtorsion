@@ -3337,7 +3337,7 @@ jge_to_wge(wei_t *ec, wge_t *r, const jge_t *p) {
   fe_t a, aa;
 
   /* A = 1 / Z1 */
-  fe_invert(fe, a, p->z);
+  r->inf = fe_invert(fe, a, p->z) ^ 1;
 
   /* AA = A^2 */
   fe_sqr(fe, aa, a);
@@ -3348,7 +3348,6 @@ jge_to_wge(wei_t *ec, wge_t *r, const jge_t *p) {
   /* Y3 = Y1 * AA * A */
   fe_mul(fe, r->y, p->y, aa);
   fe_mul(fe, r->y, r->y, a);
-  r->inf = fe_is_zero(fe, p->z);
 }
 
 static void
@@ -4015,13 +4014,13 @@ static void
 pge_import(mont_t *ec, pge_t *r, const unsigned char *raw);
 
 static int
-pge_to_mge(mont_t *ec, mge_t *r, const pge_t *p);
+pge_to_mge(mont_t *ec, mge_t *r, const pge_t *p, int sign);
 
 static int
-mge_import(mont_t *ec, mge_t *r, const unsigned char *raw) {
+mge_import(mont_t *ec, mge_t *r, const unsigned char *raw, int sign) {
   pge_t p;
   pge_import(ec, &p, raw);
-  return pge_to_mge(ec, r, &p);
+  return pge_to_mge(ec, r, &p, sign);
 }
 
 static int
@@ -4466,24 +4465,20 @@ pge_dad(mont_t *ec,
 }
 
 static int
-pge_to_mge(mont_t *ec, mge_t *r, const pge_t *p) {
+pge_to_mge(mont_t *ec, mge_t *r, const pge_t *p, int sign) {
   /* https://hyperelliptic.org/EFD/g1p/auto-montgom-xz.html#scaling-scale
    * 1I + 1M
    */
   prime_field_t *fe = &ec->fe;
   fe_t a;
-  int ret = 1;
 
   /* A = 1 / Z1 */
-  ret &= fe_invert(fe, a, p->z);
+  r->inf = fe_invert(fe, a, p->z) ^ 1;
 
   /* X3 = X1 * A */
   fe_mul(fe, r->x, p->x, a);
 
-  /* Take the principle square root. */
-  ret &= mge_set_x(ec, r, r->x, -1);
-
-  return ret;
+  return mge_set_x(ec, r, r->x, sign);
 }
 
 static void
@@ -5157,7 +5152,7 @@ xge_to_ege(edwards_t *ec, ege_t *r, const xge_t *p) {
   fe_t a;
 
   /* A = 1 / Z1 */
-  fe_invert(fe, a, p->z);
+  assert(fe_invert(fe, a, p->z));
 
   /* X3 = X1 * A */
   fe_mul(fe, r->x, p->x, a);
@@ -5182,7 +5177,7 @@ xge_to_ege_var(edwards_t *ec, ege_t *r, const xge_t *p) {
   }
 
   /* A = 1 / Z1 */
-  fe_invert_var(fe, a, p->z);
+  assert(fe_invert_var(fe, a, p->z));
 
   /* X3 = X1 * A */
   fe_mul(fe, r->x, p->x, a);
