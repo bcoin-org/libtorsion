@@ -2563,7 +2563,7 @@ jge_dblj(wei_t *ec, jge_t *r, const jge_t *p) {
   fe_sub(fe, t, t, s);
 
   /* Z3 = 2 * Y1 * Z1 */
-  fe_mul(fe, r->z, p->y, p->z);
+  fe_mul(fe, r->z, p->z, p->y);
   fe_add(fe, r->z, r->z, r->z);
 
   /* X3 = T */
@@ -2612,7 +2612,7 @@ jge_dbl0(wei_t *ec, jge_t *r, const jge_t *p) {
   fe_sqr(fe, f, e);
 
   /* Z3 = 2 * Y1 * Z1 */
-  fe_mul(fe, r->z, p->y, p->z);
+  fe_mul(fe, r->z, p->z, p->y);
   fe_add(fe, r->z, r->z, r->z);
 
   /* X3 = F - 2 * D */
@@ -3760,7 +3760,7 @@ wei_jmul_multi_var(wei_t *ec,
     if (z > 0)
       jge_mixed_add_var(ec, &acc, &acc, &wnd0[(z - 1) >> 1]);
     else if (z < 0)
-      jge_mixed_add_var(ec, &acc, &acc, &wnd0[(-z - 1) >> 1]);
+      jge_mixed_sub_var(ec, &acc, &acc, &wnd0[(-z - 1) >> 1]);
 
     for (j = 0; j < len; j++) {
       z = tmp[j];
