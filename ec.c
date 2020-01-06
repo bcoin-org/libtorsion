@@ -935,15 +935,13 @@ static void
 sc_neg(scalar_field_t *sc, sc_t r, const sc_t a) {
   const mp_limb_t *np = sc->n;
   mp_size_t nn = sc->limbs;
-  mp_limb_t rp[MAX_SCALAR_LIMBS];
   mp_limb_t zero = sc_is_zero(sc, a);
   mp_size_t i;
 
-  mpn_zero(rp, nn);
-  mpn_sub_n(rp, np, a, nn);
+  mpn_sub_n(r, np, a, nn);
 
   for (i = 0; i < nn; i++)
-    r[i] = rp[i] & -(zero ^ 1);
+    r[i] &= -(zero ^ 1);
 }
 
 static void
@@ -989,9 +987,6 @@ sc_reduce(scalar_field_t *sc, sc_t r, const mp_limb_t *ap) {
   mp_limb_t *hp = qp;
   mp_limb_t cy;
 
-  mpn_zero(qp, sh * 2);
-  mpn_zero(up, sh * 2);
-
   /* q = a * m */
   mpn_mul_n(qp, ap, mp, sh);
 
@@ -1011,8 +1006,9 @@ sc_reduce(scalar_field_t *sc, sc_t r, const mp_limb_t *ap) {
 static void
 sc_mul(scalar_field_t *sc, sc_t r, const sc_t a, const sc_t b) {
   mp_limb_t ap[MAX_REDUCE_LIMBS];
+  mp_size_t an = sc->limbs * 2;
 
-  mpn_zero(ap, sc->shift * 2);
+  mpn_zero(ap + an, sc->shift * 2 - an);
   mpn_mul_n(ap, a, b, sc->limbs);
 
   sc_reduce(sc, r, ap);
@@ -1021,8 +1017,9 @@ sc_mul(scalar_field_t *sc, sc_t r, const sc_t a, const sc_t b) {
 static void
 sc_sqr(scalar_field_t *sc, sc_t r, const sc_t a) {
   mp_limb_t ap[MAX_REDUCE_LIMBS];
+  mp_size_t an = sc->limbs * 2;
 
-  mpn_zero(ap, sc->shift * 2);
+  mpn_zero(ap + an, sc->shift * 2 - an);
   mpn_sqr(ap, a, sc->limbs);
 
   sc_reduce(sc, r, ap);
