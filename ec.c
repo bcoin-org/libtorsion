@@ -808,6 +808,9 @@ static void
 sc_reduce(scalar_field_t *sc, sc_t r, const sc_t ap);
 
 static void
+fe_export(prime_field_t *fe, unsigned char *raw, const fe_t a);
+
+static void
 sc_zero(scalar_field_t *sc, sc_t r) {
   mpn_zero(r, sc->limbs);
 }
@@ -891,6 +894,13 @@ static void
 sc_print(scalar_field_t *sc, const sc_t a) {
   mpn_print(a, sc->limbs, 16);
   printf("\n");
+}
+
+static int
+sc_set_fe(scalar_field_t *sc, prime_field_t *fe, sc_t r, const fe_t a) {
+  unsigned char tmp[MAX_FIELD_SIZE];
+  fe_export(fe, tmp, a);
+  return sc_import_reduce(sc, r, tmp);
 }
 
 static void
@@ -1434,13 +1444,6 @@ fe_set_sc(prime_field_t *fe, scalar_field_t *sc, fe_t r, const sc_t a) {
   cleanse(tmp, sizeof(tmp));
 
   return ret;
-}
-
-static int
-fe_get_sc(prime_field_t *fe, scalar_field_t *sc, sc_t r, const fe_t a) {
-  unsigned char tmp[MAX_FIELD_SIZE];
-  fe_export(fe, tmp, a);
-  return sc_import_reduce(sc, r, tmp);
 }
 
 static void
@@ -5835,7 +5838,7 @@ ecdsa_sign(wei_t *ec,
 
     hint = fe_is_odd(fe, R.y);
 
-    if (!fe_get_sc(fe, sc, r, R.x))
+    if (!sc_set_fe(sc, fe, r, R.x))
       hint |= 2;
 
     if (sc_is_zero(sc, r))
@@ -5915,7 +5918,7 @@ ecdsa_verify(wei_t *ec,
 #else
   wei_mul_double_var(ec, &R, u1, &A, u2);
 
-  fe_get_sc(fe, sc, re, R.x);
+  sc_set_fe(sc, fe, re, R.x);
 
   return sc_equal(sc, r, re);
 #endif
