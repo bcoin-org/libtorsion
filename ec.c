@@ -6271,7 +6271,7 @@ eddsa_sign_with_scalar(edwards_t *ec,
   scalar_field_t *sc = &ec->sc;
   unsigned char *Rraw = sig;
   unsigned char *sraw = sig + fe->adj_size;
-  unsigned char pub[MAX_FIELD_SIZE];
+  unsigned char pub[MAX_FIELD_SIZE + 1];
   sc_t k, a, e, s;
   ege_t R, A;
 
@@ -6313,7 +6313,7 @@ eddsa_sign(edwards_t *ec,
            const unsigned char *ctx,
            size_t ctx_len) {
   unsigned char scalar[MAX_SCALAR_SIZE];
-  unsigned char prefix[MAX_FIELD_SIZE];
+  unsigned char prefix[MAX_FIELD_SIZE + 1];
 
   eddsa_privkey_expand(ec, scalar, prefix, priv);
 
