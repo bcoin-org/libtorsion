@@ -4678,7 +4678,7 @@ ege_validate(edwards_t *ec, const ege_t *p) {
   fe_sqr(fe, y2, p->y);
   fe_mul(fe, dxy, ec->d, x2);
   fe_mul(fe, dxy, dxy, y2);
-  fe_mul(fe, lhs, ec->a, x2);
+  edwards_mula(ec, lhs, x2);
   fe_add(fe, lhs, lhs, y2);
   fe_add(fe, rhs, fe->one, dxy);
 
@@ -4832,7 +4832,7 @@ ege_add(edwards_t *ec, ege_t *r, const ege_t *a, const ege_t *b) {
   fe_sub(fe, z2, fe->one, z);
   fe_mul(fe, z, z1, z2);
 
-  fe_invert(fe, z, z);
+  assert(fe_invert(fe, z, z));
 
   fe_mul(fe, x3, x3, z);
   fe_mul(fe, y3, y3, z);
@@ -5235,7 +5235,7 @@ xge_validate(edwards_t *ec, const xge_t *p) {
   fe_sqr(fe, z2, p->z);
   fe_sqr(fe, z4, z2);
 
-  fe_mul(fe, ax2, ec->a, x2);
+  edwards_mula(ec, ax2, x2);
   fe_add(fe, lhs, ax2, y2);
   fe_mul(fe, lhs, lhs, z2);
 
