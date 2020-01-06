@@ -970,13 +970,11 @@ sc_reduce(scalar_field_t *sc, sc_t r, const mp_limb_t *ap) {
   mp_size_t sh = sc->shift;
   mp_limb_t qp[MAX_REDUCE_LIMBS];
   mp_limb_t up[MAX_REDUCE_LIMBS];
-  mp_limb_t vp[MAX_REDUCE_LIMBS];
   mp_limb_t *hp = qp;
   mp_limb_t cy;
 
   mpn_zero(qp, sh * 2);
   mpn_zero(up, sh * 2);
-  mpn_zero(vp, sh * 2);
 
   /* q = a * m */
   mpn_mul_n(qp, ap, mp, sh);
@@ -985,13 +983,13 @@ sc_reduce(scalar_field_t *sc, sc_t r, const mp_limb_t *ap) {
   hp += sh;
 
   /* u = a - h * n */
-  mpn_mul_n(vp, hp, np, sh);
-  cy = mpn_sub_n(up, ap, vp, sh * 2);
+  mpn_mul_n(up, hp, np, sh);
+  cy = mpn_sub_n(up, ap, up, sh * 2);
   assert(cy == 0);
 
   /* u = u - n if u >= n */
-  cy = mpn_sub_n(vp, up, np, sh);
-  cnd_select(cy == 0, r, up, vp, sc->limbs);
+  cy = mpn_sub_n(qp, up, np, sh);
+  cnd_select(cy == 0, r, up, qp, sc->limbs);
 }
 
 static void
