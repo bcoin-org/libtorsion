@@ -1267,15 +1267,16 @@ fe_import(prime_field_t *fe, fe_t r, const unsigned char *raw) {
   size_t i;
 
   if (fe->from_montgomery) {
-    /* Use a constant time barret reduction
+    /* Use a constant time barrett reduction
      * to montgomerize the field element.
      */
     mp_limb_t xp[MAX_REDUCE_LIMBS];
     mp_size_t shift = fe->shift / GMP_NUMB_BITS;
     mp_size_t left = fe->shift % GMP_NUMB_BITS;
+    mp_size_t xn = fe->limbs + shift + (left != 0);
 
     /* We can only handle 2*(max+1) limbs. */
-    assert(shift + (left != 0) <= fe->sc.shift);
+    assert(xn <= fe->sc.shift);
 
     /* x = (x << shift) mod p */
     mpn_zero(xp, fe->sc.shift * 2);
@@ -1283,7 +1284,7 @@ fe_import(prime_field_t *fe, fe_t r, const unsigned char *raw) {
 
     /* Align if necessary. */
     if (left != 0)
-      assert(mpn_lshift(xp, xp, shift + fe->limbs, left) == 0);
+      assert(mpn_lshift(xp, xp, xn, left) == 0);
 
     sc_reduce(&fe->sc, xp, xp);
 
