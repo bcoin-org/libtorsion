@@ -60,7 +60,6 @@ montgomery="$prefix/src/ExtractionOCaml/word_by_word_montgomery"
 "$solinas" --static 'p448' '15' '2^448 - 2^224 - 1' '32' > ./fields/p448_32.h
 "$solinas" --static 'p448' '8' '2^448 - 2^224 - 1' '64' > ./fields/p448_64.h
 
-# 2^251 - 9 (curve1174)
-# maybe 10 and 5 (like curve25519)
-"$solinas" --static 'p251' '9' '2^251 - 9' '32' > ./fields/p251_32.h
-"$solinas" --static 'p251' '4' '2^251 - 9' '64' > ./fields/p251_64.h
+# 2^251 - 9
+"$solinas" --static 'p251' '10' '2^251 - 9' '32' > ./fields/p251_32.h
+"$solinas" --static 'p251' '5' '2^251 - 9' '64' > ./fields/p251_64.h

@@ -30,6 +30,7 @@ Intended to be the new EC backend for [bcrypto].
     - curve448
     - edwards25519
     - edwards448
+    - edwards1174
 
 - Schemes:
     - ECDSA

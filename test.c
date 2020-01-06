@@ -22,9 +22,10 @@ static const mont_def_t *mont_curves[2] = {
   &curve_x448
 };
 
-static const edwards_def_t *edwards_curves[2] = {
+static const edwards_def_t *edwards_curves[3] = {
   &curve_ed25519,
-  &curve_ed448
+  &curve_ed448,
+  &curve_ed1174
 };
 
 #ifndef _WIN32
