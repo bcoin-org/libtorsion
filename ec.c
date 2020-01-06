@@ -440,6 +440,23 @@ mpn_bitlen(const mp_limb_t *xp, mp_size_t n) {
   return i * GMP_NUMB_BITS + b;
 }
 
+static int
+mpn_cmp_limb(const mp_limb_t *xp, mp_size_t xn, int32_t num) {
+  mp_limb_t w = 0;
+  mp_limb_t n = num;
+
+  if (num < 0)
+    return 1;
+
+  if (xn > 1)
+    return 1;
+
+  if (xn > 0)
+    w = xp[0];
+
+  return (int)(w > n) - (int)(w < n);
+}
+
 static void
 mpn_cleanse(mp_limb_t *p, mp_size_t n) {
   cleanse(p, n * sizeof(mp_limb_t));
@@ -1184,7 +1201,8 @@ sc_jsf_var(scalar_field_t *sc, int32_t *naf,
   while (n2 > 0 && k2[n2 - 1] == 0)
     n2 -= 1;
 
-  while (n1 > 0 || n2 > 0) {
+  while (mpn_cmp_limb(k1, n1, -d1) > 0
+      || mpn_cmp_limb(k2, n2, -d2) > 0) {
     /* First phase. */
     int32_t m14 = ((k1[0] & 3) + d1) & 3;
     int32_t m24 = ((k2[0] & 3) + d2) & 3;
@@ -3874,6 +3892,19 @@ wei_mul_double_var(wei_t *ec,
 }
 
 static void
+wei_mul_multi_var(wei_t *ec,
+                   wge_t *r,
+                   const sc_t k0,
+                   const wge_t *points,
+                   const sc_t *coeffs,
+                   size_t len,
+                   wei_scratch_t *scratch) {
+  jge_t j;
+  wei_jmul_multi_var(ec, &j, k0, points, coeffs, len, scratch);
+  jge_to_wge_var(ec, r, &j);
+}
+
+static void
 wei_jmul_g(wei_t *ec, jge_t *r, const sc_t k) {
   scalar_field_t *sc = &ec->sc;
   sc_t k0;
@@ -5661,6 +5692,19 @@ edwards_mul_double_var(edwards_t *ec,
                      const sc_t k2) {
   xge_t j;
   edwards_jmul_double_var(ec, &j, k1, p2, k2);
+  xge_to_ege_var(ec, r, &j);
+}
+
+static void
+edwards_mul_multi_var(edwards_t *ec,
+                      ege_t *r,
+                      const sc_t k0,
+                      const ege_t *points,
+                      const sc_t *coeffs,
+                      size_t len,
+                      edwards_scratch_t *scratch) {
+  xge_t j;
+  edwards_jmul_multi_var(ec, &j, k0, points, coeffs, len, scratch);
   xge_to_ege_var(ec, r, &j);
 }
 
