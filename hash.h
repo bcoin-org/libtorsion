@@ -234,7 +234,7 @@ sha256_transform(sha256_t *ctx, const unsigned char *chunk) {
 #define s1(x) (ROTL32(15, (x)) ^ ROTL32(13, (x)) ^ ((x) >> 10))
 
 #define EXPAND(W,i) \
-(W[(i) & 15 ] += (s1(W[((i)-2) & 15]) + W[((i)-7) & 15] + s0(W[((i)-15) & 15])))
+(W[(i) & 15] += (s1(W[((i)-2) & 15]) + W[((i)-7) & 15] + s0(W[((i)-15) & 15])))
 
 #define ROUND(a, b, c, d, e, f, g, h, k, data) do { \
   h += S1(e) + Ch(e,f,g) + k + data;                \
@@ -457,7 +457,7 @@ sha512_transform(sha512_t *ctx, const unsigned char *chunk) {
 #define s1(x) (ROTL64(45, (x)) ^ ROTL64(3, (x)) ^ ((x) >> 6))
 
 #define EXPAND(W,i) \
-(W[(i) & 15 ] += (s1(W[((i)-2) & 15]) + W[((i)-7) & 15] + s0(W[((i)-15) & 15])))
+(W[(i) & 15] += (s1(W[((i)-2) & 15]) + W[((i)-7) & 15] + s0(W[((i)-15) & 15])))
 
 #define ROUND(a, b, c, d, e, f, g, h, k, data) do { \
   h += S1(e) + Ch(e,f,g) + k + data;                \
