@@ -386,6 +386,32 @@ cleanse(void *ptr, size_t len) {
 }
 
 static uint32_t
+bytes_zero(const unsigned char *a, size_t size) {
+  /* Compute (a == 0) in constant time. */
+  uint32_t z = 0;
+  size_t i;
+
+  for (i = 0; i < size; i++)
+    z |= (uint32_t)a[i];
+
+  return (z - 1) >> 31;
+}
+
+static uint32_t
+bytes_equal(const unsigned char *a,
+            const unsigned char *b,
+            size_t size) {
+  /* Compute (a == 0) in constant time. */
+  uint32_t z = 0;
+  size_t i;
+
+  for (i = 0; i < size; i++)
+    z |= (uint32_t)a[i] ^ (uint32_t)b[i];
+
+  return (z - 1) >> 31;
+}
+
+static uint32_t
 bytes_lt(const unsigned char *a,
          const unsigned char *b,
          int size,
@@ -1035,6 +1061,31 @@ sc_sub(scalar_field_t *sc, sc_t r, const sc_t a, const sc_t b) {
   sc_neg(sc, mb, b);
   sc_add(sc, r, a, mb);
   sc_cleanse(sc, mb);
+}
+
+static void
+sc_mulw(scalar_field_t *sc, sc_t r, const sc_t a, unsigned int b) {
+  int bits = count_bits(b);
+  int i;
+
+  if (b > 1 && (b & (b - 1)) == 0) {
+    sc_add(sc, r, a, a);
+
+    for (i = 1; i < bits - 1; i++)
+      sc_add(sc, r, r, r);
+  } else {
+    sc_t c;
+
+    sc_set(sc, c, a);
+    sc_zero(sc, r);
+
+    for (i = bits - 1; i >= 0; i--) {
+      sc_add(sc, r, r, r);
+
+      if ((b >> i) & 1)
+        sc_add(sc, r, r, c);
+    }
+  }
 }
 
 static void
@@ -2245,6 +2296,24 @@ wge_is_zero(wei_t *ec, const wge_t *a) {
   return a->inf;
 }
 
+static int
+wge_is_square(wei_t *ec, const wge_t *p) {
+  return fe_is_square(&ec->fe, p->y) & (p->inf ^ 1);
+}
+
+static int
+wge_is_square_var(wei_t *ec, const wge_t *p) {
+  if (p->inf)
+    return 0;
+
+  return fe_is_square_var(&ec->fe, p->y);
+}
+
+static int
+wge_equal_x(wei_t *ec, const wge_t *p, const fe_t x) {
+  return fe_equal(&ec->fe, p->x, x) & (p->inf ^ 1);
+}
+
 static void
 wge_neg(wei_t *ec, wge_t *r, const wge_t *a) {
   prime_field_t *fe = &ec->fe;
@@ -2575,6 +2644,42 @@ jge_equal(wei_t *ec, const jge_t *a, const jge_t *b) {
   ret &= fe_equal(fe, e1, e2) | both;
 
   return ret;
+}
+
+static int
+jge_is_square(wei_t *ec, const jge_t *p) {
+  prime_field_t *fe = &ec->fe;
+  fe_t yz;
+
+  fe_mul(fe, yz, p->y, p->z);
+
+  return fe_is_square(fe, yz)
+       & (jge_is_zero(ec, p) ^ 1);
+}
+
+static int
+jge_is_square_var(wei_t *ec, const jge_t *p) {
+  prime_field_t *fe = &ec->fe;
+  fe_t yz;
+
+  if (jge_is_zero(ec, p))
+    return 0;
+
+  fe_mul(fe, yz, p->y, p->z);
+
+  return fe_is_square_var(fe, yz);
+}
+
+static int
+jge_equal_x(wei_t *ec, const jge_t *p, const fe_t x) {
+  prime_field_t *fe = &ec->fe;
+  fe_t xz;
+
+  fe_sqr(fe, xz, p->z);
+  fe_mul(fe, xz, xz, x);
+
+  return fe_equal(fe, p->x, xz)
+       & (jge_is_zero(ec, p) ^ 1);
 }
 
 static int
@@ -4802,6 +4907,27 @@ pge_to_mge(mont_t *ec, mge_t *r, const pge_t *p, int sign) {
 }
 
 static void
+pge_mulh(mont_t *ec, pge_t *r, const pge_t *p) {
+  int bits = count_bits(ec->h);
+  int i;
+
+  pge_set(ec, r, p);
+
+  for (i = 0; i < bits - 1; i++)
+    pge_dbl(ec, r, r);
+}
+
+static int
+pge_is_small(mont_t *ec, const pge_t *p) {
+  pge_t r;
+
+  pge_mulh(ec, &r, p);
+
+  return pge_is_zero(ec, &r)
+      & (pge_is_zero(ec, p) ^ 1);
+}
+
+static void
 pge_print(mont_t *ec, const pge_t *p) {
   prime_field_t *fe = &ec->fe;
 
@@ -4825,6 +4951,12 @@ pge_print(mont_t *ec, const pge_t *p) {
 /*
  * Montgomery Curve
  */
+
+static void
+xge_to_ege_var(edwards_t *ec, ege_t *r, const xge_t *p);
+
+static void
+xge_mulh(edwards_t *ec, xge_t *r, const xge_t *p);
 
 static void
 mont_init(mont_t *ec, const mont_def_t *def) {
@@ -5148,6 +5280,14 @@ ege_to_xge(edwards_t *ec, xge_t *r, const ege_t *p) {
 }
 
 static void
+ege_mulh(edwards_t *ec, ege_t *r, const ege_t *p) {
+  xge_t t;
+  ege_to_xge(ec, &t, p);
+  xge_mulh(ec, &t, &t);
+  xge_to_ege_var(ec, r, &t);
+}
+
+static void
 ege_print(edwards_t *ec, const ege_t *p) {
   prime_field_t *fe = &ec->fe;
 
@@ -5171,6 +5311,9 @@ ege_print(edwards_t *ec, const ege_t *p) {
 /*
  * Edwards Extended Point
  */
+
+static void
+xge_to_ege(edwards_t *ec, ege_t *r, const xge_t *p);
 
 static void
 xge_zero(edwards_t *ec, xge_t *r) {
@@ -5224,6 +5367,32 @@ xge_set(edwards_t *ec, xge_t *r, const xge_t *a) {
   fe_set(fe, r->y, a->y);
   fe_set(fe, r->z, a->z);
   fe_set(fe, r->t, a->t);
+}
+
+static int
+xge_import(edwards_t *ec, xge_t *r, const unsigned char *raw) {
+  ege_t p;
+
+  if (!ege_import(ec, &p, raw))
+    return 0;
+
+  ege_to_xge(ec, r, &p);
+
+  return 1;
+}
+
+static void
+xge_export(edwards_t *ec, unsigned char *raw, const xge_t *p) {
+  ege_t r;
+  xge_to_ege(ec, &r, p);
+  ege_export(ec, raw, &r);
+}
+
+static void
+xge_export_var(edwards_t *ec, unsigned char *raw, const xge_t *p) {
+  ege_t r;
+  xge_to_ege_var(ec, &r, p);
+  ege_export(ec, raw, &r);
 }
 
 static int
@@ -5528,6 +5697,27 @@ xge_validate(edwards_t *ec, const xge_t *p) {
   fe_add(fe, rhs, rhs, z4);
 
   return fe_equal(fe, lhs, rhs);
+}
+
+static void
+xge_mulh(edwards_t *ec, xge_t *r, const xge_t *p) {
+  int bits = count_bits(ec->h);
+  int i;
+
+  xge_set(ec, r, p);
+
+  for (i = 0; i < bits - 1; i++)
+    xge_dbl(ec, r, r);
+}
+
+static int
+xge_is_small(edwards_t *ec, const xge_t *p) {
+  xge_t r;
+
+  xge_mulh(ec, &r, p);
+
+  return xge_is_zero(ec, &r)
+      & (xge_is_zero(ec, p) ^ 1);
 }
 
 static void
@@ -6050,44 +6240,178 @@ edwards_randomize(edwards_t *ec, const unsigned char *entropy) {
  * ECDSA
  */
 
-static int
-ecdsa_reduce(wei_t *ec, sc_t r, const unsigned char *msg, size_t msg_len) {
+static void
+ecdsa_privkey_generate(wei_t *ec,
+                       unsigned char *out,
+                       const unsigned char *seed) {
   scalar_field_t *sc = &ec->sc;
-  unsigned char tmp[MAX_SCALAR_SIZE];
-  int ret;
+  drbg_t rng;
 
-  /* Truncate. */
-  if (msg_len > sc->size)
-    msg_len = sc->size;
+  drbg_init(&rng, HASH_SHA256, seed, 32);
 
-  /* Copy and pad. */
-  memset(tmp, 0x00, sc->size - msg_len);
-  memcpy(tmp + sc->size - msg_len, msg, msg_len);
+  for (;;) {
+    drbg_generate(&rng, out, sc->size);
 
-  assert(sc->endian == 1);
+    if (bytes_zero(out, sc->size))
+      continue;
 
-  /* Shift by the remaining bits. */
-  /* Note that the message length is not secret. */
-  if (msg_len * 8 > sc->bits) {
-    size_t shift = msg_len * 8 - sc->bits;
-    unsigned char mask = (1 << shift) - 1;
-    unsigned char cy = 0;
-    size_t i;
+    if (!bytes_lt(out, sc->raw, sc->size, sc->endian))
+      continue;
 
-    assert(shift < 8);
-
-    for (i = 0; i < msg_len; i++) {
-      unsigned char ch = msg[i];
-
-      tmp[i] = (cy << (8 - shift)) | (ch >> shift);
-      cy = ch & mask;
-    }
+    break;
   }
 
-  ret = sc_import_reduce(sc, r, tmp);
+  cleanse(&rng, sizeof(drbg_t));
+}
 
-  cleanse(tmp, sizeof(tmp));
+static int
+ecdsa_privkey_verify(wei_t *ec, const unsigned char *priv) {
+  scalar_field_t *sc = &ec->sc;
+  int ret = 1;
 
+  ret &= bytes_zero(priv, sc->size) ^ 1;
+  ret &= bytes_lt(priv, sc->raw, sc->size, sc->endian);
+
+  return ret;
+}
+
+static int
+ecdsa_privkey_tweak_add(wei_t *ec,
+                        unsigned char *out,
+                        const unsigned char *priv,
+                        const unsigned char *tweak) {
+  scalar_field_t *sc = &ec->sc;
+  sc_t a, t;
+  int ret = 0;
+
+  if (!sc_import(sc, a, priv))
+    goto fail;
+
+  if (sc_is_zero(sc, a))
+    goto fail;
+
+  if (!sc_import(sc, t, tweak))
+    goto fail;
+
+  sc_add(sc, a, a, t);
+
+  if (sc_is_zero(sc, a))
+    goto fail;
+
+  sc_export(sc, out, a);
+
+  ret = 1;
+fail:
+  sc_cleanse(sc, a);
+  sc_cleanse(sc, t);
+  return ret;
+}
+
+static int
+ecdsa_privkey_tweak_mul(wei_t *ec,
+                        unsigned char *out,
+                        const unsigned char *priv,
+                        const unsigned char *tweak) {
+  scalar_field_t *sc = &ec->sc;
+  sc_t a, t;
+  int ret = 0;
+
+  if (!sc_import(sc, a, priv))
+    goto fail;
+
+  if (sc_is_zero(sc, a))
+    goto fail;
+
+  if (!sc_import(sc, t, tweak))
+    goto fail;
+
+  sc_mul(sc, a, a, t);
+
+  if (sc_is_zero(sc, a))
+    goto fail;
+
+  sc_export(sc, out, a);
+
+  ret = 1;
+fail:
+  sc_cleanse(sc, a);
+  sc_cleanse(sc, t);
+  return ret;
+}
+
+static int
+ecdsa_privkey_reduce(wei_t *ec,
+                     unsigned char *out,
+                     const unsigned char *bytes,
+                     size_t len) {
+  scalar_field_t *sc = &ec->sc;
+  unsigned char key[MAX_SCALAR_SIZE];
+  sc_t a;
+  int ret = 0;
+
+  if (len > sc->size)
+    len = sc->size;
+
+  memset(key, 0x00, sc->size - len);
+  memcpy(key + sc->size - len, bytes, len);
+
+  sc_import_reduce(sc, a, key);
+
+  if (sc_is_zero(sc, a))
+    goto fail;
+
+  sc_export(sc, out, a);
+
+  ret = 1;
+fail:
+  cleanse(key, sizeof(key));
+  sc_cleanse(sc, a);
+  return ret;
+}
+
+static int
+ecdsa_privkey_negate(wei_t *ec,
+                     unsigned char *out,
+                     const unsigned char *priv) {
+  scalar_field_t *sc = &ec->sc;
+  sc_t a;
+  int ret = 0;
+
+  if (!sc_import(sc, a, priv))
+    goto fail;
+
+  if (sc_is_zero(sc, a))
+    goto fail;
+
+  sc_neg(sc, a, a);
+  sc_export(sc, out, a);
+
+  ret = 1;
+fail:
+  sc_cleanse(sc, a);
+  return ret;
+}
+
+static int
+ecdsa_privkey_invert(wei_t *ec,
+                     unsigned char *out,
+                     const unsigned char *priv) {
+  scalar_field_t *sc = &ec->sc;
+  sc_t a;
+  int ret = 0;
+
+  if (!sc_import(sc, a, priv))
+    goto fail;
+
+  if (sc_is_zero(sc, a))
+    goto fail;
+
+  sc_invert(sc, a, a);
+  sc_export(sc, out, a);
+
+  ret = 1;
+fail:
+  sc_cleanse(sc, a);
   return ret;
 }
 
@@ -6121,12 +6445,559 @@ fail:
 }
 
 static int
+ecdsa_pubkey_convert(wei_t *ec,
+                     unsigned char *out,
+                     size_t *out_len,
+                     const unsigned char *pub,
+                     size_t pub_len,
+                     int compact) {
+  wge_t A;
+
+  if (!wge_import(ec, &A, pub, pub_len))
+    return 0;
+
+  return wge_export(ec, out, out_len, &A, compact);
+}
+
+static int
+ecdsa_pubkey_from_uniform(wei_t *ec,
+                          unsigned char *out,
+                          size_t *out_len,
+                          const unsigned char *bytes,
+                          int compact) {
+  assert(0);
+}
+
+static int
+ecdsa_pubkey_to_uniform(wei_t *ec,
+                        unsigned char *out,
+                        const unsigned char *pub,
+                        size_t pub_len,
+                        unsigned int hint) {
+  assert(0);
+}
+
+static int
+ecdsa_pubkey_from_hash(wei_t *ec,
+                       unsigned char *out,
+                       size_t *out_len,
+                       const unsigned char *bytes,
+                       int compact) {
+  assert(0);
+}
+
+static int
+ecdsa_pubkey_to_hash(wei_t *ec,
+                     unsigned char *out,
+                     const unsigned char *pub,
+                     size_t pub_len,
+                     const unsigned char *seed) {
+  assert(0);
+}
+
+static int
+ecdsa_pubkey_verify(wei_t *ec,
+                    unsigned char *out,
+                    const unsigned char *pub,
+                    size_t pub_len,
+                    int compact) {
+  wge_t A;
+
+  return wge_import(ec, &A, pub, pub_len);
+}
+
+static int
+ecdsa_pubkey_tweak_add(wei_t *ec,
+                       unsigned char *out,
+                       size_t *out_len,
+                       const unsigned char *pub,
+                       size_t pub_len,
+                       const unsigned char *tweak,
+                       int compact) {
+  scalar_field_t *sc = &ec->sc;
+  wge_t A, T;
+  sc_t t;
+
+  if (!wge_import(ec, &A, pub, pub_len))
+    return 0;
+
+  if (!sc_import(sc, t, tweak))
+    return 0;
+
+  wei_mul_g(ec, &T, t);
+  wge_add(ec, &A, &A, &T);
+
+  sc_cleanse(sc, t);
+
+  return wge_export(ec, out, out_len, &A, compact);
+}
+
+static int
+ecdsa_pubkey_tweak_mul(wei_t *ec,
+                       unsigned char *out,
+                       size_t *out_len,
+                       const unsigned char *pub,
+                       size_t pub_len,
+                       const unsigned char *tweak,
+                       int compact) {
+  scalar_field_t *sc = &ec->sc;
+  wge_t A;
+  sc_t t;
+
+  if (!wge_import(ec, &A, pub, pub_len))
+    return 0;
+
+  if (!sc_import(sc, t, tweak))
+    return 0;
+
+  wei_mul(ec, &A, &A, t);
+
+  sc_cleanse(sc, t);
+
+  return wge_export(ec, out, out_len, &A, compact);
+}
+
+static int
+ecdsa_pubkey_add(wei_t *ec,
+                 unsigned char *out,
+                 size_t *out_len,
+                 const unsigned char *pub1,
+                 size_t pub1_len,
+                 const unsigned char *pub2,
+                 size_t pub2_len,
+                 int compact) {
+  wge_t A1, A2;
+
+  if (!wge_import(ec, &A1, pub1, pub1_len))
+    return 0;
+
+  if (!wge_import(ec, &A2, pub2, pub2_len))
+    return 0;
+
+  wge_add(ec, &A1, &A1, &A2);
+
+  return wge_export(ec, out, out_len, &A1, compact);
+}
+
+static int
+ecdsa_pubkey_combine(wei_t *ec,
+                     unsigned char *out,
+                     size_t *out_len,
+                     const unsigned char **pubs,
+                     size_t *pub_lens,
+                     size_t len,
+                     int compact) {
+  wge_t Q;
+  jge_t P, A;
+  size_t i;
+
+  jge_zero(ec, &P);
+
+  for (i = 0; i < len; i++) {
+    if (!wge_import(ec, &Q, pubs[i], pub_lens[i]))
+      return 0;
+
+    wge_to_jge(ec, &A, &Q);
+    jge_add(ec, &P, &P, &A);
+  }
+
+  jge_to_wge(ec, &Q, &P);
+
+  return wge_export(ec, out, out_len, &Q, compact);
+}
+
+static int
+ecdsa_pubkey_negate(wei_t *ec,
+                    unsigned char *out,
+                    size_t *out_len,
+                    const unsigned char *pub,
+                    size_t pub_len,
+                    int compact) {
+  wge_t A;
+
+  if (!wge_import(ec, &A, pub, pub_len))
+    return 0;
+
+  wge_neg(ec, &A, &A);
+
+  return wge_export(ec, out, out_len, &A, compact);
+}
+
+static int
+ecdsa_sig_normalize(wei_t *ec,
+                    unsigned char *out,
+                    const unsigned char *sig) {
+  scalar_field_t *sc = &ec->sc;
+  sc_t r, s;
+
+  if (!sc_import(sc, r, sig))
+    return 0;
+
+  if (sc_is_zero(sc, r))
+    return 0;
+
+  if (!sc_import(sc, s, sig + sc->size))
+    return 0;
+
+  if (sc_is_zero(sc, s))
+    return 0;
+
+  if (sc_is_high_var(sc, s))
+    sc_neg(sc, s, s);
+
+  sc_export(sc, out, r);
+  sc_export(sc, out + sc->size, r);
+
+  return 1;
+}
+
+static int
+ecdsa_sig_export(wei_t *ec,
+                 unsigned char *out,
+                 size_t *out_len,
+                 const unsigned char *sig) {
+  scalar_field_t *sc = &ec->sc;
+  unsigned char r[MAX_SCALAR_SIZE + 1];
+  unsigned char s[MAX_SCALAR_SIZE + 1];
+  const unsigned char *rp = sig;
+  const unsigned char *sp = sig + sc->size;
+  size_t rlen = sc->size;
+  size_t slen = sc->size;
+  size_t rn, sn, seq, wide, len;
+
+  memset(r, 0x00, sc->size + 1);
+  memset(s, 0x00, sc->size + 1);
+
+  assert(sc->size < 0x7d);
+
+  while (rlen > 1 && rp[0] == 0)
+    rlen--, rp++;
+
+  while (slen > 1 && sp[0] == 0)
+    slen--, sp++;
+
+  rn = (rp[0] & 0x80) ? 1 : 0;
+  sn = (sp[0] & 0x80) ? 1 : 0;
+
+  memcpy(r + rn, rp, rlen);
+  memcpy(s + sn, sp, slen);
+
+  rlen += rn;
+  slen += sn;
+
+  seq = 2 + rlen + 2 + slen;
+  wide = seq >= 0x80 ? 1 : 0;
+  len = 2 + wide + seq;
+
+  if (len > *out_len)
+    return 0;
+
+  *(out++) = 0x30;
+
+  if (wide)
+    *(out++) = 0x81;
+
+  *(out++) = seq;
+  *(out++) = 0x02;
+  *(out++) = rlen;
+
+  memcpy(out, r, rlen);
+  out += rlen;
+
+  *(out++) = 0x02;
+  *(out++) = slen;
+
+  memcpy(out, s, slen);
+  out += slen;
+
+  *out_len = len;
+
+  return 1;
+}
+
+static int
+ecdsa_sig_import(wei_t *ec,
+                 unsigned char *out,
+                 const unsigned char *der,
+                 size_t der_len) {
+  scalar_field_t *sc = &ec->sc;
+  unsigned char *r = out;
+  unsigned char *s = out + sc->size;
+  size_t rpos, rlen, spos, slen;
+  size_t pos = 0;
+  size_t lenbyte;
+
+  /* Sequence tag byte */
+  if (pos == der_len || der[pos] != 0x30)
+    return 0;
+
+  pos++;
+
+  /* Sequence length bytes */
+  if (pos == der_len)
+    return 0;
+
+  lenbyte = der[pos++];
+
+  if (lenbyte & 0x80) {
+    lenbyte -= 0x80;
+
+    if (pos + lenbyte > der_len)
+      return 0;
+
+    pos += lenbyte;
+  }
+
+  /* Integer tag byte for R */
+  if (pos == der_len || der[pos] != 0x02)
+    return 0;
+
+  pos++;
+
+  /* Integer length for R */
+  if (pos == der_len)
+    return 0;
+
+  lenbyte = der[pos++];
+
+  if (lenbyte & 0x80) {
+    lenbyte -= 0x80;
+
+    if (pos + lenbyte > der_len)
+      return 0;
+
+    while (lenbyte > 0 && der[pos] == 0) {
+      pos++;
+      lenbyte--;
+    }
+
+    if (lenbyte >= sizeof(size_t))
+      return 0;
+
+    rlen = 0;
+
+    while (lenbyte > 0) {
+      rlen = (rlen << 8) + der[pos];
+      pos++;
+      lenbyte--;
+    }
+  } else {
+    rlen = lenbyte;
+  }
+
+  if (rlen > der_len - pos)
+    return 0;
+
+  rpos = pos;
+  pos += rlen;
+
+  /* Integer tag byte for S */
+  if (pos == der_len || der[pos] != 0x02)
+    return 0;
+
+  pos++;
+
+  /* Integer length for S */
+  if (pos == der_len)
+    return 0;
+
+  lenbyte = der[pos++];
+
+  if (lenbyte & 0x80) {
+    lenbyte -= 0x80;
+
+    if (pos + lenbyte > der_len)
+      return 0;
+
+    while (lenbyte > 0 && der[pos] == 0) {
+      pos++;
+      lenbyte--;
+    }
+
+    if (lenbyte >= sizeof(size_t))
+      return 0;
+
+    slen = 0;
+
+    while (lenbyte > 0) {
+      slen = (slen << 8) + der[pos];
+      pos++;
+      lenbyte--;
+    }
+  } else {
+    slen = lenbyte;
+  }
+
+  if (slen > der_len - pos)
+    return 0;
+
+  spos = pos;
+  pos += slen;
+
+  /* Ignore leading zeroes in R */
+  while (rlen > 0 && der[rpos] == 0) {
+    rlen--;
+    rpos++;
+  }
+
+  /* Copy R value */
+  if (rlen > sc->size) {
+    memset(r, 0x00, sc->size);
+  } else {
+    memset(r, 0x00, sc->size - rlen);
+    memcpy(r + sc->size - rlen, der + rpos, rlen);
+  }
+
+  /* Ignore leading zeroes in S */
+  while (slen > 0 && der[spos] == 0) {
+    slen--;
+    spos++;
+  }
+
+  /* Copy S value */
+  if (slen > sc->size) {
+    memset(s, 0x00, sc->size);
+  } else {
+    memset(s, 0x00, sc->size - slen);
+    memcpy(s + sc->size - slen, der + spos, slen);
+  }
+
+  return 1;
+}
+
+static int
+ecdsa_is_low_s(wei_t *ec, const unsigned char *sig) {
+  scalar_field_t *sc = &ec->sc;
+  sc_t r, s;
+
+  if (!sc_import(sc, r, sig))
+    return 0;
+
+  if (sc_is_zero(sc, r))
+    return 0;
+
+  if (!sc_import(sc, s, sig + sc->size))
+    return 0;
+
+  if (sc_is_zero(sc, s))
+    return 0;
+
+  if (sc_is_high_var(sc, s))
+    return 0;
+
+  return 1;
+}
+
+static int
+ecdsa_reduce(wei_t *ec, sc_t r, const unsigned char *msg, size_t msg_len) {
+  /* Byte array to integer conversion.
+   *
+   * [SEC1] Step 5, Page 45, Section 4.1.3.
+   * [FIPS186] Page 25, Section B.2.
+   *
+   * The two sources above disagree on this.
+   *
+   * FIPS186 simply modulos the entire byte
+   * array by the order, whereas SEC1 takes
+   * the left-most ceil(log2(n)) bits modulo
+   * the order (and maybe does other stuff).
+   *
+   * Instead of trying to decipher all of
+   * this nonsense, we simply replicate the
+   * OpenSSL behavior (which, in actuality,
+   * is more similar to the SEC1 behavior).
+   */
+  scalar_field_t *sc = &ec->sc;
+  unsigned char tmp[MAX_SCALAR_SIZE];
+  int ret;
+
+  /* Truncate. */
+  if (msg_len > sc->size)
+    msg_len = sc->size;
+
+  /* Copy and pad. */
+  memset(tmp, 0x00, sc->size - msg_len);
+  memcpy(tmp + sc->size - msg_len, msg, msg_len);
+
+  assert(sc->endian == 1);
+
+  /* Shift by the remaining bits. */
+  /* Note that the message length is not secret. */
+  if (msg_len * 8 > sc->bits) {
+    size_t shift = msg_len * 8 - sc->bits;
+    unsigned char mask = (1 << shift) - 1;
+    unsigned char cy = 0;
+    size_t i;
+
+    assert(shift > 0);
+    assert(shift < 8);
+
+    for (i = 0; i < msg_len; i++) {
+      unsigned char ch = msg[i];
+
+      tmp[i] = (cy << (8 - shift)) | (ch >> shift);
+      cy = ch & mask;
+    }
+  }
+
+  ret = sc_import_reduce(sc, r, tmp);
+
+  cleanse(tmp, sizeof(tmp));
+
+  return ret;
+}
+
+static int
 ecdsa_sign(wei_t *ec,
            unsigned char *sig,
            unsigned int *param,
            const unsigned char *msg,
            size_t msg_len,
            const unsigned char *priv) {
+  /* ECDSA Signing.
+   *
+   * [SEC1] Page 44, Section 4.1.3.
+   * [GECC] Algorithm 4.29, Page 184, Section 4.4.1.
+   * [RFC6979] Page 9, Section 2.4.
+   * [RFC6979] Page 10, Section 3.2.
+   *
+   * Assumptions:
+   *
+   *   - Let `m` be an integer reduced from bytes.
+   *   - Let `a` be a secret non-zero scalar.
+   *   - Let `k` be a random non-zero scalar.
+   *   - R != O, r != 0, s != 0.
+   *
+   * Computation:
+   *
+   *   k = random integer in [1,n-1]
+   *   R = G * k
+   *   r = x(R) mod n
+   *   s = (r * a + m) / k mod n
+   *   s = -s mod n, if s > n / 2
+   *   S = (r, s)
+   *
+   * Note that `k` must remain secret,
+   * otherwise an attacker can compute:
+   *
+   *   a = (s * k - m) / r mod n
+   *
+   * This means that if two signatures
+   * share the same `r` value, an attacker
+   * can compute:
+   *
+   *   k = (m1 - m2) / (+-s1 - +-s2) mod n
+   *   a = (s1 * k - m1) / r mod n
+   *
+   * Assuming:
+   *
+   *   s1 = (r * a + m1) / k mod n
+   *   s2 = (r * a + m2) / k mod n
+   *
+   * To mitigate this, `k` can be generated
+   * deterministically using the HMAC-DRBG
+   * construction described in [RFC6979].
+   */
   prime_field_t *fe = &ec->fe;
   scalar_field_t *sc = &ec->sc;
   drbg_t rng;
@@ -6213,10 +7084,41 @@ ecdsa_verify(wei_t *ec,
              const unsigned char *sig,
              const unsigned char *pub,
              size_t pub_len) {
+  /* ECDSA Verification.
+   *
+   * [SEC1] Page 46, Section 4.1.4.
+   * [GECC] Algorithm 4.30, Page 184, Section 4.4.1.
+   *
+   * Assumptions:
+   *
+   *   - Let `m` be an integer reduced from bytes.
+   *   - Let `r` and `s` be signature elements.
+   *   - Let `A` be a valid group element.
+   *   - r != 0, r < n.
+   *   - s != 0, s < n.
+   *   - R != O.
+   *
+   * Computation:
+   *
+   *   u1 = m / s mod n
+   *   u2 = r / s mod n
+   *   R = G * u1 + A * u2
+   *   r == x(R) mod n
+   *
+   * Note that the signer can verify their
+   * own signatures more efficiently with:
+   *
+   *   R = G * ((u1 + u2 * a) mod n)
+   *
+   * Furthermore, we can avoid affinization
+   * of `R` by scaling `r` by `z^2` and
+   * repeatedly adding `n * z^2` to it up
+   * to a certain threshold.
+   */
   scalar_field_t *sc = &ec->sc;
   sc_t m, r, s, u1, u2;
   wge_t A;
-  jge_t R;
+  jge_t Rj;
 #ifndef WITH_TRICK
   prime_field_t *fe = &ec->fe;
   wge_t Ra;
@@ -6242,17 +7144,17 @@ ecdsa_verify(wei_t *ec,
   sc_mul(sc, u2, r, s);
 
   if (ec->endo)
-    wei_jmul_double_endo_var(ec, &R, u1, &A, u2);
+    wei_jmul_double_endo_var(ec, &Rj, u1, &A, u2);
   else
-    wei_jmul_double_var(ec, &R, u1, &A, u2);
+    wei_jmul_double_var(ec, &Rj, u1, &A, u2);
 
 #ifdef WITH_TRICK
-  return jge_equal_r(ec, &R, r);
+  return jge_equal_r(ec, &Rj, r);
 #else
-  if (jge_is_zero(ec, &R))
+  if (jge_is_zero(ec, &Rj))
     return 0;
 
-  jge_to_wge(ec, &Ra, &R);
+  jge_to_wge_var(ec, &Ra, &Rj);
   sc_set_fe(sc, fe, re, Ra.x);
 
   return sc_equal(sc, r, re);
@@ -6268,6 +7170,35 @@ ecdsa_recover(wei_t *ec,
               const unsigned char *sig,
               unsigned int param,
               int compact) {
+  /* ECDSA Public Key Recovery.
+   *
+   * [SEC1] Page 47, Section 4.1.6.
+   *
+   * Assumptions:
+   *
+   *   - Let `m` be an integer reduced from bytes.
+   *   - Let `r` and `s` be signature elements.
+   *   - Let `i` be an integer in [0,3].
+   *   - x^3 + a * x + b is square in F(p).
+   *   - If i > 1 then r < (p mod n).
+   *   - r != 0, r < n.
+   *   - s != 0, s < n.
+   *   - A != O.
+   *
+   * Computation:
+   *
+   *   x = r + n, if i > 1
+   *     = r, otherwise
+   *   R' = (x, sqrt(x^3 + a * x + b))
+   *   R = -R', if i mod 2 == 1
+   *     = +R', otherwise
+   *   s1 = m / r mod n
+   *   s2 = s / r mod n
+   *   A = R * s2 - G * s1
+   *
+   * Note that this implementation will have
+   * trouble on curves where `p / n > 1`.
+   */
   prime_field_t *fe = &ec->fe;
   scalar_field_t *sc = &ec->sc;
   unsigned int sign = param & 1;
@@ -6348,9 +7279,761 @@ fail:
   return ret;
 }
 
+static int
+ecdsa_schnorr_sign(wei_t *ec,
+                   unsigned char *sig,
+                   const unsigned char *msg,
+                   const unsigned char *priv) {
+  /* Schnorr Signing.
+   *
+   * [SCHNORR] "Signing".
+   * [CASH] "Recommended practices for secure signature generation".
+   *
+   * Assumptions:
+   *
+   *   - Let `H` be a cryptographic hash function.
+   *   - Let `m` be a 32-byte array.
+   *   - Let `a` be a secret non-zero scalar.
+   *   - k != 0.
+   *
+   * Computation:
+   *
+   *   A = G * a
+   *   k = H(a, m) mod n
+   *   R = G * k
+   *   k = -k mod n, if y(R) is not square
+   *   r = x(R)
+   *   e = H(r, A, m) mod n
+   *   s = (k + e * a) mod n
+   *   S = (r, s)
+   *
+   * Note that `k` must remain secret,
+   * otherwise an attacker can compute:
+   *
+   *   a = (s - k) / e mod n
+   */
+  prime_field_t *fe = &ec->fe;
+  scalar_field_t *sc = &ec->sc;
+  unsigned char *Rraw = sig;
+  unsigned char *sraw = sig + fe->size;
+  unsigned char bytes[MAX_FIELD_SIZE];
+  unsigned char Araw[MAX_FIELD_SIZE + 1];
+  sc_t a, k, e, s;
+  wge_t A, R;
+  hash_t h;
+  int ret = 0;
+
+  assert(MAX_FIELD_SIZE >= MAX_HASH_SIZE);
+  memset(bytes, 0x00, fe->size);
+
+  if (!sc_import(sc, a, priv))
+    goto fail;
+
+  if (sc_is_zero(sc, a))
+    goto fail;
+
+  wei_mul_g(ec, &A, a);
+
+  hash_init(&h, ec->hash);
+  hash_update(&h, priv, sc->size);
+  hash_update(&h, msg, 32);
+  hash_final(&h, bytes, sc->size);
+
+  sc_import_reduce(sc, k, bytes);
+
+  if (sc_is_zero(sc, k))
+    goto fail;
+
+  wei_mul_g(ec, &R, k);
+
+  sc_neg_cond(sc, k, k, wge_is_square(ec, &R) ^ 1);
+
+  wge_export_x(ec, Rraw, &R);
+  wge_export(ec, Araw, NULL, &A, 1);
+
+  hash_init(&h, ec->hash);
+  hash_update(&h, Rraw, fe->size);
+  hash_update(&h, Araw, fe->size + 1);
+  hash_update(&h, msg, 32);
+  hash_final(&h, bytes, sc->size);
+
+  sc_import_reduce(sc, e, bytes);
+
+  sc_mul(sc, s, e, a);
+  sc_add(sc, s, s, k);
+
+  sc_export(sc, sraw, s);
+
+  ret = 1;
+fail:
+  cleanse(bytes, sizeof(bytes));
+  cleanse(Araw, sizeof(Araw));
+  sc_cleanse(sc, a);
+  sc_cleanse(sc, k);
+  sc_cleanse(sc, e);
+  sc_cleanse(sc, s);
+  wge_cleanse(ec, &A);
+  wge_cleanse(ec, &R);
+  cleanse(&h, sizeof(h));
+  return ret;
+}
+
+static int
+ecdsa_schnorr_verify(wei_t *ec,
+                     const unsigned char *msg,
+                     const unsigned char *sig,
+                     const unsigned char *pub,
+                     size_t pub_len) {
+  /* Schnorr Verification.
+   *
+   * [SCHNORR] "Verification".
+   * [CASH] "Signature verification algorithm".
+   *
+   * Assumptions:
+   *
+   *   - Let `H` be a cryptographic hash function.
+   *   - Let `m` be a 32-byte array.
+   *   - Let `r` and `s` be signature elements.
+   *   - Let `A` be a valid group element.
+   *   - r^3 + a * r + b is square in F(p).
+   *   - r < p, s < n.
+   *   - R != O.
+   *
+   * Computation:
+   *
+   *   R = (r, sqrt(r^3 + a * r + b))
+   *   e = H(r, A, m) mod n
+   *   R == G * s - A * e
+   *
+   * We can skip a square root with:
+   *
+   *   e = H(r, A, m) mod n
+   *   R = G * s - A * e
+   *   y(R) is square
+   *   x(R) == r
+   *
+   * We can also avoid affinization by
+   * replacing the two assertions with:
+   *
+   *   (y(R) * z(R) mod p) is square
+   *   x(R) == r * z(R)^2 mod p
+   *
+   * Furthermore, squareness can be calculated
+   * with a variable time Jacobi symbol algorithm.
+   */
+  prime_field_t *fe = &ec->fe;
+  scalar_field_t *sc = &ec->sc;
+  const unsigned char *Rraw = sig;
+  const unsigned char *sraw = sig + fe->size;
+  unsigned char bytes[MAX_FIELD_SIZE];
+  unsigned char Araw[MAX_FIELD_SIZE + 1];
+  fe_t r;
+  sc_t s, e;
+  wge_t A;
+  jge_t R;
+  hash_t h;
+
+  assert(MAX_FIELD_SIZE >= MAX_HASH_SIZE);
+  memset(bytes, 0x00, fe->size);
+
+  if (!fe_import(fe, r, Rraw))
+    return 0;
+
+  if (!sc_import(sc, s, sraw))
+    return 0;
+
+  if (!wge_import(ec, &A, pub, pub_len))
+    return 0;
+
+  wge_export(ec, Araw, NULL, &A, 1);
+
+  hash_init(&h, ec->hash);
+  hash_update(&h, Rraw, fe->size);
+  hash_update(&h, Araw, fe->size + 1);
+  hash_update(&h, msg, 32);
+  hash_final(&h, bytes, sc->size);
+
+  sc_import_reduce(sc, e, bytes);
+  sc_neg(sc, e, e);
+
+  if (ec->endo)
+    wei_jmul_double_endo_var(ec, &R, s, &A, e);
+  else
+    wei_jmul_double_var(ec, &R, s, &A, e);
+
+  if (!jge_is_square_var(ec, &R))
+    return 0;
+
+  if (!jge_equal_x(ec, &R, r))
+    return 0;
+
+  return 1;
+}
+
+/*
+ * Schnorr
+ */
+
+static void
+schnorr_privkey_generate(wei_t *ec,
+                         unsigned char *out,
+                         const unsigned char *seed) {
+  return ecdsa_privkey_generate(ec, out, seed);
+}
+
+static int
+schnorr_privkey_verify(wei_t *ec, const unsigned char *priv) {
+  return ecdsa_privkey_verify(ec, priv);
+}
+
+static int
+schnorr_privkey_export(wei_t *ec,
+                       unsigned char *out,
+                       const unsigned char *priv) {
+  scalar_field_t *sc = &ec->sc;
+  sc_t a;
+  jge_t A;
+  int ret = 0;
+
+  if (!sc_import(sc, a, priv))
+    goto fail;
+
+  wei_jmul_g(ec, &A, a);
+
+  if (!jge_is_square_var(ec, &A))
+    sc_neg(sc, a, a);
+
+  sc_export(sc, out, a);
+
+  ret = 1;
+fail:
+  sc_cleanse(sc, a);
+  jge_cleanse(ec, &A);
+  return ret;
+}
+
+static int
+schnorr_privkey_import(wei_t *ec,
+                       unsigned char *out,
+                       const unsigned char *bytes) {
+  scalar_field_t *sc = &ec->sc;
+
+  if (!schnorr_privkey_verify(ec, bytes))
+    return 0;
+
+  memcpy(out, bytes, sc->size);
+
+  return 1;
+}
+
+static int
+schnorr_privkey_tweak_add(wei_t *ec,
+                          unsigned char *out,
+                          const unsigned char *priv,
+                          const unsigned char *tweak) {
+  scalar_field_t *sc = &ec->sc;
+  sc_t a, t;
+  jge_t A;
+  int ret = 0;
+
+  if (!sc_import(sc, a, priv))
+    goto fail;
+
+  if (sc_is_zero(sc, a))
+    goto fail;
+
+  if (!sc_import(sc, t, tweak))
+    goto fail;
+
+  wei_jmul_g(ec, &A, a);
+
+  if (!jge_is_square_var(ec, &A))
+    sc_neg(sc, a, a);
+
+  sc_add(sc, a, a, t);
+
+  if (sc_is_zero(sc, a))
+    goto fail;
+
+  sc_export(sc, out, a);
+
+  ret = 1;
+fail:
+  sc_cleanse(sc, a);
+  sc_cleanse(sc, t);
+  jge_cleanse(ec, &A);
+  return ret;
+}
+
+static int
+schnorr_privkey_tweak_mul(wei_t *ec,
+                          unsigned char *out,
+                          const unsigned char *priv,
+                          const unsigned char *tweak) {
+  return ecdsa_privkey_tweak_mul(ec, out, priv, tweak);
+}
+
+static int
+schnorr_privkey_reduce(wei_t *ec,
+                       unsigned char *out,
+                       const unsigned char *bytes,
+                       size_t len) {
+  return ecdsa_privkey_reduce(ec, out, bytes, len);
+}
+
+static int
+schnorr_privkey_invert(wei_t *ec,
+                       unsigned char *out,
+                       const unsigned char *priv) {
+  return ecdsa_privkey_invert(ec, out, priv);
+}
+
+static int
+schnorr_pubkey_create(wei_t *ec,
+                      unsigned char *pub,
+                      const unsigned char *priv) {
+  scalar_field_t *sc = &ec->sc;
+  sc_t a;
+  wge_t A;
+  int ret = 0;
+
+  if (!sc_import(sc, a, priv))
+    goto fail;
+
+  if (sc_is_zero(sc, a))
+    goto fail;
+
+  wei_mul_g(ec, &A, a);
+
+  if (!wge_export_x(ec, pub, &A))
+    goto fail;
+
+  ret = 1;
+fail:
+  sc_cleanse(sc, a);
+  wge_cleanse(ec, &A);
+  return ret;
+}
+
+static int
+schnorr_pubkey_from_uniform(wei_t *ec,
+                            unsigned char *out,
+                            const unsigned char *bytes) {
+  assert(0);
+}
+
+static int
+schnorr_pubkey_to_uniform(wei_t *ec,
+                          unsigned char *out,
+                          const unsigned char *pub,
+                          unsigned int hint) {
+  assert(0);
+}
+
+static int
+schnorr_pubkey_from_hash(wei_t *ec,
+                         unsigned char *out,
+                         const unsigned char *bytes) {
+  assert(0);
+}
+
+static int
+schnorr_pubkey_to_hash(wei_t *ec,
+                       unsigned char *out,
+                       const unsigned char *pub,
+                       const unsigned char *seed) {
+  assert(0);
+}
+
+static int
+schnorr_pubkey_verify(wei_t *ec,
+                      unsigned char *out,
+                      const unsigned char *pub) {
+  wge_t A;
+
+  return wge_import_x(ec, &A, pub);
+}
+
+static int
+schnorr_pubkey_export(wei_t *ec,
+                      unsigned char *out,
+                      size_t *out_len,
+                      const unsigned char *pub,
+                      int compact) {
+  wge_t A;
+
+  if (!wge_import_x(ec, &A, pub))
+    return 0;
+
+  return wge_export(ec, out, out_len, &A, compact);
+}
+
+static int
+schnorr_pubkey_import(wei_t *ec,
+                      unsigned char *out,
+                      const unsigned char *pub,
+                      size_t pub_len) {
+  wge_t A;
+
+  if (!wge_import(ec, &A, pub, pub_len))
+    return 0;
+
+  return wge_export_x(ec, out, &A);
+}
+
+static int
+schnorr_pubkey_tweak_add(wei_t *ec,
+                         unsigned char *out,
+                         const unsigned char *pub,
+                         const unsigned char *tweak) {
+  scalar_field_t *sc = &ec->sc;
+  wge_t A, T;
+  sc_t t;
+
+  if (!wge_import_x(ec, &A, pub))
+    return 0;
+
+  if (!sc_import(sc, t, tweak))
+    return 0;
+
+  wei_mul_g(ec, &T, t);
+  wge_add(ec, &A, &A, &T);
+
+  sc_cleanse(sc, t);
+
+  return wge_export_x(ec, out, &A);
+}
+
+static int
+schnorr_pubkey_tweak_mul(wei_t *ec,
+                       unsigned char *out,
+                       const unsigned char *pub,
+                       const unsigned char *tweak) {
+  scalar_field_t *sc = &ec->sc;
+  wge_t A;
+  sc_t t;
+
+  if (!wge_import_x(ec, &A, pub))
+    return 0;
+
+  if (!sc_import(sc, t, tweak))
+    return 0;
+
+  wei_mul(ec, &A, &A, t);
+
+  sc_cleanse(sc, t);
+
+  return wge_export_x(ec, out, &A);
+}
+
+static int
+schnorr_pubkey_add(wei_t *ec,
+                 unsigned char *out,
+                 const unsigned char *pub1,
+                 const unsigned char *pub2) {
+  wge_t A1, A2;
+
+  if (!wge_import_x(ec, &A1, pub1))
+    return 0;
+
+  if (!wge_import_x(ec, &A2, pub2))
+    return 0;
+
+  wge_add(ec, &A1, &A1, &A2);
+
+  return wge_export_x(ec, out, &A1);
+}
+
+static int
+schnorr_pubkey_combine(wei_t *ec,
+                     unsigned char *out,
+                     const unsigned char **pubs,
+                     size_t len) {
+  wge_t Q;
+  jge_t P, A;
+  size_t i;
+
+  jge_zero(ec, &P);
+
+  for (i = 0; i < len; i++) {
+    if (!wge_import_x(ec, &Q, pubs[i]))
+      return 0;
+
+    wge_to_jge(ec, &A, &Q);
+    jge_add(ec, &P, &P, &A);
+  }
+
+  jge_to_wge(ec, &Q, &P);
+
+  return wge_export_x(ec, out, &Q);
+}
+
+static void
+schnorr_hash_init(wei_t *ec, hash_t *h, const char *tag) {
+  size_t size = hash_output_size(ec->hash);
+  unsigned char bytes[MAX_HASH_SIZE * 2];
+
+  hash_init(h, ec->hash);
+  hash_update(h, tag, strlen(tag));
+  hash_final(h, bytes, ec->sc.size);
+  memcpy(bytes + size, bytes, size);
+
+  hash_init(h, ec->hash);
+  hash_update(h, bytes, size * 2);
+}
+
+static int
+schnorr_sign(wei_t *ec,
+             unsigned char *sig,
+             const unsigned char *msg,
+             const unsigned char *priv) {
+  /* Schnorr Signing.
+   *
+   * [SCHNORR] "Default Signing".
+   *
+   * Assumptions:
+   *
+   *   - Let `H` be a cryptographic hash function.
+   *   - Let `m` be a 32-byte array.
+   *   - Let `a` be a secret non-zero scalar.
+   *   - k != 0.
+   *
+   * Computation:
+   *
+   *   A = G * a
+   *   a = -a mod n, if y(A) is not square
+   *   k = H("BIPSchnorrDerive", a, m) mod n
+   *   R = G * k
+   *   k = -k mod n, if y(R) is not square
+   *   r = x(R)
+   *   x = x(A)
+   *   e = H("BIPSchnorr", r, x, m) mod n
+   *   s = (k + e * a) mod n
+   *   S = (r, s)
+   *
+   * Note that `k` must remain secret,
+   * otherwise an attacker can compute:
+   *
+   *   a = (s - k) / e mod n
+   */
+  prime_field_t *fe = &ec->fe;
+  scalar_field_t *sc = &ec->sc;
+  unsigned char *Rraw = sig;
+  unsigned char *sraw = sig + fe->size;
+  unsigned char bytes[MAX_FIELD_SIZE];
+  unsigned char araw[MAX_SCALAR_SIZE];
+  unsigned char Araw[MAX_FIELD_SIZE];
+  sc_t a, k, e, s;
+  wge_t A, R;
+  hash_t h;
+  int ret = 0;
+
+  assert(MAX_FIELD_SIZE >= MAX_HASH_SIZE);
+  memset(bytes, 0x00, fe->size);
+
+  if (!sc_import(sc, a, priv))
+    goto fail;
+
+  if (sc_is_zero(sc, a))
+    goto fail;
+
+  wei_mul_g(ec, &A, a);
+
+  sc_neg_cond(sc, a, a, wge_is_square(ec, &A) ^ 1);
+  sc_export(sc, araw, a);
+
+  schnorr_hash_init(ec, &h, "BIPSchnorrDerive");
+  hash_update(&h, araw, sc->size);
+  hash_update(&h, msg, 32);
+  hash_final(&h, bytes, sc->size);
+
+  sc_import_reduce(sc, k, bytes);
+
+  if (sc_is_zero(sc, k))
+    goto fail;
+
+  wei_mul_g(ec, &R, k);
+
+  sc_neg_cond(sc, k, k, wge_is_square(ec, &R) ^ 1);
+
+  wge_export_x(ec, Rraw, &R);
+  wge_export_x(ec, Araw, &A);
+
+  schnorr_hash_init(ec, &h, "BIPSchnorr");
+  hash_update(&h, Rraw, fe->size);
+  hash_update(&h, Araw, fe->size);
+  hash_update(&h, msg, 32);
+  hash_final(&h, bytes, sc->size);
+
+  sc_import_reduce(sc, e, bytes);
+
+  sc_mul(sc, s, e, a);
+  sc_add(sc, s, s, k);
+
+  sc_export(sc, sraw, s);
+
+  ret = 1;
+fail:
+  cleanse(bytes, sizeof(bytes));
+  cleanse(araw, sizeof(araw));
+  cleanse(Araw, sizeof(Araw));
+  sc_cleanse(sc, a);
+  sc_cleanse(sc, k);
+  sc_cleanse(sc, e);
+  sc_cleanse(sc, s);
+  wge_cleanse(ec, &A);
+  wge_cleanse(ec, &R);
+  cleanse(&h, sizeof(h));
+  return ret;
+}
+
+static int
+schnorr_verify(wei_t *ec,
+               const unsigned char *msg,
+               const unsigned char *sig,
+               const unsigned char *pub) {
+  /* Schnorr Verification.
+   *
+   * [SCHNORR] "Verification".
+   *
+   * Assumptions:
+   *
+   *   - Let `H` be a cryptographic hash function.
+   *   - Let `m` be a 32-byte array.
+   *   - Let `r` and `s` be signature elements.
+   *   - Let `x` be a field element.
+   *   - r^3 + a * r + b is square in F(p).
+   *   - x^3 + a * x + b is square in F(p).
+   *   - r < p, s < n, x < p.
+   *   - R != O.
+   *
+   * Computation:
+   *
+   *   R = (r, sqrt(r^3 + a * r + b))
+   *   A = (x, sqrt(x^3 + a * x + b))
+   *   e = H("BIPSchnorr", r, x, m) mod n
+   *   R == G * s - A * e
+   *
+   * We can skip a square root with:
+   *
+   *   A = (x, sqrt(x^3 + a * x + b))
+   *   e = H("BIPSchnorr", r, x, m) mod n
+   *   R = G * s - A * e
+   *   y(R) is square
+   *   x(R) == r
+   *
+   * We can also avoid affinization by
+   * replacing the two assertions with:
+   *
+   *   (y(R) * z(R) mod p) is square
+   *   x(R) == r * z(R)^2 mod p
+   *
+   * Furthermore, squareness can be calculated
+   * with a variable time Jacobi symbol algorithm.
+   */
+  prime_field_t *fe = &ec->fe;
+  scalar_field_t *sc = &ec->sc;
+  const unsigned char *Rraw = sig;
+  const unsigned char *sraw = sig + fe->size;
+  unsigned char bytes[MAX_FIELD_SIZE];
+  fe_t r;
+  sc_t s, e;
+  wge_t A;
+  jge_t R;
+  hash_t h;
+
+  assert(MAX_FIELD_SIZE >= MAX_HASH_SIZE);
+  memset(bytes, 0x00, fe->size);
+
+  if (!fe_import(fe, r, Rraw))
+    return 0;
+
+  if (!sc_import(sc, s, sraw))
+    return 0;
+
+  if (!wge_import_x(ec, &A, pub))
+    return 0;
+
+  schnorr_hash_init(ec, &h, "BIPSchnorr");
+  hash_update(&h, Rraw, fe->size);
+  hash_update(&h, pub, fe->size);
+  hash_update(&h, msg, 32);
+  hash_final(&h, bytes, sc->size);
+
+  sc_import_reduce(sc, e, bytes);
+  sc_neg(sc, e, e);
+
+  if (ec->endo)
+    wei_jmul_double_endo_var(ec, &R, s, &A, e);
+  else
+    wei_jmul_double_var(ec, &R, s, &A, e);
+
+  if (!jge_is_square_var(ec, &R))
+    return 0;
+
+  if (!jge_equal_x(ec, &R, r))
+    return 0;
+
+  return 1;
+}
+
+static int
+schnorr_derive(wei_t *ec,
+             unsigned char *secret,
+             const unsigned char *pub,
+             const unsigned char *priv) {
+  scalar_field_t *sc = &ec->sc;
+  sc_t a;
+  wge_t A, P;
+  int ret = 0;
+
+  if (!sc_import(sc, a, priv))
+    goto fail;
+
+  if (sc_is_zero(sc, a))
+    goto fail;
+
+  if (!wge_import_x(ec, &A, pub))
+    goto fail;
+
+  wei_mul(ec, &P, &A, a);
+
+  if (!wge_export_x(ec, secret, &P))
+    goto fail;
+
+  ret = 1;
+fail:
+  sc_cleanse(sc, a);
+  wge_cleanse(ec, &A);
+  wge_cleanse(ec, &P);
+  return ret;
+}
+
 /*
  * ECDH
  */
+
+static void
+ecdh_privkey_generate(mont_t *ec,
+                      unsigned char *out,
+                      const unsigned char *seed) {
+  scalar_field_t *sc = &ec->sc;
+  drbg_t rng;
+
+  drbg_init(&rng, HASH_SHA256, seed, 32);
+
+  drbg_generate(&rng, out, sc->size);
+
+  mont_clamp(ec, out, out);
+
+  cleanse(&rng, sizeof(drbg_t));
+}
+
+static int
+ecdh_privkey_verify(mont_t *ec,
+                    const unsigned char *priv) {
+  return 1;
+}
 
 static void
 ecdh_pubkey_create(mont_t *ec,
@@ -6372,6 +8055,87 @@ ecdh_pubkey_create(mont_t *ec,
   cleanse(clamped, sizeof(clamped));
   sc_cleanse(sc, a);
   pge_cleanse(ec, &A);
+}
+
+static int
+ecdh_pubkey_convert(mont_t *ec,
+                    const unsigned char *pub,
+                    int sign) {
+  assert(0);
+}
+
+static int
+ecdh_pubkey_from_uniform(mont_t *ec,
+                         unsigned char *out,
+                         const unsigned char *bytes) {
+  assert(0);
+}
+
+static int
+ecdh_pubkey_to_uniform(mont_t *ec,
+                       unsigned char *out,
+                       const unsigned char *pub,
+                       unsigned int hint) {
+  assert(0);
+}
+
+static int
+ecdh_pubkey_from_hash(mont_t *ec,
+                      unsigned char *out,
+                      const unsigned char *bytes,
+                      int pake) {
+  assert(0);
+}
+
+static int
+ecdh_pubkey_to_hash(mont_t *ec,
+                    unsigned char *out,
+                    const unsigned char *pub,
+                    const unsigned char *seed) {
+  assert(0);
+}
+
+static int
+ecdh_pubkey_verify(mont_t *ec,
+                   const unsigned char *pub) {
+  pge_t A;
+
+  pge_import(ec, &A, pub);
+
+  return pge_validate(ec, &A);
+}
+
+static int
+ecdh_pubkey_is_small(mont_t *ec,
+                     const unsigned char *pub) {
+  pge_t A;
+
+  pge_import(ec, &A, pub);
+
+  if (!pge_validate(ec, &A))
+    return 0;
+
+  return pge_is_small(ec, &A);
+}
+
+static int
+ecdh_pubkey_has_torsion(mont_t *ec,
+                        const unsigned char *pub) {
+  prime_field_t *fe = &ec->fe;
+  scalar_field_t *sc = &ec->sc;
+  pge_t A;
+
+  pge_import(ec, &A, pub);
+
+  if (!pge_validate(ec, &A))
+    return 0;
+
+  if (fe_is_zero(fe, A.x))
+    return 1;
+
+  mont_mul(ec, &A, &A, sc->n);
+
+  return pge_is_zero(ec, &A) ^ 1;
 }
 
 static int
@@ -6419,6 +8183,403 @@ eddsa_privkey_hash(edwards_t *ec,
   hash_final(&h, out, fe->adj_size * 2);
 
   edwards_clamp(ec, out, out);
+}
+
+static void
+eddsa_privkey_generate(edwards_t *ec,
+                       unsigned char *out,
+                       const unsigned char *seed) {
+  prime_field_t *fe = &ec->fe;
+  drbg_t rng;
+
+  drbg_init(&rng, HASH_SHA256, seed, 32);
+
+  drbg_generate(&rng, out, fe->adj_size);
+
+  cleanse(&rng, sizeof(drbg_t));
+}
+
+static void
+eddsa_scalar_generate(edwards_t *ec,
+                      unsigned char *out,
+                      const unsigned char *seed) {
+  scalar_field_t *sc = &ec->sc;
+  drbg_t rng;
+
+  drbg_init(&rng, HASH_SHA256, seed, 32);
+
+  drbg_generate(&rng, out, sc->size);
+
+  edwards_clamp(ec, out, out);
+
+  cleanse(&rng, sizeof(drbg_t));
+}
+
+static void
+eddsa_privkey_expand(edwards_t *ec,
+                     unsigned char *scalar,
+                     unsigned char *prefix,
+                     const unsigned char *priv) {
+  unsigned char bytes[(MAX_FIELD_SIZE + 1) * 2];
+  prime_field_t *fe = &ec->fe;
+  scalar_field_t *sc = &ec->sc;
+
+  eddsa_privkey_hash(ec, bytes, priv);
+
+  memcpy(scalar, bytes, sc->size);
+  memcpy(prefix, bytes + fe->adj_size, fe->adj_size);
+
+  cleanse(bytes, sizeof(bytes));
+}
+
+static void
+eddsa_privkey_convert(edwards_t *ec,
+                      unsigned char *scalar,
+                      const unsigned char *priv) {
+  unsigned char bytes[(MAX_FIELD_SIZE + 1) * 2];
+  scalar_field_t *sc = &ec->sc;
+
+  eddsa_privkey_hash(ec, bytes, priv);
+
+  memcpy(scalar, bytes, sc->size);
+
+  cleanse(bytes, sizeof(bytes));
+}
+
+static int
+eddsa_privkey_verify(edwards_t *ec,
+                     const unsigned char *priv) {
+  return 1;
+}
+
+static int
+eddsa_scalar_verify(edwards_t *ec,
+                    const unsigned char *scalar) {
+  return 1;
+}
+
+static int
+eddsa_scalar_is_zero(edwards_t *ec,
+                     const unsigned char *scalar) {
+  scalar_field_t *sc = &ec->sc;
+  sc_t a;
+  int ret;
+
+  sc_import_reduce(sc, a, scalar);
+
+  ret = sc_is_zero(sc, a);
+
+  sc_cleanse(sc, a);
+
+  return ret;
+}
+
+static void
+eddsa_scalar_clamp(edwards_t *ec,
+                   unsigned char *out,
+                   const unsigned char *scalar) {
+  edwards_clamp(ec, out, scalar);
+}
+
+static void
+eddsa_scalar_tweak_add(edwards_t *ec,
+                       unsigned char *out,
+                       const unsigned char *scalar,
+                       const unsigned char *tweak) {
+  scalar_field_t *sc = &ec->sc;
+  sc_t a, t;
+
+  sc_import_reduce(sc, a, scalar);
+  sc_import_reduce(sc, t, tweak);
+  sc_add(sc, a, a, t);
+  sc_export(sc, out, a);
+  sc_cleanse(sc, a);
+}
+
+static void
+eddsa_scalar_tweak_mul(edwards_t *ec,
+                       unsigned char *out,
+                       const unsigned char *scalar,
+                       const unsigned char *tweak) {
+  scalar_field_t *sc = &ec->sc;
+  sc_t a, t;
+
+  sc_import_reduce(sc, a, scalar);
+  sc_import_reduce(sc, t, tweak);
+  sc_mul(sc, a, a, t);
+  sc_export(sc, out, a);
+  sc_cleanse(sc, a);
+}
+
+static void
+eddsa_scalar_reduce(edwards_t *ec,
+                    unsigned char *out,
+                    const unsigned char *bytes,
+                    size_t len) {
+  scalar_field_t *sc = &ec->sc;
+  unsigned char scalar[MAX_SCALAR_SIZE];
+  sc_t a;
+
+  if (len > sc->size)
+    len = sc->size;
+
+  memcpy(scalar, bytes, len);
+  memset(scalar + len, 0x00, sc->size - len);
+
+  sc_import_reduce(sc, a, scalar);
+  sc_export(sc, out, a);
+  sc_cleanse(sc, a);
+
+  cleanse(scalar, sizeof(scalar));
+}
+
+static void
+eddsa_scalar_negate(edwards_t *ec,
+                    unsigned char *out,
+                    const unsigned char *scalar) {
+  scalar_field_t *sc = &ec->sc;
+  sc_t a;
+
+  sc_import_reduce(sc, a, scalar);
+  sc_neg(sc, a, a);
+  sc_export(sc, out, a);
+  sc_cleanse(sc, a);
+}
+
+static void
+eddsa_scalar_invert(edwards_t *ec,
+                    unsigned char *out,
+                    const unsigned char *scalar) {
+  scalar_field_t *sc = &ec->sc;
+  sc_t a;
+
+  sc_import_reduce(sc, a, scalar);
+  sc_invert(sc, a, a);
+  sc_export(sc, out, a);
+  sc_cleanse(sc, a);
+}
+
+static void
+eddsa_pubkey_from_scalar(edwards_t *ec,
+                         unsigned char *pub,
+                         const unsigned char *scalar) {
+  scalar_field_t *sc = &ec->sc;
+  sc_t a;
+  ege_t A;
+
+  sc_import_reduce(sc, a, scalar);
+
+  edwards_mul_g(ec, &A, a);
+
+  ege_export(ec, pub, &A);
+
+  sc_cleanse(sc, a);
+  ege_cleanse(ec, &A);
+}
+
+static void
+eddsa_pubkey_create(edwards_t *ec,
+                    unsigned char *pub,
+                    const unsigned char *priv) {
+  unsigned char scalar[MAX_SCALAR_SIZE];
+
+  eddsa_privkey_convert(ec, scalar, priv);
+  eddsa_pubkey_from_scalar(ec, pub, scalar);
+
+  cleanse(scalar, sizeof(scalar));
+}
+
+static void
+eddsa_pubkey_convert(edwards_t *ec,
+                     unsigned char *out,
+                     const unsigned char *pub) {
+  assert(0);
+}
+
+static void
+eddsa_pubkey_from_uniform(edwards_t *ec,
+                          unsigned char *out,
+                          const unsigned char *bytes) {
+  assert(0);
+}
+
+static void
+eddsa_pubkey_to_uniform(edwards_t *ec,
+                        unsigned char *out,
+                        const unsigned char *pub,
+                        unsigned int hint) {
+  assert(0);
+}
+
+static void
+eddsa_pubkey_from_hash(edwards_t *ec,
+                       unsigned char *out,
+                       const unsigned char *bytes,
+                       int pake) {
+  assert(0);
+}
+
+static void
+eddsa_pubkey_to_hash(edwards_t *ec,
+                     unsigned char *out,
+                     const unsigned char *pub,
+                     const unsigned char *seed) {
+  assert(0);
+}
+
+static int
+eddsa_pubkey_verify(edwards_t *ec,
+                    const unsigned char *pub) {
+  ege_t A;
+  return ege_import(ec, &A, pub);
+}
+
+static int
+eddsa_pubkey_is_infinity(edwards_t *ec,
+                         const unsigned char *pub) {
+  ege_t A;
+
+  if (!ege_import(ec, &A, pub))
+    return 0;
+
+  return ege_is_zero(ec, &A);
+}
+
+static int
+eddsa_pubkey_is_small(edwards_t *ec,
+                      const unsigned char *pub) {
+  ege_t A;
+  xge_t P;
+
+  if (!ege_import(ec, &A, pub))
+    return 0;
+
+  ege_to_xge(ec, &P, &A);
+
+  return xge_is_small(ec, &P);
+}
+
+static int
+eddsa_pubkey_has_torsion(edwards_t *ec,
+                         const unsigned char *pub) {
+  ege_t A;
+  xge_t P;
+
+  if (!ege_import(ec, &A, pub))
+    return 0;
+
+  edwards_jmul(ec, &P, &A, ec->sc.n);
+
+  return xge_is_zero(ec, &P) ^ 1;
+}
+
+static int
+eddsa_pubkey_tweak_add(edwards_t *ec,
+                       unsigned char *out,
+                       const unsigned char *pub,
+                       const unsigned char *tweak) {
+  scalar_field_t *sc = &ec->sc;
+  ege_t A;
+  xge_t P, T;
+  sc_t t;
+
+  if (!ege_import(ec, &A, pub))
+    return 0;
+
+  ege_to_xge(ec, &P, &A);
+
+  sc_import_reduce(sc, t, tweak);
+
+  edwards_jmul_g(ec, &T, t);
+
+  xge_add(ec, &P, &P, &T);
+  xge_to_ege(ec, &A, &P);
+
+  ege_export(ec, out, &A);
+
+  sc_cleanse(sc, t);
+
+  return 1;
+}
+
+static int
+eddsa_pubkey_tweak_mul(edwards_t *ec,
+                       unsigned char *out,
+                       const unsigned char *pub,
+                       const unsigned char *tweak) {
+  scalar_field_t *sc = &ec->sc;
+  ege_t A;
+  sc_t t;
+
+  if (!ege_import(ec, &A, pub))
+    return 0;
+
+  sc_import_reduce(sc, t, tweak);
+
+  edwards_mul(ec, &A, &A, t);
+
+  ege_export(ec, out, &A);
+
+  sc_cleanse(sc, t);
+
+  return 1;
+}
+
+static int
+eddsa_pubkey_add(edwards_t *ec,
+                 unsigned char *out,
+                 const unsigned char *pub1,
+                 const unsigned char *pub2) {
+  ege_t A1, A2;
+
+  if (!ege_import(ec, &A1, pub1))
+    return 0;
+
+  if (!ege_import(ec, &A2, pub2))
+    return 0;
+
+  ege_add(ec, &A1, &A1, &A2);
+  ege_export(ec, out, &A1);
+
+  return 1;
+}
+
+static int
+eddsa_pubkey_combine(edwards_t *ec,
+                     unsigned char *out,
+                     const unsigned char **pubs,
+                     size_t len) {
+  ege_t Q;
+  xge_t A, P;
+  size_t i;
+
+  xge_zero(ec, &P);
+
+  for (i = 0; i < len; i++) {
+    if (!ege_import(ec, &Q, pubs[i]))
+      return 0;
+
+    ege_to_xge(ec, &A, &Q);
+    xge_add(ec, &P, &P, &A);
+  }
+
+  xge_to_ege(ec, &Q, &P);
+  ege_export(ec, out, &Q);
+
+  return 1;
+}
+
+static int
+eddsa_pubkey_negate(edwards_t *ec,
+                    unsigned char *out,
+                    const unsigned char *pub) {
+  ege_t A;
+
+  if (!ege_import(ec, &A, pub))
+    return 0;
+
+  ege_neg(ec, &A, &A);
+  ege_export(ec, out, &A);
 }
 
 static void
@@ -6502,67 +8663,6 @@ eddsa_hash_ram(edwards_t *ec,
   hash_update(&h, msg, msg_len);
 
   eddsa_hash_final(ec, r, &h);
-}
-
-static void
-eddsa_privkey_expand(edwards_t *ec,
-                     unsigned char *scalar,
-                     unsigned char *prefix,
-                     const unsigned char *priv) {
-  unsigned char bytes[(MAX_FIELD_SIZE + 1) * 2];
-  prime_field_t *fe = &ec->fe;
-  scalar_field_t *sc = &ec->sc;
-
-  eddsa_privkey_hash(ec, bytes, priv);
-
-  memcpy(scalar, bytes, sc->size);
-  memcpy(prefix, bytes + fe->adj_size, fe->adj_size);
-
-  cleanse(bytes, sizeof(bytes));
-}
-
-static void
-eddsa_privkey_convert(edwards_t *ec,
-                      unsigned char *scalar,
-                      const unsigned char *priv) {
-  unsigned char bytes[(MAX_FIELD_SIZE + 1) * 2];
-  scalar_field_t *sc = &ec->sc;
-
-  eddsa_privkey_hash(ec, bytes, priv);
-
-  memcpy(scalar, bytes, sc->size);
-
-  cleanse(bytes, sizeof(bytes));
-}
-
-static void
-eddsa_pubkey_from_scalar(edwards_t *ec,
-                         unsigned char *pub,
-                         const unsigned char *scalar) {
-  scalar_field_t *sc = &ec->sc;
-  sc_t a;
-  ege_t A;
-
-  sc_import_reduce(sc, a, scalar);
-
-  edwards_mul_g(ec, &A, a);
-
-  ege_export(ec, pub, &A);
-
-  sc_cleanse(sc, a);
-  ege_cleanse(ec, &A);
-}
-
-static void
-eddsa_pubkey_create(edwards_t *ec,
-                    unsigned char *pub,
-                    const unsigned char *priv) {
-  unsigned char scalar[MAX_SCALAR_SIZE];
-
-  eddsa_privkey_convert(ec, scalar, priv);
-  eddsa_pubkey_from_scalar(ec, pub, scalar);
-
-  cleanse(scalar, sizeof(scalar));
 }
 
 static void
@@ -6657,6 +8757,73 @@ eddsa_sign(edwards_t *ec,
   eddsa_sign_with_scalar(ec, sig, msg, msg_len,
                          scalar, prefix,
                          ph, ctx, ctx_len);
+
+  cleanse(scalar, sizeof(scalar));
+  cleanse(prefix, sizeof(prefix));
+}
+
+static void
+eddsa_sign_tweak_add(edwards_t *ec,
+                     unsigned char *sig,
+                     const unsigned char *msg,
+                     size_t msg_len,
+                     const unsigned char *priv,
+                     const unsigned char *tweak,
+                     int ph,
+                     const unsigned char *ctx,
+                     size_t ctx_len) {
+  unsigned char scalar[MAX_SCALAR_SIZE];
+  unsigned char prefix[MAX_FIELD_SIZE + 1];
+  hash_t h;
+
+  eddsa_privkey_expand(ec, scalar, prefix, priv);
+  eddsa_scalar_tweak_add(ec, scalar, scalar, tweak);
+
+  assert(MAX_FIELD_SIZE + 1 >= MAX_HASH_SIZE);
+
+  hash_init(&h, ec->hash);
+  hash_update(&h, prefix, ec->fe.adj_size);
+  hash_update(&h, tweak, ec->sc.size);
+  hash_final(&h, prefix, ec->fe.adj_size);
+
+  eddsa_sign_with_scalar(ec, sig, msg, msg_len,
+                         scalar, prefix,
+                         ph, ctx, ctx_len);
+
+  cleanse(scalar, sizeof(scalar));
+  cleanse(prefix, sizeof(prefix));
+}
+
+static void
+eddsa_sign_tweak_mul(edwards_t *ec,
+                     unsigned char *sig,
+                     const unsigned char *msg,
+                     size_t msg_len,
+                     const unsigned char *priv,
+                     const unsigned char *tweak,
+                     int ph,
+                     const unsigned char *ctx,
+                     size_t ctx_len) {
+  unsigned char scalar[MAX_SCALAR_SIZE];
+  unsigned char prefix[MAX_FIELD_SIZE + 1];
+  hash_t h;
+
+  eddsa_privkey_expand(ec, scalar, prefix, priv);
+  eddsa_scalar_tweak_mul(ec, scalar, scalar, tweak);
+
+  assert(MAX_FIELD_SIZE + 1 >= MAX_HASH_SIZE);
+
+  hash_init(&h, ec->hash);
+  hash_update(&h, prefix, ec->fe.adj_size);
+  hash_update(&h, tweak, ec->sc.size);
+  hash_final(&h, prefix, ec->fe.adj_size);
+
+  eddsa_sign_with_scalar(ec, sig, msg, msg_len,
+                         scalar, prefix,
+                         ph, ctx, ctx_len);
+
+  cleanse(scalar, sizeof(scalar));
+  cleanse(prefix, sizeof(prefix));
 }
 
 static int
@@ -6698,7 +8865,7 @@ eddsa_verify(edwards_t *ec,
   const unsigned char *Rraw = sig;
   const unsigned char *sraw = sig + fe->adj_size;
   ege_t R, A;
-  xge_t R1, R2;
+  xge_t Re, Rx;
   sc_t s, e;
 
   if (!ege_import(ec, &R, Rraw))
@@ -6717,12 +8884,84 @@ eddsa_verify(edwards_t *ec,
 
   eddsa_hash_ram(ec, e, ph, ctx, ctx_len, Rraw, pub, msg, msg_len);
 
-  ege_to_xge(ec, &R1, &R);
+  ege_to_xge(ec, &Re, &R);
 
   ege_neg(ec, &A, &A);
-  edwards_jmul_double_var(ec, &R2, s, &A, e);
 
-  return xge_equal(ec, &R1, &R2);
+  edwards_jmul_double_var(ec, &Rx, s, &A, e);
+
+  return xge_equal(ec, &Rx, &Re);
+}
+
+static int
+eddsa_verify_single(edwards_t *ec,
+                    const unsigned char *msg,
+                    size_t msg_len,
+                    const unsigned char *sig,
+                    const unsigned char *pub,
+                    int ph,
+                    const unsigned char *ctx,
+                    size_t ctx_len) {
+  /* EdDSA Verification (with cofactor multiplication).
+   *
+   * [EDDSA] Page 15, Section 5.
+   * [RFC8032] Page 8, Section 3.4.
+   *
+   * Assumptions:
+   *
+   *   - Let `H` be a cryptographic hash function.
+   *   - Let `m` be a byte array of arbitrary size.
+   *   - Let `R` and `s` be signature elements.
+   *   - Let `A` be a valid group element.
+   *   - s < n.
+   *
+   * Computation:
+   *
+   *   e = H(R, A, m) mod n
+   *   (G * s) * h == (R + A * e) * h
+   *
+   * Alternatively, we can compute:
+   *
+   *   R * h == G * (s * h) - (A * h) * e
+   *
+   * This allows us to make use of a
+   * multi-exponentiation algorithm.
+   */
+  prime_field_t *fe = &ec->fe;
+  scalar_field_t *sc = &ec->sc;
+  const unsigned char *Rraw = sig;
+  const unsigned char *sraw = sig + fe->adj_size;
+  ege_t R, A;
+  xge_t Re, Rx;
+  sc_t s, e;
+
+  if (!ege_import(ec, &R, Rraw))
+    return 0;
+
+  if (!ege_import(ec, &A, pub))
+    return 0;
+
+  if (!sc_import(sc, s, sraw))
+    return 0;
+
+  if ((fe->bits & 7) == 0) {
+    if (sraw[fe->size] != 0)
+      return 0;
+  }
+
+  eddsa_hash_ram(ec, e, ph, ctx, ctx_len, Rraw, pub, msg, msg_len);
+
+  ege_to_xge(ec, &Re, &R);
+
+  sc_mulw(sc, s, s, ec->h);
+  ege_mulh(ec, &A, &A);
+  xge_mulh(ec, &Re, &Re);
+
+  ege_neg(ec, &A, &A);
+
+  edwards_jmul_double_var(ec, &Rx, s, &A, e);
+
+  return xge_equal(ec, &Rx, &Re);
 }
 
 static int
