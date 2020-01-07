@@ -215,6 +215,14 @@ typedef struct wei_s {
   wge_t unblind;
   jge_t junblind;
   wge_t points[(1 << NAF_WIDTH_PRE) - 1];
+  int endo;
+  fe_t beta;
+  sc_t lambda;
+  sc_t b1;
+  sc_t b2;
+  sc_t g1;
+  sc_t g2;
+  wge_t endo_points[(1 << NAF_WIDTH_PRE) - 1];
 } wei_t;
 
 typedef struct wei_def_s {
@@ -229,6 +237,13 @@ typedef struct wei_def_s {
   const unsigned char c[MAX_FIELD_SIZE];
   const unsigned char x[MAX_FIELD_SIZE];
   const unsigned char y[MAX_FIELD_SIZE];
+  int endo;
+  const unsigned char beta[MAX_FIELD_SIZE];
+  const unsigned char lambda[MAX_SCALAR_SIZE];
+  const unsigned char b1[MAX_SCALAR_SIZE];
+  const unsigned char b2[MAX_SCALAR_SIZE];
+  const unsigned char g1[MAX_SCALAR_SIZE];
+  const unsigned char g2[MAX_SCALAR_SIZE];
 } wei_def_t;
 
 typedef struct wei_scratch_s {
@@ -371,25 +386,25 @@ cleanse(void *ptr, size_t len) {
 }
 
 static uint32_t
-less_than(const unsigned char *a,
-          const unsigned char *b,
-          int size,
-          int endian) {
-  /* Compare a < b in constant time. */
+bytes_lt(const unsigned char *a,
+         const unsigned char *b,
+         int size,
+         int endian) {
+  /* Compute (a < b) in constant time. */
   int le = (endian == -1);
-  int32_t eq = -1;
-  int32_t gt = 0;
   int i = le ? size - 1 : 0;
+  uint32_t eq = 1;
+  uint32_t lt = 0;
+  uint32_t x, y;
 
   for (; le ? i >= 0 : i < size; le ? i-- : i++) {
-    int32_t x = a[i];
-    int32_t y = b[i];
-
-    gt = (~eq & gt) | (eq & ((x - y) >> 31));
-    eq = eq & (((x ^ y) - 1) >> 31);
+    x = a[i];
+    y = b[i];
+    lt = ((eq ^ 1) & lt) | (eq & ((x - y) >> 31));
+    eq &= ((x ^ y) - 1) >> 31;
   }
 
-  return (uint32_t)(~eq & 1 & gt);
+  return lt & (eq ^ 1);
 }
 
 #ifndef __has_builtin
@@ -841,7 +856,7 @@ sc_cleanse(scalar_field_t *sc, sc_t r) {
 static int
 sc_import(scalar_field_t *sc, sc_t r, const unsigned char *raw) {
   mpn_import(r, sc->limbs, raw, sc->size, sc->endian);
-  return less_than(raw, sc->raw, sc->size, sc->endian);
+  return bytes_lt(raw, sc->raw, sc->size, sc->endian);
 }
 
 static int
@@ -876,7 +891,7 @@ sc_import_strong(scalar_field_t *sc, sc_t r, const unsigned char *raw) {
 
   cleanse(rp, sizeof(rp));
 
-  return less_than(raw, sc->raw, sc->size, sc->endian);
+  return bytes_lt(raw, sc->raw, sc->size, sc->endian);
 }
 
 static int
@@ -959,6 +974,16 @@ sc_is_high_var(scalar_field_t *sc, const sc_t a) {
   return mpn_cmp(a, sc->nh, sc->limbs) > 0;
 }
 
+static int
+sc_is_high(scalar_field_t *sc, const sc_t a) {
+  mp_limb_t tmp[MAX_SCALAR_LIMBS];
+  mp_limb_t cy = mpn_sub_n(tmp, a, sc->nh, sc->limbs);
+
+  mpn_cleanse(tmp, sc->limbs);
+
+  return cy == 0;
+}
+
 static void
 sc_neg(scalar_field_t *sc, sc_t r, const sc_t a) {
   const mp_limb_t *np = sc->n;
@@ -970,6 +995,14 @@ sc_neg(scalar_field_t *sc, sc_t r, const sc_t a) {
 
   for (i = 0; i < nn; i++)
     r[i] &= -(zero ^ 1);
+}
+
+static void
+sc_neg_cond(scalar_field_t *sc, sc_t r, const sc_t a, unsigned int flag) {
+  sc_t m;
+  sc_neg(sc, m, a);
+  sc_select(sc, r, a, m, flag);
+  sc_cleanse(sc, m);
 }
 
 static void
@@ -1053,6 +1086,48 @@ sc_sqr(scalar_field_t *sc, sc_t r, const sc_t a) {
   sc_reduce(sc, r, ap);
 }
 
+static void
+sc_mulshift(scalar_field_t *sc, sc_t r,
+            const sc_t a, const sc_t b,
+            size_t shift) {
+  mp_limb_t scratch[MAX_SCALAR_LIMBS * 2 + 1];
+  mp_limb_t *rp = scratch;
+  mp_size_t rn = sc->limbs * 2;
+  mp_size_t nn = sc->limbs;
+  mp_size_t i = shift - 1;
+  mp_size_t limbs = shift / GMP_NUMB_BITS;
+  mp_size_t left = shift % GMP_NUMB_BITS;
+  mp_limb_t bit;
+
+  assert(shift > sc->bits);
+
+  mpn_mul_n(rp, a, b, nn);
+  rp[rn] = 0;
+
+  bit = rp[i / GMP_NUMB_BITS] >> (i % GMP_NUMB_BITS);
+
+  rp += limbs;
+  rn -= limbs;
+
+  assert(rn > 0);
+
+  if (left != 0) {
+    mpn_rshift(rp, rp, rn, left);
+    rn -= (rp[rn - 1] == 0);
+  }
+
+  rn += 1;
+  mpn_add_1(rp, rp, rn, bit & 1);
+  rn -= (rp[rn - 1] == 0);
+
+  assert(rn <= nn);
+
+  mpn_zero(r + rn, nn - rn);
+  mpn_copyi(r, rp, rn);
+
+  mpn_cleanse(scratch, ARRAY_SIZE(scratch));
+}
+
 static int
 sc_invert_var(scalar_field_t *sc, sc_t r, const sc_t a) {
   return mpn_invert_n(r, a, sc->n, sc->limbs);
@@ -1102,8 +1177,12 @@ sc_bitlen_var(scalar_field_t *sc, const sc_t a) {
 }
 
 static void
-sc_naf_var(scalar_field_t *sc, int32_t *naf,
-           const sc_t x, size_t width, size_t max) {
+sc_naf_var(scalar_field_t *sc,
+           int32_t *naf,
+           const sc_t x,
+           int32_t sign,
+           size_t width,
+           size_t max) {
   /* Computing the NAF of a positive integer.
    *
    * [GECC] Algorithm 3.30, Page 98, Section 3.3.
@@ -1147,7 +1226,7 @@ sc_naf_var(scalar_field_t *sc, int32_t *naf,
       assert(cy == 0);
     }
 
-    naf[i++] = z;
+    naf[i++] = z * sign;
 
     if (kn > 0) {
       mpn_rshift(k, k, kn, 1);
@@ -1164,8 +1243,13 @@ sc_naf_var(scalar_field_t *sc, int32_t *naf,
 }
 
 static void
-sc_jsf_var(scalar_field_t *sc, int32_t *naf,
-           const sc_t x1, const sc_t x2, size_t max) {
+sc_jsf_var(scalar_field_t *sc,
+           int32_t *naf,
+           const sc_t x1,
+           int32_t s1,
+           const sc_t x2,
+           int32_t s2,
+           size_t max) {
   /* Joint sparse form.
    *
    * [GECC] Algorithm 3.50, Page 111, Section 3.3.
@@ -1234,7 +1318,7 @@ sc_jsf_var(scalar_field_t *sc, int32_t *naf,
     }
 
     /* JSF -> NAF conversion. */
-    naf[i] = table[(u1 + 1) * 3 + (u2 + 1)];
+    naf[i] = table[(u1 * s1 + 1) * 3 + (u2 * s2 + 1)];
 
     /* Second phase. */
     if (2 * d1 == u1 + 1)
@@ -1328,7 +1412,7 @@ fe_import(prime_field_t *fe, fe_t r, const unsigned char *raw) {
     }
   }
 
-  return less_than(raw, fe->raw, fe->size, fe->endian);
+  return bytes_lt(raw, fe->raw, fe->size, fe->endian);
 }
 
 static int
@@ -2271,6 +2355,10 @@ wge_add_var(wei_t *ec, wge_t *r, const wge_t *a, const wge_t *b) {
     fe_neg(fe, y3, a->y);
 
     /* Skip the inverse. */
+    fe_set(fe, r->x, x3);
+    fe_set(fe, r->y, y3);
+    r->inf = 0;
+
     return;
   }
 
@@ -2366,6 +2454,15 @@ wge_jsf_points_var(wei_t *ec, jge_t *points, const wge_t *p1, const wge_t *p2) {
   jge_mixed_add_var(ec, &points[1], &points[0], p2); /* 3 */
   jge_mixed_sub_var(ec, &points[2], &points[0], p2); /* 5 */
   wge_to_jge(ec, &points[3], p2); /* 7 */
+}
+
+static void
+wge_endo_beta(wei_t *ec, wge_t *r, const wge_t *p) {
+  prime_field_t *fe = &ec->fe;
+
+  fe_mul(fe, r->x, p->x, ec->beta);
+  fe_set(fe, r->y, p->y);
+  r->inf = p->inf;
 }
 
 static void
@@ -3476,6 +3573,9 @@ jge_print(wei_t *ec, const jge_t *p) {
  */
 
 static void
+wei_init_endo(wei_t *ec, const wei_def_t *def);
+
+static void
 wei_init(wei_t *ec, const wei_def_t *def) {
   prime_field_t *fe = &ec->fe;
   scalar_field_t *sc = &ec->sc;
@@ -3504,6 +3604,69 @@ wei_init(wei_t *ec, const wei_def_t *def) {
   jge_zero(ec, &ec->junblind);
 
   wge_naf_points_var(ec, ec->points, &ec->g, NAF_WIDTH_PRE);
+
+  ec->endo = def->endo;
+
+  if (ec->endo)
+    wei_init_endo(ec, def);
+}
+
+static void
+wei_init_endo(wei_t *ec, const wei_def_t *def) {
+  prime_field_t *fe = &ec->fe;
+  scalar_field_t *sc = &ec->sc;
+  size_t size = (1 << NAF_WIDTH_PRE) - 1;
+  size_t i;
+
+  fe_import(fe, ec->beta, def->beta);
+  sc_import(sc, ec->lambda, def->lambda);
+  sc_import(sc, ec->b1, def->b1);
+  sc_import(sc, ec->b2, def->b2);
+  sc_import(sc, ec->g1, def->g1);
+  sc_import(sc, ec->g2, def->g2);
+
+  for (i = 0; i < size; i++)
+    wge_endo_beta(ec, &ec->endo_points[i], &ec->points[i]);
+}
+
+static void
+wei_endo_split(wei_t *ec,
+               sc_t k1,
+               int32_t *s1,
+               sc_t k2,
+               int32_t *s2,
+               const sc_t k) {
+  /* t = ceil(log2(n)) + 16
+   * c1 = ((k * g1) >> t) * -b1
+   * c2 = ((k * -g2) >> t) * -b2
+   * k2 = c1 + c2
+   * k1 = k2 * -lambda + k
+   */
+  scalar_field_t *sc = &ec->sc;
+  sc_t c1, c2;
+  int32_t h1, h2;
+
+  sc_mulshift(sc, c1, k, ec->g1, sc->bits + 16);
+  sc_mulshift(sc, c2, k, ec->g2, sc->bits + 16); /* -g2 */
+
+  sc_mul(sc, c1, c1, ec->b1); /* -b1 */
+  sc_mul(sc, c2, c2, ec->b2); /* -b2 */
+
+  sc_add(sc, k2, c1, c2);
+  sc_mul(sc, k1, k2, ec->lambda); /* -lambda */
+  sc_add(sc, k1, k1, k);
+
+  h1 = sc_is_high_var(sc, k1);
+  h2 = sc_is_high_var(sc, k2);
+
+  sc_neg_cond(sc, k1, k1, h1);
+  sc_neg_cond(sc, k2, k2, h2);
+
+  sc_cleanse(sc, c1);
+  sc_cleanse(sc, c2);
+
+  *s1 = -h1 | 1;
+  *s2 = -h2 | 1;
 }
 
 static void
@@ -3527,7 +3690,7 @@ wei_jmul_g_var(wei_t *ec, jge_t *r, const sc_t k) {
   max = sc_bitlen_var(sc, k0) + 1;
 
   /* Get NAF form. */
-  sc_naf_var(sc, naf, k0, NAF_WIDTH_PRE, max);
+  sc_naf_var(sc, naf, k0, 1, NAF_WIDTH_PRE, max);
 
   /* Add `this`*(N+1) for every w-NAF index. */
   jge_zero(ec, &acc);
@@ -3583,7 +3746,7 @@ wei_jmul_var(wei_t *ec, jge_t *r, const wge_t *p, const sc_t k) {
   jge_naf_points_var(ec, points, p, NAF_WIDTH);
 
   /* Get NAF form. */
-  sc_naf_var(sc, naf, k, NAF_WIDTH, max);
+  sc_naf_var(sc, naf, k, 1, NAF_WIDTH, max);
 
   /* Add `this`*(N+1) for every w-NAF index. */
   jge_zero(ec, &acc);
@@ -3640,8 +3803,8 @@ wei_jmul_double_var(wei_t *ec,
   int i;
   jge_t acc;
 
-  sc_naf_var(sc, naf1, k1, NAF_WIDTH_PRE, max);
-  sc_naf_var(sc, naf2, k2, NAF_WIDTH, max);
+  sc_naf_var(sc, naf1, k1, 1, NAF_WIDTH_PRE, max);
+  sc_naf_var(sc, naf2, k2, 1, NAF_WIDTH, max);
 
   jge_naf_points_var(ec, wnd2, p2, NAF_WIDTH);
 
@@ -3728,7 +3891,7 @@ wei_jmul_multi_var(wei_t *ec,
   }
 
   /* Compute NAFs. */
-  sc_naf_var(sc, naf0, k0, NAF_WIDTH_PRE, max);
+  sc_naf_var(sc, naf0, k0, 1, NAF_WIDTH_PRE, max);
 
   for (i = 0; i < (int)len; i += 2) {
     const wge_t *p1 = &points[i + 0];
@@ -3737,7 +3900,7 @@ wei_jmul_multi_var(wei_t *ec,
     const sc_t *k2 = &coeffs[i + 1];
 
     wge_jsf_points_var(ec, wnds[i >> 1], p1, p2);
-    sc_jsf_var(sc, nafs[i >> 1], *k1, *k2, max);
+    sc_jsf_var(sc, nafs[i >> 1], *k1, 1, *k2, 1, max);
   }
 
   len >>= 1;
@@ -3793,6 +3956,116 @@ wei_jmul_multi_var(wei_t *ec,
       else if (z < 0)
         jge_sub_var(ec, &acc, &acc, &wnds[j][(-z - 1) >> 1]);
     }
+  }
+
+  jge_set(ec, r, &acc);
+}
+
+static void
+wei_jmul_double_endo_var(wei_t *ec,
+                         jge_t *r,
+                         const sc_t k1_,
+                         const wge_t *p3,
+                         const sc_t k2_) {
+  /* Point multiplication with efficiently computable endomorphisms.
+   *
+   * [GECC] Algorithm 3.77, Page 129, Section 3.5.
+   * [GLV] Page 193, Section 3 (Using Efficient Endomorphisms).
+   */
+  scalar_field_t *sc = &ec->sc;
+  wge_t *wnd1 = ec->points;
+  wge_t *wnd2 = ec->endo_points;
+  wge_t wnd3[4];
+  int32_t naf1[MAX_SCALAR_BITS + 1];
+  int32_t naf2[MAX_SCALAR_BITS + 1];
+  int32_t naf3[MAX_SCALAR_BITS + 1];
+  size_t len1, len2, len3, len4;
+  size_t max = 0;
+  sc_t k1, k2, k3, k4;
+  int32_t s1, s2, s3, s4;
+  wge_t p4;
+  jge_t acc;
+  int i;
+
+  assert(ec->endo == 1);
+
+  /* Split scalars. */
+  wei_endo_split(ec, k1, &s1, k2, &s2, k1_);
+  wei_endo_split(ec, k3, &s3, k4, &s4, k2_);
+
+  /* Compute max length. */
+  len1 = sc_bitlen_var(sc, k1) + 1;
+  len2 = sc_bitlen_var(sc, k2) + 1;
+  len3 = sc_bitlen_var(sc, k3) + 1;
+  len4 = sc_bitlen_var(sc, k4) + 1;
+
+  if (len1 > max)
+    max = len1;
+
+  if (len2 > max)
+    max = len2;
+
+  if (len3 > max)
+    max = len3;
+
+  if (len4 > max)
+    max = len4;
+
+  /* Compute NAFs. */
+  sc_naf_var(sc, naf1, k1, s1, NAF_WIDTH_PRE, max);
+  sc_naf_var(sc, naf2, k2, s2, NAF_WIDTH_PRE, max);
+  sc_jsf_var(sc, naf3, k3, s3, k4, s4, max);
+
+  /* Split point. */
+  wge_endo_beta(ec, &p4, p3);
+
+  /* Create comb for JSF. */
+  wge_set(ec, &wnd3[0], p3); /* 1 */
+  wge_add_var(ec, &wnd3[1], p3, &p4); /* 3 */
+  wge_sub_var(ec, &wnd3[2], p3, &p4); /* 5 */
+  wge_set(ec, &wnd3[3], &p4); /* 7 */
+
+  /* Multiply and add. */
+  jge_zero(ec, &acc);
+
+  for (i = max - 1; i >= 0; i--) {
+    size_t k = 0;
+    int32_t z1, z2, z3;
+
+    while (i >= 0) {
+      if (naf1[i] != 0 || naf2[i] != 0 || naf3[i] != 0)
+        break;
+
+      k += 1;
+      i -= 1;
+    }
+
+    if (i >= 0)
+      k += 1;
+
+    jge_dblp_var(ec, &acc, &acc, k);
+
+    if (i < 0)
+      break;
+
+    z1 = naf1[i];
+    z2 = naf2[i];
+    z3 = naf3[i];
+
+    if (z1 > 0)
+      jge_mixed_add_var(ec, &acc, &acc, &wnd1[(z1 - 1) >> 1]);
+    else if (z1 < 0)
+      jge_mixed_sub_var(ec, &acc, &acc, &wnd1[(-z1 - 1) >> 1]);
+
+    if (z2 > 0)
+      jge_mixed_add_var(ec, &acc, &acc, &wnd2[(z2 - 1) >> 1]);
+    else if (z2 < 0)
+      jge_mixed_sub_var(ec, &acc, &acc, &wnd2[(-z2 - 1) >> 1]);
+
+    if (z3 > 0)
+      jge_mixed_add_var(ec, &acc, &acc, &wnd3[(z3 - 1) >> 1]);
+    else if (z3 < 0)
+      jge_mixed_sub_var(ec, &acc, &acc, &wnd3[(-z3 - 1) >> 1]);
   }
 
   jge_set(ec, r, &acc);
@@ -3906,6 +4179,17 @@ wei_mul_multi_var(wei_t *ec,
                    wei_scratch_t *scratch) {
   jge_t j;
   wei_jmul_multi_var(ec, &j, k0, points, coeffs, len, scratch);
+  jge_to_wge_var(ec, r, &j);
+}
+
+static void
+wei_mul_double_endo_var(wei_t *ec,
+                     wge_t *r,
+                     const sc_t k1,
+                     const wge_t *p2,
+                     const sc_t k2) {
+  jge_t j;
+  wei_jmul_double_endo_var(ec, &j, k1, p2, k2);
   jge_to_wge_var(ec, r, &j);
 }
 
@@ -5367,7 +5651,7 @@ edwards_jmul_g_var(edwards_t *ec, xge_t *r, const sc_t k) {
   max = sc_bitlen_var(sc, k0) + 1;
 
   /* Get NAF form. */
-  sc_naf_var(sc, naf, k0, NAF_WIDTH_PRE, max);
+  sc_naf_var(sc, naf, k0, 1, NAF_WIDTH_PRE, max);
 
   /* Add `this`*(N+1) for every w-NAF index. */
   xge_zero(ec, &acc);
@@ -5423,7 +5707,7 @@ edwards_jmul_var(edwards_t *ec, xge_t *r, const ege_t *p, const sc_t k) {
   xge_naf_points(ec, points, p, NAF_WIDTH);
 
   /* Get NAF form. */
-  sc_naf_var(sc, naf, k, NAF_WIDTH, max);
+  sc_naf_var(sc, naf, k, 1, NAF_WIDTH, max);
 
   /* Add `this`*(N+1) for every w-NAF index. */
   xge_zero(ec, &acc);
@@ -5480,8 +5764,8 @@ edwards_jmul_double_var(edwards_t *ec,
   int i;
   xge_t acc;
 
-  sc_naf_var(sc, naf1, k1, NAF_WIDTH_PRE, max);
-  sc_naf_var(sc, naf2, k2, NAF_WIDTH, max);
+  sc_naf_var(sc, naf1, k1, 1, NAF_WIDTH_PRE, max);
+  sc_naf_var(sc, naf2, k2, 1, NAF_WIDTH, max);
 
   xge_naf_points(ec, wnd2, p2, NAF_WIDTH);
 
@@ -5568,7 +5852,7 @@ edwards_jmul_multi_var(edwards_t *ec,
   }
 
   /* Compute NAFs. */
-  sc_naf_var(sc, naf0, k0, NAF_WIDTH_PRE, max);
+  sc_naf_var(sc, naf0, k0, 1, NAF_WIDTH_PRE, max);
 
   for (i = 0; i < (int)len; i += 2) {
     const ege_t *p1 = &points[i + 0];
@@ -5577,7 +5861,7 @@ edwards_jmul_multi_var(edwards_t *ec,
     const sc_t *k2 = &coeffs[i + 1];
 
     xge_jsf_points(ec, wnds[i >> 1], p1, p2);
-    sc_jsf_var(sc, nafs[i >> 1], *k1, *k2, max);
+    sc_jsf_var(sc, nafs[i >> 1], *k1, 1, *k2, 1, max);
   }
 
   len >>= 1;
@@ -5932,11 +6216,10 @@ ecdsa_verify(wei_t *ec,
   scalar_field_t *sc = &ec->sc;
   sc_t m, r, s, u1, u2;
   wge_t A;
-#ifdef WITH_TRICK
   jge_t R;
-#else
+#ifndef WITH_TRICK
   prime_field_t *fe = &ec->fe;
-  wge_t R;
+  wge_t Ra;
   sc_t re;
 #endif
 
@@ -5957,14 +6240,20 @@ ecdsa_verify(wei_t *ec,
   sc_invert_var(sc, s, s);
   sc_mul(sc, u1, m, s);
   sc_mul(sc, u2, r, s);
-#ifdef WITH_TRICK
-  wei_jmul_double_var(ec, &R, u1, &A, u2);
 
+  if (ec->endo)
+    wei_jmul_double_endo_var(ec, &R, u1, &A, u2);
+  else
+    wei_jmul_double_var(ec, &R, u1, &A, u2);
+
+#ifdef WITH_TRICK
   return jge_equal_r(ec, &R, r);
 #else
-  wei_mul_double_var(ec, &R, u1, &A, u2);
+  if (jge_is_zero(ec, &R))
+    return 0;
 
-  sc_set_fe(sc, fe, re, R.x);
+  jge_to_wge(ec, &Ra, &R);
+  sc_set_fe(sc, fe, re, Ra.x);
 
   return sc_equal(sc, r, re);
 #endif
@@ -6015,7 +6304,11 @@ ecdsa_recover(wei_t *ec,
   sc_mul(sc, s1, m, r);
   sc_mul(sc, s2, s, r);
   sc_neg(sc, s1, s1);
-  wei_mul_double_var(ec, &A, s1, &R, s2);
+
+  if (ec->endo)
+    wei_mul_double_endo_var(ec, &A, s1, &R, s2);
+  else
+    wei_mul_double_var(ec, &A, s1, &R, s2);
 
   return wge_export(ec, pub, pub_len, &A, compact);
 }
@@ -6903,7 +7196,8 @@ static const wei_def_t curve_p192 = {
     0x07, 0x19, 0x2b, 0x95, 0xff, 0xc8, 0xda, 0x78,
     0x63, 0x10, 0x11, 0xed, 0x6b, 0x24, 0xcd, 0xd5,
     0x73, 0xf9, 0x77, 0xa1, 0x1e, 0x79, 0x48, 0x11
-  }
+  },
+  .endo = 0
 };
 
 static const wei_def_t curve_p224 = {
@@ -6938,7 +7232,8 @@ static const wei_def_t curve_p224 = {
     0x4c, 0x22, 0xdf, 0xe6, 0xcd, 0x43, 0x75, 0xa0,
     0x5a, 0x07, 0x47, 0x64, 0x44, 0xd5, 0x81, 0x99,
     0x85, 0x00, 0x7e, 0x34
-  }
+  },
+  .endo = 0
 };
 
 static const wei_def_t curve_p256 = {
@@ -6973,7 +7268,8 @@ static const wei_def_t curve_p256 = {
     0x8e, 0xe7, 0xeb, 0x4a, 0x7c, 0x0f, 0x9e, 0x16,
     0x2b, 0xce, 0x33, 0x57, 0x6b, 0x31, 0x5e, 0xce,
     0xcb, 0xb6, 0x40, 0x68, 0x37, 0xbf, 0x51, 0xf5
-  }
+  },
+  .endo = 0
 };
 
 static const wei_def_t curve_p384 = {
@@ -7016,7 +7312,8 @@ static const wei_def_t curve_p384 = {
     0xe9, 0xda, 0x31, 0x13, 0xb5, 0xf0, 0xb8, 0xc0,
     0x0a, 0x60, 0xb1, 0xce, 0x1d, 0x7e, 0x81, 0x9d,
     0x7a, 0x43, 0x1d, 0x7c, 0x90, 0xea, 0x0e, 0x5f
-  }
+  },
+  .endo = 0
 };
 
 static const wei_def_t curve_p521 = {
@@ -7071,7 +7368,8 @@ static const wei_def_t curve_p521 = {
     0x07, 0x61, 0x35, 0x3c, 0x70, 0x86, 0xa2, 0x72,
     0xc2, 0x40, 0x88, 0xbe, 0x94, 0x76, 0x9f, 0xd1,
     0x66, 0x50
-  }
+  },
+  .endo = 0
 };
 
 static const wei_def_t curve_secp256k1 = {
@@ -7112,6 +7410,43 @@ static const wei_def_t curve_secp256k1 = {
     0x5d, 0xa4, 0xfb, 0xfc, 0x0e, 0x11, 0x08, 0xa8,
     0xfd, 0x17, 0xb4, 0x48, 0xa6, 0x85, 0x54, 0x19,
     0x9c, 0x47, 0xd0, 0x8f, 0xfb, 0x10, 0xd4, 0xb8
+  },
+  .endo = 1,
+  .beta = {
+    0x7a, 0xe9, 0x6a, 0x2b, 0x65, 0x7c, 0x07, 0x10,
+    0x6e, 0x64, 0x47, 0x9e, 0xac, 0x34, 0x34, 0xe9,
+    0x9c, 0xf0, 0x49, 0x75, 0x12, 0xf5, 0x89, 0x95,
+    0xc1, 0x39, 0x6c, 0x28, 0x71, 0x95, 0x01, 0xee
+  },
+  .lambda = {
+    0xac, 0x9c, 0x52, 0xb3, 0x3f, 0xa3, 0xcf, 0x1f,
+    0x5a, 0xd9, 0xe3, 0xfd, 0x77, 0xed, 0x9b, 0xa4,
+    0xa8, 0x80, 0xb9, 0xfc, 0x8e, 0xc7, 0x39, 0xc2,
+    0xe0, 0xcf, 0xc8, 0x10, 0xb5, 0x12, 0x83, 0xcf
+  },
+  .b1 = {
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0xe4, 0x43, 0x7e, 0xd6, 0x01, 0x0e, 0x88, 0x28,
+    0x6f, 0x54, 0x7f, 0xa9, 0x0a, 0xbf, 0xe4, 0xc3
+  },
+  .b2 = {
+    0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+    0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xfe,
+    0x8a, 0x28, 0x0a, 0xc5, 0x07, 0x74, 0x34, 0x6d,
+    0xd7, 0x65, 0xcd, 0xa8, 0x3d, 0xb1, 0x56, 0x2c
+  },
+  .g1 = {
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x30, 0x86,
+    0xd2, 0x21, 0xa7, 0xd4, 0x6b, 0xcd, 0xe8, 0x6c,
+    0x90, 0xe4, 0x92, 0x84, 0xeb, 0x15, 0x3d, 0xab
+  },
+  .g2 = {
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xe4, 0x43,
+    0x7e, 0xd6, 0x01, 0x0e, 0x88, 0x28, 0x6f, 0x54,
+    0x7f, 0xa9, 0x0a, 0xbf, 0xe4, 0xc4, 0x22, 0x12
   }
 };
 
