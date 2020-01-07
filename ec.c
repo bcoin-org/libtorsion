@@ -305,12 +305,6 @@ typedef struct mont_def_s {
  * Edwards
  */
 
-/* ege = edwards group element (affine) */
-typedef struct ege_s {
-  fe_t x;
-  fe_t y;
-} ege_t;
-
 /* xge = extended group element */
 typedef struct xge_s {
   fe_t x;
@@ -331,7 +325,7 @@ typedef struct edwards_s {
   fe_t k;
   int mone_a;
   int one_a;
-  ege_t g;
+  xge_t g;
   sc_t blind;
   xge_t unblind;
   xge_t points[(1 << NAF_WIDTH_PRE) - 1];
@@ -4953,9 +4947,6 @@ pge_print(mont_t *ec, const pge_t *p) {
  */
 
 static void
-xge_to_ege_var(edwards_t *ec, ege_t *r, const xge_t *p);
-
-static void
 xge_mulh(edwards_t *ec, xge_t *r, const xge_t *p);
 
 static void
@@ -5063,46 +5054,65 @@ static void
 edwards_mula(edwards_t *ec, fe_t r, const fe_t x);
 
 /*
- * Edwards Affine Point
+ * Edwards Extended Point
  */
 
 static void
-ege_zero(edwards_t *ec, ege_t *r) {
+xge_zero(edwards_t *ec, xge_t *r) {
   prime_field_t *fe = &ec->fe;
 
   fe_zero(fe, r->x);
   fe_set(fe, r->y, fe->one);
+  fe_set(fe, r->z, fe->one);
+  fe_zero(fe, r->t);
 }
 
 static void
-ege_cleanse(edwards_t *ec, ege_t *r) {
+xge_cleanse(edwards_t *ec, xge_t *r) {
   prime_field_t *fe = &ec->fe;
 
   fe_cleanse(fe, r->x);
   fe_cleanse(fe, r->y);
+  fe_cleanse(fe, r->z);
+  fe_cleanse(fe, r->t);
 }
 
 static int
-ege_validate(edwards_t *ec, const ege_t *p) {
+xge_validate(edwards_t *ec, const xge_t *p) {
   /* [TWISTED] Definition 2.1, Page 3, Section 2. */
   /*           Page 11, Section 6. */
-  /* a * x^2 + y^2 = 1 + d * x^2 * y^2 */
+  /* (a * x^2 + y^2) * z^2 = z^4 + d * x^2 * y^2 */
   prime_field_t *fe = &ec->fe;
-  fe_t x2, y2, dxy, lhs, rhs;
+  fe_t lhs, rhs, x2, y2, ax2, z2, z4;
 
   fe_sqr(fe, x2, p->x);
   fe_sqr(fe, y2, p->y);
-  fe_mul(fe, dxy, ec->d, x2);
-  fe_mul(fe, dxy, dxy, y2);
-  edwards_mula(ec, lhs, x2);
-  fe_add(fe, lhs, lhs, y2);
-  fe_add(fe, rhs, fe->one, dxy);
+  fe_sqr(fe, z2, p->z);
+  fe_sqr(fe, z4, z2);
+
+  edwards_mula(ec, ax2, x2);
+  fe_add(fe, lhs, ax2, y2);
+  fe_mul(fe, lhs, lhs, z2);
+
+  fe_mul(fe, rhs, x2, y2);
+  fe_mul(fe, rhs, rhs, ec->d);
+  fe_add(fe, rhs, rhs, z4);
 
   return fe_equal(fe, lhs, rhs);
 }
 
+static void
+xge_set_xy(edwards_t *ec, xge_t *r, const fe_t x, const fe_t y) {
+  prime_field_t *fe = &ec->fe;
+
+  fe_set(fe, r->x, x);
+  fe_set(fe, r->y, y);
+  fe_set(fe, r->z, fe->one);
+  fe_mul(fe, r->t, x, y);
+}
+
 static int
-ege_set_y(edwards_t *ec, ege_t *r, const fe_t y, int sign) {
+xge_set_y(edwards_t *ec, xge_t *r, const fe_t y, int sign) {
   /* [RFC8032] Section 5.1.3 & 5.2.3. */
   /* x^2 = (y^2 - 1) / (d * y^2 - a) */
   prime_field_t *fe = &ec->fe;
@@ -5119,25 +5129,17 @@ ege_set_y(edwards_t *ec, ege_t *r, const fe_t y, int sign) {
   if (sign != -1)
     fe_set_odd(fe, x, x, sign);
 
-  fe_set(fe, r->x, x);
-  fe_set(fe, r->y, y);
+  xge_set_xy(ec, r, x, y);
 
 #ifdef EC_TEST
-  assert(ege_validate(ec, r) == ret);
+  assert(xge_validate(ec, r) == ret);
 #endif
 
   return ret;
 }
 
-static void
-ege_set_xy(edwards_t *ec, ege_t *r, const fe_t x, const fe_t y) {
-  prime_field_t *fe = &ec->fe;
-  fe_set(fe, r->x, x);
-  fe_set(fe, r->y, y);
-}
-
 static int
-ege_import(edwards_t *ec, ege_t *r, const unsigned char *raw) {
+xge_import(edwards_t *ec, xge_t *r, const unsigned char *raw) {
   prime_field_t *fe = &ec->fe;
   int sign;
 
@@ -5163,176 +5165,29 @@ ege_import(edwards_t *ec, ege_t *r, const unsigned char *raw) {
     sign = (raw[fe->size - 1] & 0x80) != 0;
   }
 
-  return ege_set_y(ec, r, r->y, sign);
+  return xge_set_y(ec, r, r->y, sign);
 }
 
 static void
-ege_export(edwards_t *ec,
+xge_export(edwards_t *ec,
           unsigned char *raw,
-          const ege_t *p) {
+          const xge_t *p) {
   /* [RFC8032] Section 5.1.2. */
   prime_field_t *fe = &ec->fe;
+  fe_t x, y, z;
 
-  fe_export(fe, raw, p->y);
+  assert(fe_invert(fe, z, p->z));
+
+  fe_mul(fe, x, p->x, z);
+  fe_mul(fe, y, p->y, z);
+
+  fe_export(fe, raw, y);
 
   /* Quirk: we need an extra byte (p448). */
   if ((fe->bits & 7) == 0)
-    raw[fe->size] = fe_is_odd(fe, p->x) << 7;
+    raw[fe->size] = fe_is_odd(fe, x) << 7;
   else
-    raw[fe->size - 1] |= fe_is_odd(fe, p->x) << 7;
-}
-
-static void
-ege_swap(edwards_t *ec, ege_t *a, ege_t *b, unsigned int flag) {
-  prime_field_t *fe = &ec->fe;
-
-  fe_swap(fe, a->x, b->x, flag != 0);
-  fe_swap(fe, a->y, b->y, flag != 0);
-}
-
-static void
-ege_set(edwards_t *ec, ege_t *r, const ege_t *a) {
-  prime_field_t *fe = &ec->fe;
-
-  fe_set(fe, r->x, a->x);
-  fe_set(fe, r->y, a->y);
-}
-
-static int
-ege_equal(edwards_t *ec, const ege_t *a, const ege_t *b) {
-  prime_field_t *fe = &ec->fe;
-
-  /* X1 = X2, Y1 = Y2 */
-  return fe_equal(fe, a->x, b->x)
-       & fe_equal(fe, a->y, b->y);
-}
-
-static int
-ege_is_zero(edwards_t *ec, const ege_t *a) {
-  prime_field_t *fe = &ec->fe;
-
-  return fe_is_zero(fe, a->x)
-       & fe_equal(fe, a->y, fe->one);
-}
-
-static void
-ege_neg(edwards_t *ec, ege_t *r, const ege_t *a) {
-  prime_field_t *fe = &ec->fe;
-
-  fe_neg(fe, r->x, a->x);
-  fe_set(fe, r->y, a->y);
-}
-
-static void
-ege_add(edwards_t *ec, ege_t *r, const ege_t *a, const ege_t *b) {
-  /* Affine twisted addition formula:
-   *
-   *   x3 = (x1 * y2 + y1 * x2) / (1 + d * x1 * x2 * y1 * y2)
-   *   y3 = (y1 * y2 - a * x1 * x2) / (1 - d * x1 * x2 * y1 * y2)
-   */
-  prime_field_t *fe = &ec->fe;
-  fe_t x3, y3, x1x2, y1y2, x1y2, y1x2, z, z1, z2;
-
-  fe_mul(fe, x1x2, a->x, b->x);
-  fe_mul(fe, y1y2, a->y, b->y);
-  fe_mul(fe, x1y2, a->x, b->y);
-  fe_mul(fe, y1x2, a->y, b->x);
-
-  fe_add(fe, x3, x1y2, y1x2);
-  edwards_mula(ec, y3, x1x2);
-  fe_sub(fe, y3, y1y2, y3);
-
-  fe_mul(fe, z, x1x2, y1y2);
-  fe_mul(fe, z, z, ec->d);
-  fe_add(fe, z1, fe->one, z);
-  fe_sub(fe, z2, fe->one, z);
-  fe_mul(fe, z, z1, z2);
-
-  assert(fe_invert(fe, z, z));
-
-  fe_mul(fe, x3, x3, z);
-  fe_mul(fe, y3, y3, z);
-
-  fe_mul(fe, r->x, x3, z2);
-  fe_mul(fe, r->y, y3, z1);
-}
-
-static void
-ege_sub(edwards_t *ec, ege_t *r, const ege_t *a, const ege_t *b) {
-  ege_t c;
-  ege_neg(ec, &c, b);
-  ege_add(ec, r, a, &c);
-}
-
-static void
-ege_dbl(edwards_t *ec, ege_t *r, const ege_t *p) {
-  ege_add(ec, r, p, p);
-}
-
-static void
-ege_to_xge(edwards_t *ec, xge_t *r, const ege_t *p) {
-  prime_field_t *fe = &ec->fe;
-
-  fe_set(fe, r->x, p->x);
-  fe_set(fe, r->y, p->y);
-  fe_set(fe, r->z, fe->one);
-  fe_mul(fe, r->t, r->x, r->y);
-}
-
-static void
-ege_mulh(edwards_t *ec, ege_t *r, const ege_t *p) {
-  xge_t t;
-  ege_to_xge(ec, &t, p);
-  xge_mulh(ec, &t, &t);
-  xge_to_ege_var(ec, r, &t);
-}
-
-static void
-ege_print(edwards_t *ec, const ege_t *p) {
-  prime_field_t *fe = &ec->fe;
-
-  if (ege_is_zero(ec, p)) {
-    printf("(infinity)\n");
-  } else {
-    mp_limb_t xp[MAX_FIELD_LIMBS];
-    mp_limb_t yp[MAX_FIELD_LIMBS];
-
-    fe_get_limbs(fe, xp, p->x);
-    fe_get_limbs(fe, yp, p->y);
-
-    printf("(");
-    mpn_print(xp, fe->limbs, 16);
-    printf(", ");
-    mpn_print(yp, fe->limbs, 16);
-    printf(")\n");
-  }
-}
-
-/*
- * Edwards Extended Point
- */
-
-static void
-xge_to_ege(edwards_t *ec, ege_t *r, const xge_t *p);
-
-static void
-xge_zero(edwards_t *ec, xge_t *r) {
-  prime_field_t *fe = &ec->fe;
-
-  fe_zero(fe, r->x);
-  fe_set(fe, r->y, fe->one);
-  fe_set(fe, r->z, fe->one);
-  fe_zero(fe, r->t);
-}
-
-static void
-xge_cleanse(edwards_t *ec, xge_t *r) {
-  prime_field_t *fe = &ec->fe;
-
-  fe_cleanse(fe, r->x);
-  fe_cleanse(fe, r->y);
-  fe_cleanse(fe, r->z);
-  fe_cleanse(fe, r->t);
+    raw[fe->size - 1] |= fe_is_odd(fe, x) << 7;
 }
 
 static void
@@ -5367,32 +5222,6 @@ xge_set(edwards_t *ec, xge_t *r, const xge_t *a) {
   fe_set(fe, r->y, a->y);
   fe_set(fe, r->z, a->z);
   fe_set(fe, r->t, a->t);
-}
-
-static int
-xge_import(edwards_t *ec, xge_t *r, const unsigned char *raw) {
-  ege_t p;
-
-  if (!ege_import(ec, &p, raw))
-    return 0;
-
-  ege_to_xge(ec, r, &p);
-
-  return 1;
-}
-
-static void
-xge_export(edwards_t *ec, unsigned char *raw, const xge_t *p) {
-  ege_t r;
-  xge_to_ege(ec, &r, p);
-  ege_export(ec, raw, &r);
-}
-
-static void
-xge_export_var(edwards_t *ec, unsigned char *raw, const xge_t *p) {
-  ege_t r;
-  xge_to_ege_var(ec, &r, p);
-  ege_export(ec, raw, &r);
 }
 
 static int
@@ -5633,7 +5462,7 @@ xge_dblp(edwards_t *ec, xge_t *r, const xge_t *p, size_t pow) {
 }
 
 static void
-xge_to_ege(edwards_t *ec, ege_t *r, const xge_t *p) {
+xge_normalize(edwards_t *ec, xge_t *r, const xge_t *p) {
   /* https://hyperelliptic.org/EFD/g1p/auto-edwards-projective.html#scaling-z
    * 1I + 2M (+ 1M if extended)
    */
@@ -5648,10 +5477,16 @@ xge_to_ege(edwards_t *ec, ege_t *r, const xge_t *p) {
 
   /* Y3 = Y1 * A */
   fe_mul(fe, r->y, p->y, a);
+
+  /* Z3 = 1 */
+  fe_set(fe, r->z, fe->one);
+
+  /* T3 = T1 * A */
+  fe_mul(fe, r->t, p->t, a);
 }
 
 static void
-xge_to_ege_var(edwards_t *ec, ege_t *r, const xge_t *p) {
+xge_normalize_var(edwards_t *ec, xge_t *r, const xge_t *p) {
   /* https://hyperelliptic.org/EFD/g1p/auto-edwards-projective.html#scaling-z
    * 1I + 2M (+ 1M if extended)
    */
@@ -5662,6 +5497,8 @@ xge_to_ege_var(edwards_t *ec, ege_t *r, const xge_t *p) {
   if (fe_equal(fe, p->z, fe->one)) {
     fe_set(fe, r->x, p->x);
     fe_set(fe, r->y, p->y);
+    fe_set(fe, r->z, fe->one);
+    fe_set(fe, r->t, p->t);
     return;
   }
 
@@ -5673,30 +5510,12 @@ xge_to_ege_var(edwards_t *ec, ege_t *r, const xge_t *p) {
 
   /* Y3 = Y1 * A */
   fe_mul(fe, r->y, p->y, a);
-}
 
-static int
-xge_validate(edwards_t *ec, const xge_t *p) {
-  /* [TWISTED] Definition 2.1, Page 3, Section 2. */
-  /*           Page 11, Section 6. */
-  /* (a * x^2 + y^2) * z^2 = z^4 + d * x^2 * y^2 */
-  prime_field_t *fe = &ec->fe;
-  fe_t lhs, rhs, x2, y2, ax2, z2, z4;
+  /* Z3 = 1 */
+  fe_set(fe, r->z, fe->one);
 
-  fe_sqr(fe, x2, p->x);
-  fe_sqr(fe, y2, p->y);
-  fe_sqr(fe, z2, p->z);
-  fe_sqr(fe, z4, z2);
-
-  edwards_mula(ec, ax2, x2);
-  fe_add(fe, lhs, ax2, y2);
-  fe_mul(fe, lhs, lhs, z2);
-
-  fe_mul(fe, rhs, x2, y2);
-  fe_mul(fe, rhs, rhs, ec->d);
-  fe_add(fe, rhs, rhs, z4);
-
-  return fe_equal(fe, lhs, rhs);
+  /* T3 = T1 * A */
+  fe_mul(fe, r->t, p->t, a);
 }
 
 static void
@@ -5721,26 +5540,25 @@ xge_is_small(edwards_t *ec, const xge_t *p) {
 }
 
 static void
-xge_naf_points(edwards_t *ec, xge_t *points, const ege_t *p, size_t width) {
+xge_naf_points(edwards_t *ec, xge_t *points, const xge_t *p, size_t width) {
   size_t size = (1 << width) - 1;
   xge_t dbl;
   size_t i;
 
-  ege_to_xge(ec, &points[0], p);
-  xge_dbl(ec, &dbl, &points[0]);
+  xge_dbl(ec, &dbl, p);
+  xge_set(ec, &points[0], p);
 
   for (i = 1; i < size; i++)
     xge_add(ec, &points[i], &points[i - 1], &dbl);
 }
 
 static void
-xge_jsf_points(edwards_t *ec, xge_t *points, const ege_t *p1, const ege_t *p2) {
+xge_jsf_points(edwards_t *ec, xge_t *points, const xge_t *p1, const xge_t *p2) {
   /* Create comb for JSF. */
-  ege_to_xge(ec, &points[0], p1); /* 1 */
-  ege_to_xge(ec, &points[3], p2); /* 7 */
-
-  xge_add(ec, &points[1], &points[0], &points[3]); /* 3 */
-  xge_sub(ec, &points[2], &points[0], &points[3]); /* 5 */
+  xge_set(ec, &points[0], p1); /* 1 */
+  xge_add(ec, &points[1], p1, p2); /* 3 */
+  xge_sub(ec, &points[2], p1, p2); /* 5 */
+  xge_set(ec, &points[3], p2); /* 7 */
 }
 
 static void
@@ -5795,6 +5613,8 @@ edwards_init(edwards_t *ec, const edwards_def_t *def) {
 
   fe_import_be(fe, ec->g.x, def->x);
   fe_import_be(fe, ec->g.y, def->y);
+  fe_set(fe, ec->g.z, fe->one);
+  fe_mul(fe, ec->g.t, ec->g.x, ec->g.y);
 
   sc_zero(sc, ec->blind);
   xge_zero(ec, &ec->unblind);
@@ -5821,7 +5641,7 @@ edwards_mula(edwards_t *ec, fe_t r, const fe_t x) {
 }
 
 static void
-edwards_jmul_g_var(edwards_t *ec, xge_t *r, const sc_t k) {
+edwards_mul_g_var(edwards_t *ec, xge_t *r, const sc_t k) {
   /* Window NAF method for point multiplication.
    *
    * [GECC] Algorithm 3.36, Page 100, Section 3.3.
@@ -5881,7 +5701,7 @@ edwards_jmul_g_var(edwards_t *ec, xge_t *r, const sc_t k) {
 }
 
 static void
-edwards_jmul_var(edwards_t *ec, xge_t *r, const ege_t *p, const sc_t k) {
+edwards_mul_var(edwards_t *ec, xge_t *r, const xge_t *p, const sc_t k) {
   /* Window NAF method for point multiplication.
    *
    * [GECC] Algorithm 3.36, Page 100, Section 3.3.
@@ -5932,10 +5752,10 @@ edwards_jmul_var(edwards_t *ec, xge_t *r, const ege_t *p, const sc_t k) {
 }
 
 static void
-edwards_jmul_double_var(edwards_t *ec,
+edwards_mul_double_var(edwards_t *ec,
                         xge_t *r,
                         const sc_t k1,
-                        const ege_t *p2,
+                        const xge_t *p2,
                         const sc_t k2) {
   /* Multiple point multiplication, also known
    * as "Shamir's trick" (with interleaved NAFs).
@@ -6000,10 +5820,10 @@ edwards_jmul_double_var(edwards_t *ec,
 }
 
 static void
-edwards_jmul_multi_var(edwards_t *ec,
+edwards_mul_multi_var(edwards_t *ec,
                        xge_t *r,
                        const sc_t k0,
-                       const ege_t *points,
+                       const xge_t *points,
                        const sc_t *coeffs,
                        size_t len,
                        edwards_scratch_t *scratch) {
@@ -6045,8 +5865,8 @@ edwards_jmul_multi_var(edwards_t *ec,
   sc_naf_var(sc, naf0, k0, 1, NAF_WIDTH_PRE, max);
 
   for (i = 0; i < (int)len; i += 2) {
-    const ege_t *p1 = &points[i + 0];
-    const ege_t *p2 = &points[i + 1];
+    const xge_t *p1 = &points[i + 0];
+    const xge_t *p2 = &points[i + 1];
     const sc_t *k1 = &coeffs[i + 0];
     const sc_t *k2 = &coeffs[i + 1];
 
@@ -6113,7 +5933,7 @@ edwards_jmul_multi_var(edwards_t *ec,
 }
 
 static void
-edwards_jmul(edwards_t *ec, xge_t *r, const ege_t *p, const sc_t k) {
+edwards_mul(edwards_t *ec, xge_t *r, const xge_t *p, const sc_t k) {
   /* Generalized Montgomery Ladder.
    *
    * [MONT1] Page 24, Section 4.6.2.
@@ -6125,7 +5945,7 @@ edwards_jmul(edwards_t *ec, xge_t *r, const ege_t *p, const sc_t k) {
   int i;
 
   /* Clone points (for safe swapping). */
-  ege_to_xge(ec, &a, p);
+  xge_set(ec, &a, p);
   xge_zero(ec, &b);
 
   assert((size_t)sc->limbs * GMP_NUMB_BITS >= fe->bits);
@@ -6150,45 +5970,7 @@ edwards_jmul(edwards_t *ec, xge_t *r, const ege_t *p, const sc_t k) {
 }
 
 static void
-edwards_mul_g_var(edwards_t *ec, ege_t *r, const sc_t k) {
-  xge_t j;
-  edwards_jmul_g_var(ec, &j, k);
-  xge_to_ege_var(ec, r, &j);
-}
-
-static void
-edwards_mul_var(edwards_t *ec, ege_t *r, const ege_t *p, const sc_t k) {
-  xge_t j;
-  edwards_jmul_var(ec, &j, p, k);
-  xge_to_ege_var(ec, r, &j);
-}
-
-static void
-edwards_mul_double_var(edwards_t *ec,
-                     ege_t *r,
-                     const sc_t k1,
-                     const ege_t *p2,
-                     const sc_t k2) {
-  xge_t j;
-  edwards_jmul_double_var(ec, &j, k1, p2, k2);
-  xge_to_ege_var(ec, r, &j);
-}
-
-static void
-edwards_mul_multi_var(edwards_t *ec,
-                      ege_t *r,
-                      const sc_t k0,
-                      const ege_t *points,
-                      const sc_t *coeffs,
-                      size_t len,
-                      edwards_scratch_t *scratch) {
-  xge_t j;
-  edwards_jmul_multi_var(ec, &j, k0, points, coeffs, len, scratch);
-  xge_to_ege_var(ec, r, &j);
-}
-
-static void
-edwards_jmul_g(edwards_t *ec, xge_t *r, const sc_t k) {
+edwards_mul_g(edwards_t *ec, xge_t *r, const sc_t k) {
   scalar_field_t *sc = &ec->sc;
   sc_t k0;
 
@@ -6196,7 +5978,7 @@ edwards_jmul_g(edwards_t *ec, xge_t *r, const sc_t k) {
   sc_add(sc, k0, k, ec->blind);
 
   /* Multiply in constant time. */
-  edwards_jmul(ec, r, &ec->g, k0);
+  edwards_mul(ec, r, &ec->g, k0);
 
   /* Unblind. */
   xge_add(ec, r, r, &ec->unblind);
@@ -6206,27 +5988,13 @@ edwards_jmul_g(edwards_t *ec, xge_t *r, const sc_t k) {
 }
 
 static void
-edwards_mul(edwards_t *ec, ege_t *r, const ege_t *p, const sc_t k) {
-  xge_t j;
-  edwards_jmul(ec, &j, p, k);
-  xge_to_ege(ec, r, &j);
-}
-
-static void
-edwards_mul_g(edwards_t *ec, ege_t *r, const sc_t k) {
-  xge_t j;
-  edwards_jmul_g(ec, &j, k);
-  xge_to_ege(ec, r, &j);
-}
-
-static void
 edwards_randomize(edwards_t *ec, const unsigned char *entropy) {
   scalar_field_t *sc = &ec->sc;
   sc_t blind;
   xge_t unblind;
 
   sc_import_reduce(sc, blind, entropy);
-  edwards_jmul_g(ec, &unblind, blind);
+  edwards_mul_g(ec, &unblind, blind);
   xge_neg(ec, &unblind, &unblind);
 
   sc_set(sc, ec->blind, blind);
@@ -6587,23 +6355,22 @@ ecdsa_pubkey_combine(wei_t *ec,
                      size_t *pub_lens,
                      size_t len,
                      int compact) {
-  wge_t Q;
-  jge_t P, A;
+  wge_t A;
+  jge_t P;
   size_t i;
 
   jge_zero(ec, &P);
 
   for (i = 0; i < len; i++) {
-    if (!wge_import(ec, &Q, pubs[i], pub_lens[i]))
+    if (!wge_import(ec, &A, pubs[i], pub_lens[i]))
       return 0;
 
-    wge_to_jge(ec, &A, &Q);
-    jge_add(ec, &P, &P, &A);
+    jge_mixed_add_var(ec, &P, &P, &A);
   }
 
-  jge_to_wge(ec, &Q, &P);
+  jge_to_wge(ec, &A, &P);
 
-  return wge_export(ec, out, out_len, &Q, compact);
+  return wge_export(ec, out, out_len, &A, compact);
 }
 
 static int
@@ -7749,23 +7516,22 @@ schnorr_pubkey_combine(wei_t *ec,
                      unsigned char *out,
                      const unsigned char **pubs,
                      size_t len) {
-  wge_t Q;
-  jge_t P, A;
+  wge_t A;
+  jge_t P;
   size_t i;
 
   jge_zero(ec, &P);
 
   for (i = 0; i < len; i++) {
-    if (!wge_import_x(ec, &Q, pubs[i]))
+    if (!wge_import_x(ec, &A, pubs[i]))
       return 0;
 
-    wge_to_jge(ec, &A, &Q);
-    jge_add(ec, &P, &P, &A);
+    jge_mixed_add_var(ec, &P, &P, &A);
   }
 
-  jge_to_wge(ec, &Q, &P);
+  jge_to_wge(ec, &A, &P);
 
-  return wge_export_x(ec, out, &Q);
+  return wge_export_x(ec, out, &A);
 }
 
 static void
@@ -8365,16 +8131,16 @@ eddsa_pubkey_from_scalar(edwards_t *ec,
                          const unsigned char *scalar) {
   scalar_field_t *sc = &ec->sc;
   sc_t a;
-  ege_t A;
+  xge_t A;
 
   sc_import_reduce(sc, a, scalar);
 
   edwards_mul_g(ec, &A, a);
 
-  ege_export(ec, pub, &A);
+  xge_export(ec, pub, &A);
 
   sc_cleanse(sc, a);
-  ege_cleanse(ec, &A);
+  xge_cleanse(ec, &A);
 }
 
 static void
@@ -8430,47 +8196,43 @@ eddsa_pubkey_to_hash(edwards_t *ec,
 static int
 eddsa_pubkey_verify(edwards_t *ec,
                     const unsigned char *pub) {
-  ege_t A;
-  return ege_import(ec, &A, pub);
+  xge_t A;
+  return xge_import(ec, &A, pub);
 }
 
 static int
 eddsa_pubkey_is_infinity(edwards_t *ec,
                          const unsigned char *pub) {
-  ege_t A;
+  xge_t A;
 
-  if (!ege_import(ec, &A, pub))
+  if (!xge_import(ec, &A, pub))
     return 0;
 
-  return ege_is_zero(ec, &A);
+  return xge_is_zero(ec, &A);
 }
 
 static int
 eddsa_pubkey_is_small(edwards_t *ec,
                       const unsigned char *pub) {
-  ege_t A;
-  xge_t P;
+  xge_t A;
 
-  if (!ege_import(ec, &A, pub))
+  if (!xge_import(ec, &A, pub))
     return 0;
 
-  ege_to_xge(ec, &P, &A);
-
-  return xge_is_small(ec, &P);
+  return xge_is_small(ec, &A);
 }
 
 static int
 eddsa_pubkey_has_torsion(edwards_t *ec,
                          const unsigned char *pub) {
-  ege_t A;
-  xge_t P;
+  xge_t A;
 
-  if (!ege_import(ec, &A, pub))
+  if (!xge_import(ec, &A, pub))
     return 0;
 
-  edwards_jmul(ec, &P, &A, ec->sc.n);
+  edwards_mul(ec, &A, &A, ec->sc.n);
 
-  return xge_is_zero(ec, &P) ^ 1;
+  return xge_is_zero(ec, &A) ^ 1;
 }
 
 static int
@@ -8479,23 +8241,18 @@ eddsa_pubkey_tweak_add(edwards_t *ec,
                        const unsigned char *pub,
                        const unsigned char *tweak) {
   scalar_field_t *sc = &ec->sc;
-  ege_t A;
-  xge_t P, T;
+  xge_t A, T;
   sc_t t;
 
-  if (!ege_import(ec, &A, pub))
+  if (!xge_import(ec, &A, pub))
     return 0;
-
-  ege_to_xge(ec, &P, &A);
 
   sc_import_reduce(sc, t, tweak);
 
-  edwards_jmul_g(ec, &T, t);
+  edwards_mul_g(ec, &T, t);
 
-  xge_add(ec, &P, &P, &T);
-  xge_to_ege(ec, &A, &P);
-
-  ege_export(ec, out, &A);
+  xge_add(ec, &A, &A, &T);
+  xge_export(ec, out, &A);
 
   sc_cleanse(sc, t);
 
@@ -8508,17 +8265,17 @@ eddsa_pubkey_tweak_mul(edwards_t *ec,
                        const unsigned char *pub,
                        const unsigned char *tweak) {
   scalar_field_t *sc = &ec->sc;
-  ege_t A;
+  xge_t A;
   sc_t t;
 
-  if (!ege_import(ec, &A, pub))
+  if (!xge_import(ec, &A, pub))
     return 0;
 
   sc_import_reduce(sc, t, tweak);
 
   edwards_mul(ec, &A, &A, t);
 
-  ege_export(ec, out, &A);
+  xge_export(ec, out, &A);
 
   sc_cleanse(sc, t);
 
@@ -8530,16 +8287,16 @@ eddsa_pubkey_add(edwards_t *ec,
                  unsigned char *out,
                  const unsigned char *pub1,
                  const unsigned char *pub2) {
-  ege_t A1, A2;
+  xge_t A1, A2;
 
-  if (!ege_import(ec, &A1, pub1))
+  if (!xge_import(ec, &A1, pub1))
     return 0;
 
-  if (!ege_import(ec, &A2, pub2))
+  if (!xge_import(ec, &A2, pub2))
     return 0;
 
-  ege_add(ec, &A1, &A1, &A2);
-  ege_export(ec, out, &A1);
+  xge_add(ec, &A1, &A1, &A2);
+  xge_export(ec, out, &A1);
 
   return 1;
 }
@@ -8549,22 +8306,19 @@ eddsa_pubkey_combine(edwards_t *ec,
                      unsigned char *out,
                      const unsigned char **pubs,
                      size_t len) {
-  ege_t Q;
-  xge_t A, P;
+  xge_t P, A;
   size_t i;
 
   xge_zero(ec, &P);
 
   for (i = 0; i < len; i++) {
-    if (!ege_import(ec, &Q, pubs[i]))
+    if (!xge_import(ec, &A, pubs[i]))
       return 0;
 
-    ege_to_xge(ec, &A, &Q);
     xge_add(ec, &P, &P, &A);
   }
 
-  xge_to_ege(ec, &Q, &P);
-  ege_export(ec, out, &Q);
+  xge_export(ec, out, &P);
 
   return 1;
 }
@@ -8573,13 +8327,13 @@ static int
 eddsa_pubkey_negate(edwards_t *ec,
                     unsigned char *out,
                     const unsigned char *pub) {
-  ege_t A;
+  xge_t A;
 
-  if (!ege_import(ec, &A, pub))
+  if (!xge_import(ec, &A, pub))
     return 0;
 
-  ege_neg(ec, &A, &A);
-  ege_export(ec, out, &A);
+  xge_neg(ec, &A, &A);
+  xge_export(ec, out, &A);
 }
 
 static void
@@ -8710,17 +8464,17 @@ eddsa_sign_with_scalar(edwards_t *ec,
   unsigned char *sraw = sig + fe->adj_size;
   unsigned char pub[MAX_FIELD_SIZE + 1];
   sc_t k, a, e, s;
-  ege_t R, A;
+  xge_t R, A;
 
   eddsa_hash_am(ec, k, ph, ctx, ctx_len, prefix, msg, msg_len);
 
   edwards_mul_g(ec, &R, k);
-  ege_export(ec, Rraw, &R);
+  xge_export(ec, Rraw, &R);
 
   sc_import_reduce(sc, a, scalar);
 
   edwards_mul_g(ec, &A, a);
-  ege_export(ec, pub, &A);
+  xge_export(ec, pub, &A);
 
   eddsa_hash_ram(ec, e, ph, ctx, ctx_len, Rraw, pub, msg, msg_len);
 
@@ -8736,8 +8490,8 @@ eddsa_sign_with_scalar(edwards_t *ec,
   sc_cleanse(sc, a);
   sc_cleanse(sc, e);
   sc_cleanse(sc, s);
-  ege_cleanse(ec, &R);
-  ege_cleanse(ec, &A);
+  xge_cleanse(ec, &R);
+  xge_cleanse(ec, &A);
 }
 
 static void
@@ -8864,14 +8618,13 @@ eddsa_verify(edwards_t *ec,
   scalar_field_t *sc = &ec->sc;
   const unsigned char *Rraw = sig;
   const unsigned char *sraw = sig + fe->adj_size;
-  ege_t R, A;
-  xge_t Re, Rx;
+  xge_t R, A, Re;
   sc_t s, e;
 
-  if (!ege_import(ec, &R, Rraw))
+  if (!xge_import(ec, &R, Rraw))
     return 0;
 
-  if (!ege_import(ec, &A, pub))
+  if (!xge_import(ec, &A, pub))
     return 0;
 
   if (!sc_import(sc, s, sraw))
@@ -8884,13 +8637,11 @@ eddsa_verify(edwards_t *ec,
 
   eddsa_hash_ram(ec, e, ph, ctx, ctx_len, Rraw, pub, msg, msg_len);
 
-  ege_to_xge(ec, &Re, &R);
+  xge_neg(ec, &A, &A);
 
-  ege_neg(ec, &A, &A);
+  edwards_mul_double_var(ec, &Re, s, &A, e);
 
-  edwards_jmul_double_var(ec, &Rx, s, &A, e);
-
-  return xge_equal(ec, &Rx, &Re);
+  return xge_equal(ec, &R, &Re);
 }
 
 static int
@@ -8931,14 +8682,13 @@ eddsa_verify_single(edwards_t *ec,
   scalar_field_t *sc = &ec->sc;
   const unsigned char *Rraw = sig;
   const unsigned char *sraw = sig + fe->adj_size;
-  ege_t R, A;
-  xge_t Re, Rx;
+  xge_t R, A, Re;
   sc_t s, e;
 
-  if (!ege_import(ec, &R, Rraw))
+  if (!xge_import(ec, &R, Rraw))
     return 0;
 
-  if (!ege_import(ec, &A, pub))
+  if (!xge_import(ec, &A, pub))
     return 0;
 
   if (!sc_import(sc, s, sraw))
@@ -8951,17 +8701,15 @@ eddsa_verify_single(edwards_t *ec,
 
   eddsa_hash_ram(ec, e, ph, ctx, ctx_len, Rraw, pub, msg, msg_len);
 
-  ege_to_xge(ec, &Re, &R);
-
   sc_mulw(sc, s, s, ec->h);
-  ege_mulh(ec, &A, &A);
-  xge_mulh(ec, &Re, &Re);
+  xge_mulh(ec, &A, &A);
+  xge_mulh(ec, &R, &R);
 
-  ege_neg(ec, &A, &A);
+  xge_neg(ec, &A, &A);
 
-  edwards_jmul_double_var(ec, &Rx, s, &A, e);
+  edwards_mul_double_var(ec, &Re, s, &A, e);
 
-  return xge_equal(ec, &Rx, &Re);
+  return xge_equal(ec, &R, &Re);
 }
 
 static int
@@ -8972,26 +8720,26 @@ eddsa_derive_with_scalar(edwards_t *ec,
   scalar_field_t *sc = &ec->sc;
   unsigned char clamped[MAX_SCALAR_SIZE];
   sc_t a;
-  ege_t A, P;
+  xge_t A, P;
   int ret = 0;
 
   edwards_clamp(ec, clamped, scalar);
 
   sc_import(sc, a, clamped);
 
-  if (!ege_import(ec, &A, pub))
+  if (!xge_import(ec, &A, pub))
     goto fail;
 
   edwards_mul(ec, &P, &A, a);
 
-  ege_export(ec, secret, &P);
+  xge_export(ec, secret, &P);
 
   ret = 1;
 fail:
   cleanse(clamped, sizeof(clamped));
   sc_cleanse(sc, a);
-  ege_cleanse(ec, &A);
-  ege_cleanse(ec, &P);
+  xge_cleanse(ec, &A);
+  xge_cleanse(ec, &P);
   return ret;
 }
 

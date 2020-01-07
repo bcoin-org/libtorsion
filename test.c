@@ -1808,7 +1808,7 @@ static void
 test_edwards_points_ed25519(drbg_t *rng) {
   edwards_t curve;
   edwards_t *ec = &curve;
-  ege_t g, p, q, r;
+  xge_t g, p, q, r;
   xge_t jg, jp, jq, jr;
   unsigned char entropy[32];
   unsigned char p_raw[32];
@@ -1842,33 +1842,33 @@ test_edwards_points_ed25519(drbg_t *rng) {
 
   edwards_randomize(ec, entropy);
 
-  ege_set(ec, &g, &ec->g);
-  ege_to_xge(ec, &jg, &ec->g);
+  xge_set(ec, &g, &ec->g);
+  xge_set(ec, &jg, &ec->g);
 
-  assert(ege_import(ec, &p, g_raw));
+  assert(xge_import(ec, &p, g_raw));
 
-  ege_to_xge(ec, &jp, &p);
-  ege_to_xge(ec, &jq, &ec->g);
+  xge_set(ec, &jp, &p);
+  xge_set(ec, &jq, &ec->g);
 
-  assert(ege_validate(ec, &p));
+  assert(xge_validate(ec, &p));
   assert(xge_validate(ec, &jp));
   assert(xge_validate(ec, &jq));
-  assert(ege_equal(ec, &p, &ec->g));
+  assert(xge_equal(ec, &p, &ec->g));
   assert(xge_equal(ec, &jp, &jq));
 
-  assert(ege_import(ec, &q, g2_raw));
-  assert(ege_import(ec, &r, g3_raw));
+  assert(xge_import(ec, &q, g2_raw));
+  assert(xge_import(ec, &r, g3_raw));
 
-  ege_to_xge(ec, &jq, &q);
-  ege_to_xge(ec, &jr, &r);
+  xge_set(ec, &jq, &q);
+  xge_set(ec, &jr, &r);
 
-  ege_dbl(ec, &p, &ec->g);
+  xge_dbl(ec, &p, &ec->g);
 
-  assert(ege_equal(ec, &p, &q));
+  assert(xge_equal(ec, &p, &q));
 
-  ege_add(ec, &p, &p, &ec->g);
+  xge_add(ec, &p, &p, &ec->g);
 
-  assert(ege_equal(ec, &p, &r));
+  assert(xge_equal(ec, &p, &r));
 
   xge_dbl(ec, &jp, &jg);
 
@@ -1900,11 +1900,11 @@ test_edwards_points_ed25519(drbg_t *rng) {
   assert(!xge_is_zero(ec, &jq));
   assert(!xge_is_zero(ec, &jr));
 
-  xge_to_ege(ec, &p, &jp);
+  xge_set(ec, &p, &jp);
 
-  assert(ege_equal(ec, &p, &q));
+  assert(xge_equal(ec, &p, &q));
 
-  ege_export(ec, p_raw, &p);
+  xge_export(ec, p_raw, &p);
   assert(memcmp(p_raw, g2_raw, 32) == 0);
 }
 
@@ -1927,7 +1927,7 @@ test_edwards_mul_g_ed25519(drbg_t *rng) {
   edwards_t curve;
   edwards_t *ec = &curve;
   sc_t k;
-  ege_t q, expect;
+  xge_t q, expect;
   unsigned char entropy[32];
   unsigned char q_raw[32];
   scalar_field_t *sc = &ec->sc;
@@ -1941,25 +1941,25 @@ test_edwards_mul_g_ed25519(drbg_t *rng) {
   edwards_randomize(ec, entropy);
 
   assert(sc_import(sc, k, k_raw));
-  assert(ege_import(ec, &expect, expect_raw));
+  assert(xge_import(ec, &expect, expect_raw));
 
-  assert(ege_validate(ec, &expect));
-  assert(ege_equal(ec, &expect, &expect));
-  assert(!ege_equal(ec, &expect, &ec->g));
+  assert(xge_validate(ec, &expect));
+  assert(xge_equal(ec, &expect, &expect));
+  assert(!xge_equal(ec, &expect, &ec->g));
 
   edwards_mul_g(ec, &q, k);
 
-  assert(ege_equal(ec, &q, &expect));
+  assert(xge_equal(ec, &q, &expect));
 
-  ege_export(ec, q_raw, &q);
+  xge_export(ec, q_raw, &q);
 
   assert(memcmp(q_raw, expect_raw, 32) == 0);
 
   edwards_mul_g_var(ec, &q, k);
 
-  assert(ege_equal(ec, &q, &expect));
+  assert(xge_equal(ec, &q, &expect));
 
-  ege_export(ec, q_raw, &q);
+  xge_export(ec, q_raw, &q);
 
   assert(memcmp(q_raw, expect_raw, 32) == 0);
 }
@@ -1990,7 +1990,7 @@ test_edwards_mul_ed25519(drbg_t *rng) {
   edwards_t curve;
   edwards_t *ec = &curve;
   sc_t k;
-  ege_t p, q, expect;
+  xge_t p, q, expect;
   unsigned char entropy[32];
   unsigned char q_raw[32];
   scalar_field_t *sc = &ec->sc;
@@ -2003,28 +2003,28 @@ test_edwards_mul_ed25519(drbg_t *rng) {
 
   edwards_randomize(ec, entropy);
 
-  assert(ege_import(ec, &p, p_raw));
+  assert(xge_import(ec, &p, p_raw));
   assert(sc_import(sc, k, k_raw));
-  assert(ege_import(ec, &expect, expect_raw));
+  assert(xge_import(ec, &expect, expect_raw));
 
-  assert(ege_validate(ec, &p));
-  assert(ege_validate(ec, &expect));
-  assert(ege_equal(ec, &expect, &expect));
-  assert(!ege_equal(ec, &expect, &ec->g));
+  assert(xge_validate(ec, &p));
+  assert(xge_validate(ec, &expect));
+  assert(xge_equal(ec, &expect, &expect));
+  assert(!xge_equal(ec, &expect, &ec->g));
 
   edwards_mul(ec, &q, &p, k);
 
-  assert(ege_equal(ec, &q, &expect));
+  assert(xge_equal(ec, &q, &expect));
 
-  ege_export(ec, q_raw, &q);
+  xge_export(ec, q_raw, &q);
 
   assert(memcmp(q_raw, expect_raw, 32) == 0);
 
   edwards_mul_var(ec, &q, &p, k);
 
-  assert(ege_equal(ec, &q, &expect));
+  assert(xge_equal(ec, &q, &expect));
 
-  ege_export(ec, q_raw, &q);
+  xge_export(ec, q_raw, &q);
 
   assert(memcmp(q_raw, expect_raw, 32) == 0);
 }
@@ -2062,7 +2062,7 @@ test_edwards_double_mul_ed25519(drbg_t *rng) {
   edwards_t curve;
   edwards_t *ec = &curve;
   sc_t k1, k2;
-  ege_t p, q, expect;
+  xge_t p, q, expect;
   unsigned char entropy[32];
   unsigned char q_raw[32];
   scalar_field_t *sc = &ec->sc;
@@ -2075,21 +2075,21 @@ test_edwards_double_mul_ed25519(drbg_t *rng) {
 
   edwards_randomize(ec, entropy);
 
-  assert(ege_import(ec, &p, p_raw));
+  assert(xge_import(ec, &p, p_raw));
   assert(sc_import(sc, k1, k1_raw));
   assert(sc_import(sc, k2, k2_raw));
-  assert(ege_import(ec, &expect, expect_raw));
+  assert(xge_import(ec, &expect, expect_raw));
 
-  assert(ege_validate(ec, &p));
-  assert(ege_validate(ec, &expect));
-  assert(ege_equal(ec, &expect, &expect));
-  assert(!ege_equal(ec, &expect, &ec->g));
+  assert(xge_validate(ec, &p));
+  assert(xge_validate(ec, &expect));
+  assert(xge_equal(ec, &expect, &expect));
+  assert(!xge_equal(ec, &expect, &ec->g));
 
   edwards_mul_double_var(ec, &q, k1, &p, k2);
 
-  assert(ege_equal(ec, &q, &expect));
+  assert(xge_equal(ec, &q, &expect));
 
-  ege_export(ec, q_raw, &q);
+  xge_export(ec, q_raw, &q);
 
   assert(memcmp(q_raw, expect_raw, 32) == 0);
 }
@@ -2141,12 +2141,12 @@ test_edwards_multi_mul_ed25519(drbg_t *rng) {
   edwards_t curve;
   edwards_t *ec = &curve;
   sc_t k0, k1, k2;
-  ege_t p1, p2, q, expect;
+  xge_t p1, p2, q, expect;
   unsigned char entropy[32];
   unsigned char q_raw[32];
   scalar_field_t *sc = &ec->sc;
   edwards_scratch_t scratch;
-  ege_t points[2];
+  xge_t points[2];
   sc_t coeffs[2];
 
   printf("Testing multi mul (vector).\n");
@@ -2157,30 +2157,30 @@ test_edwards_multi_mul_ed25519(drbg_t *rng) {
 
   edwards_randomize(ec, entropy);
 
-  assert(ege_import(ec, &p1, p1_raw));
-  assert(ege_import(ec, &p2, p2_raw));
+  assert(xge_import(ec, &p1, p1_raw));
+  assert(xge_import(ec, &p2, p2_raw));
   assert(sc_import(sc, k0, k0_raw));
   assert(sc_import(sc, k1, k1_raw));
   assert(sc_import(sc, k2, k2_raw));
-  assert(ege_import(ec, &expect, expect_raw));
+  assert(xge_import(ec, &expect, expect_raw));
 
-  assert(ege_validate(ec, &p1));
-  assert(ege_validate(ec, &p2));
-  assert(ege_validate(ec, &expect));
-  assert(ege_equal(ec, &expect, &expect));
-  assert(!ege_equal(ec, &expect, &ec->g));
+  assert(xge_validate(ec, &p1));
+  assert(xge_validate(ec, &p2));
+  assert(xge_validate(ec, &expect));
+  assert(xge_equal(ec, &expect, &expect));
+  assert(!xge_equal(ec, &expect, &ec->g));
 
-  ege_set(ec, &points[0], &p1);
-  ege_set(ec, &points[1], &p2);
+  xge_set(ec, &points[0], &p1);
+  xge_set(ec, &points[1], &p2);
 
   sc_set(sc, coeffs[0], k1);
   sc_set(sc, coeffs[1], k2);
 
   edwards_mul_multi_var(ec, &q, k0, points, coeffs, 2, &scratch);
 
-  assert(ege_equal(ec, &q, &expect));
+  assert(xge_equal(ec, &q, &expect));
 
-  ege_export(ec, q_raw, &q);
+  xge_export(ec, q_raw, &q);
 
   assert(memcmp(q_raw, expect_raw, 32) == 0);
 }
