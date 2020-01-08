@@ -399,7 +399,7 @@ static uint32_t
 bytes_equal(const unsigned char *a,
             const unsigned char *b,
             size_t size) {
-  /* Compute (a == 0) in constant time. */
+  /* Compute (a == b) in constant time. */
   uint32_t z = 0;
   size_t i;
 
@@ -8846,7 +8846,7 @@ eddsa_sign_with_scalar(edwards_t *ec,
   scalar_field_t *sc = &ec->sc;
   unsigned char *Rraw = sig;
   unsigned char *sraw = sig + fe->adj_size;
-  unsigned char pub[MAX_FIELD_SIZE + 1];
+  unsigned char Araw[MAX_FIELD_SIZE + 1];
   sc_t k, a, e, s;
   xge_t R, A;
 
@@ -8858,9 +8858,9 @@ eddsa_sign_with_scalar(edwards_t *ec,
   sc_import_reduce(sc, a, scalar);
 
   edwards_mul_g(ec, &A, a);
-  xge_export(ec, pub, &A);
+  xge_export(ec, Araw, &A);
 
-  eddsa_hash_ram(ec, e, ph, ctx, ctx_len, Rraw, pub, msg, msg_len);
+  eddsa_hash_ram(ec, e, ph, ctx, ctx_len, Rraw, Araw, msg, msg_len);
 
   sc_mul(sc, s, e, a);
   sc_add(sc, s, s, k);
@@ -8869,7 +8869,7 @@ eddsa_sign_with_scalar(edwards_t *ec,
   if ((fe->bits & 7) == 0)
     sraw[fe->size] = 0;
 
-  cleanse(pub, sizeof(pub));
+  cleanse(Araw, sizeof(Araw));
   sc_cleanse(sc, k);
   sc_cleanse(sc, a);
   sc_cleanse(sc, e);
