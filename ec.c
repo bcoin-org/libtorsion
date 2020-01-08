@@ -7083,15 +7083,19 @@ ecdsa_schnorr_sign(wei_t *ec,
   scalar_field_t *sc = &ec->sc;
   unsigned char *Rraw = sig;
   unsigned char *sraw = sig + fe->size;
-  unsigned char bytes[MAX_FIELD_SIZE];
+  unsigned char bytes[MAX_SCALAR_SIZE];
   unsigned char Araw[MAX_FIELD_SIZE + 1];
+  size_t off = fe->bits == 521 ? 2 : 0; /* Hack. */
   sc_t a, k, e, s;
   wge_t A, R;
   hash_t h;
   int ret = 0;
 
-  assert(MAX_FIELD_SIZE >= MAX_HASH_SIZE);
-  memset(bytes, 0x00, fe->size);
+  memset(bytes, 0x00, off);
+
+  /* Must have p = 3 mod 4. */
+  if ((fe->p[0] & 3) != 3)
+    return 0;
 
   if (!sc_import(sc, a, priv))
     goto fail;
@@ -7104,7 +7108,7 @@ ecdsa_schnorr_sign(wei_t *ec,
   hash_init(&h, ec->hash);
   hash_update(&h, priv, sc->size);
   hash_update(&h, msg, 32);
-  hash_final(&h, bytes, sc->size);
+  hash_final(&h, bytes + off, sc->size);
 
   sc_import_reduce(sc, k, bytes);
 
@@ -7122,7 +7126,7 @@ ecdsa_schnorr_sign(wei_t *ec,
   hash_update(&h, Rraw, fe->size);
   hash_update(&h, Araw, fe->size + 1);
   hash_update(&h, msg, 32);
-  hash_final(&h, bytes, sc->size);
+  hash_final(&h, bytes + off, sc->size);
 
   sc_import_reduce(sc, e, bytes);
 
@@ -7192,16 +7196,20 @@ ecdsa_schnorr_verify(wei_t *ec,
   scalar_field_t *sc = &ec->sc;
   const unsigned char *Rraw = sig;
   const unsigned char *sraw = sig + fe->size;
-  unsigned char bytes[MAX_FIELD_SIZE];
+  unsigned char bytes[MAX_SCALAR_SIZE];
   unsigned char Araw[MAX_FIELD_SIZE + 1];
+  size_t off = fe->bits == 521 ? 2 : 0; /* Hack. */
   fe_t r;
   sc_t s, e;
   wge_t A;
   jge_t R;
   hash_t h;
 
-  assert(MAX_FIELD_SIZE >= MAX_HASH_SIZE);
-  memset(bytes, 0x00, fe->size);
+  memset(bytes, 0x00, off);
+
+  /* Must have p = 3 mod 4. */
+  if ((fe->p[0] & 3) != 3)
+    return 0;
 
   if (!fe_import(fe, r, Rraw))
     return 0;
@@ -7218,7 +7226,7 @@ ecdsa_schnorr_verify(wei_t *ec,
   hash_update(&h, Rraw, fe->size);
   hash_update(&h, Araw, fe->size + 1);
   hash_update(&h, msg, 32);
-  hash_final(&h, bytes, sc->size);
+  hash_final(&h, bytes + off, sc->size);
 
   sc_import_reduce(sc, e, bytes);
   sc_neg(sc, e, e);
@@ -7535,16 +7543,16 @@ schnorr_pubkey_combine(wei_t *ec,
 }
 
 static void
-schnorr_hash_init(wei_t *ec, hash_t *h, const char *tag) {
-  size_t size = hash_output_size(ec->hash);
+schnorr_hash_init(hash_t *h, int type, const char *tag) {
+  size_t size = hash_output_size(type);
   unsigned char bytes[MAX_HASH_SIZE * 2];
 
-  hash_init(h, ec->hash);
+  hash_init(h, type);
   hash_update(h, tag, strlen(tag));
-  hash_final(h, bytes, ec->sc.size);
+  hash_final(h, bytes, size);
   memcpy(bytes + size, bytes, size);
 
-  hash_init(h, ec->hash);
+  hash_init(h, type);
   hash_update(h, bytes, size * 2);
 }
 
@@ -7586,16 +7594,16 @@ schnorr_sign(wei_t *ec,
   scalar_field_t *sc = &ec->sc;
   unsigned char *Rraw = sig;
   unsigned char *sraw = sig + fe->size;
-  unsigned char bytes[MAX_FIELD_SIZE];
+  unsigned char bytes[MAX_SCALAR_SIZE];
   unsigned char araw[MAX_SCALAR_SIZE];
   unsigned char Araw[MAX_FIELD_SIZE];
+  size_t off = fe->bits == 521 ? 2 : 0; /* Hack. */
   sc_t a, k, e, s;
   wge_t A, R;
   hash_t h;
   int ret = 0;
 
-  assert(MAX_FIELD_SIZE >= MAX_HASH_SIZE);
-  memset(bytes, 0x00, fe->size);
+  memset(bytes, 0x00, off);
 
   if (!sc_import(sc, a, priv))
     goto fail;
@@ -7608,10 +7616,10 @@ schnorr_sign(wei_t *ec,
   sc_neg_cond(sc, a, a, wge_is_square(ec, &A) ^ 1);
   sc_export(sc, araw, a);
 
-  schnorr_hash_init(ec, &h, "BIPSchnorrDerive");
+  schnorr_hash_init(&h, ec->hash, "BIPSchnorrDerive");
   hash_update(&h, araw, sc->size);
   hash_update(&h, msg, 32);
-  hash_final(&h, bytes, sc->size);
+  hash_final(&h, bytes + off, sc->size);
 
   sc_import_reduce(sc, k, bytes);
 
@@ -7625,11 +7633,11 @@ schnorr_sign(wei_t *ec,
   wge_export_x(ec, Rraw, &R);
   wge_export_x(ec, Araw, &A);
 
-  schnorr_hash_init(ec, &h, "BIPSchnorr");
+  schnorr_hash_init(&h, ec->hash, "BIPSchnorr");
   hash_update(&h, Rraw, fe->size);
   hash_update(&h, Araw, fe->size);
   hash_update(&h, msg, 32);
-  hash_final(&h, bytes, sc->size);
+  hash_final(&h, bytes + off, sc->size);
 
   sc_import_reduce(sc, e, bytes);
 
@@ -7701,15 +7709,15 @@ schnorr_verify(wei_t *ec,
   scalar_field_t *sc = &ec->sc;
   const unsigned char *Rraw = sig;
   const unsigned char *sraw = sig + fe->size;
-  unsigned char bytes[MAX_FIELD_SIZE];
+  unsigned char bytes[MAX_SCALAR_SIZE];
+  size_t off = fe->bits == 521 ? 2 : 0; /* Hack. */
   fe_t r;
   sc_t s, e;
   wge_t A;
   jge_t R;
   hash_t h;
 
-  assert(MAX_FIELD_SIZE >= MAX_HASH_SIZE);
-  memset(bytes, 0x00, fe->size);
+  memset(bytes, 0x00, off);
 
   if (!fe_import(fe, r, Rraw))
     return 0;
@@ -7720,11 +7728,11 @@ schnorr_verify(wei_t *ec,
   if (!wge_import_x(ec, &A, pub))
     return 0;
 
-  schnorr_hash_init(ec, &h, "BIPSchnorr");
+  schnorr_hash_init(&h, ec->hash, "BIPSchnorr");
   hash_update(&h, Rraw, fe->size);
   hash_update(&h, pub, fe->size);
   hash_update(&h, msg, 32);
-  hash_final(&h, bytes, sc->size);
+  hash_final(&h, bytes + off, sc->size);
 
   sc_import_reduce(sc, e, bytes);
   sc_neg(sc, e, e);
