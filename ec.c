@@ -249,6 +249,8 @@ typedef struct wei_def_s {
 typedef struct wei_scratch_s {
   jge_t wnd[32 * 4]; /* 27kb */
   int32_t naf[32 * (MAX_SCALAR_BITS + 1)]; /* 65kb */
+  wge_t points[64];
+  sc_t coeffs[64];
 } wei_scratch_t;
 
 /*
@@ -352,6 +354,8 @@ typedef struct edwards_def_s {
 typedef struct edwards_scratch_s {
   xge_t wnd[32 * 4]; /* 36kb */
   int32_t naf[32 * (MAX_SCALAR_BITS + 1)]; /* 65kb */
+  xge_t points[64];
+  sc_t coeffs[64];
 } edwards_scratch_t;
 
 /*
@@ -7046,6 +7050,65 @@ fail:
   return ret;
 }
 
+static void
+ecdsa_schnorr_hash_am(wei_t *ec, sc_t k,
+                      const unsigned char *scalar,
+                      const unsigned char *msg) {
+  scalar_field_t *sc = &ec->sc;
+  unsigned char bytes[MAX_SCALAR_SIZE];
+  size_t hash_size = hash_output_size(ec->hash);
+  size_t off = 0;
+  hash_t hash;
+
+  assert(MAX_SCALAR_SIZE >= MAX_HASH_SIZE);
+
+  if (sc->size > hash_size) {
+    off = sc->size - hash_size;
+    memset(bytes, 0x00, off);
+  }
+
+  hash_init(&hash, ec->hash);
+  hash_update(&hash, scalar, sc->size);
+  hash_update(&hash, msg, 32);
+  hash_final(&hash, bytes + off, sc->size);
+
+  sc_import_reduce(sc, k, bytes);
+
+  cleanse(bytes, sizeof(bytes));
+  cleanse(&hash, sizeof(hash));
+}
+
+static void
+ecdsa_schnorr_hash_ram(wei_t *ec, sc_t e,
+                       const unsigned char *R,
+                       const unsigned char *A,
+                       const unsigned char *msg) {
+  prime_field_t *fe = &ec->fe;
+  scalar_field_t *sc = &ec->sc;
+  unsigned char bytes[MAX_SCALAR_SIZE];
+  size_t hash_size = hash_output_size(ec->hash);
+  size_t off = 0;
+  hash_t hash;
+
+  assert(MAX_SCALAR_SIZE >= MAX_HASH_SIZE);
+
+  if (sc->size > hash_size) {
+    off = sc->size - hash_size;
+    memset(bytes, 0x00, off);
+  }
+
+  hash_init(&hash, ec->hash);
+  hash_update(&hash, R, fe->size);
+  hash_update(&hash, A, fe->size + 1);
+  hash_update(&hash, msg, 32);
+  hash_final(&hash, bytes + off, sc->size);
+
+  sc_import_reduce(sc, e, bytes);
+
+  cleanse(bytes, sizeof(bytes));
+  cleanse(&hash, sizeof(hash));
+}
+
 static int
 ecdsa_schnorr_sign(wei_t *ec,
                    unsigned char *sig,
@@ -7083,17 +7146,12 @@ ecdsa_schnorr_sign(wei_t *ec,
   scalar_field_t *sc = &ec->sc;
   unsigned char *Rraw = sig;
   unsigned char *sraw = sig + fe->size;
-  unsigned char bytes[MAX_SCALAR_SIZE];
   unsigned char Araw[MAX_FIELD_SIZE + 1];
-  size_t off = fe->bits == 521 ? 2 : 0; /* Hack. */
   sc_t a, k, e, s;
   wge_t A, R;
-  hash_t h;
   int ret = 0;
 
-  memset(bytes, 0x00, off);
-
-  /* Must have p = 3 mod 4. */
+  /* Must satisfy p = 3 mod 4. */
   if ((fe->p[0] & 3) != 3)
     return 0;
 
@@ -7105,12 +7163,7 @@ ecdsa_schnorr_sign(wei_t *ec,
 
   wei_mul_g(ec, &A, a);
 
-  hash_init(&h, ec->hash);
-  hash_update(&h, priv, sc->size);
-  hash_update(&h, msg, 32);
-  hash_final(&h, bytes + off, sc->size);
-
-  sc_import_reduce(sc, k, bytes);
+  ecdsa_schnorr_hash_am(ec, k, priv, msg);
 
   if (sc_is_zero(sc, k))
     goto fail;
@@ -7122,13 +7175,7 @@ ecdsa_schnorr_sign(wei_t *ec,
   wge_export_x(ec, Rraw, &R);
   wge_export(ec, Araw, NULL, &A, 1);
 
-  hash_init(&h, ec->hash);
-  hash_update(&h, Rraw, fe->size);
-  hash_update(&h, Araw, fe->size + 1);
-  hash_update(&h, msg, 32);
-  hash_final(&h, bytes + off, sc->size);
-
-  sc_import_reduce(sc, e, bytes);
+  ecdsa_schnorr_hash_ram(ec, e, Rraw, Araw, msg);
 
   sc_mul(sc, s, e, a);
   sc_add(sc, s, s, k);
@@ -7137,7 +7184,6 @@ ecdsa_schnorr_sign(wei_t *ec,
 
   ret = 1;
 fail:
-  cleanse(bytes, sizeof(bytes));
   cleanse(Araw, sizeof(Araw));
   sc_cleanse(sc, a);
   sc_cleanse(sc, k);
@@ -7145,7 +7191,6 @@ fail:
   sc_cleanse(sc, s);
   wge_cleanse(ec, &A);
   wge_cleanse(ec, &R);
-  cleanse(&h, sizeof(h));
   return ret;
 }
 
@@ -7196,18 +7241,13 @@ ecdsa_schnorr_verify(wei_t *ec,
   scalar_field_t *sc = &ec->sc;
   const unsigned char *Rraw = sig;
   const unsigned char *sraw = sig + fe->size;
-  unsigned char bytes[MAX_SCALAR_SIZE];
   unsigned char Araw[MAX_FIELD_SIZE + 1];
-  size_t off = fe->bits == 521 ? 2 : 0; /* Hack. */
   fe_t r;
   sc_t s, e;
   wge_t A;
   jge_t R;
-  hash_t h;
 
-  memset(bytes, 0x00, off);
-
-  /* Must have p = 3 mod 4. */
+  /* Must satisfy p = 3 mod 4. */
   if ((fe->p[0] & 3) != 3)
     return 0;
 
@@ -7222,13 +7262,8 @@ ecdsa_schnorr_verify(wei_t *ec,
 
   wge_export(ec, Araw, NULL, &A, 1);
 
-  hash_init(&h, ec->hash);
-  hash_update(&h, Rraw, fe->size);
-  hash_update(&h, Araw, fe->size + 1);
-  hash_update(&h, msg, 32);
-  hash_final(&h, bytes + off, sc->size);
+  ecdsa_schnorr_hash_ram(ec, e, Rraw, Araw, msg);
 
-  sc_import_reduce(sc, e, bytes);
   sc_neg(sc, e, e);
 
   if (ec->endo)
@@ -7241,6 +7276,165 @@ ecdsa_schnorr_verify(wei_t *ec,
 
   if (!jge_equal_x(ec, &R, r))
     return 0;
+
+  return 1;
+}
+
+static int
+ecdsa_schnorr_verify_batch(wei_t *ec,
+                           const unsigned char **msgs,
+                           const unsigned char **sigs,
+                           const unsigned char **pubs,
+                           size_t *pub_lens,
+                           size_t len,
+                           wei_scratch_t *scratch) {
+  /* Schnorr Batch Verification.
+   *
+   * [SCHNORR] "Batch Verification".
+   *
+   * Assumptions:
+   *
+   *   - Let `H` be a cryptographic hash function.
+   *   - Let `m` be a 32-byte array.
+   *   - Let `r` and `s` be signature elements.
+   *   - Let `A` be a valid group element.
+   *   - Let `i` be the batch item index.
+   *   - r^3 + a * r + b is square in F(p).
+   *   - r < p, s < n.
+   *   - a1 = 1 mod n.
+   *
+   * Computation:
+   *
+   *   Ri = (ri, sqrt(ri^3 + a * ri + b))
+   *   ei = H(ri, Ai, mi) mod n
+   *   ai = random integer in [1,n-1]
+   *   lhs = si * ai + ... mod n
+   *   rhs = Ri * ai + Ai * (ei * ai mod n) + ...
+   *   G * -lhs + rhs == O
+   */
+  prime_field_t *fe = &ec->fe;
+  scalar_field_t *sc = &ec->sc;
+  wge_t *points = scratch->points;
+  sc_t *coeffs = scratch->coeffs;
+  unsigned char slab[MAX_FIELD_SIZE + 1];
+  unsigned char *scalar = slab;
+  unsigned char *Araw = slab;
+  drbg_t rng;
+  wge_t R, A;
+  jge_t r;
+  sc_t sum, s, e, a;
+  size_t j = 0;
+  size_t i;
+
+  /* Must satisfy p = 3 mod 4. */
+  if ((fe->p[0] & 3) != 3)
+    return 0;
+
+  /* Seed RNG. */
+  {
+    unsigned char bytes[64];
+    hash_t hash;
+
+    hash_init(&hash, HASH_SHA512);
+
+    for (i = 0; i < len; i++) {
+      const unsigned char *msg = msgs[i];
+      const unsigned char *sig = sigs[i];
+      const unsigned char *pub = pubs[i];
+      size_t pub_len = pub_lens[i];
+
+      /* Quick key reserialization. */
+      if (pub_len == fe->size + 1) {
+        memcpy(Araw, pub, pub_len);
+      } else if (pub_len == fe->size * 2 + 1) {
+        Araw[0] = 0x02 | (pub[pub_len - 1] & 1);
+        memcpy(Araw + 1, pub + 1 + fe->size, fe->size);
+      } else {
+        memset(Araw, 0x00, fe->size + 1);
+      }
+
+      hash_update(&hash, msg, 32);
+      hash_update(&hash, sig, fe->size + sc->size);
+      hash_update(&hash, Araw, fe->size + 1);
+    }
+
+    hash_final(&hash, bytes, 64);
+
+    drbg_init(&rng, HASH_SHA256, bytes, 64);
+  }
+
+  /* Intialize sum. */
+  sc_zero(sc, sum);
+
+  /* Verify signatures. */
+  for (i = 0; i < len; i++) {
+    const unsigned char *msg = msgs[i];
+    const unsigned char *sig = sigs[i];
+    const unsigned char *pub = pubs[i];
+    size_t pub_len = pub_lens[i];
+    const unsigned char *Rraw = sig;
+    const unsigned char *sraw = sig + fe->size;
+
+    if (!wge_import_x(ec, &R, Rraw))
+      return 0;
+
+    if (!wge_import(ec, &A, pub, pub_len))
+      return 0;
+
+    if (!sc_import(sc, s, sraw))
+      return 0;
+
+    wge_export(ec, Araw, NULL, &A, 1);
+
+    ecdsa_schnorr_hash_ram(ec, e, Rraw, Araw, msg);
+
+    /* Generate random integer. */
+    for (;;) {
+      drbg_generate(&rng, scalar, sc->size);
+
+      if (!sc_import(sc, a, scalar))
+        continue;
+
+      if (sc_is_zero(sc, a))
+        continue;
+
+      break;
+    }
+
+    sc_mul(sc, e, e, a);
+    sc_mul(sc, s, s, a);
+    sc_add(sc, sum, sum, s);
+
+    wge_set(ec, &points[j + 0], &R);
+    wge_set(ec, &points[j + 1], &A);
+
+    sc_set(sc, coeffs[j + 0], a);
+    sc_set(sc, coeffs[j + 1], e);
+
+    j += 2;
+
+    if (j == 64) {
+      sc_neg(sc, sum, sum);
+
+      wei_jmul_multi_var(ec, &r, sum, points, coeffs, j, scratch);
+
+      if (!jge_is_zero(ec, &r))
+        return 0;
+
+      sc_zero(sc, sum);
+
+      j = 0;
+    }
+  }
+
+  if (j > 0) {
+    sc_neg(sc, sum, sum);
+
+    wei_jmul_multi_var(ec, &r, sum, points, coeffs, j, scratch);
+
+    if (!jge_is_zero(ec, &r))
+      return 0;
+  }
 
   return 1;
 }
@@ -7543,17 +7737,78 @@ schnorr_pubkey_combine(wei_t *ec,
 }
 
 static void
-schnorr_hash_init(hash_t *h, int type, const char *tag) {
+schnorr_hash_init(hash_t *hash, int type, const char *tag) {
   size_t size = hash_output_size(type);
   unsigned char bytes[MAX_HASH_SIZE * 2];
 
-  hash_init(h, type);
-  hash_update(h, tag, strlen(tag));
-  hash_final(h, bytes, size);
+  hash_init(hash, type);
+  hash_update(hash, tag, strlen(tag));
+  hash_final(hash, bytes, size);
   memcpy(bytes + size, bytes, size);
 
-  hash_init(h, type);
-  hash_update(h, bytes, size * 2);
+  hash_init(hash, type);
+  hash_update(hash, bytes, size * 2);
+}
+
+static void
+schnorr_hash_am(wei_t *ec, sc_t k,
+                const unsigned char *scalar,
+                const unsigned char *msg) {
+  scalar_field_t *sc = &ec->sc;
+  unsigned char bytes[MAX_SCALAR_SIZE];
+  size_t hash_size = hash_output_size(ec->hash);
+  size_t off = 0;
+  hash_t hash;
+
+  assert(MAX_SCALAR_SIZE >= MAX_HASH_SIZE);
+
+  if (sc->size > hash_size) {
+    off = sc->size - hash_size;
+    memset(bytes, 0x00, off);
+  }
+
+  schnorr_hash_init(&hash, ec->hash, "BIPSchnorrDerive");
+
+  hash_update(&hash, scalar, sc->size);
+  hash_update(&hash, msg, 32);
+  hash_final(&hash, bytes + off, sc->size);
+
+  sc_import_reduce(sc, k, bytes);
+
+  cleanse(bytes, sizeof(bytes));
+  cleanse(&hash, sizeof(hash));
+}
+
+static void
+schnorr_hash_ram(wei_t *ec, sc_t e,
+                 const unsigned char *R,
+                 const unsigned char *A,
+                 const unsigned char *msg) {
+  prime_field_t *fe = &ec->fe;
+  scalar_field_t *sc = &ec->sc;
+  unsigned char bytes[MAX_SCALAR_SIZE];
+  size_t hash_size = hash_output_size(ec->hash);
+  size_t off = 0;
+  hash_t hash;
+
+  assert(MAX_SCALAR_SIZE >= MAX_HASH_SIZE);
+
+  if (sc->size > hash_size) {
+    off = sc->size - hash_size;
+    memset(bytes, 0x00, off);
+  }
+
+  schnorr_hash_init(&hash, ec->hash, "BIPSchnorr");
+
+  hash_update(&hash, R, fe->size);
+  hash_update(&hash, A, fe->size);
+  hash_update(&hash, msg, 32);
+  hash_final(&hash, bytes + off, sc->size);
+
+  sc_import_reduce(sc, e, bytes);
+
+  cleanse(bytes, sizeof(bytes));
+  cleanse(&hash, sizeof(hash));
 }
 
 static int
@@ -7594,16 +7849,14 @@ schnorr_sign(wei_t *ec,
   scalar_field_t *sc = &ec->sc;
   unsigned char *Rraw = sig;
   unsigned char *sraw = sig + fe->size;
-  unsigned char bytes[MAX_SCALAR_SIZE];
   unsigned char araw[MAX_SCALAR_SIZE];
   unsigned char Araw[MAX_FIELD_SIZE];
-  size_t off = fe->bits == 521 ? 2 : 0; /* Hack. */
   sc_t a, k, e, s;
   wge_t A, R;
-  hash_t h;
   int ret = 0;
 
-  memset(bytes, 0x00, off);
+  /* Must satisfy p = 3 mod 4. */
+  assert((fe->p[0] & 3) == 3);
 
   if (!sc_import(sc, a, priv))
     goto fail;
@@ -7616,12 +7869,7 @@ schnorr_sign(wei_t *ec,
   sc_neg_cond(sc, a, a, wge_is_square(ec, &A) ^ 1);
   sc_export(sc, araw, a);
 
-  schnorr_hash_init(&h, ec->hash, "BIPSchnorrDerive");
-  hash_update(&h, araw, sc->size);
-  hash_update(&h, msg, 32);
-  hash_final(&h, bytes + off, sc->size);
-
-  sc_import_reduce(sc, k, bytes);
+  schnorr_hash_am(ec, k, araw, msg);
 
   if (sc_is_zero(sc, k))
     goto fail;
@@ -7633,13 +7881,7 @@ schnorr_sign(wei_t *ec,
   wge_export_x(ec, Rraw, &R);
   wge_export_x(ec, Araw, &A);
 
-  schnorr_hash_init(&h, ec->hash, "BIPSchnorr");
-  hash_update(&h, Rraw, fe->size);
-  hash_update(&h, Araw, fe->size);
-  hash_update(&h, msg, 32);
-  hash_final(&h, bytes + off, sc->size);
-
-  sc_import_reduce(sc, e, bytes);
+  schnorr_hash_ram(ec, e, Rraw, Araw, msg);
 
   sc_mul(sc, s, e, a);
   sc_add(sc, s, s, k);
@@ -7648,7 +7890,6 @@ schnorr_sign(wei_t *ec,
 
   ret = 1;
 fail:
-  cleanse(bytes, sizeof(bytes));
   cleanse(araw, sizeof(araw));
   cleanse(Araw, sizeof(Araw));
   sc_cleanse(sc, a);
@@ -7657,7 +7898,6 @@ fail:
   sc_cleanse(sc, s);
   wge_cleanse(ec, &A);
   wge_cleanse(ec, &R);
-  cleanse(&h, sizeof(h));
   return ret;
 }
 
@@ -7709,15 +7949,13 @@ schnorr_verify(wei_t *ec,
   scalar_field_t *sc = &ec->sc;
   const unsigned char *Rraw = sig;
   const unsigned char *sraw = sig + fe->size;
-  unsigned char bytes[MAX_SCALAR_SIZE];
-  size_t off = fe->bits == 521 ? 2 : 0; /* Hack. */
   fe_t r;
   sc_t s, e;
   wge_t A;
   jge_t R;
-  hash_t h;
 
-  memset(bytes, 0x00, off);
+  /* Must satisfy p = 3 mod 4. */
+  assert((fe->p[0] & 3) == 3);
 
   if (!fe_import(fe, r, Rraw))
     return 0;
@@ -7728,13 +7966,8 @@ schnorr_verify(wei_t *ec,
   if (!wge_import_x(ec, &A, pub))
     return 0;
 
-  schnorr_hash_init(&h, ec->hash, "BIPSchnorr");
-  hash_update(&h, Rraw, fe->size);
-  hash_update(&h, pub, fe->size);
-  hash_update(&h, msg, 32);
-  hash_final(&h, bytes + off, sc->size);
+  schnorr_hash_ram(ec, e, Rraw, pub, msg);
 
-  sc_import_reduce(sc, e, bytes);
   sc_neg(sc, e, e);
 
   if (ec->endo)
@@ -7752,10 +7985,153 @@ schnorr_verify(wei_t *ec,
 }
 
 static int
+schnorr_verify_batch(wei_t *ec,
+                     const unsigned char **msgs,
+                     const unsigned char **sigs,
+                     const unsigned char **pubs,
+                     size_t len,
+                     wei_scratch_t *scratch) {
+  /* Schnorr Batch Verification.
+   *
+   * [SCHNORR] "Batch Verification".
+   *
+   * Assumptions:
+   *
+   *   - Let `H` be a cryptographic hash function.
+   *   - Let `m` be a 32-byte array.
+   *   - Let `r` and `s` be signature elements.
+   *   - Let `x` be a field element.
+   *   - Let `i` be the batch item index.
+   *   - r^3 + a * r + b is square in F(p).
+   *   - x^3 + a * x + b is square in F(p).
+   *   - r < p, s < n, x < p.
+   *   - a1 = 1 mod n.
+   *
+   * Computation:
+   *
+   *   Ri = (ri, sqrt(ri^3 + a * ri + b))
+   *   Ai = (xi, sqrt(xi^3 + a * xi + b))
+   *   ei = H("BIPSchnorr", ri, xi, mi) mod n
+   *   ai = random integer in [1,n-1]
+   *   lhs = si * ai + ... mod n
+   *   rhs = Ri * ai + Ai * (ei * ai mod n) + ...
+   *   G * -lhs + rhs == O
+   */
+  prime_field_t *fe = &ec->fe;
+  scalar_field_t *sc = &ec->sc;
+  wge_t *points = scratch->points;
+  sc_t *coeffs = scratch->coeffs;
+  unsigned char scalar[MAX_SCALAR_SIZE];
+  drbg_t rng;
+  wge_t R, A;
+  jge_t r;
+  sc_t sum, s, e, a;
+  size_t j = 0;
+  size_t i;
+
+  /* Must satisfy p = 3 mod 4. */
+  assert((fe->p[0] & 3) == 3);
+
+  /* Seed RNG. */
+  {
+    unsigned char bytes[64];
+    hash_t hash;
+
+    hash_init(&hash, HASH_SHA512);
+
+    for (i = 0; i < len; i++) {
+      const unsigned char *msg = msgs[i];
+      const unsigned char *sig = sigs[i];
+      const unsigned char *pub = pubs[i];
+
+      hash_update(&hash, msg, 32);
+      hash_update(&hash, sig, fe->size + sc->size);
+      hash_update(&hash, pub, fe->size);
+    }
+
+    hash_final(&hash, bytes, 64);
+
+    drbg_init(&rng, HASH_SHA256, bytes, 64);
+  }
+
+  /* Intialize sum. */
+  sc_zero(sc, sum);
+
+  /* Verify signatures. */
+  for (i = 0; i < len; i++) {
+    const unsigned char *msg = msgs[i];
+    const unsigned char *sig = sigs[i];
+    const unsigned char *pub = pubs[i];
+    const unsigned char *Rraw = sig;
+    const unsigned char *sraw = sig + fe->size;
+
+    if (!wge_import_x(ec, &R, Rraw))
+      return 0;
+
+    if (!wge_import_x(ec, &A, pub))
+      return 0;
+
+    if (!sc_import(sc, s, sraw))
+      return 0;
+
+    schnorr_hash_ram(ec, e, Rraw, pub, msg);
+
+    /* Generate random integer. */
+    for (;;) {
+      drbg_generate(&rng, scalar, sc->size);
+
+      if (!sc_import(sc, a, scalar))
+        continue;
+
+      if (sc_is_zero(sc, a))
+        continue;
+
+      break;
+    }
+
+    sc_mul(sc, e, e, a);
+    sc_mul(sc, s, s, a);
+    sc_add(sc, sum, sum, s);
+
+    wge_set(ec, &points[j + 0], &R);
+    wge_set(ec, &points[j + 1], &A);
+
+    sc_set(sc, coeffs[j + 0], a);
+    sc_set(sc, coeffs[j + 1], e);
+
+    j += 2;
+
+    if (j == 64) {
+      sc_neg(sc, sum, sum);
+
+      wei_jmul_multi_var(ec, &r, sum, points, coeffs, j, scratch);
+
+      if (!jge_is_zero(ec, &r))
+        return 0;
+
+      sc_zero(sc, sum);
+
+      j = 0;
+    }
+  }
+
+  if (j > 0) {
+    sc_neg(sc, sum, sum);
+
+    wei_jmul_multi_var(ec, &r, sum, points, coeffs, j, scratch);
+
+    if (!jge_is_zero(ec, &r))
+      return 0;
+  }
+
+  return 1;
+}
+
+static int
 schnorr_derive(wei_t *ec,
-             unsigned char *secret,
-             const unsigned char *pub,
-             const unsigned char *priv) {
+               unsigned char *secret,
+               const unsigned char *pub,
+               const unsigned char *priv) {
   scalar_field_t *sc = &ec->sc;
   sc_t a;
   wge_t A, P;
@@ -7950,11 +8326,11 @@ eddsa_privkey_hash(edwards_t *ec,
                    unsigned char *out,
                    const unsigned char *priv) {
   prime_field_t *fe = &ec->fe;
-  hash_t h;
+  hash_t hash;
 
-  hash_init(&h, ec->hash);
-  hash_update(&h, priv, fe->adj_size);
-  hash_final(&h, out, fe->adj_size * 2);
+  hash_init(&hash, ec->hash);
+  hash_update(&hash, priv, fe->adj_size);
+  hash_final(&hash, out, fe->adj_size * 2);
 
   edwards_clamp(ec, out, out);
 }
@@ -8346,11 +8722,11 @@ eddsa_pubkey_negate(edwards_t *ec,
 
 static void
 eddsa_hash_init(edwards_t *ec,
-                hash_t *h,
+                hash_t *hash,
                 int ph,
                 const unsigned char *ctx,
                 size_t ctx_len) {
-  hash_init(h, ec->hash);
+  hash_init(hash, ec->hash);
 
   if (ctx_len > 255)
     ctx_len = 255;
@@ -8360,22 +8736,22 @@ eddsa_hash_init(edwards_t *ec,
     unsigned char length = ctx_len;
 
     if (ec->prefix != NULL)
-      hash_update(h, ec->prefix, strlen(ec->prefix));
+      hash_update(hash, ec->prefix, strlen(ec->prefix));
 
-    hash_update(h, &prehash, sizeof(prehash));
-    hash_update(h, &length, sizeof(length));
-    hash_update(h, ctx, ctx_len);
+    hash_update(hash, &prehash, sizeof(prehash));
+    hash_update(hash, &length, sizeof(length));
+    hash_update(hash, ctx, ctx_len);
   }
 }
 
 static void
-eddsa_hash_final(edwards_t *ec, sc_t r, hash_t *h) {
+eddsa_hash_final(edwards_t *ec, sc_t r, hash_t *hash) {
   unsigned char bytes[(MAX_FIELD_SIZE + 1) * 2];
   mp_limb_t k[MAX_REDUCE_LIMBS];
   prime_field_t *fe = &ec->fe;
   scalar_field_t *sc = &ec->sc;
 
-  hash_final(h, bytes, fe->adj_size * 2);
+  hash_final(hash, bytes, fe->adj_size * 2);
 
   mpn_import(k, ARRAY_SIZE(k), bytes, fe->adj_size * 2, sc->endian);
 
@@ -8395,14 +8771,14 @@ eddsa_hash_am(edwards_t *ec,
               const unsigned char *msg,
               size_t msg_len) {
   prime_field_t *fe = &ec->fe;
-  hash_t h;
+  hash_t hash;
 
-  eddsa_hash_init(ec, &h, ph, ctx, ctx_len);
+  eddsa_hash_init(ec, &hash, ph, ctx, ctx_len);
 
-  hash_update(&h, prefix, fe->adj_size);
-  hash_update(&h, msg, msg_len);
+  hash_update(&hash, prefix, fe->adj_size);
+  hash_update(&hash, msg, msg_len);
 
-  eddsa_hash_final(ec, r, &h);
+  eddsa_hash_final(ec, r, &hash);
 }
 
 static void
@@ -8416,15 +8792,15 @@ eddsa_hash_ram(edwards_t *ec,
                const unsigned char *msg,
                size_t msg_len) {
   prime_field_t *fe = &ec->fe;
-  hash_t h;
+  hash_t hash;
 
-  eddsa_hash_init(ec, &h, ph, ctx, ctx_len);
+  eddsa_hash_init(ec, &hash, ph, ctx, ctx_len);
 
-  hash_update(&h, R, fe->adj_size);
-  hash_update(&h, A, fe->adj_size);
-  hash_update(&h, msg, msg_len);
+  hash_update(&hash, R, fe->adj_size);
+  hash_update(&hash, A, fe->adj_size);
+  hash_update(&hash, msg, msg_len);
 
-  eddsa_hash_final(ec, r, &h);
+  eddsa_hash_final(ec, r, &hash);
 }
 
 static void
@@ -8536,17 +8912,17 @@ eddsa_sign_tweak_add(edwards_t *ec,
                      size_t ctx_len) {
   unsigned char scalar[MAX_SCALAR_SIZE];
   unsigned char prefix[MAX_FIELD_SIZE + 1];
-  hash_t h;
+  hash_t hash;
 
   eddsa_privkey_expand(ec, scalar, prefix, priv);
   eddsa_scalar_tweak_add(ec, scalar, scalar, tweak);
 
   assert(MAX_FIELD_SIZE + 1 >= MAX_HASH_SIZE);
 
-  hash_init(&h, ec->hash);
-  hash_update(&h, prefix, ec->fe.adj_size);
-  hash_update(&h, tweak, ec->sc.size);
-  hash_final(&h, prefix, ec->fe.adj_size);
+  hash_init(&hash, ec->hash);
+  hash_update(&hash, prefix, ec->fe.adj_size);
+  hash_update(&hash, tweak, ec->sc.size);
+  hash_final(&hash, prefix, ec->fe.adj_size);
 
   eddsa_sign_with_scalar(ec, sig, msg, msg_len,
                          scalar, prefix,
@@ -8568,17 +8944,17 @@ eddsa_sign_tweak_mul(edwards_t *ec,
                      size_t ctx_len) {
   unsigned char scalar[MAX_SCALAR_SIZE];
   unsigned char prefix[MAX_FIELD_SIZE + 1];
-  hash_t h;
+  hash_t hash;
 
   eddsa_privkey_expand(ec, scalar, prefix, priv);
   eddsa_scalar_tweak_mul(ec, scalar, scalar, tweak);
 
   assert(MAX_FIELD_SIZE + 1 >= MAX_HASH_SIZE);
 
-  hash_init(&h, ec->hash);
-  hash_update(&h, prefix, ec->fe.adj_size);
-  hash_update(&h, tweak, ec->sc.size);
-  hash_final(&h, prefix, ec->fe.adj_size);
+  hash_init(&hash, ec->hash);
+  hash_update(&hash, prefix, ec->fe.adj_size);
+  hash_update(&hash, tweak, ec->sc.size);
+  hash_final(&hash, prefix, ec->fe.adj_size);
 
   eddsa_sign_with_scalar(ec, sig, msg, msg_len,
                          scalar, prefix,
@@ -8718,6 +9094,160 @@ eddsa_verify_single(edwards_t *ec,
   edwards_mul_double_var(ec, &Re, s, &A, e);
 
   return xge_equal(ec, &R, &Re);
+}
+
+static int
+eddsa_verify_batch(edwards_t *ec,
+                   const unsigned char **msgs,
+                   size_t *msg_lens,
+                   const unsigned char **sigs,
+                   const unsigned char **pubs,
+                   size_t len,
+                   int ph,
+                   const unsigned char *ctx,
+                   size_t ctx_len,
+                   edwards_scratch_t *scratch) {
+  /* EdDSA Batch Verification.
+   *
+   * [EDDSA] Page 16, Section 5.
+   *
+   * Assumptions:
+   *
+   *   - Let `H` be a cryptographic hash function.
+   *   - Let `R` and `s` be signature elements.
+   *   - Let `A` be a valid group element.
+   *   - Let `i` be the batch item index.
+   *   - s < n.
+   *   - a1 = 1 mod n.
+   *
+   * Computation:
+   *
+   *   ei = H(Ri, Ai, mi) mod n
+   *   ai = random integer in [1,n-1]
+   *   lhs = (si * ai + ...) * h mod n
+   *   rhs = (Ri * h) * ai + (Ai * h) * (ei * ai mod n) + ...
+   *   G * -lhs + rhs == O
+   */
+  prime_field_t *fe = &ec->fe;
+  scalar_field_t *sc = &ec->sc;
+  xge_t *points = scratch->points;
+  sc_t *coeffs = scratch->coeffs;
+  unsigned char scalar[MAX_SCALAR_SIZE];
+  drbg_t rng;
+  xge_t R, A;
+  sc_t sum, s, e, a;
+  size_t j = 0;
+  size_t i;
+
+  /* Seed RNG. */
+  {
+    unsigned char bytes[64];
+    hash_t outer, inner;
+
+    hash_init(&outer, HASH_SHA512);
+
+    for (i = 0; i < len; i++) {
+      const unsigned char *msg = msgs[i];
+      size_t msg_len = msg_lens[i];
+      const unsigned char *sig = sigs[i];
+      const unsigned char *pub = pubs[i];
+
+      hash_init(&inner, HASH_SHA256);
+      hash_update(&inner, msg, msg_len);
+      hash_final(&inner, bytes, 32);
+
+      hash_update(&outer, bytes, 32);
+      hash_update(&outer, sig, fe->adj_size * 2);
+      hash_update(&outer, pub, fe->adj_size);
+    }
+
+    hash_final(&outer, bytes, 64);
+
+    drbg_init(&rng, HASH_SHA256, bytes, 64);
+  }
+
+  /* Intialize sum. */
+  sc_zero(sc, sum);
+
+  /* Verify signatures. */
+  for (i = 0; i < len; i++) {
+    const unsigned char *msg = msgs[i];
+    size_t msg_len = msg_lens[i];
+    const unsigned char *sig = sigs[i];
+    const unsigned char *pub = pubs[i];
+    const unsigned char *Rraw = sig;
+    const unsigned char *sraw = sig + fe->adj_size;
+
+    if (!xge_import(ec, &R, Rraw))
+      return 0;
+
+    if (!xge_import(ec, &A, pub))
+      return 0;
+
+    if (!sc_import(sc, s, sraw))
+      return 0;
+
+    if ((fe->bits & 7) == 0) {
+      if (sraw[fe->size] != 0)
+        return 0;
+    }
+
+    eddsa_hash_ram(ec, e, ph, ctx, ctx_len, Rraw, pub, msg, msg_len);
+
+    /* Generate random integer. */
+    for (;;) {
+      drbg_generate(&rng, scalar, sc->size);
+
+      if (!sc_import(sc, a, scalar))
+        continue;
+
+      if (sc_is_zero(sc, a))
+        continue;
+
+      break;
+    }
+
+    sc_mul(sc, e, e, a);
+    sc_mul(sc, s, s, a);
+    sc_add(sc, sum, sum, s);
+
+    xge_mulh(ec, &R, &R);
+    xge_mulh(ec, &A, &A);
+
+    xge_set(ec, &points[j + 0], &R);
+    xge_set(ec, &points[j + 1], &A);
+
+    sc_set(sc, coeffs[j + 0], a);
+    sc_set(sc, coeffs[j + 1], e);
+
+    j += 2;
+
+    if (j == 64) {
+      sc_mulw(sc, sum, sum, ec->h);
+      sc_neg(sc, sum, sum);
+
+      edwards_mul_multi_var(ec, &R, sum, points, coeffs, j, scratch);
+
+      if (!xge_is_zero(ec, &R))
+        return 0;
+
+      sc_zero(sc, sum);
+
+      j = 0;
+    }
+  }
+
+  if (j > 0) {
+    sc_mulw(sc, sum, sum, ec->h);
+    sc_neg(sc, sum, sum);
+
+    edwards_mul_multi_var(ec, &R, sum, points, coeffs, j, scratch);
+
+    if (!xge_is_zero(ec, &R))
+      return 0;
+  }
+
+  return 1;
 }
 
 static int

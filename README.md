@@ -40,8 +40,6 @@ Intended to be the new EC backend for [bcrypto].
 ## Todo
 
 - Optimize functions to reduce stack usage.
-- Batch verification.
-- bip-schnorr support.
 - Elligators.
 
 [bcrypto]: https://github.com/bcoin-org/bcrypto
