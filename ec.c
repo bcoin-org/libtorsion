@@ -5827,7 +5827,7 @@ mont_point_to_hash(mont_t *ec,
     mont_point_from_uniform(ec, &p1, bytes);
 
     /* Avoid 2-torsion points. */
-    if (ec->h > 1 && fe_equal(fe, p1.y, fe->zero))
+    if (fe_equal(fe, p1.y, fe->zero))
       continue;
 
     mge_sub_var(ec, &p2, p, &p1);
@@ -7104,7 +7104,7 @@ edwards_point_to_hash(edwards_t *ec,
     edwards_point_from_uniform(ec, &p1, bytes);
 
     /* Avoid 2-torsion points. */
-    if (ec->h > 1 && fe_equal(fe, p1.y, fe->zero))
+    if (fe_equal(fe, p1.x, fe->zero))
       continue;
 
     xge_sub(ec, &p2, p, &p1);
