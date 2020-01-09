@@ -208,6 +208,12 @@ typedef struct wei_s {
   fe_t red_n;
   fe_t a;
   fe_t b;
+  fe_t c;
+  fe_t z;
+  fe_t ai;
+  fe_t zi;
+  fe_t i2;
+  fe_t i3;
   int zero_a;
   int three_a;
   wge_t g;
@@ -279,6 +285,9 @@ typedef struct mont_s {
   unsigned int h;
   fe_t a;
   fe_t b;
+  fe_t z;
+  int invert;
+  fe_t c;
   fe_t bi;
   fe_t i4;
   fe_t a24;
@@ -297,6 +306,7 @@ typedef struct mont_def_s {
   const unsigned char b[MAX_FIELD_SIZE];
   unsigned int h;
   int z;
+  int invert;
   const unsigned char c[MAX_FIELD_SIZE];
   const unsigned char x[MAX_FIELD_SIZE];
   const unsigned char y[MAX_FIELD_SIZE];
@@ -325,6 +335,14 @@ typedef struct edwards_s {
   fe_t a;
   fe_t d;
   fe_t k;
+  fe_t z;
+  int invert;
+  fe_t c;
+  fe_t A;
+  fe_t B;
+  fe_t Bi;
+  fe_t A0;
+  fe_t B0;
   int mone_a;
   int one_a;
   xge_t g;
@@ -345,6 +363,7 @@ typedef struct edwards_def_s {
   const unsigned char d[MAX_FIELD_SIZE];
   unsigned int h;
   int z;
+  int invert;
   const unsigned char c[MAX_FIELD_SIZE];
   const unsigned char x[MAX_FIELD_SIZE];
   const unsigned char y[MAX_FIELD_SIZE];
@@ -1062,7 +1081,7 @@ sc_sub(scalar_field_t *sc, sc_t r, const sc_t a, const sc_t b) {
 }
 
 static void
-sc_mulw(scalar_field_t *sc, sc_t r, const sc_t a, unsigned int b) {
+sc_mul_word(scalar_field_t *sc, sc_t r, const sc_t a, unsigned int b) {
   int bits = count_bits(b);
   int i;
 
@@ -1710,7 +1729,7 @@ fe_sub(prime_field_t *fe, fe_t r, const fe_t a, const fe_t b) {
 }
 
 static void
-fe_mulw(prime_field_t *fe, fe_t r, const fe_t a, unsigned int b) {
+fe_mul_word(prime_field_t *fe, fe_t r, const fe_t a, unsigned int b) {
   int bits = count_bits(b);
   int i;
 
@@ -2136,6 +2155,7 @@ wge_set_x(wei_t *ec, wge_t *r, const fe_t x, int sign) {
 static void
 wge_set_xy(wei_t *ec, wge_t *r, const fe_t x, const fe_t y) {
   prime_field_t *fe = &ec->fe;
+
   fe_set(fe, r->x, x);
   fe_set(fe, r->y, y);
   r->inf = 0;
@@ -3694,6 +3714,19 @@ wei_init(wei_t *ec, const wei_def_t *def) {
   fe_set_limbs(fe, ec->red_n, sc->n, sc->limbs);
   fe_import(fe, ec->a, def->a);
   fe_import(fe, ec->b, def->b);
+  fe_import(fe, ec->c, def->c);
+
+  if (def->z < 0) {
+    fe_set_word(fe, ec->z, -def->z);
+    fe_neg(fe, ec->z, ec->z);
+  } else {
+    fe_set_word(fe, ec->z, def->z);
+  }
+
+  fe_invert_var(fe, ec->ai, ec->a);
+  fe_invert_var(fe, ec->zi, ec->z);
+  fe_invert_var(fe, ec->i2, fe->two);
+  fe_invert_var(fe, ec->i3, fe->three);
 
   ec->zero_a = fe_is_zero(fe, ec->a);
   ec->three_a = fe_equal(fe, ec->a, fe->three);
@@ -4346,12 +4379,474 @@ wei_randomize(wei_t *ec, const unsigned char *entropy) {
   jge_cleanse(ec, &unblind);
 }
 
+static void
+wei_solve_y2(wei_t *ec, fe_t r, const fe_t x) {
+  /* [GECC] Page 89, Section 3.2.2. */
+  prime_field_t *fe = &ec->fe;
+  fe_t y2, ax;
+
+  /* y^2 = x^3 + a * x + b */
+  fe_sqr(fe, y2, x);
+  fe_mul(fe, y2, y2, x);
+  fe_mul(fe, ax, ec->a, x);
+  fe_add(fe, y2, y2, ax);
+  fe_add(fe, r, y2, ec->b);
+}
+
+static void
+wei_sswu(wei_t *ec, wge_t *p, const fe_t u) {
+  /* Simplified Shallue-Woestijne-Ulas Method.
+   *
+   * Distribution: 3/8.
+   *
+   * [SSWU1] Page 15-16, Section 7. Appendix G.
+   * [SSWU2] Page 5, Theorem 2.3.
+   * [H2EC] "Simplified Shallue-van de Woestijne-Ulas Method".
+   *
+   * Assumptions:
+   *
+   *   - a != 0, b != 0.
+   *   - Let z be a non-square in F(p).
+   *   - z != -1.
+   *   - The polynomial g(x) - z is irreducible over F(p).
+   *   - g(b / (z * a)) is square in F(p).
+   *   - u != 0, u != +-sqrt(-1 / z).
+   *
+   * Map:
+   *
+   *   g(x) = x^3 + a * x + b
+   *   t1 = 1 / (z^2 * u^4 + z * u^2)
+   *   x1 = (-b / a) * (1 + t1)
+   *   x1 = b / (z * a), if t1 = 0
+   *   x2 = z * u^2 * x1
+   *   x = x1, if g(x1) is square
+   *     = x2, otherwise
+   *   y = sign(u) * abs(sqrt(g(x)))
+   */
+  prime_field_t *fe = &ec->fe;
+  fe_t z2, ba, bza, u2, u4, t1, x1, x2, y1, y2;
+  int zero, alpha;
+
+  fe_sqr(fe, z2, ec->z);
+  fe_neg(fe, ba, ec->b);
+  fe_mul(fe, ba, ba, ec->ai);
+  fe_mul(fe, bza, ec->b, ec->zi);
+  fe_mul(fe, bza, bza, ec->ai);
+
+  fe_sqr(fe, u2, u);
+  fe_sqr(fe, u4, u2);
+
+  fe_mul(fe, x1, ec->z, u2);
+  fe_mul(fe, t1, z2, u4);
+  fe_add(fe, t1, t1, x1);
+  zero = fe_invert(fe, t1, t1) ^ 1;
+
+  fe_add(fe, t1, t1, fe->one);
+  fe_mul(fe, x1, ba, t1);
+
+  fe_select(fe, x1, x1, bza, zero);
+
+  fe_mul(fe, x2, ec->z, u2);
+  fe_mul(fe, x2, x2, x1);
+
+  wei_solve_y2(ec, y1, x1);
+  wei_solve_y2(ec, y2, x2);
+
+  alpha = fe_is_square(fe, y1);
+
+  fe_select(fe, x1, x1, x2, alpha ^ 1);
+  fe_select(fe, y1, y1, y2, alpha ^ 1);
+  fe_sqrt(fe, y1, y1);
+
+  fe_set_odd(fe, y1, y1, fe_is_odd(fe, u));
+
+  wge_set_xy(ec, p, x1, y1);
+}
+
+static int
+wei_sswui(wei_t *ec, fe_t u, const wge_t *p, unsigned int hint) {
+  /* Inverting the Map (Simplified Shallue-Woestijne-Ulas).
+   *
+   * Assumptions:
+   *
+   *   - a^2 * x^2 - 2 * a * b * x - 3 * b^2 is square in F(p).
+   *   - If r < 3 then x != -b / a.
+   *
+   * Unlike SVDW, the preimages here are evenly
+   * distributed (more or less). SSWU covers ~3/8
+   * of the curve points. Each preimage has a 1/2
+   * chance of mapping to either x1 or x2.
+   *
+   * Assuming the point is within that set, each
+   * point has a 1/4 chance of inverting to any
+   * of the preimages. This means we can simply
+   * randomly select a preimage if one exists.
+   *
+   * However, the [SVDW2] sampling method seems
+   * slighly faster in practice for [SQUARED].
+   *
+   * Map:
+   *
+   *   c = sqrt(a^2 * x^2 - 2 * a * b * x - 3 * b^2)
+   *   u1 = -(a * x + b - c) / (2 * (a * x + b) * z)
+   *   u2 = -(a * x + b + c) / (2 * (a * x + b) * z)
+   *   u3 = -(a * x + b - c) / (2 * b * z)
+   *   u4 = -(a * x + b + c) / (2 * b * z)
+   *   r = random integer in [1,4]
+   *   u = sign(y) * abs(sqrt(ur))
+   */
+  prime_field_t *fe = &ec->fe;
+  fe_t a2x2, abx2, b23, axb, c, n0, n1, d0, d1;
+  unsigned int r = hint & 3;
+  unsigned s0, s1;
+
+  fe_sqr(fe, n0, ec->a);
+  fe_sqr(fe, n1, p->x);
+  fe_mul(fe, a2x2, n0, n1);
+
+  fe_mul(fe, abx2, ec->a, ec->b);
+  fe_mul(fe, abx2, abx2, p->x);
+  fe_add(fe, abx2, abx2, abx2);
+
+  fe_sqr(fe, b23, ec->b);
+  fe_mul_word(fe, b23, b23, 3);
+
+  fe_mul(fe, axb, ec->a, p->x);
+  fe_add(fe, axb, axb, ec->b);
+
+  fe_sub(fe, c, a2x2, abx2);
+  fe_sub(fe, c, c, b23);
+  s0 = fe_sqrt(fe, c, c);
+
+  fe_sub(fe, n0, axb, c);
+  fe_neg(fe, n0, n0);
+
+  fe_add(fe, n1, axb, c);
+  fe_neg(fe, n1, n1);
+
+  fe_mul(fe, d0, axb, ec->z);
+  fe_add(fe, d0, d0, d0);
+
+  fe_mul(fe, d1, ec->b, ec->z);
+  fe_add(fe, d1, d1, d1);
+
+  fe_select(fe, n0, n0, n1, r & 1); /* r = 1 or 3 */
+  fe_select(fe, d0, d0, d1, r >> 1); /* r = 2 or 3 */
+
+  s1 = fe_isqrt(fe, u, n0, d0);
+
+  fe_set_odd(fe, u, u, fe_is_odd(fe, p->y));
+
+  return s0 & s1 & (p->inf ^ 1);
+}
+
+static void
+wei_svdwf(wei_t *ec, fe_t x, fe_t y, const fe_t u) {
+  /* Shallue-van de Woestijne Method.
+   *
+   * Distribution: 9/16.
+   *
+   * [SVDW1] Section 5.
+   * [SVDW2] Page 8, Section 3.
+   *         Page 15, Section 6, Algorithm 1.
+   * [H2EC] "Shallue-van de Woestijne Method".
+   *
+   * Assumptions:
+   *
+   *   - p = 1 (mod 3).
+   *   - a = 0, b != 0.
+   *   - Let z be a unique element in F(p).
+   *   - g((sqrt(-3 * z^2) - z) / 2) is square in F(p).
+   *   - u != 0, u != +-sqrt(-g(z)).
+   *
+   * Map:
+   *
+   *   g(x) = x^3 + b
+   *   c = sqrt(-3 * z^2)
+   *   t1 = u^2 + g(z)
+   *   t2 = 1 / (u^2 * t1)
+   *   t3 = u^4 * t2 * c
+   *   x1 = (c - z) / 2 - t3
+   *   x2 = t3 - (c + z) / 2
+   *   x3 = z - t1^3 * t2 / (3 * z^2)
+   *   x = x1, if g(x1) is square
+   *     = x2, if g(x2) is square
+   *     = x3, otherwise
+   *   y = sign(u) * abs(sqrt(g(x)))
+   */
+  prime_field_t *fe = &ec->fe;
+  fe_t gz, z3, u2, u4, t1, t2, t3, t4, x1, x2, x3, y1, y2, y3;
+  unsigned int alpha, beta;
+
+  wei_solve_y2(ec, gz, ec->z);
+
+  fe_sqr(fe, z3, ec->zi);
+  fe_mul(fe, z3, z3, ec->i3);
+
+  fe_sqr(fe, u2, u);
+  fe_sqr(fe, u4, u2);
+
+  fe_add(fe, t1, u2, gz);
+
+  fe_mul(fe, t2, u2, t1);
+  fe_invert(fe, t2, t2);
+
+  fe_mul(fe, t3, u4, t2);
+  fe_mul(fe, t3, t3, ec->c);
+
+  fe_sqr(fe, t4, t1);
+  fe_mul(fe, t4, t4, t1);
+
+  fe_sub(fe, x1, ec->c, ec->z);
+  fe_mul(fe, x1, x1, ec->i2);
+  fe_sub(fe, x1, x1, t3);
+
+  fe_add(fe, y1, ec->c, ec->z); /* borrow y1 */
+  fe_mul(fe, y1, y1, ec->i2);
+  fe_sub(fe, x2, t3, y1);
+
+  fe_mul(fe, y1, t4, t2); /* borrow y1 */
+  fe_mul(fe, y1, y1, z3);
+  fe_sub(fe, x3, ec->z, y1);
+
+  wei_solve_y2(ec, y1, x1);
+  wei_solve_y2(ec, y2, x2);
+  wei_solve_y2(ec, y3, x3);
+
+  alpha = fe_is_square(fe, y1);
+  beta = fe_is_square(fe, y2);
+
+  fe_select(fe, x, x1, x2, (alpha ^ 1) & beta);
+  fe_select(fe, y, y1, y2, (alpha ^ 1) & beta);
+  fe_select(fe, x, x1, x3, (alpha ^ 1) & (beta ^ 1));
+  fe_select(fe, y, y1, y3, (alpha ^ 1) & (beta ^ 1));
+}
+
+static void
+wei_svdw(wei_t *ec, wge_t *p, const fe_t u) {
+  prime_field_t *fe = &ec->fe;
+  fe_t x, y;
+
+  wei_svdwf(ec, x, y, u);
+
+  fe_sqrt(fe, y, y);
+  fe_set_odd(fe, y, y, fe_is_odd(fe, u));
+
+  wge_set_xy(ec, p, x, y);
+}
+
+static int
+wei_svdwi(wei_t *ec, fe_t u, const wge_t *p, unsigned int hint) {
+  /* Inverting the Map (Shallue-van de Woestijne).
+   *
+   * [SQUARED] Algorithm 1, Page 8, Section 3.3.
+   * [SVDW2] Page 12, Section 5.
+   * [SVDW3] "Inverting the map".
+   *
+   * Assumptions:
+   *
+   *   - If r = 1 then x != -(c + z) / 2.
+   *   - If r = 2 then x != (c - z) / 2.
+   *   - If r > 2 then (t0 - t1 + t2) is square in F(p).
+   *   - f(f^-1(x)) = x where f is the map function.
+   *
+   * We use the sampling method from [SVDW2],
+   * _not_ [SQUARED]. This seems to have a
+   * better distribution in practice.
+   *
+   * Note that [SVDW3] also appears to be
+   * incorrect in terms of distribution.
+   *
+   * The distribution of f(u), assuming u is
+   * random, is (1/2, 1/4, 1/4).
+   *
+   * To mirror this, f^-1(x) should simply
+   * pick (1/2, 1/4, 1/8, 1/8).
+   *
+   * To anyone running the forward map, our
+   * strings will appear to be random.
+   *
+   * Map:
+   *
+   *   g(x) = x^3 + b
+   *   c = sqrt(-3 * z^2)
+   *   t0 = 9 * (x^2 * z^2 + z^4)
+   *   t1 = 18 * x * z^3
+   *   t2 = 12 * g(z) * (x - z)
+   *   t3 = sqrt(t0 - t1 + t2)
+   *   t4 = t3 * z
+   *   u1 = g(z) * (c - 2 * x - z) / (c + 2 * x + z)
+   *   u2 = g(z) * (c + 2 * x + z) / (c - 2 * x - z)
+   *   u3 = (3 * (z^3 - x * z^2) - 2 * g(z) + t4) / 2
+   *   u4 = (3 * (z^3 - x * z^2) - 2 * g(z) - t4) / 2
+   *   r = random integer in [1,4]
+   *   u = sign(y) * abs(sqrt(ur))
+   */
+  prime_field_t *fe = &ec->fe;
+  fe_t z2, z3, z4, gz, c0, c1, t4, t5, n0, n1, n2, n3, d0;
+  uint32_t r = hint & 3;
+  uint32_t s0, s1, s2, s3;
+
+  fe_sqr(fe, z2, ec->z);
+  fe_mul(fe, z3, z2, ec->z);
+  fe_sqr(fe, z4, z2);
+  fe_add(fe, gz, z3, ec->b);
+
+  fe_sqr(fe, n0, p->x);
+  fe_mul(fe, n0, n0, z2);
+  fe_add(fe, n0, n0, z4);
+  fe_mul_word(fe, n0, n0, 9);
+
+  fe_mul(fe, n1, p->x, z3);
+  fe_mul_word(fe, n1, n1, 18);
+
+  fe_sub(fe, n2, p->x, ec->z);
+  fe_mul(fe, n2, n2, gz);
+  fe_mul_word(fe, n2, n2, 12);
+
+  fe_sub(fe, t4, n0, n1);
+  fe_add(fe, t4, t4, n2);
+  s0 = fe_sqrt(fe, t4, t4);
+  s1 = ((r - 2) >> 31) | s0;
+  fe_mul(fe, t4, t4, ec->z);
+
+  fe_mul(fe, n0, p->x, z2);
+  fe_add(fe, n1, gz, gz);
+  fe_sub(fe, t5, z3, n0);
+  fe_mul_word(fe, t5, t5, 3);
+  fe_sub(fe, t5, t5, n1);
+
+  fe_add(fe, n0, p->x, p->x);
+  fe_add(fe, n0, n0, ec->z);
+
+  fe_sub(fe, c0, ec->c, n0);
+  fe_add(fe, c1, ec->c, n1);
+
+  fe_mul(fe, n0, gz, c0);
+  fe_mul(fe, n1, gz, c1);
+  fe_add(fe, n3, t5, t4);
+  fe_sub(fe, n3, t5, t4);
+  fe_set(fe, d0, fe->two);
+
+  fe_select(fe, n0, n0, n1, ((r ^ 1) - 1) >> 31); /* r = 1 */
+  fe_select(fe, n0, n0, n2, ((r ^ 2) - 1) >> 31); /* r = 2 */
+  fe_select(fe, n0, n0, n3, ((r ^ 3) - 1) >> 31); /* r = 3 */
+  fe_select(fe, d0, d0, c1, ((r ^ 0) - 1) >> 31); /* r = 0 */
+  fe_select(fe, d0, d0, c0, ((r ^ 1) - 1) >> 31); /* r = 1 */
+
+  s2 = fe_isqrt(fe, u, n0, d0);
+
+  wei_svdwf(ec, n0, n1, u);
+
+  s3 = fe_equal(fe, n0, p->x);
+
+  fe_set_odd(fe, u, u, fe_is_odd(fe, p->y));
+
+  return s1 & s2 & s3 & (p->inf ^ 1);
+}
+
+static void
+wei_point_from_uniform(wei_t *ec, wge_t *p, const unsigned char *bytes) {
+  prime_field_t *fe = &ec->fe;
+  fe_t u;
+
+  fe_import(fe, u, bytes);
+
+  if (ec->zero_a)
+    wei_svdw(ec, p, u);
+  else
+    wei_sswu(ec, p, u);
+
+  fe_cleanse(fe, u);
+}
+
+static int
+wei_point_to_uniform(wei_t *ec,
+                     unsigned char *bytes,
+                     const wge_t *p,
+                     unsigned int hint) {
+  prime_field_t *fe = &ec->fe;
+  fe_t u;
+  int ret;
+
+  if (ec->zero_a)
+    ret = wei_svdwi(ec, u, p, hint);
+  else
+    ret = wei_sswui(ec, u, p, hint);
+
+  fe_export(fe, bytes, u);
+  fe_cleanse(fe, u);
+
+  return ret;
+}
+
+static void
+wei_point_from_hash(wei_t *ec, wge_t *p, const unsigned char *bytes) {
+  /* [H2EC] "Roadmap". */
+  wge_t p1, p2;
+
+  wei_point_from_uniform(ec, &p1, bytes);
+  wei_point_from_uniform(ec, &p2, bytes + ec->fe.size);
+
+  wge_add(ec, p, &p1, &p2);
+
+  wge_cleanse(ec, &p1);
+  wge_cleanse(ec, &p2);
+}
+
+static void
+wei_point_to_hash(wei_t *ec,
+                  unsigned char *bytes,
+                  const wge_t *p,
+                  const unsigned char *seed) {
+  /* [SQUARED] Algorithm 1, Page 8, Section 3.3. */
+  prime_field_t *fe = &ec->fe;
+  unsigned int hint;
+  wge_t p1, p2;
+  drbg_t rng;
+
+  drbg_init(&rng, HASH_SHA256, seed, 32);
+
+  for (;;) {
+    drbg_generate(&rng, bytes, fe->size);
+
+    if (!bytes_lt(bytes, fe->raw, fe->size, fe->endian))
+      continue;
+
+    wei_point_from_uniform(ec, &p1, bytes);
+
+    /* Avoid 2-torsion points. */
+    if (ec->h > 1 && fe_equal(fe, p1.y, fe->zero))
+      continue;
+
+    wge_sub(ec, &p2, p, &p1);
+
+    drbg_generate(&rng, &hint, sizeof(hint));
+
+    if (!wei_point_to_uniform(ec, bytes + fe->size, &p2, hint))
+      continue;
+
+    break;
+  }
+
+  cleanse(&rng, sizeof(rng));
+  cleanse(&hint, sizeof(hint));
+
+  wge_cleanse(ec, &p1);
+  wge_cleanse(ec, &p2);
+}
+
 /*
  * Montgomery
  */
 
 static void
 mont_mula24(mont_t *ec, fe_t r, const fe_t a);
+
+static void
+_mont_to_edwards(prime_field_t *fe, xge_t *r,
+                 const mge_t *p, const fe_t c,
+                 int invert, int isogeny);
 
 /*
  * Montgomery Affine Point
@@ -4658,6 +5153,22 @@ mge_to_pge(mont_t *ec, pge_t *r, const mge_t *a) {
 }
 
 static void
+mge_mulh_var(mont_t *ec, mge_t *r, const mge_t *p) {
+  int bits = count_bits(ec->h);
+  int i;
+
+  mge_set(ec, r, p);
+
+  for (i = 0; i < bits - 1; i++)
+    mge_dbl_var(ec, r, r);
+}
+
+static void
+mge_to_xge(mont_t *ec, xge_t *r, const mge_t *p) {
+  _mont_to_edwards(&ec->fe, r, p, ec->c, ec->invert, 1);
+}
+
+static void
 mge_print(mont_t *ec, const mge_t *p) {
   prime_field_t *fe = &ec->fe;
 
@@ -4954,6 +5465,9 @@ static void
 xge_mulh(edwards_t *ec, xge_t *r, const xge_t *p);
 
 static void
+mont_init_isomorphism(mont_t *ec, const mont_def_t *def);
+
+static void
 mont_init(mont_t *ec, const mont_def_t *def) {
   prime_field_t *fe = &ec->fe;
   scalar_field_t *sc = &ec->sc;
@@ -4966,6 +5480,16 @@ mont_init(mont_t *ec, const mont_def_t *def) {
 
   fe_import_be(fe, ec->a, def->a);
   fe_import_be(fe, ec->b, def->b);
+
+  if (def->z < 0) {
+    fe_set_word(fe, ec->z, -def->z);
+    fe_neg(fe, ec->z, ec->z);
+  } else {
+    fe_set_word(fe, ec->z, def->z);
+  }
+
+  mont_init_isomorphism(ec, def);
+
   fe_invert_var(fe, ec->bi, ec->b);
   fe_invert_var(fe, ec->i4, fe->four);
 
@@ -4982,6 +5506,28 @@ mont_init(mont_t *ec, const mont_def_t *def) {
   fe_import_be(fe, ec->g.x, def->x);
   fe_import_be(fe, ec->g.y, def->y);
   ec->g.inf = 0;
+}
+
+static void
+mont_init_isomorphism(mont_t *ec, const mont_def_t *def) {
+  /* Trick: recover isomorphism from scaling factor `c`.
+   *
+   * Normal:
+   *
+   *   c = sqrt((A + 2) / (B * a))
+   *   a = (A + 2) / (B * c^2)
+   *   d = a * (A - 2) / (A + 2)
+   *
+   * Inverted:
+   *
+   *   c = sqrt((A - 2) / (B * a))
+   *   a = (A - 2) / (B * c^2)
+   *   d = a * (A + 2) / (A - 2)
+   */
+  prime_field_t *fe = &ec->fe;
+
+  ec->invert = def->invert;
+  fe_import_be(fe, ec->c, def->c);
 }
 
 static void
@@ -5050,12 +5596,253 @@ mont_mul_g(mont_t *ec, pge_t *r, const sc_t k) {
   mont_mul(ec, r, &g, k);
 }
 
+static void
+mont_solve_y0(mont_t *ec, fe_t y2, const fe_t x) {
+  /* y^2 = x^3 + A * x^2 + B * x */
+  prime_field_t *fe = &ec->fe;
+  fe_t x2, x3, ax2, bx;
+
+  fe_sqr(fe, x2, x);
+  fe_mul(fe, x3, x2, x);
+  fe_mul(fe, ax2, ec->a0, x2);
+  fe_mul(fe, bx, ec->b0, x);
+  fe_add(fe, y2, x3, ax2);
+  fe_add(fe, y2, y2, bx);
+}
+
+static void
+mont_elligator2(mont_t *ec, mge_t *r, const fe_t u) {
+  /* Elligator 2.
+   *
+   * Distribution: 1/2.
+   *
+   * [ELL2] Page 11, Section 5.2.
+   * [H2EC] "Elligator 2 Method".
+   *        "Mappings for Montgomery curves".
+   * [SAFE] "Indistinguishability from uniform random strings".
+   *
+   * Assumptions:
+   *
+   *   - y^2 = x^3 + A * x^2 + B * x.
+   *   - A != 0, B != 0.
+   *   - A^2 - 4 * B is non-zero and non-square in F(p).
+   *   - Let z be a non-square in F(p).
+   *   - u != +-sqrt(-1 / z).
+   *
+   * Note that Elligator 2 is defined over the form:
+   *
+   *   y'^2 = x'^3 + A' * x'^2 + B' * x'
+   *
+   * Instead of:
+   *
+   *   B * y^2 = x^3 + A * x^2 + x
+   *
+   * Where:
+   *
+   *   A' = A / B
+   *   B' = 1 / B^2
+   *   x' = x / B
+   *   y' = y / B
+   *
+   * And:
+   *
+   *   x = B * x'
+   *   y = B * y'
+   *
+   * This is presumably the result of Elligator 2
+   * being designed in long Weierstrass form. If
+   * we want to support B != 1, we need to do the
+   * conversion.
+   *
+   * Map:
+   *
+   *   g(x) = x^3 + A * x^2 + B * x
+   *   x1 = -A / (1 + z * u^2)
+   *   x1 = -A, if x1 = 0
+   *   x2 = -x1 - A
+   *   x = x1, if g(x1) is square
+   *     = x2, otherwise
+   *   y = sign(u) * abs(sqrt(g(x)))
+   */
+  prime_field_t *fe = &ec->fe;
+  fe_t lhs, rhs, x1, x2, y1, y2;
+  int alpha;
+
+  fe_neg(fe, lhs, ec->a0);
+  fe_sqr(fe, rhs, u);
+  fe_mul(fe, rhs, rhs, ec->z);
+  fe_add(fe, rhs, rhs, fe->one);
+
+  fe_select(fe, rhs, rhs, fe->one, fe_is_zero(fe, rhs));
+
+  fe_invert(fe, rhs, rhs);
+  fe_mul(fe, x1, lhs, rhs);
+  fe_neg(fe, x2, x1);
+  fe_sub(fe, x2, x2, ec->a0);
+
+  mont_solve_y0(ec, y1, x1);
+  mont_solve_y0(ec, y2, x2);
+
+  alpha = fe_is_square(fe, y1);
+
+  fe_select(fe, x1, x1, x2, alpha ^ 1);
+  fe_select(fe, y1, y1, y2, alpha ^ 1);
+  fe_sqrt(fe, y1, y1);
+
+  fe_set_odd(fe, y1, y1, fe_is_odd(fe, u));
+
+  fe_mul(fe, x1, x1, ec->b);
+  fe_mul(fe, y1, y1, ec->b);
+
+  mge_set_xy(ec, r, x1, y1);
+}
+
+static int
+mont_invert2(mont_t *ec, fe_t u, const mge_t *p, unsigned int hint) {
+  /* Inverting the Map (Elligator 2).
+   *
+   * [ELL2] Page 12, Section 5.3.
+   *
+   * Assumptions:
+   *
+   *   - -z * x * (x + A) is square in F(p).
+   *   - If r = 1 then x != 0.
+   *   - If r = 2 then x != -A.
+   *
+   * Map:
+   *
+   *   u1 = -(x + A) / (x * z)
+   *   u2 = -x / ((x + A) * z)
+   *   r = random integer in [1,2]
+   *   u = sign(y) * abs(sqrt(ur))
+   *
+   * Note that `0 / 0` can only occur if `A == 0`
+   * (this violates the assumptions of Elligator 2).
+   */
+  prime_field_t *fe = &ec->fe;
+  fe_t x0, y0, n, d;
+  int ret;
+
+  fe_mul(fe, x0, p->x, ec->bi);
+  fe_mul(fe, y0, p->y, ec->bi);
+
+  fe_add(fe, n, x0, ec->a0);
+  fe_set(fe, d, x0);
+
+  fe_swap(fe, n, d, hint & 1);
+
+  fe_neg(fe, n, n);
+  fe_mul(fe, d, d, ec->z);
+
+  ret = fe_isqrt(fe, u, n, d);
+
+  fe_set_odd(fe, u, u, fe_is_odd(fe, y0));
+
+  return ret & (p->inf ^ 1);
+}
+
+static void
+mont_point_from_uniform(mont_t *ec, mge_t *p, const unsigned char *bytes) {
+  prime_field_t *fe = &ec->fe;
+  fe_t u;
+
+  fe_import(fe, u, bytes);
+
+  mont_elligator2(ec, p, u);
+
+  fe_cleanse(fe, u);
+}
+
+static int
+mont_point_to_uniform(mont_t *ec,
+                      unsigned char *bytes,
+                      const mge_t *p,
+                      unsigned int hint) {
+  prime_field_t *fe = &ec->fe;
+  fe_t u;
+  int ret;
+
+  ret = mont_invert2(ec, u, p, hint);
+
+  fe_export(fe, bytes, u);
+  fe_cleanse(fe, u);
+
+  return ret;
+}
+
+static void
+mont_point_from_hash(mont_t *ec,
+                     mge_t *p,
+                     const unsigned char *bytes,
+                     int pake) {
+  /* [H2EC] "Roadmap". */
+  mge_t p1, p2;
+
+  mont_point_from_uniform(ec, &p1, bytes);
+  mont_point_from_uniform(ec, &p2, bytes + ec->fe.size);
+
+  mge_add_var(ec, p, &p1, &p2);
+
+  if (pake)
+    mge_mulh_var(ec, p, p);
+
+  mge_cleanse(ec, &p1);
+  mge_cleanse(ec, &p2);
+}
+
+static void
+mont_point_to_hash(mont_t *ec,
+                   unsigned char *bytes,
+                   const mge_t *p,
+                   const unsigned char *seed) {
+  /* [SQUARED] Algorithm 1, Page 8, Section 3.3. */
+  prime_field_t *fe = &ec->fe;
+  unsigned int hint;
+  mge_t p1, p2;
+  drbg_t rng;
+
+  drbg_init(&rng, HASH_SHA256, seed, 32);
+
+  for (;;) {
+    drbg_generate(&rng, bytes, fe->size);
+
+    if (!bytes_lt(bytes, fe->raw, fe->size, fe->endian))
+      continue;
+
+    mont_point_from_uniform(ec, &p1, bytes);
+
+    /* Avoid 2-torsion points. */
+    if (ec->h > 1 && fe_equal(fe, p1.y, fe->zero))
+      continue;
+
+    mge_sub_var(ec, &p2, p, &p1);
+
+    drbg_generate(&rng, &hint, sizeof(hint));
+
+    if (!mont_point_to_uniform(ec, bytes + fe->size, &p2, hint))
+      continue;
+
+    break;
+  }
+
+  cleanse(&rng, sizeof(rng));
+  cleanse(&hint, sizeof(hint));
+
+  mge_cleanse(ec, &p1);
+  mge_cleanse(ec, &p2);
+}
+
 /*
  * Edwards
  */
 
 static void
 edwards_mula(edwards_t *ec, fe_t r, const fe_t x);
+
+static void
+_edwards_to_mont(prime_field_t *fe, mge_t *r,
+                 const xge_t *p, const fe_t c,
+                 int invert, int isogeny);
 
 /*
  * Edwards Extended Point
@@ -5566,6 +6353,11 @@ xge_jsf_points(edwards_t *ec, xge_t *points, const xge_t *p1, const xge_t *p2) {
 }
 
 static void
+xge_to_mge(edwards_t *ec, mge_t *r, const xge_t *p) {
+  _edwards_to_mont(&ec->fe, r, p, ec->c, ec->invert, 1);
+}
+
+static void
 xge_print(edwards_t *ec, const xge_t *p) {
   prime_field_t *fe = &ec->fe;
 
@@ -5595,6 +6387,9 @@ xge_print(edwards_t *ec, const xge_t *p) {
  */
 
 static void
+edwards_init_isomorphism(edwards_t *ec, const edwards_def_t *def);
+
+static void
 edwards_init(edwards_t *ec, const edwards_def_t *def) {
   prime_field_t *fe = &ec->fe;
   scalar_field_t *sc = &ec->sc;
@@ -5612,6 +6407,15 @@ edwards_init(edwards_t *ec, const edwards_def_t *def) {
   fe_import_be(fe, ec->d, def->d);
   fe_add(fe, ec->k, ec->d, ec->d);
 
+  if (def->z < 0) {
+    fe_set_word(fe, ec->z, -def->z);
+    fe_neg(fe, ec->z, ec->z);
+  } else {
+    fe_set_word(fe, ec->z, def->z);
+  }
+
+  edwards_init_isomorphism(ec, def);
+
   ec->mone_a = fe_equal(fe, ec->a, fe->mone);
   ec->one_a = fe_equal(fe, ec->a, fe->one);
 
@@ -5624,6 +6428,58 @@ edwards_init(edwards_t *ec, const edwards_def_t *def) {
   xge_zero(ec, &ec->unblind);
 
   xge_naf_points(ec, ec->points, &ec->g, NAF_WIDTH_PRE);
+}
+
+static void
+edwards_init_isomorphism(edwards_t *ec, const edwards_def_t *def) {
+  /* Trick: recover isomorphism from scaling factor `c`.
+   *
+   * Normal:
+   *
+   *   c = sqrt((A + 2) / (B * a))
+   *   A = 2 * (a + d) / (a - d)
+   *   B = (A + 2) / (a * c^2)
+   *
+   * Inverted:
+   *
+   *   c = sqrt((A - 2) / (B * a))
+   *   A = 2 * (d + a) / (d - a)
+   *   B = (A - 2) / (a * c^2)
+   */
+  prime_field_t *fe = &ec->fe;
+  fe_t u, v;
+
+  ec->invert = def->invert;
+  fe_import_be(fe, ec->c, def->c);
+
+  if (!ec->invert) {
+    fe_add(fe, u, ec->a, ec->d);
+    fe_sub(fe, v, ec->a, ec->d);
+  } else {
+    fe_add(fe, u, ec->d, ec->a);
+    fe_sub(fe, v, ec->d, ec->a);
+  }
+
+  fe_add(fe, u, u, u);
+  fe_invert_var(fe, v, v);
+  fe_mul(fe, ec->A, u, v);
+
+  if (!ec->invert)
+    fe_add(fe, u, ec->A, fe->two);
+  else
+    fe_sub(fe, u, ec->A, fe->two);
+
+  fe_sqr(fe, v, ec->c);
+  fe_mul(fe, v, v, ec->a);
+  fe_invert_var(fe, v, v);
+  fe_mul(fe, ec->B, u, v);
+  fe_invert_var(fe, ec->Bi, ec->B);
+
+  /* A0 = A / B */
+  fe_mul(fe, ec->A0, ec->A, ec->Bi);
+
+  /* B0 = 1 / B^2 */
+  fe_sqr(fe, ec->B0, ec->Bi);
 }
 
 static void
@@ -6008,6 +6864,474 @@ edwards_randomize(edwards_t *ec, const unsigned char *entropy) {
   xge_cleanse(ec, &unblind);
 }
 
+static void
+edwards_solve_y0(edwards_t *ec, fe_t y2, const fe_t x) {
+  /* y^2 = x^3 + A * x^2 + B * x */
+  prime_field_t *fe = &ec->fe;
+  fe_t x2, x3, ax2, bx;
+
+  fe_sqr(fe, x2, x);
+  fe_mul(fe, x3, x2, x);
+  fe_mul(fe, ax2, ec->A0, x2);
+  fe_mul(fe, bx, ec->B0, x);
+  fe_add(fe, y2, x3, ax2);
+  fe_add(fe, y2, y2, bx);
+}
+
+static void
+edwards_elligator2(edwards_t *ec, xge_t *r, const fe_t u) {
+  /* Elligator 2.
+   *
+   * Distribution: 1/2.
+   *
+   * [ELL2] Page 11, Section 5.2.
+   * [H2EC] "Elligator 2 Method".
+   *        "Mappings for Montgomery curves".
+   * [SAFE] "Indistinguishability from uniform random strings".
+   *
+   * Assumptions:
+   *
+   *   - y^2 = x^3 + A * x^2 + B * x.
+   *   - A != 0, B != 0.
+   *   - A^2 - 4 * B is non-zero and non-square in F(p).
+   *   - Let z be a non-square in F(p).
+   *   - u != +-sqrt(-1 / z).
+   *
+   * Note that Elligator 2 is defined over the form:
+   *
+   *   y'^2 = x'^3 + A' * x'^2 + B' * x'
+   *
+   * Instead of:
+   *
+   *   B * y^2 = x^3 + A * x^2 + x
+   *
+   * Where:
+   *
+   *   A' = A / B
+   *   B' = 1 / B^2
+   *   x' = x / B
+   *   y' = y / B
+   *
+   * And:
+   *
+   *   x = B * x'
+   *   y = B * y'
+   *
+   * This is presumably the result of Elligator 2
+   * being designed in long Weierstrass form. If
+   * we want to support B != 1, we need to do the
+   * conversion.
+   *
+   * Map:
+   *
+   *   g(x) = x^3 + A * x^2 + B * x
+   *   x1 = -A / (1 + z * u^2)
+   *   x1 = -A, if x1 = 0
+   *   x2 = -x1 - A
+   *   x = x1, if g(x1) is square
+   *     = x2, otherwise
+   *   y = sign(u) * abs(sqrt(g(x)))
+   */
+  prime_field_t *fe = &ec->fe;
+  fe_t lhs, rhs, x1, x2, y1, y2;
+  mge_t m;
+  int alpha;
+
+  fe_neg(fe, lhs, ec->A0);
+  fe_sqr(fe, rhs, u);
+  fe_mul(fe, rhs, rhs, ec->z);
+  fe_add(fe, rhs, rhs, fe->one);
+
+  fe_select(fe, rhs, rhs, fe->one, fe_is_zero(fe, rhs));
+
+  fe_invert(fe, rhs, rhs);
+  fe_mul(fe, x1, lhs, rhs);
+  fe_neg(fe, x2, x1);
+  fe_sub(fe, x2, x2, ec->A0);
+
+  edwards_solve_y0(ec, y1, x1);
+  edwards_solve_y0(ec, y2, x2);
+
+  alpha = fe_is_square(fe, y1);
+
+  fe_select(fe, x1, x1, x2, alpha ^ 1);
+  fe_select(fe, y1, y1, y2, alpha ^ 1);
+  fe_sqrt(fe, y1, y1);
+
+  fe_set_odd(fe, y1, y1, fe_is_odd(fe, u));
+
+  fe_mul(fe, x1, x1, ec->B);
+  fe_mul(fe, y1, y1, ec->B);
+
+  fe_set(fe, m.x, x1);
+  fe_set(fe, m.y, y1);
+  m.inf = 0;
+
+  _mont_to_edwards(fe, r, &m, ec->c, ec->invert, 0);
+}
+
+static int
+edwards_invert2(edwards_t *ec, fe_t u, const xge_t *p, unsigned int hint) {
+  /* Inverting the Map (Elligator 2).
+   *
+   * [ELL2] Page 12, Section 5.3.
+   *
+   * Assumptions:
+   *
+   *   - -z * x * (x + A) is square in F(p).
+   *   - If r = 1 then x != 0.
+   *   - If r = 2 then x != -A.
+   *
+   * Map:
+   *
+   *   u1 = -(x + A) / (x * z)
+   *   u2 = -x / ((x + A) * z)
+   *   r = random integer in [1,2]
+   *   u = sign(y) * abs(sqrt(ur))
+   *
+   * Note that `0 / 0` can only occur if `A == 0`
+   * (this violates the assumptions of Elligator 2).
+   */
+  prime_field_t *fe = &ec->fe;
+  fe_t x0, y0, n, d;
+  mge_t m;
+  int ret;
+
+  _edwards_to_mont(fe, &m, p, ec->c, ec->invert, 0);
+
+  fe_mul(fe, x0, m.x, ec->Bi);
+  fe_mul(fe, y0, m.y, ec->Bi);
+
+  fe_add(fe, n, x0, ec->A0);
+  fe_set(fe, d, x0);
+
+  fe_swap(fe, n, d, hint & 1);
+
+  fe_neg(fe, n, n);
+  fe_mul(fe, d, d, ec->z);
+
+  ret = fe_isqrt(fe, u, n, d);
+
+  fe_set_odd(fe, u, u, fe_is_odd(fe, y0));
+
+  return ret & (m.inf ^ 1);
+}
+
+static void
+edwards_point_from_uniform(edwards_t *ec, xge_t *p,
+                           const unsigned char *bytes) {
+  prime_field_t *fe = &ec->fe;
+  fe_t u;
+
+  fe_import(fe, u, bytes);
+
+  edwards_elligator2(ec, p, u);
+
+  fe_cleanse(fe, u);
+}
+
+static int
+edwards_point_to_uniform(edwards_t *ec,
+                      unsigned char *bytes,
+                      const xge_t *p,
+                      unsigned int hint) {
+  prime_field_t *fe = &ec->fe;
+  fe_t u;
+  int ret;
+
+  ret = edwards_invert2(ec, u, p, hint);
+
+  fe_export(fe, bytes, u);
+  fe_cleanse(fe, u);
+
+  return ret;
+}
+
+static void
+edwards_point_from_hash(edwards_t *ec,
+                        xge_t *p,
+                        const unsigned char *bytes,
+                        int pake) {
+  /* [H2EC] "Roadmap". */
+  xge_t p1, p2;
+
+  edwards_point_from_uniform(ec, &p1, bytes);
+  edwards_point_from_uniform(ec, &p2, bytes + ec->fe.size);
+
+  xge_add(ec, p, &p1, &p2);
+
+  if (pake)
+    xge_mulh(ec, p, p);
+
+  xge_cleanse(ec, &p1);
+  xge_cleanse(ec, &p2);
+}
+
+static void
+edwards_point_to_hash(edwards_t *ec,
+                   unsigned char *bytes,
+                   const xge_t *p,
+                   const unsigned char *seed) {
+  /* [SQUARED] Algorithm 1, Page 8, Section 3.3. */
+  prime_field_t *fe = &ec->fe;
+  unsigned int hint;
+  xge_t p1, p2;
+  drbg_t rng;
+
+  drbg_init(&rng, HASH_SHA256, seed, 32);
+
+  for (;;) {
+    drbg_generate(&rng, bytes, fe->size);
+
+    if (!bytes_lt(bytes, fe->raw, fe->size, fe->endian))
+      continue;
+
+    edwards_point_from_uniform(ec, &p1, bytes);
+
+    /* Avoid 2-torsion points. */
+    if (ec->h > 1 && fe_equal(fe, p1.y, fe->zero))
+      continue;
+
+    xge_sub(ec, &p2, p, &p1);
+
+    drbg_generate(&rng, &hint, sizeof(hint));
+
+    if (!edwards_point_to_uniform(ec, bytes + fe->size, &p2, hint))
+      continue;
+
+    break;
+  }
+
+  cleanse(&rng, sizeof(rng));
+  cleanse(&hint, sizeof(hint));
+
+  xge_cleanse(ec, &p1);
+  xge_cleanse(ec, &p2);
+}
+
+/*
+ * Isomorphism (low-level functions)
+ */
+
+static void
+_mont_to_edwards(prime_field_t *fe, xge_t *r,
+                 const mge_t *p, const fe_t c,
+                 int invert, int isogeny) {
+  /* [RFC7748] Section 4.1 & 4.2. */
+  /* [MONT3] Page 6, Section 2.5. */
+  /* [TWISTED] Theorem 3.2, Page 4, Section 3. */
+  int inf = p->inf;
+  int tor = fe_is_zero(fe, p->x) & (inf ^ 1);
+  fe_t xx, xz, yy, yz;
+
+  if (isogeny && fe->bits == 448) {
+    /* 4-isogeny maps for M(2-4d,1)->E(1,d):
+     *
+     *   x = 4 * v * (u^2 - 1) / (u^4 - 2 * u^2 + 4 * v^2 + 1)
+     *   y = -(u^5 - 2 * u^3 - 4 * u * v^2 + u) /
+     *        (u^5 - 2 * u^2 * v^2 - 2 * u^3 - 2 * v^2 + u)
+     *
+     * Undefined for u = 0 and v = 0.
+     *
+     * Exceptional Cases:
+     *   - O -> (0, 1)
+     *   - (0, 0) -> (0, 1)
+     *
+     * Unexceptional Cases:
+     *   - (-1, +-sqrt(A - 2)) -> (0, 1)
+     *   - (1, +-sqrt(A + 2)) -> (0, -1)
+     *
+     * The point (1, v) is invalid on Curve448.
+     */
+    fe_t u2, u3, u4, u5, v2, a, b, c, d, e, f, g, h;
+
+    fe_sqr(fe, u2, p->x);
+    fe_mul(fe, u3, u2, p->x);
+    fe_mul(fe, u4, u3, p->x);
+    fe_mul(fe, u5, u4, p->x);
+    fe_sqr(fe, v2, p->y);
+
+    fe_mul_word(fe, a, p->y, 4);
+    fe_sub(fe, b, u2, fe->one);
+    fe_mul_word(fe, c, u2, 2);
+    fe_mul_word(fe, d, v2, 4);
+    fe_mul_word(fe, e, u3, 2);
+    fe_mul(fe, f, p->x, v2);
+    fe_mul_word(fe, f, f, 4);
+    fe_mul(fe, g, u2, v2);
+    fe_mul_word(fe, g, g, 2);
+    fe_mul_word(fe, h, v2, 2);
+
+    fe_mul(fe, xx, a, b);
+
+    fe_sub(fe, xz, u4, c);
+    fe_add(fe, xz, xz, d);
+    fe_add(fe, xz, xz, fe->one);
+
+    fe_sub(fe, yy, u5, e);
+    fe_sub(fe, yy, yy, f);
+    fe_add(fe, yy, yy, p->x);
+    fe_neg(fe, yy, yy);
+
+    fe_sub(fe, yz, u5, g);
+    fe_sub(fe, yz, yz, e);
+    fe_sub(fe, yz, yz, h);
+    fe_add(fe, yz, yz, p->x);
+
+    /* Handle 2-torsion as infinity. */
+    inf |= tor;
+  } else if (invert) {
+    /* Isomorphic maps for M(-A,-B)->E(a,d):
+     *
+     *   x = +-sqrt((A - 2) / (B * a)) * u / v
+     *   y = (u + 1) / (u - 1)
+     *
+     * Undefined for u = 1 or v = 0.
+     *
+     * Exceptional Cases:
+     *   - O -> (0, 1)
+     *   - (0, 0) -> (0, -1)
+     *   - (1, +-sqrt((A + 2) / B)) -> (+-sqrt(1 / d), oo)
+     *
+     * Unexceptional Cases:
+     *   - (-1, +-sqrt((A - 2) / B)) -> (+-sqrt(1 / a), 0)
+     *
+     * The point (1, v) is invalid on Curve448.
+     */
+    fe_mul(fe, xx, c, p->x);
+    fe_select(fe, xz, p->y, fe->one, tor);
+    fe_add(fe, yy, p->x, fe->one);
+    fe_sub(fe, yz, p->x, fe->one);
+  } else {
+    /* Isomorphic maps for M(A,B)->E(a,d):
+     *
+     *   x = +-sqrt((A + 2) / (B * a)) * u / v
+     *   y = (u - 1) / (u + 1)
+     *
+     * Undefined for u = -1 or v = 0.
+     *
+     * Exceptional Cases:
+     *   - O -> (0, 1)
+     *   - (0, 0) -> (0, -1)
+     *   - (-1, +-sqrt((A - 2) / B)) -> (+-sqrt(1 / d), oo)
+     *
+     * Unexceptional Cases:
+     *   - (1, +-sqrt((A + 2) / B)) -> (+-sqrt(1 / a), 0)
+     *
+     * The point (-1, v) is invalid on Curve25519.
+     */
+    fe_mul(fe, xx, c, p->x);
+    fe_select(fe, xz, p->y, fe->one, tor);
+    fe_sub(fe, yy, p->x, fe->one);
+    fe_add(fe, yz, p->x, fe->one);
+  }
+
+  /* Completed point. */
+  fe_mul(fe, r->x, xx, yz);
+  fe_mul(fe, r->y, yy, xz);
+  fe_mul(fe, r->z, xz, yz);
+  fe_mul(fe, r->t, xx, yy);
+
+  /* Handle infinity. */
+  fe_select(fe, r->x, r->x, fe->zero, inf);
+  fe_select(fe, r->y, r->y, fe->one, inf);
+  fe_select(fe, r->z, r->z, fe->one, inf);
+  fe_select(fe, r->t, r->t, fe->zero, inf);
+}
+
+static void
+_edwards_to_mont(prime_field_t *fe, mge_t *r,
+                 const xge_t *p, const fe_t c,
+                 int invert, int isogeny) {
+  /* [RFC7748] Section 4.1 & 4.2. */
+  /* [MONT3] Page 6, Section 2.5. */
+  /* [TWISTED] Theorem 3.2, Page 4, Section 3. */
+  int zero = fe_is_zero(fe, p->x);
+  int inf = zero & fe_equal(fe, p->y, p->z);
+  int tor = zero & (inf ^ 1);
+  fe_t uu, uz, vv, vz, two;
+
+  if (isogeny && fe->bits == 448) {
+    /* 4-isogeny maps for E(1,d)->M(2-4d,1):
+     *
+     *   u = y^2 / x^2
+     *   v = (2 - x^2 - y^2) * y / x^3
+     *
+     * Undefined for x = 0.
+     *
+     * Exceptional Cases:
+     *   - (0, 1) -> O
+     *   - (0, -1) -> (0, 0)
+     *
+     * Unexceptional Cases:
+     *   - (+-1, 0) -> (0, 0)
+     */
+    fe_sqr(fe, two, p->z);
+    fe_add(fe, two, two, two);
+    fe_sqr(fe, uu, p->y);
+    fe_sqr(fe, uz, p->x);
+    fe_sub(fe, vv, two, uz);
+    fe_sub(fe, vv, vv, uu);
+    fe_mul(fe, vv, vv, p->y);
+    fe_mul(fe, vz, uz, p->x);
+  } else if (invert) {
+    /* Isomorphic maps for E(d,a)->M(A,B):
+     *
+     *   u = (y + 1) / (y - 1)
+     *   v = +-sqrt((A - 2) / (B * a)) * u / x
+     *
+     * Undefined for x = 0 or y = 1.
+     *
+     * Exceptional Cases:
+     *   - (0, 1) -> O
+     *   - (0, -1) -> (0, 0)
+     *
+     * Unexceptional Cases:
+     *   - (+-sqrt(1 / a), 0) -> (-1, +-sqrt((A - 2) / B))
+     */
+    fe_add(fe, uu, p->y, p->z);
+    fe_sub(fe, uz, p->y, p->z);
+    fe_mul(fe, vv, c, p->z);
+    fe_mul(fe, vv, vv, uu);
+    fe_mul(fe, vz, p->x, uz);
+  } else {
+    /* Isomorphic maps for E(a,d)->M(A,B):
+     *
+     *   u = (1 + y) / (1 - y)
+     *   v = +-sqrt((A + 2) / (B * a)) * u / x
+     *
+     * Undefined for x = 0 or y = 1.
+     *
+     * Exceptional Cases:
+     *   - (0, 1) -> O
+     *   - (0, -1) -> (0, 0)
+     *
+     * Unexceptional Cases:
+     *   - (+-sqrt(1 / a), 0) -> (1, +-sqrt((A + 2) / B))
+     */
+    fe_add(fe, uu, p->z, p->y);
+    fe_sub(fe, uz, p->z, p->y);
+    fe_mul(fe, vv, c, p->z);
+    fe_mul(fe, vv, vv, uu);
+    fe_mul(fe, vz, p->x, uz);
+  }
+
+  /* Completed point. */
+  fe_mul(fe, r->x, uu, vz);
+  fe_mul(fe, r->y, vv, uz);
+  fe_mul(fe, uz, uz, vz);
+  fe_invert(fe, uz, uz);
+  fe_mul(fe, r->x, r->x, uz);
+  fe_mul(fe, r->y, r->y, uz);
+
+  /* Handle 2-torsion. */
+  fe_select(fe, r->x, r->x, fe->zero, tor);
+  fe_select(fe, r->y, r->y, fe->zero, tor);
+
+  /* Handle infinity. */
+  r->inf = inf;
+}
+
 /*
  * ECDSA
  */
@@ -6237,7 +7561,11 @@ ecdsa_pubkey_from_uniform(wei_t *ec,
                           size_t *out_len,
                           const unsigned char *bytes,
                           int compact) {
-  assert(0);
+  wge_t A;
+
+  wei_point_from_uniform(ec, &A, bytes);
+
+  return wge_export(ec, out, out_len, &A, compact);
 }
 
 static int
@@ -6246,7 +7574,12 @@ ecdsa_pubkey_to_uniform(wei_t *ec,
                         const unsigned char *pub,
                         size_t pub_len,
                         unsigned int hint) {
-  assert(0);
+  wge_t A;
+
+  if (!wge_import(ec, &A, pub, pub_len))
+    return 0;
+
+  return wei_point_to_uniform(ec, out, &A, hint);
 }
 
 static int
@@ -6255,7 +7588,11 @@ ecdsa_pubkey_from_hash(wei_t *ec,
                        size_t *out_len,
                        const unsigned char *bytes,
                        int compact) {
-  assert(0);
+  wge_t A;
+
+  wei_point_from_hash(ec, &A, bytes);
+
+  return wge_export(ec, out, out_len, &A, compact);
 }
 
 static int
@@ -6264,7 +7601,14 @@ ecdsa_pubkey_to_hash(wei_t *ec,
                      const unsigned char *pub,
                      size_t pub_len,
                      const unsigned char *seed) {
-  assert(0);
+  wge_t A;
+
+  if (!wge_import(ec, &A, pub, pub_len))
+    return 0;
+
+  wei_point_to_hash(ec, out, &A, seed);
+
+  return 1;
 }
 
 static int
@@ -7588,7 +8932,11 @@ static int
 schnorr_pubkey_from_uniform(wei_t *ec,
                             unsigned char *out,
                             const unsigned char *bytes) {
-  assert(0);
+  wge_t A;
+
+  wei_point_from_uniform(ec, &A, bytes);
+
+  return wge_export_x(ec, out, &A);
 }
 
 static int
@@ -7596,14 +8944,23 @@ schnorr_pubkey_to_uniform(wei_t *ec,
                           unsigned char *out,
                           const unsigned char *pub,
                           unsigned int hint) {
-  assert(0);
+  wge_t A;
+
+  if (!wge_import_x(ec, &A, pub))
+    return 0;
+
+  return wei_point_to_uniform(ec, out, &A, hint);
 }
 
 static int
 schnorr_pubkey_from_hash(wei_t *ec,
                          unsigned char *out,
                          const unsigned char *bytes) {
-  assert(0);
+  wge_t A;
+
+  wei_point_from_hash(ec, &A, bytes);
+
+  return wge_export_x(ec, out, &A);
 }
 
 static int
@@ -7611,7 +8968,14 @@ schnorr_pubkey_to_hash(wei_t *ec,
                        unsigned char *out,
                        const unsigned char *pub,
                        const unsigned char *seed) {
-  assert(0);
+  wge_t A;
+
+  if (!wge_import_x(ec, &A, pub))
+    return 0;
+
+  wei_point_to_hash(ec, out, &A, seed);
+
+  return 1;
 }
 
 static int
@@ -8209,16 +9573,44 @@ ecdh_pubkey_create(mont_t *ec,
 
 static int
 ecdh_pubkey_convert(mont_t *ec,
+                    unsigned char *out,
                     const unsigned char *pub,
                     int sign) {
-  assert(0);
+  prime_field_t *fe = &ec->fe;
+  mge_t A;
+  xge_t p;
+
+  if (!mge_import(ec, &A, pub, -1))
+    return 0;
+
+  mge_to_xge(ec, &p, &A);
+
+  assert(fe_invert(fe, p.z, p.z));
+
+  fe_mul(fe, p.x, p.x, p.z);
+  fe_mul(fe, p.y, p.y, p.z);
+  fe_set_odd(fe, p.x, p.x, sign != 0);
+
+  fe_export(fe, out, p.y);
+
+  /* Quirk: we need an extra byte (p448). */
+  if ((fe->bits & 7) == 0)
+    out[fe->size] = fe_is_odd(fe, p.x) << 7;
+  else
+    out[fe->size - 1] |= fe_is_odd(fe, p.x) << 7;
+
+  return 1;
 }
 
 static int
 ecdh_pubkey_from_uniform(mont_t *ec,
                          unsigned char *out,
                          const unsigned char *bytes) {
-  assert(0);
+  mge_t A;
+
+  mont_point_from_uniform(ec, &A, bytes);
+
+  return mge_export(ec, out, &A);
 }
 
 static int
@@ -8226,7 +9618,12 @@ ecdh_pubkey_to_uniform(mont_t *ec,
                        unsigned char *out,
                        const unsigned char *pub,
                        unsigned int hint) {
-  assert(0);
+  mge_t A;
+
+  if (!mge_import(ec, &A, pub, -1))
+    return 0;
+
+  return mont_point_to_uniform(ec, out, &A, hint);
 }
 
 static int
@@ -8234,7 +9631,11 @@ ecdh_pubkey_from_hash(mont_t *ec,
                       unsigned char *out,
                       const unsigned char *bytes,
                       int pake) {
-  assert(0);
+  mge_t A;
+
+  mont_point_from_hash(ec, &A, bytes, pake);
+
+  return mge_export(ec, out, &A);
 }
 
 static int
@@ -8242,7 +9643,14 @@ ecdh_pubkey_to_hash(mont_t *ec,
                     unsigned char *out,
                     const unsigned char *pub,
                     const unsigned char *seed) {
-  assert(0);
+  mge_t A;
+
+  if (!mge_import(ec, &A, pub, -1))
+    return 0;
+
+  mont_point_to_hash(ec, out, &A, seed);
+
+  return 1;
 }
 
 static int
@@ -8539,26 +9947,49 @@ eddsa_pubkey_create(edwards_t *ec,
   cleanse(scalar, sizeof(scalar));
 }
 
-static void
+static int
 eddsa_pubkey_convert(edwards_t *ec,
                      unsigned char *out,
                      const unsigned char *pub) {
-  assert(0);
+  prime_field_t *fe = &ec->fe;
+  xge_t A;
+  mge_t p;
+
+  if (!xge_import(ec, &A, pub))
+    return 0;
+
+  xge_to_mge(ec, &p, &A);
+
+  if (p.inf)
+    return 0;
+
+  fe_export(fe, out, p.x);
+
+  return 1;
 }
 
 static void
 eddsa_pubkey_from_uniform(edwards_t *ec,
                           unsigned char *out,
                           const unsigned char *bytes) {
-  assert(0);
+  xge_t A;
+
+  edwards_point_from_uniform(ec, &A, bytes);
+
+  return xge_export(ec, out, &A);
 }
 
-static void
+static int
 eddsa_pubkey_to_uniform(edwards_t *ec,
                         unsigned char *out,
                         const unsigned char *pub,
                         unsigned int hint) {
-  assert(0);
+  xge_t A;
+
+  if (!xge_import(ec, &A, pub))
+    return 0;
+
+  return edwards_point_to_uniform(ec, out, &A, hint);
 }
 
 static void
@@ -8566,15 +9997,26 @@ eddsa_pubkey_from_hash(edwards_t *ec,
                        unsigned char *out,
                        const unsigned char *bytes,
                        int pake) {
-  assert(0);
+  xge_t A;
+
+  edwards_point_from_hash(ec, &A, bytes, pake);
+
+  return xge_export(ec, out, &A);
 }
 
-static void
+static int
 eddsa_pubkey_to_hash(edwards_t *ec,
                      unsigned char *out,
                      const unsigned char *pub,
                      const unsigned char *seed) {
-  assert(0);
+  xge_t A;
+
+  if (!xge_import(ec, &A, pub))
+    return 0;
+
+  edwards_point_to_hash(ec, out, &A, seed);
+
+  return 1;
 }
 
 static int
@@ -9085,7 +10527,7 @@ eddsa_verify_single(edwards_t *ec,
 
   eddsa_hash_ram(ec, e, ph, ctx, ctx_len, Rraw, pub, msg, msg_len);
 
-  sc_mulw(sc, s, s, ec->h);
+  sc_mul_word(sc, s, s, ec->h);
   xge_mulh(ec, &A, &A);
   xge_mulh(ec, &R, &R);
 
@@ -9223,7 +10665,7 @@ eddsa_verify_batch(edwards_t *ec,
     j += 2;
 
     if (j == 64) {
-      sc_mulw(sc, sum, sum, ec->h);
+      sc_mul_word(sc, sum, sum, ec->h);
       sc_neg(sc, sum, sum);
 
       edwards_mul_multi_var(ec, &R, sum, points, coeffs, j, scratch);
@@ -9238,7 +10680,7 @@ eddsa_verify_batch(edwards_t *ec,
   }
 
   if (j > 0) {
-    sc_mulw(sc, sum, sum, ec->h);
+    sc_mul_word(sc, sum, sum, ec->h);
     sc_neg(sc, sum, sum);
 
     edwards_mul_multi_var(ec, &R, sum, points, coeffs, j, scratch);
@@ -9999,6 +11441,14 @@ static const mont_def_t curve_x25519 = {
   .h = 8,
   /* Elligator 2 */
   .z = 2,
+  .invert = 0,
+  /* sqrt(-486664) */
+  .c = {
+    0x70, 0xd9, 0x12, 0x0b, 0x9f, 0x5f, 0xf9, 0x44,
+    0x2d, 0x84, 0xf7, 0x23, 0xfc, 0x03, 0xb0, 0x81,
+    0x3a, 0x5e, 0x2c, 0x2e, 0xb4, 0x82, 0xe5, 0x7d,
+    0x33, 0x91, 0xfb, 0x55, 0x00, 0xba, 0x81, 0xe7
+  },
   .x = {
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -10040,6 +11490,17 @@ static const mont_def_t curve_x448 = {
   .h = 4,
   /* Elligator 2 */
   .z = -1,
+  .invert = 1,
+  /* IsoEd448 scaling factor. */
+  .c = {
+    0x45, 0xb2, 0xc5, 0xf7, 0xd6, 0x49, 0xee, 0xd0,
+    0x77, 0xed, 0x1a, 0xe4, 0x5f, 0x44, 0xd5, 0x41,
+    0x43, 0xe3, 0x4f, 0x71, 0x4b, 0x71, 0xaa, 0x96,
+    0xc9, 0x45, 0xaf, 0x01, 0x2d, 0x18, 0x29, 0x75,
+    0x07, 0x34, 0xcd, 0xe9, 0xfa, 0xdd, 0xbd, 0xa4,
+    0xc0, 0x66, 0xf7, 0xed, 0x54, 0x41, 0x9c, 0xa5,
+    0x2c, 0x85, 0xde, 0x1e, 0x8a, 0xae, 0x4e, 0x6c
+  },
   .x = {
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -10089,6 +11550,14 @@ static const edwards_def_t curve_ed25519 = {
   .h = 8,
   /* Elligator 2 */
   .z = 2,
+  .invert = 0,
+  /* sqrt(-486664) */
+  .c = {
+    0x70, 0xd9, 0x12, 0x0b, 0x9f, 0x5f, 0xf9, 0x44,
+    0x2d, 0x84, 0xf7, 0x23, 0xfc, 0x03, 0xb0, 0x81,
+    0x3a, 0x5e, 0x2c, 0x2e, 0xb4, 0x82, 0xe5, 0x7d,
+    0x33, 0x91, 0xfb, 0x55, 0x00, 0xba, 0x81, 0xe7
+  },
   .x = {
     0x21, 0x69, 0x36, 0xd3, 0xcd, 0x6e, 0x53, 0xfe,
     0xc0, 0xa4, 0xe2, 0x31, 0xfd, 0xd6, 0xdc, 0x5c,
@@ -10135,6 +11604,17 @@ static const edwards_def_t curve_ed448 = {
   .h = 4,
   /* Elligator 2 */
   .z = -1,
+  .invert = 1,
+  /* Mont448 scaling factor. */
+  .c = {
+    0x41, 0x36, 0xd0, 0x2f, 0x92, 0x5d, 0x53, 0x0d,
+    0x4b, 0x1d, 0x9e, 0x17, 0x83, 0x10, 0xf2, 0xcb,
+    0xdd, 0x18, 0xa3, 0xe7, 0xc3, 0xa7, 0x67, 0xa8,
+    0x48, 0xe6, 0xdb, 0x19, 0x8c, 0x3d, 0x06, 0x31,
+    0x1e, 0x72, 0x5a, 0x0d, 0xb9, 0x91, 0xd0, 0xc6,
+    0xc3, 0xd1, 0x12, 0x0f, 0x0e, 0xfa, 0x59, 0xf5,
+    0x4b, 0xf3, 0x8e, 0x82, 0xb0, 0xe1, 0xe0, 0x28
+  },
   .x = {
     0x4f, 0x19, 0x70, 0xc6, 0x6b, 0xed, 0x0d, 0xed,
     0x22, 0x1d, 0x15, 0xa6, 0x22, 0xbf, 0x36, 0xda,
@@ -10180,6 +11660,14 @@ static const edwards_def_t curve_ed1174 = {
   .h = 4,
   /* Elligator 2 */
   .z = -1,
+  .invert = 1,
+  /* Should give us B=1. */
+  .c = {
+    0x00, 0x5a, 0x7a, 0x03, 0xfb, 0x02, 0xf7, 0x19,
+    0x5e, 0x44, 0x1c, 0xd2, 0xe3, 0xf7, 0x08, 0xf9,
+    0x6f, 0x8f, 0xfb, 0xe8, 0x35, 0x95, 0x48, 0xba,
+    0x82, 0x76, 0xac, 0xe6, 0xbb, 0xe7, 0xdf, 0xd2
+  },
   .x = {
     0x03, 0x7f, 0xbb, 0x0c, 0xea, 0x30, 0x8c, 0x47,
     0x93, 0x43, 0xae, 0xe7, 0xc0, 0x29, 0xa1, 0x90,
