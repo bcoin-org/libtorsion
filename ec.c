@@ -53,6 +53,10 @@
 #error "sane char widths please"
 #endif
 
+#if (-1 & 3) != 3
+#error "twos complement please"
+#endif
+
 #ifdef BCRYPTO_EC_64BIT
 typedef uint64_t fe_word_t;
 #define FIELD_WORD_SIZE 64
@@ -1242,6 +1246,17 @@ sc_invert(scalar_field_t *sc, sc_t r, const sc_t a) {
 static size_t
 sc_bitlen_var(scalar_field_t *sc, const sc_t a) {
   return mpn_bitlen(a, sc->limbs);
+}
+
+static mp_limb_t
+sc_get_bits(scalar_field_t *sc, const sc_t a, size_t i, size_t w) {
+  mp_limb_t mask = ((mp_limb_t)1 << w) - 1;
+  return (a[i / GMP_NUMB_BITS] >> (i % GMP_NUMB_BITS)) & mask;
+}
+
+static mp_limb_t
+sc_get_bit(scalar_field_t *sc, const sc_t k, size_t i) {
+  return (k[i / GMP_NUMB_BITS] >> (i % GMP_NUMB_BITS)) & 1;
 }
 
 static void
@@ -4217,8 +4232,8 @@ wei_jmul(wei_t *ec, jge_t *r, const wge_t *p, const sc_t k) {
   jge_t a, b, c;
   mp_limb_t swap = 0;
   sc_t u, v;
+  mp_size_t i, bits;
   uint32_t ub, vb, negated, zero, minus1;
-  int i, bits;
 
   /* Negate scalar. */
   sc_set(sc, u, k);
@@ -4250,7 +4265,7 @@ wei_jmul(wei_t *ec, jge_t *r, const wge_t *p, const sc_t k) {
   jge_zdblu(ec, &a, &b, &c);
 
   for (i = bits - 2; i >= 0; i--) {
-    mp_limb_t bit = (u[i / GMP_NUMB_BITS] >> (i % GMP_NUMB_BITS)) & 1;
+    mp_limb_t bit = sc_get_bit(sc, u, i);
 
     jge_swap(ec, &a, &b, swap ^ bit);
     jge_zaddc(ec, &a, &b, &b, &a);
@@ -5561,7 +5576,7 @@ mont_mul(mont_t *ec, pge_t *r, const pge_t *p, const sc_t k) {
   prime_field_t *fe = &ec->fe;
   scalar_field_t *sc = &ec->sc;
   pge_t a, b;
-  int swap = 0;
+  mp_limb_t swap = 0;
   mp_size_t i;
 
   /* Clone points (for safe swapping). */
@@ -5572,7 +5587,7 @@ mont_mul(mont_t *ec, pge_t *r, const pge_t *p, const sc_t k) {
 
   /* Climb the ladder. */
   for (i = fe->bits - 1; i >= 0; i--) {
-    mp_limb_t bit = (k[i / GMP_NUMB_BITS] >> (i % GMP_NUMB_BITS)) & 1;
+    mp_limb_t bit = sc_get_bit(sc, k, i);
 
     /* Maybe swap. */
     pge_swap(ec, &a, &b, swap ^ bit);
@@ -6802,7 +6817,7 @@ edwards_mul(edwards_t *ec, xge_t *r, const xge_t *p, const sc_t k) {
   scalar_field_t *sc = &ec->sc;
   xge_t a, b;
   mp_limb_t swap = 0;
-  int i;
+  mp_size_t i;
 
   /* Clone points (for safe swapping). */
   xge_set(ec, &a, p);
@@ -6812,7 +6827,7 @@ edwards_mul(edwards_t *ec, xge_t *r, const xge_t *p, const sc_t k) {
 
   /* Climb the ladder. */
   for (i = fe->bits - 1; i >= 0; i--) {
-    mp_limb_t bit = (k[i / GMP_NUMB_BITS] >> (i % GMP_NUMB_BITS)) & 1;
+    mp_limb_t bit = sc_get_bit(sc, k, i);
 
     /* Maybe swap. */
     xge_swap(ec, &a, &b, swap ^ bit);
