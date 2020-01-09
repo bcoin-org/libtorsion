@@ -1432,6 +1432,25 @@ sc_jsf_var(scalar_field_t *sc,
   mpn_cleanse(k2, nn);
 }
 
+static void
+sc_random(scalar_field_t *sc, sc_t k, drbg_t *rng) {
+  unsigned char bytes[MAX_SCALAR_SIZE];
+
+  for (;;) {
+    drbg_generate(rng, bytes, sc->size);
+
+    if (!sc_import(sc, k, bytes))
+      continue;
+
+    if (sc_is_zero(sc, k))
+      continue;
+
+    break;
+  }
+
+  cleanse(bytes, sizeof(bytes));
+}
+
 /*
  * Field Element
  */
@@ -1978,6 +1997,25 @@ fe_isqrt(prime_field_t *fe, fe_t r, const fe_t u, const fe_t v) {
   }
 
   return ret;
+}
+
+static void
+fe_random(prime_field_t *fe, fe_t x, drbg_t *rng) {
+  unsigned char bytes[MAX_FIELD_SIZE];
+
+  for (;;) {
+    drbg_generate(rng, bytes, fe->size);
+
+    if (!fe_import(fe, x, bytes))
+      continue;
+
+    if (fe_is_zero(fe, x))
+      continue;
+
+    break;
+  }
+
+  cleanse(bytes, sizeof(bytes));
 }
 
 /*
@@ -8675,9 +8713,7 @@ ecdsa_schnorr_verify_batch(wei_t *ec,
   scalar_field_t *sc = &ec->sc;
   wge_t *points = scratch->points;
   sc_t *coeffs = scratch->coeffs;
-  unsigned char slab[MAX_FIELD_SIZE + 1];
-  unsigned char *scalar = slab;
-  unsigned char *Araw = slab;
+  unsigned char Araw[MAX_FIELD_SIZE + 1];
   drbg_t rng;
   wge_t R, A;
   jge_t r;
@@ -8748,17 +8784,7 @@ ecdsa_schnorr_verify_batch(wei_t *ec,
     ecdsa_schnorr_hash_ram(ec, e, Rraw, Araw, msg);
 
     /* Generate random integer. */
-    for (;;) {
-      drbg_generate(&rng, scalar, sc->size);
-
-      if (!sc_import(sc, a, scalar))
-        continue;
-
-      if (sc_is_zero(sc, a))
-        continue;
-
-      break;
-    }
+    sc_random(sc, a, &rng);
 
     sc_mul(sc, e, e, a);
     sc_mul(sc, s, s, a);
@@ -9400,7 +9426,6 @@ schnorr_verify_batch(wei_t *ec,
   scalar_field_t *sc = &ec->sc;
   wge_t *points = scratch->points;
   sc_t *coeffs = scratch->coeffs;
-  unsigned char scalar[MAX_SCALAR_SIZE];
   drbg_t rng;
   wge_t R, A;
   jge_t r;
@@ -9456,17 +9481,7 @@ schnorr_verify_batch(wei_t *ec,
     schnorr_hash_ram(ec, e, Rraw, pub, msg);
 
     /* Generate random integer. */
-    for (;;) {
-      drbg_generate(&rng, scalar, sc->size);
-
-      if (!sc_import(sc, a, scalar))
-        continue;
-
-      if (sc_is_zero(sc, a))
-        continue;
-
-      break;
-    }
+    sc_random(sc, a, &rng);
 
     sc_mul(sc, e, e, a);
     sc_mul(sc, s, s, a);
@@ -10591,7 +10606,6 @@ eddsa_verify_batch(edwards_t *ec,
   scalar_field_t *sc = &ec->sc;
   xge_t *points = scratch->points;
   sc_t *coeffs = scratch->coeffs;
-  unsigned char scalar[MAX_SCALAR_SIZE];
   drbg_t rng;
   xge_t R, A;
   sc_t sum, s, e, a;
@@ -10654,17 +10668,7 @@ eddsa_verify_batch(edwards_t *ec,
     eddsa_hash_ram(ec, e, ph, ctx, ctx_len, Rraw, pub, msg, msg_len);
 
     /* Generate random integer. */
-    for (;;) {
-      drbg_generate(&rng, scalar, sc->size);
-
-      if (!sc_import(sc, a, scalar))
-        continue;
-
-      if (sc_is_zero(sc, a))
-        continue;
-
-      break;
-    }
+    sc_random(sc, a, &rng);
 
     sc_mul(sc, e, e, a);
     sc_mul(sc, s, s, a);
