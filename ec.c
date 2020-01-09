@@ -8062,8 +8062,8 @@ ecdsa_reduce(wei_t *ec, sc_t r, const unsigned char *msg, size_t msg_len) {
     assert(shift > 0);
     assert(shift < 8);
 
-    for (i = 0; i < msg_len; i++) {
-      unsigned char ch = msg[i];
+    for (i = 0; i < sc->size; i++) {
+      unsigned char ch = tmp[i];
 
       tmp[i] = (cy << (8 - shift)) | (ch >> shift);
       cy = ch & mask;
@@ -10175,6 +10175,8 @@ eddsa_pubkey_negate(edwards_t *ec,
 
   xge_neg(ec, &A, &A);
   xge_export(ec, out, &A);
+
+  return 1;
 }
 
 static void
@@ -10189,8 +10191,8 @@ eddsa_hash_init(edwards_t *ec,
     ctx_len = 255;
 
   if (ec->context || ph != -1 || ctx_len > 0) {
-    unsigned char prehash = (ph > 0);
-    unsigned char length = ctx_len;
+    uint8_t prehash = (ph > 0);
+    uint8_t length = ctx_len;
 
     if (ec->prefix != NULL)
       hash_update(hash, ec->prefix, strlen(ec->prefix));
