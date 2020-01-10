@@ -1671,11 +1671,11 @@ test_mont_points_x25519(void) {
   mge_to_pge(ec, &jq, &q);
   mge_to_pge(ec, &jr, &r);
 
-  mge_dbl_var(ec, &p, &ec->g);
+  mge_dbl(ec, &p, &ec->g);
 
   assert(mge_equal(ec, &p, &q));
 
-  mge_add_var(ec, &p, &p, &ec->g);
+  mge_add(ec, &p, &p, &ec->g);
 
   assert(mge_equal(ec, &p, &r));
 
@@ -2388,7 +2388,7 @@ test_sswu(void) {
 
   wei_init(ec, &curve_p256);
 
-  assert(ecdsa_pubkey_from_uniform(ec, out, &out_len, bytes, 1));
+  ecdsa_pubkey_from_uniform(ec, out, &out_len, bytes, 1);
   assert(out_len == 33);
   assert(memcmp(out, expect, 33) == 0);
   assert(ecdsa_pubkey_to_uniform(ec, out, expect, 33, 3));
@@ -2421,7 +2421,7 @@ test_svdw(void) {
 
   wei_init(ec, &curve_secp256k1);
 
-  assert(ecdsa_pubkey_from_uniform(ec, out, &out_len, bytes, 1));
+  ecdsa_pubkey_from_uniform(ec, out, &out_len, bytes, 1);
   assert(out_len == 33);
   assert(memcmp(out, expect, 33) == 0);
   assert(ecdsa_pubkey_to_uniform(ec, out, expect, 33, 1));
@@ -2452,7 +2452,7 @@ test_elligator2_mont(void) {
 
   mont_init(ec, &curve_x25519);
 
-  assert(ecdh_pubkey_from_uniform(ec, out, bytes));
+  ecdh_pubkey_from_uniform(ec, out, bytes);
   assert(memcmp(out, expect, 32) == 0);
   assert(ecdh_pubkey_to_uniform(ec, out, expect, 0));
   assert(memcmp(out, bytes, 32) == 0);

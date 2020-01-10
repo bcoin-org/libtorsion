@@ -2182,7 +2182,7 @@ static void
 jge_dbl(wei_t *ec, jge_t *r, const jge_t *p);
 
 static void
-jge_add(wei_t *ec, jge_t *r, const jge_t *a, const jge_t *b);
+jge_mixed_add(wei_t *ec, jge_t *r, const jge_t *a, const wge_t *b);
 
 static void
 jge_to_wge(wei_t *ec, wge_t *r, const jge_t *p);
@@ -2609,14 +2609,11 @@ wge_dbl(wei_t *ec, wge_t *r, const wge_t *p) {
 
 static void
 wge_add(wei_t *ec, wge_t *r, const wge_t *a, const wge_t *b) {
-  jge_t ja, jb;
+  jge_t j;
 
-  wge_to_jge(ec, &ja, a);
-  wge_to_jge(ec, &jb, b);
-
-  jge_add(ec, &ja, &ja, &jb);
-
-  jge_to_wge(ec, r, &ja);
+  wge_to_jge(ec, &j, a);
+  jge_mixed_add(ec, &j, &j, b);
+  jge_to_wge(ec, r, &j);
 }
 
 static void
@@ -2630,16 +2627,9 @@ static void
 wge_to_jge(wei_t *ec, jge_t *r, const wge_t *a) {
   prime_field_t *fe = &ec->fe;
 
-  if (a->inf) {
-    fe_set(fe, r->x, fe->one);
-    fe_set(fe, r->y, fe->one);
-    fe_set(fe, r->z, fe->zero);
-    return;
-  }
-
-  fe_set(fe, r->x, a->x);
-  fe_set(fe, r->y, a->y);
-  fe_set(fe, r->z, fe->one);
+  fe_select(fe, r->x, a->x, fe->one, a->inf);
+  fe_select(fe, r->y, a->y, fe->one, a->inf);
+  fe_select(fe, r->z, fe->one, fe->zero, a->inf);
 }
 
 static void
@@ -5182,6 +5172,12 @@ _mont_to_edwards(prime_field_t *fe, xge_t *r,
                  const mge_t *p, const fe_t c,
                  int invert, int isogeny);
 
+static void
+pge_import(mont_t *ec, pge_t *r, const unsigned char *raw);
+
+static int
+pge_to_mge(mont_t *ec, mge_t *r, const pge_t *p, int sign);
+
 /*
  * Montgomery Affine Point
  */
@@ -5262,12 +5258,6 @@ mge_set_xy(mont_t *ec, mge_t *r, const fe_t x, const fe_t y) {
   r->inf = 0;
 }
 
-static void
-pge_import(mont_t *ec, pge_t *r, const unsigned char *raw);
-
-static int
-pge_to_mge(mont_t *ec, mge_t *r, const pge_t *p, int sign);
-
 static int
 mge_import(mont_t *ec, mge_t *r, const unsigned char *raw, int sign) {
   pge_t p;
@@ -5346,7 +5336,7 @@ mge_neg(mont_t *ec, mge_t *r, const mge_t *a) {
 }
 
 static void
-mge_dbl_var(mont_t *ec, mge_t *r, const mge_t *p) {
+mge_dbl(mont_t *ec, mge_t *r, const mge_t *p) {
   /* [MONT1] Page 8, Section 4.3.2.
    *
    * Addition Law (doubling):
@@ -5358,31 +5348,20 @@ mge_dbl_var(mont_t *ec, mge_t *r, const mge_t *p) {
    * 1I + 3M + 2S + 7A + 1*a + 1*b + 1*b + 2*2 + 1*3
    */
   prime_field_t *fe = &ec->fe;
+  int inf = p->inf | fe_is_zero(fe, p->y);
   fe_t l, t, x3, y3;
-
-  /* P = O */
-  if (p->inf) {
-    mge_zero(ec, r);
-    return;
-  }
-
-  /* Y1 = 0 */
-  if (fe_is_zero(fe, p->y)) {
-    mge_zero(ec, r);
-    return;
-  }
 
   /* L = (3 * X1^2 + 2 * a * X1 + 1) / (2 * b * Y1) */
   fe_add(fe, x3, ec->a, ec->a);
   fe_mul(fe, x3, x3, p->x);
   fe_add(fe, x3, x3, fe->one);
-  fe_sqr(fe, l, p->x);
-  fe_add(fe, t, l, l);
-  fe_add(fe, l, t, l);
+  fe_sqr(fe, t, p->x);
+  fe_add(fe, l, t, t);
+  fe_add(fe, l, l, t);
   fe_add(fe, l, l, x3);
   fe_add(fe, t, p->y, p->y);
   fe_mul(fe, t, t, ec->b);
-  fe_invert_var(fe, t, t);
+  fe_invert(fe, t, t);
   fe_mul(fe, l, l, t);
 
   /* X3 = b * L^2 - a - 2 * X1 */
@@ -5393,17 +5372,17 @@ mge_dbl_var(mont_t *ec, mge_t *r, const mge_t *p) {
   fe_sub(fe, x3, x3, p->x);
 
   /* Y3 = L * (X1 - X3) - Y1 */
-  fe_sub(fe, t, p->x, x3);
-  fe_mul(fe, y3, l, t);
+  fe_sub(fe, y3, p->x, x3);
+  fe_mul(fe, y3, y3, l);
   fe_sub(fe, y3, y3, p->y);
 
-  fe_set(fe, r->x, x3);
-  fe_set(fe, r->y, y3);
-  r->inf = 0;
+  fe_select(fe, r->x, x3, fe->zero, inf);
+  fe_select(fe, r->y, y3, fe->zero, inf);
+  r->inf = inf;
 }
 
 static void
-mge_add_var(mont_t *ec, mge_t *r, const mge_t *a, const mge_t *b) {
+mge_add(mont_t *ec, mge_t *r, const mge_t *a, const mge_t *b) {
   /* [MONT1] Page 8, Section 4.3.2.
    *
    * Addition Law:
@@ -5412,41 +5391,51 @@ mge_add_var(mont_t *ec, mge_t *r, const mge_t *a, const mge_t *b) {
    *   x3 = b * l^2 - a - x1 - x2
    *   y3 = l * (x1 - x3) - y1
    *
-   * 1I + 2M + 1S + 7A + 1*b
+   * If we detect a doubling, we
+   * switch the lambda to:
+   *
+   *   l = (3 * x1^2 + 2 * a * x1 + 1) / (2 * b * y1)
+   *
+   * 1I + 3M + 2S + 9A + 1*a + 2*b + 2*2 + 1*3
    */
   prime_field_t *fe = &ec->fe;
-  fe_t l, t, x3, y3;
+  fe_t h, r0, m, z, l, x3, y3;
+  int dbl, neg, inf;
 
-  /* O + P = P */
-  if (a->inf) {
-    mge_set(ec, r, b);
-    return;
-  }
+  /* H = X2 - X1 */
+  fe_sub(fe, h, b->x, a->x);
 
-  /* P + O = P */
-  if (b->inf) {
-    mge_set(ec, r, a);
-    return;
-  }
+  /* R = Y2 - Y1 */
+  fe_sub(fe, r0, b->y, a->y);
 
-  /* P + P, P + -P */
-  if (fe_equal(fe, a->x, b->x)) {
-    /* P + -P = O */
-    if (!fe_equal(fe, a->y, b->y)) {
-      mge_zero(ec, r);
-      return;
-    }
+  /* M = (3 * X1^2) + (2 * a * X1) + 1 */
+  fe_add(fe, x3, ec->a, ec->a);
+  fe_mul(fe, x3, x3, a->x);
+  fe_add(fe, x3, x3, fe->one);
+  fe_sqr(fe, z, a->x);
+  fe_add(fe, m, z, z);
+  fe_add(fe, m, m, z);
+  fe_add(fe, m, m, x3);
 
-    /* P + P = 2P */
-    mge_dbl_var(ec, r, a);
-    return;
-  }
+  /* Z = 2 * b * Y1 */
+  fe_add(fe, z, a->y, a->y);
+  fe_mul(fe, z, z, ec->b);
 
-  /* L = (Y2 - Y1) / (X2 - X1) */
-  fe_sub(fe, l, b->y, a->y);
-  fe_sub(fe, t, b->x, a->x);
-  fe_invert_var(fe, t, t);
-  fe_mul(fe, l, l, t);
+  /* Check for doubling (X1 = X2, Y1 = Y2). */
+  dbl = fe_is_zero(fe, h) & fe_is_zero(fe, r0);
+
+  /* R = M (if dbl) */
+  fe_select(fe, r0, r0, m, dbl);
+
+  /* H = Z (if dbl) */
+  fe_select(fe, h, h, z, dbl);
+
+  /* Check for negation (X1 = X2, Y1 = -Y2). */
+  neg = fe_is_zero(fe, h) & ((a->inf | b->inf) ^ 1);
+
+  /* L = R / H */
+  fe_invert(fe, h, h);
+  fe_mul(fe, l, r0, h);
 
   /* X3 = b * L^2 - a - X1 - X2 */
   fe_sqr(fe, x3, l);
@@ -5456,45 +5445,54 @@ mge_add_var(mont_t *ec, mge_t *r, const mge_t *a, const mge_t *b) {
   fe_sub(fe, x3, x3, b->x);
 
   /* Y3 = L * (X1 - X3) - Y1 */
-  fe_sub(fe, t, a->x, x3);
-  fe_mul(fe, y3, l, t);
+  fe_sub(fe, y3, a->x, x3);
+  fe_mul(fe, y3, y3, l);
   fe_sub(fe, y3, y3, a->y);
+
+  /* Check for infinity. */
+  inf = neg | (a->inf & b->inf);
+
+  /* Case 1: O + P = P */
+  fe_select(fe, x3, x3, b->x, a->inf);
+  fe_select(fe, y3, y3, b->y, a->inf);
+
+  /* Case 2: P + O = P */
+  fe_select(fe, x3, x3, a->x, b->inf);
+  fe_select(fe, y3, y3, a->y, b->inf);
+
+  /* Case 3 & 4: P + -P = O, O + O = O */
+  fe_select(fe, x3, x3, fe->zero, inf);
+  fe_select(fe, y3, y3, fe->zero, inf);
 
   fe_set(fe, r->x, x3);
   fe_set(fe, r->y, y3);
-  r->inf = 0;
+  r->inf = inf;
 }
 
 static void
-mge_sub_var(mont_t *ec, mge_t *r, const mge_t *a, const mge_t *b) {
+mge_sub(mont_t *ec, mge_t *r, const mge_t *a, const mge_t *b) {
   mge_t c;
   mge_neg(ec, &c, b);
-  mge_add_var(ec, r, a, &c);
+  mge_add(ec, r, a, &c);
 }
 
 static void
 mge_to_pge(mont_t *ec, pge_t *r, const mge_t *a) {
   prime_field_t *fe = &ec->fe;
 
-  if (a->inf) {
-    fe_set(fe, r->x, fe->one);
-    fe_set(fe, r->z, fe->zero);
-    return;
-  }
-
-  fe_set(fe, r->x, a->x);
-  fe_set(fe, r->z, fe->one);
+  fe_select(fe, r->x, a->x, fe->one, a->inf);
+  fe_select(fe, r->z, fe->one, fe->zero, a->inf);
 }
 
 static void
-mge_mulh_var(mont_t *ec, mge_t *r, const mge_t *p) {
+mge_mulh(mont_t *ec, mge_t *r, const mge_t *p) {
   int bits = count_bits(ec->h);
   int i;
 
   mge_set(ec, r, p);
 
   for (i = 0; i < bits - 1; i++)
-    mge_dbl_var(ec, r, r);
+    mge_dbl(ec, r, r);
 }
 
 static void
@@ -6119,10 +6117,10 @@ mont_point_from_hash(mont_t *ec,
   mont_point_from_uniform(ec, &p1, bytes);
   mont_point_from_uniform(ec, &p2, bytes + ec->fe.size);
 
-  mge_add_var(ec, p, &p1, &p2);
+  mge_add(ec, p, &p1, &p2);
 
   if (pake)
-    mge_mulh_var(ec, p, p);
+    mge_mulh(ec, p, p);
 
   mge_cleanse(ec, &p1);
   mge_cleanse(ec, &p2);
@@ -6153,7 +6151,7 @@ mont_point_to_hash(mont_t *ec,
     if (fe_is_zero(fe, p1.y))
       continue;
 
-    mge_sub_var(ec, &p2, p, &p1);
+    mge_sub(ec, &p2, p, &p1);
 
     drbg_generate(&rng, &hint, sizeof(hint));
 
@@ -7821,7 +7819,7 @@ ecdsa_pubkey_convert(wei_t *ec,
   return wge_export(ec, out, out_len, &A, compact);
 }
 
-static int
+static void
 ecdsa_pubkey_from_uniform(wei_t *ec,
                           unsigned char *out,
                           size_t *out_len,
@@ -7831,7 +7829,7 @@ ecdsa_pubkey_from_uniform(wei_t *ec,
 
   wei_point_from_uniform(ec, &A, bytes);
 
-  return wge_export(ec, out, out_len, &A, compact);
+  assert(wge_export(ec, out, out_len, &A, compact));
 }
 
 static int
@@ -9173,7 +9171,7 @@ fail:
   return ret;
 }
 
-static int
+static void
 schnorr_pubkey_from_uniform(wei_t *ec,
                             unsigned char *out,
                             const unsigned char *bytes) {
@@ -9181,7 +9179,7 @@ schnorr_pubkey_from_uniform(wei_t *ec,
 
   wei_point_from_uniform(ec, &A, bytes);
 
-  return wge_export_x(ec, out, &A);
+  assert(wge_export_x(ec, out, &A));
 }
 
 static int
@@ -9833,7 +9831,7 @@ ecdh_pubkey_convert(mont_t *ec,
   return 1;
 }
 
-static int
+static void
 ecdh_pubkey_from_uniform(mont_t *ec,
                          unsigned char *out,
                          const unsigned char *bytes) {
@@ -9841,7 +9839,7 @@ ecdh_pubkey_from_uniform(mont_t *ec,
 
   mont_point_from_uniform(ec, &A, bytes);
 
-  return mge_export(ec, out, &A);
+  assert(mge_export(ec, out, &A));
 }
 
 static int
@@ -10207,7 +10205,7 @@ eddsa_pubkey_from_uniform(edwards_t *ec,
 
   edwards_point_from_uniform(ec, &A, bytes);
 
-  return xge_export(ec, out, &A);
+  xge_export(ec, out, &A);
 }
 
 static int
@@ -10232,7 +10230,7 @@ eddsa_pubkey_from_hash(edwards_t *ec,
 
   edwards_point_from_hash(ec, &A, bytes, pake);
 
-  return xge_export(ec, out, &A);
+  xge_export(ec, out, &A);
 }
 
 static int
