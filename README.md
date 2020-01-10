@@ -38,8 +38,6 @@ Intended to be the new EC backend for [bcrypto].
 ## Todo
 
 - Optimize functions to reduce stack usage.
-- Isomorphism.
-- Elligators.
 
 [bcrypto]: https://github.com/bcoin-org/bcrypto
 [fiat-crypto]: https://github.com/mit-plv/fiat-crypto
