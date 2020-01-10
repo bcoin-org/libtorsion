@@ -4149,6 +4149,7 @@ wei_jmul_g(wei_t *ec, jge_t *r, const sc_t k) {
 
   /* Cleanse. */
   sc_cleanse(sc, k0);
+
   cleanse(&b, sizeof(b));
 }
 
@@ -4169,10 +4170,10 @@ wei_jmul(wei_t *ec, jge_t *r, const wge_t *p, const sc_t k) {
    * Not sure of a way around this.
    */
   scalar_field_t *sc = &ec->sc;
-  jge_t a, b, c;
   mp_limb_t swap = 0;
-  mp_limb_t bit;
+  mp_limb_t bit = 0;
   mp_size_t i, bits;
+  jge_t a, b, c;
   uint32_t neg, m1;
   sc_t k0;
 
@@ -4218,9 +4219,11 @@ wei_jmul(wei_t *ec, jge_t *r, const wge_t *p, const sc_t k) {
   /* Result. */
   jge_set(ec, r, &b);
 
-  /* Zero scalar. */
+  /* Cleanse. */
   sc_cleanse(sc, k0);
+
   cleanse(&bit, sizeof(bit));
+  cleanse(&swap, sizeof(swap));
 }
 
 static void
@@ -5669,19 +5672,20 @@ pge_dbl(mont_t *ec, pge_t *r, const pge_t *p) {
 }
 
 static void
-pge_dad(mont_t *ec,
-        pge_t *p5,
-        pge_t *p4,
-        const pge_t *p1,
-        const pge_t *p3,
-        const pge_t *p2) {
+pge_ladder(mont_t *ec,
+           pge_t *p4,
+           pge_t *p5,
+           const pge_t *p1,
+           const pge_t *p2,
+           const pge_t *p3) {
   /* https://hyperelliptic.org/EFD/g1p/auto-montgom-xz.html#ladder-ladd-1987-m-3
    * 6M + 4S + 8A + 1*a24
    */
   prime_field_t *fe = &ec->fe;
   fe_t a, aa, b, bb, e, c, d, da, cb;
 
-  assert(p5 != p1);
+  assert(p1 != p5);
+  assert(p4 != p5);
 
   /* A = X2 + Z2 */
   fe_add(fe, a, p2->x, p2->z);
@@ -5891,33 +5895,36 @@ mont_mul(mont_t *ec, pge_t *r, const pge_t *p, const sc_t k) {
    */
   prime_field_t *fe = &ec->fe;
   scalar_field_t *sc = &ec->sc;
-  pge_t a, b;
   mp_limb_t swap = 0;
+  mp_limb_t bit = 0;
   mp_size_t i;
-
-  /* Clone points (for safe swapping). */
-  pge_set(ec, &a, p);
-  pge_zero(ec, &b);
+  pge_t a, b;
 
   assert((size_t)sc->limbs * GMP_NUMB_BITS >= fe->bits);
 
+  pge_zero(ec, &a);
+  pge_set(ec, &b, p);
+
   /* Climb the ladder. */
   for (i = fe->bits - 1; i >= 0; i--) {
-    mp_limb_t bit = sc_get_bit(sc, k, i);
+    bit = sc_get_bit(sc, k, i);
 
     /* Maybe swap. */
     pge_swap(ec, &a, &b, swap ^ bit);
 
     /* Single coordinate add+double. */
-    pge_dad(ec, &a, &b, p, &a, &b);
+    pge_ladder(ec, &a, &b, p, &a, &b);
 
     swap = bit;
   }
 
   /* Finalize loop. */
   pge_swap(ec, &a, &b, swap);
+  pge_set(ec, r, &a);
 
-  pge_set(ec, r, &b);
+  /* Cleanse. */
+  cleanse(&bit, sizeof(bit));
+  cleanse(&swap, sizeof(swap));
 }
 
 static void
@@ -6877,6 +6884,7 @@ edwards_mul_g(edwards_t *ec, xge_t *r, const sc_t k) {
 
   /* Cleanse. */
   sc_cleanse(sc, k0);
+
   cleanse(&b, sizeof(b));
 }
 
@@ -6888,33 +6896,37 @@ edwards_mul(edwards_t *ec, xge_t *r, const xge_t *p, const sc_t k) {
    */
   prime_field_t *fe = &ec->fe;
   scalar_field_t *sc = &ec->sc;
-  xge_t a, b;
   mp_limb_t swap = 0;
+  mp_limb_t bit = 0;
   mp_size_t i;
-
-  /* Clone points (for safe swapping). */
-  xge_set(ec, &a, p);
-  xge_zero(ec, &b);
+  xge_t a, b;
 
   assert((size_t)sc->limbs * GMP_NUMB_BITS >= fe->bits);
 
+  xge_zero(ec, &a);
+  xge_set(ec, &b, p);
+
   /* Climb the ladder. */
   for (i = fe->bits - 1; i >= 0; i--) {
-    mp_limb_t bit = sc_get_bit(sc, k, i);
+    bit = sc_get_bit(sc, k, i);
 
     /* Maybe swap. */
     xge_swap(ec, &a, &b, swap ^ bit);
 
     /* Constant-time addition. */
-    xge_add(ec, &a, &a, &b);
-    xge_dbl(ec, &b, &b);
+    xge_add(ec, &b, &b, &a);
+    xge_dbl(ec, &a, &a);
 
     swap = bit;
   }
 
   /* Finalize loop. */
   xge_swap(ec, &a, &b, swap);
-  xge_set(ec, r, &b);
+  xge_set(ec, r, &a);
+
+  /* Cleanse. */
+  cleanse(&bit, sizeof(bit));
+  cleanse(&swap, sizeof(swap));
 }
 
 static void
