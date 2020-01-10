@@ -263,8 +263,9 @@ typedef struct wei_def_s {
 } wei_def_t;
 
 typedef struct wei_scratch_s {
-  jge_t wnd[32 * 4]; /* 27kb */
-  int32_t naf[32 * (MAX_SCALAR_BITS + 1)]; /* 65kb */
+  jge_t wnd_normal[32 * 4]; /* 27kb */
+  wge_t wnd_endo[64 * 4];
+  int32_t naf[64 * (MAX_SCALAR_BITS + 1)]; /* 65kb */
   wge_t points[64];
   sc_t coeffs[64];
 } wei_scratch_t;
@@ -4065,122 +4066,127 @@ wei_endo_split(wei_t *ec,
 }
 
 static void
-wei_jmul_g_var(wei_t *ec, jge_t *r, const sc_t k) {
-  /* Window NAF method for point multiplication.
-   *
-   * [GECC] Algorithm 3.36, Page 100, Section 3.3.
-   */
+wei_jmul_g(wei_t *ec, jge_t *r, const sc_t k) {
   scalar_field_t *sc = &ec->sc;
-  wge_t *points = ec->points;
-  int32_t naf[MAX_SCALAR_BITS + 1];
-  size_t max;
-  int i;
   sc_t k0;
-  jge_t acc;
+  wge_t p;
+  size_t i, j, b;
 
   /* Blind if available. */
   sc_add(sc, k0, k, ec->blind);
 
-  /* Calculate max size. */
-  max = sc_bitlen_var(sc, k0) + 1;
+  /* Multiply in constant time. */
+  wge_zero(ec, &p);
+  wge_to_jge(ec, r, &ec->unblind);
 
-  /* Get NAF form. */
-  sc_naf_var(sc, naf, k0, 1, NAF_WIDTH_PRE, max);
+  for (i = 0; i < WND_SIZE(sc->bits); i++) {
+    b = sc_get_bits(sc, k0, i * WND_WIDTH, WND_WIDTH);
 
-  /* Add `this`*(N+1) for every w-NAF index. */
-  jge_zero(ec, &acc);
+    /* Avoid secret data in array indicies. */
+    for (j = 0; j < WND_STEP; j++)
+      wge_select(ec, &p, &p, &ec->window[i * WND_STEP + j], j == b);
 
-  for (i = max - 1; i >= 0; i--) {
-    /* Count zeroes. */
-    size_t k = 0;
-    int32_t z;
-
-    for (; i >= 0 && naf[i] == 0; i--)
-      k += 1;
-
-    if (i >= 0)
-      k += 1;
-
-    jge_dblp_var(ec, &acc, &acc, k);
-
-    if (i < 0)
-      break;
-
-    z = naf[i];
-
-    assert(z != 0);
-
-    if (z > 0)
-      jge_mixed_add_var(ec, &acc, &acc, &points[(z - 1) >> 1]);
-    else
-      jge_mixed_sub_var(ec, &acc, &acc, &points[(-z - 1) >> 1]);
+    jge_mixed_add(ec, r, r, &p);
   }
 
-  /* Unblind. */
-  jge_mixed_add_var(ec, &acc, &acc, &ec->unblind);
-
-  jge_set(ec, r, &acc);
-
+  /* Cleanse. */
   sc_cleanse(sc, k0);
+  cleanse(&b, sizeof(b));
 }
 
 static void
-wei_jmul_var(wei_t *ec, jge_t *r, const wge_t *p, const sc_t k) {
-  /* Window NAF method for point multiplication.
+wei_mul_g(wei_t *ec, wge_t *r, const sc_t k) {
+  jge_t j;
+  wei_jmul_g(ec, &j, k);
+  jge_to_wge(ec, r, &j);
+}
+
+static void
+wei_jmul(wei_t *ec, jge_t *r, const wge_t *p, const sc_t k) {
+  /* Co-Z Montgomery Ladder.
    *
-   * [GECC] Algorithm 3.36, Page 100, Section 3.3.
+   * [COZ] Algorithm 9, Page 6, Section 4.
    */
   scalar_field_t *sc = &ec->sc;
-  jge_t points[(1 << NAF_WIDTH) - 1];
-  int32_t naf[MAX_SCALAR_BITS + 1];
-  size_t max = sc_bitlen_var(sc, k) + 1;
-  int i;
-  jge_t acc;
+  jge_t a, b, c;
+  mp_limb_t swap = 0;
+  sc_t u, v;
+  mp_size_t i, bits;
+  uint32_t ub, vb, negated, zero, minus1;
 
-  /* Precompute window. */
-  jge_naf_points_var(ec, points, p, NAF_WIDTH);
+  /* Negate scalar. */
+  sc_set(sc, u, k);
+  sc_neg(sc, v, k);
 
-  /* Get NAF form. */
-  sc_naf_var(sc, naf, k, 1, NAF_WIDTH, max);
+  /* Get bit lengths. */
+  ub = sc_bitlen_var(sc, u);
+  vb = sc_bitlen_var(sc, v);
 
-  /* Add `this`*(N+1) for every w-NAF index. */
-  jge_zero(ec, &acc);
+  /* Negate if ceil(log2(k)) < ceil(log2(-k)). */
+  negated = (ub - vb) >> 31;
 
-  for (i = max - 1; i >= 0; i--) {
-    /* Count zeroes. */
-    size_t k = 0;
-    int32_t z;
+  /* Possibly negate. */
+  sc_swap(sc, u, v, negated);
 
-    for (; i >= 0 && naf[i] == 0; i--)
-      k += 1;
+  /* Calculate the new scalar's length. */
+  bits = sc_bitlen_var(sc, u);
 
-    if (i >= 0)
-      k += 1;
+  /* Edge case (k = 0). */
+  zero = sc_is_zero(sc, u);
 
-    jge_dblp_var(ec, &acc, &acc, k);
+  /* Edge case (k = -1). */
+  sc_set_word(sc, v, 1);
+  sc_neg(sc, v, v);
+  minus1 = sc_equal(sc, u, v);
 
-    if (i < 0)
-      break;
+  /* Multiply with Co-Z arithmetic. */
+  wge_to_jge(ec, &c, p);
+  jge_zdblu(ec, &a, &b, &c);
 
-    z = naf[i];
+  for (i = bits - 2; i >= 0; i--) {
+    mp_limb_t bit = sc_get_bit(sc, u, i);
 
-    assert(z != 0);
+    jge_swap(ec, &a, &b, swap ^ bit);
+    jge_zaddc(ec, &a, &b, &b, &a);
+    jge_zaddu(ec, &b, &a, &a, &b);
 
-    if (z > 0)
-      jge_add_var(ec, &acc, &acc, &points[(z - 1) >> 1]);
-    else
-      jge_sub_var(ec, &acc, &acc, &points[(-z - 1) >> 1]);
+    swap = bit;
   }
 
-  jge_set(ec, r, &acc);
+  /* Finalize loop. */
+  jge_swap(ec, &a, &b, swap);
+
+  /* Handle edge case (k = 0). */
+  jge_zero_cond(ec, &b, &b, zero);
+
+  /* Handle edge case (k = -1). */
+  jge_neg(ec, &c, &c);
+  jge_swap(ec, &b, &c, minus1);
+
+  /* Adjust sign. */
+  jge_neg_cond(ec, &b, &b, negated);
+
+  /* Result. */
+  jge_set(ec, r, &b);
+
+  /* Zero scalars. */
+  sc_cleanse(sc, u);
+  sc_cleanse(sc, v);
 }
 
 static void
-wei_jmul_double_var(wei_t *ec,
-                    jge_t *r,
-                    const sc_t k1,
-                    const wge_t *p2,
-                    const sc_t k2) {
+wei_mul(wei_t *ec, wge_t *r, const wge_t *p, const sc_t k) {
+  jge_t j;
+  wei_jmul(ec, &j, p, k);
+  jge_to_wge(ec, r, &j);
+}
+
+static void
+wei_jmul_double_normal_var(wei_t *ec,
+                           jge_t *r,
+                           const sc_t k1,
+                           const wge_t *p2,
+                           const sc_t k2) {
   /* Multiple point multiplication, also known
    * as "Shamir's trick" (with interleaved NAFs).
    *
@@ -4244,13 +4250,146 @@ wei_jmul_double_var(wei_t *ec,
 }
 
 static void
-wei_jmul_multi_var(wei_t *ec,
-                   jge_t *r,
-                   const sc_t k0,
-                   const wge_t *points,
-                   const sc_t *coeffs,
-                   size_t len,
-                   wei_scratch_t *scratch) {
+wei_jmul_double_endo_var(wei_t *ec,
+                         jge_t *r,
+                         const sc_t c1,
+                         const wge_t *p3,
+                         const sc_t c2) {
+  /* Point multiplication with efficiently computable endomorphisms.
+   *
+   * [GECC] Algorithm 3.77, Page 129, Section 3.5.
+   * [GLV] Page 193, Section 3 (Using Efficient Endomorphisms).
+   */
+  scalar_field_t *sc = &ec->sc;
+  wge_t *wnd1 = ec->points;
+  wge_t *wnd2 = ec->endo_points;
+  wge_t wnd3[4];
+  int32_t naf1[MAX_SCALAR_BITS + 1];
+  int32_t naf2[MAX_SCALAR_BITS + 1];
+  int32_t naf3[MAX_SCALAR_BITS + 1];
+  size_t len1, len2, len3, len4;
+  size_t max = 0;
+  sc_t k1, k2, k3, k4;
+  int32_t s1, s2, s3, s4;
+  wge_t p4;
+  jge_t acc;
+  int i;
+
+  assert(ec->endo == 1);
+
+  /* Split scalars. */
+  wei_endo_split(ec, k1, &s1, k2, &s2, c1);
+  wei_endo_split(ec, k3, &s3, k4, &s4, c2);
+
+  /* Compute max length. */
+  len1 = sc_bitlen_var(sc, k1) + 1;
+  len2 = sc_bitlen_var(sc, k2) + 1;
+  len3 = sc_bitlen_var(sc, k3) + 1;
+  len4 = sc_bitlen_var(sc, k4) + 1;
+
+  if (len1 > max)
+    max = len1;
+
+  if (len2 > max)
+    max = len2;
+
+  if (len3 > max)
+    max = len3;
+
+  if (len4 > max)
+    max = len4;
+
+  /* Compute NAFs. */
+  sc_naf_var(sc, naf1, k1, s1, NAF_WIDTH_PRE, max);
+  sc_naf_var(sc, naf2, k2, s2, NAF_WIDTH_PRE, max);
+  sc_jsf_var(sc, naf3, k3, s3, k4, s4, max);
+
+  /* Split point. */
+  wge_endo_beta(ec, &p4, p3);
+
+  /* Create comb for JSF. */
+  wge_set(ec, &wnd3[0], p3); /* 1 */
+  wge_add_var(ec, &wnd3[1], p3, &p4); /* 3 */
+  wge_sub_var(ec, &wnd3[2], p3, &p4); /* 5 */
+  wge_set(ec, &wnd3[3], &p4); /* 7 */
+
+  /* Multiply and add. */
+  jge_zero(ec, &acc);
+
+  for (i = max - 1; i >= 0; i--) {
+    size_t k = 0;
+    int32_t z1, z2, z3;
+
+    while (i >= 0) {
+      if (naf1[i] != 0 || naf2[i] != 0 || naf3[i] != 0)
+        break;
+
+      k += 1;
+      i -= 1;
+    }
+
+    if (i >= 0)
+      k += 1;
+
+    jge_dblp_var(ec, &acc, &acc, k);
+
+    if (i < 0)
+      break;
+
+    z1 = naf1[i];
+    z2 = naf2[i];
+    z3 = naf3[i];
+
+    if (z1 > 0)
+      jge_mixed_add_var(ec, &acc, &acc, &wnd1[(z1 - 1) >> 1]);
+    else if (z1 < 0)
+      jge_mixed_sub_var(ec, &acc, &acc, &wnd1[(-z1 - 1) >> 1]);
+
+    if (z2 > 0)
+      jge_mixed_add_var(ec, &acc, &acc, &wnd2[(z2 - 1) >> 1]);
+    else if (z2 < 0)
+      jge_mixed_sub_var(ec, &acc, &acc, &wnd2[(-z2 - 1) >> 1]);
+
+    if (z3 > 0)
+      jge_mixed_add_var(ec, &acc, &acc, &wnd3[(z3 - 1) >> 1]);
+    else if (z3 < 0)
+      jge_mixed_sub_var(ec, &acc, &acc, &wnd3[(-z3 - 1) >> 1]);
+  }
+
+  jge_set(ec, r, &acc);
+}
+
+static void
+wei_jmul_double_var(wei_t *ec,
+                    jge_t *r,
+                    const sc_t k1,
+                    const wge_t *p2,
+                    const sc_t k2) {
+  if (ec->endo)
+    wei_jmul_double_endo_var(ec, r, k1, p2, k2);
+  else
+    wei_jmul_double_normal_var(ec, r, k1, p2, k2);
+}
+
+static void
+wei_mul_double_var(wei_t *ec,
+                     wge_t *r,
+                     const sc_t k1,
+                     const wge_t *p2,
+                     const sc_t k2) {
+  jge_t j;
+  wei_jmul_double_var(ec, &j, k1, p2, k2);
+  jge_to_wge_var(ec, r, &j);
+}
+
+static void
+wei_jmul_multi_normal_var(wei_t *ec,
+                          jge_t *r,
+                          const sc_t k0,
+                          const wge_t *points,
+                          const sc_t *coeffs,
+                          size_t len,
+                          wei_scratch_t *scratch) {
   /* Multiple point multiplication, also known
    * as "Shamir's trick" (with interleaved NAFs).
    *
@@ -4272,7 +4411,7 @@ wei_jmul_multi_var(wei_t *ec,
 
   /* Setup scratch. */
   for (i = 0; i < 32; i++) {
-    wnds[i] = &scratch->wnd[i * 4];
+    wnds[i] = &scratch->wnd_normal[i * 4];
     nafs[i] = &scratch->naf[i * (MAX_SCALAR_BITS + 1)];
     tmp[i] = 0;
   }
@@ -4357,78 +4496,95 @@ wei_jmul_multi_var(wei_t *ec,
 }
 
 static void
-wei_jmul_double_endo_var(wei_t *ec,
-                         jge_t *r,
-                         const sc_t k1_,
-                         const wge_t *p3,
-                         const sc_t k2_) {
-  /* Point multiplication with efficiently computable endomorphisms.
+wei_jmul_multi_endo_var(wei_t *ec,
+                        jge_t *r,
+                        const sc_t k0,
+                        const wge_t *points,
+                        const sc_t *coeffs,
+                        size_t len,
+                        wei_scratch_t *scratch) {
+  /* Multiple point multiplication, also known
+   * as "Shamir's trick" (with interleaved NAFs).
    *
-   * [GECC] Algorithm 3.77, Page 129, Section 3.5.
-   * [GLV] Page 193, Section 3 (Using Efficient Endomorphisms).
+   * [GECC] Algorithm 3.48, Page 109, Section 3.3.3.
+   *        Algorithm 3.51, Page 112, Section 3.3.
    */
   scalar_field_t *sc = &ec->sc;
-  wge_t *wnd1 = ec->points;
-  wge_t *wnd2 = ec->endo_points;
-  wge_t wnd3[4];
+  wge_t *wnd0 = ec->points;
+  wge_t *wnd1 = ec->endo_points;
+  int32_t naf0[MAX_SCALAR_BITS + 1];
   int32_t naf1[MAX_SCALAR_BITS + 1];
-  int32_t naf2[MAX_SCALAR_BITS + 1];
-  int32_t naf3[MAX_SCALAR_BITS + 1];
-  size_t len1, len2, len3, len4;
-  size_t max = 0;
-  sc_t k1, k2, k3, k4;
-  int32_t s1, s2, s3, s4;
-  wge_t p4;
-  jge_t acc;
+  wge_t *wnds[64];
+  int32_t *nafs[64];
+  int32_t tmp[64];
+  int max = ((sc->bits + 1) >> 1) + 1;
   int i;
+  sc_t k1, k2;
+  int32_t s1, s2;
+  wge_t p2;
+  jge_t acc;
 
   assert(ec->endo == 1);
+  assert(len <= 64);
 
-  /* Split scalars. */
-  wei_endo_split(ec, k1, &s1, k2, &s2, k1_);
-  wei_endo_split(ec, k3, &s3, k4, &s4, k2_);
+  /* Setup scratch. */
+  for (i = 0; i < 64; i++) {
+    wnds[i] = &scratch->wnd_endo[i * 4];
+    nafs[i] = &scratch->naf[i * (MAX_SCALAR_BITS + 1)];
+    tmp[i] = 0;
+  }
 
-  /* Compute max length. */
-  len1 = sc_bitlen_var(sc, k1) + 1;
-  len2 = sc_bitlen_var(sc, k2) + 1;
-  len3 = sc_bitlen_var(sc, k3) + 1;
-  len4 = sc_bitlen_var(sc, k4) + 1;
-
-  if (len1 > max)
-    max = len1;
-
-  if (len2 > max)
-    max = len2;
-
-  if (len3 > max)
-    max = len3;
-
-  if (len4 > max)
-    max = len4;
+  /* Split scalar. */
+  wei_endo_split(ec, k1, &s1, k2, &s2, k0);
 
   /* Compute NAFs. */
-  sc_naf_var(sc, naf1, k1, s1, NAF_WIDTH_PRE, max);
-  sc_naf_var(sc, naf2, k2, s2, NAF_WIDTH_PRE, max);
-  sc_jsf_var(sc, naf3, k3, s3, k4, s4, max);
+  sc_naf_var(sc, naf0, k1, s1, NAF_WIDTH_PRE, max);
+  sc_naf_var(sc, naf1, k2, s2, NAF_WIDTH_PRE, max);
 
-  /* Split point. */
-  wge_endo_beta(ec, &p4, p3);
+  for (i = 0; i < (int)len; i++) {
+    const wge_t *p1 = &points[i];
 
-  /* Create comb for JSF. */
-  wge_set(ec, &wnd3[0], p3); /* 1 */
-  wge_add_var(ec, &wnd3[1], p3, &p4); /* 3 */
-  wge_sub_var(ec, &wnd3[2], p3, &p4); /* 5 */
-  wge_set(ec, &wnd3[3], &p4); /* 7 */
+    /* Split scalar. */
+    wei_endo_split(ec, k1, &s1, k2, &s2, coeffs[i]);
+
+    assert(sc_bitlen_var(sc, k1) + 1 <= max);
+    assert(sc_bitlen_var(sc, k2) + 1 <= max);
+
+    /* Compute NAF.*/
+    sc_jsf_var(sc, nafs[i], k1, s1, k2, s2, max);
+
+    /* Split point. */
+    wge_endo_beta(ec, &p2, p1);
+
+    /* Create comb for JSF. */
+    wge_set(ec, &wnds[i][0], p1); /* 1 */
+    wge_add_var(ec, &wnds[i][1], p1, &p2); /* 3 */
+    wge_sub_var(ec, &wnds[i][2], p1, &p2); /* 5 */
+    wge_set(ec, &wnds[i][3], &p2); /* 7 */
+  }
 
   /* Multiply and add. */
   jge_zero(ec, &acc);
 
   for (i = max - 1; i >= 0; i--) {
     size_t k = 0;
-    int32_t z1, z2, z3;
+    size_t j;
+    int32_t z;
 
     while (i >= 0) {
-      if (naf1[i] != 0 || naf2[i] != 0 || naf3[i] != 0)
+      int zero = 1;
+
+      if (naf0[i] != 0 || naf1[i] != 0)
+        zero = 0;
+
+      for (j = 0; j < len; j++) {
+        tmp[j] = nafs[j][i];
+
+        if (tmp[j] != 0)
+          zero = 0;
+      }
+
+      if (!zero)
         break;
 
       k += 1;
@@ -4443,125 +4599,45 @@ wei_jmul_double_endo_var(wei_t *ec,
     if (i < 0)
       break;
 
-    z1 = naf1[i];
-    z2 = naf2[i];
-    z3 = naf3[i];
+    z = naf0[i];
 
-    if (z1 > 0)
-      jge_mixed_add_var(ec, &acc, &acc, &wnd1[(z1 - 1) >> 1]);
-    else if (z1 < 0)
-      jge_mixed_sub_var(ec, &acc, &acc, &wnd1[(-z1 - 1) >> 1]);
+    if (z > 0)
+      jge_mixed_add_var(ec, &acc, &acc, &wnd0[(z - 1) >> 1]);
+    else if (z < 0)
+      jge_mixed_sub_var(ec, &acc, &acc, &wnd0[(-z - 1) >> 1]);
 
-    if (z2 > 0)
-      jge_mixed_add_var(ec, &acc, &acc, &wnd2[(z2 - 1) >> 1]);
-    else if (z2 < 0)
-      jge_mixed_sub_var(ec, &acc, &acc, &wnd2[(-z2 - 1) >> 1]);
+    z = naf1[i];
 
-    if (z3 > 0)
-      jge_mixed_add_var(ec, &acc, &acc, &wnd3[(z3 - 1) >> 1]);
-    else if (z3 < 0)
-      jge_mixed_sub_var(ec, &acc, &acc, &wnd3[(-z3 - 1) >> 1]);
+    if (z > 0)
+      jge_mixed_add_var(ec, &acc, &acc, &wnd1[(z - 1) >> 1]);
+    else if (z < 0)
+      jge_mixed_sub_var(ec, &acc, &acc, &wnd1[(-z - 1) >> 1]);
+
+    for (j = 0; j < len; j++) {
+      z = tmp[j];
+
+      if (z > 0)
+        jge_mixed_add_var(ec, &acc, &acc, &wnds[j][(z - 1) >> 1]);
+      else if (z < 0)
+        jge_mixed_sub_var(ec, &acc, &acc, &wnds[j][(-z - 1) >> 1]);
+    }
   }
 
   jge_set(ec, r, &acc);
 }
 
 static void
-wei_jmul(wei_t *ec, jge_t *r, const wge_t *p, const sc_t k) {
-  /* Co-Z Montgomery Ladder.
-   *
-   * [COZ] Algorithm 9, Page 6, Section 4.
-   */
-  scalar_field_t *sc = &ec->sc;
-  jge_t a, b, c;
-  mp_limb_t swap = 0;
-  sc_t u, v;
-  mp_size_t i, bits;
-  uint32_t ub, vb, negated, zero, minus1;
-
-  /* Negate scalar. */
-  sc_set(sc, u, k);
-  sc_neg(sc, v, k);
-
-  /* Get bit lengths. */
-  ub = sc_bitlen_var(sc, u);
-  vb = sc_bitlen_var(sc, v);
-
-  /* Negate if ceil(log2(k)) < ceil(log2(-k)). */
-  negated = (ub - vb) >> 31;
-
-  /* Possibly negate. */
-  sc_swap(sc, u, v, negated);
-
-  /* Calculate the new scalar's length. */
-  bits = sc_bitlen_var(sc, u);
-
-  /* Edge case (k = 0). */
-  zero = sc_is_zero(sc, u);
-
-  /* Edge case (k = -1). */
-  sc_set_word(sc, v, 1);
-  sc_neg(sc, v, v);
-  minus1 = sc_equal(sc, u, v);
-
-  /* Multiply with Co-Z arithmetic. */
-  wge_to_jge(ec, &c, p);
-  jge_zdblu(ec, &a, &b, &c);
-
-  for (i = bits - 2; i >= 0; i--) {
-    mp_limb_t bit = sc_get_bit(sc, u, i);
-
-    jge_swap(ec, &a, &b, swap ^ bit);
-    jge_zaddc(ec, &a, &b, &b, &a);
-    jge_zaddu(ec, &b, &a, &a, &b);
-
-    swap = bit;
-  }
-
-  /* Finalize loop. */
-  jge_swap(ec, &a, &b, swap);
-
-  /* Handle edge case (k = 0). */
-  jge_zero_cond(ec, &b, &b, zero);
-
-  /* Handle edge case (k = -1). */
-  jge_neg(ec, &c, &c);
-  jge_swap(ec, &b, &c, minus1);
-
-  /* Adjust sign. */
-  jge_neg_cond(ec, &b, &b, negated);
-
-  /* Result. */
-  jge_set(ec, r, &b);
-
-  /* Zero scalars. */
-  sc_cleanse(sc, u);
-  sc_cleanse(sc, v);
-}
-
-static void
-wei_mul_g_var(wei_t *ec, wge_t *r, const sc_t k) {
-  jge_t j;
-  wei_jmul_g_var(ec, &j, k);
-  jge_to_wge_var(ec, r, &j);
-}
-
-static void
-wei_mul_var(wei_t *ec, wge_t *r, const wge_t *p, const sc_t k) {
-  jge_t j;
-  wei_jmul_var(ec, &j, p, k);
-  jge_to_wge_var(ec, r, &j);
-}
-
-static void
-wei_mul_double_var(wei_t *ec,
-                     wge_t *r,
-                     const sc_t k1,
-                     const wge_t *p2,
-                     const sc_t k2) {
-  jge_t j;
-  wei_jmul_double_var(ec, &j, k1, p2, k2);
-  jge_to_wge_var(ec, r, &j);
+wei_jmul_multi_var(wei_t *ec,
+                   jge_t *r,
+                   const sc_t k0,
+                   const wge_t *points,
+                   const sc_t *coeffs,
+                   size_t len,
+                   wei_scratch_t *scratch) {
+  if (ec->endo)
+    wei_jmul_multi_endo_var(ec, r, k0, points, coeffs, len, scratch);
+  else
+    wei_jmul_multi_normal_var(ec, r, k0, points, coeffs, len, scratch);
 }
 
 static void
@@ -4575,59 +4651,6 @@ wei_mul_multi_var(wei_t *ec,
   jge_t j;
   wei_jmul_multi_var(ec, &j, k0, points, coeffs, len, scratch);
   jge_to_wge_var(ec, r, &j);
-}
-
-static void
-wei_mul_double_endo_var(wei_t *ec,
-                     wge_t *r,
-                     const sc_t k1,
-                     const wge_t *p2,
-                     const sc_t k2) {
-  jge_t j;
-  wei_jmul_double_endo_var(ec, &j, k1, p2, k2);
-  jge_to_wge_var(ec, r, &j);
-}
-
-static void
-wei_jmul_g(wei_t *ec, jge_t *r, const sc_t k) {
-  scalar_field_t *sc = &ec->sc;
-  sc_t k0;
-  wge_t p;
-  size_t i, j, b;
-
-  /* Blind if available. */
-  sc_add(sc, k0, k, ec->blind);
-
-  /* Multiply in constant time. */
-  wge_zero(ec, &p);
-  wge_to_jge(ec, r, &ec->unblind);
-
-  for (i = 0; i < WND_SIZE(sc->bits); i++) {
-    b = sc_get_bits(sc, k0, i * WND_WIDTH, WND_WIDTH);
-
-    /* Avoid secret data in array indicies. */
-    for (j = 0; j < WND_STEP; j++)
-      wge_select(ec, &p, &p, &ec->window[i * WND_STEP + j], j == b);
-
-    jge_mixed_add(ec, r, r, &p);
-  }
-
-  /* Cleanse. */
-  sc_cleanse(sc, k0);
-}
-
-static void
-wei_mul(wei_t *ec, wge_t *r, const wge_t *p, const sc_t k) {
-  jge_t j;
-  wei_jmul(ec, &j, p, k);
-  jge_to_wge(ec, r, &j);
-}
-
-static void
-wei_mul_g(wei_t *ec, wge_t *r, const sc_t k) {
-  jge_t j;
-  wei_jmul_g(ec, &j, k);
-  jge_to_wge(ec, r, &j);
 }
 
 static void
@@ -6789,114 +6812,69 @@ edwards_mula(edwards_t *ec, fe_t r, const fe_t x) {
 }
 
 static void
-edwards_mul_g_var(edwards_t *ec, xge_t *r, const sc_t k) {
-  /* Window NAF method for point multiplication.
-   *
-   * [GECC] Algorithm 3.36, Page 100, Section 3.3.
-   */
+edwards_mul_g(edwards_t *ec, xge_t *r, const sc_t k) {
   scalar_field_t *sc = &ec->sc;
-  xge_t *points = ec->points;
-  int32_t naf[MAX_SCALAR_BITS + 1];
-  size_t max;
-  int i;
   sc_t k0;
-  xge_t acc;
+  xge_t p;
+  size_t i, j, b;
 
   /* Blind if available. */
   sc_add(sc, k0, k, ec->blind);
 
-  /* Calculate max size. */
-  max = sc_bitlen_var(sc, k0) + 1;
+  /* Multiply in constant time. */
+  xge_zero(ec, &p);
+  xge_set(ec, r, &ec->unblind);
 
-  /* Get NAF form. */
-  sc_naf_var(sc, naf, k0, 1, NAF_WIDTH_PRE, max);
+  for (i = 0; i < WND_SIZE(sc->bits); i++) {
+    b = sc_get_bits(sc, k0, i * WND_WIDTH, WND_WIDTH);
 
-  /* Add `this`*(N+1) for every w-NAF index. */
-  xge_zero(ec, &acc);
+    /* Avoid secret data in array indicies. */
+    for (j = 0; j < WND_STEP; j++)
+      xge_select(ec, &p, &p, &ec->window[i * WND_STEP + j], j == b);
 
-  for (i = max - 1; i >= 0; i--) {
-    /* Count zeroes. */
-    size_t k = 0;
-    int32_t z;
-
-    for (; i >= 0 && naf[i] == 0; i--)
-      k += 1;
-
-    if (i >= 0)
-      k += 1;
-
-    xge_dblp(ec, &acc, &acc, k);
-
-    if (i < 0)
-      break;
-
-    z = naf[i];
-
-    assert(z != 0);
-
-    if (z > 0)
-      xge_add(ec, &acc, &acc, &points[(z - 1) >> 1]);
-    else
-      xge_sub(ec, &acc, &acc, &points[(-z - 1) >> 1]);
+    xge_add(ec, r, r, &p);
   }
 
-  /* Unblind. */
-  xge_add(ec, &acc, &acc, &ec->unblind);
-
-  xge_set(ec, r, &acc);
-
+  /* Cleanse. */
   sc_cleanse(sc, k0);
+  cleanse(&b, sizeof(b));
 }
 
 static void
-edwards_mul_var(edwards_t *ec, xge_t *r, const xge_t *p, const sc_t k) {
-  /* Window NAF method for point multiplication.
+edwards_mul(edwards_t *ec, xge_t *r, const xge_t *p, const sc_t k) {
+  /* Generalized Montgomery Ladder.
    *
-   * [GECC] Algorithm 3.36, Page 100, Section 3.3.
+   * [MONT1] Page 24, Section 4.6.2.
    */
+  prime_field_t *fe = &ec->fe;
   scalar_field_t *sc = &ec->sc;
-  xge_t points[(1 << NAF_WIDTH) - 1];
-  int32_t naf[MAX_SCALAR_BITS + 1];
-  size_t max = sc_bitlen_var(sc, k) + 1;
-  int i;
-  xge_t acc;
+  xge_t a, b;
+  mp_limb_t swap = 0;
+  mp_size_t i;
 
-  /* Precompute window. */
-  xge_naf_points(ec, points, p, NAF_WIDTH);
+  /* Clone points (for safe swapping). */
+  xge_set(ec, &a, p);
+  xge_zero(ec, &b);
 
-  /* Get NAF form. */
-  sc_naf_var(sc, naf, k, 1, NAF_WIDTH, max);
+  assert((size_t)sc->limbs * GMP_NUMB_BITS >= fe->bits);
 
-  /* Add `this`*(N+1) for every w-NAF index. */
-  xge_zero(ec, &acc);
+  /* Climb the ladder. */
+  for (i = fe->bits - 1; i >= 0; i--) {
+    mp_limb_t bit = sc_get_bit(sc, k, i);
 
-  for (i = max - 1; i >= 0; i--) {
-    /* Count zeroes. */
-    size_t k = 0;
-    int32_t z;
+    /* Maybe swap. */
+    xge_swap(ec, &a, &b, swap ^ bit);
 
-    for (; i >= 0 && naf[i] == 0; i--)
-      k += 1;
+    /* Constant-time addition. */
+    xge_add(ec, &a, &a, &b);
+    xge_dbl(ec, &b, &b);
 
-    if (i >= 0)
-      k += 1;
-
-    xge_dblp(ec, &acc, &acc, k);
-
-    if (i < 0)
-      break;
-
-    z = naf[i];
-
-    assert(z != 0);
-
-    if (z > 0)
-      xge_add(ec, &acc, &acc, &points[(z - 1) >> 1]);
-    else
-      xge_sub(ec, &acc, &acc, &points[(-z - 1) >> 1]);
+    swap = bit;
   }
 
-  xge_set(ec, r, &acc);
+  /* Finalize loop. */
+  xge_swap(ec, &a, &b, swap);
+  xge_set(ec, r, &b);
 }
 
 static void
@@ -7078,71 +7056,6 @@ edwards_mul_multi_var(edwards_t *ec,
   }
 
   xge_set(ec, r, &acc);
-}
-
-static void
-edwards_mul(edwards_t *ec, xge_t *r, const xge_t *p, const sc_t k) {
-  /* Generalized Montgomery Ladder.
-   *
-   * [MONT1] Page 24, Section 4.6.2.
-   */
-  prime_field_t *fe = &ec->fe;
-  scalar_field_t *sc = &ec->sc;
-  xge_t a, b;
-  mp_limb_t swap = 0;
-  mp_size_t i;
-
-  /* Clone points (for safe swapping). */
-  xge_set(ec, &a, p);
-  xge_zero(ec, &b);
-
-  assert((size_t)sc->limbs * GMP_NUMB_BITS >= fe->bits);
-
-  /* Climb the ladder. */
-  for (i = fe->bits - 1; i >= 0; i--) {
-    mp_limb_t bit = sc_get_bit(sc, k, i);
-
-    /* Maybe swap. */
-    xge_swap(ec, &a, &b, swap ^ bit);
-
-    /* Constant-time addition. */
-    xge_add(ec, &a, &a, &b);
-    xge_dbl(ec, &b, &b);
-
-    swap = bit;
-  }
-
-  /* Finalize loop. */
-  xge_swap(ec, &a, &b, swap);
-  xge_set(ec, r, &b);
-}
-
-static void
-edwards_mul_g(edwards_t *ec, xge_t *r, const sc_t k) {
-  scalar_field_t *sc = &ec->sc;
-  sc_t k0;
-  xge_t p;
-  size_t i, j, b;
-
-  /* Blind if available. */
-  sc_add(sc, k0, k, ec->blind);
-
-  /* Multiply in constant time. */
-  xge_zero(ec, &p);
-  xge_set(ec, r, &ec->unblind);
-
-  for (i = 0; i < WND_SIZE(sc->bits); i++) {
-    b = sc_get_bits(sc, k0, i * WND_WIDTH, WND_WIDTH);
-
-    /* Avoid secret data in array indicies. */
-    for (j = 0; j < WND_STEP; j++)
-      xge_select(ec, &p, &p, &ec->window[i * WND_STEP + j], j == b);
-
-    xge_add(ec, r, r, &p);
-  }
-
-  /* Cleanse. */
-  sc_cleanse(sc, k0);
 }
 
 static void
@@ -8136,9 +8049,8 @@ ecdsa_sig_import(wei_t *ec,
   scalar_field_t *sc = &ec->sc;
   unsigned char *r = out;
   unsigned char *s = out + sc->size;
-  size_t rpos, rlen, spos, slen;
+  size_t rpos, rlen, spos, slen, lenbyte;
   size_t pos = 0;
-  size_t lenbyte;
 
   /* Sequence tag byte */
   if (pos == der_len || der[pos] != 0x30)
@@ -8353,6 +8265,7 @@ ecdsa_reduce(wei_t *ec, sc_t r, const unsigned char *msg, size_t msg_len) {
     }
   }
 
+  /* Note: could use import_weak */
   ret = sc_import_reduce(sc, r, tmp);
 
   cleanse(tmp, sizeof(tmp));
@@ -8556,10 +8469,7 @@ ecdsa_verify(wei_t *ec,
   sc_mul(sc, u1, m, s);
   sc_mul(sc, u2, r, s);
 
-  if (ec->endo)
-    wei_jmul_double_endo_var(ec, &Rj, u1, &A, u2);
-  else
-    wei_jmul_double_var(ec, &Rj, u1, &A, u2);
+  wei_jmul_double_var(ec, &Rj, u1, &A, u2);
 
 #ifdef WITH_TRICK
   return jge_equal_r(ec, &Rj, r);
@@ -8649,10 +8559,7 @@ ecdsa_recover(wei_t *ec,
   sc_mul(sc, s2, s, r);
   sc_neg(sc, s1, s1);
 
-  if (ec->endo)
-    wei_mul_double_endo_var(ec, &A, s1, &R, s2);
-  else
-    wei_mul_double_var(ec, &A, s1, &R, s2);
+  wei_mul_double_var(ec, &A, s1, &R, s2);
 
   return wge_export(ec, pub, pub_len, &A, compact);
 }
@@ -8908,10 +8815,7 @@ ecdsa_schnorr_verify(wei_t *ec,
 
   sc_neg(sc, e, e);
 
-  if (ec->endo)
-    wei_jmul_double_endo_var(ec, &R, s, &A, e);
-  else
-    wei_jmul_double_var(ec, &R, s, &A, e);
+  wei_jmul_double_var(ec, &R, s, &A, e);
 
   if (!jge_is_square_var(ec, &R))
     return 0;
@@ -9620,10 +9524,7 @@ schnorr_verify(wei_t *ec,
 
   sc_neg(sc, e, e);
 
-  if (ec->endo)
-    wei_jmul_double_endo_var(ec, &R, s, &A, e);
-  else
-    wei_jmul_double_var(ec, &R, s, &A, e);
+  wei_jmul_double_var(ec, &R, s, &A, e);
 
   if (!jge_is_square_var(ec, &R))
     return 0;

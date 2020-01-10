@@ -703,15 +703,6 @@ test_wei_mul_g_p256(drbg_t *rng) {
   assert(q_size == 33);
 
   assert(memcmp(q_raw, expect_raw, 33) == 0);
-
-  wei_mul_g_var(ec, &q, k);
-
-  assert(wge_equal(ec, &q, &expect));
-
-  assert(wge_export(ec, q_raw, &q_size, &q, 1));
-  assert(q_size == 33);
-
-  assert(memcmp(q_raw, expect_raw, 33) == 0);
 }
 
 static void
@@ -766,15 +757,6 @@ test_wei_mul_p256(drbg_t *rng) {
   assert(!wge_equal(ec, &expect, &ec->g));
 
   wei_mul(ec, &q, &p, k);
-
-  assert(wge_equal(ec, &q, &expect));
-
-  assert(wge_export(ec, q_raw, &q_size, &q, 1));
-  assert(q_size == 33);
-
-  assert(memcmp(q_raw, expect_raw, 33) == 0);
-
-  wei_mul_var(ec, &q, &p, k);
 
   assert(wge_equal(ec, &q, &expect));
 
@@ -998,15 +980,6 @@ test_wei_mul_g_secp256k1(drbg_t *rng) {
   assert(q_size == 33);
 
   assert(memcmp(q_raw, expect_raw, 33) == 0);
-
-  wei_mul_g_var(ec, &q, k);
-
-  assert(wge_equal(ec, &q, &expect));
-
-  assert(wge_export(ec, q_raw, &q_size, &q, 1));
-  assert(q_size == 33);
-
-  assert(memcmp(q_raw, expect_raw, 33) == 0);
 }
 
 static void
@@ -1061,15 +1034,6 @@ test_wei_mul_secp256k1(drbg_t *rng) {
   assert(!wge_equal(ec, &expect, &ec->g));
 
   wei_mul(ec, &q, &p, k);
-
-  assert(wge_equal(ec, &q, &expect));
-
-  assert(wge_export(ec, q_raw, &q_size, &q, 1));
-  assert(q_size == 33);
-
-  assert(memcmp(q_raw, expect_raw, 33) == 0);
-
-  wei_mul_var(ec, &q, &p, k);
 
   assert(wge_equal(ec, &q, &expect));
 
@@ -1954,14 +1918,6 @@ test_edwards_mul_g_ed25519(drbg_t *rng) {
   xge_export(ec, q_raw, &q);
 
   assert(memcmp(q_raw, expect_raw, 32) == 0);
-
-  edwards_mul_g_var(ec, &q, k);
-
-  assert(xge_equal(ec, &q, &expect));
-
-  xge_export(ec, q_raw, &q);
-
-  assert(memcmp(q_raw, expect_raw, 32) == 0);
 }
 
 static void
@@ -2013,14 +1969,6 @@ test_edwards_mul_ed25519(drbg_t *rng) {
   assert(!xge_equal(ec, &expect, &ec->g));
 
   edwards_mul(ec, &q, &p, k);
-
-  assert(xge_equal(ec, &q, &expect));
-
-  xge_export(ec, q_raw, &q);
-
-  assert(memcmp(q_raw, expect_raw, 32) == 0);
-
-  edwards_mul_var(ec, &q, &p, k);
 
   assert(xge_equal(ec, &q, &expect));
 
