@@ -1113,6 +1113,102 @@ test_wei_double_mul_secp256k1(drbg_t *rng) {
 }
 
 static void
+test_wei_multi_mul_secp256k1(drbg_t *rng) {
+  const unsigned char p1_raw[33] = {
+    0x03, 0x4a, 0x9a, 0xd8, 0x9a, 0x7e, 0xef, 0x6b,
+    0xbb, 0xb5, 0x10, 0xeb, 0x3b, 0x04, 0xa8, 0x6d,
+    0xa7, 0x39, 0xfa, 0xf1, 0xea, 0xf0, 0xfc, 0x9f,
+    0xef, 0x50, 0x36, 0x9f, 0x06, 0x3f, 0xae, 0x07,
+    0xd4
+  };
+
+  const unsigned char p2_raw[33] = {
+    0x03, 0xe8, 0x61, 0x6f, 0x91, 0x4f, 0x18, 0x4e,
+    0xdd, 0x67, 0xe4, 0x9b, 0xeb, 0x03, 0x53, 0xb9,
+    0x9c, 0x49, 0x82, 0x9c, 0xc9, 0x5b, 0x6e, 0x1e,
+    0xb4, 0xa2, 0xc3, 0x7c, 0x67, 0x31, 0x02, 0x42,
+    0xde
+  };
+
+  const unsigned char k0_raw[32] = {
+    0x36, 0x1e, 0x23, 0xcb, 0x88, 0x78, 0x10, 0x7e,
+    0xa5, 0xf7, 0xaf, 0xc6, 0xd6, 0x69, 0x47, 0xa9,
+    0x0a, 0x56, 0x3b, 0x67, 0x2f, 0x13, 0xb2, 0x5c,
+    0x89, 0x98, 0xec, 0x6c, 0xa1, 0x7d, 0xc6, 0xd2
+  };
+
+  const unsigned char k1_raw[32] = {
+    0x66, 0x84, 0x8d, 0x52, 0xb2, 0x58, 0xfe, 0xe1,
+    0xf2, 0xa5, 0xd7, 0x44, 0x0e, 0xd4, 0x40, 0x7a,
+    0x04, 0x4e, 0xde, 0x94, 0xd2, 0x69, 0x2e, 0xd7,
+    0x7d, 0x6b, 0x0d, 0x22, 0x1e, 0x0a, 0x98, 0x07
+  };
+
+  const unsigned char k2_raw[32] = {
+    0xcc, 0x21, 0x46, 0x94, 0x47, 0x1a, 0x81, 0xae,
+    0xe8, 0xa5, 0x5a, 0x3a, 0x8b, 0x2b, 0x6f, 0xa5,
+    0x34, 0x65, 0x68, 0xd5, 0xee, 0xd2, 0x63, 0x2e,
+    0x82, 0xcb, 0x7e, 0xf2, 0xb1, 0x96, 0x15, 0x29
+  };
+
+  const unsigned char expect_raw[33] = {
+    0x03, 0xbc, 0xc1, 0x34, 0x04, 0xd2, 0x3e, 0x37,
+    0x33, 0x7f, 0x15, 0xfe, 0xf0, 0x1d, 0xb4, 0xe1,
+    0x31, 0xca, 0x1c, 0x0d, 0x14, 0x42, 0x3d, 0xbd,
+    0x2e, 0xff, 0x72, 0xda, 0xd5, 0x60, 0xcb, 0xad,
+    0xd6
+  };
+
+  wei_t curve;
+  wei_t *ec = &curve;
+  sc_t k0, k1, k2;
+  wge_t p1, p2, q, expect;
+  unsigned char entropy[32];
+  unsigned char q_raw[33];
+  size_t q_size;
+  scalar_field_t *sc = &ec->sc;
+  wei_scratch_t scratch;
+  wge_t points[2];
+  sc_t coeffs[2];
+
+  printf("Testing multi mul (vector, secp256k1).\n");
+
+  wei_init(ec, &curve_secp256k1);
+
+  random_bytes(rng, entropy, sizeof(entropy));
+
+  wei_randomize(ec, entropy);
+
+  assert(wge_import(ec, &p1, p1_raw, 33));
+  assert(wge_import(ec, &p2, p2_raw, 33));
+  assert(sc_import(sc, k0, k0_raw));
+  assert(sc_import(sc, k1, k1_raw));
+  assert(sc_import(sc, k2, k2_raw));
+  assert(wge_import(ec, &expect, expect_raw, 33));
+
+  assert(wge_validate(ec, &p1));
+  assert(wge_validate(ec, &p2));
+  assert(wge_validate(ec, &expect));
+  assert(wge_equal(ec, &expect, &expect));
+  assert(!wge_equal(ec, &expect, &ec->g));
+
+  wge_set(ec, &points[0], &p1);
+  wge_set(ec, &points[1], &p2);
+
+  sc_set(sc, coeffs[0], k1);
+  sc_set(sc, coeffs[1], k2);
+
+  wei_mul_multi_var(ec, &q, k0, points, coeffs, 2, &scratch);
+
+  assert(wge_equal(ec, &q, &expect));
+
+  assert(wge_export(ec, q_raw, &q_size, &q, 1));
+  assert(q_size == 33);
+
+  assert(memcmp(q_raw, expect_raw, 33) == 0);
+}
+
+static void
 test_ecdsa_vector_p192(drbg_t *rng) {
   const unsigned char priv[24] = {
     0x6c, 0x84, 0x98, 0x26, 0x46, 0xb0, 0xc1, 0x7d,
@@ -2267,6 +2363,132 @@ test_eddsa_vector_ed448(drbg_t *rng) {
 }
 
 static void
+test_sswu(void) {
+  const unsigned char bytes[32] = {
+    0x6a, 0x53, 0xb3, 0x44, 0xc1, 0x88, 0x8a, 0x62,
+    0xf2, 0x81, 0xaf, 0xbd, 0xbe, 0x67, 0x6b, 0xc3,
+    0x9e, 0xc6, 0xb1, 0x46, 0x6e, 0x1d, 0x97, 0x53,
+    0x45, 0x01, 0xda, 0xf1, 0x63, 0xff, 0xc9, 0x98
+  };
+
+  const unsigned char expect[33] = {
+    0x02, 0x61, 0x92, 0xb9, 0xcd, 0x61, 0x6b, 0x4c,
+    0x06, 0x83, 0xdd, 0xc9, 0x40, 0x16, 0x1d, 0x60,
+    0x8f, 0x68, 0xd3, 0xbd, 0xa9, 0x1f, 0x86, 0x7b,
+    0x1f, 0x65, 0x34, 0xdf, 0xdd, 0x04, 0xbd, 0xb2,
+    0x8a
+  };
+
+  wei_t curve;
+  wei_t *ec = &curve;
+  unsigned char out[33];
+  size_t out_len;
+
+  printf("Testing SSWU (P256).\n");
+
+  wei_init(ec, &curve_p256);
+
+  assert(ecdsa_pubkey_from_uniform(ec, out, &out_len, bytes, 1));
+  assert(out_len == 33);
+  assert(memcmp(out, expect, 33) == 0);
+  assert(ecdsa_pubkey_to_uniform(ec, out, expect, 33, 3));
+  assert(memcmp(out, bytes, 32) == 0);
+}
+
+static void
+test_svdw(void) {
+  const unsigned char bytes[32] = {
+    0xb0, 0xf0, 0xa9, 0x2d, 0x14, 0xa9, 0x82, 0xeb,
+    0x12, 0x04, 0x78, 0x1a, 0x91, 0x6f, 0xdf, 0x38,
+    0x2c, 0x4d, 0x84, 0x69, 0x38, 0xe6, 0x3f, 0x55,
+    0xca, 0x59, 0x22, 0xb1, 0x0a, 0xb6, 0x82, 0xa0
+  };
+
+  const unsigned char expect[33] = {
+    0x02, 0xa3, 0xb0, 0xbc, 0xa2, 0xaa, 0x06, 0xe3,
+    0x78, 0x83, 0x14, 0xb8, 0x73, 0x54, 0xbd, 0x01,
+    0x04, 0xf1, 0x10, 0x85, 0xa8, 0x67, 0xab, 0xeb,
+    0x4f, 0x43, 0xd2, 0xf6, 0x22, 0xdb, 0xb3, 0x29,
+    0x20
+  };
+
+  wei_t curve;
+  wei_t *ec = &curve;
+  unsigned char out[33];
+  size_t out_len;
+
+  printf("Testing SVDW (secp256k1).\n");
+
+  wei_init(ec, &curve_secp256k1);
+
+  assert(ecdsa_pubkey_from_uniform(ec, out, &out_len, bytes, 1));
+  assert(out_len == 33);
+  assert(memcmp(out, expect, 33) == 0);
+  assert(ecdsa_pubkey_to_uniform(ec, out, expect, 33, 1));
+  assert(memcmp(out, bytes, 32) == 0);
+}
+
+static void
+test_elligator2_mont(void) {
+  const unsigned char bytes[32] = {
+    0xf9, 0xd4, 0x08, 0xba, 0x8a, 0x4e, 0x6a, 0x04,
+    0xb9, 0xeb, 0x8d, 0x10, 0x38, 0x9b, 0xc0, 0x13,
+    0x12, 0x9f, 0x74, 0xed, 0xb7, 0x66, 0xa1, 0x96,
+    0xd6, 0x15, 0x16, 0x2b, 0x62, 0xa1, 0xe6, 0x24
+  };
+
+  const unsigned char expect[32] = {
+    0xe2, 0x0d, 0xc1, 0xb4, 0xd5, 0xd3, 0x27, 0xbe,
+    0x28, 0xdd, 0x80, 0x3a, 0x91, 0xdc, 0x94, 0xa2,
+    0xfc, 0xfa, 0x0b, 0x79, 0xe7, 0xc9, 0xe9, 0x09,
+    0x52, 0x2a, 0x2f, 0xff, 0x35, 0x16, 0x0e, 0x04
+  };
+
+  mont_t curve;
+  mont_t *ec = &curve;
+  unsigned char out[32];
+
+  printf("Testing Elligator 2 (x25519).\n");
+
+  mont_init(ec, &curve_x25519);
+
+  assert(ecdh_pubkey_from_uniform(ec, out, bytes));
+  assert(memcmp(out, expect, 32) == 0);
+  assert(ecdh_pubkey_to_uniform(ec, out, expect, 0));
+  assert(memcmp(out, bytes, 32) == 0);
+}
+
+static void
+test_elligator2_edwards(void) {
+  const unsigned char bytes[32] = {
+    0xd3, 0xef, 0xfb, 0x44, 0xc4, 0xc9, 0x8d, 0x69,
+    0x33, 0xbf, 0xa6, 0x17, 0xfb, 0x88, 0x4f, 0x89,
+    0xeb, 0x0a, 0x0c, 0x1c, 0x67, 0x7a, 0xff, 0x86,
+    0x7c, 0xea, 0x5e, 0xe6, 0xde, 0xc4, 0x3f, 0x16
+  };
+
+  const unsigned char expect[32] = {
+    0x91, 0xb8, 0xf0, 0x0a, 0x85, 0x44, 0x0a, 0x07,
+    0x2a, 0xbd, 0xe9, 0x80, 0x8d, 0xb2, 0x69, 0x05,
+    0x5b, 0xf7, 0x0b, 0x86, 0x83, 0xdb, 0x31, 0x5c,
+    0x98, 0x5c, 0xc0, 0x9a, 0x34, 0x80, 0xd0, 0x8d
+  };
+
+  edwards_t curve;
+  edwards_t *ec = &curve;
+  unsigned char out[32];
+
+  printf("Testing Elligator 2 (ed25519).\n");
+
+  edwards_init(ec, &curve_ed25519);
+
+  eddsa_pubkey_from_uniform(ec, out, bytes);
+  assert(memcmp(out, expect, 32) == 0);
+  assert(eddsa_pubkey_to_uniform(ec, out, expect, 0));
+  assert(memcmp(out, bytes, 32) == 0);
+}
+
+static void
 test_ecdsa_random(drbg_t *rng) {
   size_t i, j;
   wei_t ec;
@@ -2450,6 +2672,61 @@ bench_end(struct timeval *start, size_t ops) {
 }
 
 static void
+bench_mul_g(drbg_t *rng) {
+  wei_t curve;
+  wei_t *ec = &curve;
+  unsigned char bytes[32];
+  sc_t k;
+  jge_t r;
+  struct timeval tv;
+  size_t i;
+
+  printf("Benching mul_g...\n");
+
+  wei_init(ec, &curve_secp256k1);
+
+  random_bytes(rng, bytes, 32);
+  sc_import_reduce(&ec->sc, k, bytes);
+
+  bench_start(&tv);
+
+  for (i = 0; i < 10000; i++)
+    wei_jmul_g(ec, &r, k);
+
+  bench_end(&tv, i);
+}
+
+static void
+bench_mul(drbg_t *rng) {
+  wei_t curve;
+  wei_t *ec = &curve;
+  unsigned char slab[64];
+  sc_t k0, k1;
+  wge_t p;
+  jge_t r;
+  struct timeval tv;
+  size_t i;
+
+  printf("Benching mul...\n");
+
+  wei_init(ec, &curve_secp256k1);
+
+  random_bytes(rng, slab, 64);
+
+  sc_import_reduce(&ec->sc, k0, slab + 0);
+  sc_import_reduce(&ec->sc, k1, slab + 32);
+
+  wei_mul_g(ec, &p, k0);
+
+  bench_start(&tv);
+
+  for (i = 0; i < 10000; i++)
+    wei_jmul(ec, &r, &p, k1);
+
+  bench_end(&tv, i);
+}
+
+static void
 bench_double_mul(drbg_t *rng) {
   wei_t curve;
   wei_t *ec = &curve;
@@ -2465,6 +2742,7 @@ bench_double_mul(drbg_t *rng) {
   wei_init(ec, &curve_secp256k1);
 
   random_bytes(rng, slab, 96);
+
   sc_import_reduce(&ec->sc, k0, slab + 0);
   sc_import_reduce(&ec->sc, k1, slab + 32);
   sc_import_reduce(&ec->sc, k2, slab + 64);
@@ -2578,10 +2856,16 @@ main(int argc, char **argv) {
 
   if (argc > 1 && strcmp(argv[1], "bench") == 0) {
     if (argc == 2) {
+      bench_mul_g(&rng);
+      bench_mul(&rng);
       bench_double_mul(&rng);
       bench_ecdsa(&rng);
       bench_ecdh(&rng);
       bench_eddsa(&rng);
+    } else if (strcmp(argv[2], "mulg") == 0) {
+      bench_mul_g(&rng);
+    } else if (strcmp(argv[2], "mul") == 0) {
+      bench_mul(&rng);
     } else if (strcmp(argv[2], "double") == 0) {
       bench_double_mul(&rng);
     } else if (strcmp(argv[2], "ecdsa") == 0) {
@@ -2606,6 +2890,7 @@ main(int argc, char **argv) {
     test_wei_mul_g_secp256k1(&rng);
     test_wei_mul_secp256k1(&rng);
     test_wei_double_mul_secp256k1(&rng);
+    test_wei_multi_mul_secp256k1(&rng);
     test_ecdsa_vector_p192(&rng);
     test_ecdsa_vector_p224(&rng);
     test_ecdsa_vector_p256(&rng);
@@ -2622,6 +2907,10 @@ main(int argc, char **argv) {
     test_edwards_multi_mul_ed25519(&rng);
     test_eddsa_vector_ed25519(&rng);
     test_eddsa_vector_ed448(&rng);
+    test_sswu();
+    test_svdw();
+    test_elligator2_mont();
+    test_elligator2_edwards();
     test_ecdsa_random(&rng);
     test_ecdh_random(&rng);
     test_eddsa_random(&rng);

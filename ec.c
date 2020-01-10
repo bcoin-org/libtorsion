@@ -4941,10 +4941,13 @@ wei_svdwf(wei_t *ec, fe_t x, fe_t y, const fe_t u) {
   alpha = fe_is_square(fe, y1);
   beta = fe_is_square(fe, y2);
 
-  fe_select(fe, x, x1, x2, (alpha ^ 1) & beta);
-  fe_select(fe, y, y1, y2, (alpha ^ 1) & beta);
-  fe_select(fe, x, x1, x3, (alpha ^ 1) & (beta ^ 1));
-  fe_select(fe, y, y1, y3, (alpha ^ 1) & (beta ^ 1));
+  fe_select(fe, x1, x1, x2, (alpha ^ 1) & beta);
+  fe_select(fe, y1, y1, y2, (alpha ^ 1) & beta);
+  fe_select(fe, x1, x1, x3, (alpha ^ 1) & (beta ^ 1));
+  fe_select(fe, y1, y1, y3, (alpha ^ 1) & (beta ^ 1));
+
+  fe_set(fe, x, x1);
+  fe_set(fe, y, y1);
 }
 
 static void
@@ -5045,11 +5048,11 @@ wei_svdwi(wei_t *ec, fe_t u, const wge_t *p, unsigned int hint) {
   fe_add(fe, n0, n0, ec->z);
 
   fe_sub(fe, c0, ec->c, n0);
-  fe_add(fe, c1, ec->c, n1);
+  fe_add(fe, c1, ec->c, n0);
 
   fe_mul(fe, n0, gz, c0);
   fe_mul(fe, n1, gz, c1);
-  fe_add(fe, n3, t5, t4);
+  fe_add(fe, n2, t5, t4);
   fe_sub(fe, n3, t5, t4);
   fe_set(fe, d0, fe->two);
 
@@ -5141,7 +5144,7 @@ wei_point_to_hash(wei_t *ec,
     wei_point_from_uniform(ec, &p1, bytes);
 
     /* Avoid 2-torsion points. */
-    if (ec->h > 1 && fe_equal(fe, p1.y, fe->zero))
+    if (ec->h > 1 && fe_is_zero(fe, p1.y))
       continue;
 
     wge_sub(ec, &p2, p, &p1);
@@ -6137,7 +6140,7 @@ mont_point_to_hash(mont_t *ec,
     mont_point_from_uniform(ec, &p1, bytes);
 
     /* Avoid 2-torsion points. */
-    if (fe_equal(fe, p1.y, fe->zero))
+    if (fe_is_zero(fe, p1.y))
       continue;
 
     mge_sub_var(ec, &p2, p, &p1);
@@ -7334,7 +7337,7 @@ edwards_point_to_hash(edwards_t *ec,
     edwards_point_from_uniform(ec, &p1, bytes);
 
     /* Avoid 2-torsion points. */
-    if (fe_equal(fe, p1.x, fe->zero))
+    if (fe_is_zero(fe, p1.x))
       continue;
 
     xge_sub(ec, &p2, p, &p1);
