@@ -428,7 +428,7 @@ test_wei_points_p521(drbg_t *rng) {
   wei_t *ec = &curve;
   wge_t g, p, q, r;
   jge_t jg, jp, jq, jr;
-  unsigned char entropy[66];
+  unsigned char entropy[32];
   unsigned char p_raw[67];
   size_t p_size;
 
@@ -1243,7 +1243,7 @@ test_ecdsa_vector_p192(drbg_t *rng) {
   wei_t *ec = &curve;
   unsigned int param = 0;
   unsigned char rec[25];
-  unsigned char entropy[24];
+  unsigned char entropy[32];
   unsigned char sig0[48];
   unsigned int param0;
   size_t rec_len;
@@ -1305,7 +1305,7 @@ test_ecdsa_vector_p224(drbg_t *rng) {
   wei_t *ec = &curve;
   unsigned int param = 0;
   unsigned char rec[29];
-  unsigned char entropy[28];
+  unsigned char entropy[32];
   unsigned char sig0[56];
   unsigned int param0;
   size_t rec_len;
@@ -1443,7 +1443,7 @@ test_ecdsa_vector_p384(drbg_t *rng) {
   wei_t *ec = &curve;
   unsigned int param = 1;
   unsigned char rec[49];
-  unsigned char entropy[48];
+  unsigned char entropy[32];
   unsigned char sig0[96];
   unsigned int param0;
   size_t rec_len;
@@ -1529,7 +1529,7 @@ test_ecdsa_vector_p521(drbg_t *rng) {
   wei_t *ec = &curve;
   unsigned int param = 0;
   unsigned char rec[67];
-  unsigned char entropy[66];
+  unsigned char entropy[32];
   unsigned char sig0[132];
   unsigned int param0;
   size_t rec_len;
@@ -2340,7 +2340,7 @@ test_eddsa_vector_ed448(drbg_t *rng) {
   edwards_t curve;
   edwards_t *ec = &curve;
   unsigned char rec[57];
-  unsigned char entropy[56];
+  unsigned char entropy[32];
   unsigned char sig0[114];
 
   printf("Testing EdDSA (ed448 vector).\n");
@@ -2505,7 +2505,7 @@ test_ecdsa_random(drbg_t *rng) {
     wei_init(&ec, def);
 
     for (j = 0; j < 100; j++) {
-      unsigned char entropy[MAX_SCALAR_SIZE];
+      unsigned char entropy[32];
       unsigned char priv[MAX_SCALAR_SIZE];
       unsigned char msg[MAX_SCALAR_SIZE];
       unsigned char sig[MAX_SCALAR_SIZE * 2];
@@ -2610,7 +2610,7 @@ test_eddsa_random(drbg_t *rng) {
     edwards_init(&ec, def);
 
     for (j = 0; j < 100; j++) {
-      unsigned char entropy[MAX_SCALAR_SIZE];
+      unsigned char entropy[32];
       unsigned char priv[MAX_FIELD_SIZE];
       unsigned char msg[MAX_SCALAR_SIZE];
       unsigned char sig[MAX_FIELD_SIZE * 2];

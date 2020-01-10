@@ -4692,12 +4692,15 @@ wei_randomize(wei_t *ec, const unsigned char *entropy) {
   scalar_field_t *sc = &ec->sc;
   sc_t blind;
   wge_t unblind;
+  drbg_t rng;
 
-  sc_import_reduce(sc, blind, entropy);
+  drbg_init(&rng, HASH_SHA256, entropy, 32);
+
+  sc_random(sc, blind, &rng);
+
   wei_mul_g(ec, &unblind, blind);
-  wge_neg(ec, &unblind, &unblind);
 
-  sc_set(sc, ec->blind, blind);
+  sc_neg(sc, ec->blind, blind);
   wge_set(ec, &ec->unblind, &unblind);
 
   sc_cleanse(sc, blind);
@@ -7100,12 +7103,15 @@ edwards_randomize(edwards_t *ec, const unsigned char *entropy) {
   scalar_field_t *sc = &ec->sc;
   sc_t blind;
   xge_t unblind;
+  drbg_t rng;
 
-  sc_import_reduce(sc, blind, entropy);
+  drbg_init(&rng, HASH_SHA256, entropy, 32);
+
+  sc_random(sc, blind, &rng);
+
   edwards_mul_g(ec, &unblind, blind);
-  xge_neg(ec, &unblind, &unblind);
 
-  sc_set(sc, ec->blind, blind);
+  sc_neg(sc, ec->blind, blind);
   xge_set(ec, &ec->unblind, &unblind);
 
   sc_cleanse(sc, blind);
