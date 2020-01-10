@@ -10,13 +10,13 @@ typedef uint32_t p25519_fe_word_t;
 
 typedef p25519_fe_word_t p25519_fe_t[P25519_FIELD_WORDS];
 
-#define p25519_fe_add fiat_25519_add
-#define p25519_fe_sub fiat_25519_sub
-#define p25519_fe_neg fiat_25519_opp
-#define p25519_fe_mul fiat_25519_carry_mul
-#define p25519_fe_sqr fiat_25519_carry_square
+#define p25519_fe_add fiat_p25519_add
+#define p25519_fe_sub fiat_p25519_sub
+#define p25519_fe_neg fiat_p25519_opp
+#define p25519_fe_mul fiat_p25519_carry_mul
+#define p25519_fe_sqr fiat_p25519_carry_square
 #define p25519_fe_select(r, a, b, flag) \
-  fiat_25519_selectznz(r, (flag) != 0, a, b)
+  fiat_p25519_selectznz(r, (flag) != 0, a, b)
 
 static void
 p25519_fe_set(p25519_fe_t out, const p25519_fe_t in) {
@@ -72,8 +72,8 @@ p25519_fe_equal(const p25519_fe_t a, const p25519_fe_t b) {
   uint8_t v[32];
   size_t i;
 
-  fiat_25519_to_bytes(u, a);
-  fiat_25519_to_bytes(v, b);
+  fiat_p25519_to_bytes(u, a);
+  fiat_p25519_to_bytes(v, b);
 
   for (i = 0; i < 32; i++)
     z |= (uint32_t)u[i] ^ (uint32_t)v[i];
@@ -212,7 +212,7 @@ p25519_fe_isqrt(p25519_fe_t out, const p25519_fe_t u, const p25519_fe_t v) {
 
   /* C = -U */
   p25519_fe_neg(c, c);
-  fiat_25519_carry(c, c);
+  fiat_p25519_carry(c, c);
   fss = p25519_fe_equal(c, u);
 
   /* X = X * I if C = -U */

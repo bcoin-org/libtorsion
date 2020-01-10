@@ -6,8 +6,12 @@ prefix="$1"
 solinas="$prefix/src/ExtractionOCaml/unsaturated_solinas"
 montgomery="$prefix/src/ExtractionOCaml/word_by_word_montgomery"
 
+if test -z "$prefix" -o ! -e "$solinas"; then
+  echo 'Please specify a valid fiat location.'
+  exit 1
+fi
+
 # 2^192 - 2^64 - 1
-# maybe 8 and 4 or 10 and 5
 "$solinas" --static 'p192' '7' '2^192 - 2^64 - 1' '32' > ./fields/p192_32.h
 "$solinas" --static 'p192' '4' '2^192 - 2^64 - 1' '64' > ./fields/p192_64.h
 
@@ -32,7 +36,7 @@ montgomery="$prefix/src/ExtractionOCaml/word_by_word_montgomery"
 "$montgomery" --static 'secp256k1' '2^256 - 2^32 - 977' '64' > ./fields/secp256k1_64.h
 
 # 2^255 - 19
-"$solinas" --static '25519' '10' '2^255 - 19' '32' \
+"$solinas" --static 'p25519' '10' '2^255 - 19' '32' \
   carry_mul \
   carry_square \
   carry_scmul121666 \
@@ -44,7 +48,7 @@ montgomery="$prefix/src/ExtractionOCaml/word_by_word_montgomery"
   to_bytes \
   from_bytes > ./fields/p25519_32.h
 
-"$solinas" --static '25519' '5' '2^255 - 19' '64' \
+"$solinas" --static 'p25519' '5' '2^255 - 19' '64' \
   carry_mul \
   carry_square \
   carry_scmul121666 \
@@ -56,7 +60,7 @@ montgomery="$prefix/src/ExtractionOCaml/word_by_word_montgomery"
   to_bytes \
   from_bytes > ./fields/p25519_64.h
 
-# 2^448 - 2^224 - 1 (maybe use 16 for 32 bit)
+# 2^448 - 2^224 - 1
 "$solinas" --static 'p448' '15' '2^448 - 2^224 - 1' '32' > ./fields/p448_32.h
 "$solinas" --static 'p448' '8' '2^448 - 2^224 - 1' '64' > ./fields/p448_64.h
 

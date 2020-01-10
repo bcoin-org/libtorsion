@@ -11395,21 +11395,21 @@ static const prime_def_t field_p25519 = {
     0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
     0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xed
   },
-  .add = fiat_25519_add,
-  .sub = fiat_25519_sub,
-  .opp = fiat_25519_opp,
-  .mul = fiat_25519_carry_mul,
-  .square = fiat_25519_carry_square,
+  .add = fiat_p25519_add,
+  .sub = fiat_p25519_sub,
+  .opp = fiat_p25519_opp,
+  .mul = fiat_p25519_carry_mul,
+  .square = fiat_p25519_carry_square,
   .from_montgomery = NULL,
   .nonzero = NULL,
-  .selectznz = fiat_25519_selectznz,
-  .to_bytes = fiat_25519_to_bytes,
-  .from_bytes = fiat_25519_from_bytes,
-  .carry = fiat_25519_carry,
+  .selectznz = fiat_p25519_selectznz,
+  .to_bytes = fiat_p25519_to_bytes,
+  .from_bytes = fiat_p25519_from_bytes,
+  .carry = fiat_p25519_carry,
   .invert = p25519_fe_invert,
   .sqrt = p25519_fe_sqrt,
   .isqrt = p25519_fe_isqrt,
-  .scmul_121666 = fiat_25519_carry_scmul_121666
+  .scmul_121666 = fiat_p25519_carry_scmul_121666
 };
 
 static const scalar_def_t field_q25519 = {
