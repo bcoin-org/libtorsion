@@ -102,6 +102,7 @@ typedef struct scalar_field_s {
   mp_size_t shift;
   mp_limb_t n[MAX_REDUCE_LIMBS];
   mp_limb_t nh[MAX_REDUCE_LIMBS];
+  mp_limb_t nm1[MAX_REDUCE_LIMBS];
   mp_limb_t m[MAX_REDUCE_LIMBS];
   mp_size_t limbs;
   unsigned char raw[MAX_SCALAR_SIZE];
@@ -460,6 +461,28 @@ bytes_lt(const unsigned char *a,
   }
 
   return lt & (eq ^ 1);
+}
+
+static uint32_t
+bytes_lte(const unsigned char *a,
+          const unsigned char *b,
+          int size,
+          int endian) {
+  /* Compute (a <= b) in constant time. */
+  int le = (endian == -1);
+  int i = le ? size - 1 : 0;
+  uint32_t eq = 1;
+  uint32_t lt = 0;
+  uint32_t x, y;
+
+  for (; le ? i >= 0 : i < size; le ? i-- : i++) {
+    x = a[i];
+    y = b[i];
+    lt = ((eq ^ 1) & lt) | (eq & ((x - y) >> 31));
+    eq &= ((x ^ y) - 1) >> 31;
+  }
+
+  return lt | eq;
 }
 
 #ifndef __has_builtin
@@ -1029,6 +1052,24 @@ sc_is_high_var(scalar_field_t *sc, const sc_t a) {
   return mpn_cmp(a, sc->nh, sc->limbs) > 0;
 }
 
+#if 0
+static int
+sc_is_high(scalar_field_t *sc, const sc_t a) {
+  unsigned char u[MAX_SCALAR_BYTES];
+  unsigned char v[MAX_SCALAR_BYTES];
+  int ret;
+
+  sc_export(sc, u, a);
+  sc_export(sc, v, ec->nh);
+
+  ret = bytes_lte(u, v, sc->size, sc->endian) ^ 1;
+
+  cleanse(u, sizeof(u));
+
+  return ret;
+}
+#endif
+
 static int
 sc_is_high(scalar_field_t *sc, const sc_t a) {
   mp_limb_t tmp[MAX_SCALAR_LIMBS];
@@ -1036,7 +1077,7 @@ sc_is_high(scalar_field_t *sc, const sc_t a) {
 
   mpn_cleanse(tmp, sc->limbs);
 
-  return cy == 0;
+  return (cy == 0) & (sc_equal(sc, a, sc->nh) ^ 1);
 }
 
 static void
@@ -2045,6 +2086,8 @@ scalar_field_set(scalar_field_t *sc,
 
   mpn_rshift(sc->nh, sc->n, ARRAY_SIZE(sc->n), 1);
 
+  assert(mpn_sub_1(sc->nm1, sc->n, sc->limbs, 1) == 0);
+
   /* Compute the barrett reduction constant `m`:
    *
    *   m = (1 << (bits * 2)) / n
@@ -2647,6 +2690,21 @@ wge_endo_beta(wei_t *ec, wge_t *r, const wge_t *p) {
   fe_mul(fe, r->x, p->x, ec->beta);
   fe_set(fe, r->y, p->y);
   r->inf = p->inf;
+}
+
+static void
+wge_jsf_points_endo(wei_t *ec, wge_t *points, const wge_t *p1) {
+  /* Runs in constant time despite _var calls. */
+  wge_t p2;
+
+  /* Split point. */
+  wge_endo_beta(ec, &p2, p1);
+
+  /* Create comb for JSF. */
+  wge_set(ec, &points[0], p1); /* 1 */
+  wge_add_var(ec, &points[1], p1, &p2); /* 3 */
+  wge_sub_var(ec, &points[2], p1, &p2); /* 5 */
+  wge_set(ec, &points[3], &p2); /* 7 */
 }
 
 static void
@@ -4106,45 +4164,39 @@ wei_jmul(wei_t *ec, jge_t *r, const wge_t *p, const sc_t k) {
   /* Co-Z Montgomery Ladder.
    *
    * [COZ] Algorithm 9, Page 6, Section 4.
+   *
+   * This leaks the high bit of the scalar.
+   * Not sure of a way around this.
    */
   scalar_field_t *sc = &ec->sc;
   jge_t a, b, c;
   mp_limb_t swap = 0;
-  sc_t u, v;
+  mp_limb_t bit;
   mp_size_t i, bits;
-  uint32_t ub, vb, negated, zero, minus1;
+  uint32_t neg, m1;
+  sc_t k0;
 
-  /* Negate scalar. */
-  sc_set(sc, u, k);
-  sc_neg(sc, v, k);
+  /* Copy scalar (ensure k != 0). */
+  sc_select(sc, k0, k, sc->n, sc_is_zero(sc, k));
 
-  /* Get bit lengths. */
-  ub = sc_bitlen_var(sc, u);
-  vb = sc_bitlen_var(sc, v);
-
-  /* Negate if ceil(log2(k)) < ceil(log2(-k)). */
-  negated = (ub - vb) >> 31;
+  /* Check k <= (n - 1) / 2. */
+  neg = sc_is_high(sc, k) ^ 1;
 
   /* Possibly negate. */
-  sc_swap(sc, u, v, negated);
+  sc_neg_cond(sc, k0, k0, neg);
 
   /* Calculate the new scalar's length. */
-  bits = sc_bitlen_var(sc, u);
-
-  /* Edge case (k = 0). */
-  zero = sc_is_zero(sc, u);
+  bits = sc->bits - (sc_get_bit(sc, k0, sc->bits - 1) ^ 1);
 
   /* Edge case (k = -1). */
-  sc_set_word(sc, v, 1);
-  sc_neg(sc, v, v);
-  minus1 = sc_equal(sc, u, v);
+  m1 = sc_equal(sc, k0, sc->nm1);
 
   /* Multiply with Co-Z arithmetic. */
   wge_to_jge(ec, &c, p);
   jge_zdblu(ec, &a, &b, &c);
 
   for (i = bits - 2; i >= 0; i--) {
-    mp_limb_t bit = sc_get_bit(sc, u, i);
+    bit = sc_get_bit(sc, k0, i);
 
     jge_swap(ec, &a, &b, swap ^ bit);
     jge_zaddc(ec, &a, &b, &b, &a);
@@ -4156,22 +4208,19 @@ wei_jmul(wei_t *ec, jge_t *r, const wge_t *p, const sc_t k) {
   /* Finalize loop. */
   jge_swap(ec, &a, &b, swap);
 
-  /* Handle edge case (k = 0). */
-  jge_zero_cond(ec, &b, &b, zero);
-
   /* Handle edge case (k = -1). */
   jge_neg(ec, &c, &c);
-  jge_swap(ec, &b, &c, minus1);
+  jge_select(ec, &b, &b, &c, m1);
 
   /* Adjust sign. */
-  jge_neg_cond(ec, &b, &b, negated);
+  jge_neg_cond(ec, &b, &b, neg);
 
   /* Result. */
   jge_set(ec, r, &b);
 
-  /* Zero scalars. */
-  sc_cleanse(sc, u);
-  sc_cleanse(sc, v);
+  /* Zero scalar. */
+  sc_cleanse(sc, k0);
+  cleanse(&bit, sizeof(bit));
 }
 
 static void
@@ -4252,9 +4301,9 @@ wei_jmul_double_normal_var(wei_t *ec,
 static void
 wei_jmul_double_endo_var(wei_t *ec,
                          jge_t *r,
-                         const sc_t c1,
-                         const wge_t *p3,
-                         const sc_t c2) {
+                         const sc_t k1,
+                         const wge_t *p2,
+                         const sc_t k2) {
   /* Point multiplication with efficiently computable endomorphisms.
    *
    * [GECC] Algorithm 3.77, Page 129, Section 3.5.
@@ -4269,23 +4318,22 @@ wei_jmul_double_endo_var(wei_t *ec,
   int32_t naf3[MAX_SCALAR_BITS + 1];
   size_t len1, len2, len3, len4;
   size_t max = 0;
-  sc_t k1, k2, k3, k4;
+  sc_t c1, c2, c3, c4;
   int32_t s1, s2, s3, s4;
-  wge_t p4;
   jge_t acc;
   int i;
 
   assert(ec->endo == 1);
 
   /* Split scalars. */
-  wei_endo_split(ec, k1, &s1, k2, &s2, c1);
-  wei_endo_split(ec, k3, &s3, k4, &s4, c2);
+  wei_endo_split(ec, c1, &s1, c2, &s2, k1);
+  wei_endo_split(ec, c3, &s3, c4, &s4, k2);
 
   /* Compute max length. */
-  len1 = sc_bitlen_var(sc, k1) + 1;
-  len2 = sc_bitlen_var(sc, k2) + 1;
-  len3 = sc_bitlen_var(sc, k3) + 1;
-  len4 = sc_bitlen_var(sc, k4) + 1;
+  len1 = sc_bitlen_var(sc, c1) + 1;
+  len2 = sc_bitlen_var(sc, c2) + 1;
+  len3 = sc_bitlen_var(sc, c3) + 1;
+  len4 = sc_bitlen_var(sc, c4) + 1;
 
   if (len1 > max)
     max = len1;
@@ -4300,18 +4348,12 @@ wei_jmul_double_endo_var(wei_t *ec,
     max = len4;
 
   /* Compute NAFs. */
-  sc_naf_var(sc, naf1, k1, s1, NAF_WIDTH_PRE, max);
-  sc_naf_var(sc, naf2, k2, s2, NAF_WIDTH_PRE, max);
-  sc_jsf_var(sc, naf3, k3, s3, k4, s4, max);
-
-  /* Split point. */
-  wge_endo_beta(ec, &p4, p3);
+  sc_naf_var(sc, naf1, c1, s1, NAF_WIDTH_PRE, max);
+  sc_naf_var(sc, naf2, c2, s2, NAF_WIDTH_PRE, max);
+  sc_jsf_var(sc, naf3, c3, s3, c4, s4, max);
 
   /* Create comb for JSF. */
-  wge_set(ec, &wnd3[0], p3); /* 1 */
-  wge_add_var(ec, &wnd3[1], p3, &p4); /* 3 */
-  wge_sub_var(ec, &wnd3[2], p3, &p4); /* 5 */
-  wge_set(ec, &wnd3[3], &p4); /* 7 */
+  wge_jsf_points_endo(ec, wnd3, p2);
 
   /* Multiply and add. */
   jge_zero(ec, &acc);
@@ -4512,17 +4554,16 @@ wei_jmul_multi_endo_var(wei_t *ec,
   scalar_field_t *sc = &ec->sc;
   wge_t *wnd0 = ec->points;
   wge_t *wnd1 = ec->endo_points;
+  int max = ((sc->bits + 1) >> 1) + 2;
   int32_t naf0[MAX_SCALAR_BITS + 1];
   int32_t naf1[MAX_SCALAR_BITS + 1];
   wge_t *wnds[64];
   int32_t *nafs[64];
   int32_t tmp[64];
-  int max = ((sc->bits + 1) >> 1) + 1;
-  int i;
   sc_t k1, k2;
   int32_t s1, s2;
-  wge_t p2;
   jge_t acc;
+  int i;
 
   assert(ec->endo == 1);
   assert(len <= 64);
@@ -4542,25 +4583,18 @@ wei_jmul_multi_endo_var(wei_t *ec,
   sc_naf_var(sc, naf1, k2, s2, NAF_WIDTH_PRE, max);
 
   for (i = 0; i < (int)len; i++) {
-    const wge_t *p1 = &points[i];
-
     /* Split scalar. */
     wei_endo_split(ec, k1, &s1, k2, &s2, coeffs[i]);
-
-    assert(sc_bitlen_var(sc, k1) + 1 <= max);
-    assert(sc_bitlen_var(sc, k2) + 1 <= max);
 
     /* Compute NAF.*/
     sc_jsf_var(sc, nafs[i], k1, s1, k2, s2, max);
 
-    /* Split point. */
-    wge_endo_beta(ec, &p2, p1);
-
     /* Create comb for JSF. */
-    wge_set(ec, &wnds[i][0], p1); /* 1 */
-    wge_add_var(ec, &wnds[i][1], p1, &p2); /* 3 */
-    wge_sub_var(ec, &wnds[i][2], p1, &p2); /* 5 */
-    wge_set(ec, &wnds[i][3], &p2); /* 7 */
+    wge_jsf_points_endo(ec, wnds[i], &points[i]);
+
+    /* Check max size.*/
+    assert(sc_bitlen_var(sc, k1) + 1 <= (size_t)max);
+    assert(sc_bitlen_var(sc, k2) + 1 <= (size_t)max);
   }
 
   /* Multiply and add. */
