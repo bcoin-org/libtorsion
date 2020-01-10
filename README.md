@@ -32,6 +32,8 @@ Intended to be the new EC backend for [bcrypto].
 
 - Schemes:
     - ECDSA
+    - BIP-Schnorr Legacy
+    - BIP-Schnorr
     - ECDH
     - EdDSA
 
