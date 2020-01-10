@@ -11,9 +11,7 @@ Intended to be the new EC backend for [bcrypto].
   correctness, formal verification, etc).
 - Use a generic barrett reduction for scalar arithmetic (leverage GMP's `mpn_`
   functions for this).
-- _Simple_ constant-time multiplication algorithms to avoid any timing leakage
-  (ladders only -- for short weierstrass, we use the co-z montgomery ladder).
-- If that's not enough, use a random blinding factor as well.
+- Keep constant-time multiplication algorithms as simple as possible.
 - Constant time, stack-based, and so on.
 - Dependency-less (aside from a vendored mini-gmp).
 

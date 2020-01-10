@@ -2463,6 +2463,15 @@ wge_neg(wei_t *ec, wge_t *r, const wge_t *a) {
 }
 
 static void
+wge_neg_cond(wei_t *ec, wge_t *r, const wge_t *a, unsigned int flag) {
+  prime_field_t *fe = &ec->fe;
+
+  fe_set(fe, r->x, a->x);
+  fe_neg_cond(fe, r->y, a->y, flag);
+  r->inf = a->inf;
+}
+
+static void
 wge_dbl_var(wei_t *ec, wge_t *r, const wge_t *p) {
   /* [GECC] Page 80, Section 3.1.2.
    *
@@ -4100,8 +4109,8 @@ wei_endo_split(wei_t *ec,
   sc_mul(sc, k1, k2, ec->lambda); /* -lambda */
   sc_add(sc, k1, k1, k);
 
-  h1 = sc_is_high_var(sc, k1);
-  h2 = sc_is_high_var(sc, k2);
+  h1 = sc_is_high(sc, k1);
+  h2 = sc_is_high(sc, k2);
 
   sc_neg_cond(sc, k1, k1, h1);
   sc_neg_cond(sc, k2, k2, h2);
@@ -4150,6 +4159,7 @@ wei_mul_g(wei_t *ec, wge_t *r, const sc_t k) {
   jge_to_wge(ec, r, &j);
 }
 
+#ifdef EC_WITH_LADDER
 static void
 wei_jmul(wei_t *ec, jge_t *r, const wge_t *p, const sc_t k) {
   /* Co-Z Montgomery Ladder.
@@ -4215,6 +4225,116 @@ wei_jmul(wei_t *ec, jge_t *r, const wge_t *p, const sc_t k) {
   cleanse(&bit, sizeof(bit));
   cleanse(&swap, sizeof(swap));
 }
+#else
+static void
+wei_jmul_normal(wei_t *ec, jge_t *r, const wge_t *p, const sc_t k) {
+  scalar_field_t *sc = &ec->sc;
+  mp_size_t start = WND_SIZE(sc->bits) - 1;
+  jge_t table[1 << WND_WIDTH];
+  mp_size_t i, j, b;
+  jge_t t;
+
+  jge_zero(ec, &table[0]);
+  wge_to_jge(ec, &table[1], p);
+
+  for (i = 2; i < WND_STEP; i += 2) {
+    jge_dbl(ec, &table[i], &table[i >> 1]);
+    jge_mixed_add(ec, &table[i + 1], &table[i], p);
+  }
+
+  jge_zero(ec, r);
+  jge_zero(ec, &t);
+
+  for (i = start; i >= 0; i--) {
+    if (i != start) {
+      for (j = 0; j < WND_WIDTH; j++)
+        jge_dbl(ec, r, r);
+    }
+
+    b = sc_get_bits(sc, k, i * WND_WIDTH, WND_WIDTH);
+
+    for (j = 0; j < WND_STEP; j++)
+      jge_select(ec, &t, &t, &table[j], j == b);
+
+    jge_add(ec, r, r, &t);
+  }
+
+  cleanse(&b, sizeof(b));
+}
+
+static void
+wei_jmul_endo(wei_t *ec, jge_t *r, const wge_t *p, const sc_t k) {
+  scalar_field_t *sc = &ec->sc;
+  mp_size_t bits = ((sc->bits + 1) >> 1) + 1;
+  mp_size_t start = WND_SIZE(bits) - 1;
+  jge_t table1[1 << WND_WIDTH];
+  jge_t table2[1 << WND_WIDTH];
+  mp_size_t i, j, b;
+  int32_t s1, s2;
+  wge_t p1, p2;
+  sc_t k1, k2;
+  jge_t t;
+
+  wge_set(ec, &p1, p);
+  wge_endo_beta(ec, &p2, &p1);
+  wei_endo_split(ec, k1, &s1, k2, &s2, k);
+  wge_neg_cond(ec, &p1, &p1, (s1 >> 31) & 1);
+  wge_neg_cond(ec, &p2, &p2, (s2 >> 31) & 1);
+
+  jge_zero(ec, &table1[0]);
+  jge_zero(ec, &table2[0]);
+
+  wge_to_jge(ec, &table1[1], &p1);
+  wge_to_jge(ec, &table2[1], &p2);
+
+  for (i = 2; i < WND_STEP; i += 2) {
+    jge_dbl(ec, &table1[i], &table1[i >> 1]);
+    jge_dbl(ec, &table2[i], &table2[i >> 1]);
+
+    jge_mixed_add(ec, &table1[i + 1], &table1[i], &p1);
+    jge_mixed_add(ec, &table2[i + 1], &table2[i], &p2);
+  }
+
+  jge_zero(ec, r);
+  jge_zero(ec, &t);
+
+  for (i = start; i >= 0; i--) {
+    if (i != start) {
+      for (j = 0; j < WND_WIDTH; j++)
+        jge_dbl(ec, r, r);
+    }
+
+    b = sc_get_bits(sc, k1, i * WND_WIDTH, WND_WIDTH);
+
+    for (j = 0; j < WND_STEP; j++)
+      jge_select(ec, &t, &t, &table1[j], j == b);
+
+    jge_add(ec, r, r, &t);
+
+    b = sc_get_bits(sc, k2, i * WND_WIDTH, WND_WIDTH);
+
+    for (j = 0; j < WND_STEP; j++)
+      jge_select(ec, &t, &t, &table2[j], j == b);
+
+    jge_add(ec, r, r, &t);
+  }
+
+  sc_cleanse(sc, k1);
+  sc_cleanse(sc, k2);
+
+  cleanse(&b, sizeof(b));
+  cleanse(&s1, sizeof(s1));
+  cleanse(&s2, sizeof(s2));
+}
+
+static void
+wei_jmul(wei_t *ec, jge_t *r, const wge_t *p, const sc_t k) {
+  if (ec->endo)
+    wei_jmul_endo(ec, r, p, k);
+  else
+    wei_jmul_normal(ec, r, p, k);
+}
+#endif
 
 static void
 wei_mul(wei_t *ec, wge_t *r, const wge_t *p, const sc_t k) {
@@ -4547,7 +4667,7 @@ wei_jmul_multi_endo_var(wei_t *ec,
   scalar_field_t *sc = &ec->sc;
   wge_t *wnd0 = ec->points;
   wge_t *wnd1 = ec->endo_points;
-  int max = ((sc->bits + 1) >> 1) + 2;
+  int max = ((sc->bits + 1) >> 1) + 1 + 1;
   int32_t naf0[MAX_SCALAR_BITS + 1];
   int32_t naf1[MAX_SCALAR_BITS + 1];
   wge_t *wnds[64];
@@ -6886,6 +7006,7 @@ edwards_mul_g(edwards_t *ec, xge_t *r, const sc_t k) {
   cleanse(&b, sizeof(b));
 }
 
+#ifdef EC_WITH_LADDER
 static void
 edwards_mul(edwards_t *ec, xge_t *r, const xge_t *p, const sc_t k) {
   /* Generalized Montgomery Ladder.
@@ -6926,6 +7047,44 @@ edwards_mul(edwards_t *ec, xge_t *r, const xge_t *p, const sc_t k) {
   cleanse(&bit, sizeof(bit));
   cleanse(&swap, sizeof(swap));
 }
+#else
+static void
+edwards_mul(edwards_t *ec, xge_t *r, const xge_t *p, const sc_t k) {
+  prime_field_t *fe = &ec->fe;
+  scalar_field_t *sc = &ec->sc;
+  mp_size_t start = WND_SIZE(fe->bits) - 1;
+  xge_t table[1 << WND_WIDTH];
+  mp_size_t i, j, b;
+  xge_t t;
+
+  xge_zero(ec, &table[0]);
+  xge_set(ec, &table[1], p);
+
+  for (i = 2; i < WND_STEP; i += 2) {
+    xge_dbl(ec, &table[i], &table[i >> 1]);
+    xge_add(ec, &table[i + 1], &table[i], p);
+  }
+
+  xge_zero(ec, r);
+  xge_zero(ec, &t);
+
+  for (i = start; i >= 0; i--) {
+    if (i != start) {
+      for (j = 0; j < WND_WIDTH; j++)
+        xge_dbl(ec, r, r);
+    }
+
+    b = sc_get_bits(sc, k, i * WND_WIDTH, WND_WIDTH);
+
+    for (j = 0; j < WND_STEP; j++)
+      xge_select(ec, &t, &t, &table[j], j == b);
+
+    xge_add(ec, r, r, &t);
+  }
+
+  cleanse(&b, sizeof(b));
+}
+#endif
 
 static void
 edwards_mul_double_var(edwards_t *ec,
@@ -8498,7 +8657,7 @@ ecdsa_verify(wei_t *ec,
   sc_t m, r, s, u1, u2;
   wge_t A;
   jge_t Rj;
-#ifndef WITH_TRICK
+#ifndef EC_WITH_TRICK
   prime_field_t *fe = &ec->fe;
   wge_t Ra;
   sc_t re;
@@ -8524,7 +8683,7 @@ ecdsa_verify(wei_t *ec,
 
   wei_jmul_double_var(ec, &Rj, u1, &A, u2);
 
-#ifdef WITH_TRICK
+#ifdef EC_WITH_TRICK
   return jge_equal_r(ec, &Rj, r);
 #else
   if (jge_is_zero(ec, &Rj))
