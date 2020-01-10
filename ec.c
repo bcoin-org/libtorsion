@@ -79,6 +79,12 @@ typedef uint32_t fe_word_t;
 #define MAX_FIELD_LIMBS \
   ((MAX_FIELD_BITS + GMP_NUMB_BITS - 1) / GMP_NUMB_BITS)
 
+#define WND_WIDTH 4
+#define WND_STEP (1 << WND_WIDTH) /* 16 */
+#define WND_SIZE(bits) (((bits) + WND_WIDTH - 1) / WND_WIDTH) /* 64 */
+#define MAX_WND_SIZE ((MAX_SCALAR_BITS + WND_WIDTH - 1) / WND_WIDTH) /* 64 */
+#define MAX_WND_LEN (MAX_WND_SIZE * WND_WIDTH * WND_WIDTH) /* 1024 */
+
 #define NAF_WIDTH 4
 #define NAF_WIDTH_PRE 8
 
@@ -223,7 +229,7 @@ typedef struct wei_s {
   wge_t g;
   sc_t blind;
   wge_t unblind;
-  jge_t junblind;
+  wge_t window[MAX_WND_LEN];
   wge_t points[(1 << NAF_WIDTH_PRE) - 1];
   int endo;
   fe_t beta;
@@ -352,6 +358,7 @@ typedef struct edwards_s {
   xge_t g;
   sc_t blind;
   xge_t unblind;
+  xge_t window[MAX_WND_LEN];
   xge_t points[(1 << NAF_WIDTH_PRE) - 1];
   clamp_func *clamp;
 } edwards_t;
@@ -2336,6 +2343,23 @@ wge_swap(wei_t *ec, wge_t *a, wge_t *b, unsigned int flag) {
 }
 
 static void
+wge_select(wei_t *ec,
+           wge_t *r,
+           const wge_t *a,
+           const wge_t *b,
+           unsigned int flag) {
+  prime_field_t *fe = &ec->fe;
+  int cond = (flag != 0);
+  int mask0 = cond - 1;
+  int mask1 = ~mask0;
+
+  fe_select(fe, r->x, a->x, b->x, flag);
+  fe_select(fe, r->y, a->y, b->y, flag);
+
+  r->inf = (a->inf & mask0) | (b->inf & mask1);
+}
+
+static void
 wge_set(wei_t *ec, wge_t *r, const wge_t *a) {
   prime_field_t *fe = &ec->fe;
 
@@ -2572,6 +2596,25 @@ wge_to_jge(wei_t *ec, jge_t *r, const wge_t *a) {
   fe_set(fe, r->x, a->x);
   fe_set(fe, r->y, a->y);
   fe_set(fe, r->z, fe->one);
+}
+
+static void
+wge_wnd_points_var(wei_t *ec, wge_t *out, const wge_t *p) {
+  scalar_field_t *sc = &ec->sc;
+  size_t i, j;
+  wge_t g;
+
+  wge_set(ec, &g, p);
+
+  for (i = 0; i < WND_SIZE(sc->bits); i++) {
+    wge_zero(ec, &out[i * WND_STEP]);
+
+    for (j = 1; j < WND_STEP; j++)
+      wge_add_var(ec, &out[i * WND_STEP + j], &out[i * WND_STEP + j - 1], &g);
+
+    for (j = 0; j < WND_WIDTH; j++)
+      wge_dbl_var(ec, &g, &g);
+  }
 }
 
 static void
@@ -3210,9 +3253,17 @@ jge_add(wei_t *ec, jge_t *r, const jge_t *a, const jge_t *b) {
    * 11M + 6S + 6A + 2*4 + 1*3 + 2*2 (a = 0)
    */
   prime_field_t *fe = &ec->fe;
-  fe_t z1z1, z2z2, u1, u2, s1, s2, z, t, m;
-  fe_t r0, l, g, ll, w, f, h, x3, y3, z3;
+  fe_t z1z1, z2z2, u1, u2, s1, s2, z, t, m, l, w, h;
   int degenerate, inf1, inf2, inf3;
+
+  /* Save some stack space. */
+#define ll l
+#define f m
+#define r0 z1z1
+#define g z2z2
+#define x3 u2
+#define y3 s2
+#define z3 t
 
   /* Z1Z1 = Z1^2 */
   fe_sqr(fe, z1z1, a->z);
@@ -3277,14 +3328,13 @@ jge_add(wei_t *ec, jge_t *r, const jge_t *a, const jge_t *b) {
   fe_sqr(fe, ll, l);
 
   /* LL = 0 (if degenerate) */
-  fe_zero(fe, w);
-  fe_select(fe, ll, ll, w, degenerate);
+  fe_select(fe, ll, ll, fe->zero, degenerate);
 
   /* W = R^2 */
   fe_sqr(fe, w, r0);
 
   /* F = Z * M */
-  fe_mul(fe, f, z, m);
+  fe_mul(fe, f, m, z);
 
   /* H = 3 * G - 2 * W */
   fe_add(fe, h, g, g);
@@ -3330,6 +3380,14 @@ jge_add(wei_t *ec, jge_t *r, const jge_t *a, const jge_t *b) {
   fe_set(fe, r->x, x3);
   fe_set(fe, r->y, y3);
   fe_set(fe, r->z, z3);
+
+#undef ll
+#undef f
+#undef r0
+#undef g
+#undef x3
+#undef y3
+#undef z3
 }
 
 static void
@@ -3337,6 +3395,154 @@ jge_sub(wei_t *ec, jge_t *r, const jge_t *a, const jge_t *b) {
   jge_t c;
   jge_neg(ec, &c, b);
   jge_add(ec, r, a, &c);
+}
+
+static void
+jge_mixed_add(wei_t *ec, jge_t *r, const jge_t *a, const wge_t *b) {
+  /* Strongly unified mixed addition (Brier and Joye).
+   *
+   * [SIDE2] Page 6, Section 3.
+   * [SIDE3] Page 4, Section 3.
+   *
+   * 7M + 7S + 7A + 1*a + 2*4 + 1*3 + 2*2 (a != 0)
+   * 7M + 5S + 6A + 2*4 + 1*3 + 2*2 (a = 0)
+   */
+  prime_field_t *fe = &ec->fe;
+  fe_t z1z1, u2, s2, t, m, l, g, w, h;
+  int degenerate, inf1, inf2, inf3;
+
+  /* Save some stack space. */
+#define u1 a->x
+#define s1 a->y
+#define ll l
+#define f m
+#define r0 z1z1
+#define x3 u2
+#define y3 s2
+#define z3 t
+
+  /* Z1Z1 = Z1^2 */
+  fe_sqr(fe, z1z1, a->z);
+
+  /* U1 = X1 */
+
+  /* U2 = X2 * Z1Z1 */
+  fe_mul(fe, u2, b->x, z1z1);
+
+  /* S1 = Y1 */
+
+  /* S2 = Y2 * Z1Z1 * Z1 */
+  fe_mul(fe, s2, b->y, z1z1);
+  fe_mul(fe, s2, s2, a->z);
+
+  /* T = U1 + U2 */
+  fe_add(fe, t, u1, u2);
+
+  /* M = S1 + S2 */
+  fe_add(fe, m, s1, s2);
+
+  /* R = T^2 - U1 * U2 */
+  fe_sqr(fe, r0, t);
+  fe_mul(fe, l, u1, u2);
+  fe_sub(fe, r0, r0, l);
+
+  /* R = R + a * Z1^4 (if a != 0) */
+  if (!ec->zero_a) {
+    fe_sqr(fe, l, a->z);
+    fe_sqr(fe, l, l);
+    fe_mul(fe, l, l, ec->a);
+    fe_add(fe, r0, r0, l);
+  }
+
+  /* Check for degenerate case (X1 != X2, Y1 = -Y2). */
+  degenerate = fe_is_zero(fe, m) & fe_is_zero(fe, r0);
+
+  /* M = U1 - U2 (if degenerate) */
+  fe_sub(fe, l, u1, u2);
+  fe_select(fe, m, m, l, degenerate);
+
+  /* R = S1 - S2 (if degenerate) */
+  fe_sub(fe, l, s1, s2);
+  fe_select(fe, r0, r0, l, degenerate);
+
+  /* L = M^2 */
+  fe_sqr(fe, l, m);
+
+  /* G = T * L */
+  fe_mul(fe, g, t, l);
+
+  /* LL = L^2 */
+  fe_sqr(fe, ll, l);
+
+  /* LL = 0 (if degenerate) */
+  fe_select(fe, ll, ll, fe->zero, degenerate);
+
+  /* W = R^2 */
+  fe_sqr(fe, w, r0);
+
+  /* F = Z1 * M */
+  fe_mul(fe, f, m, a->z);
+
+  /* H = 3 * G - 2 * W */
+  fe_add(fe, h, g, g);
+  fe_add(fe, h, h, g);
+  fe_sub(fe, h, h, w);
+  fe_sub(fe, h, h, w);
+
+  /* X3 = 4 * (W - G) */
+  fe_sub(fe, x3, w, g);
+  fe_add(fe, x3, x3, x3);
+  fe_add(fe, x3, x3, x3);
+
+  /* Y3 = 4 * (R * H - LL) */
+  fe_mul(fe, y3, r0, h);
+  fe_sub(fe, y3, y3, ll);
+  fe_add(fe, y3, y3, y3);
+  fe_add(fe, y3, y3, y3);
+
+  /* Z3 = 2 * F */
+  fe_add(fe, z3, f, f);
+
+  /* Check for infinity. */
+  inf1 = fe_is_zero(fe, a->z);
+  inf2 = b->inf;
+  inf3 = fe_is_zero(fe, z3) & ((inf1 | inf2) ^ 1);
+
+  /* Case 1: O + P = P */
+  fe_select(fe, x3, x3, b->x, inf1);
+  fe_select(fe, y3, y3, b->y, inf1);
+  fe_select(fe, z3, z3, fe->one, inf1);
+
+  /* Case 2: P + O = P */
+  fe_select(fe, x3, x3, a->x, inf2);
+  fe_select(fe, y3, y3, a->y, inf2);
+  fe_select(fe, z3, z3, a->z, inf2);
+
+  /* Case 3: P + -P = O */
+  fe_select(fe, x3, x3, fe->one, inf3);
+  fe_select(fe, y3, y3, fe->one, inf3);
+  fe_select(fe, z3, z3, fe->zero, inf3);
+
+  /* R = (X3, Y3, Z3) */
+  fe_set(fe, r->x, x3);
+  fe_set(fe, r->y, y3);
+  fe_set(fe, r->z, z3);
+
+#undef u1
+#undef s1
+#undef ll
+#undef f
+#undef r0
+#undef x3
+#undef y3
+#undef z3
+}
+
+static void
+jge_mixed_sub(wei_t *ec, jge_t *r, const jge_t *a, const wge_t *b) {
+  wge_t c;
+  wge_neg(ec, &c, b);
+  jge_mixed_add(ec, r, a, &c);
 }
 
 static void
@@ -3790,8 +3996,8 @@ wei_init(wei_t *ec, const wei_def_t *def) {
 
   sc_zero(sc, ec->blind);
   wge_zero(ec, &ec->unblind);
-  jge_zero(ec, &ec->junblind);
 
+  wge_wnd_points_var(ec, ec->window, &ec->g);
   wge_naf_points_var(ec, ec->points, &ec->g, NAF_WIDTH_PRE);
 
   ec->endo = def->endo;
@@ -4386,15 +4592,25 @@ static void
 wei_jmul_g(wei_t *ec, jge_t *r, const sc_t k) {
   scalar_field_t *sc = &ec->sc;
   sc_t k0;
+  wge_t p;
+  size_t i, j, b;
 
   /* Blind if available. */
   sc_add(sc, k0, k, ec->blind);
 
   /* Multiply in constant time. */
-  wei_jmul(ec, r, &ec->g, k0);
+  wge_zero(ec, &p);
+  wge_to_jge(ec, r, &ec->unblind);
 
-  /* Unblind. */
-  jge_add(ec, r, r, &ec->junblind);
+  for (i = 0; i < WND_SIZE(sc->bits); i++) {
+    b = sc_get_bits(sc, k0, i * WND_WIDTH, WND_WIDTH);
+
+    /* Avoid secret data in array indicies. */
+    for (j = 0; j < WND_STEP; j++)
+      wge_select(ec, &p, &p, &ec->window[i * WND_STEP + j], j == b);
+
+    jge_mixed_add(ec, r, r, &p);
+  }
 
   /* Cleanse. */
   sc_cleanse(sc, k0);
@@ -4418,18 +4634,17 @@ static void
 wei_randomize(wei_t *ec, const unsigned char *entropy) {
   scalar_field_t *sc = &ec->sc;
   sc_t blind;
-  jge_t unblind;
+  wge_t unblind;
 
   sc_import_reduce(sc, blind, entropy);
-  wei_jmul_g(ec, &unblind, blind);
-  jge_neg(ec, &unblind, &unblind);
+  wei_mul_g(ec, &unblind, blind);
+  wge_neg(ec, &unblind, &unblind);
 
   sc_set(sc, ec->blind, blind);
-  jge_set(ec, &ec->junblind, &unblind);
-  jge_to_wge(ec, &ec->unblind, &unblind);
+  wge_set(ec, &ec->unblind, &unblind);
 
   sc_cleanse(sc, blind);
-  jge_cleanse(ec, &unblind);
+  wge_cleanse(ec, &unblind);
 }
 
 static void
@@ -6384,6 +6599,25 @@ xge_is_small(edwards_t *ec, const xge_t *p) {
 }
 
 static void
+xge_wnd_points(edwards_t *ec, xge_t *out, const xge_t *p) {
+  scalar_field_t *sc = &ec->sc;
+  size_t i, j;
+  xge_t g;
+
+  xge_set(ec, &g, p);
+
+  for (i = 0; i < WND_SIZE(sc->bits); i++) {
+    xge_zero(ec, &out[i * WND_STEP]);
+
+    for (j = 1; j < WND_STEP; j++)
+      xge_add(ec, &out[i * WND_STEP + j], &out[i * WND_STEP + j - 1], &g);
+
+    for (j = 0; j < WND_WIDTH; j++)
+      xge_dbl(ec, &g, &g);
+  }
+}
+
+static void
 xge_naf_points(edwards_t *ec, xge_t *points, const xge_t *p, size_t width) {
   size_t size = (1 << width) - 1;
   xge_t dbl;
@@ -6480,6 +6714,7 @@ edwards_init(edwards_t *ec, const edwards_def_t *def) {
   sc_zero(sc, ec->blind);
   xge_zero(ec, &ec->unblind);
 
+  xge_wnd_points(ec, ec->window, &ec->g);
   xge_naf_points(ec, ec->points, &ec->g, NAF_WIDTH_PRE);
 }
 
@@ -6886,15 +7121,25 @@ static void
 edwards_mul_g(edwards_t *ec, xge_t *r, const sc_t k) {
   scalar_field_t *sc = &ec->sc;
   sc_t k0;
+  xge_t p;
+  size_t i, j, b;
 
   /* Blind if available. */
   sc_add(sc, k0, k, ec->blind);
 
   /* Multiply in constant time. */
-  edwards_mul(ec, r, &ec->g, k0);
+  xge_zero(ec, &p);
+  xge_set(ec, r, &ec->unblind);
 
-  /* Unblind. */
-  xge_add(ec, r, r, &ec->unblind);
+  for (i = 0; i < WND_SIZE(sc->bits); i++) {
+    b = sc_get_bits(sc, k0, i * WND_WIDTH, WND_WIDTH);
+
+    /* Avoid secret data in array indicies. */
+    for (j = 0; j < WND_STEP; j++)
+      xge_select(ec, &p, &p, &ec->window[i * WND_STEP + j], j == b);
+
+    xge_add(ec, r, r, &p);
+  }
 
   /* Cleanse. */
   sc_cleanse(sc, k0);
@@ -7766,7 +8011,7 @@ ecdsa_pubkey_combine(wei_t *ec,
     if (!wge_import(ec, &A, pubs[i], pub_lens[i]))
       return 0;
 
-    jge_mixed_add_var(ec, &P, &P, &A);
+    jge_mixed_add(ec, &P, &P, &A);
   }
 
   jge_to_wge(ec, &A, &P);
@@ -9133,7 +9378,7 @@ schnorr_pubkey_combine(wei_t *ec,
     if (!wge_import_x(ec, &A, pubs[i]))
       return 0;
 
-    jge_mixed_add_var(ec, &P, &P, &A);
+    jge_mixed_add(ec, &P, &P, &A);
   }
 
   jge_to_wge(ec, &A, &P);
