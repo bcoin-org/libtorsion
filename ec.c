@@ -618,7 +618,7 @@ mpn_import_be(mp_limb_t *rp, mp_size_t rn,
               const unsigned char *xp, size_t xn) {
   size_t xi;
   mp_limb_t out;
-  unsigned bits;
+  unsigned int bits;
 
   for (xi = xn, out = bits = 0; xi > 0 && rn > 0;) {
     mp_limb_t in = xp[--xi];
@@ -647,7 +647,7 @@ mpn_import_le(mp_limb_t *rp, mp_size_t rn,
               const unsigned char *xp, size_t xn) {
   size_t xi;
   mp_limb_t out;
-  unsigned bits;
+  unsigned int bits;
 
   for (xi = 0, out = bits = 0; xi < xn && rn > 0; ) {
     mp_limb_t in = xp[xi++];
@@ -683,7 +683,8 @@ mpn_import(mp_limb_t *rp, mp_size_t rn,
 static void
 mpn_export_be(unsigned char *rp, size_t rn,
               const mp_limb_t *xp, mp_size_t xn) {
-  unsigned bits;
+  unsigned int bits;
+  unsigned char old;
   mp_limb_t in;
 
   for (bits = in = 0; xn > 0 && rn > 0;) {
@@ -692,7 +693,7 @@ mpn_export_be(unsigned char *rp, size_t rn,
       in >>= 8;
       bits -= 8;
     } else {
-      unsigned char old = in;
+      old = in;
       in = *xp++;
       xn--;
       rp[--rn] = old | (in << bits);
@@ -710,7 +711,8 @@ mpn_export_be(unsigned char *rp, size_t rn,
 static void
 mpn_export_le(unsigned char *rp, size_t rn,
               const mp_limb_t *xp, mp_size_t xn) {
-  unsigned bits;
+  unsigned int bits;
+  unsigned char old;
   mp_limb_t in;
 
   for (bits = in = 0; xn > 0 && rn > 0;) {
@@ -720,7 +722,7 @@ mpn_export_le(unsigned char *rp, size_t rn,
       in >>= 8;
       bits -= 8;
     } else {
-      unsigned char old = in;
+      old = in;
       in = *xp++;
       xn--;
       *rp++ = old | (in << bits);
