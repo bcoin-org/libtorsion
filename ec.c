@@ -5940,9 +5940,6 @@ pge_print(mont_t *ec, const pge_t *p) {
  */
 
 static void
-xge_mulh(edwards_t *ec, xge_t *r, const xge_t *p);
-
-static void
 mont_init_isomorphism(mont_t *ec, const mont_def_t *def);
 
 static void
