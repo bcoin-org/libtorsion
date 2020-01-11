@@ -6,10 +6,13 @@
 
 #include <assert.h>
 #include <stdlib.h>
-#include <stdio.h>
 #include <string.h>
 #include <stdint.h>
 #include <limits.h>
+
+#ifdef EC_TEST
+#include <stdio.h>
+#endif
 
 #ifdef _WIN32
 /* For SecureZeroMemory (actually defined in winbase.h). */
@@ -806,12 +809,14 @@ mpn_invert_n(mp_limb_t *rp,
 #endif
 }
 
+#ifdef EC_TEST
 static void
 mpn_print(const mp_limb_t *p, mp_size_t n, int base) {
   mpz_t x;
   mpz_roinit_n(x, p, n);
   mpz_out_str(stdout, base, x);
 }
+#endif
 
 #ifndef BCRYPTO_HAS_GMP
 /* `mpz_jacobi` is not implemented in mini-gmp. */
@@ -1006,11 +1011,13 @@ sc_select(scalar_field_t *sc, sc_t r,
   cnd_select(flag != 0, r, a, b, sc->limbs);
 }
 
+#ifdef EC_TEST
 static void
 sc_print(scalar_field_t *sc, const sc_t a) {
   mpn_print(a, sc->limbs, 16);
   printf("\n");
 }
+#endif
 
 static int
 sc_set_fe(scalar_field_t *sc, prime_field_t *fe, sc_t r, const fe_t a) {
@@ -1661,6 +1668,7 @@ fe_set_num(prime_field_t *fe, fe_t r, const mpz_t a) {
   return fe_set_limbs(fe, r, mpz_limbs_read(a), mpz_size(a));
 }
 
+#ifdef EC_TEST
 static void
 fe_print(prime_field_t *fe, const fe_t a) {
   mp_limb_t xp[MAX_FIELD_LIMBS];
@@ -1670,6 +1678,7 @@ fe_print(prime_field_t *fe, const fe_t a) {
   mpn_print(xp, fe->limbs, 16);
   printf("\n");
 }
+#endif
 
 static int
 fe_set_sc(prime_field_t *fe, scalar_field_t *sc, fe_t r, const sc_t a) {
@@ -2690,6 +2699,7 @@ wge_jsf_points_endo(wei_t *ec, wge_t *points, const wge_t *p1) {
   wge_set(ec, &points[3], &p2); /* 7 */
 }
 
+#ifdef EC_TEST
 static void
 wge_print(wei_t *ec, const wge_t *p) {
   prime_field_t *fe = &ec->fe;
@@ -2710,6 +2720,7 @@ wge_print(wei_t *ec, const wge_t *p) {
     printf(")\n");
   }
 }
+#endif
 
 /*
  * Short Weierstrass Jacobian Point
@@ -3692,6 +3703,7 @@ jge_naf_points_var(wei_t *ec, jge_t *points, const wge_t *p, size_t width) {
     jge_add_var(ec, &points[i], &points[i - 1], &dbl);
 }
 
+#ifdef EC_TEST
 static void
 jge_print(wei_t *ec, const jge_t *p) {
   prime_field_t *fe = &ec->fe;
@@ -3716,6 +3728,7 @@ jge_print(wei_t *ec, const jge_t *p) {
     printf(")\n");
   }
 }
+#endif
 
 /*
  * Short Weierstrass Curve
@@ -5306,6 +5319,7 @@ mge_to_xge(mont_t *ec, xge_t *r, const mge_t *p) {
   _mont_to_edwards(&ec->fe, r, p, ec->c, ec->invert, 1);
 }
 
+#ifdef EC_TEST
 static void
 mge_print(mont_t *ec, const mge_t *p) {
   prime_field_t *fe = &ec->fe;
@@ -5326,6 +5340,7 @@ mge_print(mont_t *ec, const mge_t *p) {
     printf(")\n");
   }
 }
+#endif
 
 /*
  * Montgomery Projective Point
@@ -5575,6 +5590,7 @@ pge_is_small(mont_t *ec, const pge_t *p) {
       & (pge_is_zero(ec, p) ^ 1);
 }
 
+#ifdef EC_TEST
 static void
 pge_print(mont_t *ec, const pge_t *p) {
   prime_field_t *fe = &ec->fe;
@@ -5595,6 +5611,7 @@ pge_print(mont_t *ec, const pge_t *p) {
     printf(")\n");
   }
 }
+#endif
 
 /*
  * Montgomery Curve
@@ -6515,6 +6532,7 @@ xge_to_mge(edwards_t *ec, mge_t *r, const xge_t *p) {
   _edwards_to_mont(&ec->fe, r, p, ec->c, ec->invert, 1);
 }
 
+#ifdef EC_TEST
 static void
 xge_print(edwards_t *ec, const xge_t *p) {
   prime_field_t *fe = &ec->fe;
@@ -6539,6 +6557,7 @@ xge_print(edwards_t *ec, const xge_t *p) {
     printf(")\n");
   }
 }
+#endif
 
 /*
  * Edwards Curve
