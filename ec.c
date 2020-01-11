@@ -71,13 +71,14 @@ typedef uint32_t fe_word_t;
 #define MAX_SCALAR_BITS 521
 #define MAX_FIELD_SIZE 66
 #define MAX_SCALAR_SIZE 66
-#define MAX_REDUCE_LIMBS ((MAX_SCALAR_LIMBS + 1) * 4)
 
 #define MAX_SCALAR_LIMBS \
   ((MAX_SCALAR_BITS + GMP_NUMB_BITS - 1) / GMP_NUMB_BITS)
 
 #define MAX_FIELD_LIMBS \
   ((MAX_FIELD_BITS + GMP_NUMB_BITS - 1) / GMP_NUMB_BITS)
+
+#define MAX_REDUCE_LIMBS ((MAX_SCALAR_LIMBS + 1) * 4)
 
 #define WND_WIDTH 4
 #define WND_SIZE (1 << WND_WIDTH) /* 16 */
@@ -105,7 +106,6 @@ typedef struct scalar_field_s {
   mp_size_t shift;
   mp_limb_t n[MAX_REDUCE_LIMBS];
   mp_limb_t nh[MAX_REDUCE_LIMBS];
-  mp_limb_t nm1[MAX_REDUCE_LIMBS];
   mp_limb_t m[MAX_REDUCE_LIMBS];
   mp_size_t limbs;
   unsigned char raw[MAX_SCALAR_SIZE];
@@ -2064,8 +2064,6 @@ scalar_field_set(scalar_field_t *sc,
 
   mpn_rshift(sc->nh, sc->n, ARRAY_SIZE(sc->n), 1);
 
-  assert(mpn_sub_1(sc->nm1, sc->n, sc->limbs, 1) == 0);
-
   /* Compute the barrett reduction constant `m`:
    *
    *   m = (1 << (bits * 2)) / n
@@ -3581,283 +3579,6 @@ jge_mixed_sub(wei_t *ec, jge_t *r, const jge_t *a, const wge_t *b) {
   jge_mixed_add(ec, r, a, &c);
 }
 
-#ifdef EC_WITH_LADDER
-static void
-jge_zaddu(wei_t *ec, jge_t *r, jge_t *p, const jge_t *a, const jge_t *b) {
-  /* Co-Z addition with update (ZADDU).
-   * [COZ] Algorithm 19, Page 15, Appendix C.
-   * 5M + 2S + 7A
-   */
-  prime_field_t *fe = &ec->fe;
-  fe_t t1, t2, t3, t4, t5, t6;
-
-  /* T1 = X1 */
-  fe_set(fe, t1, a->x);
-
-  /* T2 = Y1 */
-  fe_set(fe, t2, a->y);
-
-  /* T3 = Z */
-  fe_set(fe, t3, a->z);
-
-  /* T4 = X2 */
-  fe_set(fe, t4, b->x);
-
-  /* T5 = Y2 */
-  fe_set(fe, t5, b->y);
-
-  /* T6 = T1 - T4 */
-  fe_sub(fe, t6, t1, t4);
-
-  /* T3 = T3 * T6 */
-  fe_mul(fe, t3, t3, t6);
-
-  /* T6 = T6^2 */
-  fe_sqr(fe, t6, t6);
-
-  /* T1 = T1 * T6 */
-  fe_mul(fe, t1, t1, t6);
-
-  /* T6 = T6 * T4 */
-  fe_mul(fe, t6, t6, t4);
-
-  /* T5 = T2 - T5 */
-  fe_sub(fe, t5, t2, t5);
-
-  /* T4 = T5^2 */
-  fe_sqr(fe, t4, t5);
-
-  /* T4 = T4 - T1 */
-  fe_sub(fe, t4, t4, t1);
-
-  /* T4 = T4 - T6 */
-  fe_sub(fe, t4, t4, t6);
-
-  /* T6 = T1 - T6 */
-  fe_sub(fe, t6, t1, t6);
-
-  /* T2 = T2 * T6 */
-  fe_mul(fe, t2, t2, t6);
-
-  /* T6 = T1 - T4 */
-  fe_sub(fe, t6, t1, t4);
-
-  /* T5 = T5 * T6 */
-  fe_mul(fe, t5, t5, t6);
-
-  /* T5 = T5 - T2 */
-  fe_sub(fe, t5, t5, t2);
-
-  /* R = (T4, T5, T3) */
-  fe_set(fe, r->x, t4);
-  fe_set(fe, r->y, t5);
-  fe_set(fe, r->z, t3);
-
-  /* P = (T1, T2, T3) */
-  fe_set(fe, p->x, t1);
-  fe_set(fe, p->y, t2);
-  fe_set(fe, p->z, t3);
-}
-
-static void
-jge_zaddc(wei_t *ec, jge_t *r, jge_t *s, const jge_t *a, const jge_t *b) {
-  /* Co-Z addition with conjugate (ZADDC).
-   * [COZ] Algorithm 20, Page 15, Appendix C.
-   * 6M + 3S + 14A + 1*2
-   */
-  prime_field_t *fe = &ec->fe;
-  fe_t t1, t2, t3, t4, t5, t6, t7;
-
-  /* T1 = X1 */
-  fe_set(fe, t1, a->x);
-
-  /* T2 = Y1 */
-  fe_set(fe, t2, a->y);
-
-  /* T3 = Z */
-  fe_set(fe, t3, a->z);
-
-  /* T4 = X2 */
-  fe_set(fe, t4, b->x);
-
-  /* T5 = Y2 */
-  fe_set(fe, t5, b->y);
-
-  /* T6 = T1 - T4 */
-  fe_sub(fe, t6, t1, t4);
-
-  /* T3 = T3 * T6 */
-  fe_mul(fe, t3, t3, t6);
-
-  /* T6 = T6^2 */
-  fe_sqr(fe, t6, t6);
-
-  /* T7 = T1 * T6 */
-  fe_mul(fe, t7, t1, t6);
-
-  /* T6 = T6 * T4 */
-  fe_mul(fe, t6, t6, t4);
-
-  /* T1 = T2 + T5 */
-  fe_add(fe, t1, t2, t5);
-
-  /* T4 = T1^2 */
-  fe_sqr(fe, t4, t1);
-
-  /* T4 = T4 - T7 */
-  fe_sub(fe, t4, t4, t7);
-
-  /* T4 = T4 - T6 */
-  fe_sub(fe, t4, t4, t6);
-
-  /* T1 = T2 - T5 */
-  fe_sub(fe, t1, t2, t5);
-
-  /* T1 = T1^2 */
-  fe_sqr(fe, t1, t1);
-
-  /* T1 = T1 - T7 */
-  fe_sub(fe, t1, t1, t7);
-
-  /* T1 = T1 - T6 */
-  fe_sub(fe, t1, t1, t6);
-
-  /* T6 = T6 - T7 */
-  fe_sub(fe, t6, t6, t7);
-
-  /* T6 = T6 * T2 */
-  fe_mul(fe, t6, t6, t2);
-
-  /* T2 = T2 - T5 */
-  fe_sub(fe, t2, t2, t5);
-
-  /* T5 = 2 * T5 */
-  fe_add(fe, t5, t5, t5);
-
-  /* T5 = T2 + T5 */
-  fe_add(fe, t5, t2, t5);
-
-  /* T7 = T7 - T4 */
-  fe_sub(fe, t7, t7, t4);
-
-  /* T5 = T5 * T7 */
-  fe_mul(fe, t5, t5, t7);
-
-  /* T5 = T5 + T6 */
-  fe_add(fe, t5, t5, t6);
-
-  /* T7 = T4 + T7 */
-  fe_add(fe, t7, t4, t7);
-
-  /* T7 = T7 - T1 */
-  fe_sub(fe, t7, t7, t1);
-
-  /* T2 = T2 * T7 */
-  fe_mul(fe, t2, t2, t7);
-
-  /* T2 = T2 + T6 */
-  fe_add(fe, t2, t2, t6);
-
-  /* R = (T1, T2, T3) */
-  fe_set(fe, r->x, t1);
-  fe_set(fe, r->y, t2);
-  fe_set(fe, r->z, t3);
-
-  /* S = (T4, T5, T3) */
-  fe_set(fe, s->x, t4);
-  fe_set(fe, s->y, t5);
-  fe_set(fe, s->z, t3);
-}
-
-static void
-jge_zdblu(wei_t *ec, jge_t *r, jge_t *p, const jge_t *a) {
-  /* Co-Z doubling with update (DBLU).
-   * [COZ] Algorithm 21, Page 15, Appendix C.
-   * 1M + 5S + 8A + 4*2 + 1*8
-   */
-  prime_field_t *fe = &ec->fe;
-  fe_t t0, t1, t2, t3, t4, t5;
-
-  /* T0 = a */
-  fe_set(fe, t0, ec->a);
-
-  /* T1 = X1 */
-  fe_set(fe, t1, a->x);
-
-  /* T2 = Y1 */
-  fe_set(fe, t2, a->y);
-
-  /* T3 = 2 * T2 */
-  fe_add(fe, t3, t2, t2);
-
-  /* T2 = T2^2 */
-  fe_sqr(fe, t2, t2);
-
-  /* T4 = T1 + T2 */
-  fe_add(fe, t4, t1, t2);
-
-  /* T4 = T4^2 */
-  fe_sqr(fe, t4, t4);
-
-  /* T5 = T1^2 */
-  fe_sqr(fe, t5, t1);
-
-  /* T4 = T4 - T5 */
-  fe_sub(fe, t4, t4, t5);
-
-  /* T2 = T2^2 */
-  fe_sqr(fe, t2, t2);
-
-  /* T4 = T4 - T2 */
-  fe_sub(fe, t4, t4, t2);
-
-  /* T1 = 2 * T4 */
-  fe_add(fe, t1, t4, t4);
-
-  /* T0 = T0 + T5 */
-  fe_add(fe, t0, t0, t5);
-
-  /* T5 = 2 * T5 */
-  fe_add(fe, t5, t5, t5);
-
-  /* T0 = T0 + T5 */
-  fe_add(fe, t0, t0, t5);
-
-  /* T4 = T0^2 */
-  fe_sqr(fe, t4, t0);
-
-  /* T5 = 2 * T1 */
-  fe_add(fe, t5, t1, t1);
-
-  /* T4 = T4 - T5 */
-  fe_sub(fe, t4, t4, t5);
-
-  /* T2 = 8 * T2 */
-  fe_add(fe, t2, t2, t2);
-  fe_add(fe, t2, t2, t2);
-  fe_add(fe, t2, t2, t2);
-
-  /* T5 = T1 - T4 */
-  fe_sub(fe, t5, t1, t4);
-
-  /* T5 = T5 * T0 */
-  fe_mul(fe, t5, t5, t0);
-
-  /* T5 = T5 - T2 */
-  fe_sub(fe, t5, t5, t2);
-
-  /* R = (T4, T5, T3) */
-  fe_set(fe, r->x, t4);
-  fe_set(fe, r->y, t5);
-  fe_set(fe, r->z, t3);
-
-  /* P = (T1, T2, T3) */
-  fe_set(fe, p->x, t1);
-  fe_set(fe, p->y, t2);
-  fe_set(fe, p->z, t3);
-}
-#endif
-
 static void
 jge_dblp_var(wei_t *ec, jge_t *r, const jge_t *p, size_t pow) {
   size_t i;
@@ -4179,73 +3900,6 @@ wei_mul_g(wei_t *ec, wge_t *r, const sc_t k) {
   jge_to_wge(ec, r, &j);
 }
 
-#ifdef EC_WITH_LADDER
-static void
-wei_jmul(wei_t *ec, jge_t *r, const wge_t *p, const sc_t k) {
-  /* Co-Z Montgomery Ladder.
-   *
-   * [COZ] Algorithm 9, Page 6, Section 4.
-   *
-   * This leaks the high bit of the scalar.
-   * Not sure of a way around this.
-   */
-  scalar_field_t *sc = &ec->sc;
-  mp_limb_t swap = 0;
-  mp_limb_t bit = 0;
-  mp_size_t i, bits;
-  jge_t a, b, c;
-  uint32_t neg, m1;
-  sc_t k0;
-
-  /* Copy scalar (ensure k != 0). */
-  sc_select(sc, k0, k, sc->n, sc_is_zero(sc, k));
-
-  /* Check k <= (n - 1) / 2. */
-  neg = sc_is_high(sc, k) ^ 1;
-
-  /* Possibly negate. */
-  sc_neg_cond(sc, k0, k0, neg);
-
-  /* Calculate the new scalar's length. */
-  bits = sc->bits - (sc_get_bit(sc, k0, sc->bits - 1) ^ 1);
-
-  /* Edge case (k = -1). */
-  m1 = sc_equal(sc, k0, sc->nm1);
-
-  /* Multiply with Co-Z arithmetic. */
-  wge_to_jge(ec, &c, p);
-  jge_zdblu(ec, &a, &b, &c);
-
-  for (i = bits - 2; i >= 0; i--) {
-    bit = sc_get_bit(sc, k0, i);
-
-    jge_swap(ec, &a, &b, swap ^ bit);
-    jge_zaddc(ec, &a, &b, &b, &a);
-    jge_zaddu(ec, &b, &a, &a, &b);
-
-    swap = bit;
-  }
-
-  /* Finalize loop. */
-  jge_swap(ec, &a, &b, swap);
-
-  /* Handle edge case (k = -1). */
-  jge_neg(ec, &c, &c);
-  jge_select(ec, &b, &b, &c, m1);
-
-  /* Adjust sign. */
-  jge_neg_cond(ec, &b, &b, neg);
-
-  /* Result. */
-  jge_set(ec, r, &b);
-
-  /* Cleanse. */
-  sc_cleanse(sc, k0);
-
-  cleanse(&bit, sizeof(bit));
-  cleanse(&swap, sizeof(swap));
-}
-#else
 static void
 wei_jmul_normal(wei_t *ec, jge_t *r, const wge_t *p, const sc_t k) {
   scalar_field_t *sc = &ec->sc;
@@ -4359,7 +4013,6 @@ wei_jmul(wei_t *ec, jge_t *r, const wge_t *p, const sc_t k) {
   else
     wei_jmul_normal(ec, r, p, k);
 }
-#endif
 
 static void
 wei_mul(wei_t *ec, wge_t *r, const wge_t *p, const sc_t k) {
@@ -7028,48 +6681,6 @@ edwards_mul_g(edwards_t *ec, xge_t *r, const sc_t k) {
   cleanse(&b, sizeof(b));
 }
 
-#ifdef EC_WITH_LADDER
-static void
-edwards_mul(edwards_t *ec, xge_t *r, const xge_t *p, const sc_t k) {
-  /* Generalized Montgomery Ladder.
-   *
-   * [MONT1] Page 24, Section 4.6.2.
-   */
-  prime_field_t *fe = &ec->fe;
-  scalar_field_t *sc = &ec->sc;
-  mp_limb_t swap = 0;
-  mp_limb_t bit = 0;
-  mp_size_t i;
-  xge_t a, b;
-
-  assert((size_t)sc->limbs * GMP_NUMB_BITS >= fe->bits);
-
-  xge_zero(ec, &a);
-  xge_set(ec, &b, p);
-
-  /* Climb the ladder. */
-  for (i = fe->bits - 1; i >= 0; i--) {
-    bit = sc_get_bit(sc, k, i);
-
-    /* Maybe swap. */
-    xge_swap(ec, &a, &b, swap ^ bit);
-
-    /* Constant-time addition. */
-    xge_add(ec, &b, &b, &a);
-    xge_dbl(ec, &a, &a);
-
-    swap = bit;
-  }
-
-  /* Finalize loop. */
-  xge_swap(ec, &a, &b, swap);
-  xge_set(ec, r, &a);
-
-  /* Cleanse. */
-  cleanse(&bit, sizeof(bit));
-  cleanse(&swap, sizeof(swap));
-}
-#else
 static void
 edwards_mul(edwards_t *ec, xge_t *r, const xge_t *p, const sc_t k) {
   prime_field_t *fe = &ec->fe;
@@ -7106,7 +6717,6 @@ edwards_mul(edwards_t *ec, xge_t *r, const xge_t *p, const sc_t k) {
 
   cleanse(&b, sizeof(b));
 }
-#endif
 
 static void
 edwards_mul_double_var(edwards_t *ec,
