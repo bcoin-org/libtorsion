@@ -489,7 +489,11 @@ bytes_lte(const unsigned char *a,
 }
 
 #ifndef __has_builtin
+#if defined(__GNUC__) && (__GNUC__ > 3 || (__GNUC__ == 3 && __GNUC_MINOR__ > 3))
+#define __has_builtin(x) 1
+#else
 #define __has_builtin(x) 0
+#endif
 #endif
 
 #if __has_builtin(__builtin_clz)
@@ -1017,8 +1021,8 @@ sc_set_fe(scalar_field_t *sc, prime_field_t *fe, sc_t r, const fe_t a) {
 
 static void
 sc_set_word(scalar_field_t *sc, sc_t r, uint32_t word) {
-  mpn_zero(r, sc->limbs);
   r[0] = word;
+  mpn_zero(r + 1, sc->limbs - 1);
 }
 
 static int
@@ -1112,11 +1116,12 @@ sc_sub(scalar_field_t *sc, sc_t r, const sc_t a, const sc_t b) {
 }
 
 static void
-sc_mul_word(scalar_field_t *sc, sc_t r, const sc_t a, unsigned int b) {
-  int bits = count_bits(b);
+sc_mul_word(scalar_field_t *sc, sc_t r, const sc_t a, unsigned int word) {
+  /* Only constant-time if `num` is constant. */
+  int bits = count_bits(word);
   int i;
 
-  if (b > 1 && (b & (b - 1)) == 0) {
+  if (word > 1 && (word & (word - 1)) == 0) {
     sc_add(sc, r, a, a);
 
     for (i = 1; i < bits - 1; i++)
@@ -1128,9 +1133,10 @@ sc_mul_word(scalar_field_t *sc, sc_t r, const sc_t a, unsigned int b) {
     sc_zero(sc, r);
 
     for (i = bits - 1; i >= 0; i--) {
-      sc_add(sc, r, r, r);
+      if (i != bits - 1)
+        sc_add(sc, r, r, r);
 
-      if ((b >> i) & 1)
+      if ((word >> i) & 1)
         sc_add(sc, r, r, c);
     }
   }
@@ -1684,7 +1690,7 @@ fe_set_word(prime_field_t *fe, fe_t r, uint32_t word) {
   if (fe->from_montgomery) {
     unsigned char tmp[MAX_FIELD_SIZE];
 
-    memset(tmp, 0, sizeof(tmp));
+    memset(tmp, 0x00, sizeof(tmp));
 
     if (fe->endian == 1) {
       tmp[fe->size - 4] = (word >> 24) & 0xff;
@@ -1790,11 +1796,12 @@ fe_sub(prime_field_t *fe, fe_t r, const fe_t a, const fe_t b) {
 }
 
 static void
-fe_mul_word(prime_field_t *fe, fe_t r, const fe_t a, unsigned int b) {
-  int bits = count_bits(b);
+fe_mul_word(prime_field_t *fe, fe_t r, const fe_t a, unsigned int word) {
+  /* Only constant-time if `num` is constant. */
+  int bits = count_bits(word);
   int i;
 
-  if (b > 1 && (b & (b - 1)) == 0) {
+  if (word > 1 && (word & (word - 1)) == 0) {
     fe_add(fe, r, a, a);
 
     for (i = 1; i < bits - 1; i++)
@@ -1806,9 +1813,10 @@ fe_mul_word(prime_field_t *fe, fe_t r, const fe_t a, unsigned int b) {
     fe_zero(fe, r);
 
     for (i = bits - 1; i >= 0; i--) {
-      fe_add(fe, r, r, r);
+      if (i != bits - 1)
+        fe_add(fe, r, r, r);
 
-      if ((b >> i) & 1)
+      if ((word >> i) & 1)
         fe_add(fe, r, r, c);
     }
   }
@@ -3880,7 +3888,7 @@ wei_jmul_g(wei_t *ec, jge_t *r, const sc_t k) {
   for (i = 0; i < WND_STEPS(sc->bits); i++) {
     b = sc_get_bits(sc, k0, i * WND_WIDTH, WND_WIDTH);
 
-    /* Avoid secret data in array indicies. */
+    /* Avoid secret data in array indices. */
     for (j = 0; j < WND_SIZE; j++)
       wge_select(ec, &p, &p, &ec->windows[i * WND_SIZE + j], j == b);
 
@@ -6668,7 +6676,7 @@ edwards_mul_g(edwards_t *ec, xge_t *r, const sc_t k) {
   for (i = 0; i < WND_STEPS(sc->bits); i++) {
     b = sc_get_bits(sc, k0, i * WND_WIDTH, WND_WIDTH);
 
-    /* Avoid secret data in array indicies. */
+    /* Avoid secret data in array indices. */
     for (j = 0; j < WND_SIZE; j++)
       xge_select(ec, &p, &p, &ec->windows[i * WND_SIZE + j], j == b);
 
