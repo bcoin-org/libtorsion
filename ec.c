@@ -80,13 +80,16 @@ typedef uint32_t fe_word_t;
   ((MAX_FIELD_BITS + GMP_NUMB_BITS - 1) / GMP_NUMB_BITS)
 
 #define WND_WIDTH 4
-#define WND_STEP (1 << WND_WIDTH) /* 16 */
-#define WND_SIZE(bits) (((bits) + WND_WIDTH - 1) / WND_WIDTH) /* 64 */
-#define MAX_WND_SIZE ((MAX_SCALAR_BITS + WND_WIDTH - 1) / WND_WIDTH) /* 64 */
-#define MAX_WND_LEN (MAX_WND_SIZE * WND_WIDTH * WND_WIDTH) /* 1024 */
+#define WND_SIZE (1 << WND_WIDTH) /* 16 */
+#define WND_STEPS(bits) (((bits) + WND_WIDTH - 1) / WND_WIDTH) /* 64 */
+#define MAX_WND_STEPS ((MAX_SCALAR_BITS + WND_WIDTH - 1) / WND_WIDTH) /* 64 */
+#define MAX_WNDS_SIZE (MAX_WND_STEPS * WND_WIDTH * WND_WIDTH) /* 1024 */
 
 #define NAF_WIDTH 4
+#define NAF_SIZE ((1 << NAF_WIDTH) - 1)
+
 #define NAF_WIDTH_PRE 8
+#define NAF_SIZE_PRE ((1 << NAF_WIDTH_PRE) - 1)
 
 /*
  * Scalar Field
@@ -230,8 +233,8 @@ typedef struct wei_s {
   wge_t g;
   sc_t blind;
   wge_t unblind;
-  wge_t window[MAX_WND_LEN];
-  wge_t points[(1 << NAF_WIDTH_PRE) - 1];
+  wge_t windows[MAX_WNDS_SIZE];
+  wge_t points[NAF_SIZE_PRE];
   int endo;
   fe_t beta;
   sc_t lambda;
@@ -239,7 +242,7 @@ typedef struct wei_s {
   sc_t b2;
   sc_t g1;
   sc_t g2;
-  wge_t endo_points[(1 << NAF_WIDTH_PRE) - 1];
+  wge_t endo_points[NAF_SIZE_PRE];
 } wei_t;
 
 typedef struct wei_def_s {
@@ -360,8 +363,8 @@ typedef struct edwards_s {
   xge_t g;
   sc_t blind;
   xge_t unblind;
-  xge_t window[MAX_WND_LEN];
-  xge_t points[(1 << NAF_WIDTH_PRE) - 1];
+  xge_t windows[MAX_WNDS_SIZE];
+  xge_t points[NAF_SIZE_PRE];
   clamp_func *clamp;
 } edwards_t;
 
@@ -945,8 +948,6 @@ sc_import_weak(scalar_field_t *sc, sc_t r, const unsigned char *raw) {
   mp_limb_t sp[MAX_SCALAR_LIMBS];
   mp_limb_t cy;
 
-  assert((sc->bits & 7) == 0);
-
   mpn_import(r, sc->limbs, raw, sc->size, sc->endian);
 
   cy = mpn_sub_n(sp, r, np, nn);
@@ -1046,29 +1047,6 @@ sc_is_zero(scalar_field_t *sc, const sc_t a) {
 
   return z == 0;
 }
-
-static int
-sc_is_high_var(scalar_field_t *sc, const sc_t a) {
-  return mpn_cmp(a, sc->nh, sc->limbs) > 0;
-}
-
-#if 0
-static int
-sc_is_high(scalar_field_t *sc, const sc_t a) {
-  unsigned char u[MAX_SCALAR_BYTES];
-  unsigned char v[MAX_SCALAR_BYTES];
-  int ret;
-
-  sc_export(sc, u, a);
-  sc_export(sc, v, ec->nh);
-
-  ret = bytes_lte(u, v, sc->size, sc->endian) ^ 1;
-
-  cleanse(u, sizeof(u));
-
-  return ret;
-}
-#endif
 
 static int
 sc_is_high(scalar_field_t *sc, const sc_t a) {
@@ -2649,11 +2627,11 @@ wge_wnd_points_var(wei_t *ec, wge_t *out, const wge_t *p) {
 
   wge_set(ec, &g, p);
 
-  for (i = 0; i < WND_SIZE(sc->bits); i++) {
-    wge_zero(ec, &out[i * WND_STEP]);
+  for (i = 0; i < WND_STEPS(sc->bits); i++) {
+    wge_zero(ec, &out[i * WND_SIZE]);
 
-    for (j = 1; j < WND_STEP; j++)
-      wge_add_var(ec, &out[i * WND_STEP + j], &out[i * WND_STEP + j - 1], &g);
+    for (j = 1; j < WND_SIZE; j++)
+      wge_add_var(ec, &out[i * WND_SIZE + j], &out[i * WND_SIZE + j - 1], &g);
 
     for (j = 0; j < WND_WIDTH; j++)
       wge_dbl_var(ec, &g, &g);
@@ -3603,6 +3581,7 @@ jge_mixed_sub(wei_t *ec, jge_t *r, const jge_t *a, const wge_t *b) {
   jge_mixed_add(ec, r, a, &c);
 }
 
+#ifdef EC_WITH_LADDER
 static void
 jge_zaddu(wei_t *ec, jge_t *r, jge_t *p, const jge_t *a, const jge_t *b) {
   /* Co-Z addition with update (ZADDU).
@@ -3877,6 +3856,7 @@ jge_zdblu(wei_t *ec, jge_t *r, jge_t *p, const jge_t *a) {
   fe_set(fe, p->y, t2);
   fe_set(fe, p->z, t3);
 }
+#endif
 
 static void
 jge_dblp_var(wei_t *ec, jge_t *r, const jge_t *p, size_t pow) {
@@ -4013,9 +3993,6 @@ jge_print(wei_t *ec, const jge_t *p) {
  */
 
 static void
-wei_init_endo(wei_t *ec, const wei_def_t *def);
-
-static void
 wei_init(wei_t *ec, const wei_def_t *def) {
   prime_field_t *fe = &ec->fe;
   scalar_field_t *sc = &ec->sc;
@@ -4055,31 +4032,24 @@ wei_init(wei_t *ec, const wei_def_t *def) {
   sc_zero(sc, ec->blind);
   wge_zero(ec, &ec->unblind);
 
-  wge_wnd_points_var(ec, ec->window, &ec->g);
+  wge_wnd_points_var(ec, ec->windows, &ec->g);
   wge_naf_points_var(ec, ec->points, &ec->g, NAF_WIDTH_PRE);
 
   ec->endo = def->endo;
 
-  if (ec->endo)
-    wei_init_endo(ec, def);
-}
+  if (ec->endo) {
+    size_t i;
 
-static void
-wei_init_endo(wei_t *ec, const wei_def_t *def) {
-  prime_field_t *fe = &ec->fe;
-  scalar_field_t *sc = &ec->sc;
-  size_t size = (1 << NAF_WIDTH_PRE) - 1;
-  size_t i;
+    fe_import(fe, ec->beta, def->beta);
+    sc_import(sc, ec->lambda, def->lambda);
+    sc_import(sc, ec->b1, def->b1);
+    sc_import(sc, ec->b2, def->b2);
+    sc_import(sc, ec->g1, def->g1);
+    sc_import(sc, ec->g2, def->g2);
 
-  fe_import(fe, ec->beta, def->beta);
-  sc_import(sc, ec->lambda, def->lambda);
-  sc_import(sc, ec->b1, def->b1);
-  sc_import(sc, ec->b2, def->b2);
-  sc_import(sc, ec->g1, def->g1);
-  sc_import(sc, ec->g2, def->g2);
-
-  for (i = 0; i < size; i++)
-    wge_endo_beta(ec, &ec->endo_points[i], &ec->points[i]);
+    for (i = 0; i < NAF_SIZE_PRE; i++)
+      wge_endo_beta(ec, &ec->endo_points[i], &ec->points[i]);
+  }
 }
 
 static void
@@ -4089,11 +4059,61 @@ wei_endo_split(wei_t *ec,
                sc_t k2,
                int32_t *s2,
                const sc_t k) {
-  /* t = ceil(log2(n)) + 16
-   * c1 = ((k * g1) >> t) * -b1
-   * c2 = ((k * -g2) >> t) * -b2
-   * k2 = c1 + c2
-   * k1 = k2 * -lambda + k
+  /* Balanced length-two representation of a multiplier.
+   *
+   * [GECC] Algorithm 3.74, Page 127, Section 3.5.
+   *
+   * Computation:
+   *
+   *   c1 = round(b2 * k / n)
+   *   c2 = round(-b1 * k / n)
+   *   k1 = k - c1 * a1 - c2 * a2
+   *   k2 = -c1 * b1 - c2 * b2
+   *
+   * It is possible to precompute[1] values in order
+   * to avoid the round division[2][3][4].
+   *
+   * This involves precomputing `g1` and `g2 (see
+   * above). `c1` and `c2` can then be computed as
+   * follows:
+   *
+   *   t = ceil(log2(n)) + 16
+   *   c1 = (k * g1) >> t
+   *   c2 = -((k * g2) >> t)
+   *   k1 = k - c1 * a1 - c2 * a2
+   *   k2 = -c1 * b1 - c2 * b2
+   *
+   * Where `>>` is an _unsigned_ right shift. Also
+   * note that the last bit discarded in the shift
+   * must be stored. If it is 1, then add 1 to the
+   * scalar (absolute addition).
+   *
+   * Once the multiply and shift are complete, we
+   * can use modular arithmetic for the rest of
+   * the calculations (the mul/shift is done in
+   * integers, not mod n). This is nice as it
+   * allows us to re-use existing scalar functions,
+   * and our decomposition becomes a constant-time
+   * calculation.
+   *
+   * Libsecp256k1 uses a different calculation
+   * along the lines of:
+   *
+   *   t = ceil(log2(n)) + 16
+   *   c1 = ((k * g1) >> t) * -b1
+   *   c2 = ((k * -g2) >> t) * -b2
+   *   k2 = c1 + c2
+   *   k1 = k2 * -lambda + k
+   *
+   * Since the above computation is done mod n,
+   * the resulting scalars must be reduced. Sign
+   * correction is necessary outside of this
+   * function.
+   *
+   * [1] [JCEN12] Page 5, Section 4.3.
+   * [2] https://github.com/bitcoin-core/secp256k1/blob/0b70241/src/scalar_impl.h#L259
+   * [3] https://github.com/bitcoin-core/secp256k1/pull/21
+   * [4] https://github.com/bitcoin-core/secp256k1/pull/127
    */
   scalar_field_t *sc = &ec->sc;
   sc_t c1, c2;
@@ -4136,12 +4156,12 @@ wei_jmul_g(wei_t *ec, jge_t *r, const sc_t k) {
   wge_zero(ec, &p);
   wge_to_jge(ec, r, &ec->unblind);
 
-  for (i = 0; i < WND_SIZE(sc->bits); i++) {
+  for (i = 0; i < WND_STEPS(sc->bits); i++) {
     b = sc_get_bits(sc, k0, i * WND_WIDTH, WND_WIDTH);
 
     /* Avoid secret data in array indicies. */
-    for (j = 0; j < WND_STEP; j++)
-      wge_select(ec, &p, &p, &ec->window[i * WND_STEP + j], j == b);
+    for (j = 0; j < WND_SIZE; j++)
+      wge_select(ec, &p, &p, &ec->windows[i * WND_SIZE + j], j == b);
 
     jge_mixed_add(ec, r, r, &p);
   }
@@ -4229,15 +4249,15 @@ wei_jmul(wei_t *ec, jge_t *r, const wge_t *p, const sc_t k) {
 static void
 wei_jmul_normal(wei_t *ec, jge_t *r, const wge_t *p, const sc_t k) {
   scalar_field_t *sc = &ec->sc;
-  mp_size_t start = WND_SIZE(sc->bits) - 1;
-  jge_t table[1 << WND_WIDTH];
+  mp_size_t start = WND_STEPS(sc->bits) - 1;
+  jge_t table[WND_SIZE];
   mp_size_t i, j, b;
   jge_t t;
 
   jge_zero(ec, &table[0]);
   wge_to_jge(ec, &table[1], p);
 
-  for (i = 2; i < WND_STEP; i += 2) {
+  for (i = 2; i < WND_SIZE; i += 2) {
     jge_dbl(ec, &table[i], &table[i >> 1]);
     jge_mixed_add(ec, &table[i + 1], &table[i], p);
   }
@@ -4253,7 +4273,7 @@ wei_jmul_normal(wei_t *ec, jge_t *r, const wge_t *p, const sc_t k) {
 
     b = sc_get_bits(sc, k, i * WND_WIDTH, WND_WIDTH);
 
-    for (j = 0; j < WND_STEP; j++)
+    for (j = 0; j < WND_SIZE; j++)
       jge_select(ec, &t, &t, &table[j], j == b);
 
     jge_add(ec, r, r, &t);
@@ -4265,10 +4285,10 @@ wei_jmul_normal(wei_t *ec, jge_t *r, const wge_t *p, const sc_t k) {
 static void
 wei_jmul_endo(wei_t *ec, jge_t *r, const wge_t *p, const sc_t k) {
   scalar_field_t *sc = &ec->sc;
-  mp_size_t bits = ((sc->bits + 1) >> 1) + 1;
-  mp_size_t start = WND_SIZE(bits) - 1;
-  jge_t table1[1 << WND_WIDTH];
-  jge_t table2[1 << WND_WIDTH];
+  mp_size_t bits = (sc->bits + 1) >> 1;
+  mp_size_t start = WND_STEPS(bits) - 1;
+  jge_t table1[WND_SIZE];
+  jge_t table2[WND_SIZE];
   mp_size_t i, j, b;
   int32_t s1, s2;
   wge_t p1, p2;
@@ -4281,13 +4301,18 @@ wei_jmul_endo(wei_t *ec, jge_t *r, const wge_t *p, const sc_t k) {
   wge_neg_cond(ec, &p1, &p1, (s1 >> 31) & 1);
   wge_neg_cond(ec, &p2, &p2, (s2 >> 31) & 1);
 
+#ifdef EC_TEST
+  assert(sc_bitlen_var(sc, k1) <= (size_t)bits);
+  assert(sc_bitlen_var(sc, k2) <= (size_t)bits);
+#endif
+
   jge_zero(ec, &table1[0]);
   jge_zero(ec, &table2[0]);
 
   wge_to_jge(ec, &table1[1], &p1);
   wge_to_jge(ec, &table2[1], &p2);
 
-  for (i = 2; i < WND_STEP; i += 2) {
+  for (i = 2; i < WND_SIZE; i += 2) {
     jge_dbl(ec, &table1[i], &table1[i >> 1]);
     jge_dbl(ec, &table2[i], &table2[i >> 1]);
 
@@ -4306,14 +4331,14 @@ wei_jmul_endo(wei_t *ec, jge_t *r, const wge_t *p, const sc_t k) {
 
     b = sc_get_bits(sc, k1, i * WND_WIDTH, WND_WIDTH);
 
-    for (j = 0; j < WND_STEP; j++)
+    for (j = 0; j < WND_SIZE; j++)
       jge_select(ec, &t, &t, &table1[j], j == b);
 
     jge_add(ec, r, r, &t);
 
     b = sc_get_bits(sc, k2, i * WND_WIDTH, WND_WIDTH);
 
-    for (j = 0; j < WND_STEP; j++)
+    for (j = 0; j < WND_SIZE; j++)
       jge_select(ec, &t, &t, &table2[j], j == b);
 
     jge_add(ec, r, r, &t);
@@ -4357,7 +4382,7 @@ wei_jmul_double_normal_var(wei_t *ec,
    */
   scalar_field_t *sc = &ec->sc;
   wge_t *wnd1 = ec->points;
-  jge_t wnd2[(1 << NAF_WIDTH) - 1];
+  jge_t wnd2[NAF_SIZE];
   int32_t naf1[MAX_SCALAR_BITS + 1];
   int32_t naf2[MAX_SCALAR_BITS + 1];
   size_t max1 = sc_bitlen_var(sc, k1) + 1;
@@ -4667,7 +4692,7 @@ wei_jmul_multi_endo_var(wei_t *ec,
   scalar_field_t *sc = &ec->sc;
   wge_t *wnd0 = ec->points;
   wge_t *wnd1 = ec->endo_points;
-  int max = ((sc->bits + 1) >> 1) + 1 + 1;
+  int max = ((sc->bits + 1) >> 1) + 1;
   int32_t naf0[MAX_SCALAR_BITS + 1];
   int32_t naf1[MAX_SCALAR_BITS + 1];
   wge_t *wnds[64];
@@ -6794,11 +6819,11 @@ xge_wnd_points(edwards_t *ec, xge_t *out, const xge_t *p) {
 
   xge_set(ec, &g, p);
 
-  for (i = 0; i < WND_SIZE(sc->bits); i++) {
-    xge_zero(ec, &out[i * WND_STEP]);
+  for (i = 0; i < WND_STEPS(sc->bits); i++) {
+    xge_zero(ec, &out[i * WND_SIZE]);
 
-    for (j = 1; j < WND_STEP; j++)
-      xge_add(ec, &out[i * WND_STEP + j], &out[i * WND_STEP + j - 1], &g);
+    for (j = 1; j < WND_SIZE; j++)
+      xge_add(ec, &out[i * WND_SIZE + j], &out[i * WND_SIZE + j - 1], &g);
 
     for (j = 0; j < WND_WIDTH; j++)
       xge_dbl(ec, &g, &g);
@@ -6902,7 +6927,7 @@ edwards_init(edwards_t *ec, const edwards_def_t *def) {
   sc_zero(sc, ec->blind);
   xge_zero(ec, &ec->unblind);
 
-  xge_wnd_points(ec, ec->window, &ec->g);
+  xge_wnd_points(ec, ec->windows, &ec->g);
   xge_naf_points(ec, ec->points, &ec->g, NAF_WIDTH_PRE);
 }
 
@@ -6990,12 +7015,12 @@ edwards_mul_g(edwards_t *ec, xge_t *r, const sc_t k) {
   xge_zero(ec, &p);
   xge_set(ec, r, &ec->unblind);
 
-  for (i = 0; i < WND_SIZE(sc->bits); i++) {
+  for (i = 0; i < WND_STEPS(sc->bits); i++) {
     b = sc_get_bits(sc, k0, i * WND_WIDTH, WND_WIDTH);
 
     /* Avoid secret data in array indicies. */
-    for (j = 0; j < WND_STEP; j++)
-      xge_select(ec, &p, &p, &ec->window[i * WND_STEP + j], j == b);
+    for (j = 0; j < WND_SIZE; j++)
+      xge_select(ec, &p, &p, &ec->windows[i * WND_SIZE + j], j == b);
 
     xge_add(ec, r, r, &p);
   }
@@ -7052,15 +7077,15 @@ static void
 edwards_mul(edwards_t *ec, xge_t *r, const xge_t *p, const sc_t k) {
   prime_field_t *fe = &ec->fe;
   scalar_field_t *sc = &ec->sc;
-  mp_size_t start = WND_SIZE(fe->bits) - 1;
-  xge_t table[1 << WND_WIDTH];
+  mp_size_t start = WND_STEPS(fe->bits) - 1;
+  xge_t table[WND_SIZE];
   mp_size_t i, j, b;
   xge_t t;
 
   xge_zero(ec, &table[0]);
   xge_set(ec, &table[1], p);
 
-  for (i = 2; i < WND_STEP; i += 2) {
+  for (i = 2; i < WND_SIZE; i += 2) {
     xge_dbl(ec, &table[i], &table[i >> 1]);
     xge_add(ec, &table[i + 1], &table[i], p);
   }
@@ -7076,7 +7101,7 @@ edwards_mul(edwards_t *ec, xge_t *r, const xge_t *p, const sc_t k) {
 
     b = sc_get_bits(sc, k, i * WND_WIDTH, WND_WIDTH);
 
-    for (j = 0; j < WND_STEP; j++)
+    for (j = 0; j < WND_SIZE; j++)
       xge_select(ec, &t, &t, &table[j], j == b);
 
     xge_add(ec, r, r, &t);
@@ -7100,7 +7125,7 @@ edwards_mul_double_var(edwards_t *ec,
    */
   scalar_field_t *sc = &ec->sc;
   xge_t *wnd1 = ec->points;
-  xge_t wnd2[(1 << NAF_WIDTH) - 1];
+  xge_t wnd2[NAF_SIZE];
   int32_t naf1[MAX_SCALAR_BITS + 1];
   int32_t naf2[MAX_SCALAR_BITS + 1];
   size_t max1 = sc_bitlen_var(sc, k1) + 1;
@@ -8180,7 +8205,7 @@ ecdsa_sig_normalize(wei_t *ec,
   if (sc_is_zero(sc, s))
     return 0;
 
-  if (sc_is_high_var(sc, s))
+  if (sc_is_high(sc, s))
     sc_neg(sc, s, s);
 
   sc_export(sc, out, r);
@@ -8419,7 +8444,7 @@ ecdsa_is_low_s(wei_t *ec, const unsigned char *sig) {
   if (sc_is_zero(sc, s))
     return 0;
 
-  if (sc_is_high_var(sc, s))
+  if (sc_is_high(sc, s))
     return 0;
 
   return 1;
@@ -8477,8 +8502,7 @@ ecdsa_reduce(wei_t *ec, sc_t r, const unsigned char *msg, size_t msg_len) {
     }
   }
 
-  /* Note: could use import_weak */
-  ret = sc_import_reduce(sc, r, tmp);
+  ret = sc_import_weak(sc, r, tmp);
 
   cleanse(tmp, sizeof(tmp));
 
@@ -8588,7 +8612,7 @@ ecdsa_sign(wei_t *ec,
     sc_add(sc, s, s, m);
     sc_mul(sc, s, s, k);
 
-    if (sc_is_high_var(sc, s)) {
+    if (sc_is_high(sc, s)) {
       sc_neg(sc, s, s);
       hint ^= 1;
     }
