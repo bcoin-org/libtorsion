@@ -20,6 +20,8 @@ if test x"$2" = x'mini'; then
     "$def" \
     -I./include \
     -o test \
+    src/drbg.c \
+    src/hash.c \
     src/mini-gmp.c \
     src/test.c
 else
@@ -36,5 +38,7 @@ else
     -I./include \
     -lgmp \
     -o test \
+    src/drbg.c \
+    src/hash.c \
     src/test.c
 fi

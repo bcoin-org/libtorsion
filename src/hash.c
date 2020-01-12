@@ -1,74 +1,13 @@
 /* permutation/compression functions from nettle */
 
+#include <assert.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
-
-#define HASH_SHA256 0
-#define HASH_SHA384 1
-#define HASH_SHA512 2
-#define HASH_SHAKE256 3
-
-#define MAX_HASH_SIZE 64
-#define MAX_BLOCK_SIZE 128
+#include <torsion/hash.h>
 
 #define ROTL32(n, x) (((x) << (n)) | ((x) >> ((-(n) & 31))))
 #define ROTL64(n, x) (((x) << (n)) | ((x) >> ((-(n)) & 63)))
-
-/*
- * Structs
- */
-
-typedef struct sha256_s {
-  uint32_t state[8];
-  uint8_t block[64];
-  uint64_t size;
-} sha256_t;
-
-typedef struct sha512_s {
-  uint64_t state[8];
-  uint8_t block[128];
-  uint64_t size;
-} sha512_t;
-
-typedef sha512_t sha384_t;
-
-typedef struct keccak_s {
-  size_t bs;
-  uint64_t state[25];
-  uint8_t block[168];
-  size_t pos;
-} keccak_t;
-
-typedef struct hash_s {
-  int type;
-  union {
-    sha256_t sha256;
-    sha512_t sha384;
-    sha512_t sha512;
-    keccak_t keccak;
-  } ctx;
-} hash_t;
-
-typedef struct hmac_s {
-  int type;
-  hash_t inner;
-  hash_t outer;
-} hmac_t;
-
-typedef struct drbg_s {
-  int type;
-  hmac_t kmac;
-  unsigned char K[MAX_HASH_SIZE];
-  unsigned char V[MAX_HASH_SIZE];
-} drbg_t;
-
-/*
- * Constants
- */
-
-static const unsigned char ZERO[1] = {0x00};
-static const unsigned char ONE[1] = {0x01};
 
 /*
  * Helpers
@@ -191,7 +130,7 @@ static const unsigned char sha256_P[64] = {
   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
 };
 
-static void
+void
 sha256_init(sha256_t *ctx) {
   ctx->state[0] = 0x6a09e667;
   ctx->state[1] = 0xbb67ae85;
@@ -291,7 +230,7 @@ sha256_transform(sha256_t *ctx, const unsigned char *chunk) {
   ctx->state[7] += H;
 }
 
-static void
+void
 sha256_update(sha256_t *ctx, const void *data, size_t len) {
   const unsigned char *bytes = (const unsigned char *)data;
   size_t pos = ctx->size & 63;
@@ -327,7 +266,7 @@ sha256_update(sha256_t *ctx, const void *data, size_t len) {
     memcpy(ctx->block, bytes + off, len);
 }
 
-static void
+void
 sha256_final(sha256_t *ctx, unsigned char *out) {
   size_t pos = ctx->size & 63;
   uint64_t len = ctx->size << 3;
@@ -414,7 +353,7 @@ static const unsigned char sha512_P[128] = {
   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
 };
 
-static void
+void
 sha512_init(sha512_t *ctx) {
   ctx->state[0] = 0x6a09e667f3bcc908ull;
   ctx->state[1] = 0xbb67ae8584caa73bull;
@@ -514,7 +453,7 @@ sha512_transform(sha512_t *ctx, const unsigned char *chunk) {
   ctx->state[7] += H;
 }
 
-static void
+void
 sha512_update(sha512_t *ctx, const void *data, size_t len) {
   const unsigned char *bytes = (const unsigned char *)data;
   size_t pos = ctx->size & 127;
@@ -550,7 +489,7 @@ sha512_update(sha512_t *ctx, const void *data, size_t len) {
     memcpy(ctx->block, bytes + off, len);
 }
 
-static void
+void
 sha512_final(sha512_t *ctx, unsigned char *out) {
   size_t pos = ctx->size & 127;
   uint64_t len = ctx->size << 3;
@@ -576,7 +515,7 @@ sha512_final(sha512_t *ctx, unsigned char *out) {
  * SHA384
  */
 
-static void
+void
 sha384_init(sha384_t *ctx) {
   ctx->state[0] = 0xcbbb9d5dc1059ed8ull;
   ctx->state[1] = 0x629a292a367cd507ull;
@@ -589,12 +528,12 @@ sha384_init(sha384_t *ctx) {
   ctx->size = 0;
 }
 
-static void
+void
 sha384_update(sha384_t *ctx, const void *data, size_t len) {
   sha512_update(ctx, data, len);
 }
 
-static void
+void
 sha384_final(sha384_t *ctx, unsigned char *out) {
   uint8_t buf[64];
 
@@ -608,7 +547,7 @@ sha384_final(sha384_t *ctx, unsigned char *out) {
  * Keccak
  */
 
-static void
+void
 keccak_init(keccak_t *ctx, size_t bits) {
   size_t rate = 1600 - bits * 2;
 
@@ -724,7 +663,7 @@ keccak_transform(keccak_t *ctx, const unsigned char *chunk) {
   keccak_permute(ctx);
 }
 
-static void
+void
 keccak_update(keccak_t *ctx, const void *data, size_t len) {
   const unsigned char *bytes = (const unsigned char *)data;
   size_t pos = ctx->pos;
@@ -760,7 +699,7 @@ keccak_update(keccak_t *ctx, const void *data, size_t len) {
     memcpy(ctx->block, bytes + off, len);
 }
 
-static void
+void
 keccak_final(keccak_t *ctx, unsigned char *out, int pad, size_t len) {
   size_t i;
 
@@ -789,7 +728,7 @@ keccak_final(keccak_t *ctx, unsigned char *out, int pad, size_t len) {
  * Hash
  */
 
-static void
+void
 hash_init(hash_t *hash, int type) {
   hash->type = type;
   switch (hash->type) {
@@ -811,7 +750,7 @@ hash_init(hash_t *hash, int type) {
   }
 }
 
-static void
+void
 hash_update(hash_t *hash, const void *data, size_t len) {
   switch (hash->type) {
     case HASH_SHA256:
@@ -832,7 +771,7 @@ hash_update(hash_t *hash, const void *data, size_t len) {
   }
 }
 
-static void
+void
 hash_final(hash_t *hash, unsigned char *out, size_t len) {
   switch (hash->type) {
     case HASH_SHA256:
@@ -853,7 +792,7 @@ hash_final(hash_t *hash, unsigned char *out, size_t len) {
   }
 }
 
-static size_t
+size_t
 hash_output_size(int type) {
   switch (type) {
     case HASH_SHA256:
@@ -870,7 +809,7 @@ hash_output_size(int type) {
   }
 }
 
-static size_t
+size_t
 hash_block_size(int type) {
   switch (type) {
     case HASH_SHA256:
@@ -891,13 +830,23 @@ hash_block_size(int type) {
  * HMAC
  */
 
-static void
+void
 hmac_init(hmac_t *hmac, int type, const unsigned char *key, size_t len) {
+  size_t hash_size = hash_output_size(type);
   size_t block_size = hash_block_size(type);
+  unsigned char tmp[MAX_HASH_SIZE];
   unsigned char pad[MAX_BLOCK_SIZE];
   size_t i;
 
   hmac->type = type;
+
+  if (len > block_size) {
+    hash_init(&hmac->inner, type);
+    hash_update(&hmac->inner, key, len);
+    hash_final(&hmac->inner, tmp, hash_size);
+    key = tmp;
+    len = hash_size;
+  }
 
   assert(len <= block_size);
 
@@ -919,99 +868,20 @@ hmac_init(hmac_t *hmac, int type, const unsigned char *key, size_t len) {
   hash_init(&hmac->outer, type);
   hash_update(&hmac->outer, pad, block_size);
 
+  memset(tmp, 0x00, hash_size);
   memset(pad, 0x00, block_size);
 }
 
-static void
+void
 hmac_update(hmac_t *hmac, const void *data, size_t len) {
   hash_update(&hmac->inner, data, len);
 }
 
-static void
+void
 hmac_final(hmac_t *hmac, unsigned char *out) {
   size_t hash_size = hash_output_size(hmac->type);
 
   hash_final(&hmac->inner, out, hash_size);
   hash_update(&hmac->outer, out, hash_size);
   hash_final(&hmac->outer, out, hash_size);
-}
-
-/*
- * DRBG
- */
-
-static void
-drbg_update(drbg_t *drbg, const unsigned char *seed, size_t seed_len);
-
-static void
-drbg_init(drbg_t *drbg, int type, const unsigned char *seed, size_t seed_len) {
-  size_t hash_size = hash_output_size(type);
-
-  assert(seed != NULL);
-  assert(seed_len >= 24);
-
-  drbg->type = type;
-
-  memset(drbg->K, 0x00, hash_size);
-  memset(drbg->V, 0x01, hash_size);
-
-  drbg_update(drbg, seed, seed_len);
-}
-
-static void
-drbg_update(drbg_t *drbg, const unsigned char *seed, size_t seed_len) {
-  size_t hash_size = hash_output_size(drbg->type);
-
-  hmac_init(&drbg->kmac, drbg->type, drbg->K, hash_size);
-  hmac_update(&drbg->kmac, drbg->V, hash_size);
-  hmac_update(&drbg->kmac, ZERO, 1);
-
-  if (seed_len != 0)
-    hmac_update(&drbg->kmac, seed, seed_len);
-
-  hmac_final(&drbg->kmac, drbg->K);
-
-  hmac_init(&drbg->kmac, drbg->type, drbg->K, hash_size);
-  hmac_update(&drbg->kmac, drbg->V, hash_size);
-  hmac_final(&drbg->kmac, drbg->V);
-
-  if (seed_len != 0) {
-    hmac_init(&drbg->kmac, drbg->type, drbg->K, hash_size);
-    hmac_update(&drbg->kmac, drbg->V, hash_size);
-    hmac_update(&drbg->kmac, ONE, 1);
-    hmac_update(&drbg->kmac, seed, seed_len);
-    hmac_final(&drbg->kmac, drbg->K);
-
-    hmac_init(&drbg->kmac, drbg->type, drbg->K, hash_size);
-    hmac_update(&drbg->kmac, drbg->V, hash_size);
-    hmac_final(&drbg->kmac, drbg->V);
-  }
-}
-
-static void
-drbg_generate(drbg_t *drbg, void *out, size_t len) {
-  size_t hash_size = hash_output_size(drbg->type);
-  unsigned char *bytes = (unsigned char *)out;
-  size_t pos = 0;
-  size_t left = len;
-  size_t outlen = hash_size;
-
-  while (pos < len) {
-    hmac_init(&drbg->kmac, drbg->type, drbg->K, hash_size);
-    hmac_update(&drbg->kmac, drbg->V, hash_size);
-    hmac_final(&drbg->kmac, drbg->V);
-
-    if (outlen > left)
-      outlen = left;
-
-    memcpy(bytes + pos, drbg->V, outlen);
-
-    pos += outlen;
-    left -= outlen;
-  }
-
-  assert(pos == len);
-  assert(left == 0);
-
-  drbg_update(drbg, NULL, 0);
 }

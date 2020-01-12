@@ -20,6 +20,8 @@
 #endif
 
 #include <torsion/ecc.h>
+#include <torsion/hash.h>
+#include <torsion/drbg.h>
 
 #include "fields/p192.h"
 #include "fields/p224.h"
@@ -30,7 +32,6 @@
 #include "fields/p25519.h"
 #include "fields/p448.h"
 #include "fields/p251.h"
-#include "hash.h"
 
 #ifdef TORSION_HAS_GMP
 #include <gmp.h>
@@ -103,7 +104,6 @@ typedef uint32_t fe_word_t;
  */
 
 typedef mp_limb_t sc_t[MAX_SCALAR_LIMBS];
-typedef mp_limb_t *sc_ptr;
 
 typedef struct _scalar_field_s {
   int endian;
@@ -143,7 +143,6 @@ typedef int fe_isqrt_func(fe_word_t *out, const fe_word_t *u, const fe_word_t *v
 typedef void fe_scmul_121666(fe_word_t *out1, const fe_word_t *arg1);
 
 typedef fe_word_t fe_t[MAX_FIELD_WORDS];
-typedef fe_word_t *fe_ptr;
 
 typedef struct _prime_field_s {
   int endian;
