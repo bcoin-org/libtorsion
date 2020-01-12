@@ -71,23 +71,24 @@ typedef uint32_t fe_word_t;
 #endif
 
 #define MAX_FIELD_BITS 521
-#define MAX_SCALAR_BITS 521
 #define MAX_FIELD_SIZE 66
-#define MAX_SCALAR_SIZE 66
-
-#define MAX_SCALAR_LIMBS \
-  ((MAX_SCALAR_BITS + GMP_NUMB_BITS - 1) / GMP_NUMB_BITS)
-
 #define MAX_FIELD_LIMBS \
   ((MAX_FIELD_BITS + GMP_NUMB_BITS - 1) / GMP_NUMB_BITS)
 
+#define MAX_SCALAR_BITS 521
+#define MAX_SCALAR_SIZE 66
+#define MAX_SCALAR_LIMBS \
+  ((MAX_SCALAR_BITS + GMP_NUMB_BITS - 1) / GMP_NUMB_BITS)
 #define MAX_REDUCE_LIMBS ((MAX_SCALAR_LIMBS + 1) * 4)
+
+#define MAX_PUB_SIZE (1 + MAX_FIELD_SIZE * 2)
+#define MAX_SIG_SIZE (MAX_FIELD_SIZE + MAX_SCALAR_SIZE)
+#define MAX_DER_SIZE (9 + MAX_SIG_SIZE)
 
 #define WND_WIDTH 4
 #define WND_SIZE (1 << WND_WIDTH) /* 16 */
 #define WND_STEPS(bits) (((bits) + WND_WIDTH - 1) / WND_WIDTH) /* 64 */
-#define MAX_WND_STEPS ((MAX_SCALAR_BITS + WND_WIDTH - 1) / WND_WIDTH) /* 64 */
-#define MAX_WNDS_SIZE (MAX_WND_STEPS * WND_WIDTH * WND_WIDTH) /* 1024 */
+#define MAX_WNDS_SIZE (WND_STEPS(MAX_SCALAR_BITS) * WND_SIZE) /* 1024 */
 
 #define NAF_WIDTH 4
 #define NAF_SIZE ((1 << NAF_WIDTH) - 1)
@@ -1301,6 +1302,13 @@ sc_get_bit(scalar_field_t *sc, const sc_t k, size_t i) {
   return (k[i / GMP_NUMB_BITS] >> (i % GMP_NUMB_BITS)) & 1;
 }
 
+static int
+sc_minimize(scalar_field_t *sc, sc_t r, const sc_t a) {
+  int high = sc_is_high(sc, a);
+  sc_neg_cond(sc, r, a, high);
+  return high;
+}
+
 static void
 sc_naf_var(scalar_field_t *sc,
            int32_t *naf,
@@ -1554,6 +1562,8 @@ fe_import(prime_field_t *fe, fe_t r, const unsigned char *raw) {
     } else {
       fe->from_bytes(r, raw);
     }
+
+    fe->carry(r, r);
   }
 
   return bytes_lt(raw, fe->raw, fe->size, fe->endian);
@@ -1847,14 +1857,6 @@ static void
 fe_mul121666(prime_field_t *fe, fe_t r, const fe_t a) {
   assert(fe->scmul_121666 != NULL);
   fe->scmul_121666(r, a);
-}
-
-static void
-fe_mulm3(prime_field_t *fe, fe_t r, const fe_t a) {
-  fe_t c;
-  fe_add(fe, c, a, a);
-  fe_add(fe, c, c, a);
-  fe_neg(fe, r, c);
 }
 
 static void
@@ -3817,9 +3819,16 @@ wei_endo_split(wei_t *ec,
    * It is possible to precompute[1] values in order
    * to avoid the round division[2][3][4].
    *
-   * This involves precomputing `g1` and `g2 (see
-   * above). `c1` and `c2` can then be computed as
-   * follows:
+   * This involves precomputing `g1` and `g2` as:
+   *
+   *   d = a1 * b2 - b1 * a2
+   *   t = ceil(log2(d)) + 16
+   *   g1 = round((2^t * b2) / d)
+   *   g2 = round((2^t * b1) / d)
+   *
+   * Where `d` is equal to `n`.
+   *
+   * `c1` and `c2` can then be computed as follows:
    *
    *   t = ceil(log2(n)) + 16
    *   c1 = (k * g1) >> t
@@ -3830,24 +3839,23 @@ wei_endo_split(wei_t *ec,
    * Where `>>` is an _unsigned_ right shift. Also
    * note that the last bit discarded in the shift
    * must be stored. If it is 1, then add 1 to the
-   * scalar (absolute addition).
+   * integer (absolute addition).
    *
-   * Once the multiply and shift are complete, we
-   * can use modular arithmetic for the rest of
-   * the calculations (the mul/shift is done in
-   * integers, not mod n). This is nice as it
-   * allows us to re-use existing scalar functions,
-   * and our decomposition becomes a constant-time
-   * calculation.
-   *
-   * Libsecp256k1 uses a different calculation
-   * along the lines of:
+   * libsecp256k1 modifies the computation further:
    *
    *   t = ceil(log2(n)) + 16
    *   c1 = ((k * g1) >> t) * -b1
    *   c2 = ((k * -g2) >> t) * -b2
    *   k2 = c1 + c2
    *   k1 = k2 * -lambda + k
+   *
+   * Once the multiply and shift are complete, we
+   * can use modular arithmetic for the rest of
+   * the calculations (the mul+shift is done in
+   * the integers, not mod n). This is nice as it
+   * allows us to re-use existing scalar functions,
+   * and our decomposition becomes a constant-time
+   * calculation.
    *
    * Since the above computation is done mod n,
    * the resulting scalars must be reduced. Sign
@@ -3873,11 +3881,8 @@ wei_endo_split(wei_t *ec,
   sc_mul(sc, k1, k2, ec->lambda); /* -lambda */
   sc_add(sc, k1, k1, k);
 
-  h1 = sc_is_high(sc, k1);
-  h2 = sc_is_high(sc, k2);
-
-  sc_neg_cond(sc, k1, k1, h1);
-  sc_neg_cond(sc, k2, k2, h2);
+  h1 = sc_minimize(sc, k1, k1);
+  h2 = sc_minimize(sc, k2, k2);
 
   sc_cleanse(sc, c1);
   sc_cleanse(sc, c2);
@@ -4406,9 +4411,11 @@ wei_jmul_multi_endo_var(wei_t *ec,
     /* Create comb for JSF. */
     wge_jsf_points_endo(ec, wnds[i], &points[i]);
 
+#ifdef EC_TEST
     /* Check max size.*/
     assert(sc_bitlen_var(sc, k1) + 1 <= (size_t)max);
     assert(sc_bitlen_var(sc, k2) + 1 <= (size_t)max);
+#endif
   }
 
   /* Multiply and add. */
@@ -4519,6 +4526,7 @@ wei_randomize(wei_t *ec, const unsigned char *entropy) {
 
   sc_cleanse(sc, blind);
   wge_cleanse(ec, &unblind);
+  cleanse(&rng, sizeof(rng));
 }
 
 static void
@@ -4743,11 +4751,11 @@ wei_svdwf(wei_t *ec, fe_t x, fe_t y, const fe_t u) {
   fe_mul(fe, x1, x1, ec->i2);
   fe_sub(fe, x1, x1, t3);
 
-  fe_add(fe, y1, ec->c, ec->z); /* borrow y1 */
+  fe_add(fe, y1, ec->c, ec->z);
   fe_mul(fe, y1, y1, ec->i2);
   fe_sub(fe, x2, t3, y1);
 
-  fe_mul(fe, y1, t4, t2); /* borrow y1 */
+  fe_mul(fe, y1, t4, t2);
   fe_mul(fe, y1, y1, z3);
   fe_sub(fe, x3, ec->z, y1);
 
@@ -4986,7 +4994,7 @@ wei_point_to_hash(wei_t *ec,
  */
 
 static void
-mont_mula24(mont_t *ec, fe_t r, const fe_t a);
+mont_mul_a24(mont_t *ec, fe_t r, const fe_t a);
 
 static void
 _mont_to_edwards(prime_field_t *fe, xge_t *r,
@@ -5306,17 +5314,6 @@ mge_to_pge(mont_t *ec, pge_t *r, const mge_t *a) {
 }
 
 static void
-mge_mulh(mont_t *ec, mge_t *r, const mge_t *p) {
-  int bits = count_bits(ec->h);
-  int i;
-
-  mge_set(ec, r, p);
-
-  for (i = 0; i < bits - 1; i++)
-    mge_dbl(ec, r, r);
-}
-
-static void
 mge_to_xge(mont_t *ec, xge_t *r, const mge_t *p) {
   _mont_to_edwards(&ec->fe, r, p, ec->c, ec->invert, 1);
 }
@@ -5487,7 +5484,7 @@ pge_dbl(mont_t *ec, pge_t *r, const pge_t *p) {
   fe_mul(fe, r->x, aa, bb);
 
   /* Z3 = C * (BB + a24 * C) */
-  mont_mula24(ec, r->z, c);
+  mont_mul_a24(ec, r->z, c);
   fe_add(fe, r->z, r->z, bb);
   fe_mul(fe, r->z, r->z, c);
 }
@@ -5549,7 +5546,7 @@ pge_ladder(mont_t *ec,
   fe_mul(fe, p4->x, aa, bb);
 
   /* Z4 = E * (BB + a24 * E) */
-  mont_mula24(ec, p4->z, e);
+  mont_mul_a24(ec, p4->z, e);
   fe_add(fe, p4->z, p4->z, bb);
   fe_mul(fe, p4->z, p4->z, e);
 }
@@ -5692,7 +5689,7 @@ mont_clamp(mont_t *ec, unsigned char *out, const unsigned char *in) {
 }
 
 static void
-mont_mula24(mont_t *ec, fe_t r, const fe_t a) {
+mont_mul_a24(mont_t *ec, fe_t r, const fe_t a) {
   prime_field_t *fe = &ec->fe;
 
   if (fe->scmul_121666)
@@ -5929,10 +5926,7 @@ mont_point_to_uniform(mont_t *ec,
 }
 
 static void
-mont_point_from_hash(mont_t *ec,
-                     mge_t *p,
-                     const unsigned char *bytes,
-                     int pake) {
+mont_point_from_hash(mont_t *ec, mge_t *p, const unsigned char *bytes) {
   /* [H2EC] "Roadmap". */
   mge_t p1, p2;
 
@@ -5940,9 +5934,6 @@ mont_point_from_hash(mont_t *ec,
   mont_point_from_uniform(ec, &p2, bytes + ec->fe.size);
 
   mge_add(ec, p, &p1, &p2);
-
-  if (pake)
-    mge_mulh(ec, p, p);
 
   mge_cleanse(ec, &p1);
   mge_cleanse(ec, &p2);
@@ -5995,7 +5986,7 @@ mont_point_to_hash(mont_t *ec,
  */
 
 static void
-edwards_mula(edwards_t *ec, fe_t r, const fe_t x);
+edwards_mul_a(edwards_t *ec, fe_t r, const fe_t x);
 
 static void
 _edwards_to_mont(prime_field_t *fe, mge_t *r,
@@ -6039,7 +6030,7 @@ xge_validate(edwards_t *ec, const xge_t *p) {
   fe_sqr(fe, z2, p->z);
   fe_sqr(fe, z4, z2);
 
-  edwards_mula(ec, ax2, x2);
+  edwards_mul_a(ec, ax2, x2);
   fe_add(fe, lhs, ax2, y2);
   fe_mul(fe, lhs, lhs, z2);
 
@@ -6047,7 +6038,12 @@ xge_validate(edwards_t *ec, const xge_t *p) {
   fe_mul(fe, rhs, rhs, ec->d);
   fe_add(fe, rhs, rhs, z4);
 
-  return fe_equal(fe, lhs, rhs);
+  fe_mul(fe, x2, p->t, p->z);
+  fe_mul(fe, y2, p->x, p->y);
+
+  return fe_equal(fe, lhs, rhs)
+       & fe_equal(fe, x2, y2)
+       & (fe_is_zero(fe, p->z) ^ 1);
 }
 
 static void
@@ -6251,7 +6247,7 @@ xge_dbl(edwards_t *ec, xge_t *r, const xge_t *p) {
   fe_add(fe, c, c, c);
 
   /* D = a * A */
-  edwards_mula(ec, d, a);
+  edwards_mul_a(ec, d, a);
 
   /* E = (X1 + Y1)^2 - A - B */
   fe_add(fe, e, p->x, p->y);
@@ -6316,7 +6312,7 @@ xge_add_a(edwards_t *ec, xge_t *r, const xge_t *a, const xge_t *b) {
   fe_add(fe, g, d, c);
 
   /* H = B - a * A */
-  edwards_mula(ec, h, A);
+  edwards_mul_a(ec, h, A);
   fe_sub(fe, h, B, h);
 
   /* X3 = E * F */
@@ -6669,7 +6665,7 @@ edwards_clamp(edwards_t *ec, unsigned char *out, const unsigned char *in) {
 }
 
 static void
-edwards_mula(edwards_t *ec, fe_t r, const fe_t x) {
+edwards_mul_a(edwards_t *ec, fe_t r, const fe_t x) {
   prime_field_t *fe = &ec->fe;
 
   if (ec->mone_a)
@@ -6946,6 +6942,7 @@ edwards_randomize(edwards_t *ec, const unsigned char *entropy) {
 
   sc_cleanse(sc, blind);
   xge_cleanse(ec, &unblind);
+  cleanse(&rng, sizeof(rng));
 }
 
 static void
@@ -7132,10 +7129,7 @@ edwards_point_to_uniform(edwards_t *ec,
 }
 
 static void
-edwards_point_from_hash(edwards_t *ec,
-                        xge_t *p,
-                        const unsigned char *bytes,
-                        int pake) {
+edwards_point_from_hash(edwards_t *ec, xge_t *p, const unsigned char *bytes) {
   /* [H2EC] "Roadmap". */
   xge_t p1, p2;
 
@@ -7144,18 +7138,15 @@ edwards_point_from_hash(edwards_t *ec,
 
   xge_add(ec, p, &p1, &p2);
 
-  if (pake)
-    xge_mulh(ec, p, p);
-
   xge_cleanse(ec, &p1);
   xge_cleanse(ec, &p2);
 }
 
 static void
 edwards_point_to_hash(edwards_t *ec,
-                   unsigned char *bytes,
-                   const xge_t *p,
-                   const unsigned char *seed) {
+                      unsigned char *bytes,
+                      const xge_t *p,
+                      const unsigned char *seed) {
   /* [SQUARED] Algorithm 1, Page 8, Section 3.3. */
   prime_field_t *fe = &ec->fe;
   unsigned int hint;
@@ -7441,7 +7432,7 @@ ecdsa_privkey_generate(wei_t *ec,
     break;
   }
 
-  cleanse(&rng, sizeof(drbg_t));
+  cleanse(&rng, sizeof(rng));
 }
 
 static int
@@ -7841,8 +7832,7 @@ ecdsa_sig_normalize(wei_t *ec,
   if (sc_is_zero(sc, s))
     return 0;
 
-  if (sc_is_high(sc, s))
-    sc_neg(sc, s, s);
+  sc_minimize(sc, s, s);
 
   sc_export(sc, out, r);
   sc_export(sc, out + sc->size, r);
@@ -7869,14 +7859,18 @@ ecdsa_sig_export(wei_t *ec,
 
   assert(sc->size < 0x7d);
 
-  while (rlen > 1 && rp[0] == 0)
-    rlen--, rp++;
+  while (rlen > 1 && rp[0] == 0) {
+    rlen--;
+    rp++;
+  }
 
-  while (slen > 1 && sp[0] == 0)
-    slen--, sp++;
+  while (slen > 1 && sp[0] == 0) {
+    slen--;
+    sp++;
+  }
 
-  rn = (rp[0] & 0x80) ? 1 : 0;
-  sn = (sp[0] & 0x80) ? 1 : 0;
+  rn = ((rp[0] & 0x80) != 0);
+  sn = ((sp[0] & 0x80) != 0);
 
   memcpy(r + rn, rp, rlen);
   memcpy(s + sn, sp, slen);
@@ -7885,26 +7879,26 @@ ecdsa_sig_export(wei_t *ec,
   slen += sn;
 
   seq = 2 + rlen + 2 + slen;
-  wide = seq >= 0x80 ? 1 : 0;
+  wide = (seq >= 0x80);
   len = 2 + wide + seq;
 
   if (len > *out_len)
     return 0;
 
-  *(out++) = 0x30;
+  *out++ = 0x30;
 
   if (wide)
-    *(out++) = 0x81;
+    *out++ = 0x81;
 
-  *(out++) = seq;
-  *(out++) = 0x02;
-  *(out++) = rlen;
+  *out++ = seq;
+  *out++ = 0x02;
+  *out++ = rlen;
 
   memcpy(out, r, rlen);
   out += rlen;
 
-  *(out++) = 0x02;
-  *(out++) = slen;
+  *out++ = 0x02;
+  *out++ = slen;
 
   memcpy(out, s, slen);
   out += slen;
@@ -8202,7 +8196,7 @@ ecdsa_sign(wei_t *ec,
   sc_t a, m, k, r, s;
   wge_t R;
   unsigned char bytes[MAX_SCALAR_SIZE * 2];
-  unsigned int hint;
+  unsigned int sign, high;
   int ret = 0;
 
   if (param != NULL)
@@ -8235,10 +8229,8 @@ ecdsa_sign(wei_t *ec,
     if (wge_is_zero(ec, &R))
       continue;
 
-    hint = fe_is_odd(fe, R.y);
-
-    if (!sc_set_fe(sc, fe, r, R.x))
-      hint |= 2;
+    sign = fe_is_odd(fe, R.y);
+    high = sc_set_fe(sc, fe, r, R.x) ^ 1;
 
     if (sc_is_zero(sc, r))
       continue;
@@ -8248,23 +8240,20 @@ ecdsa_sign(wei_t *ec,
     sc_add(sc, s, s, m);
     sc_mul(sc, s, s, k);
 
-    if (sc_is_high(sc, s)) {
-      sc_neg(sc, s, s);
-      hint ^= 1;
-    }
+    sign ^= sc_minimize(sc, s, s);
 
     sc_export(sc, sig, r);
     sc_export(sc, sig + sc->size, s);
 
     if (param != NULL)
-      *param = hint;
+      *param = (high << 1) | sign;
 
     break;
   }
 
   ret = 1;
 fail:
-  cleanse(&rng, sizeof(drbg_t));
+  cleanse(&rng, sizeof(rng));
   sc_cleanse(sc, a);
   sc_cleanse(sc, m);
   sc_cleanse(sc, k);
@@ -9588,7 +9577,7 @@ ecdh_privkey_generate(mont_t *ec,
 
   mont_clamp(ec, out, out);
 
-  cleanse(&rng, sizeof(drbg_t));
+  cleanse(&rng, sizeof(rng));
 }
 
 static int
@@ -9625,27 +9614,51 @@ ecdh_pubkey_convert(mont_t *ec,
                     const unsigned char *pub,
                     int sign) {
   prime_field_t *fe = &ec->fe;
+  scalar_field_t *sc = &ec->sc;
   mge_t A;
-  xge_t p;
+  pge_t P;
+  sc_t k;
+  xge_t e;
 
-  if (!mge_import(ec, &A, pub, -1))
-    return 0;
+  /* Compensate for the 4-isogeny. */
+  if (fe->bits == 448) {
+    pge_import(ec, &P, pub);
 
-  mge_to_xge(ec, &p, &A);
+    if (!pge_validate(ec, &P))
+      return 0;
 
-  assert(fe_invert(fe, p.z, p.z));
+    pge_mulh(ec, &P, &P);
 
-  fe_mul(fe, p.x, p.x, p.z);
-  fe_mul(fe, p.y, p.y, p.z);
-  fe_set_odd(fe, p.x, p.x, sign != 0);
+    sc_set_word(sc, k, 16);
+    sc_invert_var(sc, k, k);
 
-  fe_export(fe, out, p.y);
+    mont_mul(ec, &P, &P, k);
+
+    assert(pge_to_mge(ec, &A, &P, -1));
+  } else {
+    if (!mge_import(ec, &A, pub, -1))
+      return 0;
+  }
+
+  /* Convert to Edwards. */
+  mge_to_xge(ec, &e, &A);
+
+  /* Affinize. */
+  assert(fe_invert(fe, e.z, e.z));
+  fe_mul(fe, e.x, e.x, e.z);
+  fe_mul(fe, e.y, e.y, e.z);
+
+  /* Set sign and export. */
+  if (sign != -1)
+    fe_set_odd(fe, e.x, e.x, sign);
+
+  fe_export(fe, out, e.y);
 
   /* Quirk: we need an extra byte (p448). */
   if ((fe->bits & 7) == 0)
-    out[fe->size] = fe_is_odd(fe, p.x) << 7;
+    out[fe->size] = fe_is_odd(fe, e.x) << 7;
   else
-    out[fe->size - 1] |= fe_is_odd(fe, p.x) << 7;
+    out[fe->size - 1] |= fe_is_odd(fe, e.x) << 7;
 
   return 1;
 }
@@ -9680,10 +9693,15 @@ ecdh_pubkey_from_hash(mont_t *ec,
                       const unsigned char *bytes,
                       int pake) {
   mge_t A;
+  pge_t P;
 
-  mont_point_from_hash(ec, &A, bytes, pake);
+  mont_point_from_hash(ec, &A, bytes);
+  mge_to_pge(ec, &P, &A);
 
-  return mge_export(ec, out, &A);
+  if (pake)
+    pge_mulh(ec, &P, &P);
+
+  return pge_export(ec, out, &P);
 }
 
 static int
@@ -9730,18 +9748,18 @@ ecdh_pubkey_has_torsion(mont_t *ec,
   prime_field_t *fe = &ec->fe;
   scalar_field_t *sc = &ec->sc;
   pge_t A;
+  int zero;
 
   pge_import(ec, &A, pub);
 
   if (!pge_validate(ec, &A))
     return 0;
 
-  if (fe_is_zero(fe, A.x))
-    return 1;
+  zero = fe_is_zero(fe, A.x);
 
   mont_mul(ec, &A, &A, sc->n);
 
-  return pge_is_zero(ec, &A) ^ 1;
+  return (pge_is_zero(ec, &A) ^ 1) | zero;
 }
 
 static int
@@ -9802,7 +9820,7 @@ eddsa_privkey_generate(edwards_t *ec,
 
   drbg_generate(&rng, out, fe->adj_size);
 
-  cleanse(&rng, sizeof(drbg_t));
+  cleanse(&rng, sizeof(rng));
 }
 
 static void
@@ -9818,7 +9836,7 @@ eddsa_scalar_generate(edwards_t *ec,
 
   edwards_clamp(ec, out, out);
 
-  cleanse(&rng, sizeof(drbg_t));
+  cleanse(&rng, sizeof(rng));
 }
 
 static void
@@ -10047,7 +10065,10 @@ eddsa_pubkey_from_hash(edwards_t *ec,
                        int pake) {
   xge_t A;
 
-  edwards_point_from_hash(ec, &A, bytes, pake);
+  edwards_point_from_hash(ec, &A, bytes);
+
+  if (pake)
+    xge_mulh(ec, &A, &A);
 
   xge_export(ec, out, &A);
 }
@@ -10099,12 +10120,13 @@ eddsa_pubkey_is_small(edwards_t *ec,
 static int
 eddsa_pubkey_has_torsion(edwards_t *ec,
                          const unsigned char *pub) {
+  scalar_field_t *sc = &ec->sc;
   xge_t A;
 
   if (!xge_import(ec, &A, pub))
     return 0;
 
-  edwards_mul(ec, &A, &A, ec->sc.n);
+  edwards_mul(ec, &A, &A, sc->n);
 
   return xge_is_zero(ec, &A) ^ 1;
 }
@@ -10750,6 +10772,9 @@ eddsa_derive_with_scalar(edwards_t *ec,
     goto fail;
 
   edwards_mul(ec, &P, &A, a);
+
+  if (xge_is_zero(ec, &P))
+    goto fail;
 
   xge_export(ec, secret, &P);
 
