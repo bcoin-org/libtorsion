@@ -1,5 +1,5 @@
-#ifndef _TORSION_H
-#define _TORSION_H
+#ifndef _TORSION_ECC_H
+#define _TORSION_ECC_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -918,4 +918,4 @@ eddsa_derive(eddsa_t *ec,
 }
 #endif
 
-#endif /* _TORSION_H */
+#endif /* _TORSION_ECC_H */
