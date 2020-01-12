@@ -7541,9 +7541,7 @@ fail:
 }
 
 static int
-ecdsa_privkey_negate(wei_t *ec,
-                     unsigned char *out,
-                     const unsigned char *priv) {
+ecdsa_privkey_negate(wei_t *ec, unsigned char *out, const unsigned char *priv) {
   scalar_field_t *sc = &ec->sc;
   sc_t a;
   int ret = 0;
@@ -7564,9 +7562,7 @@ fail:
 }
 
 static int
-ecdsa_privkey_invert(wei_t *ec,
-                     unsigned char *out,
-                     const unsigned char *priv) {
+ecdsa_privkey_invert(wei_t *ec, unsigned char *out, const unsigned char *priv) {
   scalar_field_t *sc = &ec->sc;
   sc_t a;
   int ret = 0;
@@ -8068,9 +8064,7 @@ ecdsa_sig_import(wei_t *ec,
 }
 
 static int
-ecdsa_sig_normalize(wei_t *ec,
-                    unsigned char *out,
-                    const unsigned char *sig) {
+ecdsa_sig_normalize(wei_t *ec, unsigned char *out, const unsigned char *sig) {
   scalar_field_t *sc = &ec->sc;
   sc_t r, s;
 
@@ -9058,9 +9052,7 @@ schnorr_pubkey_to_hash(wei_t *ec,
 }
 
 static int
-schnorr_pubkey_verify(wei_t *ec,
-                      unsigned char *out,
-                      const unsigned char *pub) {
+schnorr_pubkey_verify(wei_t *ec, unsigned char *out, const unsigned char *pub) {
   wge_t A;
 
   return wge_import_x(ec, &A, pub);
@@ -9609,15 +9601,12 @@ ecdh_privkey_generate(mont_t *ec,
 }
 
 static int
-ecdh_privkey_verify(mont_t *ec,
-                    const unsigned char *priv) {
+ecdh_privkey_verify(mont_t *ec, const unsigned char *priv) {
   return 1;
 }
 
 static void
-ecdh_pubkey_create(mont_t *ec,
-                   unsigned char *pub,
-                   const unsigned char *priv) {
+ecdh_pubkey_create(mont_t *ec, unsigned char *pub, const unsigned char *priv) {
   unsigned char clamped[MAX_SCALAR_SIZE];
   scalar_field_t *sc = &ec->sc;
   sc_t a;
@@ -9748,8 +9737,7 @@ ecdh_pubkey_to_hash(mont_t *ec,
 }
 
 static int
-ecdh_pubkey_verify(mont_t *ec,
-                   const unsigned char *pub) {
+ecdh_pubkey_verify(mont_t *ec, const unsigned char *pub) {
   pge_t A;
 
   pge_import(ec, &A, pub);
@@ -9758,8 +9746,7 @@ ecdh_pubkey_verify(mont_t *ec,
 }
 
 static int
-ecdh_pubkey_is_small(mont_t *ec,
-                     const unsigned char *pub) {
+ecdh_pubkey_is_small(mont_t *ec, const unsigned char *pub) {
   pge_t A;
 
   pge_import(ec, &A, pub);
@@ -9771,8 +9758,7 @@ ecdh_pubkey_is_small(mont_t *ec,
 }
 
 static int
-ecdh_pubkey_has_torsion(mont_t *ec,
-                        const unsigned char *pub) {
+ecdh_pubkey_has_torsion(mont_t *ec, const unsigned char *pub) {
   prime_field_t *fe = &ec->fe;
   scalar_field_t *sc = &ec->sc;
   pge_t A;
@@ -9899,20 +9885,17 @@ eddsa_privkey_convert(edwards_t *ec,
 }
 
 static int
-eddsa_privkey_verify(edwards_t *ec,
-                     const unsigned char *priv) {
+eddsa_privkey_verify(edwards_t *ec, const unsigned char *priv) {
   return 1;
 }
 
 static int
-eddsa_scalar_verify(edwards_t *ec,
-                    const unsigned char *scalar) {
+eddsa_scalar_verify(edwards_t *ec, const unsigned char *scalar) {
   return 1;
 }
 
 static int
-eddsa_scalar_is_zero(edwards_t *ec,
-                     const unsigned char *scalar) {
+eddsa_scalar_is_zero(edwards_t *ec, const unsigned char *scalar) {
   scalar_field_t *sc = &ec->sc;
   sc_t a;
   int ret;
@@ -10117,15 +10100,13 @@ eddsa_pubkey_to_hash(edwards_t *ec,
 }
 
 static int
-eddsa_pubkey_verify(edwards_t *ec,
-                    const unsigned char *pub) {
+eddsa_pubkey_verify(edwards_t *ec, const unsigned char *pub) {
   xge_t A;
   return xge_import(ec, &A, pub);
 }
 
 static int
-eddsa_pubkey_is_infinity(edwards_t *ec,
-                         const unsigned char *pub) {
+eddsa_pubkey_is_infinity(edwards_t *ec, const unsigned char *pub) {
   xge_t A;
 
   if (!xge_import(ec, &A, pub))
@@ -10135,8 +10116,7 @@ eddsa_pubkey_is_infinity(edwards_t *ec,
 }
 
 static int
-eddsa_pubkey_is_small(edwards_t *ec,
-                      const unsigned char *pub) {
+eddsa_pubkey_is_small(edwards_t *ec, const unsigned char *pub) {
   xge_t A;
 
   if (!xge_import(ec, &A, pub))
@@ -10146,8 +10126,7 @@ eddsa_pubkey_is_small(edwards_t *ec,
 }
 
 static int
-eddsa_pubkey_has_torsion(edwards_t *ec,
-                         const unsigned char *pub) {
+eddsa_pubkey_has_torsion(edwards_t *ec, const unsigned char *pub) {
   scalar_field_t *sc = &ec->sc;
   xge_t A;
 
