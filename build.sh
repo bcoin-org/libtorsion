@@ -18,9 +18,10 @@ if test x"$2" = x'mini'; then
     -std=c89 \
     -O3 \
     "$def" \
+    -I./include
     -o test \
-    mini-gmp.c \
-    test.c
+    src/mini-gmp.c \
+    src/test.c
 else
   gcc -g \
     -Wall \
@@ -32,7 +33,8 @@ else
     -O3 \
     "$def" \
     -DTORSION_HAS_GMP \
+    -I./include
     -lgmp \
     -o test \
-    test.c
+    src/test.c
 fi
