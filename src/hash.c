@@ -14,6 +14,16 @@
  */
 
 static uint32_t
+rotr32(const uint32_t w, const unsigned c) {
+  return (w >> c) | (w << (32 - c));
+}
+
+static uint64_t
+rotr64(const uint64_t w, const unsigned c) {
+  return (w >> c) | (w << (64 - c));
+}
+
+static uint32_t
 read32be(const void *src) {
 #ifdef WORDS_BIGENDIAN
   uint32_t w;
@@ -77,6 +87,34 @@ write64be(void *dst, uint64_t w) {
 #endif
 }
 
+static uint32_t
+read32le(const void *src) {
+#ifndef WORDS_BIGENDIAN
+  uint32_t w;
+  memcpy(&w, src, sizeof(w));
+  return w;
+#else
+  const uint8_t *p = (const uint8_t *)src;
+  return ((uint32_t)p[3] << 24)
+       | ((uint32_t)p[2] << 16)
+       | ((uint32_t)p[1] << 8)
+       | ((uint32_t)p[0] << 0);
+#endif
+}
+
+static void
+write32le(void *dst, uint32_t w) {
+#ifndef WORDS_BIGENDIAN
+  memcpy(dst, &w, sizeof(w));
+#else
+  uint8_t *p = (uint8_t *)dst;
+  p[3] = w >> 24;
+  p[2] = w >> 16;
+  p[1] = w >> 8;
+  p[0] = w >> 0;
+#endif
+}
+
 static uint64_t
 read64le(const void *src) {
 #ifndef WORDS_BIGENDIAN
@@ -94,6 +132,742 @@ read64le(const void *src) {
        | ((uint64_t)p[1] << 8)
        | ((uint64_t)p[0] << 0);
 #endif
+}
+
+static void
+write64le(void *dst, uint64_t w) {
+#ifndef WORDS_BIGENDIAN
+  memcpy(dst, &w, sizeof(w));
+#else
+  uint8_t *p = (uint8_t *)dst;
+  p[7] = w >> 56;
+  p[6] = w >> 48;
+  p[5] = w >> 40;
+  p[4] = w >> 32;
+  p[3] = w >> 24;
+  p[2] = w >> 16;
+  p[1] = w >> 8;
+  p[0] = w >> 0;
+#endif
+}
+
+/*
+ * MD5
+ */
+
+static const unsigned char md5_P[64] = {
+  0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+};
+
+void
+md5_init(md5_t *ctx) {
+  ctx->state[0] = 0x67452301;
+  ctx->state[1] = 0xefcdab89;
+  ctx->state[2] = 0x98badcfe;
+  ctx->state[3] = 0x10325476;
+  ctx->size = 0;
+}
+
+static void
+md5_transform(md5_t *ctx, const unsigned char *chunk) {
+  uint32_t data[16];
+  uint32_t a, b, c, d;
+  unsigned i;
+
+  for (i = 0; i < 16; i++, chunk += 4)
+    data[i] = read32le(chunk);
+
+  a = ctx->state[0];
+  b = ctx->state[1];
+  c = ctx->state[2];
+  d = ctx->state[3];
+
+#define F1(x, y, z) ((z) ^ ((x) & ((y) ^ (z))))
+#define F2(x, y, z) F1((z), (x), (y))
+#define F3(x, y, z) ((x) ^ (y) ^ (z))
+#define F4(x, y, z) ((y) ^ ((x) | ~(z)))
+#define ROUND(f, w, x, y, z, data, s) \
+(w += f(x, y, z) + data,  w = w << s | w >> (32 - s), w += x)
+
+  ROUND(F1, a, b, c, d, data[ 0] + 0xd76aa478, 7);
+  ROUND(F1, d, a, b, c, data[ 1] + 0xe8c7b756, 12);
+  ROUND(F1, c, d, a, b, data[ 2] + 0x242070db, 17);
+  ROUND(F1, b, c, d, a, data[ 3] + 0xc1bdceee, 22);
+  ROUND(F1, a, b, c, d, data[ 4] + 0xf57c0faf, 7);
+  ROUND(F1, d, a, b, c, data[ 5] + 0x4787c62a, 12);
+  ROUND(F1, c, d, a, b, data[ 6] + 0xa8304613, 17);
+  ROUND(F1, b, c, d, a, data[ 7] + 0xfd469501, 22);
+  ROUND(F1, a, b, c, d, data[ 8] + 0x698098d8, 7);
+  ROUND(F1, d, a, b, c, data[ 9] + 0x8b44f7af, 12);
+  ROUND(F1, c, d, a, b, data[10] + 0xffff5bb1, 17);
+  ROUND(F1, b, c, d, a, data[11] + 0x895cd7be, 22);
+  ROUND(F1, a, b, c, d, data[12] + 0x6b901122, 7);
+  ROUND(F1, d, a, b, c, data[13] + 0xfd987193, 12);
+  ROUND(F1, c, d, a, b, data[14] + 0xa679438e, 17);
+  ROUND(F1, b, c, d, a, data[15] + 0x49b40821, 22);
+
+  ROUND(F2, a, b, c, d, data[ 1] + 0xf61e2562, 5);
+  ROUND(F2, d, a, b, c, data[ 6] + 0xc040b340, 9);
+  ROUND(F2, c, d, a, b, data[11] + 0x265e5a51, 14);
+  ROUND(F2, b, c, d, a, data[ 0] + 0xe9b6c7aa, 20);
+  ROUND(F2, a, b, c, d, data[ 5] + 0xd62f105d, 5);
+  ROUND(F2, d, a, b, c, data[10] + 0x02441453, 9);
+  ROUND(F2, c, d, a, b, data[15] + 0xd8a1e681, 14);
+  ROUND(F2, b, c, d, a, data[ 4] + 0xe7d3fbc8, 20);
+  ROUND(F2, a, b, c, d, data[ 9] + 0x21e1cde6, 5);
+  ROUND(F2, d, a, b, c, data[14] + 0xc33707d6, 9);
+  ROUND(F2, c, d, a, b, data[ 3] + 0xf4d50d87, 14);
+  ROUND(F2, b, c, d, a, data[ 8] + 0x455a14ed, 20);
+  ROUND(F2, a, b, c, d, data[13] + 0xa9e3e905, 5);
+  ROUND(F2, d, a, b, c, data[ 2] + 0xfcefa3f8, 9);
+  ROUND(F2, c, d, a, b, data[ 7] + 0x676f02d9, 14);
+  ROUND(F2, b, c, d, a, data[12] + 0x8d2a4c8a, 20);
+
+  ROUND(F3, a, b, c, d, data[ 5] + 0xfffa3942, 4);
+  ROUND(F3, d, a, b, c, data[ 8] + 0x8771f681, 11);
+  ROUND(F3, c, d, a, b, data[11] + 0x6d9d6122, 16);
+  ROUND(F3, b, c, d, a, data[14] + 0xfde5380c, 23);
+  ROUND(F3, a, b, c, d, data[ 1] + 0xa4beea44, 4);
+  ROUND(F3, d, a, b, c, data[ 4] + 0x4bdecfa9, 11);
+  ROUND(F3, c, d, a, b, data[ 7] + 0xf6bb4b60, 16);
+  ROUND(F3, b, c, d, a, data[10] + 0xbebfbc70, 23);
+  ROUND(F3, a, b, c, d, data[13] + 0x289b7ec6, 4);
+  ROUND(F3, d, a, b, c, data[ 0] + 0xeaa127fa, 11);
+  ROUND(F3, c, d, a, b, data[ 3] + 0xd4ef3085, 16);
+  ROUND(F3, b, c, d, a, data[ 6] + 0x04881d05, 23);
+  ROUND(F3, a, b, c, d, data[ 9] + 0xd9d4d039, 4);
+  ROUND(F3, d, a, b, c, data[12] + 0xe6db99e5, 11);
+  ROUND(F3, c, d, a, b, data[15] + 0x1fa27cf8, 16);
+  ROUND(F3, b, c, d, a, data[ 2] + 0xc4ac5665, 23);
+
+  ROUND(F4, a, b, c, d, data[ 0] + 0xf4292244, 6);
+  ROUND(F4, d, a, b, c, data[ 7] + 0x432aff97, 10);
+  ROUND(F4, c, d, a, b, data[14] + 0xab9423a7, 15);
+  ROUND(F4, b, c, d, a, data[ 5] + 0xfc93a039, 21);
+  ROUND(F4, a, b, c, d, data[12] + 0x655b59c3, 6);
+  ROUND(F4, d, a, b, c, data[ 3] + 0x8f0ccc92, 10);
+  ROUND(F4, c, d, a, b, data[10] + 0xffeff47d, 15);
+  ROUND(F4, b, c, d, a, data[ 1] + 0x85845dd1, 21);
+  ROUND(F4, a, b, c, d, data[ 8] + 0x6fa87e4f, 6);
+  ROUND(F4, d, a, b, c, data[15] + 0xfe2ce6e0, 10);
+  ROUND(F4, c, d, a, b, data[ 6] + 0xa3014314, 15);
+  ROUND(F4, b, c, d, a, data[13] + 0x4e0811a1, 21);
+  ROUND(F4, a, b, c, d, data[ 4] + 0xf7537e82, 6);
+  ROUND(F4, d, a, b, c, data[11] + 0xbd3af235, 10);
+  ROUND(F4, c, d, a, b, data[ 2] + 0x2ad7d2bb, 15);
+  ROUND(F4, b, c, d, a, data[ 9] + 0xeb86d391, 21);
+
+#undef F1
+#undef F2
+#undef F3
+#undef F4
+#undef ROUND
+
+  ctx->state[0] += a;
+  ctx->state[1] += b;
+  ctx->state[2] += c;
+  ctx->state[3] += d;
+}
+
+void
+md5_update(md5_t *ctx, const void *data, size_t len) {
+  const unsigned char *bytes = (const unsigned char *)data;
+  size_t pos = ctx->size & 63;
+  size_t off = 0;
+
+  ctx->size += len;
+
+  if (pos > 0) {
+    size_t want = 64 - pos;
+
+    if (want > len)
+      want = len;
+
+    memcpy(ctx->block + pos, bytes + off, want);
+
+    pos += want;
+    len -= want;
+    off += want;
+
+    if (pos < 64)
+      return;
+
+    md5_transform(ctx, ctx->block);
+  }
+
+  while (len >= 64) {
+    md5_transform(ctx, bytes + off);
+    off += 64;
+    len -= 64;
+  }
+
+  if (len > 0)
+    memcpy(ctx->block, bytes + off, len);
+}
+
+void
+md5_final(md5_t *ctx, unsigned char *out) {
+  size_t pos = ctx->size & 63;
+  uint64_t len = ctx->size << 3;
+  unsigned char D[8];
+  size_t i;
+
+  write64le(D, len);
+
+  md5_update(ctx, md5_P, 1 + ((119 - pos) & 63));
+  md5_update(ctx, D, 8);
+
+  for (i = 0; i < 4; i++)
+    write32le(out + i * 4, ctx->state[i]);
+
+  memset(ctx->state, 0x00, sizeof(ctx->state));
+  memset(ctx->block, 0x00, sizeof(ctx->block));
+
+  ctx->size = 0;
+}
+
+/*
+ * RIPEMD160
+ */
+
+static const unsigned char ripemd160_P[64] = {
+  0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+};
+
+void
+ripemd160_init(ripemd160_t *ctx) {
+  ctx->state[0] = 0x67452301;
+  ctx->state[1] = 0xefcdab89;
+  ctx->state[2] = 0x98badcfe;
+  ctx->state[3] = 0x10325476;
+  ctx->state[4] = 0xc3d2e1f0;
+  ctx->size = 0;
+}
+
+static void
+ripemd160_transform(ripemd160_t *ctx, const unsigned char *chunk) {
+  register uint32_t a, b, c, d, e;
+  uint32_t aa, bb, cc, dd, ee, t;
+  uint32_t x[16];
+
+#ifdef WORDS_BIGENDIAN
+  {
+    int i;
+    for (i = 0; i < 16; i++, chunk += 4)
+      x[i] = read32le(chunk);
+  }
+#else
+  memcpy(x, chunk, sizeof(x));
+#endif
+
+#define K0 0x00000000
+#define K1 0x5a827999
+#define K2 0x6ed9eba1
+#define K3 0x8f1bbcdc
+#define K4 0xa953fd4e
+#define KK0 0x50a28be6
+#define KK1 0x5c4dd124
+#define KK2 0x6d703ef3
+#define KK3 0x7a6d76e9
+#define KK4 0x00000000
+#define F0(x, y, z) ((x) ^ (y) ^ (z))
+#define F1(x, y, z) (((x) & (y)) | (~(x) & (z)))
+#define F2(x, y, z) (((x) | ~(y)) ^ (z))
+#define F3(x, y, z) (((x) & (z)) | ((y) & ~(z)))
+#define F4(x, y, z) ((x) ^ ((y) | ~(z)))
+#define R(a, b, c, d, e, f, k, r, s) do { \
+  t = a + f(b, c, d) + k + x[r];          \
+  a = ROTL32(s, t) + e;                   \
+  c = ROTL32(10, c);                      \
+} while (0)
+
+  a = ctx->state[0];
+  b = ctx->state[1];
+  c = ctx->state[2];
+  d = ctx->state[3];
+  e = ctx->state[4];
+
+  R(a, b, c, d, e, F0, K0,  0, 11);
+  R(e, a, b, c, d, F0, K0,  1, 14);
+  R(d, e, a, b, c, F0, K0,  2, 15);
+  R(c, d, e, a, b, F0, K0,  3, 12);
+  R(b, c, d, e, a, F0, K0,  4,  5);
+  R(a, b, c, d, e, F0, K0,  5,  8);
+  R(e, a, b, c, d, F0, K0,  6,  7);
+  R(d, e, a, b, c, F0, K0,  7,  9);
+  R(c, d, e, a, b, F0, K0,  8, 11);
+  R(b, c, d, e, a, F0, K0,  9, 13);
+  R(a, b, c, d, e, F0, K0, 10, 14);
+  R(e, a, b, c, d, F0, K0, 11, 15);
+  R(d, e, a, b, c, F0, K0, 12,  6);
+  R(c, d, e, a, b, F0, K0, 13,  7);
+  R(b, c, d, e, a, F0, K0, 14,  9);
+  R(a, b, c, d, e, F0, K0, 15,  8);
+  R(e, a, b, c, d, F1, K1,  7,  7);
+  R(d, e, a, b, c, F1, K1,  4,  6);
+  R(c, d, e, a, b, F1, K1, 13,  8);
+  R(b, c, d, e, a, F1, K1,  1, 13);
+  R(a, b, c, d, e, F1, K1, 10, 11);
+  R(e, a, b, c, d, F1, K1,  6,  9);
+  R(d, e, a, b, c, F1, K1, 15,  7);
+  R(c, d, e, a, b, F1, K1,  3, 15);
+  R(b, c, d, e, a, F1, K1, 12,  7);
+  R(a, b, c, d, e, F1, K1,  0, 12);
+  R(e, a, b, c, d, F1, K1,  9, 15);
+  R(d, e, a, b, c, F1, K1,  5,  9);
+  R(c, d, e, a, b, F1, K1,  2, 11);
+  R(b, c, d, e, a, F1, K1, 14,  7);
+  R(a, b, c, d, e, F1, K1, 11, 13);
+  R(e, a, b, c, d, F1, K1,  8, 12);
+  R(d, e, a, b, c, F2, K2,  3, 11);
+  R(c, d, e, a, b, F2, K2, 10, 13);
+  R(b, c, d, e, a, F2, K2, 14,  6);
+  R(a, b, c, d, e, F2, K2,  4,  7);
+  R(e, a, b, c, d, F2, K2,  9, 14);
+  R(d, e, a, b, c, F2, K2, 15,  9);
+  R(c, d, e, a, b, F2, K2,  8, 13);
+  R(b, c, d, e, a, F2, K2,  1, 15);
+  R(a, b, c, d, e, F2, K2,  2, 14);
+  R(e, a, b, c, d, F2, K2,  7,  8);
+  R(d, e, a, b, c, F2, K2,  0, 13);
+  R(c, d, e, a, b, F2, K2,  6,  6);
+  R(b, c, d, e, a, F2, K2, 13,  5);
+  R(a, b, c, d, e, F2, K2, 11, 12);
+  R(e, a, b, c, d, F2, K2,  5,  7);
+  R(d, e, a, b, c, F2, K2, 12,  5);
+  R(c, d, e, a, b, F3, K3,  1, 11);
+  R(b, c, d, e, a, F3, K3,  9, 12);
+  R(a, b, c, d, e, F3, K3, 11, 14);
+  R(e, a, b, c, d, F3, K3, 10, 15);
+  R(d, e, a, b, c, F3, K3,  0, 14);
+  R(c, d, e, a, b, F3, K3,  8, 15);
+  R(b, c, d, e, a, F3, K3, 12,  9);
+  R(a, b, c, d, e, F3, K3,  4,  8);
+  R(e, a, b, c, d, F3, K3, 13,  9);
+  R(d, e, a, b, c, F3, K3,  3, 14);
+  R(c, d, e, a, b, F3, K3,  7,  5);
+  R(b, c, d, e, a, F3, K3, 15,  6);
+  R(a, b, c, d, e, F3, K3, 14,  8);
+  R(e, a, b, c, d, F3, K3,  5,  6);
+  R(d, e, a, b, c, F3, K3,  6,  5);
+  R(c, d, e, a, b, F3, K3,  2, 12);
+  R(b, c, d, e, a, F4, K4,  4,  9);
+  R(a, b, c, d, e, F4, K4,  0, 15);
+  R(e, a, b, c, d, F4, K4,  5,  5);
+  R(d, e, a, b, c, F4, K4,  9, 11);
+  R(c, d, e, a, b, F4, K4,  7,  6);
+  R(b, c, d, e, a, F4, K4, 12,  8);
+  R(a, b, c, d, e, F4, K4,  2, 13);
+  R(e, a, b, c, d, F4, K4, 10, 12);
+  R(d, e, a, b, c, F4, K4, 14,  5);
+  R(c, d, e, a, b, F4, K4,  1, 12);
+  R(b, c, d, e, a, F4, K4,  3, 13);
+  R(a, b, c, d, e, F4, K4,  8, 14);
+  R(e, a, b, c, d, F4, K4, 11, 11);
+  R(d, e, a, b, c, F4, K4,  6,  8);
+  R(c, d, e, a, b, F4, K4, 15,  5);
+  R(b, c, d, e, a, F4, K4, 13,  6);
+
+  aa = a;
+  bb = b;
+  cc = c;
+  dd = d;
+  ee = e;
+
+  a = ctx->state[0];
+  b = ctx->state[1];
+  c = ctx->state[2];
+  d = ctx->state[3];
+  e = ctx->state[4];
+
+  R(a, b, c, d, e, F4, KK0,  5,  8);
+  R(e, a, b, c, d, F4, KK0, 14,  9);
+  R(d, e, a, b, c, F4, KK0,  7,  9);
+  R(c, d, e, a, b, F4, KK0,  0, 11);
+  R(b, c, d, e, a, F4, KK0,  9, 13);
+  R(a, b, c, d, e, F4, KK0,  2, 15);
+  R(e, a, b, c, d, F4, KK0, 11, 15);
+  R(d, e, a, b, c, F4, KK0,  4,  5);
+  R(c, d, e, a, b, F4, KK0, 13,  7);
+  R(b, c, d, e, a, F4, KK0,  6,  7);
+  R(a, b, c, d, e, F4, KK0, 15,  8);
+  R(e, a, b, c, d, F4, KK0,  8, 11);
+  R(d, e, a, b, c, F4, KK0,  1, 14);
+  R(c, d, e, a, b, F4, KK0, 10, 14);
+  R(b, c, d, e, a, F4, KK0,  3, 12);
+  R(a, b, c, d, e, F4, KK0, 12,  6);
+  R(e, a, b, c, d, F3, KK1,  6,  9);
+  R(d, e, a, b, c, F3, KK1, 11, 13);
+  R(c, d, e, a, b, F3, KK1,  3, 15);
+  R(b, c, d, e, a, F3, KK1,  7,  7);
+  R(a, b, c, d, e, F3, KK1,  0, 12);
+  R(e, a, b, c, d, F3, KK1, 13,  8);
+  R(d, e, a, b, c, F3, KK1,  5,  9);
+  R(c, d, e, a, b, F3, KK1, 10, 11);
+  R(b, c, d, e, a, F3, KK1, 14,  7);
+  R(a, b, c, d, e, F3, KK1, 15,  7);
+  R(e, a, b, c, d, F3, KK1,  8, 12);
+  R(d, e, a, b, c, F3, KK1, 12,  7);
+  R(c, d, e, a, b, F3, KK1,  4,  6);
+  R(b, c, d, e, a, F3, KK1,  9, 15);
+  R(a, b, c, d, e, F3, KK1,  1, 13);
+  R(e, a, b, c, d, F3, KK1,  2, 11);
+  R(d, e, a, b, c, F2, KK2, 15,  9);
+  R(c, d, e, a, b, F2, KK2,  5,  7);
+  R(b, c, d, e, a, F2, KK2,  1, 15);
+  R(a, b, c, d, e, F2, KK2,  3, 11);
+  R(e, a, b, c, d, F2, KK2,  7,  8);
+  R(d, e, a, b, c, F2, KK2, 14,  6);
+  R(c, d, e, a, b, F2, KK2,  6,  6);
+  R(b, c, d, e, a, F2, KK2,  9, 14);
+  R(a, b, c, d, e, F2, KK2, 11, 12);
+  R(e, a, b, c, d, F2, KK2,  8, 13);
+  R(d, e, a, b, c, F2, KK2, 12,  5);
+  R(c, d, e, a, b, F2, KK2,  2, 14);
+  R(b, c, d, e, a, F2, KK2, 10, 13);
+  R(a, b, c, d, e, F2, KK2,  0, 13);
+  R(e, a, b, c, d, F2, KK2,  4,  7);
+  R(d, e, a, b, c, F2, KK2, 13,  5);
+  R(c, d, e, a, b, F1, KK3,  8, 15);
+  R(b, c, d, e, a, F1, KK3,  6,  5);
+  R(a, b, c, d, e, F1, KK3,  4,  8);
+  R(e, a, b, c, d, F1, KK3,  1, 11);
+  R(d, e, a, b, c, F1, KK3,  3, 14);
+  R(c, d, e, a, b, F1, KK3, 11, 14);
+  R(b, c, d, e, a, F1, KK3, 15,  6);
+  R(a, b, c, d, e, F1, KK3,  0, 14);
+  R(e, a, b, c, d, F1, KK3,  5,  6);
+  R(d, e, a, b, c, F1, KK3, 12,  9);
+  R(c, d, e, a, b, F1, KK3,  2, 12);
+  R(b, c, d, e, a, F1, KK3, 13,  9);
+  R(a, b, c, d, e, F1, KK3,  9, 12);
+  R(e, a, b, c, d, F1, KK3,  7,  5);
+  R(d, e, a, b, c, F1, KK3, 10, 15);
+  R(c, d, e, a, b, F1, KK3, 14,  8);
+  R(b, c, d, e, a, F0, KK4, 12,  8);
+  R(a, b, c, d, e, F0, KK4, 15,  5);
+  R(e, a, b, c, d, F0, KK4, 10, 12);
+  R(d, e, a, b, c, F0, KK4,  4,  9);
+  R(c, d, e, a, b, F0, KK4,  1, 12);
+  R(b, c, d, e, a, F0, KK4,  5,  5);
+  R(a, b, c, d, e, F0, KK4,  8, 14);
+  R(e, a, b, c, d, F0, KK4,  7,  6);
+  R(d, e, a, b, c, F0, KK4,  6,  8);
+  R(c, d, e, a, b, F0, KK4,  2, 13);
+  R(b, c, d, e, a, F0, KK4, 13,  6);
+  R(a, b, c, d, e, F0, KK4, 14,  5);
+  R(e, a, b, c, d, F0, KK4,  0, 15);
+  R(d, e, a, b, c, F0, KK4,  3, 13);
+  R(c, d, e, a, b, F0, KK4,  9, 11);
+  R(b, c, d, e, a, F0, KK4, 11, 11);
+
+#undef K0
+#undef K1
+#undef K2
+#undef K3
+#undef K4
+#undef KK0
+#undef KK1
+#undef KK2
+#undef KK3
+#undef KK4
+#undef F0
+#undef F1
+#undef F2
+#undef F3
+#undef F4
+#undef R
+
+  t = ctx->state[1] + d + cc;
+  ctx->state[1] = ctx->state[2] + e + dd;
+  ctx->state[2] = ctx->state[3] + a + ee;
+  ctx->state[3] = ctx->state[4] + b + aa;
+  ctx->state[4] = ctx->state[0] + c + bb;
+  ctx->state[0] = t;
+}
+
+void
+ripemd160_update(ripemd160_t *ctx, const void *data, size_t len) {
+  const unsigned char *bytes = (const unsigned char *)data;
+  size_t pos = ctx->size & 63;
+  size_t off = 0;
+
+  ctx->size += len;
+
+  if (pos > 0) {
+    size_t want = 64 - pos;
+
+    if (want > len)
+      want = len;
+
+    memcpy(ctx->block + pos, bytes + off, want);
+
+    pos += want;
+    len -= want;
+    off += want;
+
+    if (pos < 64)
+      return;
+
+    ripemd160_transform(ctx, ctx->block);
+  }
+
+  while (len >= 64) {
+    ripemd160_transform(ctx, bytes + off);
+    off += 64;
+    len -= 64;
+  }
+
+  if (len > 0)
+    memcpy(ctx->block, bytes + off, len);
+}
+
+void
+ripemd160_final(ripemd160_t *ctx, unsigned char *out) {
+  size_t pos = ctx->size & 63;
+  uint64_t len = ctx->size << 3;
+  unsigned char D[8];
+  size_t i;
+
+  write64le(D, len);
+
+  ripemd160_update(ctx, ripemd160_P, 1 + ((119 - pos) & 63));
+  ripemd160_update(ctx, D, 8);
+
+  for (i = 0; i < 5; i++)
+    write32le(out + i * 4, ctx->state[i]);
+
+  memset(ctx->state, 0x00, sizeof(ctx->state));
+  memset(ctx->block, 0x00, sizeof(ctx->block));
+
+  ctx->size = 0;
+}
+
+/*
+ * SHA1
+ */
+
+static const unsigned char sha1_P[64] = {
+  0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+};
+
+void
+sha1_init(sha1_t *ctx) {
+  ctx->state[0] = 0x67452301;
+  ctx->state[1] = 0xefcdab89;
+  ctx->state[2] = 0x98badcfe;
+  ctx->state[3] = 0x10325476;
+  ctx->state[4] = 0xc3d2e1f0;
+  ctx->size = 0;
+}
+
+static void
+sha1_transform(sha1_t *ctx, const unsigned char *chunk) {
+  uint32_t data[16];
+  uint32_t A, B, C, D, E;
+  int i;
+
+  for (i = 0; i < 16; i++, chunk += 4)
+    data[i] = read32be(chunk);
+
+  A = ctx->state[0];
+  B = ctx->state[1];
+  C = ctx->state[2];
+  D = ctx->state[3];
+  E = ctx->state[4];
+
+#define f1(x,y,z) (z ^ (x & (y ^ z)))
+#define f2(x,y,z) (x ^ y ^ z )
+#define f3(x,y,z) ((x & y) | (z & (x | y)))
+#define f4 f2
+#define K1 0x5a827999l
+#define K2 0x6ed9eba1l
+#define K3 0x8f1bbcdcl
+#define K4 0xca62c1d6l
+#define expand(W, i) (W[i & 15] =         \
+  ROTL32(1, (W[i & 15] ^ W[(i - 14) & 15] \
+  ^ W[(i - 8) & 15] ^ W[(i - 3) & 15])))
+#define subround(a, b, c, d, e, f, k, data) \
+  (e += ROTL32(5, a) + f(b, c, d) + k + data, b = ROTL32(30, b))
+
+  subround(A, B, C, D, E, f1, K1, data[ 0]);
+  subround(E, A, B, C, D, f1, K1, data[ 1]);
+  subround(D, E, A, B, C, f1, K1, data[ 2]);
+  subround(C, D, E, A, B, f1, K1, data[ 3]);
+  subround(B, C, D, E, A, f1, K1, data[ 4]);
+  subround(A, B, C, D, E, f1, K1, data[ 5]);
+  subround(E, A, B, C, D, f1, K1, data[ 6]);
+  subround(D, E, A, B, C, f1, K1, data[ 7]);
+  subround(C, D, E, A, B, f1, K1, data[ 8]);
+  subround(B, C, D, E, A, f1, K1, data[ 9]);
+  subround(A, B, C, D, E, f1, K1, data[10]);
+  subround(E, A, B, C, D, f1, K1, data[11]);
+  subround(D, E, A, B, C, f1, K1, data[12]);
+  subround(C, D, E, A, B, f1, K1, data[13]);
+  subround(B, C, D, E, A, f1, K1, data[14]);
+  subround(A, B, C, D, E, f1, K1, data[15]);
+  subround(E, A, B, C, D, f1, K1, expand(data, 16));
+  subround(D, E, A, B, C, f1, K1, expand(data, 17));
+  subround(C, D, E, A, B, f1, K1, expand(data, 18));
+  subround(B, C, D, E, A, f1, K1, expand(data, 19));
+
+  subround(A, B, C, D, E, f2, K2, expand(data, 20));
+  subround(E, A, B, C, D, f2, K2, expand(data, 21));
+  subround(D, E, A, B, C, f2, K2, expand(data, 22));
+  subround(C, D, E, A, B, f2, K2, expand(data, 23));
+  subround(B, C, D, E, A, f2, K2, expand(data, 24));
+  subround(A, B, C, D, E, f2, K2, expand(data, 25));
+  subround(E, A, B, C, D, f2, K2, expand(data, 26));
+  subround(D, E, A, B, C, f2, K2, expand(data, 27));
+  subround(C, D, E, A, B, f2, K2, expand(data, 28));
+  subround(B, C, D, E, A, f2, K2, expand(data, 29));
+  subround(A, B, C, D, E, f2, K2, expand(data, 30));
+  subround(E, A, B, C, D, f2, K2, expand(data, 31));
+  subround(D, E, A, B, C, f2, K2, expand(data, 32));
+  subround(C, D, E, A, B, f2, K2, expand(data, 33));
+  subround(B, C, D, E, A, f2, K2, expand(data, 34));
+  subround(A, B, C, D, E, f2, K2, expand(data, 35));
+  subround(E, A, B, C, D, f2, K2, expand(data, 36));
+  subround(D, E, A, B, C, f2, K2, expand(data, 37));
+  subround(C, D, E, A, B, f2, K2, expand(data, 38));
+  subround(B, C, D, E, A, f2, K2, expand(data, 39));
+
+  subround(A, B, C, D, E, f3, K3, expand(data, 40));
+  subround(E, A, B, C, D, f3, K3, expand(data, 41));
+  subround(D, E, A, B, C, f3, K3, expand(data, 42));
+  subround(C, D, E, A, B, f3, K3, expand(data, 43));
+  subround(B, C, D, E, A, f3, K3, expand(data, 44));
+  subround(A, B, C, D, E, f3, K3, expand(data, 45));
+  subround(E, A, B, C, D, f3, K3, expand(data, 46));
+  subround(D, E, A, B, C, f3, K3, expand(data, 47));
+  subround(C, D, E, A, B, f3, K3, expand(data, 48));
+  subround(B, C, D, E, A, f3, K3, expand(data, 49));
+  subround(A, B, C, D, E, f3, K3, expand(data, 50));
+  subround(E, A, B, C, D, f3, K3, expand(data, 51));
+  subround(D, E, A, B, C, f3, K3, expand(data, 52));
+  subround(C, D, E, A, B, f3, K3, expand(data, 53));
+  subround(B, C, D, E, A, f3, K3, expand(data, 54));
+  subround(A, B, C, D, E, f3, K3, expand(data, 55));
+  subround(E, A, B, C, D, f3, K3, expand(data, 56));
+  subround(D, E, A, B, C, f3, K3, expand(data, 57));
+  subround(C, D, E, A, B, f3, K3, expand(data, 58));
+  subround(B, C, D, E, A, f3, K3, expand(data, 59));
+
+  subround(A, B, C, D, E, f4, K4, expand(data, 60));
+  subround(E, A, B, C, D, f4, K4, expand(data, 61));
+  subround(D, E, A, B, C, f4, K4, expand(data, 62));
+  subround(C, D, E, A, B, f4, K4, expand(data, 63));
+  subround(B, C, D, E, A, f4, K4, expand(data, 64));
+  subround(A, B, C, D, E, f4, K4, expand(data, 65));
+  subround(E, A, B, C, D, f4, K4, expand(data, 66));
+  subround(D, E, A, B, C, f4, K4, expand(data, 67));
+  subround(C, D, E, A, B, f4, K4, expand(data, 68));
+  subround(B, C, D, E, A, f4, K4, expand(data, 69));
+  subround(A, B, C, D, E, f4, K4, expand(data, 70));
+  subround(E, A, B, C, D, f4, K4, expand(data, 71));
+  subround(D, E, A, B, C, f4, K4, expand(data, 72));
+  subround(C, D, E, A, B, f4, K4, expand(data, 73));
+  subround(B, C, D, E, A, f4, K4, expand(data, 74));
+  subround(A, B, C, D, E, f4, K4, expand(data, 75));
+  subround(E, A, B, C, D, f4, K4, expand(data, 76));
+  subround(D, E, A, B, C, f4, K4, expand(data, 77));
+  subround(C, D, E, A, B, f4, K4, expand(data, 78));
+  subround(B, C, D, E, A, f4, K4, expand(data, 79));
+
+#undef f1
+#undef f2
+#undef f3
+#undef f4
+#undef K1
+#undef K2
+#undef K3
+#undef K4
+#undef expand
+#undef subround
+
+  ctx->state[0] += A;
+  ctx->state[1] += B;
+  ctx->state[2] += C;
+  ctx->state[3] += D;
+  ctx->state[4] += E;
+}
+
+void
+sha1_update(sha1_t *ctx, const void *data, size_t len) {
+  const unsigned char *bytes = (const unsigned char *)data;
+  size_t pos = ctx->size & 63;
+  size_t off = 0;
+
+  ctx->size += len;
+
+  if (pos > 0) {
+    size_t want = 64 - pos;
+
+    if (want > len)
+      want = len;
+
+    memcpy(ctx->block + pos, bytes + off, want);
+
+    pos += want;
+    len -= want;
+    off += want;
+
+    if (pos < 64)
+      return;
+
+    sha1_transform(ctx, ctx->block);
+  }
+
+  while (len >= 64) {
+    sha1_transform(ctx, bytes + off);
+    off += 64;
+    len -= 64;
+  }
+
+  if (len > 0)
+    memcpy(ctx->block, bytes + off, len);
+}
+
+void
+sha1_final(sha1_t *ctx, unsigned char *out) {
+  size_t pos = ctx->size & 63;
+  uint64_t len = ctx->size << 3;
+  unsigned char D[8];
+  size_t i;
+
+  write64be(D, len);
+
+  sha1_update(ctx, sha1_P, 1 + ((119 - pos) & 63));
+  sha1_update(ctx, D, 8);
+
+  for (i = 0; i < 5; i++)
+    write32be(out + i * 4, ctx->state[i]);
+
+  memset(ctx->state, 0x00, sizeof(ctx->state));
+  memset(ctx->block, 0x00, sizeof(ctx->block));
+
+  ctx->size = 0;
 }
 
 /*
@@ -285,6 +1059,38 @@ sha256_final(sha256_t *ctx, unsigned char *out) {
   memset(ctx->block, 0x00, sizeof(ctx->block));
 
   ctx->size = 0;
+}
+
+/*
+ * SHA224
+ */
+
+void
+sha224_init(sha224_t *ctx) {
+  ctx->state[0] = 0xc1059ed8;
+  ctx->state[1] = 0x367cd507;
+  ctx->state[2] = 0x3070dd17;
+  ctx->state[3] = 0xf70e5939;
+  ctx->state[4] = 0xffc00b31;
+  ctx->state[5] = 0x68581511;
+  ctx->state[6] = 0x64f98fa7;
+  ctx->state[7] = 0xbefa4fa4;
+  ctx->size = 0;
+}
+
+void
+sha224_update(sha224_t *ctx, const void *data, size_t len) {
+  sha256_update(ctx, data, len);
+}
+
+void
+sha224_final(sha224_t *ctx, unsigned char *out) {
+  uint8_t tmp[32];
+
+  sha256_final(ctx, tmp);
+
+  memcpy(out, tmp, 28);
+  memset(tmp, 0x00, sizeof(tmp));
 }
 
 /*
@@ -535,12 +1341,62 @@ sha384_update(sha384_t *ctx, const void *data, size_t len) {
 
 void
 sha384_final(sha384_t *ctx, unsigned char *out) {
-  uint8_t buf[64];
+  uint8_t tmp[64];
 
-  sha512_final(ctx, buf);
+  sha512_final(ctx, tmp);
 
-  memcpy(out, buf, 48);
-  memset(buf, 0x00, 48);
+  memcpy(out, tmp, 48);
+  memset(tmp, 0x00, sizeof(tmp));
+}
+
+/*
+ * Hash160
+ */
+
+void
+hash160_init(hash160_t *ctx) {
+  sha256_init(ctx);
+}
+
+void
+hash160_update(hash160_t *ctx, const void *data, size_t len) {
+  sha256_update(ctx, data, len);
+}
+
+void
+hash160_final(hash160_t *ctx, unsigned char *out) {
+  unsigned char tmp[32];
+  ripemd160_t rmd;
+
+  sha256_final(ctx, tmp);
+
+  ripemd160_init(&rmd);
+  ripemd160_update(&rmd, tmp, 32);
+  ripemd160_final(&rmd, out);
+
+  memset(tmp, 0x00, sizeof(tmp));
+}
+
+/*
+ * Hash256
+ */
+
+void
+hash256_init(hash256_t *ctx) {
+  sha256_init(ctx);
+}
+
+void
+hash256_update(hash256_t *ctx, const void *data, size_t len) {
+  sha256_update(ctx, data, len);
+}
+
+void
+hash256_final(hash256_t *ctx, unsigned char *out) {
+  sha256_final(ctx, out);
+  sha256_init(ctx);
+  sha256_update(ctx, out, 32);
+  sha256_final(ctx, out);
 }
 
 /*
@@ -709,9 +1565,13 @@ keccak_final(keccak_t *ctx, unsigned char *out, int pad, size_t len) {
   if (len == 0)
     len = 100 - (ctx->bs >> 1);
 
+  assert(len < ctx->bs);
+
   memset(ctx->block + ctx->pos, 0x00, ctx->bs - ctx->pos);
+
   ctx->block[ctx->pos] |= pad;
   ctx->block[ctx->bs - 1] |= 0x80;
+
   keccak_transform(ctx, ctx->block);
 
   for (i = 0; i < len; i++)
@@ -725,6 +1585,361 @@ keccak_final(keccak_t *ctx, unsigned char *out, int pad, size_t len) {
 }
 
 /*
+ * BLAKE2s
+ */
+
+static const uint32_t blake2s_iv[8] = {
+  0x6a09e667ul, 0xbb67ae85ul, 0x3c6ef372ul, 0xa54ff53aul,
+  0x510e527ful, 0x9b05688cul, 0x1f83d9abul, 0x5be0cd19ul
+};
+
+static const uint8_t blake2s_sigma[10][16] = {
+  {  0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 13, 14, 15 },
+  { 14, 10,  4,  8,  9, 15, 13,  6,  1, 12,  0,  2, 11,  7,  5,  3 },
+  { 11,  8, 12,  0,  5,  2, 15, 13, 10, 14,  3,  6,  7,  1,  9,  4 },
+  {  7,  9,  3,  1, 13, 12, 11, 14,  2,  6,  5, 10,  4,  0, 15,  8 },
+  {  9,  0,  5,  7,  2,  4, 10, 15, 14,  1, 11, 12,  6,  8,  3, 13 },
+  {  2, 12,  6, 10,  0, 11,  8,  3,  4, 13,  7,  5, 15, 14,  1,  9 },
+  { 12,  5,  1, 15, 14, 13,  4, 10,  0,  7,  6,  3,  9,  2,  8, 11 },
+  { 13, 11,  7, 14, 12,  1,  3,  9,  5,  0, 15,  4,  8,  6,  2, 10 },
+  {  6, 15, 14,  9, 11,  3,  0,  8, 12,  2, 13,  7,  1,  4, 10,  5 },
+  { 10,  2,  8,  4,  7,  6,  1,  5, 15, 11,  9, 14,  3, 12, 13 , 0 },
+};
+
+void
+blake2s_init(blake2s_t *ctx,
+             size_t outlen,
+             const unsigned char *key,
+             size_t keylen) {
+  size_t i;
+
+  assert(outlen >= 1 && outlen <= 32);
+  assert(keylen <= 32);
+
+  memset(ctx, 0, sizeof(blake2s_t));
+
+  ctx->outlen = outlen;
+
+  for (i = 0; i < 8; i++)
+    ctx->h[i] = blake2s_iv[i];
+
+  ctx->h[0] ^= 0x01010000 ^ (keylen << 8) ^ outlen;
+
+  if (keylen > 0) {
+    uint8_t block[64];
+
+    memset(block, 0x00, 64);
+    memcpy(block, key, keylen);
+
+    blake2s_update(ctx, block, 64);
+
+    memset(block, 0x00, 64);
+  }
+}
+
+static void
+blake2s_increment(blake2s_t *ctx, uint32_t inc) {
+  ctx->t[0] += inc;
+  ctx->t[1] += (ctx->t[0] < inc);
+}
+
+static void
+blake2s_compress(blake2s_t *ctx, const uint8_t *chunk) {
+  uint32_t m[16];
+  uint32_t v[16];
+  size_t i;
+
+  for (i = 0; i < 16; i++)
+    m[i] = read32le(chunk + i * sizeof(m[i]));
+
+  for (i = 0; i < 8; i++)
+    v[i] = ctx->h[i];
+
+  v[ 8] = blake2s_iv[0];
+  v[ 9] = blake2s_iv[1];
+  v[10] = blake2s_iv[2];
+  v[11] = blake2s_iv[3];
+  v[12] = ctx->t[0] ^ blake2s_iv[4];
+  v[13] = ctx->t[1] ^ blake2s_iv[5];
+  v[14] = ctx->f[0] ^ blake2s_iv[6];
+  v[15] = ctx->f[1] ^ blake2s_iv[7];
+
+#define G(r, i, a, b, c, d) do {              \
+  a = a + b + m[blake2s_sigma[r][2 * i + 0]]; \
+  d = rotr32(d ^ a, 16);                      \
+  c = c + d;                                  \
+  b = rotr32(b ^ c, 12);                      \
+  a = a + b + m[blake2s_sigma[r][2 * i + 1]]; \
+  d = rotr32(d ^ a, 8);                       \
+  c = c + d;                                  \
+  b = rotr32(b ^ c, 7);                       \
+} while (0)
+
+#define ROUND(r) do {                  \
+  G(r, 0, v[ 0], v[ 4], v[ 8], v[12]); \
+  G(r, 1, v[ 1], v[ 5], v[ 9], v[13]); \
+  G(r, 2, v[ 2], v[ 6], v[10], v[14]); \
+  G(r, 3, v[ 3], v[ 7], v[11], v[15]); \
+  G(r, 4, v[ 0], v[ 5], v[10], v[15]); \
+  G(r, 5, v[ 1], v[ 6], v[11], v[12]); \
+  G(r, 6, v[ 2], v[ 7], v[ 8], v[13]); \
+  G(r, 7, v[ 3], v[ 4], v[ 9], v[14]); \
+} while (0)
+
+  ROUND(0);
+  ROUND(1);
+  ROUND(2);
+  ROUND(3);
+  ROUND(4);
+  ROUND(5);
+  ROUND(6);
+  ROUND(7);
+  ROUND(8);
+  ROUND(9);
+
+  for (i = 0; i < 8; i++)
+    ctx->h[i] = ctx->h[i] ^ v[i] ^ v[i + 8];
+#undef G
+#undef ROUND
+}
+
+void
+blake2s_update(blake2s_t *ctx, const void *data, size_t len) {
+  const unsigned char *in = (const unsigned char *)data;
+
+  if (len > 0) {
+    size_t left = ctx->buflen;
+    size_t fill = 64 - left;
+
+    if (len > fill) {
+      ctx->buflen = 0;
+      memcpy(ctx->buf + left, in, fill);
+
+      blake2s_increment(ctx, 64);
+      blake2s_compress(ctx, ctx->buf);
+
+      in += fill;
+      len -= fill;
+
+      while (len > 64) {
+        blake2s_increment(ctx, 64);
+        blake2s_compress(ctx, in);
+
+        in += 64;
+        len -= 64;
+      }
+    }
+
+    memcpy(ctx->buf + ctx->buflen, in, len);
+    ctx->buflen += len;
+  }
+}
+
+void
+blake2s_final(blake2s_t *ctx, unsigned char *out) {
+  uint8_t buffer[32];
+  size_t i;
+
+  blake2s_increment(ctx, (uint32_t)ctx->buflen);
+
+  if (ctx->last_node)
+    ctx->f[1] = (uint32_t)-1;
+
+  ctx->f[0] = (uint32_t)-1;
+
+  memset(ctx->buf + ctx->buflen, 0, 64 - ctx->buflen);
+
+  blake2s_compress(ctx, ctx->buf);
+
+  for (i = 0; i < 8; i++)
+    write32le(buffer + sizeof(ctx->h[i]) * i, ctx->h[i]);
+
+  memcpy(out, buffer, ctx->outlen);
+  memset(buffer, 0x00, sizeof(buffer));
+}
+
+/*
+ * BLAKE2b
+ */
+
+static const uint64_t blake2b_iv[8] = {
+  0x6a09e667f3bcc908ull, 0xbb67ae8584caa73bull,
+  0x3c6ef372fe94f82bull, 0xa54ff53a5f1d36f1ull,
+  0x510e527fade682d1ull, 0x9b05688c2b3e6c1full,
+  0x1f83d9abfb41bd6bull, 0x5be0cd19137e2179ull
+};
+
+static const uint8_t blake2b_sigma[12][16] = {
+  {  0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 13, 14, 15 },
+  { 14, 10,  4,  8,  9, 15, 13,  6,  1, 12,  0,  2, 11,  7,  5,  3 },
+  { 11,  8, 12,  0,  5,  2, 15, 13, 10, 14,  3,  6,  7,  1,  9,  4 },
+  {  7,  9,  3,  1, 13, 12, 11, 14,  2,  6,  5, 10,  4,  0, 15,  8 },
+  {  9,  0,  5,  7,  2,  4, 10, 15, 14,  1, 11, 12,  6,  8,  3, 13 },
+  {  2, 12,  6, 10,  0, 11,  8,  3,  4, 13,  7,  5, 15, 14,  1,  9 },
+  { 12,  5,  1, 15, 14, 13,  4, 10,  0,  7,  6,  3,  9,  2,  8, 11 },
+  { 13, 11,  7, 14, 12,  1,  3,  9,  5,  0, 15,  4,  8,  6,  2, 10 },
+  {  6, 15, 14,  9, 11,  3,  0,  8, 12,  2, 13,  7,  1,  4, 10,  5 },
+  { 10,  2,  8,  4,  7,  6,  1,  5, 15, 11,  9, 14,  3, 12, 13 , 0 },
+  {  0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 13, 14, 15 },
+  { 14, 10,  4,  8,  9, 15, 13,  6,  1, 12,  0,  2, 11,  7,  5,  3 }
+};
+
+void
+blake2b_init(blake2b_t *ctx,
+             size_t outlen,
+             const unsigned char *key,
+             size_t keylen) {
+  size_t i;
+
+  assert(outlen >= 1 && outlen <= 64);
+  assert(keylen <= 64);
+
+  memset(ctx, 0, sizeof(blake2b_t));
+
+  ctx->outlen = outlen;
+
+  for (i = 0; i < 8; i++)
+    ctx->h[i] = blake2b_iv[i];
+
+  /* shift left 32 bits? */
+  ctx->h[0] ^= 0x01010000 ^ (keylen << 8) ^ outlen;
+
+  if (keylen > 0) {
+    uint8_t block[128];
+
+    memset(block, 0, 128);
+    memcpy(block, key, keylen);
+
+    blake2b_update(ctx, block, 128);
+
+    memset(block, 0x00, 128);
+  }
+}
+
+static void
+blake2b_increment(blake2b_t *ctx, const uint64_t inc) {
+  ctx->t[0] += inc;
+  ctx->t[1] += (ctx->t[0] < inc);
+}
+
+static void
+blake2b_compress(blake2b_t *ctx, const uint8_t *chunk) {
+  uint64_t m[16];
+  uint64_t v[16];
+  size_t i;
+
+  for (i = 0; i < 16; i++)
+    m[i] = read64le(chunk + i * sizeof(m[i]));
+
+  for (i = 0; i < 8; i++)
+    v[i] = ctx->h[i];
+
+  v[ 8] = blake2b_iv[0];
+  v[ 9] = blake2b_iv[1];
+  v[10] = blake2b_iv[2];
+  v[11] = blake2b_iv[3];
+  v[12] = blake2b_iv[4] ^ ctx->t[0];
+  v[13] = blake2b_iv[5] ^ ctx->t[1];
+  v[14] = blake2b_iv[6] ^ ctx->f[0];
+  v[15] = blake2b_iv[7] ^ ctx->f[1];
+
+#define G(r, i, a, b, c, d) do {              \
+  a = a + b + m[blake2b_sigma[r][2 * i + 0]]; \
+  d = rotr64(d ^ a, 32);                      \
+  c = c + d;                                  \
+  b = rotr64(b ^ c, 24);                      \
+  a = a + b + m[blake2b_sigma[r][2 * i + 1]]; \
+  d = rotr64(d ^ a, 16);                      \
+  c = c + d;                                  \
+  b = rotr64(b ^ c, 63);                      \
+} while (0)
+
+#define ROUND(r) do {                  \
+  G(r, 0, v[ 0], v[ 4], v[ 8], v[12]); \
+  G(r, 1, v[ 1], v[ 5], v[ 9], v[13]); \
+  G(r, 2, v[ 2], v[ 6], v[10], v[14]); \
+  G(r, 3, v[ 3], v[ 7], v[11], v[15]); \
+  G(r, 4, v[ 0], v[ 5], v[10], v[15]); \
+  G(r, 5, v[ 1], v[ 6], v[11], v[12]); \
+  G(r, 6, v[ 2], v[ 7], v[ 8], v[13]); \
+  G(r, 7, v[ 3], v[ 4], v[ 9], v[14]); \
+} while (0)
+
+  ROUND(0);
+  ROUND(1);
+  ROUND(2);
+  ROUND(3);
+  ROUND(4);
+  ROUND(5);
+  ROUND(6);
+  ROUND(7);
+  ROUND(8);
+  ROUND(9);
+  ROUND(10);
+  ROUND(11);
+
+  for (i = 0; i < 8; i++)
+    ctx->h[i] = ctx->h[i] ^ v[i] ^ v[i + 8];
+#undef G
+#undef ROUND
+}
+
+void
+blake2b_update(blake2b_t *ctx, const void *data, size_t len) {
+  const unsigned char * in = (const unsigned char *)data;
+
+  if (len > 0) {
+    size_t left = ctx->buflen;
+    size_t fill = 128 - left;
+
+    if (len > fill) {
+      ctx->buflen = 0;
+
+      memcpy(ctx->buf + left, in, fill);
+
+      blake2b_increment(ctx, 128);
+      blake2b_compress(ctx, ctx->buf);
+
+      in += fill;
+      len -= fill;
+
+      while (len > 128) {
+        blake2b_increment(ctx, 128);
+        blake2b_compress(ctx, in);
+        in += 128;
+        len -= 128;
+      }
+    }
+
+    memcpy(ctx->buf + ctx->buflen, in, len);
+    ctx->buflen += len;
+  }
+}
+
+void
+blake2b_final(blake2b_t *ctx, unsigned char *out) {
+  uint8_t buffer[64];
+  size_t i;
+
+  blake2b_increment(ctx, ctx->buflen);
+
+  if (ctx->last_node)
+    ctx->f[1] = (uint64_t)-1;
+
+  ctx->f[0] = (uint64_t)-1;
+
+  memset(ctx->buf + ctx->buflen, 0x00, 128 - ctx->buflen);
+
+  blake2b_compress(ctx, ctx->buf);
+
+  for ( i = 0; i < 8; i++)
+    write64le(buffer + sizeof(ctx->h[i]) * i, ctx->h[i]);
+
+  memcpy(out, buffer, ctx->outlen);
+  memset(buffer, 0x00, sizeof(buffer));
+}
+
+/*
  * Hash
  */
 
@@ -732,17 +1947,77 @@ void
 hash_init(hash_t *hash, int type) {
   hash->type = type;
   switch (hash->type) {
+    case HASH_MD5:
+      md5_init(&hash->ctx.md5);
+      break;
+    case HASH_RIPEMD160:
+      ripemd160_init(&hash->ctx.ripemd160);
+      break;
+    case HASH_SHA1:
+      sha1_init(&hash->ctx.sha1);
+      break;
+    case HASH_SHA224:
+      sha224_init(&hash->ctx.sha256);
+      break;
     case HASH_SHA256:
+    case HASH_HASH160:
+    case HASH_HASH256:
       sha256_init(&hash->ctx.sha256);
       break;
     case HASH_SHA384:
-      sha384_init(&hash->ctx.sha384);
+      sha384_init(&hash->ctx.sha512);
       break;
     case HASH_SHA512:
       sha512_init(&hash->ctx.sha512);
       break;
+    case HASH_SHAKE128:
+      keccak_init(&hash->ctx.keccak, 128);
+      break;
+    case HASH_KECCAK224:
+    case HASH_SHA3_224:
+      keccak_init(&hash->ctx.keccak, 224);
+      break;
+    case HASH_KECCAK:
+    case HASH_KECCAK256:
+    case HASH_SHA3:
+    case HASH_SHA3_256:
+    case HASH_SHAKE:
     case HASH_SHAKE256:
       keccak_init(&hash->ctx.keccak, 256);
+      break;
+    case HASH_KECCAK384:
+    case HASH_SHA3_384:
+      keccak_init(&hash->ctx.keccak, 384);
+      break;
+    case HASH_KECCAK512:
+    case HASH_SHA3_512:
+      keccak_init(&hash->ctx.keccak, 512);
+      break;
+    case HASH_BLAKE2S_128:
+      blake2s_init(&hash->ctx.blake2s, 16, NULL, 0);
+      break;
+    case HASH_BLAKE2S_160:
+      blake2s_init(&hash->ctx.blake2s, 20, NULL, 0);
+      break;
+    case HASH_BLAKE2S_224:
+      blake2s_init(&hash->ctx.blake2s, 28, NULL, 0);
+      break;
+    case HASH_BLAKE2S:
+    case HASH_BLAKE2S_256:
+      blake2s_init(&hash->ctx.blake2s, 32, NULL, 0);
+      break;
+    case HASH_BLAKE2B_160:
+      blake2b_init(&hash->ctx.blake2b, 20, NULL, 0);
+      break;
+    case HASH_BLAKE2B:
+    case HASH_BLAKE2B_256:
+      blake2b_init(&hash->ctx.blake2b, 32, NULL, 0);
+      break;
+    case HASH_BLAKE2B_384:
+      blake2b_init(&hash->ctx.blake2b, 48, NULL, 0);
+      break;
+    case HASH_BLAKE2B_512:
+      blake2b_init(&hash->ctx.blake2b, 64, NULL, 0);
       break;
     default:
       assert(0);
@@ -753,17 +2028,53 @@ hash_init(hash_t *hash, int type) {
 void
 hash_update(hash_t *hash, const void *data, size_t len) {
   switch (hash->type) {
+    case HASH_MD5:
+      md5_update(&hash->ctx.md5, data, len);
+      break;
+    case HASH_RIPEMD160:
+      ripemd160_update(&hash->ctx.ripemd160, data, len);
+      break;
+    case HASH_SHA1:
+      sha1_update(&hash->ctx.sha1, data, len);
+      break;
+    case HASH_SHA224:
     case HASH_SHA256:
+    case HASH_HASH160:
+    case HASH_HASH256:
       sha256_update(&hash->ctx.sha256, data, len);
       break;
     case HASH_SHA384:
-      sha384_update(&hash->ctx.sha384, data, len);
-      break;
     case HASH_SHA512:
       sha512_update(&hash->ctx.sha512, data, len);
       break;
+    case HASH_KECCAK:
+    case HASH_KECCAK224:
+    case HASH_KECCAK256:
+    case HASH_KECCAK384:
+    case HASH_KECCAK512:
+    case HASH_SHA3:
+    case HASH_SHA3_224:
+    case HASH_SHA3_256:
+    case HASH_SHA3_384:
+    case HASH_SHA3_512:
+    case HASH_SHAKE:
+    case HASH_SHAKE128:
     case HASH_SHAKE256:
       keccak_update(&hash->ctx.keccak, data, len);
+      break;
+    case HASH_BLAKE2S:
+    case HASH_BLAKE2S_128:
+    case HASH_BLAKE2S_160:
+    case HASH_BLAKE2S_224:
+    case HASH_BLAKE2S_256:
+      blake2s_update(&hash->ctx.blake2s, data, len);
+      break;
+    case HASH_BLAKE2B:
+    case HASH_BLAKE2B_160:
+    case HASH_BLAKE2B_256:
+    case HASH_BLAKE2B_384:
+    case HASH_BLAKE2B_512:
+      blake2b_update(&hash->ctx.blake2b, data, len);
       break;
     default:
       assert(0);
@@ -774,17 +2085,65 @@ hash_update(hash_t *hash, const void *data, size_t len) {
 void
 hash_final(hash_t *hash, unsigned char *out, size_t len) {
   switch (hash->type) {
+    case HASH_MD5:
+      md5_final(&hash->ctx.md5, out);
+      break;
+    case HASH_RIPEMD160:
+      ripemd160_final(&hash->ctx.ripemd160, out);
+      break;
+    case HASH_SHA1:
+      sha1_final(&hash->ctx.sha1, out);
+      break;
+    case HASH_SHA224:
+      sha224_final(&hash->ctx.sha256, out);
+      break;
     case HASH_SHA256:
       sha256_final(&hash->ctx.sha256, out);
       break;
     case HASH_SHA384:
-      sha384_final(&hash->ctx.sha384, out);
+      sha384_final(&hash->ctx.sha512, out);
       break;
     case HASH_SHA512:
       sha512_final(&hash->ctx.sha512, out);
       break;
+    case HASH_HASH160:
+      hash160_final(&hash->ctx.sha256, out);
+      break;
+    case HASH_HASH256:
+      hash256_final(&hash->ctx.sha256, out);
+      break;
+    case HASH_KECCAK:
+    case HASH_KECCAK224:
+    case HASH_KECCAK256:
+    case HASH_KECCAK384:
+    case HASH_KECCAK512:
+      keccak_final(&hash->ctx.keccak, out, 0x01, 0);
+      break;
+    case HASH_SHA3:
+    case HASH_SHA3_224:
+    case HASH_SHA3_256:
+    case HASH_SHA3_384:
+    case HASH_SHA3_512:
+      keccak_final(&hash->ctx.keccak, out, 0x06, 0);
+      break;
+    case HASH_SHAKE:
+    case HASH_SHAKE128:
     case HASH_SHAKE256:
       keccak_final(&hash->ctx.keccak, out, 0x1f, len);
+      break;
+    case HASH_BLAKE2S:
+    case HASH_BLAKE2S_128:
+    case HASH_BLAKE2S_160:
+    case HASH_BLAKE2S_224:
+    case HASH_BLAKE2S_256:
+      blake2s_final(&hash->ctx.blake2s, out);
+      break;
+    case HASH_BLAKE2B:
+    case HASH_BLAKE2B_160:
+    case HASH_BLAKE2B_256:
+    case HASH_BLAKE2B_384:
+    case HASH_BLAKE2B_512:
+      blake2b_final(&hash->ctx.blake2b, out);
       break;
     default:
       assert(0);
@@ -795,14 +2154,70 @@ hash_final(hash_t *hash, unsigned char *out, size_t len) {
 size_t
 hash_output_size(int type) {
   switch (type) {
+    case HASH_MD5:
+      return 16;
+    case HASH_RIPEMD160:
+      return 20;
+    case HASH_SHA1:
+      return 20;
+    case HASH_SHA224:
+      return 28;
     case HASH_SHA256:
       return 32;
     case HASH_SHA384:
       return 48;
     case HASH_SHA512:
       return 64;
+    case HASH_HASH160:
+      return 20;
+    case HASH_HASH256:
+      return 32;
+    case HASH_KECCAK:
+      return 32;
+    case HASH_KECCAK224:
+      return 28;
+    case HASH_KECCAK256:
+      return 32;
+    case HASH_KECCAK384:
+      return 48;
+    case HASH_KECCAK512:
+      return 64;
+    case HASH_SHA3:
+      return 32;
+    case HASH_SHA3_224:
+      return 28;
+    case HASH_SHA3_256:
+      return 32;
+    case HASH_SHA3_384:
+      return 48;
+    case HASH_SHA3_512:
+      return 64;
+    case HASH_SHAKE:
+      return 32;
+    case HASH_SHAKE128:
+      return 16;
     case HASH_SHAKE256:
       return 32;
+    case HASH_BLAKE2S:
+      return 32;
+    case HASH_BLAKE2S_128:
+      return 16;
+    case HASH_BLAKE2S_160:
+      return 20;
+    case HASH_BLAKE2S_224:
+      return 28;
+    case HASH_BLAKE2S_256:
+      return 32;
+    case HASH_BLAKE2B:
+      return 32;
+    case HASH_BLAKE2B_160:
+      return 20;
+    case HASH_BLAKE2B_256:
+      return 32;
+    case HASH_BLAKE2B_384:
+      return 48;
+    case HASH_BLAKE2B_512:
+      return 64;
     default:
       assert(0);
       break;
@@ -812,14 +2227,70 @@ hash_output_size(int type) {
 size_t
 hash_block_size(int type) {
   switch (type) {
+    case HASH_MD5:
+      return 64;
+    case HASH_RIPEMD160:
+      return 64;
+    case HASH_SHA1:
+      return 64;
+    case HASH_SHA224:
+      return 64;
     case HASH_SHA256:
       return 64;
     case HASH_SHA384:
       return 128;
     case HASH_SHA512:
       return 128;
+    case HASH_HASH160:
+      return 64;
+    case HASH_HASH256:
+      return 64;
+    case HASH_KECCAK:
+      return 136;
+    case HASH_KECCAK224:
+      return 144;
+    case HASH_KECCAK256:
+      return 136;
+    case HASH_KECCAK384:
+      return 104;
+    case HASH_KECCAK512:
+      return 72;
+    case HASH_SHA3:
+      return 136;
+    case HASH_SHA3_224:
+      return 144;
+    case HASH_SHA3_256:
+      return 136;
+    case HASH_SHA3_384:
+      return 104;
+    case HASH_SHA3_512:
+      return 72;
+    case HASH_SHAKE:
+      return 136;
+    case HASH_SHAKE128:
+      return 168;
     case HASH_SHAKE256:
       return 136;
+    case HASH_BLAKE2S:
+      return 64;
+    case HASH_BLAKE2S_128:
+      return 64;
+    case HASH_BLAKE2S_160:
+      return 64;
+    case HASH_BLAKE2S_224:
+      return 64;
+    case HASH_BLAKE2S_256:
+      return 128;
+    case HASH_BLAKE2B:
+      return 128;
+    case HASH_BLAKE2B_160:
+      return 128;
+    case HASH_BLAKE2B_256:
+      return 128;
+    case HASH_BLAKE2B_384:
+      return 128;
+    case HASH_BLAKE2B_512:
+      return 128;
     default:
       assert(0);
       break;
@@ -834,8 +2305,8 @@ void
 hmac_init(hmac_t *hmac, int type, const unsigned char *key, size_t len) {
   size_t hash_size = hash_output_size(type);
   size_t block_size = hash_block_size(type);
-  unsigned char tmp[MAX_HASH_SIZE];
-  unsigned char pad[MAX_BLOCK_SIZE];
+  unsigned char tmp[HASH_MAX_OUTPUT_SIZE];
+  unsigned char pad[HASH_MAX_BLOCK_SIZE];
   size_t i;
 
   hmac->type = type;

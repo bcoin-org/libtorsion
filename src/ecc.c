@@ -9531,7 +9531,7 @@ ecdsa_schnorr_hash_am(wei_t *ec, sc_t k,
   size_t off = 0;
   hash_t hash;
 
-  assert(MAX_SCALAR_SIZE >= MAX_HASH_SIZE);
+  assert(MAX_SCALAR_SIZE >= HASH_MAX_OUTPUT_SIZE);
 
   if (sc->size > hash_size) {
     off = sc->size - hash_size;
@@ -9561,7 +9561,7 @@ ecdsa_schnorr_hash_ram(wei_t *ec, sc_t e,
   size_t off = 0;
   hash_t hash;
 
-  assert(MAX_SCALAR_SIZE >= MAX_HASH_SIZE);
+  assert(MAX_SCALAR_SIZE >= HASH_MAX_OUTPUT_SIZE);
 
   if (sc->size > hash_size) {
     off = sc->size - hash_size;
@@ -10258,7 +10258,7 @@ schnorr_pubkey_combine(wei_t *ec,
 static void
 schnorr_hash_init(hash_t *hash, int type, const char *tag) {
   size_t size = hash_output_size(type);
-  unsigned char bytes[MAX_HASH_SIZE * 2];
+  unsigned char bytes[HASH_MAX_OUTPUT_SIZE * 2];
 
   hash_init(hash, type);
   hash_update(hash, tag, strlen(tag));
@@ -10279,7 +10279,7 @@ schnorr_hash_am(wei_t *ec, sc_t k,
   size_t off = 0;
   hash_t hash;
 
-  assert(MAX_SCALAR_SIZE >= MAX_HASH_SIZE);
+  assert(MAX_SCALAR_SIZE >= HASH_MAX_OUTPUT_SIZE);
 
   if (sc->size > hash_size) {
     off = sc->size - hash_size;
@@ -10310,7 +10310,7 @@ schnorr_hash_ram(wei_t *ec, sc_t e,
   size_t off = 0;
   hash_t hash;
 
-  assert(MAX_SCALAR_SIZE >= MAX_HASH_SIZE);
+  assert(MAX_SCALAR_SIZE >= HASH_MAX_OUTPUT_SIZE);
 
   if (sc->size > hash_size) {
     off = sc->size - hash_size;
@@ -11648,7 +11648,7 @@ eddsa_sign_tweak_add(edwards_t *ec,
   eddsa_privkey_expand(ec, scalar, prefix, priv);
   eddsa_scalar_tweak_add(ec, scalar, scalar, tweak);
 
-  assert(MAX_FIELD_SIZE + 1 >= MAX_HASH_SIZE);
+  assert(MAX_FIELD_SIZE + 1 >= HASH_MAX_OUTPUT_SIZE);
 
   hash_init(&hash, ec->hash);
   hash_update(&hash, prefix, ec->fe.adj_size);
@@ -11680,7 +11680,7 @@ eddsa_sign_tweak_mul(edwards_t *ec,
   eddsa_privkey_expand(ec, scalar, prefix, priv);
   eddsa_scalar_tweak_mul(ec, scalar, scalar, tweak);
 
-  assert(MAX_FIELD_SIZE + 1 >= MAX_HASH_SIZE);
+  assert(MAX_FIELD_SIZE + 1 >= HASH_MAX_OUTPUT_SIZE);
 
   hash_init(&hash, ec->hash);
   hash_update(&hash, prefix, ec->fe.adj_size);

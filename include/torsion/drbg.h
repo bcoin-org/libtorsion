@@ -23,8 +23,8 @@ extern "C" {
 typedef struct _drbg_s {
   int type;
   hmac_t kmac;
-  unsigned char K[MAX_HASH_SIZE];
-  unsigned char V[MAX_HASH_SIZE];
+  unsigned char K[HASH_MAX_OUTPUT_SIZE];
+  unsigned char V[HASH_MAX_OUTPUT_SIZE];
 } drbg_t;
 
 /*

@@ -128,17 +128,17 @@ extern "C" {
 #define HASH_HASH160 7
 #define HASH_HASH256 8
 #define HASH_KECCAK 9
-#define HASH_KECCAK224 9
-#define HASH_KECCAK256 10
-#define HASH_KECCAK384 11
-#define HASH_KECCAK512 12
-#define HASH_SHA3 13
-#define HASH_SHA3_224 14
-#define HASH_SHA3_256 15
-#define HASH_SHA3_384 16
-#define HASH_SHA3_512 17
-#define HASH_SHAKE 18
-#define HASH_SHAKE128 19
+#define HASH_KECCAK224 10
+#define HASH_KECCAK256 11
+#define HASH_KECCAK384 12
+#define HASH_KECCAK512 13
+#define HASH_SHA3 14
+#define HASH_SHA3_224 15
+#define HASH_SHA3_256 16
+#define HASH_SHA3_384 17
+#define HASH_SHA3_512 18
+#define HASH_SHAKE 19
+#define HASH_SHAKE128 20
 #define HASH_SHAKE256 21
 #define HASH_BLAKE2S 22
 #define HASH_BLAKE2S_128 23
@@ -151,12 +151,30 @@ extern "C" {
 #define HASH_BLAKE2B_384 30
 #define HASH_BLAKE2B_512 31
 
-#define MAX_HASH_SIZE 64
-#define MAX_BLOCK_SIZE 128
+#define HASH_MAX_OUTPUT_SIZE 64
+#define HASH_MAX_BLOCK_SIZE 128
 
 /*
  * Structs
  */
+
+typedef struct _md5_s {
+  uint32_t state[4];
+  uint8_t block[64];
+  uint64_t size;
+} md5_t;
+
+typedef struct _ripemd160_s {
+  uint32_t state[5];
+  uint8_t block[64];
+  uint64_t size;
+} ripemd160_t;
+
+typedef struct _sha1_s {
+  uint32_t state[5];
+  uint8_t block[64];
+  uint64_t size;
+} sha1_t;
 
 typedef struct _sha256_s {
   uint32_t state[8];
@@ -173,6 +191,8 @@ typedef struct _sha512_s {
 } sha512_t;
 
 typedef sha512_t sha384_t;
+typedef sha256_t hash160_t;
+typedef sha256_t hash256_t;
 
 typedef struct _keccak_s {
   size_t bs;
@@ -181,14 +201,37 @@ typedef struct _keccak_s {
   size_t pos;
 } keccak_t;
 
+typedef struct _blake2s_s {
+  uint32_t h[8];
+  uint32_t t[2];
+  uint32_t f[2];
+  uint8_t buf[64];
+  size_t buflen;
+  size_t outlen;
+  uint8_t last_node;
+} blake2s_t;
+
+typedef struct _blake2b_s {
+  uint64_t h[8];
+  uint64_t t[2];
+  uint64_t f[2];
+  uint8_t buf[128];
+  size_t buflen;
+  size_t outlen;
+  uint8_t last_node;
+} blake2b_t;
+
 typedef struct _hash_s {
   int type;
   union {
-    sha224_t sha224;
+    md5_t md5;
+    ripemd160_t ripemd160;
+    sha1_t sha1;
     sha256_t sha256;
-    sha384_t sha384;
     sha512_t sha512;
     keccak_t keccak;
+    blake2s_t blake2s;
+    blake2b_t blake2b;
   } ctx;
 } hash_t;
 
@@ -197,6 +240,58 @@ typedef struct _hmac_s {
   hash_t inner;
   hash_t outer;
 } hmac_t;
+
+/*
+ * MD5
+ */
+
+void
+md5_init(md5_t *ctx);
+
+void
+md5_update(md5_t *ctx, const void *data, size_t len);
+
+void
+md5_final(md5_t *ctx, unsigned char *out);
+
+/*
+ * RIPEMD160
+ */
+
+void
+ripemd160_init(ripemd160_t *ctx);
+
+void
+ripemd160_update(ripemd160_t *ctx, const void *data, size_t len);
+
+void
+ripemd160_final(ripemd160_t *ctx, unsigned char *out);
+
+/*
+ * SHA1
+ */
+
+void
+sha1_init(sha1_t *ctx);
+
+void
+sha1_update(sha1_t *ctx, const void *data, size_t len);
+
+void
+sha1_final(sha1_t *ctx, unsigned char *out);
+
+/*
+ * SHA224
+ */
+
+void
+sha224_init(sha224_t *ctx);
+
+void
+sha224_update(sha224_t *ctx, const void *data, size_t len);
+
+void
+sha224_final(sha224_t *ctx, unsigned char *out);
 
 /*
  * SHA256
@@ -212,19 +307,6 @@ void
 sha256_final(sha256_t *ctx, unsigned char *out);
 
 /*
- * SHA512
- */
-
-void
-sha512_init(sha512_t *ctx);
-
-void
-sha512_update(sha512_t *ctx, const void *data, size_t len);
-
-void
-sha512_final(sha512_t *ctx, unsigned char *out);
-
-/*
  * SHA384
  */
 
@@ -238,6 +320,45 @@ void
 sha384_final(sha384_t *ctx, unsigned char *out);
 
 /*
+ * SHA512
+ */
+
+void
+sha512_init(sha512_t *ctx);
+
+void
+sha512_update(sha512_t *ctx, const void *data, size_t len);
+
+void
+sha512_final(sha512_t *ctx, unsigned char *out);
+
+/*
+ * Hash160
+ */
+
+void
+hash160_init(hash160_t *ctx);
+
+void
+hash160_update(hash160_t *ctx, const void *data, size_t len);
+
+void
+hash160_final(hash160_t *ctx, unsigned char *out);
+
+/*
+ * Hash256
+ */
+
+void
+hash256_init(hash256_t *ctx);
+
+void
+hash256_update(hash256_t *ctx, const void *data, size_t len);
+
+void
+hash256_final(hash256_t *ctx, unsigned char *out);
+
+/*
  * Keccak
  */
 
@@ -249,6 +370,38 @@ keccak_update(keccak_t *ctx, const void *data, size_t len);
 
 void
 keccak_final(keccak_t *ctx, unsigned char *out, int pad, size_t len);
+
+/*
+ * BLAKE2s
+ */
+
+void
+blake2s_init(blake2s_t *ctx,
+             size_t outlen,
+             const unsigned char *key,
+             size_t keylen);
+
+void
+blake2s_update(blake2s_t *ctx, const void *data, size_t len);
+
+void
+blake2s_final(blake2s_t *ctx, unsigned char *out);
+
+/*
+ * BLAKE2b
+ */
+
+void
+blake2b_init(blake2b_t *ctx,
+             size_t outlen,
+             const unsigned char *key,
+             size_t keylen);
+
+void
+blake2b_update(blake2b_t *ctx, const void *data, size_t len);
+
+void
+blake2b_final(blake2b_t *ctx, unsigned char *out);
 
 /*
  * Hash
