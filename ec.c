@@ -19,6 +19,8 @@
 #include <windows.h>
 #endif
 
+#include "ec.h"
+
 #include "fields/p192.h"
 #include "fields/p224.h"
 #include "fields/p256.h"
@@ -103,7 +105,7 @@ typedef uint32_t fe_word_t;
 typedef mp_limb_t sc_t[MAX_SCALAR_LIMBS];
 typedef mp_limb_t *sc_ptr;
 
-typedef struct scalar_field_s {
+typedef struct _scalar_field_s {
   int endian;
   size_t size;
   size_t bits;
@@ -115,7 +117,7 @@ typedef struct scalar_field_s {
   unsigned char raw[MAX_SCALAR_SIZE];
 } scalar_field_t;
 
-typedef struct scalar_def_s {
+typedef struct _scalar_def_s {
   size_t bits;
   const unsigned char n[MAX_FIELD_SIZE];
 } scalar_def_t;
@@ -143,7 +145,7 @@ typedef void fe_scmul_121666(fe_word_t *out1, const fe_word_t *arg1);
 typedef fe_word_t fe_t[MAX_FIELD_WORDS];
 typedef fe_word_t *fe_ptr;
 
-typedef struct prime_field_s {
+typedef struct _prime_field_s {
   int endian;
   size_t size;
   size_t bits;
@@ -178,7 +180,7 @@ typedef struct prime_field_s {
   fe_t mone;
 } prime_field_t;
 
-typedef struct prime_def_s {
+typedef struct _prime_def_s {
   size_t bits;
   size_t words;
   const unsigned char p[MAX_FIELD_SIZE];
@@ -204,20 +206,20 @@ typedef struct prime_def_s {
  */
 
 /* wge = weierstrass group element (affine) */
-typedef struct wge_s {
+typedef struct _wge_s {
   fe_t x;
   fe_t y;
   int inf;
 } wge_t;
 
 /* jge = jacobian group element */
-typedef struct jge_s {
+typedef struct _jge_s {
   fe_t x;
   fe_t y;
   fe_t z;
 } jge_t;
 
-typedef struct wei_s {
+typedef struct _wei_s {
   int hash;
   prime_field_t fe;
   scalar_field_t sc;
@@ -249,7 +251,7 @@ typedef struct wei_s {
   wge_t endo_points[NAF_SIZE_PRE];
 } wei_t;
 
-typedef struct wei_def_s {
+typedef struct _wei_def_s {
   const char *id;
   int hash;
   const prime_def_t *fe;
@@ -270,7 +272,7 @@ typedef struct wei_def_s {
   const unsigned char g2[MAX_SCALAR_SIZE];
 } wei_def_t;
 
-typedef struct wei_scratch_s {
+typedef struct _wei_scratch_s {
   jge_t wnd_normal[32 * 4]; /* 27kb */
   wge_t wnd_endo[64 * 4];
   int32_t naf[64 * (MAX_SCALAR_BITS + 1)]; /* 65kb */
@@ -285,19 +287,19 @@ typedef struct wei_scratch_s {
 typedef void clamp_func(unsigned char *raw);
 
 /* mge = montgomery group element (affine) */
-typedef struct mge_s {
+typedef struct _mge_s {
   fe_t x;
   fe_t y;
   int inf;
 } mge_t;
 
 /* pge = projective group element (x/z) */
-typedef struct pge_s {
+typedef struct _pge_s {
   fe_t x;
   fe_t z;
 } pge_t;
 
-typedef struct mont_s {
+typedef struct _mont_s {
   const char *prefix;
   prime_field_t fe;
   scalar_field_t sc;
@@ -316,7 +318,7 @@ typedef struct mont_s {
   clamp_func *clamp;
 } mont_t;
 
-typedef struct mont_def_s {
+typedef struct _mont_def_s {
   const char *id;
   const char *prefix;
   const prime_def_t *fe;
@@ -337,14 +339,14 @@ typedef struct mont_def_s {
  */
 
 /* xge = extended group element */
-typedef struct xge_s {
+typedef struct _xge_s {
   fe_t x;
   fe_t y;
   fe_t z;
   fe_t t;
 } xge_t;
 
-typedef struct edwards_s {
+typedef struct _edwards_s {
   int hash;
   int context;
   const char *prefix;
@@ -372,7 +374,7 @@ typedef struct edwards_s {
   clamp_func *clamp;
 } edwards_t;
 
-typedef struct edwards_def_s {
+typedef struct _edwards_def_s {
   const char *id;
   int hash;
   int context;
@@ -390,7 +392,7 @@ typedef struct edwards_def_s {
   clamp_func *clamp;
 } edwards_def_t;
 
-typedef struct edwards_scratch_s {
+typedef struct _edwards_scratch_s {
   xge_t wnd[32 * 4]; /* 36kb */
   int32_t naf[32 * (MAX_SCALAR_BITS + 1)]; /* 65kb */
   xge_t points[64];
@@ -8378,11 +8380,14 @@ static const edwards_def_t *edwards_curves[3] = {
  * ECDSA
  */
 
-static wei_t *
+wei_t *
 ecdsa_context_create(const char *id) {
   wei_t *ec = NULL;
   const wei_def_t *def = NULL;
   size_t i;
+
+  if (id == NULL)
+    return NULL;
 
   for (i = 0; i < ARRAY_SIZE(wei_curves); i++) {
     if (strcmp(wei_curves[i]->id, id) == 0) {
@@ -8404,13 +8409,49 @@ ecdsa_context_create(const char *id) {
   return ec;
 }
 
-static void
+void
 ecdsa_context_destroy(wei_t *ec) {
   if (ec != NULL)
     free(ec);
 }
 
-static void
+wei_scratch_t *
+ecdsa_scratch_create(wei_t *ec) {
+  return malloc(sizeof(wei_scratch_t));
+}
+
+void
+ecdsa_scratch_destroy(wei_t *ec, wei_scratch_t *scratch) {
+  if (scratch != NULL)
+    free(scratch);
+}
+
+size_t
+ecdsa_scalar_size(wei_t *ec) {
+  return ec->sc.size;
+}
+
+size_t
+ecdsa_field_size(wei_t *ec) {
+  return ec->fe.size;
+}
+
+size_t
+ecdsa_privkey_size(wei_t *ec) {
+  return ec->sc.size;
+}
+
+size_t
+ecdsa_pubkey_size(wei_t *ec, int compact) {
+  return compact ? 1 + ec->fe.size * 2 : 1 + ec->fe.size;
+}
+
+size_t
+ecdsa_sig_size(wei_t *ec) {
+  return ec->sc.size * 2;
+}
+
+void
 ecdsa_privkey_generate(wei_t *ec,
                        unsigned char *out,
                        const unsigned char *seed) {
@@ -8434,7 +8475,7 @@ ecdsa_privkey_generate(wei_t *ec,
   cleanse(&rng, sizeof(rng));
 }
 
-static int
+int
 ecdsa_privkey_verify(wei_t *ec, const unsigned char *priv) {
   scalar_field_t *sc = &ec->sc;
   int ret = 1;
@@ -8445,7 +8486,7 @@ ecdsa_privkey_verify(wei_t *ec, const unsigned char *priv) {
   return ret;
 }
 
-static int
+int
 ecdsa_privkey_tweak_add(wei_t *ec,
                         unsigned char *out,
                         const unsigned char *priv,
@@ -8477,7 +8518,7 @@ fail:
   return ret;
 }
 
-static int
+int
 ecdsa_privkey_tweak_mul(wei_t *ec,
                         unsigned char *out,
                         const unsigned char *priv,
@@ -8509,7 +8550,7 @@ fail:
   return ret;
 }
 
-static int
+int
 ecdsa_privkey_reduce(wei_t *ec,
                      unsigned char *out,
                      const unsigned char *bytes,
@@ -8539,7 +8580,7 @@ fail:
   return ret;
 }
 
-static int
+int
 ecdsa_privkey_negate(wei_t *ec, unsigned char *out, const unsigned char *priv) {
   scalar_field_t *sc = &ec->sc;
   sc_t a;
@@ -8560,7 +8601,7 @@ fail:
   return ret;
 }
 
-static int
+int
 ecdsa_privkey_invert(wei_t *ec, unsigned char *out, const unsigned char *priv) {
   scalar_field_t *sc = &ec->sc;
   sc_t a;
@@ -8581,7 +8622,7 @@ fail:
   return ret;
 }
 
-static int
+int
 ecdsa_pubkey_create(wei_t *ec,
                     unsigned char *pub,
                     size_t *pub_len,
@@ -8610,7 +8651,7 @@ fail:
   return ret;
 }
 
-static int
+int
 ecdsa_pubkey_convert(wei_t *ec,
                      unsigned char *out,
                      size_t *out_len,
@@ -8625,7 +8666,7 @@ ecdsa_pubkey_convert(wei_t *ec,
   return wge_export(ec, out, out_len, &A, compact);
 }
 
-static void
+void
 ecdsa_pubkey_from_uniform(wei_t *ec,
                           unsigned char *out,
                           size_t *out_len,
@@ -8638,7 +8679,7 @@ ecdsa_pubkey_from_uniform(wei_t *ec,
   assert(wge_export(ec, out, out_len, &A, compact));
 }
 
-static int
+int
 ecdsa_pubkey_to_uniform(wei_t *ec,
                         unsigned char *out,
                         const unsigned char *pub,
@@ -8652,7 +8693,7 @@ ecdsa_pubkey_to_uniform(wei_t *ec,
   return wei_point_to_uniform(ec, out, &A, hint);
 }
 
-static int
+int
 ecdsa_pubkey_from_hash(wei_t *ec,
                        unsigned char *out,
                        size_t *out_len,
@@ -8665,7 +8706,7 @@ ecdsa_pubkey_from_hash(wei_t *ec,
   return wge_export(ec, out, out_len, &A, compact);
 }
 
-static int
+int
 ecdsa_pubkey_to_hash(wei_t *ec,
                      unsigned char *out,
                      const unsigned char *pub,
@@ -8681,7 +8722,7 @@ ecdsa_pubkey_to_hash(wei_t *ec,
   return 1;
 }
 
-static int
+int
 ecdsa_pubkey_verify(wei_t *ec,
                     unsigned char *out,
                     const unsigned char *pub,
@@ -8692,7 +8733,7 @@ ecdsa_pubkey_verify(wei_t *ec,
   return wge_import(ec, &A, pub, pub_len);
 }
 
-static int
+int
 ecdsa_pubkey_tweak_add(wei_t *ec,
                        unsigned char *out,
                        size_t *out_len,
@@ -8718,7 +8759,7 @@ ecdsa_pubkey_tweak_add(wei_t *ec,
   return wge_export(ec, out, out_len, &A, compact);
 }
 
-static int
+int
 ecdsa_pubkey_tweak_mul(wei_t *ec,
                        unsigned char *out,
                        size_t *out_len,
@@ -8743,7 +8784,7 @@ ecdsa_pubkey_tweak_mul(wei_t *ec,
   return wge_export(ec, out, out_len, &A, compact);
 }
 
-static int
+int
 ecdsa_pubkey_add(wei_t *ec,
                  unsigned char *out,
                  size_t *out_len,
@@ -8765,7 +8806,7 @@ ecdsa_pubkey_add(wei_t *ec,
   return wge_export(ec, out, out_len, &A1, compact);
 }
 
-static int
+int
 ecdsa_pubkey_combine(wei_t *ec,
                      unsigned char *out,
                      size_t *out_len,
@@ -8791,7 +8832,7 @@ ecdsa_pubkey_combine(wei_t *ec,
   return wge_export(ec, out, out_len, &A, compact);
 }
 
-static int
+int
 ecdsa_pubkey_negate(wei_t *ec,
                     unsigned char *out,
                     size_t *out_len,
@@ -8808,7 +8849,7 @@ ecdsa_pubkey_negate(wei_t *ec,
   return wge_export(ec, out, out_len, &A, compact);
 }
 
-static int
+int
 ecdsa_sig_export(wei_t *ec,
                  unsigned char *out,
                  size_t *out_len,
@@ -8876,7 +8917,7 @@ ecdsa_sig_export(wei_t *ec,
   return 1;
 }
 
-static int
+int
 ecdsa_sig_import_lax(wei_t *ec,
                      unsigned char *out,
                      const unsigned char *der,
@@ -9042,7 +9083,7 @@ ecdsa_sig_import_lax(wei_t *ec,
   return 1;
 }
 
-static int
+int
 ecdsa_sig_import(wei_t *ec,
                  unsigned char *out,
                  const unsigned char *der,
@@ -9062,7 +9103,7 @@ ecdsa_sig_import(wei_t *ec,
   return bytes_equal(der, tmp, tmp_len);
 }
 
-static int
+int
 ecdsa_sig_normalize(wei_t *ec, unsigned char *out, const unsigned char *sig) {
   scalar_field_t *sc = &ec->sc;
   sc_t r, s;
@@ -9081,7 +9122,7 @@ ecdsa_sig_normalize(wei_t *ec, unsigned char *out, const unsigned char *sig) {
   return 1;
 }
 
-static int
+int
 ecdsa_is_low_s(wei_t *ec, const unsigned char *sig) {
   scalar_field_t *sc = &ec->sc;
   sc_t r, s;
@@ -9154,7 +9195,7 @@ ecdsa_reduce(wei_t *ec, sc_t r, const unsigned char *msg, size_t msg_len) {
   return ret;
 }
 
-static int
+int
 ecdsa_sign(wei_t *ec,
            unsigned char *sig,
            unsigned int *param,
@@ -9279,7 +9320,7 @@ fail:
   return ret;
 }
 
-static int
+int
 ecdsa_verify(wei_t *ec,
              const unsigned char *msg,
              size_t msg_len,
@@ -9363,7 +9404,7 @@ ecdsa_verify(wei_t *ec,
 #endif
 }
 
-static int
+int
 ecdsa_recover(wei_t *ec,
               unsigned char *pub,
               size_t *pub_len,
@@ -9446,7 +9487,7 @@ ecdsa_recover(wei_t *ec,
   return wge_export(ec, pub, pub_len, &A, compact);
 }
 
-static int
+int
 ecdsa_derive(wei_t *ec,
              unsigned char *secret,
              size_t *secret_len,
@@ -9540,7 +9581,7 @@ ecdsa_schnorr_hash_ram(wei_t *ec, sc_t e,
   cleanse(&hash, sizeof(hash));
 }
 
-static int
+int
 ecdsa_schnorr_sign(wei_t *ec,
                    unsigned char *sig,
                    const unsigned char *msg,
@@ -9625,7 +9666,7 @@ fail:
   return ret;
 }
 
-static int
+int
 ecdsa_schnorr_verify(wei_t *ec,
                      const unsigned char *msg,
                      const unsigned char *sig,
@@ -9708,7 +9749,7 @@ ecdsa_schnorr_verify(wei_t *ec,
   return 1;
 }
 
-static int
+int
 ecdsa_schnorr_verify_batch(wei_t *ec,
                            const unsigned char **msgs,
                            const unsigned char **sigs,
@@ -9859,29 +9900,64 @@ ecdsa_schnorr_verify_batch(wei_t *ec,
  * Schnorr
  */
 
-static wei_t *
+wei_t *
 schnorr_context_create(const char *id) {
   return ecdsa_context_create(id);
 }
 
-static void
+void
 schnorr_context_destroy(wei_t *ec) {
   ecdsa_context_destroy(ec);
 }
 
-static void
+wei_scratch_t *
+schnorr_scratch_create(wei_t *ec) {
+  return ecdsa_scratch_create(ec);
+}
+
+void
+schnorr_scratch_destroy(wei_t *ec, wei_scratch_t *scratch) {
+  return ecdsa_scratch_destroy(ec, scratch);
+}
+
+size_t
+schnorr_scalar_size(wei_t *ec) {
+  return ec->sc.size;
+}
+
+size_t
+schnorr_field_size(wei_t *ec) {
+  return ec->fe.size;
+}
+
+size_t
+schnorr_privkey_size(wei_t *ec) {
+  return ec->sc.size;
+}
+
+size_t
+schnorr_pubkey_size(wei_t *ec) {
+  return ec->fe.size;
+}
+
+size_t
+schnorr_sig_size(wei_t *ec) {
+  return ec->fe.size + ec->sc.size;
+}
+
+void
 schnorr_privkey_generate(wei_t *ec,
                          unsigned char *out,
                          const unsigned char *seed) {
   return ecdsa_privkey_generate(ec, out, seed);
 }
 
-static int
+int
 schnorr_privkey_verify(wei_t *ec, const unsigned char *priv) {
   return ecdsa_privkey_verify(ec, priv);
 }
 
-static int
+int
 schnorr_privkey_export(wei_t *ec,
                        unsigned char *out,
                        const unsigned char *priv) {
@@ -9907,7 +9983,7 @@ fail:
   return ret;
 }
 
-static int
+int
 schnorr_privkey_import(wei_t *ec,
                        unsigned char *out,
                        const unsigned char *bytes) {
@@ -9921,7 +9997,7 @@ schnorr_privkey_import(wei_t *ec,
   return 1;
 }
 
-static int
+int
 schnorr_privkey_tweak_add(wei_t *ec,
                           unsigned char *out,
                           const unsigned char *priv,
@@ -9960,7 +10036,7 @@ fail:
   return ret;
 }
 
-static int
+int
 schnorr_privkey_tweak_mul(wei_t *ec,
                           unsigned char *out,
                           const unsigned char *priv,
@@ -9968,7 +10044,7 @@ schnorr_privkey_tweak_mul(wei_t *ec,
   return ecdsa_privkey_tweak_mul(ec, out, priv, tweak);
 }
 
-static int
+int
 schnorr_privkey_reduce(wei_t *ec,
                        unsigned char *out,
                        const unsigned char *bytes,
@@ -9976,14 +10052,14 @@ schnorr_privkey_reduce(wei_t *ec,
   return ecdsa_privkey_reduce(ec, out, bytes, len);
 }
 
-static int
+int
 schnorr_privkey_invert(wei_t *ec,
                        unsigned char *out,
                        const unsigned char *priv) {
   return ecdsa_privkey_invert(ec, out, priv);
 }
 
-static int
+int
 schnorr_pubkey_create(wei_t *ec,
                       unsigned char *pub,
                       const unsigned char *priv) {
@@ -10010,7 +10086,7 @@ fail:
   return ret;
 }
 
-static void
+void
 schnorr_pubkey_from_uniform(wei_t *ec,
                             unsigned char *out,
                             const unsigned char *bytes) {
@@ -10021,7 +10097,7 @@ schnorr_pubkey_from_uniform(wei_t *ec,
   assert(wge_export_x(ec, out, &A));
 }
 
-static int
+int
 schnorr_pubkey_to_uniform(wei_t *ec,
                           unsigned char *out,
                           const unsigned char *pub,
@@ -10034,7 +10110,7 @@ schnorr_pubkey_to_uniform(wei_t *ec,
   return wei_point_to_uniform(ec, out, &A, hint);
 }
 
-static int
+int
 schnorr_pubkey_from_hash(wei_t *ec,
                          unsigned char *out,
                          const unsigned char *bytes) {
@@ -10045,7 +10121,7 @@ schnorr_pubkey_from_hash(wei_t *ec,
   return wge_export_x(ec, out, &A);
 }
 
-static int
+int
 schnorr_pubkey_to_hash(wei_t *ec,
                        unsigned char *out,
                        const unsigned char *pub,
@@ -10060,14 +10136,14 @@ schnorr_pubkey_to_hash(wei_t *ec,
   return 1;
 }
 
-static int
+int
 schnorr_pubkey_verify(wei_t *ec, unsigned char *out, const unsigned char *pub) {
   wge_t A;
 
   return wge_import_x(ec, &A, pub);
 }
 
-static int
+int
 schnorr_pubkey_export(wei_t *ec,
                       unsigned char *out,
                       size_t *out_len,
@@ -10081,7 +10157,7 @@ schnorr_pubkey_export(wei_t *ec,
   return wge_export(ec, out, out_len, &A, compact);
 }
 
-static int
+int
 schnorr_pubkey_import(wei_t *ec,
                       unsigned char *out,
                       const unsigned char *pub,
@@ -10094,7 +10170,7 @@ schnorr_pubkey_import(wei_t *ec,
   return wge_export_x(ec, out, &A);
 }
 
-static int
+int
 schnorr_pubkey_tweak_add(wei_t *ec,
                          unsigned char *out,
                          const unsigned char *pub,
@@ -10117,11 +10193,11 @@ schnorr_pubkey_tweak_add(wei_t *ec,
   return wge_export_x(ec, out, &A);
 }
 
-static int
+int
 schnorr_pubkey_tweak_mul(wei_t *ec,
-                       unsigned char *out,
-                       const unsigned char *pub,
-                       const unsigned char *tweak) {
+                         unsigned char *out,
+                         const unsigned char *pub,
+                         const unsigned char *tweak) {
   scalar_field_t *sc = &ec->sc;
   wge_t A;
   sc_t t;
@@ -10139,11 +10215,11 @@ schnorr_pubkey_tweak_mul(wei_t *ec,
   return wge_export_x(ec, out, &A);
 }
 
-static int
+int
 schnorr_pubkey_add(wei_t *ec,
-                 unsigned char *out,
-                 const unsigned char *pub1,
-                 const unsigned char *pub2) {
+                   unsigned char *out,
+                   const unsigned char *pub1,
+                   const unsigned char *pub2) {
   wge_t A1, A2;
 
   if (!wge_import_x(ec, &A1, pub1))
@@ -10157,11 +10233,11 @@ schnorr_pubkey_add(wei_t *ec,
   return wge_export_x(ec, out, &A1);
 }
 
-static int
+int
 schnorr_pubkey_combine(wei_t *ec,
-                     unsigned char *out,
-                     const unsigned char **pubs,
-                     size_t len) {
+                       unsigned char *out,
+                       const unsigned char **pubs,
+                       size_t len) {
   wge_t A;
   jge_t P;
   size_t i;
@@ -10255,7 +10331,7 @@ schnorr_hash_ram(wei_t *ec, sc_t e,
   cleanse(&hash, sizeof(hash));
 }
 
-static int
+int
 schnorr_sign(wei_t *ec,
              unsigned char *sig,
              const unsigned char *msg,
@@ -10345,7 +10421,7 @@ fail:
   return ret;
 }
 
-static int
+int
 schnorr_verify(wei_t *ec,
                const unsigned char *msg,
                const unsigned char *sig,
@@ -10425,7 +10501,7 @@ schnorr_verify(wei_t *ec,
   return 1;
 }
 
-static int
+int
 schnorr_verify_batch(wei_t *ec,
                      const unsigned char **msgs,
                      const unsigned char **sigs,
@@ -10557,7 +10633,7 @@ schnorr_verify_batch(wei_t *ec,
   return 1;
 }
 
-static int
+int
 schnorr_derive(wei_t *ec,
                unsigned char *secret,
                const unsigned char *pub,
@@ -10593,11 +10669,14 @@ fail:
  * ECDH
  */
 
-static mont_t *
+mont_t *
 ecdh_context_create(const char *id) {
   mont_t *ec = NULL;
   const mont_def_t *def = NULL;
   size_t i;
+
+  if (id == NULL)
+    return NULL;
 
   for (i = 0; i < ARRAY_SIZE(mont_curves); i++) {
     if (strcmp(mont_curves[i]->id, id) == 0) {
@@ -10619,13 +10698,33 @@ ecdh_context_create(const char *id) {
   return ec;
 }
 
-static void
+void
 ecdh_context_destroy(mont_t *ec) {
   if (ec != NULL)
     free(ec);
 }
 
-static void
+size_t
+ecdh_scalar_size(mont_t *ec) {
+  return ec->sc.size;
+}
+
+size_t
+ecdh_field_size(mont_t *ec) {
+  return ec->fe.size;
+}
+
+size_t
+ecdh_privkey_size(mont_t *ec) {
+  return ec->sc.size;
+}
+
+size_t
+ecdh_pubkey_size(mont_t *ec) {
+  return ec->fe.size;
+}
+
+void
 ecdh_privkey_generate(mont_t *ec,
                       unsigned char *out,
                       const unsigned char *seed) {
@@ -10641,12 +10740,12 @@ ecdh_privkey_generate(mont_t *ec,
   cleanse(&rng, sizeof(rng));
 }
 
-static int
+int
 ecdh_privkey_verify(mont_t *ec, const unsigned char *priv) {
   return 1;
 }
 
-static void
+void
 ecdh_pubkey_create(mont_t *ec, unsigned char *pub, const unsigned char *priv) {
   unsigned char clamped[MAX_SCALAR_SIZE];
   scalar_field_t *sc = &ec->sc;
@@ -10666,7 +10765,7 @@ ecdh_pubkey_create(mont_t *ec, unsigned char *pub, const unsigned char *priv) {
   pge_cleanse(ec, &A);
 }
 
-static int
+int
 ecdh_pubkey_convert(mont_t *ec,
                     unsigned char *out,
                     const unsigned char *pub,
@@ -10721,7 +10820,7 @@ ecdh_pubkey_convert(mont_t *ec,
   return 1;
 }
 
-static void
+void
 ecdh_pubkey_from_uniform(mont_t *ec,
                          unsigned char *out,
                          const unsigned char *bytes) {
@@ -10732,7 +10831,7 @@ ecdh_pubkey_from_uniform(mont_t *ec,
   assert(mge_export(ec, out, &A));
 }
 
-static int
+int
 ecdh_pubkey_to_uniform(mont_t *ec,
                        unsigned char *out,
                        const unsigned char *pub,
@@ -10745,7 +10844,7 @@ ecdh_pubkey_to_uniform(mont_t *ec,
   return mont_point_to_uniform(ec, out, &A, hint);
 }
 
-static int
+int
 ecdh_pubkey_from_hash(mont_t *ec,
                       unsigned char *out,
                       const unsigned char *bytes,
@@ -10762,7 +10861,7 @@ ecdh_pubkey_from_hash(mont_t *ec,
   return pge_export(ec, out, &P);
 }
 
-static int
+int
 ecdh_pubkey_to_hash(mont_t *ec,
                     unsigned char *out,
                     const unsigned char *pub,
@@ -10777,7 +10876,7 @@ ecdh_pubkey_to_hash(mont_t *ec,
   return 1;
 }
 
-static int
+int
 ecdh_pubkey_verify(mont_t *ec, const unsigned char *pub) {
   pge_t A;
 
@@ -10786,7 +10885,7 @@ ecdh_pubkey_verify(mont_t *ec, const unsigned char *pub) {
   return pge_validate(ec, &A);
 }
 
-static int
+int
 ecdh_pubkey_is_small(mont_t *ec, const unsigned char *pub) {
   pge_t A;
 
@@ -10798,7 +10897,7 @@ ecdh_pubkey_is_small(mont_t *ec, const unsigned char *pub) {
   return pge_is_small(ec, &A);
 }
 
-static int
+int
 ecdh_pubkey_has_torsion(mont_t *ec, const unsigned char *pub) {
   prime_field_t *fe = &ec->fe;
   scalar_field_t *sc = &ec->sc;
@@ -10817,7 +10916,7 @@ ecdh_pubkey_has_torsion(mont_t *ec, const unsigned char *pub) {
   return (pge_is_zero(ec, &A) ^ 1) | zero;
 }
 
-static int
+int
 ecdh_derive(mont_t *ec,
             unsigned char *secret,
             const unsigned char *pub,
@@ -10850,11 +10949,14 @@ ecdh_derive(mont_t *ec,
  * EdDSA
  */
 
-static edwards_t *
+edwards_t *
 eddsa_context_create(const char *id) {
   edwards_t *ec = NULL;
   const edwards_def_t *def = NULL;
   size_t i;
+
+  if (id == NULL)
+    return NULL;
 
   for (i = 0; i < ARRAY_SIZE(edwards_curves); i++) {
     if (strcmp(edwards_curves[i]->id, id) == 0) {
@@ -10876,10 +10978,46 @@ eddsa_context_create(const char *id) {
   return ec;
 }
 
-static void
+void
 eddsa_context_destroy(edwards_t *ec) {
   if (ec != NULL)
     free(ec);
+}
+
+edwards_scratch_t *
+eddsa_scratch_create(edwards_t *ec) {
+  return malloc(sizeof(edwards_scratch_t));
+}
+
+void
+eddsa_scratch_destroy(edwards_t *ec, edwards_scratch_t *scratch) {
+  if (scratch != NULL)
+    free(scratch);
+}
+
+size_t
+eddsa_scalar_size(edwards_t *ec) {
+  return ec->sc.size;
+}
+
+size_t
+eddsa_field_size(edwards_t *ec) {
+  return ec->fe.size;
+}
+
+size_t
+eddsa_privkey_size(edwards_t *ec) {
+  return ec->fe.adj_size;
+}
+
+size_t
+eddsa_pubkey_size(edwards_t *ec) {
+  return ec->fe.adj_size;
+}
+
+size_t
+eddsa_sig_size(edwards_t *ec) {
+  return ec->fe.adj_size * 2;
 }
 
 static void
@@ -10896,7 +11034,7 @@ eddsa_privkey_hash(edwards_t *ec,
   edwards_clamp(ec, out, out);
 }
 
-static void
+void
 eddsa_privkey_generate(edwards_t *ec,
                        unsigned char *out,
                        const unsigned char *seed) {
@@ -10910,7 +11048,7 @@ eddsa_privkey_generate(edwards_t *ec,
   cleanse(&rng, sizeof(rng));
 }
 
-static void
+void
 eddsa_scalar_generate(edwards_t *ec,
                       unsigned char *out,
                       const unsigned char *seed) {
@@ -10926,7 +11064,7 @@ eddsa_scalar_generate(edwards_t *ec,
   cleanse(&rng, sizeof(rng));
 }
 
-static void
+void
 eddsa_privkey_expand(edwards_t *ec,
                      unsigned char *scalar,
                      unsigned char *prefix,
@@ -10943,7 +11081,7 @@ eddsa_privkey_expand(edwards_t *ec,
   cleanse(bytes, sizeof(bytes));
 }
 
-static void
+void
 eddsa_privkey_convert(edwards_t *ec,
                       unsigned char *scalar,
                       const unsigned char *priv) {
@@ -10957,17 +11095,17 @@ eddsa_privkey_convert(edwards_t *ec,
   cleanse(bytes, sizeof(bytes));
 }
 
-static int
+int
 eddsa_privkey_verify(edwards_t *ec, const unsigned char *priv) {
   return 1;
 }
 
-static int
+int
 eddsa_scalar_verify(edwards_t *ec, const unsigned char *scalar) {
   return 1;
 }
 
-static int
+int
 eddsa_scalar_is_zero(edwards_t *ec, const unsigned char *scalar) {
   scalar_field_t *sc = &ec->sc;
   sc_t a;
@@ -10982,14 +11120,14 @@ eddsa_scalar_is_zero(edwards_t *ec, const unsigned char *scalar) {
   return ret;
 }
 
-static void
+void
 eddsa_scalar_clamp(edwards_t *ec,
                    unsigned char *out,
                    const unsigned char *scalar) {
   edwards_clamp(ec, out, scalar);
 }
 
-static void
+void
 eddsa_scalar_tweak_add(edwards_t *ec,
                        unsigned char *out,
                        const unsigned char *scalar,
@@ -11004,7 +11142,7 @@ eddsa_scalar_tweak_add(edwards_t *ec,
   sc_cleanse(sc, a);
 }
 
-static void
+void
 eddsa_scalar_tweak_mul(edwards_t *ec,
                        unsigned char *out,
                        const unsigned char *scalar,
@@ -11019,7 +11157,7 @@ eddsa_scalar_tweak_mul(edwards_t *ec,
   sc_cleanse(sc, a);
 }
 
-static void
+void
 eddsa_scalar_reduce(edwards_t *ec,
                     unsigned char *out,
                     const unsigned char *bytes,
@@ -11041,7 +11179,7 @@ eddsa_scalar_reduce(edwards_t *ec,
   cleanse(scalar, sizeof(scalar));
 }
 
-static void
+void
 eddsa_scalar_negate(edwards_t *ec,
                     unsigned char *out,
                     const unsigned char *scalar) {
@@ -11054,7 +11192,7 @@ eddsa_scalar_negate(edwards_t *ec,
   sc_cleanse(sc, a);
 }
 
-static void
+void
 eddsa_scalar_invert(edwards_t *ec,
                     unsigned char *out,
                     const unsigned char *scalar) {
@@ -11067,7 +11205,7 @@ eddsa_scalar_invert(edwards_t *ec,
   sc_cleanse(sc, a);
 }
 
-static void
+void
 eddsa_pubkey_from_scalar(edwards_t *ec,
                          unsigned char *pub,
                          const unsigned char *scalar) {
@@ -11085,7 +11223,7 @@ eddsa_pubkey_from_scalar(edwards_t *ec,
   xge_cleanse(ec, &A);
 }
 
-static void
+void
 eddsa_pubkey_create(edwards_t *ec,
                     unsigned char *pub,
                     const unsigned char *priv) {
@@ -11097,7 +11235,7 @@ eddsa_pubkey_create(edwards_t *ec,
   cleanse(scalar, sizeof(scalar));
 }
 
-static int
+int
 eddsa_pubkey_convert(edwards_t *ec,
                      unsigned char *out,
                      const unsigned char *pub) {
@@ -11118,7 +11256,7 @@ eddsa_pubkey_convert(edwards_t *ec,
   return 1;
 }
 
-static void
+void
 eddsa_pubkey_from_uniform(edwards_t *ec,
                           unsigned char *out,
                           const unsigned char *bytes) {
@@ -11129,7 +11267,7 @@ eddsa_pubkey_from_uniform(edwards_t *ec,
   xge_export(ec, out, &A);
 }
 
-static int
+int
 eddsa_pubkey_to_uniform(edwards_t *ec,
                         unsigned char *out,
                         const unsigned char *pub,
@@ -11142,7 +11280,7 @@ eddsa_pubkey_to_uniform(edwards_t *ec,
   return edwards_point_to_uniform(ec, out, &A, hint);
 }
 
-static void
+void
 eddsa_pubkey_from_hash(edwards_t *ec,
                        unsigned char *out,
                        const unsigned char *bytes,
@@ -11157,7 +11295,7 @@ eddsa_pubkey_from_hash(edwards_t *ec,
   xge_export(ec, out, &A);
 }
 
-static int
+int
 eddsa_pubkey_to_hash(edwards_t *ec,
                      unsigned char *out,
                      const unsigned char *pub,
@@ -11172,13 +11310,13 @@ eddsa_pubkey_to_hash(edwards_t *ec,
   return 1;
 }
 
-static int
+int
 eddsa_pubkey_verify(edwards_t *ec, const unsigned char *pub) {
   xge_t A;
   return xge_import(ec, &A, pub);
 }
 
-static int
+int
 eddsa_pubkey_is_infinity(edwards_t *ec, const unsigned char *pub) {
   xge_t A;
 
@@ -11188,7 +11326,7 @@ eddsa_pubkey_is_infinity(edwards_t *ec, const unsigned char *pub) {
   return xge_is_zero(ec, &A);
 }
 
-static int
+int
 eddsa_pubkey_is_small(edwards_t *ec, const unsigned char *pub) {
   xge_t A;
 
@@ -11198,7 +11336,7 @@ eddsa_pubkey_is_small(edwards_t *ec, const unsigned char *pub) {
   return xge_is_small(ec, &A);
 }
 
-static int
+int
 eddsa_pubkey_has_torsion(edwards_t *ec, const unsigned char *pub) {
   scalar_field_t *sc = &ec->sc;
   xge_t A;
@@ -11211,7 +11349,7 @@ eddsa_pubkey_has_torsion(edwards_t *ec, const unsigned char *pub) {
   return xge_is_zero(ec, &A) ^ 1;
 }
 
-static int
+int
 eddsa_pubkey_tweak_add(edwards_t *ec,
                        unsigned char *out,
                        const unsigned char *pub,
@@ -11235,7 +11373,7 @@ eddsa_pubkey_tweak_add(edwards_t *ec,
   return 1;
 }
 
-static int
+int
 eddsa_pubkey_tweak_mul(edwards_t *ec,
                        unsigned char *out,
                        const unsigned char *pub,
@@ -11258,7 +11396,7 @@ eddsa_pubkey_tweak_mul(edwards_t *ec,
   return 1;
 }
 
-static int
+int
 eddsa_pubkey_add(edwards_t *ec,
                  unsigned char *out,
                  const unsigned char *pub1,
@@ -11277,7 +11415,7 @@ eddsa_pubkey_add(edwards_t *ec,
   return 1;
 }
 
-static int
+int
 eddsa_pubkey_combine(edwards_t *ec,
                      unsigned char *out,
                      const unsigned char **pubs,
@@ -11299,7 +11437,7 @@ eddsa_pubkey_combine(edwards_t *ec,
   return 1;
 }
 
-static int
+int
 eddsa_pubkey_negate(edwards_t *ec,
                     unsigned char *out,
                     const unsigned char *pub) {
@@ -11397,7 +11535,7 @@ eddsa_hash_ram(edwards_t *ec,
   eddsa_hash_final(ec, r, &hash);
 }
 
-static void
+void
 eddsa_sign_with_scalar(edwards_t *ec,
                        unsigned char *sig,
                        const unsigned char *msg,
@@ -11472,7 +11610,7 @@ eddsa_sign_with_scalar(edwards_t *ec,
   xge_cleanse(ec, &A);
 }
 
-static void
+void
 eddsa_sign(edwards_t *ec,
            unsigned char *sig,
            const unsigned char *msg,
@@ -11494,7 +11632,7 @@ eddsa_sign(edwards_t *ec,
   cleanse(prefix, sizeof(prefix));
 }
 
-static void
+void
 eddsa_sign_tweak_add(edwards_t *ec,
                      unsigned char *sig,
                      const unsigned char *msg,
@@ -11526,7 +11664,7 @@ eddsa_sign_tweak_add(edwards_t *ec,
   cleanse(prefix, sizeof(prefix));
 }
 
-static void
+void
 eddsa_sign_tweak_mul(edwards_t *ec,
                      unsigned char *sig,
                      const unsigned char *msg,
@@ -11558,7 +11696,7 @@ eddsa_sign_tweak_mul(edwards_t *ec,
   cleanse(prefix, sizeof(prefix));
 }
 
-static int
+int
 eddsa_verify(edwards_t *ec,
              const unsigned char *msg,
              size_t msg_len,
@@ -11622,7 +11760,7 @@ eddsa_verify(edwards_t *ec,
   return xge_equal(ec, &R, &Re);
 }
 
-static int
+int
 eddsa_verify_single(edwards_t *ec,
                     const unsigned char *msg,
                     size_t msg_len,
@@ -11690,7 +11828,7 @@ eddsa_verify_single(edwards_t *ec,
   return xge_equal(ec, &R, &Re);
 }
 
-static int
+int
 eddsa_verify_batch(edwards_t *ec,
                    const unsigned char **msgs,
                    size_t *msg_lens,
@@ -11833,7 +11971,7 @@ eddsa_verify_batch(edwards_t *ec,
   return 1;
 }
 
-static int
+int
 eddsa_derive_with_scalar(edwards_t *ec,
                          unsigned char *secret,
                          const unsigned char *pub,
@@ -11867,7 +12005,7 @@ fail:
   return ret;
 }
 
-static int
+int
 eddsa_derive(edwards_t *ec,
              unsigned char *secret,
              const unsigned char *pub,
