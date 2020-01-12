@@ -7814,33 +7814,6 @@ ecdsa_pubkey_negate(wei_t *ec,
 }
 
 static int
-ecdsa_sig_normalize(wei_t *ec,
-                    unsigned char *out,
-                    const unsigned char *sig) {
-  scalar_field_t *sc = &ec->sc;
-  sc_t r, s;
-
-  if (!sc_import(sc, r, sig))
-    return 0;
-
-  if (sc_is_zero(sc, r))
-    return 0;
-
-  if (!sc_import(sc, s, sig + sc->size))
-    return 0;
-
-  if (sc_is_zero(sc, s))
-    return 0;
-
-  sc_minimize(sc, s, s);
-
-  sc_export(sc, out, r);
-  sc_export(sc, out + sc->size, r);
-
-  return 1;
-}
-
-static int
 ecdsa_sig_export(wei_t *ec,
                  unsigned char *out,
                  size_t *out_len,
@@ -7914,8 +7887,8 @@ ecdsa_sig_import(wei_t *ec,
                  const unsigned char *der,
                  size_t der_len) {
   scalar_field_t *sc = &ec->sc;
-  unsigned char *r = out;
-  unsigned char *s = out + sc->size;
+  unsigned char r[MAX_SCALAR_SIZE];
+  unsigned char s[MAX_SCALAR_SIZE];
   size_t rpos, rlen, spos, slen, lenbyte;
   size_t pos = 0;
 
@@ -7963,7 +7936,9 @@ ecdsa_sig_import(wei_t *ec,
       lenbyte--;
     }
 
-    if (lenbyte >= sizeof(size_t))
+    assert(sizeof(size_t) >= 4);
+
+    if (lenbyte >= 4)
       return 0;
 
     rlen = 0;
@@ -8006,7 +7981,9 @@ ecdsa_sig_import(wei_t *ec,
       lenbyte--;
     }
 
-    if (lenbyte >= sizeof(size_t))
+    assert(sizeof(size_t) >= 4);
+
+    if (lenbyte >= 4)
       return 0;
 
     slen = 0;
@@ -8054,7 +8031,46 @@ ecdsa_sig_import(wei_t *ec,
     memcpy(s + sc->size - slen, der + spos, slen);
   }
 
+  memcpy(out, r, sc->size);
+  memcpy(out + sc->size, s, sc->size);
+
   return 1;
+}
+
+static int
+ecdsa_sig_normalize(wei_t *ec,
+                    unsigned char *out,
+                    const unsigned char *sig) {
+  scalar_field_t *sc = &ec->sc;
+  sc_t r, s;
+
+  if (!sc_import(sc, r, sig))
+    return 0;
+
+  if (!sc_import(sc, s, sig + sc->size))
+    return 0;
+
+  sc_minimize(sc, s, s);
+
+  sc_export(sc, out, r);
+  sc_export(sc, out + sc->size, s);
+
+  return 1;
+}
+
+static int
+ecdsa_sig_normalize_der(wei_t *ec,
+                        unsigned char *out,
+                        size_t *out_len,
+                        const unsigned char *der,
+                        size_t der_len) {
+  if (!ecdsa_sig_import(ec, out, der, der_len))
+    return 0;
+
+  if (!ecdsa_sig_normalize(ec, out, out))
+    return 0;
+
+  return ecdsa_sig_export(ec, out, out_len, out);
 }
 
 static int
@@ -8065,19 +8081,42 @@ ecdsa_is_low_s(wei_t *ec, const unsigned char *sig) {
   if (!sc_import(sc, r, sig))
     return 0;
 
-  if (sc_is_zero(sc, r))
-    return 0;
-
   if (!sc_import(sc, s, sig + sc->size))
     return 0;
 
-  if (sc_is_zero(sc, s))
+  return sc_is_high(sc, s) ^ 1;
+}
+
+static int
+ecdsa_is_low_der(wei_t *ec, const unsigned char *der, size_t der_len) {
+  scalar_field_t *sc = &ec->sc;
+  unsigned char sig[MAX_SCALAR_SIZE * 2];
+  sc_t s;
+
+  if (!ecdsa_sig_import(ec, sig, der, der_len))
     return 0;
 
-  if (sc_is_high(sc, s))
+  if (!sc_import(sc, s, sig + sc->size))
+    return 1; /* Considered zeroes by bitcoin core. */
+
+  return sc_is_high(sc, s) ^ 1;
+}
+
+static int
+ecdsa_is_strict_der(wei_t *ec, const unsigned char *der, size_t der_len) {
+  unsigned char tmp[MAX_SIG_SIZE];
+  size_t tmp_len = sizeof(tmp);
+
+  if (!ecdsa_sig_import(ec, tmp, der, der_len))
     return 0;
 
-  return 1;
+  if (!ecdsa_sig_export(ec, tmp, &tmp_len, tmp))
+    return 0;
+
+  if (der_len != tmp_len)
+    return 0;
+
+  return bytes_equal(der, tmp, tmp_len);
 }
 
 static int
@@ -8265,6 +8304,20 @@ fail:
 }
 
 static int
+ecdsa_sign_der(wei_t *ec,
+               unsigned char *der,
+               size_t *der_len,
+               unsigned int *param,
+               const unsigned char *msg,
+               size_t msg_len,
+               const unsigned char *priv) {
+  if (!ecdsa_sign(ec, der, param, msg, msg_len, priv))
+    return 0;
+
+  return ecdsa_sig_export(ec, der, der_len, der);
+}
+
+static int
 ecdsa_verify(wei_t *ec,
              const unsigned char *msg,
              size_t msg_len,
@@ -8346,6 +8399,22 @@ ecdsa_verify(wei_t *ec,
 }
 
 static int
+ecdsa_verify_der(wei_t *ec,
+                 const unsigned char *msg,
+                 size_t msg_len,
+                 const unsigned char *der,
+                 size_t der_len,
+                 const unsigned char *pub,
+                 size_t pub_len) {
+  unsigned char sig[MAX_SCALAR_SIZE * 2];
+
+  if (!ecdsa_sig_import(ec, sig, der, der_len))
+    return 0;
+
+  return ecdsa_verify(ec, msg, msg_len, sig, pub, pub_len);
+}
+
+static int
 ecdsa_recover(wei_t *ec,
               unsigned char *pub,
               size_t *pub_len,
@@ -8423,6 +8492,24 @@ ecdsa_recover(wei_t *ec,
   wei_mul_double_var(ec, &A, s1, &R, s2);
 
   return wge_export(ec, pub, pub_len, &A, compact);
+}
+
+static int
+ecdsa_recover_der(wei_t *ec,
+                  unsigned char *pub,
+                  size_t *pub_len,
+                  const unsigned char *msg,
+                  size_t msg_len,
+                  const unsigned char *der,
+                  size_t der_len,
+                  unsigned int param,
+                  int compact) {
+  unsigned char sig[MAX_SCALAR_SIZE * 2];
+
+  if (!ecdsa_sig_import(ec, sig, der, der_len))
+    return 0;
+
+  return ecdsa_recover(ec, pub, pub_len, msg, msg_len, sig, param, compact);
 }
 
 static int
