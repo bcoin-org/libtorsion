@@ -8,26 +8,6 @@
 #include <limits.h>
 #include <sys/time.h>
 
-static const wei_def_t *wei_curves[6] = {
-  &curve_p192,
-  &curve_p224,
-  &curve_p256,
-  &curve_p384,
-  &curve_p521,
-  &curve_secp256k1
-};
-
-static const mont_def_t *mont_curves[2] = {
-  &curve_x25519,
-  &curve_x448
-};
-
-static const edwards_def_t *edwards_curves[3] = {
-  &curve_ed25519,
-  &curve_ed448,
-  &curve_ed1174
-};
-
 #ifndef _WIN32
 #include <sys/types.h>
 #include <fcntl.h>
