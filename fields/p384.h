@@ -1,4 +1,4 @@
-#ifdef BCRYPTO_EC_64BIT
+#ifdef TORSION_64BIT
 typedef uint64_t p384_fe_word_t;
 #define P384_FIELD_WORDS 6
 #include "p384_64.h"

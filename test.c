@@ -1,4 +1,4 @@
-#define EC_TEST
+#define TORSION_TEST
 #include "ec.c"
 #include <assert.h>
 #include <stdlib.h>

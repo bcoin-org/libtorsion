@@ -157,12 +157,12 @@ extern "C" {
  * EC
  */
 
-#define EC_MAX_FIELD_SIZE 66
-#define EC_MAX_SCALAR_SIZE 66
-#define EC_MAX_PRIV_SIZE EC_MAX_SCALAR_SIZE /* 66 */
-#define EC_MAX_PUB_SIZE (1 + EC_MAX_FIELD_SIZE * 2) /* 133 */
-#define EC_MAX_SIG_SIZE (EC_MAX_FIELD_SIZE + EC_MAX_SCALAR_SIZE) /* 132 */
-#define EC_MAX_DER_SIZE (9 + EC_MAX_SIG_SIZE) /* 141 */
+#define ECC_MAX_FIELD_SIZE 66
+#define ECC_MAX_SCALAR_SIZE 66
+#define ECC_MAX_PRIV_SIZE ECC_MAX_SCALAR_SIZE /* 66 */
+#define ECC_MAX_PUB_SIZE (1 + ECC_MAX_FIELD_SIZE * 2) /* 133 */
+#define ECC_MAX_SIG_SIZE (ECC_MAX_FIELD_SIZE + ECC_MAX_SCALAR_SIZE) /* 132 */
+#define ECC_MAX_DER_SIZE (9 + ECC_MAX_SIG_SIZE) /* 141 */
 
 typedef struct _wei_s ecdsa_t;
 typedef struct _wei_scratch_s ecdsa_scratch_t;

@@ -1,4 +1,4 @@
-#ifdef BCRYPTO_EC_64BIT
+#ifdef TORSION_64BIT
 typedef uint64_t secp256k1_fe_word_t;
 #define SECP256K1_FIELD_WORDS 4
 #include "secp256k1_64.h"

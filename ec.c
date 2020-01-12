@@ -10,7 +10,7 @@
 #include <stdint.h>
 #include <limits.h>
 
-#ifdef EC_TEST
+#ifdef TORSION_TEST
 #include <stdio.h>
 #endif
 
@@ -32,7 +32,7 @@
 #include "fields/p251.h"
 #include "hash.h"
 
-#ifdef BCRYPTO_HAS_GMP
+#ifdef TORSION_HAS_GMP
 #include <gmp.h>
 
 /* Nails probably break our code. */
@@ -43,7 +43,7 @@
 #if (GMP_NUMB_BITS & 31) != 0
 #error "invalid gmp bit alignment"
 #endif
-#else /* BCRYPTO_HAS_GMP */
+#else /* TORSION_HAS_GMP */
 #include "mini-gmp.h"
 
 #define GMP_LIMB_BITS (sizeof(mp_limb_t) * CHAR_BIT)
@@ -52,7 +52,7 @@
 #define GMP_NUMB_MASK (~((mp_limb_t)0))
 #define GMP_NUMB_MAX GMP_NUMB_MASK
 #define GMP_NAIL_MASK 0
-#endif /* BCRYPTO_HAS_GMP */
+#endif /* TORSION_HAS_GMP */
 
 #if CHAR_BIT != 8
 #error "sane char widths please"
@@ -62,7 +62,7 @@
 #error "twos complement please"
 #endif
 
-#ifdef BCRYPTO_EC_64BIT
+#ifdef TORSION_64BIT
 typedef uint64_t fe_word_t;
 #define FIELD_WORD_SIZE 64
 #define MAX_FIELD_WORDS 9
@@ -756,7 +756,7 @@ mpn_invert_n(mp_limb_t *rp,
              const mp_limb_t *xp,
              const mp_limb_t *yp,
              mp_size_t n) {
-#ifdef BCRYPTO_HAS_GMP
+#ifdef TORSION_HAS_GMP
 #define MAX_EGCD_LIMBS ((521 + GMP_NUMB_BITS - 1) / GMP_NUMB_BITS)
   mp_limb_t gp[MAX_EGCD_LIMBS + 1];
   mp_limb_t sp[MAX_EGCD_LIMBS + 1];
@@ -814,7 +814,7 @@ mpn_invert_n(mp_limb_t *rp,
 #endif
 }
 
-#ifdef EC_TEST
+#ifdef TORSION_TEST
 static void
 mpn_print(const mp_limb_t *p, mp_size_t n, int base) {
   mpz_t x;
@@ -823,7 +823,7 @@ mpn_print(const mp_limb_t *p, mp_size_t n, int base) {
 }
 #endif
 
-#ifndef BCRYPTO_HAS_GMP
+#ifndef TORSION_HAS_GMP
 /* `mpz_jacobi` is not implemented in mini-gmp. */
 /* https://github.com/golang/go/blob/aadaec5/src/math/big/int.go#L754 */
 static int
@@ -1016,7 +1016,7 @@ sc_select(scalar_field_t *sc, sc_t r,
   cnd_select(flag != 0, r, a, b, sc->limbs);
 }
 
-#ifdef EC_TEST
+#ifdef TORSION_TEST
 static void
 sc_print(scalar_field_t *sc, const sc_t a) {
   mpn_print(a, sc->limbs, 16);
@@ -1682,7 +1682,7 @@ fe_set_num(prime_field_t *fe, fe_t r, const mpz_t a) {
   return fe_set_limbs(fe, r, mpz_limbs_read(a), mpz_size(a));
 }
 
-#ifdef EC_TEST
+#ifdef TORSION_TEST
 static void
 fe_print(prime_field_t *fe, const fe_t a) {
   mp_limb_t xp[MAX_FIELD_LIMBS];
@@ -1900,7 +1900,7 @@ fe_invert(prime_field_t *fe, fe_t r, const fe_t a) {
   int zero = fe_is_zero(fe, a);
   int ret = zero ^ 1;
 
-#ifdef EC_TEST
+#ifdef TORSION_TEST
   fe_t a0;
   fe_set(fe, a0, a);
 #endif
@@ -1924,7 +1924,7 @@ fe_invert(prime_field_t *fe, fe_t r, const fe_t a) {
       r[i] &= -(zero ^ 1);
   }
 
-#ifdef EC_TEST
+#ifdef TORSION_TEST
   assert(fe_invert_var(fe, a0, a0) == ret);
   assert(fe_equal(fe, r, a0));
 #endif
@@ -2248,7 +2248,7 @@ wge_set_x(wei_t *ec, wge_t *r, const fe_t x, int sign) {
   fe_set(fe, r->y, y);
   r->inf = 0;
 
-#ifdef EC_TEST
+#ifdef TORSION_TEST
   assert(wge_validate(ec, r) == ret);
 #endif
 
@@ -2705,7 +2705,7 @@ wge_jsf_points_endo(wei_t *ec, wge_t *points, const wge_t *p1) {
   wge_set(ec, &points[3], &p2); /* 7 */
 }
 
-#ifdef EC_TEST
+#ifdef TORSION_TEST
 static void
 wge_print(wei_t *ec, const wge_t *p) {
   prime_field_t *fe = &ec->fe;
@@ -3709,7 +3709,7 @@ jge_naf_points_var(wei_t *ec, jge_t *points, const wge_t *p, size_t width) {
     jge_add_var(ec, &points[i], &points[i - 1], &dbl);
 }
 
-#ifdef EC_TEST
+#ifdef TORSION_TEST
 static void
 jge_print(wei_t *ec, const jge_t *p) {
   prime_field_t *fe = &ec->fe;
@@ -3985,7 +3985,7 @@ wei_jmul_endo(wei_t *ec, jge_t *r, const wge_t *p, const sc_t k) {
   wge_neg_cond(ec, &p1, &p1, (s1 >> 31) & 1);
   wge_neg_cond(ec, &p2, &p2, (s2 >> 31) & 1);
 
-#ifdef EC_TEST
+#ifdef TORSION_TEST
   assert(sc_bitlen_var(sc, k1) <= (size_t)bits);
   assert(sc_bitlen_var(sc, k2) <= (size_t)bits);
 #endif
@@ -4413,7 +4413,7 @@ wei_jmul_multi_endo_var(wei_t *ec,
     /* Create comb for JSF. */
     wge_jsf_points_endo(ec, wnds[i], &points[i]);
 
-#ifdef EC_TEST
+#ifdef TORSION_TEST
     /* Check max size.*/
     assert(sc_bitlen_var(sc, k1) + 1 <= (size_t)max);
     assert(sc_bitlen_var(sc, k2) + 1 <= (size_t)max);
@@ -5073,7 +5073,7 @@ mge_set_x(mont_t *ec, mge_t *r, const fe_t x, int sign) {
   fe_set(fe, r->y, y);
   r->inf = 0;
 
-#ifdef EC_TEST
+#ifdef TORSION_TEST
   assert(mge_validate(ec, r) == ret);
 #endif
 
@@ -5320,7 +5320,7 @@ mge_to_xge(mont_t *ec, xge_t *r, const mge_t *p) {
   _mont_to_edwards(&ec->fe, r, p, ec->c, ec->invert, 1);
 }
 
-#ifdef EC_TEST
+#ifdef TORSION_TEST
 static void
 mge_print(mont_t *ec, const mge_t *p) {
   prime_field_t *fe = &ec->fe;
@@ -5591,7 +5591,7 @@ pge_is_small(mont_t *ec, const pge_t *p) {
       & (pge_is_zero(ec, p) ^ 1);
 }
 
-#ifdef EC_TEST
+#ifdef TORSION_TEST
 static void
 pge_print(mont_t *ec, const pge_t *p) {
   prime_field_t *fe = &ec->fe;
@@ -6078,7 +6078,7 @@ xge_set_y(edwards_t *ec, xge_t *r, const fe_t y, int sign) {
 
   xge_set_xy(ec, r, x, y);
 
-#ifdef EC_TEST
+#ifdef TORSION_TEST
   assert(xge_validate(ec, r) == ret);
 #endif
 
@@ -6532,7 +6532,7 @@ xge_to_mge(edwards_t *ec, mge_t *r, const xge_t *p) {
   _edwards_to_mont(&ec->fe, r, p, ec->c, ec->invert, 1);
 }
 
-#ifdef EC_TEST
+#ifdef TORSION_TEST
 static void
 xge_print(edwards_t *ec, const xge_t *p) {
   prime_field_t *fe = &ec->fe;
@@ -9362,7 +9362,7 @@ ecdsa_verify(wei_t *ec,
   sc_t m, r, s, u1, u2;
   wge_t A;
   jge_t Rj;
-#ifndef EC_WITH_TRICK
+#ifndef ECC_WITH_TRICK
   prime_field_t *fe = &ec->fe;
   wge_t Ra;
   sc_t re;
@@ -9391,7 +9391,7 @@ ecdsa_verify(wei_t *ec,
 
   wei_jmul_double_var(ec, &Rj, u1, &A, u2);
 
-#ifdef EC_WITH_TRICK
+#ifdef ECC_WITH_TRICK
   return jge_equal_r(ec, &Rj, r);
 #else
   if (jge_is_zero(ec, &Rj))
