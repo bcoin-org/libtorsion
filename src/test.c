@@ -1,5 +1,5 @@
 #define TORSION_TEST
-#include "ec.c"
+#include "ecc.c"
 #include <assert.h>
 #include <stdlib.h>
 #include <stdio.h>

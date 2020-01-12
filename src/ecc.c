@@ -19,7 +19,7 @@
 #include <windows.h>
 #endif
 
-#include "ec.h"
+#include <torsion/ecc.h>
 
 #include "fields/p192.h"
 #include "fields/p224.h"
