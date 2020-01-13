@@ -14,11 +14,6 @@
 #include <stdio.h>
 #endif
 
-#ifdef _WIN32
-/* For SecureZeroMemory (actually defined in winbase.h). */
-#include <windows.h>
-#endif
-
 #include <torsion/drbg.h>
 #include <torsion/ecc.h>
 #include <torsion/hash.h>
