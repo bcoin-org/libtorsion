@@ -6,22 +6,54 @@
 #include <torsion/drbg.h>
 #include <torsion/rsa.h>
 
-#define RSA_DEFAULT_BITS 2048
+#define RSA_DEFAULT_MOD_BITS 2048
 #define RSA_DEFAULT_EXP 65537
-#define RSA_MIN_BITS 512
-#define RSA_MAX_BITS 16384
-#define RSA_MAX_BYTES ((RSA_MAX_BITS + 7) / 8)
+#define RSA_MIN_MOD_BITS 512
+#define RSA_MAX_MOD_BITS 16384
+#define RSA_MIN_MOD_BYTES ((RSA_MIN_MOD_BITS + 7) / 8)
+#define RSA_MAX_MOD_BYTES ((RSA_MAX_MOD_BITS + 7) / 8)
 #define RSA_MIN_EXP 3ull
 #define RSA_MAX_EXP 0x1ffffffffull
 #define RSA_MIN_EXP_BITS 2
 #define RSA_MAX_EXP_BITS 33
+#define RSA_MIN_EXP_BYTES 1
 #define RSA_MAX_EXP_BYTES 5
 
-#define RSA_MAX_ASN1_SIZE (4 + (4 + 1 + RSA_MAX_BYTES) * 7 + (2 + 1 + RSA_MAX_EXP_BYTES))
-/* #define RSA_MAX_ASN1_SIZE (4 + (4 + 1 + RSA_MAX_BYTES) + (2 + 1 + RSA_MAX_EXP_BYTES)) */
+/* Limits:
+ * 4096 = 2614
+ * 8192 = 5174
+ * 16384 = 10294
+ */
 
-#define SALT_LENGTH_AUTO 0
-#define SALT_LENGTH_HASH -1
+#define RSA_MAX_PRIV_SIZE (0                   \
+  + 4 /* seq */                                \
+  + 3 /* version */                            \
+  + 4 + 1 + RSA_MAX_MOD_BYTES /* n */          \
+  + 2 + 1 + RSA_MAX_EXP_BYTES /* e */          \
+  + 4 + 1 + RSA_MAX_MOD_BYTES /* d */          \
+  + 4 + 1 + RSA_MAX_MOD_BYTES / 2 + 1 /* p */  \
+  + 4 + 1 + RSA_MAX_MOD_BYTES / 2 + 1 /* q */  \
+  + 4 + 1 + RSA_MAX_MOD_BYTES / 2 + 1 /* dp */ \
+  + 4 + 1 + RSA_MAX_MOD_BYTES / 2 + 1 /* dq */ \
+  + 4 + 1 + RSA_MAX_MOD_BYTES /* qi */         \
+)
+
+/* Limits:
+ * 4096 = 529
+ * 8192 = 1041
+ * 16384 = 2065
+ */
+
+#define RSA_MAX_PUB_SIZE (0           \
+  + 4 /* seq */                       \
+  + 4 + 1 + RSA_MAX_MOD_BYTES /* n */ \
+  + 2 + 1 + RSA_MAX_EXP_BYTES /* e */ \
+)
+
+#define RSA_MAX_SIG_SIZE RSA_MAX_MOD_BYTES
+
+#define RSA_SALT_LENGTH_AUTO 0
+#define RSA_SALT_LENGTH_HASH -1
 
 static const unsigned char pss_prefix[8] = {0, 0, 0, 0, 0, 0, 0, 0};
 
@@ -300,8 +332,18 @@ safe_free(void *ptr, size_t size) {
  * MPZ
  */
 
+/* Alias to avoid future collisions with gmp. */
 #define mpz_bitlen(n) (mpz_sgn(n) == 0 ? 0 : mpz_sizeinbase(n, 2))
 #define mpz_bytelen(n) ((mpz_bitlen(n) + 7) / 8)
+#define mpz_export_pad torsion_mpz_export_pad
+#define mpz_zerobits torsion_mpz_zerobits
+#define mpz_cleanse torsion_mpz_cleanse
+#define mpz_random_bits torsion_mpz_random_bits
+#define mpz_random_int torsion_mpz_random_int
+#define mpz_is_prime_mr torsion_mpz_is_prime_mr
+#define mpz_is_prime_lucas torsion_mpz_is_prime_lucas
+#define mpz_is_prime torsion_mpz_is_prime
+#define mpz_random_prime torsion_mpz_random_prime
 
 static void
 mpz_export_pad(unsigned char *out, const mpz_t n, size_t size) {
@@ -454,32 +496,22 @@ mpz_cleanse(mpz_t n) {
 }
 
 static void
-random_bits(drbg_t *rng, mpz_t ret, size_t bits) {
-  unsigned char buf[32];
-  size_t total = 0;
-  mpz_t tmp;
+mpz_random_bits(mpz_t ret, size_t bits, drbg_t *rng) {
+  size_t num_bits = sizeof(mp_limb_t) * CHAR_BIT;
+  size_t size = (bits + num_bits - 1) / num_bits;
+  size_t low = num_bits - (size * num_bits - bits);
+  mp_limb_t *limbs = mpz_limbs_write(ret, size);
 
-  mpz_set_ui(ret, 0);
+  drbg_generate(rng, limbs, size * sizeof(mp_limb_t));
 
-  while (total < bits) {
-    mpz_mul_2exp(ret, ret, 256);
+  if (low != num_bits)
+    limbs[size - 1] &= (((mp_limb_t)1 << low) - 1);
 
-    drbg_generate(rng, buf, 32);
-
-    mpz_import(tmp, 32, 1, 1, 0, 0, buf);
-    mpz_ior(ret, ret, tmp);
-
-    total += 256;
-  }
-
-  mpz_tdiv_q_2exp(ret, ret, total - bits);
-
-  mpz_cleanse(tmp);
-  cleanse(buf, sizeof(buf));
+  mpz_limbs_finish(ret, size);
 }
 
 static void
-random_int(drbg_t *rng, mpz_t ret, const mpz_t max) {
+mpz_random_int(mpz_t ret, const mpz_t max, drbg_t *rng) {
   size_t bits;
 
   if (mpz_sgn(max) <= 0) {
@@ -494,13 +526,13 @@ random_int(drbg_t *rng, mpz_t ret, const mpz_t max) {
   assert(bits > 0);
 
   while (mpz_cmp(ret, max) >= 0)
-    random_bits(rng, ret, bits);
+    mpz_random_bits(ret, bits, rng);
 }
 
 /* https://github.com/golang/go/blob/aadaec5/src/math/big/prime.go#L81 */
 /* https://github.com/indutny/miller-rabin/blob/master/lib/mr.js */
 static int
-is_prime_mr(const mpz_t n, unsigned long reps, int force2, drbg_t *rng) {
+mpz_is_prime_mr(const mpz_t n, unsigned long reps, int force2, drbg_t *rng) {
   int r = 0;
   mpz_t nm1, nm3, q, x, y;
   unsigned long k, i, j;
@@ -541,7 +573,7 @@ is_prime_mr(const mpz_t n, unsigned long reps, int force2, drbg_t *rng) {
       mpz_set_ui(x, 2);
     } else {
       /* x = random integer in [2,n-1] */
-      random_int(rng, x, nm3);
+      mpz_random_int(x, nm3, rng);
       mpz_add_ui(x, x, 2);
     }
 
@@ -583,7 +615,7 @@ fail:
 
 /* https://github.com/golang/go/blob/aadaec5/src/math/big/prime.go#L150 */
 static int
-is_prime_lucas(const mpz_t n, unsigned long limit) {
+mpz_is_prime_lucas(const mpz_t n, unsigned long limit) {
   int ret = 0;
   unsigned long p, r;
   mpz_t d, s, nm2, vk, vk1, t1, t2, t3;
@@ -745,26 +777,25 @@ fail:
 }
 
 static int
-is_prime(const mpz_t p, drbg_t *rng) {
-  if (!is_prime_mr(p, 20 + 1, 1, rng))
+mpz_is_prime(const mpz_t p, drbg_t *rng) {
+  if (!mpz_is_prime_mr(p, 20 + 1, 1, rng))
     return 0;
 
-  if (!is_prime_lucas(p, 0))
+  if (!mpz_is_prime_lucas(p, 0))
     return 0;
 
   return 1;
 }
 
 static void
-random_prime(drbg_t *rng, mpz_t ret, size_t bits) {
+mpz_random_prime(mpz_t ret, size_t bits, drbg_t *rng) {
   assert(bits > 1);
 
   do {
-    random_bits(rng, ret, bits);
-
+    mpz_random_bits(ret, bits, rng);
     mpz_setbit(ret, 0);
     mpz_setbit(ret, bits - 1);
-  } while (!is_prime(ret, rng));
+  } while (!mpz_is_prime(ret, rng));
 }
 
 /*
@@ -862,21 +893,20 @@ asn1_read_int(mpz_t n, const unsigned char **data, size_t *len, int strict) {
   if (size > *len)
     return 0;
 
-  /* No reason to have an integer larger than this. */
-  if (strict && size > 1 + RSA_MAX_BYTES)
-    return 0;
+  if (strict) {
+    const unsigned char *num = *data;
 
-  if (strict && size > 0) {
+    /* No reason to have an integer larger than this. */
+    if (size == 0 || size > 1 + RSA_MAX_MOD_BYTES)
+      return 0;
+
     /* No negatives. */
-    if (**data & 0x80)
+    if (num[0] & 0x80)
       return 0;
 
     /* Allow zero only if it prefixes a high bit. */
-    if (**data == 0x00) {
-      if (size == 1)
-        return 0;
-
-      if (((*data)[1] & 0x80) == 0x00)
+    if (size > 1) {
+      if (num[0] == 0x00 && (num[1] & 0x80) == 0x00)
         return 0;
     }
   }
@@ -908,6 +938,9 @@ asn1_size_int(const mpz_t n) {
 
   if ((bits & 7) == 0)
     size += mpz_tstbit(n, bits - 1);
+
+  if (bits == 0)
+    size = 1;
 
   return 1 + asn1_size_size(size) + size;
 }
@@ -941,6 +974,9 @@ asn1_write_int(unsigned char *data, size_t pos, const mpz_t n) {
   if ((bits & 7) == 0)
     pad = mpz_tstbit(n, bits - 1);
 
+  if (bits == 0)
+    size = 1;
+
   data[pos++] = 0x02;
 
   pos += asn1_write_size(data, pos, pad + size);
@@ -948,7 +984,11 @@ asn1_write_int(unsigned char *data, size_t pos, const mpz_t n) {
   if (pad)
     data[pos++] = 0x00;
 
-  mpz_export(data + pos, NULL, 1, 1, 0, 0, n);
+  if (bits != 0)
+    mpz_export(data + pos, NULL, 1, 1, 0, 0, n);
+  else
+    data[pos] = 0x00;
+
   pos += size;
 
   return pos;
@@ -987,6 +1027,14 @@ priv_import(priv_t *k, const unsigned char *data, size_t len, int strict) {
   if (!asn1_read_seq(&data, &len, strict))
     return 0;
 
+  /* Read version first. */
+  if (!asn1_read_int(k->n, &data, &len, strict))
+    return 0;
+
+  /* Should be zero. */
+  if (strict && mpz_sgn(k->n) != 0)
+    return 0;
+
   if (!asn1_read_int(k->n, &data, &len, strict))
     return 0;
 
@@ -1022,6 +1070,7 @@ priv_export(unsigned char *out, size_t *out_len, const priv_t *k) {
   size_t size = 0;
   size_t pos = 0;
 
+  size += 3; /* version */
   size += asn1_size_int(k->n);
   size += asn1_size_int(k->e);
   size += asn1_size_int(k->d);
@@ -1034,6 +1083,9 @@ priv_export(unsigned char *out, size_t *out_len, const priv_t *k) {
   /* 0x30 [size] [body] */
   out[pos++] = 0x30;
   pos += asn1_write_size(out, pos, size);
+  out[pos++] = 0x02;
+  out[pos++] = 0x01;
+  out[pos++] = 0x00; /* version */
   pos += asn1_write_int(out, pos, k->n);
   pos += asn1_write_int(out, pos, k->e);
   pos += asn1_write_int(out, pos, k->d);
@@ -1046,7 +1098,7 @@ priv_export(unsigned char *out, size_t *out_len, const priv_t *k) {
   *out_len = pos;
 }
 
-static void
+static int
 priv_generate(priv_t *k, size_t bits, uint64_t exp, unsigned char *seed) {
   /* [RFC8017] Page 9, Section 3.2.
    * [FIPS186] Page 51, Appendix B.3.1
@@ -1073,8 +1125,13 @@ priv_generate(priv_t *k, size_t bits, uint64_t exp, unsigned char *seed) {
   mpz_t pm1, qm1, phi;
   drbg_t rng;
 
-  assert(bits >= 200);
-  assert(exp >= 3 && (exp & 1) == 0);
+  if (bits < RSA_MIN_MOD_BITS
+      || bits > RSA_MAX_MOD_BITS
+      || exp < RSA_MIN_EXP
+      || exp > RSA_MAX_EXP
+      || (exp & 1ull) == 0) {
+    return 0;
+  }
 
   drbg_init(&rng, HASH_SHA256, seed, 32);
 
@@ -1082,13 +1139,17 @@ priv_generate(priv_t *k, size_t bits, uint64_t exp, unsigned char *seed) {
   mpz_init(qm1);
   mpz_init(phi);
 
-  mpz_set_ui(k->e, exp >> 32);
-  mpz_mul_2exp(k->e, k->e, 32);
-  mpz_add_ui(k->e, k->e, exp & 0xffffffff);
+  if ((exp >> 32) == 0) {
+    mpz_set_ui(k->e, exp);
+  } else {
+    mpz_set_ui(k->e, exp >> 32);
+    mpz_mul_2exp(k->e, k->e, 32);
+    mpz_add_ui(k->e, k->e, exp & 0xffffffff);
+  }
 
   for (;;) {
-    random_prime(&rng, k->p, (bits >> 1) + (bits & 1));
-    random_prime(&rng, k->q, bits >> 1);
+    mpz_random_prime(k->p, (bits >> 1) + (bits & 1), &rng);
+    mpz_random_prime(k->q, bits >> 1, &rng);
 
     if (mpz_cmp(k->p, k->q) == 0)
       continue;
@@ -1126,6 +1187,8 @@ priv_generate(priv_t *k, size_t bits, uint64_t exp, unsigned char *seed) {
   mpz_cleanse(pm1);
   mpz_cleanse(qm1);
   mpz_cleanse(phi);
+
+  return 1;
 }
 
 static int
@@ -1147,10 +1210,34 @@ priv_verify(const priv_t *k) {
   mpz_init(lam);
   mpz_init(t);
 
-  if (nb < RSA_MIN_BITS || nb > RSA_MAX_BITS)
+  if (nb < RSA_MIN_MOD_BITS || nb > RSA_MAX_MOD_BITS)
     goto fail;
 
   if (eb < RSA_MIN_EXP_BITS || eb > RSA_MAX_EXP_BITS)
+    goto fail;
+
+  /* d < (p - 1) * (q - 1) */
+  if (db == 0 || db > nb)
+    goto fail;
+
+  /* p < n */
+  if (pb <= 1 || pb > nb)
+    goto fail;
+
+  /* q < n */
+  if (qb <= 1 || qb > nb)
+    goto fail;
+
+  /* dp < p - 1 */
+  if (dpb == 0 || dpb > pb)
+    goto fail;
+
+  /* dq < q - 1 */
+  if (dqb == 0 || dqb > qb)
+    goto fail;
+
+  /* qi < p */
+  if (qib == 0 || qib > pb)
     goto fail;
 
   if (!mpz_odd_p(k->n))
@@ -1163,30 +1250,6 @@ priv_verify(const priv_t *k) {
     goto fail;
 
   if (!mpz_odd_p(k->q))
-    goto fail;
-
-  /* n == p * q */
-  if (nb == 0 || nb > pb + qb)
-    goto fail;
-
-  /* d < (p - 1) * (q - 1) */
-  if (db == 0 || db > nb)
-    goto fail;
-
-  /* dp < p - 1 */
-  if (dpb == 0 || dpb > pb)
-    goto fail;
-
-  /* dq < q - 1 */
-  if (dqb == 0 || dqb > qb)
-    goto fail;
-
-  /* q < p */
-  if (qib == 0 || qib > pb)
-    goto fail;
-
-  /* n != 0 */
-  if (mpz_sgn(k->n) <= 0)
     goto fail;
 
   /* n == p * q */
@@ -1268,7 +1331,7 @@ priv_decrypt(const priv_t *k,
   /* Generate blinding factor. */
   for (;;) {
     /* s = random integer in [1,n-1] */
-    random_int(&rng, s, t);
+    mpz_random_int(s, t, &rng);
     mpz_add_ui(s, s, 1);
 
     /* bi = s^-1 mod n */
@@ -1365,13 +1428,16 @@ pub_verify(const pub_t *k) {
   size_t nb = mpz_bitlen(k->n);
   size_t eb = mpz_bitlen(k->e);
 
-  if (nb < RSA_MIN_BITS || nb > RSA_MAX_BITS)
+  if (nb < RSA_MIN_MOD_BITS || nb > RSA_MAX_MOD_BITS)
     return 0;
 
   if (eb < RSA_MIN_EXP_BITS || eb > RSA_MAX_EXP_BITS)
     return 0;
 
-  if (mpz_even_p(k->e))
+  if (!mpz_odd_p(k->n))
+    return 0;
+
+  if (!mpz_odd_p(k->e))
     return 0;
 
   return 1;
@@ -1407,6 +1473,10 @@ fail:
   mpz_cleanse(m);
   return r;
 }
+
+/*
+ * RSA
+ */
 
 int
 rsa_sign(unsigned char *out,
@@ -2052,9 +2122,9 @@ rsa_sign_pss(unsigned char *out,
   bits = mpz_bitlen(k.n);
   klen = (bits + 7) / 8;
 
-  if (salt_len == SALT_LENGTH_AUTO)
+  if (salt_len == RSA_SALT_LENGTH_AUTO)
     salt_len = klen - 2 - hlen;
-  else if (salt_len == SALT_LENGTH_HASH)
+  else if (salt_len == RSA_SALT_LENGTH_HASH)
     salt_len = hlen;
 
   if (salt_len < 0)
@@ -2128,9 +2198,9 @@ rsa_verify_pss(int type,
   if (strict && sig_len != klen)
     goto fail;
 
-  if (salt_len == SALT_LENGTH_AUTO)
+  if (salt_len == RSA_SALT_LENGTH_AUTO)
     salt_len = 0; /* Handled in pssVerify. */
-  else if (salt_len == SALT_LENGTH_HASH)
+  else if (salt_len == RSA_SALT_LENGTH_HASH)
     salt_len = hlen;
 
   if (salt_len < 0)
