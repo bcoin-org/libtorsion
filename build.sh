@@ -24,6 +24,7 @@ if test x"$2" = x'mini'; then
     src/hash.c \
     src/kdf.c \
     src/mini-gmp.c \
+    src/poly1305.c \
     src/test.c
 else
   gcc -g \
@@ -42,5 +43,6 @@ else
     src/drbg.c \
     src/hash.c \
     src/kdf.c \
+    src/poly1305.c \
     src/test.c
 fi
