@@ -20,11 +20,14 @@ if test x"$2" = x'mini'; then
     "$def" \
     -I./include \
     -o test \
+    src/aead.c \
+    src/chacha20.c \
     src/drbg.c \
     src/hash.c \
     src/kdf.c \
     src/mini-gmp.c \
     src/poly1305.c \
+    src/salsa20.c \
     src/test.c
 else
   gcc -g \
@@ -40,9 +43,12 @@ else
     -I./include \
     -lgmp \
     -o test \
+    src/aead.c \
+    src/chacha20.c \
     src/drbg.c \
     src/hash.c \
     src/kdf.c \
     src/poly1305.c \
+    src/salsa20.c \
     src/test.c
 fi

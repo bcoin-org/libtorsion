@@ -9,7 +9,7 @@
 #ifndef _TORSION_POLY1305_H
 #define _TORSION_POLY1305_H
 
-#if defined(__cplusplus)
+#ifdef __cplusplus
 extern "C" {
 #endif
 
@@ -56,7 +56,7 @@ poly1305_auth(unsigned char *mac,
 int
 poly1305_verify(const unsigned char *mac1, const unsigned char *mac2);
 
-#if defined(__cplusplus)
+#ifdef __cplusplus
 }
 #endif
 
