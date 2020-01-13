@@ -118,42 +118,48 @@ extern "C" {
  * Defs
  */
 
-#define HASH_MD5 0
-#define HASH_RIPEMD160 1
-#define HASH_SHA1 2
-#define HASH_SHA224 3
-#define HASH_SHA256 4
-#define HASH_SHA384 5
-#define HASH_SHA512 6
-#define HASH_HASH160 7
-#define HASH_HASH256 8
-#define HASH_KECCAK 9
-#define HASH_KECCAK224 10
-#define HASH_KECCAK256 11
-#define HASH_KECCAK384 12
-#define HASH_KECCAK512 13
-#define HASH_SHA3 14
-#define HASH_SHA3_224 15
-#define HASH_SHA3_256 16
-#define HASH_SHA3_384 17
-#define HASH_SHA3_512 18
-#define HASH_SHAKE 19
-#define HASH_SHAKE128 20
-#define HASH_SHAKE256 21
-#define HASH_BLAKE2S 22
-#define HASH_BLAKE2S_128 23
-#define HASH_BLAKE2S_160 24
-#define HASH_BLAKE2S_224 25
-#define HASH_BLAKE2S_256 26
-#define HASH_BLAKE2B 27
-#define HASH_BLAKE2B_160 28
-#define HASH_BLAKE2B_256 29
-#define HASH_BLAKE2B_384 30
-#define HASH_BLAKE2B_512 31
-#define HASH_MAX 31
-
 #define HASH_MAX_OUTPUT_SIZE 64
 #define HASH_MAX_BLOCK_SIZE 128
+
+#define HASH_BLAKE2B_160 0
+#define HASH_BLAKE2B_256 1
+#define HASH_BLAKE2B_384 2
+#define HASH_BLAKE2B_512 3
+#define HASH_BLAKE2S_128 4
+#define HASH_BLAKE2S_160 5
+#define HASH_BLAKE2S_224 6
+#define HASH_BLAKE2S_256 7
+#define HASH_GOST94 8
+#define HASH_HASH160 9
+#define HASH_HASH256 10
+#define HASH_KECCAK224 11
+#define HASH_KECCAK256 12
+#define HASH_KECCAK384 13
+#define HASH_KECCAK512 14
+#define HASH_MD2 15
+#define HASH_MD4 16
+#define HASH_MD5 17
+#define HASH_MD5SHA1 18
+#define HASH_RIPEMD160 19
+#define HASH_SHA1 20
+#define HASH_SHA224 21
+#define HASH_SHA256 22
+#define HASH_SHA384 23
+#define HASH_SHA512 24
+#define HASH_SHA3_224 25
+#define HASH_SHA3_256 26
+#define HASH_SHA3_384 27
+#define HASH_SHA3_512 28
+#define HASH_SHAKE128 29
+#define HASH_SHAKE256 30
+#define HASH_WHIRLPOOL 31
+#define HASH_MAX 31
+
+#define HASH_BLAKE2B HASH_BLAKE2B_256
+#define HASH_BLAKE2S HASH_BLAKE2S_256
+#define HASH_KECCAK HASH_KECCAK256
+#define HASH_SHA3 HASH_SHA3_256
+#define HASH_SHAKE HASH_SHAKE256
 
 /*
  * Structs
@@ -416,6 +422,9 @@ hash_update(hash_t *hash, const void *data, size_t len);
 
 void
 hash_final(hash_t *hash, unsigned char *out, size_t len);
+
+int
+hash_has_backend(int type);
 
 size_t
 hash_output_size(int type);

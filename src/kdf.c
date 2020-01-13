@@ -73,7 +73,7 @@ read64le(const void *src) {
 
 int
 pbkdf2(unsigned char *out,
-       unsigned int type,
+       int type,
        const unsigned char *pass,
        size_t pass_len,
        const unsigned char *salt,
@@ -94,7 +94,7 @@ pbkdf2(unsigned char *out,
   hmac_t hmac;
   int r = 0;
 
-  if (type > HASH_MAX)
+  if (!hash_has_backend(type))
     return 0;
 
   if (len > UINT32_MAX - hash_size)

@@ -1977,11 +1977,8 @@ hash_init(hash_t *hash, int type) {
     case HASH_SHA3_224:
       keccak_init(&hash->ctx.keccak, 224);
       break;
-    case HASH_KECCAK:
     case HASH_KECCAK256:
-    case HASH_SHA3:
     case HASH_SHA3_256:
-    case HASH_SHAKE:
     case HASH_SHAKE256:
       keccak_init(&hash->ctx.keccak, 256);
       break;
@@ -2002,14 +1999,12 @@ hash_init(hash_t *hash, int type) {
     case HASH_BLAKE2S_224:
       blake2s_init(&hash->ctx.blake2s, 28, NULL, 0);
       break;
-    case HASH_BLAKE2S:
     case HASH_BLAKE2S_256:
       blake2s_init(&hash->ctx.blake2s, 32, NULL, 0);
       break;
     case HASH_BLAKE2B_160:
       blake2b_init(&hash->ctx.blake2b, 20, NULL, 0);
       break;
-    case HASH_BLAKE2B:
     case HASH_BLAKE2B_256:
       blake2b_init(&hash->ctx.blake2b, 32, NULL, 0);
       break;
@@ -2047,29 +2042,24 @@ hash_update(hash_t *hash, const void *data, size_t len) {
     case HASH_SHA512:
       sha512_update(&hash->ctx.sha512, data, len);
       break;
-    case HASH_KECCAK:
     case HASH_KECCAK224:
     case HASH_KECCAK256:
     case HASH_KECCAK384:
     case HASH_KECCAK512:
-    case HASH_SHA3:
     case HASH_SHA3_224:
     case HASH_SHA3_256:
     case HASH_SHA3_384:
     case HASH_SHA3_512:
-    case HASH_SHAKE:
     case HASH_SHAKE128:
     case HASH_SHAKE256:
       keccak_update(&hash->ctx.keccak, data, len);
       break;
-    case HASH_BLAKE2S:
     case HASH_BLAKE2S_128:
     case HASH_BLAKE2S_160:
     case HASH_BLAKE2S_224:
     case HASH_BLAKE2S_256:
       blake2s_update(&hash->ctx.blake2s, data, len);
       break;
-    case HASH_BLAKE2B:
     case HASH_BLAKE2B_160:
     case HASH_BLAKE2B_256:
     case HASH_BLAKE2B_384:
@@ -2112,33 +2102,28 @@ hash_final(hash_t *hash, unsigned char *out, size_t len) {
     case HASH_HASH256:
       hash256_final(&hash->ctx.sha256, out);
       break;
-    case HASH_KECCAK:
     case HASH_KECCAK224:
     case HASH_KECCAK256:
     case HASH_KECCAK384:
     case HASH_KECCAK512:
       keccak_final(&hash->ctx.keccak, out, 0x01, 0);
       break;
-    case HASH_SHA3:
     case HASH_SHA3_224:
     case HASH_SHA3_256:
     case HASH_SHA3_384:
     case HASH_SHA3_512:
       keccak_final(&hash->ctx.keccak, out, 0x06, 0);
       break;
-    case HASH_SHAKE:
     case HASH_SHAKE128:
     case HASH_SHAKE256:
       keccak_final(&hash->ctx.keccak, out, 0x1f, len);
       break;
-    case HASH_BLAKE2S:
     case HASH_BLAKE2S_128:
     case HASH_BLAKE2S_160:
     case HASH_BLAKE2S_224:
     case HASH_BLAKE2S_256:
       blake2s_final(&hash->ctx.blake2s, out);
       break;
-    case HASH_BLAKE2B:
     case HASH_BLAKE2B_160:
     case HASH_BLAKE2B_256:
     case HASH_BLAKE2B_384:
@@ -2151,11 +2136,87 @@ hash_final(hash_t *hash, unsigned char *out, size_t len) {
   }
 }
 
+int
+hash_has_backend(int type) {
+  switch (type) {
+    case HASH_BLAKE2B_160:
+    case HASH_BLAKE2B_256:
+    case HASH_BLAKE2B_384:
+    case HASH_BLAKE2B_512:
+    case HASH_BLAKE2S_128:
+    case HASH_BLAKE2S_160:
+    case HASH_BLAKE2S_224:
+    case HASH_BLAKE2S_256:
+    /*case HASH_GOST94:*/
+    case HASH_HASH160:
+    case HASH_HASH256:
+    case HASH_KECCAK224:
+    case HASH_KECCAK256 :
+    case HASH_KECCAK384 :
+    case HASH_KECCAK512 :
+    /*case HASH_MD2:*/
+    /*case HASH_MD4:*/
+    case HASH_MD5:
+    /*case HASH_MD5SHA1:*/
+    case HASH_RIPEMD160:
+    case HASH_SHA1:
+    case HASH_SHA224:
+    case HASH_SHA256:
+    case HASH_SHA384:
+    case HASH_SHA512:
+    case HASH_SHA3_224:
+    case HASH_SHA3_256:
+    case HASH_SHA3_384:
+    case HASH_SHA3_512:
+    case HASH_SHAKE128:
+    case HASH_SHAKE256:
+    /*case HASH_WHIRLPOOL:*/
+      return 1;
+  }
+  return 0;
+}
+
 size_t
 hash_output_size(int type) {
   switch (type) {
+    case HASH_BLAKE2B_160:
+      return 20;
+    case HASH_BLAKE2B_256:
+      return 32;
+    case HASH_BLAKE2B_384:
+      return 48;
+    case HASH_BLAKE2B_512:
+      return 64;
+    case HASH_BLAKE2S_128:
+      return 16;
+    case HASH_BLAKE2S_160:
+      return 20;
+    case HASH_BLAKE2S_224:
+      return 28;
+    case HASH_BLAKE2S_256:
+      return 32;
+    case HASH_GOST94:
+      return 32;
+    case HASH_HASH160:
+      return 20;
+    case HASH_HASH256:
+      return 32;
+    case HASH_KECCAK224:
+      return 28;
+    case HASH_KECCAK256:
+      return 32;
+    case HASH_KECCAK384:
+      return 48;
+    case HASH_KECCAK512:
+      return 64;
+    case HASH_MD2:
+      return 16;
+    case HASH_MD4:
+      return 16;
     case HASH_MD5:
       return 16;
+    case HASH_MD5SHA1:
+      return 36;
     case HASH_RIPEMD160:
       return 20;
     case HASH_SHA1:
@@ -2168,22 +2229,6 @@ hash_output_size(int type) {
       return 48;
     case HASH_SHA512:
       return 64;
-    case HASH_HASH160:
-      return 20;
-    case HASH_HASH256:
-      return 32;
-    case HASH_KECCAK:
-      return 32;
-    case HASH_KECCAK224:
-      return 28;
-    case HASH_KECCAK256:
-      return 32;
-    case HASH_KECCAK384:
-      return 48;
-    case HASH_KECCAK512:
-      return 64;
-    case HASH_SHA3:
-      return 32;
     case HASH_SHA3_224:
       return 28;
     case HASH_SHA3_256:
@@ -2192,42 +2237,57 @@ hash_output_size(int type) {
       return 48;
     case HASH_SHA3_512:
       return 64;
-    case HASH_SHAKE:
-      return 32;
     case HASH_SHAKE128:
       return 16;
     case HASH_SHAKE256:
       return 32;
-    case HASH_BLAKE2S:
-      return 32;
-    case HASH_BLAKE2S_128:
-      return 16;
-    case HASH_BLAKE2S_160:
-      return 20;
-    case HASH_BLAKE2S_224:
-      return 28;
-    case HASH_BLAKE2S_256:
-      return 32;
-    case HASH_BLAKE2B:
-      return 32;
-    case HASH_BLAKE2B_160:
-      return 20;
-    case HASH_BLAKE2B_256:
-      return 32;
-    case HASH_BLAKE2B_384:
-      return 48;
-    case HASH_BLAKE2B_512:
+    case HASH_WHIRLPOOL:
       return 64;
     default:
-      assert(0);
-      break;
+      return 0;
   }
 }
 
 size_t
 hash_block_size(int type) {
   switch (type) {
+    case HASH_BLAKE2B_160:
+      return 128;
+    case HASH_BLAKE2B_256:
+      return 128;
+    case HASH_BLAKE2B_384:
+      return 128;
+    case HASH_BLAKE2B_512:
+      return 128;
+    case HASH_BLAKE2S_128:
+      return 64;
+    case HASH_BLAKE2S_160:
+      return 64;
+    case HASH_BLAKE2S_224:
+      return 64;
+    case HASH_BLAKE2S_256:
+      return 128;
+    case HASH_GOST94:
+      return 32;
+    case HASH_HASH160:
+      return 64;
+    case HASH_HASH256:
+      return 64;
+    case HASH_KECCAK224:
+      return 144;
+    case HASH_KECCAK256:
+      return 136;
+    case HASH_KECCAK384:
+      return 104;
+    case HASH_KECCAK512:
+      return 72;
+    case HASH_MD2:
+      return 16;
+    case HASH_MD4:
+      return 64;
     case HASH_MD5:
+      return 64;
+    case HASH_MD5SHA1:
       return 64;
     case HASH_RIPEMD160:
       return 64;
@@ -2241,22 +2301,6 @@ hash_block_size(int type) {
       return 128;
     case HASH_SHA512:
       return 128;
-    case HASH_HASH160:
-      return 64;
-    case HASH_HASH256:
-      return 64;
-    case HASH_KECCAK:
-      return 136;
-    case HASH_KECCAK224:
-      return 144;
-    case HASH_KECCAK256:
-      return 136;
-    case HASH_KECCAK384:
-      return 104;
-    case HASH_KECCAK512:
-      return 72;
-    case HASH_SHA3:
-      return 136;
     case HASH_SHA3_224:
       return 144;
     case HASH_SHA3_256:
@@ -2265,35 +2309,14 @@ hash_block_size(int type) {
       return 104;
     case HASH_SHA3_512:
       return 72;
-    case HASH_SHAKE:
-      return 136;
     case HASH_SHAKE128:
       return 168;
     case HASH_SHAKE256:
       return 136;
-    case HASH_BLAKE2S:
+    case HASH_WHIRLPOOL:
       return 64;
-    case HASH_BLAKE2S_128:
-      return 64;
-    case HASH_BLAKE2S_160:
-      return 64;
-    case HASH_BLAKE2S_224:
-      return 64;
-    case HASH_BLAKE2S_256:
-      return 128;
-    case HASH_BLAKE2B:
-      return 128;
-    case HASH_BLAKE2B_160:
-      return 128;
-    case HASH_BLAKE2B_256:
-      return 128;
-    case HASH_BLAKE2B_384:
-      return 128;
-    case HASH_BLAKE2B_512:
-      return 128;
     default:
-      assert(0);
-      break;
+      return 0;
   }
 }
 

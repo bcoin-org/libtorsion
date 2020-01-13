@@ -21,7 +21,7 @@ extern "C" {
 
 int
 pbkdf2(unsigned char *out,
-       unsigned int type,
+       int type,
        const unsigned char *pass,
        size_t pass_len,
        const unsigned char *salt,
