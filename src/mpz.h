@@ -1,0 +1,366 @@
+#ifndef _TORSION_MPZ_H
+#define _TORSION_MPZ_H
+
+#include <assert.h>
+#include <stddef.h>
+#include <string.h>
+#include <torsion/drbg.h>
+#include <torsion/util.h>
+
+#include "gmp-compat.h"
+
+/* Avoid collisions with future versions of GMP. */
+#define mpz_bitlen(n) (mpz_sgn(n) == 0 ? 0 : mpz_sizeinbase(n, 2))
+#define mpz_bytelen(n) ((mpz_bitlen(n) + 7) / 8)
+#define mpz_export_pad torsion_mpz_export_pad
+#define mpz_cleanse torsion_mpz_cleanse
+#define mpz_random_bits torsion_mpz_random_bits
+#define mpz_random_int torsion_mpz_random_int
+#define mpz_is_prime_mr torsion_mpz_is_prime_mr
+#define mpz_is_prime_lucas torsion_mpz_is_prime_lucas
+#define mpz_is_prime torsion_mpz_is_prime
+#define mpz_random_prime torsion_mpz_random_prime
+
+/*
+ * MPZ Extras
+ */
+
+static void
+mpz_export_pad(unsigned char *out, const mpz_t n, size_t size, int endian) {
+  size_t len = mpz_bytelen(n);
+  size_t left = size - len;
+
+  assert(len <= size);
+
+  if (endian == 1) {
+    memset(out, 0x00, left);
+    mpz_export(out + left, NULL, 1, 1, 0, 0, n);
+  } else {
+    mpz_export(out, NULL, -1, 1, 0, 0, n);
+    memset(out + len, 0x00, left);
+  }
+}
+
+static void
+mpz_cleanse(mpz_t n) {
+#ifdef TORSION_HAS_GMP
+  /* Using the public API. */
+  const mp_limb_t *orig = mpz_limbs_read(n);
+  size_t size = mpz_size(n);
+  mp_limb_t *limbs = mpz_limbs_modify(n, (mp_size_t)size);
+
+  /* Zero the limbs. */
+  cleanse(limbs, size * sizeof(mp_limb_t));
+
+  /* Ensure the integer remains in a valid state. */
+  mpz_limbs_finish(n, 0);
+
+  /* Sanity checks. */
+  assert(limbs == orig);
+  assert(mpz_limbs_read(n) == orig);
+  assert(mpz_sgn(n) == 0);
+#else
+  /* Using the internal API. */
+  mpz_ptr x = n;
+  cleanse(x->_mp_d, x->_mp_alloc * sizeof(mp_limb_t));
+  x->_mp_size = 0;
+#endif
+  mpz_clear(n);
+}
+
+static void
+mpz_random_bits(mpz_t ret, size_t bits, drbg_t *rng) {
+  size_t size = (bits + GMP_NUMB_BITS - 1) / GMP_NUMB_BITS;
+  size_t low = GMP_NUMB_BITS - (size * GMP_NUMB_BITS - bits);
+  mp_limb_t *limbs = mpz_limbs_write(ret, size);
+
+  drbg_generate(rng, limbs, size * sizeof(mp_limb_t));
+
+  if (low != GMP_NUMB_BITS)
+    limbs[size - 1] &= (((mp_limb_t)1 << low) - 1);
+
+  mpz_limbs_finish(ret, size);
+}
+
+static void
+mpz_random_int(mpz_t ret, const mpz_t max, drbg_t *rng) {
+  size_t bits = mpz_bitlen(ret);
+
+  mpz_set(ret, max);
+
+  if (bits > 0) {
+    while (mpz_cmpabs(ret, max) >= 0)
+      mpz_random_bits(ret, bits, rng);
+
+    if (mpz_sgn(max) < 0)
+      mpz_neg(ret, ret);
+  }
+}
+
+static int
+mpz_is_prime_mr(const mpz_t n, unsigned long reps, int force2, drbg_t *rng) {
+  int r = 0;
+  mpz_t nm1, nm3, q, x, y;
+  unsigned long k, i, j;
+
+  /* if n < 7 */
+  if (mpz_cmp_ui(n, 7) < 0) {
+    /* n == 2 or n == 3 or n == 5 */
+    return mpz_cmp_ui(n, 2) == 0
+        || mpz_cmp_ui(n, 3) == 0
+        || mpz_cmp_ui(n, 5) == 0;
+  }
+
+  /* if n mod 2 == 0 */
+  if (mpz_even_p(n))
+    return 0;
+
+  mpz_init(nm1);
+  mpz_init(nm3);
+  mpz_init(q);
+  mpz_init(x);
+  mpz_init(y);
+
+  /* nm1 = n - 1 */
+  mpz_sub_ui(nm1, n, 1);
+
+  /* nm3 = nm1 - 2 */
+  mpz_sub_ui(nm3, nm1, 2);
+
+  /* k = nm1 factors of 2 */
+  k = mpz_scan1(nm1, 0);
+
+  /* q = nm1 >> k */
+  mpz_tdiv_q_2exp(q, nm1, k);
+
+  for (i = 0; i < reps; i++) {
+    if (i == reps - 1 && force2) {
+      /* x = 2 */
+      mpz_set_ui(x, 2);
+    } else {
+      /* x = random integer in [2,n-1] */
+      mpz_random_int(x, nm3, rng);
+      mpz_add_ui(x, x, 2);
+    }
+
+    /* y = x^q mod n */
+    mpz_powm(y, x, q, n);
+
+    /* if y == 1 or y == -1 mod n */
+    if (mpz_cmp_ui(y, 1) == 0 || mpz_cmp(y, nm1) == 0)
+      continue;
+
+    for (j = 1; j < k; j++) {
+      /* y = y^2 mod n */
+      mpz_mul(y, y, y);
+      mpz_mod(y, y, n);
+
+      /* if y == -1 mod n */
+      if (mpz_cmp(y, nm1) == 0)
+        goto next;
+
+      /* if y == 1 mod n */
+      if (mpz_cmp_ui(y, 1) == 0)
+        goto fail;
+    }
+
+    goto fail;
+next:
+    ;
+  }
+
+  r = 1;
+fail:
+  mpz_clear(nm1);
+  mpz_clear(nm3);
+  mpz_clear(q);
+  mpz_clear(x);
+  mpz_clear(y);
+  return r;
+}
+
+static int
+mpz_is_prime_lucas(const mpz_t n, unsigned long limit) {
+  int ret = 0;
+  unsigned long p, r;
+  mpz_t d, s, nm2, vk, vk1, t1, t2, t3;
+  long i, t;
+  int j;
+
+  mpz_init(d);
+  mpz_init(s);
+  mpz_init(nm2);
+  mpz_init(vk);
+  mpz_init(vk1);
+  mpz_init(t1);
+  mpz_init(t2);
+  mpz_init(t3);
+
+  /* if n <= 1 */
+  if (mpz_cmp_ui(n, 1) <= 0)
+    goto fail;
+
+  /* if n mod 2 == 0 */
+  if (mpz_even_p(n)) {
+    /* if n == 2 */
+    if (mpz_cmp_ui(n, 2) == 0)
+      goto succeed;
+    goto fail;
+  }
+
+  /* p = 3 */
+  p = 3;
+
+  /* d = 1 */
+  mpz_set_ui(d, 1);
+
+  for (;;) {
+    if (p > 10000) {
+      /* Thought to be impossible. */
+      goto fail;
+    }
+
+    if (limit != 0 && p > limit) {
+      /* Enforce a limit to prevent DoS'ing. */
+      goto fail;
+    }
+
+    /* d = p * p - 4 */
+    mpz_set_ui(d, p * p - 4);
+
+    j = mpz_jacobi(d, n);
+
+    /* if d is not square mod n */
+    if (j == -1)
+      break;
+
+    /* if d == 0 mod n */
+    if (j == 0) {
+      /* if n == p + 2 */
+      if (mpz_cmp_ui(n, p + 2) == 0)
+        goto succeed;
+      goto fail;
+    }
+
+    if (p == 40) {
+      /* if floor(n^(1 / 2))^2 == n */
+      if (mpz_perfect_square_p(n))
+        goto fail;
+    }
+
+    p += 1;
+  }
+
+  /* s = n + 1 */
+  mpz_add_ui(s, n, 1);
+
+  /* r = s factors of 2 */
+  r = mpz_scan1(s, 0);
+
+  /* nm2 = n - 2 */
+  mpz_sub_ui(nm2, n, 2);
+
+  /* vk = 2 */
+  mpz_set_ui(vk, 2);
+
+  /* vk1 = p */
+  mpz_set_ui(vk1, p);
+
+  /* s >>= r */
+  mpz_tdiv_q_2exp(s, s, r);
+
+  for (i = (long)mpz_bitlen(s); i >= 0; i--) {
+    /* if floor(s / 2^i) mod 2 == 1 */
+    if (mpz_tstbit(s, i)) {
+      /* vk = (vk * vk1 + n - p) mod n */
+      /* vk1 = (vk1^2 + nm2) mod n */
+      mpz_mul(t1, vk, vk1);
+      mpz_add(t1, t1, n);
+      mpz_sub_ui(t1, t1, p);
+      mpz_mod(vk, t1, n);
+      mpz_mul(t1, vk1, vk1);
+      mpz_add(t1, t1, nm2);
+      mpz_mod(vk1, t1, n);
+    } else {
+      /* vk1 = (vk * vk1 + n - p) mod n */
+      /* vk = (vk^2 + nm2) mod n */
+      mpz_mul(t1, vk, vk1);
+      mpz_add(t1, t1, n);
+      mpz_sub_ui(t1, t1, p);
+      mpz_mod(vk1, t1, n);
+      mpz_mul(t1, vk, vk);
+      mpz_add(t1, t1, nm2);
+      mpz_mod(vk, t1, n);
+    }
+  }
+
+  /* if vk == 2 or vk == nm2 */
+  if (mpz_cmp_ui(vk, 2) == 0 || mpz_cmp(vk, nm2) == 0) {
+    /* t3 = abs(vk * p - vk1 * 2) mod n */
+    mpz_mul_ui(t1, vk, p);
+    mpz_mul_2exp(t2, vk1, 1);
+
+    if (mpz_cmp(t1, t2) < 0)
+      mpz_swap(t1, t2);
+
+    mpz_sub(t1, t1, t2);
+    mpz_mod(t3, t1, n);
+
+    /* if t3 == 0 */
+    if (mpz_sgn(t3) == 0)
+      goto succeed;
+  }
+
+  for (t = 0; t < (long)r - 1; t++) {
+    /* if vk == 0 */
+    if (mpz_sgn(vk) == 0)
+      goto succeed;
+
+    /* if vk == 2 */
+    if (mpz_cmp_ui(vk, 2) == 0)
+      goto fail;
+
+    /* vk = (vk^2 - 2) mod n */
+    mpz_mul(t1, vk, vk);
+    mpz_sub_ui(t1, t1, 2);
+    mpz_mod(vk, t1, n);
+  }
+
+  goto fail;
+succeed:
+  ret = 1;
+fail:
+  mpz_clear(d);
+  mpz_clear(s);
+  mpz_clear(nm2);
+  mpz_clear(vk);
+  mpz_clear(vk1);
+  mpz_clear(t1);
+  mpz_clear(t2);
+  mpz_clear(t3);
+  return ret;
+}
+
+static int
+mpz_is_prime(const mpz_t p, drbg_t *rng) {
+  if (!mpz_is_prime_mr(p, 20 + 1, 1, rng))
+    return 0;
+
+  if (!mpz_is_prime_lucas(p, 0))
+    return 0;
+
+  return 1;
+}
+
+static void
+mpz_random_prime(mpz_t ret, size_t bits, drbg_t *rng) {
+  assert(bits > 1);
+
+  do {
+    mpz_random_bits(ret, bits, rng);
+    mpz_setbit(ret, 0);
+    mpz_setbit(ret, bits - 1);
+  } while (!mpz_is_prime(ret, rng));
+}
+
+#endif /* _TORSION_MPZ_H */

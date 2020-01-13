@@ -19,9 +19,10 @@
 #include <windows.h>
 #endif
 
+#include <torsion/drbg.h>
 #include <torsion/ecc.h>
 #include <torsion/hash.h>
-#include <torsion/drbg.h>
+#include <torsion/util.h>
 
 #include "fields/p192.h"
 #include "fields/p224.h"
@@ -33,27 +34,7 @@
 #include "fields/p448.h"
 #include "fields/p251.h"
 
-#ifdef TORSION_HAS_GMP
-#include <gmp.h>
-
-/* Nails probably break our code. */
-#if GMP_NAIL_BITS != 0 || GMP_LIMB_BITS != GMP_NUMB_BITS
-#error "please use a build of gmp without nails"
-#endif
-
-#if (GMP_NUMB_BITS & 31) != 0
-#error "invalid gmp bit alignment"
-#endif
-#else /* TORSION_HAS_GMP */
-#include "mini-gmp.h"
-
-#define GMP_LIMB_BITS (sizeof(mp_limb_t) * CHAR_BIT)
-#define GMP_NAIL_BITS 0
-#define GMP_NUMB_BITS GMP_LIMB_BITS
-#define GMP_NUMB_MASK (~((mp_limb_t)0))
-#define GMP_NUMB_MAX GMP_NUMB_MASK
-#define GMP_NAIL_MASK 0
-#endif /* TORSION_HAS_GMP */
+#include "mpn.h"
 
 #if CHAR_BIT != 8
 #error "sane char widths please"
@@ -406,23 +387,6 @@ typedef struct _edwards_scratch_s {
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
 #endif
 
-static void
-cleanse(void *ptr, size_t len) {
-#if defined(_WIN32)
-  /* https://github.com/jedisct1/libsodium/blob/3b26a5c/src/libsodium/sodium/utils.c#L112 */
-  SecureZeroMemory(ptr, len);
-#elif defined(__GNUC__)
-  /* https://github.com/torvalds/linux/blob/37d4e84/include/linux/string.h#L233 */
-  /* https://github.com/torvalds/linux/blob/37d4e84/include/linux/compiler-gcc.h#L21 */
-  memset(ptr, 0, len);
-  __asm__ __volatile__("": :"r"(ptr) :"memory");
-#else
-  /* http://www.daemonology.net/blog/2014-09-04-how-to-zero-a-buffer.html */
-  static void *(*const volatile memset_ptr)(void *, int, size_t) = memset;
-  (memset_ptr)(ptr, 0, len);
-#endif
-}
-
 static uint32_t
 bytes_zero(const unsigned char *a, size_t size) {
   /* Compute (a == 0) in constant time. */
@@ -518,416 +482,6 @@ count_bits(unsigned int x) {
 #endif
 
 /*
- * GMP Extras (some borrowed from nettle)
- */
-
-static mp_size_t
-mpn_bitlen(const mp_limb_t *xp, mp_size_t n) {
-  mp_size_t i, b;
-  mp_limb_t w;
-
-  for (i = n - 1; i >= 0; i--) {
-    if (xp[i] != 0)
-      break;
-  }
-
-  if (i < 0)
-    return 0;
-
-  w = xp[i];
-  b = 0;
-
-  while (w != 0) {
-    w >>= 1;
-    b += 1;
-  }
-
-  return i * GMP_NUMB_BITS + b;
-}
-
-static int
-mpn_cmp_limb(const mp_limb_t *xp, mp_size_t xn, int32_t num) {
-  mp_limb_t w = 0;
-  mp_limb_t n = num;
-
-  if (num < 0)
-    return 1;
-
-  if (xn > 1)
-    return 1;
-
-  if (xn > 0)
-    w = xp[0];
-
-  return (int)(w > n) - (int)(w < n);
-}
-
-static void
-mpn_cleanse(mp_limb_t *p, mp_size_t n) {
-  cleanse(p, n * sizeof(mp_limb_t));
-}
-
-static void
-mpn_set_mpz(mp_limb_t *xp, mpz_srcptr x, mp_size_t n) {
-  mp_size_t xn = mpz_size(x);
-
-  assert(xn <= n);
-
-  mpn_copyi(xp, mpz_limbs_read(x), xn);
-
-  if (xn < n)
-    mpn_zero(xp + xn, n - xn);
-}
-
-static void
-mpz_set_mpn(mpz_t r, const mp_limb_t *xp, mp_size_t xn) {
-  mpn_copyi(mpz_limbs_write(r, xn), xp, xn);
-  mpz_limbs_finish(r, xn);
-}
-
-static void
-cnd_swap(mp_limb_t cnd, mp_limb_t *ap, mp_limb_t *bp, mp_size_t n) {
-  mp_limb_t mask = -(mp_limb_t)(cnd != 0);
-  mp_size_t i;
-
-  for (i = 0; i < n; i++) {
-    mp_limb_t a = ap[i];
-    mp_limb_t b = bp[i];
-    mp_limb_t w = (a ^ b) & mask;
-
-    ap[i] = a ^ w;
-    bp[i] = b ^ w;
-  }
-}
-
-static void
-cnd_select(mp_limb_t cnd,
-           mp_limb_t *rp,
-           const mp_limb_t *ap,
-           const mp_limb_t *bp,
-           mp_size_t n) {
-  mp_limb_t cond = (cnd != 0);
-  mp_limb_t mask0 = cond - 1;
-  mp_limb_t mask1 = ~mask0;
-  mp_size_t i;
-
-  for (i = 0; i < n; i++)
-    rp[i] = (ap[i] & mask0) | (bp[i] & mask1);
-}
-
-static void
-mpn_import_be(mp_limb_t *rp, mp_size_t rn,
-              const unsigned char *xp, size_t xn) {
-  size_t xi;
-  mp_limb_t out;
-  unsigned int bits;
-
-  for (xi = xn, out = bits = 0; xi > 0 && rn > 0;) {
-    mp_limb_t in = xp[--xi];
-
-    out |= (in << bits) & GMP_NUMB_MASK;
-    bits += 8;
-
-    if (bits >= GMP_NUMB_BITS) {
-      *rp++ = out;
-      rn--;
-
-      bits -= GMP_NUMB_BITS;
-      out = in >> (8 - bits);
-    }
-  }
-
-  if (rn > 0) {
-    *rp++ = out;
-    if (--rn > 0)
-      mpn_zero(rp, rn);
-  }
-}
-
-static void
-mpn_import_le(mp_limb_t *rp, mp_size_t rn,
-              const unsigned char *xp, size_t xn) {
-  size_t xi;
-  mp_limb_t out;
-  unsigned int bits;
-
-  for (xi = 0, out = bits = 0; xi < xn && rn > 0; ) {
-    mp_limb_t in = xp[xi++];
-
-    out |= (in << bits) & GMP_NUMB_MASK;
-    bits += 8;
-
-    if (bits >= GMP_NUMB_BITS) {
-      *rp++ = out;
-      rn--;
-
-      bits -= GMP_NUMB_BITS;
-      out = in >> (8 - bits);
-    }
-  }
-
-  if (rn > 0) {
-    *rp++ = out;
-    if (--rn > 0)
-      mpn_zero(rp, rn);
-  }
-}
-
-static void
-mpn_import(mp_limb_t *rp, mp_size_t rn,
-           const unsigned char *xp, size_t xn, int endian) {
-  if (endian == 1)
-    mpn_import_be(rp, rn, xp, xn);
-  else
-    mpn_import_le(rp, rn, xp, xn);
-}
-
-static void
-mpn_export_be(unsigned char *rp, size_t rn,
-              const mp_limb_t *xp, mp_size_t xn) {
-  unsigned int bits;
-  unsigned char old;
-  mp_limb_t in;
-
-  for (bits = in = 0; xn > 0 && rn > 0;) {
-    if (bits >= 8) {
-      rp[--rn] = in;
-      in >>= 8;
-      bits -= 8;
-    } else {
-      old = in;
-      in = *xp++;
-      xn--;
-      rp[--rn] = old | (in << bits);
-      in >>= (8 - bits);
-      bits += GMP_NUMB_BITS - 8;
-    }
-  }
-
-  while (rn > 0) {
-    rp[--rn] = in;
-    in >>= 8;
-  }
-}
-
-static void
-mpn_export_le(unsigned char *rp, size_t rn,
-              const mp_limb_t *xp, mp_size_t xn) {
-  unsigned int bits;
-  unsigned char old;
-  mp_limb_t in;
-
-  for (bits = in = 0; xn > 0 && rn > 0;) {
-    if (bits >= 8) {
-      *rp++ = in;
-      rn--;
-      in >>= 8;
-      bits -= 8;
-    } else {
-      old = in;
-      in = *xp++;
-      xn--;
-      *rp++ = old | (in << bits);
-      rn--;
-      in >>= (8 - bits);
-      bits += GMP_NUMB_BITS - 8;
-    }
-  }
-
-  while (rn > 0) {
-    *rp++ = in;
-    rn--;
-    in >>= 8;
-  }
-}
-
-static void
-mpn_export(unsigned char *rp, size_t rn,
-           const mp_limb_t *xp, mp_size_t xn, int endian) {
-  if (endian == 1)
-    mpn_export_be(rp, rn, xp, xn);
-  else
-    mpn_export_le(rp, rn, xp, xn);
-}
-
-static int
-mpn_invert_n(mp_limb_t *rp,
-             const mp_limb_t *xp,
-             const mp_limb_t *yp,
-             mp_size_t n) {
-#ifdef TORSION_HAS_GMP
-#define MAX_EGCD_LIMBS ((521 + GMP_NUMB_BITS - 1) / GMP_NUMB_BITS)
-  mp_limb_t gp[MAX_EGCD_LIMBS + 1];
-  mp_limb_t sp[MAX_EGCD_LIMBS + 1];
-  mp_limb_t up[MAX_EGCD_LIMBS + 1];
-  mp_limb_t vp[MAX_EGCD_LIMBS + 1];
-  mp_size_t sn = n + 1;
-  mp_size_t gn;
-
-  assert(n <= MAX_EGCD_LIMBS);
-
-  if (mpn_zero_p(xp, n)) {
-    mpn_zero(rp, n);
-    return 0;
-  }
-
-  mpn_copyi(up, xp, n);
-  mpn_copyi(vp, yp, n);
-
-  gn = mpn_gcdext(gp, sp, &sn, up, n, vp, n);
-
-  assert(gn == 1);
-  assert(gp[0] == 1);
-
-  if (sn < 0) {
-    mpn_sub(sp, yp, n, sp, -sn);
-    sn = n;
-  }
-
-  assert(sn <= n);
-
-  mpn_zero(rp + sn, n - sn);
-  mpn_copyi(rp, sp, sn);
-
-  return 1;
-#undef MAX_EGCD_LIMBS
-#else
-  mpz_t rn, un, vn;
-
-  if (mpn_zero_p(xp, n)) {
-    mpn_zero(rp, n);
-    return 0;
-  }
-
-  mpz_init(rn);
-  mpz_roinit_n(un, xp, n);
-  mpz_roinit_n(vn, yp, n);
-
-  assert(mpz_invert(rn, un, vn));
-
-  mpn_set_mpz(rp, rn, n);
-
-  mpz_clear(rn);
-
-  return 1;
-#endif
-}
-
-#ifdef TORSION_TEST
-static void
-mpn_print(const mp_limb_t *p, mp_size_t n, int base) {
-  mpz_t x;
-  mpz_roinit_n(x, p, n);
-  mpz_out_str(stdout, base, x);
-}
-#endif
-
-#ifndef TORSION_HAS_GMP
-/* `mpz_jacobi` is not implemented in mini-gmp. */
-/* https://github.com/golang/go/blob/aadaec5/src/math/big/int.go#L754 */
-static int
-mpz_jacobi(const mpz_t x, const mpz_t y) {
-  mpz_t a, b, c;
-  unsigned long s, bmod8;
-  int j = 1;
-
-  assert(mpz_sgn(x) >= 0);
-  assert(mpz_sgn(y) > 0);
-  assert(mpz_odd_p(y));
-
-  mpz_init(a);
-  mpz_init(b);
-  mpz_init(c);
-
-  /* a = x */
-  mpz_set(a, x);
-
-  /* b = y */
-  mpz_set(b, y);
-
-  for (;;) {
-    /* if b == 1 */
-    if (mpz_cmp_ui(b, 1) == 0)
-      break;
-
-    /* if a == 0 */
-    if (mpz_sgn(a) == 0) {
-      j = 0;
-      break;
-    }
-
-    /* a = a mod b */
-    mpz_mod(a, a, b);
-
-    /* if a == 0 */
-    if (mpz_sgn(a) == 0) {
-      j = 0;
-      break;
-    }
-
-    /* s = a factors of 2 */
-    s = mpz_scan1(a, 0);
-
-    if (s & 1) {
-      /* bmod8 = b mod 8 */
-      bmod8 = mpz_getlimbn(b, 0) & 7;
-
-      if (bmod8 == 3 || bmod8 == 5)
-        j = -j;
-    }
-
-    /* c = a >> s */
-    mpz_tdiv_q_2exp(c, a, s);
-
-    /* if b mod 4 == 3 and c mod 4 == 3 */
-    if ((mpz_getlimbn(b, 0) & 3) == 3 && (mpz_getlimbn(c, 0) & 3) == 3)
-      j = -j;
-
-    /* a = b */
-    mpz_set(a, b);
-
-    /* b = c */
-    mpz_set(b, c);
-  }
-
-  mpz_clear(a);
-  mpz_clear(b);
-  mpz_clear(c);
-
-  return j;
-}
-
-/* `mpn_tdiv_qr` is not exposed in mini-gmp. */
-static void
-mpn_tdiv_qr(mp_limb_t *qp,
-            mp_limb_t *rp,
-            mp_size_t qxn,
-            const mp_limb_t *np,
-            mp_size_t nn,
-            const mp_limb_t *dp,
-            mp_size_t dn) {
-  mpz_t q, r, n, d;
-
-  assert(nn >= dn);
-  assert(qxn == 0);
-  assert(dp[dn - 1] != 0);
-
-  mpz_init(q);
-  mpz_init(r);
-  mpz_roinit_n(n, np, nn);
-  mpz_roinit_n(d, dp, dn);
-
-  mpz_tdiv_qr(q, r, n, d);
-
-  mpn_set_mpz(qp, q, nn - dn + 1);
-  mpn_set_mpz(rp, r, dn);
-
-  mpz_clear(q);
-  mpz_clear(r);
-}
-#endif
-
-/*
  * Scalar
  */
 
@@ -965,7 +519,7 @@ sc_import_weak(scalar_field_t *sc, sc_t r, const unsigned char *raw) {
 
   cy = mpn_sub_n(sp, r, np, nn);
 
-  cnd_select(cy == 0, r, r, sp, nn);
+  mpn_cnd_select(cy == 0, r, r, sp, nn);
 
   cleanse(sp, sizeof(sp));
 
@@ -1005,14 +559,14 @@ sc_set(scalar_field_t *sc, sc_t r, const sc_t a) {
 
 static void
 sc_swap(scalar_field_t *sc, sc_t a, sc_t b, unsigned int flag) {
-  cnd_swap(flag != 0, a, b, sc->limbs);
+  mpn_cnd_swap(flag != 0, a, b, sc->limbs);
 }
 
 static void
 sc_select(scalar_field_t *sc, sc_t r,
           const sc_t a, const sc_t b,
           unsigned int flag) {
-  cnd_select(flag != 0, r, a, b, sc->limbs);
+  mpn_cnd_select(flag != 0, r, a, b, sc->limbs);
 }
 
 #ifdef TORSION_TEST
@@ -1115,7 +669,7 @@ sc_add(scalar_field_t *sc, sc_t r, const sc_t ap, const sc_t bp) {
 
   /* r = r - n if u >= n */
   cy = mpn_sub_n(vp, up, np, nn);
-  cnd_select(cy == 0, r, up, vp, sc->limbs);
+  mpn_cnd_select(cy == 0, r, up, vp, sc->limbs);
 }
 
 static void
@@ -1177,7 +731,7 @@ sc_reduce(scalar_field_t *sc, sc_t r, const mp_limb_t *ap) {
 
   /* u = u - n if u >= n */
   cy = mpn_sub_n(qp, up, np, sh);
-  cnd_select(cy == 0, r, up, qp, sc->limbs);
+  mpn_cnd_select(cy == 0, r, up, qp, sc->limbs);
 }
 
 static void

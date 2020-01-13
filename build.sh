@@ -27,8 +27,10 @@ if test x"$2" = x'mini'; then
     src/kdf.c \
     src/mini-gmp.c \
     src/poly1305.c \
+    src/rsa.c \
     src/salsa20.c \
-    src/test.c
+    src/test.c \
+    src/util.c
 else
   gcc -g \
     -Wall \
@@ -49,6 +51,8 @@ else
     src/hash.c \
     src/kdf.c \
     src/poly1305.c \
+    src/rsa.c \
     src/salsa20.c \
-    src/test.c
+    src/test.c \
+    src/util.c
 fi
