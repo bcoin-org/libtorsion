@@ -22,6 +22,7 @@ if test x"$2" = x'mini'; then
     -o test \
     src/drbg.c \
     src/hash.c \
+    src/kdf.c \
     src/mini-gmp.c \
     src/test.c
 else
@@ -40,5 +41,6 @@ else
     -o test \
     src/drbg.c \
     src/hash.c \
+    src/kdf.c \
     src/test.c
 fi

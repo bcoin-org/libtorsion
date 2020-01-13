@@ -150,6 +150,7 @@ extern "C" {
 #define HASH_BLAKE2B_256 29
 #define HASH_BLAKE2B_384 30
 #define HASH_BLAKE2B_512 31
+#define HASH_MAX 31
 
 #define HASH_MAX_OUTPUT_SIZE 64
 #define HASH_MAX_BLOCK_SIZE 128
