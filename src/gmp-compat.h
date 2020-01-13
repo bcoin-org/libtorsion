@@ -91,6 +91,15 @@ mpz_jacobi(const mpz_t x, const mpz_t y) {
   return j;
 }
 
+/* `mpz_powm_sec` is not implemented in mini-gmp. */
+static void
+mpz_powm_sec(mpz_t rop, const mpz_t base, const mpz_t exp, const mpz_t mod) {
+  assert(mpz_sgn(exp) > 0);
+  assert(mpz_odd_p(mod));
+
+  mpz_powm(rop, base, exp, mod);
+}
+
 static void
 mpn_set_mpz(mp_limb_t *xp, mpz_srcptr x, mp_size_t n) {
   mp_size_t xn = mpz_size(x);

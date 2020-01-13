@@ -605,14 +605,10 @@ rsa_priv_decrypt(const rsa_priv_t *k,
   mpz_mod(m, m, k->n);
 
   /* m' = c'^d mod n */
-#ifdef TORSION_HAS_GMP
   if (mpz_sgn(k->d) > 0 && mpz_odd_p(k->n))
     mpz_powm_sec(m, m, k->d, k->n);
   else
     mpz_powm(m, m, k->d, k->n);
-#else
-  mpz_powm(m, m, k->d, k->n);
-#endif
 
   /* m = m' * bi mod n (unblind) */
   mpz_mul(m, m, bi);
