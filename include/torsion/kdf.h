@@ -12,37 +12,37 @@ extern "C" {
  * Symbol Aliases
  */
 
-#define pbkdf2 torsion_pbkdf2
-#define scrypt torsion_scrypt
+#define pbkdf2_derive torsion_pbkdf2_derive
+#define scrypt_derive torsion_scrypt_derive
 
 /*
  * PBKDF2
  */
 
 int
-pbkdf2(unsigned char *out,
-       int type,
-       const unsigned char *pass,
-       size_t pass_len,
-       const unsigned char *salt,
-       size_t salt_len,
-       uint32_t iter,
-       size_t len);
+pbkdf2_derive(unsigned char *out,
+              int type,
+              const unsigned char *pass,
+              size_t pass_len,
+              const unsigned char *salt,
+              size_t salt_len,
+              uint32_t iter,
+              size_t len);
 
 /*
  * Scrypt
  */
 
 int
-scrypt(unsigned char *out,
-       const unsigned char *pass,
-       size_t pass_len,
-       const unsigned char *salt,
-       size_t salt_len,
-       uint64_t N,
-       uint32_t r,
-       uint32_t p,
-       size_t len);
+scrypt_derive(unsigned char *out,
+              const unsigned char *pass,
+              size_t pass_len,
+              const unsigned char *salt,
+              size_t salt_len,
+              uint64_t N,
+              uint32_t r,
+              uint32_t p,
+              size_t len);
 
 #ifdef __cplusplus
 }

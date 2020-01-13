@@ -72,14 +72,14 @@ read64le(const void *src) {
  */
 
 int
-pbkdf2(unsigned char *out,
-       int type,
-       const unsigned char *pass,
-       size_t pass_len,
-       const unsigned char *salt,
-       size_t salt_len,
-       uint32_t iter,
-       size_t len) {
+pbkdf2_derive(unsigned char *out,
+              int type,
+              const unsigned char *pass,
+              size_t pass_len,
+              const unsigned char *salt,
+              size_t salt_len,
+              uint32_t iter,
+              size_t len) {
   size_t hash_size = hash_output_size(type);
   size_t blocks = (len + hash_size - 1) / hash_size;
   size_t buffer_len = blocks * hash_size;
@@ -179,15 +179,15 @@ fail:
  */
 
 int
-scrypt(unsigned char *out,
-       const unsigned char *pass,
-       size_t pass_len,
-       const unsigned char *salt,
-       size_t salt_len,
-       uint64_t N,
-       uint32_t r,
-       uint32_t p,
-       size_t len) {
+scrypt_derive(unsigned char *out,
+              const unsigned char *pass,
+              size_t pass_len,
+              const unsigned char *salt,
+              size_t salt_len,
+              uint64_t N,
+              uint32_t r,
+              uint32_t p,
+              size_t len) {
   uint8_t *B = NULL;
   uint8_t *V = NULL;
   uint8_t *XY = NULL;
