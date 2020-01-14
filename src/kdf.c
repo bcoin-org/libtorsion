@@ -4,6 +4,7 @@
 #include <string.h>
 #include <torsion/hash.h>
 #include <torsion/kdf.h>
+#include <torsion/util.h>
 
 /*
  * Prototypes
@@ -156,18 +157,18 @@ pbkdf2_derive(unsigned char *out,
 
   r = 1;
 fail:
-  memset(tmp, 0x00, sizeof(tmp));
-  memset(block, 0x00, sizeof(block));
-  memset(mac, 0x00, sizeof(mac));
-  memset(&hmac, 0, sizeof(hmac));
+  cleanse(tmp, sizeof(tmp));
+  cleanse(block, sizeof(block));
+  cleanse(mac, sizeof(mac));
+  cleanse(&hmac, sizeof(hmac));
 
   if (buffer != NULL) {
-    memset(buffer, 0x00, buffer_len);
+    cleanse(buffer, buffer_len);
     free(buffer);
   }
 
   if (state != NULL) {
-    memset(state, 0x00, state_len);
+    cleanse(state, state_len);
     free(state);
   }
 
@@ -188,6 +189,7 @@ scrypt_derive(unsigned char *out,
               uint32_t r,
               uint32_t p,
               size_t len) {
+  int t = HASH_SHA256;
   uint8_t *B = NULL;
   uint8_t *V = NULL;
   uint8_t *XY = NULL;
@@ -200,7 +202,7 @@ scrypt_derive(unsigned char *out,
   if ((uint64_t)r * (uint64_t)p >= (1 << 25))
     return 0;
 
-  if ((uint64_t)r >= (1 << 24))
+  if (r >= (1 << 24))
     return 0;
 
   if ((uint64_t)r * N >= (1 << 25))
@@ -216,29 +218,29 @@ scrypt_derive(unsigned char *out,
   if (B == NULL || XY == NULL || V == NULL)
     goto fail;
 
-  if (!pbkdf2(B, HASH_SHA256, pass, pass_len, salt, salt_len, 1, p * 128 * r))
+  if (!pbkdf2_derive(B, t, pass, pass_len, salt, salt_len, 1, p * 128 * r))
     goto fail;
 
   for (i = 0; i < p; i++)
     smix(&B[i * 128 * r], r, N, V, XY);
 
-  if (!pbkdf2(out, HASH_SHA256, pass, pass_len, B, p * 128 * r, 1, len))
+  if (!pbkdf2_derive(out, t, pass, pass_len, B, p * 128 * r, 1, len))
     goto fail;
 
   ret = 1;
 fail:
   if (B != NULL) {
-    memset(B, 0x00, 128 * r * p);
+    cleanse(B, 128 * r * p);
     free(B);
   }
 
   if (XY != NULL) {
-    memset(XY, 0x00, 256 * r);
+    cleanse(XY, 256 * r);
     free(XY);
   }
 
   if (V != NULL) {
-    memset(V, 0x00, 128 * r * N);
+    cleanse(V, 128 * r * N);
     free(V);
   }
 
