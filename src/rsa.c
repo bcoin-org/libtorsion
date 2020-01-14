@@ -553,6 +553,179 @@ fail:
 }
 
 static int
+rsa_priv_recover_pqe(rsa_priv_t *k) {
+  /* Recover from (p, q, e) or (p, q, d). */
+  mpz_t pm1, qm1, phi;
+  int r = 0;
+
+  mpz_init(pm1);
+  mpz_init(qm1);
+  mpz_init(phi);
+  mpz_init(lam);
+
+  /* Sanity check. */
+  if (mpz_sgn(k->e) == 0 && mpz_sgn(k->d) == 0)
+    goto fail;
+
+  mpz_mul(k->n, k->p, k->q);
+  mpz_sub_ui(pm1, k->p, 1);
+  mpz_sub_ui(qm1, k->q, 1);
+
+  /* Another sanity check. */
+  if (mpz_sgn(pm1) <= 0 || mpz_sgn(qm1) <= 0)
+    goto fail;
+
+  mpz_mul(phi, pm1, qm1);
+
+  if (mpz_sgn(k->e) == 0) {
+    mpz_lcm(lam, pm1, qm1);
+
+    if (!mpz_invert(k->e, k->d, phi)
+        || !mpz_invert(k->e, k->d, lam)) {
+      goto fail;
+    }
+  } else {
+    if (!mpz_invert(k->d, k->e, phi))
+      goto fail;
+  }
+
+  mpz_mod(k->dp, k->d, pm1);
+  mpz_mod(k->dq, k->d, qm1);
+
+  if (!mpz_invert(k->qi, k->q, k->p))
+    goto fail;
+
+  if (!rsa_priv_verify(k))
+    goto fail;
+
+  r = 1;
+fail:
+  mpz_cleanse(pm1);
+  mpz_cleanse(qm1);
+  mpz_cleanse(phi);
+  mpz_cleanse(lam);
+  return r;
+}
+
+static int
+rsa_priv_recover_ned(rsa_priv_t *k, const unsigned char *entropy) {
+  /* Factor an RSA modulus given (n, e, d).
+   *
+   * This is basically the same logic as the
+   * Miller-Rabin primality test[1][2].
+   *
+   * [1] https://crypto.stackexchange.com/questions/11509
+   * [2] https://crypto.stackexchange.com/questions/22374
+   */
+  mpz_t f, nm1, nm3, g, a, b, c;
+  size_t i, j, s;
+  drbg_t rng;
+  int r = 0;
+
+  mpz_init(f);
+  mpz_init(nm1);
+  mpz_init(nm3);
+  mpz_init(g);
+  mpz_init(a);
+  mpz_init(b);
+  mpz_init(c);
+
+  /* f = e * d - 1 */
+  mpz_mul(f, k->e, k->d);
+  mpz_sub_ui(f, f, 1);
+
+  /* nm1 = n - 1 */
+  mpz_sub_ui(nm1, k->n, 1);
+
+  /* nm3 = nm1 - 2 */
+  mpz_sub_ui(nm3, nm1, 2);
+
+  /* Sanity check. */
+  if (mpz_sgn(f) <= 0 || mpz_sgn(nm3) <= 0)
+    goto fail;
+
+  /* s = f factors of 2 */
+  s = mpz_scan1(f, 0);
+
+  /* g = f >> s */
+  mpz_tdiv_q_2exp(g, f, s);
+
+  /* Seed RNG. */
+  drbg_init(&rng, HASH_SHA256, entropy, 32);
+
+  for (i = 0; i < 128; i++) {
+    /* a = random int in [2,n-1] */
+    mpz_random_int(a, nm3, &rng);
+    mpz_add_ui(a, a, 2);
+
+    /* b = a^g mod n */
+    mpz_powm(b, a, g, n);
+
+    if (mpz_cmp_ui(b, 1) == 0 || mpz_cmp(b, nm1) == 0)
+      continue;
+
+    for (j = 1; j < s; j++) {
+      /* c = b^2 mod n */
+      mpz_mul(c, b, b);
+      mpz_mod(c, c, n);
+
+      if (mpz_cmp_ui(c, 1) == 0) {
+        /* p = gcd(n, b - 1) */
+        mpz_sub_ui(c, b, 1);
+        mpz_gcd(k->p, k->n, c);
+
+        /* q = gcd(n, b + 1) */
+        mpz_add_ui(c, b, 1);
+        mpz_gcd(k->q, k->n, c);
+
+        if (mpz_cmp(k->p, k->q) < 0)
+          mpz_swap(k->p, k->q);
+
+        mpz_sub_ui(b, p, 1);
+        mpz_sub_ui(c, q, 1);
+        mpz_mod(k->dp, k->d, b);
+        mpz_mod(k->dq, k->d, c);
+
+        if (!mpz_invert(k->qi, k->q, k->p))
+          goto fail;
+
+        if (!rsa_priv_verify(k))
+          goto fail;
+
+        goto succeed;
+      }
+
+      if (mpz_cmp(c, nm1) == 0)
+        break;
+
+      mpz_set(b, c);
+    }
+  }
+
+  goto fail;
+succeed:
+  r = 1;
+fail:
+  cleanse(&rng, sizeof(rng));
+  mpz_cleanse(f);
+  mpz_cleanse(nm1);
+  mpz_cleanse(nm3);
+  mpz_cleanse(g);
+  mpz_cleanse(a);
+  mpz_cleanse(b);
+  mpz_cleanse(c);
+  return r;
+}
+
+static int
+rsa_priv_recover(rsa_priv_t *k, const unsigned char *entropy) {
+  if (mpz_sgn(k->p) > 0 && mpz_sgn(k->q) > 0)
+    return rsa_priv_recover_pq(k);
+
+  return rsa_priv_recover_ned(k, entropy);
+}
+
+static int
 rsa_priv_decrypt(const rsa_priv_t *k,
                  unsigned char *out,
                  const unsigned char *msg,
@@ -936,6 +1109,195 @@ pss_verify(int type,
  */
 
 int
+rsa_privkey_generate(unsigned char *out,
+                     size_t *out_len,
+                     unsigned long bits,
+                     unsigned long long exp,
+                     const unsigned char *entropy) {
+  rsa_priv_t k;
+  int r = 0;
+
+  rsa_priv_init(&k);
+
+  if (!rsa_priv_generate(&k, bits, exp, entropy))
+    goto fail;
+
+  rsa_priv_export(out, out_len, &k);
+  r = 1;
+fail:
+  rsa_priv_clear(&k);
+  return r;
+}
+
+size_t
+rsa_privkey_size(const unsigned char *key, size_t key_len) {
+  rsa_priv_t k;
+  size_t r = 0;
+
+  rsa_priv_init(&k);
+
+  if (!rsa_priv_import(&k, key, key_len, 1))
+    goto fail;
+
+  r = mpz_bitlen(k.n);
+fail:
+  rsa_priv_clear(&k);
+  return r;
+}
+
+int
+rsa_privkey_verify(const unsigned char *key, size_t key_len) {
+  rsa_priv_t k;
+  int r = 0;
+
+  rsa_priv_init(&k);
+
+  if (!rsa_priv_import(&k, key, key_len, 1))
+    goto fail;
+
+  if (!rsa_priv_verify(&k))
+    goto fail;
+
+  r = 1;
+fail:
+  rsa_priv_clear(&k);
+  return r;
+}
+
+int
+rsa_privkey_recover(unsigned char *out,
+                    size_t *out_len,
+                    const unsigned char *key,
+                    size_t key_len,
+                    const unsigned char *entropy) {
+  rsa_priv_t k;
+  int r = 0;
+
+  rsa_priv_init(&k);
+
+  if (!rsa_priv_import(&k, key, key_len, 1))
+    goto fail;
+
+  if (!rsa_priv_verify(&k)) {
+    if (!rsa_priv_recover(&k, entropy))
+      goto fail;
+  }
+
+  rsa_priv_export(out, out_len, &k);
+  r = 1;
+fail:
+  rsa_priv_clear(&k);
+  return r;
+}
+
+int
+rsa_privkey_normalize(unsigned char *out,
+                      size_t *out_len,
+                      const unsigned char *key,
+                      size_t key_len) {
+  rsa_priv_t k;
+  int r = 0;
+
+  rsa_priv_init(&k);
+
+  /* Parse with the most lax rules possible. */
+  if (!rsa_priv_import(&k, key, key_len, 0))
+    goto fail;
+
+  rsa_priv_export(out, out_len, &k);
+  r = 1;
+fail:
+  rsa_priv_clear(&k);
+  return r;
+}
+
+int
+rsa_pubkey_create(unsigned char *out,
+                  size_t *out_len,
+                  const unsigned char *key,
+                  size_t key_len,
+                  const unsigned char *entropy) {
+  rsa_priv_t k;
+  rsa_pub_t k;
+  int r = 0;
+
+  rsa_priv_init(&k);
+  rsa_pub_init(&p);
+
+  if (!rsa_priv_import(&k, key, key_len, 1))
+    goto fail;
+
+  if (!rsa_priv_verify(&k))
+    goto fail;
+
+  mpz_set(p->n, k->n);
+  mpz_set(p->e, k->e);
+
+  rsa_pub_export(out, out_len, &p);
+  r = 1;
+fail:
+  rsa_priv_clear(&k);
+  rsa_pub_clear(&p);
+  return r;
+}
+
+size_t
+rsa_pubkey_size(const unsigned char *key, size_t key_len) {
+  rsa_pub_t k;
+  size_t r = 0;
+
+  rsa_pub_init(&k);
+
+  if (!rsa_pub_import(&k, key, key_len, 1))
+    goto fail;
+
+  r = mpz_bitlen(k.n);
+fail:
+  rsa_pub_clear(&k);
+  return r;
+}
+
+int
+rsa_pubkey_verify(const unsigned char *key, size_t key_len) {
+  rsa_pub_t k;
+  int r = 0;
+
+  rsa_pub_init(&k);
+
+  if (!rsa_pub_import(&k, key, key_len, 1))
+    goto fail;
+
+  if (!rsa_pub_verify(&k))
+    goto fail;
+
+  r = 1;
+fail:
+  rsa_pub_clear(&k);
+  return r;
+}
+
+int
+rsa_pubkey_normalize(unsigned char *out,
+                     size_t *out_len,
+                     const unsigned char *key,
+                     size_t key_len) {
+  rsa_pub_t k;
+  int r = 0;
+
+  rsa_pub_init(&k);
+
+  /* Parse with the most lax rules possible. */
+  if (!rsa_pub_import(&k, key, key_len, 0))
+    goto fail;
+
+  rsa_pub_export(out, out_len, &k);
+  r = 1;
+fail:
+  rsa_pub_clear(&k);
+  return r;
+}
+
+int
 rsa_sign(unsigned char *out,
          size_t *out_len,
          int type,
@@ -965,7 +1327,7 @@ rsa_sign(unsigned char *out,
   if (msg_len != hlen)
     goto fail;
 
-  if (!rsa_priv_import(&k, key, key_len, 0))
+  if (!rsa_priv_import(&k, key, key_len, 1))
     goto fail;
 
   if (!rsa_priv_verify(&k))
@@ -1031,7 +1393,7 @@ rsa_verify(int type,
   if (msg_len != hlen)
     goto fail;
 
-  if (!rsa_pub_import(&k, key, key_len, 0))
+  if (!rsa_pub_import(&k, key, key_len, 1))
     goto fail;
 
   if (!rsa_pub_verify(&k))
@@ -1094,7 +1456,7 @@ rsa_encrypt(unsigned char *out,
 
   rsa_pub_init(&k);
 
-  if (!rsa_pub_import(&k, key, key_len, 0))
+  if (!rsa_pub_import(&k, key, key_len, 1))
     goto fail;
 
   if (!rsa_pub_verify(&k))
@@ -1144,6 +1506,7 @@ rsa_decrypt(unsigned char *out,
             size_t key_len,
             int strict,
             const unsigned char *entropy) {
+  /* [RFC8017] Page 29, Section 7.2.2. */
   unsigned char *em = out;
   uint32_t i, zero, two, index, looking;
   uint32_t equals0, validps, valid, offset;
@@ -1153,7 +1516,7 @@ rsa_decrypt(unsigned char *out,
 
   rsa_priv_init(&k);
 
-  if (!rsa_priv_import(&k, key, key_len, 0))
+  if (!rsa_priv_import(&k, key, key_len, 1))
     goto fail;
 
   if (!rsa_priv_verify(&k))
@@ -1189,9 +1552,8 @@ rsa_decrypt(unsigned char *out,
   if (valid == 0)
     goto fail;
 
-  memmove(out, em + offset, klen - offset);
-  /*cleanse(em + klen - offset, offset);*/
   *out_len = klen - offset;
+  memmove(out, em + offset, *out_len);
 
   r = 1;
 fail:
@@ -1229,7 +1591,7 @@ rsa_encrypt_oaep(unsigned char *out,
   if (!hash_has_backend(type))
     goto fail;
 
-  if (!rsa_pub_import(&k, key, key_len, 0))
+  if (!rsa_pub_import(&k, key, key_len, 1))
     goto fail;
 
   if (!rsa_pub_verify(&k))
@@ -1237,7 +1599,10 @@ rsa_encrypt_oaep(unsigned char *out,
 
   klen = mpz_bytelen(k.n);
 
-  if (klen < 2 * hlen + 2 || msg_len > klen - 2 * hlen - 2)
+  if (klen < 2 * hlen + 2)
+    goto fail;
+
+  if (msg_len > klen - 2 * hlen - 2)
     goto fail;
 
   hash_init(&hash, type);
@@ -1268,7 +1633,6 @@ rsa_encrypt_oaep(unsigned char *out,
     goto fail;
 
   *out_len = klen;
-
   r = 1;
 fail:
   rsa_pub_clear(&k);
@@ -1308,7 +1672,7 @@ rsa_decrypt_oaep(unsigned char *out,
   if (!hash_has_backend(type))
     goto fail;
 
-  if (!rsa_priv_import(&k, key, key_len, 0))
+  if (!rsa_priv_import(&k, key, key_len, 1))
     goto fail;
 
   if (!rsa_priv_verify(&k))
@@ -1400,7 +1764,7 @@ rsa_sign_pss(unsigned char *out,
   if (msg_len != hlen)
     goto fail;
 
-  if (!rsa_priv_import(&k, key, key_len, 0))
+  if (!rsa_priv_import(&k, key, key_len, 1))
     goto fail;
 
   if (!rsa_priv_verify(&k))
@@ -1470,7 +1834,7 @@ rsa_verify_pss(int type,
   if (!hash_has_backend(type))
     goto fail;
 
-  if (!rsa_pub_import(&k, key, key_len, 0))
+  if (!rsa_pub_import(&k, key, key_len, 1))
     goto fail;
 
   if (!rsa_pub_verify(&k))
@@ -1521,5 +1885,216 @@ rsa_verify_pss(int type,
 fail:
   rsa_pub_clear(&k);
   safe_free(em, klen);
+  return r;
+}
+
+int
+rsa_encrypt_raw(unsigned char *out,
+                size_t *out_len,
+                const unsigned char *msg,
+                size_t msg_len,
+                const unsigned char *key,
+                size_t key_len,
+                int strict) {
+  /* [RFC8017] Page 13, Section 5.1.1.
+   *           Page 16, Section 5.2.2.
+   */
+  size_t klen = 0;
+  rsa_pub_t k;
+  int r = 0;
+
+  rsa_pub_init(&k);
+
+  if (!rsa_pub_import(&k, key, key_len, 1))
+    goto fail;
+
+  if (!rsa_pub_verify(&k))
+    goto fail;
+
+  klen = mpz_bytelen(k.n);
+
+  /* OpenSSL behavior for public encryption. */
+  /* strict flag is new */
+  if (strict && msg_len !== klen)
+    goto fail;
+
+  if (!rsa_pub_encrypt(&k, out, msg, msg_len))
+    goto fail;
+
+  *out_len = klen;
+  r = 1;
+fail:
+  rsa_pub_clear(&k);
+  return r;
+}
+
+int
+rsa_decrypt_raw(unsigned char *out,
+                size_t *out_len,
+                const unsigned char *msg,
+                size_t msg_len,
+                const unsigned char *key,
+                size_t key_len,
+                int strict,
+                const unsigned char *entropy) {
+  /* [RFC8017] Page 13, Section 5.1.2.
+   *           Page 15, Section 5.2.1.
+   */
+  size_t klen = 0;
+  rsa_priv_t k;
+  int r = 0;
+
+  rsa_priv_init(&k);
+
+  if (!rsa_priv_import(&k, key, key_len, 1))
+    goto fail;
+
+  if (!rsa_priv_verify(&k))
+    goto fail;
+
+  klen = mpz_bytelen(k.n);
+
+  /* new */
+  if (strict && msg_len !== klen)
+    goto fail;
+
+  if (!rsa_priv_decrypt(&k, out, msg, msg_len, entropy))
+    goto fail;
+
+  *out_len = klen;
+  r = 1;
+fail:
+  rsa_priv_clear(&k);
+  return r;
+}
+
+int
+rsa_veil(unsigned char *out,
+         size_t *out_len,
+         const unsigned char *msg,
+         size_t msg_len,
+         size_t bits,
+         const unsigned char *key,
+         size_t key_len,
+         int strict,
+         const unsigned char *entropy) {
+  size_t mlen = (bits + 7) / 8;
+  mpz_t vmax, rmax, c, v, r;
+  rsa_pub_t k;
+  drbg_t rng;
+  int ret = 0;
+
+  mpz_init(vmax);
+  mpz_init(rmax);
+  mpz_init(c);
+  mpz_init(v);
+  mpz_init(r);
+
+  rsa_pub_init(&k);
+
+  if (!rsa_pub_import(&k, key, key_len, 1))
+    goto fail;
+
+  if (!rsa_pub_verify(&k))
+    goto fail;
+
+  /* new */
+  if (strict && msg_len != mpz_bytelen(k.n))
+    goto fail;
+
+  if (bits < mpz_bitlen(k.n))
+    goto fail;
+
+  mpz_import(c, msg_len, 1, 1, 0, 0, msg);
+
+  if (mpz_cmp(c, k.n) >= 0)
+    goto fail;
+
+  /* vmax = 1 << bits */
+  mpz_set_ui(vmax, 1);
+  mpz_mul_2exp(vmax, vmax, bits);
+
+  /* rmax = (vmax - c + n - 1) / n */
+  mpz_sub(rmax, vmax, c);
+  mpz_add(rmax, rmax, k.n);
+  mpz_sub_ui(rmax, rmax, 1);
+  mpz_fdiv_q(rmax, rmax, k.n);
+
+  assert(mpz_sgn(rmax) > 0);
+
+  mpz_set(v, vmax);
+
+  drbg_init(&rng, HASH_SHA256, entropy, 32);
+
+  while (mpz_cmp(v, vmax) >= 0) {
+    mpz_random_int(r, rmax, &rng);
+
+    /* v = c + r * n */
+    mpz_mul(r, r, k.n);
+    mpz_add(v, c, r);
+  }
+
+  mpz_mod(r, v, k.n);
+
+  assert(mpz_cmp(r, c) == 0);
+  assert(mpz_bitlen(v) <= bits);
+
+  mpz_export_pad(out, v, mlen, 1);
+
+  *out_len = mlen;
+  ret = 1;
+fail:
+  cleanse(&rng, sizeof(rng));
+  mpz_cleanse(vmax);
+  mpz_cleanse(rmax);
+  mpz_cleanse(c);
+  mpz_cleanse(v);
+  mpz_cleanse(r);
+  rsa_pub_clear(&k);
+  return ret;
+}
+
+int
+rsa_unveil(unsigned char *out,
+           size_t *out_len,
+           const unsigned char *msg,
+           size_t msg_len,
+           size_t bits,
+           const unsigned char *key,
+           size_t key_len,
+           int strict) {
+  size_t klen = 0;
+  rsa_pub_t k;
+  int r = 0;
+  mpz_t v;
+
+  mpz_init(v);
+  rsa_pub_init(&k);
+
+  if (!rsa_pub_import(&k, key, key_len, 1))
+    goto fail;
+
+  if (!rsa_pub_verify(&k))
+    goto fail;
+
+  klen = mpz_bytelen(k.n);
+
+  /* strict flag new */
+  if (strict && msg_len < klen)
+    goto fail;
+
+  mpz_import(v, msg_len, 1, 1, 0, 0, msg);
+
+  if (mpz_bitlen(v) > bits)
+    goto fail;
+
+  mpz_mod(v, v, k.n);
+  mpz_export_pad(out, v, mlen, 1);
+
+  *out_len = klen;
+  r = 1;
+fail:
+  mpz_cleanse(v);
+  rsa_pub_clear(&k);
   return r;
 }

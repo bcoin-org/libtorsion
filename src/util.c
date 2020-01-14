@@ -20,6 +20,7 @@ cleanse(void *ptr, size_t len) {
 #elif defined(__GNUC__)
   /* https://github.com/torvalds/linux/blob/37d4e84/include/linux/string.h#L233 */
   /* https://github.com/torvalds/linux/blob/37d4e84/include/linux/compiler-gcc.h#L21 */
+  /* https://github.com/bminor/glibc/blob/master/string/explicit_bzero.c */
   memset(ptr, 0, len);
   __asm__ __volatile__("": :"r"(ptr) :"memory");
 #else
