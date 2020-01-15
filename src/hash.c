@@ -5,6 +5,7 @@
 #include <stdint.h>
 #include <string.h>
 #include <torsion/hash.h>
+#include <torsion/util.h>
 
 #define ROTL32(n, x) (((x) << (n)) | ((x) >> ((-(n) & 31))))
 #define ROTL64(n, x) (((x) << (n)) | ((x) >> ((-(n)) & 63)))
@@ -327,8 +328,8 @@ md5_final(md5_t *ctx, unsigned char *out) {
   for (i = 0; i < 4; i++)
     write32le(out + i * 4, ctx->state[i]);
 
-  memset(ctx->state, 0x00, sizeof(ctx->state));
-  memset(ctx->block, 0x00, sizeof(ctx->block));
+  cleanse(ctx->state, sizeof(ctx->state));
+  cleanse(ctx->block, sizeof(ctx->block));
 
   ctx->size = 0;
 }
@@ -651,8 +652,8 @@ ripemd160_final(ripemd160_t *ctx, unsigned char *out) {
   for (i = 0; i < 5; i++)
     write32le(out + i * 4, ctx->state[i]);
 
-  memset(ctx->state, 0x00, sizeof(ctx->state));
-  memset(ctx->block, 0x00, sizeof(ctx->block));
+  cleanse(ctx->state, sizeof(ctx->state));
+  cleanse(ctx->block, sizeof(ctx->block));
 
   ctx->size = 0;
 }
@@ -864,8 +865,8 @@ sha1_final(sha1_t *ctx, unsigned char *out) {
   for (i = 0; i < 5; i++)
     write32be(out + i * 4, ctx->state[i]);
 
-  memset(ctx->state, 0x00, sizeof(ctx->state));
-  memset(ctx->block, 0x00, sizeof(ctx->block));
+  cleanse(ctx->state, sizeof(ctx->state));
+  cleanse(ctx->block, sizeof(ctx->block));
 
   ctx->size = 0;
 }
@@ -950,9 +951,9 @@ sha256_transform(sha256_t *ctx, const unsigned char *chunk) {
 (W[(i) & 15] += (s1(W[((i)-2) & 15]) + W[((i)-7) & 15] + s0(W[((i)-15) & 15])))
 
 #define ROUND(a, b, c, d, e, f, g, h, k, data) do { \
-  h += S1(e) + Ch(e,f,g) + k + data;                \
+  h += S1(e) + Ch(e, f, g) + k + data;              \
   d += h;                                           \
-  h += S0(a) + Maj(a,b,c);                          \
+  h += S0(a) + Maj(a, b, c);                        \
 } while (0)
 
   for (i = 0, d = data; i < 16; i += 8, k += 8, d += 8) {
@@ -1055,8 +1056,8 @@ sha256_final(sha256_t *ctx, unsigned char *out) {
   for (i = 0; i < 8; i++)
     write32be(out + i * 4, ctx->state[i]);
 
-  memset(ctx->state, 0x00, sizeof(ctx->state));
-  memset(ctx->block, 0x00, sizeof(ctx->block));
+  cleanse(ctx->state, sizeof(ctx->state));
+  cleanse(ctx->block, sizeof(ctx->block));
 
   ctx->size = 0;
 }
@@ -1090,7 +1091,7 @@ sha224_final(sha224_t *ctx, unsigned char *out) {
   sha256_final(ctx, tmp);
 
   memcpy(out, tmp, 28);
-  memset(tmp, 0x00, sizeof(tmp));
+  cleanse(tmp, sizeof(tmp));
 }
 
 /*
@@ -1205,9 +1206,9 @@ sha512_transform(sha512_t *ctx, const unsigned char *chunk) {
 (W[(i) & 15] += (s1(W[((i)-2) & 15]) + W[((i)-7) & 15] + s0(W[((i)-15) & 15])))
 
 #define ROUND(a, b, c, d, e, f, g, h, k, data) do { \
-  h += S1(e) + Ch(e,f,g) + k + data;                \
+  h += S1(e) + Ch(e, f, g) + k + data;              \
   d += h;                                           \
-  h += S0(a) + Maj(a,b,c);                          \
+  h += S0(a) + Maj(a, b, c);                        \
 } while (0)
 
   for (i = 0, d = data; i < 16; i += 8, k += 8, d += 8) {
@@ -1311,8 +1312,8 @@ sha512_final(sha512_t *ctx, unsigned char *out) {
   for (i = 0; i < 8; i++)
     write64be(out + i * 8, ctx->state[i]);
 
-  memset(ctx->state, 0x00, sizeof(ctx->state));
-  memset(ctx->block, 0x00, sizeof(ctx->block));
+  cleanse(ctx->state, sizeof(ctx->state));
+  cleanse(ctx->block, sizeof(ctx->block));
 
   ctx->size = 0;
 }
@@ -1346,7 +1347,7 @@ sha384_final(sha384_t *ctx, unsigned char *out) {
   sha512_final(ctx, tmp);
 
   memcpy(out, tmp, 48);
-  memset(tmp, 0x00, sizeof(tmp));
+  cleanse(tmp, sizeof(tmp));
 }
 
 /*
@@ -1374,7 +1375,7 @@ hash160_final(hash160_t *ctx, unsigned char *out) {
   ripemd160_update(&rmd, tmp, 32);
   ripemd160_final(&rmd, out);
 
-  memset(tmp, 0x00, sizeof(tmp));
+  cleanse(tmp, sizeof(tmp));
 }
 
 /*
@@ -1577,8 +1578,8 @@ keccak_final(keccak_t *ctx, unsigned char *out, int pad, size_t len) {
   for (i = 0; i < len; i++)
     out[i] = ctx->state[i >> 3] >> (8 * (i & 7));
 
-  memset(ctx->state, 0x00, sizeof(ctx->state));
-  memset(ctx->block, 0x00, sizeof(ctx->block));
+  cleanse(ctx->state, sizeof(ctx->state));
+  cleanse(ctx->block, sizeof(ctx->block));
 
   ctx->bs = 0;
   ctx->pos = 0;
@@ -1633,7 +1634,7 @@ blake2s_init(blake2s_t *ctx,
 
     blake2s_update(ctx, block, 64);
 
-    memset(block, 0x00, 64);
+    cleanse(block, 64);
   }
 }
 
@@ -1755,7 +1756,7 @@ blake2s_final(blake2s_t *ctx, unsigned char *out) {
     write32le(buffer + sizeof(ctx->h[i]) * i, ctx->h[i]);
 
   memcpy(out, buffer, ctx->outlen);
-  memset(buffer, 0x00, sizeof(buffer));
+  cleanse(buffer, sizeof(buffer));
 }
 
 /*
@@ -1807,12 +1808,12 @@ blake2b_init(blake2b_t *ctx,
   if (keylen > 0) {
     uint8_t block[128];
 
-    memset(block, 0, 128);
+    memset(block, 0x00, 128);
     memcpy(block, key, keylen);
 
     blake2b_update(ctx, block, 128);
 
-    memset(block, 0x00, 128);
+    cleanse(block, 128);
   }
 }
 
@@ -1936,7 +1937,7 @@ blake2b_final(blake2b_t *ctx, unsigned char *out) {
     write64le(buffer + sizeof(ctx->h[i]) * i, ctx->h[i]);
 
   memcpy(out, buffer, ctx->outlen);
-  memset(buffer, 0x00, sizeof(buffer));
+  cleanse(buffer, sizeof(buffer));
 }
 
 /*
@@ -2362,8 +2363,8 @@ hmac_init(hmac_t *hmac, int type, const unsigned char *key, size_t len) {
   hash_init(&hmac->outer, type);
   hash_update(&hmac->outer, pad, block_size);
 
-  memset(tmp, 0x00, hash_size);
-  memset(pad, 0x00, block_size);
+  cleanse(tmp, hash_size);
+  cleanse(pad, block_size);
 }
 
 void
