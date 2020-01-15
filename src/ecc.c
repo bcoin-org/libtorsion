@@ -5630,6 +5630,9 @@ xge_set_y(edwards_t *ec, xge_t *r, const fe_t y, int sign) {
   assert(xge_validate(ec, r) == ret);
 #endif
 
+  if (sign != -1)
+    ret &= (fe_is_zero(fe, x) & (sign != 0)) ^ 1;
+
   return ret;
 }
 
@@ -5646,7 +5649,7 @@ xge_import(edwards_t *ec, xge_t *r, const unsigned char *raw) {
     if (!fe_import(fe, r->y, raw))
       return 0;
 
-    sign = (raw[fe->size] & 0x80) != 0;
+    sign = raw[fe->size] >> 7;
   } else {
     unsigned char tmp[MAX_FIELD_SIZE];
 
@@ -5657,7 +5660,7 @@ xge_import(edwards_t *ec, xge_t *r, const unsigned char *raw) {
     if (!fe_import(fe, r->y, tmp))
       return 0;
 
-    sign = (raw[fe->size - 1] & 0x80) != 0;
+    sign = raw[fe->size - 1] >> 7;
   }
 
   return xge_set_y(ec, r, r->y, sign);
@@ -9403,9 +9406,7 @@ ecdsa_schnorr_verify_batch(wei_t *ec,
 
     ecdsa_schnorr_hash_ram(ec, e, Rraw, Araw, msg);
 
-    /* Generate random integer. */
     sc_random(sc, a, &rng);
-
     sc_mul(sc, e, e, a);
     sc_mul(sc, s, s, a);
     sc_add(sc, sum, sum, s);
@@ -10140,9 +10141,7 @@ schnorr_verify_batch(wei_t *ec,
 
     schnorr_hash_ram(ec, e, Rraw, pub, msg);
 
-    /* Generate random integer. */
     sc_random(sc, a, &rng);
-
     sc_mul(sc, e, e, a);
     sc_mul(sc, s, s, a);
     sc_add(sc, sum, sum, s);
@@ -11473,9 +11472,7 @@ eddsa_verify_batch(edwards_t *ec,
 
     eddsa_hash_ram(ec, e, ph, ctx, ctx_len, Rraw, pub, msg, msg_len);
 
-    /* Generate random integer. */
     sc_random(sc, a, &rng);
-
     sc_mul(sc, e, e, a);
     sc_mul(sc, s, s, a);
     sc_add(sc, sum, sum, s);
