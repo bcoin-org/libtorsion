@@ -2267,7 +2267,7 @@ hash_block_size(int type) {
     case HASH_BLAKE2S_224:
       return 64;
     case HASH_BLAKE2S_256:
-      return 128;
+      return 64;
     case HASH_GOST94:
       return 32;
     case HASH_HASH160:

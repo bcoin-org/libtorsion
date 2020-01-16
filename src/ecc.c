@@ -1,5 +1,5 @@
 /*!
- * ec.c - elliptic curves for C89
+ * ecc.c - elliptic curves for C89
  * Copyright (c) 2020, Christopher Jeffrey (MIT License).
  * https://github.com/chjj/ec
  */
