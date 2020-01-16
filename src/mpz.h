@@ -43,7 +43,7 @@ mpz_export_pad(unsigned char *out, const mpz_t n, size_t size, int endian) {
 
 static void
 mpz_cleanse(mpz_t n) {
-#ifdef TORSION_HAS_GMP
+#ifdef TORSION_USE_GMP
   /* Using the public API. */
   const mp_limb_t *orig = mpz_limbs_read(n);
   size_t size = mpz_size(n);

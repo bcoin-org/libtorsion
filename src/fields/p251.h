@@ -1,4 +1,4 @@
-#ifdef TORSION_64BIT
+#ifdef TORSION_USE_64BIT
 typedef uint64_t p251_fe_word_t;
 #define P251_FIELD_WORDS 5
 #include "p251_64.h"

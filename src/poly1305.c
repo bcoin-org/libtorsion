@@ -11,7 +11,7 @@
 #include <string.h>
 #include <torsion/poly1305.h>
 
-#ifdef TORSION_64BIT
+#ifdef TORSION_USE_64BIT
 #include "poly1305-64.h"
 #else
 #include "poly1305-32.h"

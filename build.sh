@@ -2,7 +2,7 @@
 
 set -ex
 
-def='-DTORSION_64BIT'
+def='-DTORSION_USE_64BIT'
 
 if test x"$1" = x'32'; then
   def='-DTORSION_32BIT'
@@ -41,7 +41,7 @@ else
     -std=c89 \
     -O3 \
     "$def" \
-    -DTORSION_HAS_GMP \
+    -DTORSION_USE_GMP \
     -I./include \
     -lgmp \
     -o test \

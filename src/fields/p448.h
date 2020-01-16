@@ -9,7 +9,7 @@
  *
  * Originally written by Mike Hamburg
  */
-#ifdef TORSION_64BIT
+#ifdef TORSION_USE_64BIT
 typedef uint64_t p448_fe_word_t;
 #define P448_FIELD_WORDS 8
 #include "p448_64.h"

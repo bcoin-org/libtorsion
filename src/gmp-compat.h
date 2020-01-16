@@ -1,7 +1,7 @@
 #ifndef _TORSION_GMP_COMPAT_H
 #define _TORSION_GMP_COMPAT_H
 
-#ifdef TORSION_HAS_GMP
+#ifdef TORSION_USE_GMP
 
 #include <gmp.h>
 
@@ -14,7 +14,7 @@
 #error "invalid gmp bit alignment"
 #endif
 
-#else /* TORSION_HAS_GMP */
+#else /* TORSION_USE_GMP */
 
 #include <assert.h>
 #include <limits.h>
@@ -181,6 +181,6 @@ mpn_gcdext(mp_limb_t *gp,
   return gn;
 }
 
-#endif /* TORSION_HAS_GMP */
+#endif /* TORSION_USE_GMP */
 
 #endif /* _TORSION_GMP_COMPAT_H */

@@ -39,7 +39,7 @@
 #error "twos complement please"
 #endif
 
-#ifdef TORSION_64BIT
+#ifdef TORSION_USE_64BIT
 typedef uint64_t fe_word_t;
 #define FIELD_WORD_SIZE 64
 #define MAX_FIELD_WORDS 9

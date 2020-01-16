@@ -1,4 +1,4 @@
-#ifdef TORSION_64BIT
+#ifdef TORSION_USE_64BIT
 typedef uint64_t p25519_fe_word_t;
 #define P25519_FIELD_WORDS 5
 #include "p25519_64.h"
@@ -51,7 +51,7 @@ p25519_fe_sqrn(p25519_fe_t out, const p25519_fe_t in, int rounds) {
   Curve25519 implementation agnostic helpers
 */
 
-#ifdef TORSION_64BIT
+#ifdef TORSION_USE_64BIT
 static const p25519_fe_t p25519_sqrtneg1 = {
   0x00061b274a0ea0b0, 0x0000d5a5fc8f189d,
   0x0007ef5e9cbd0c60, 0x00078595a6804c9e,
