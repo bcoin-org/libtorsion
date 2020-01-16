@@ -1296,7 +1296,9 @@ fe_set_word(prime_field_t *fe, fe_t r, uint32_t word) {
 
     fe_import(fe, r, tmp);
   } else {
-    /* Maybe need to deserialize? */
+    /* Note: the limit of the word size here depends
+     * on how saturated the field implementation is.
+     */
     fe_zero(fe, r);
     r[0] = word;
   }
@@ -1342,8 +1344,9 @@ fe_is_odd(prime_field_t *fe, const fe_t a) {
     fe->from_montgomery(tmp, a);
     sign = tmp[0] & 1;
   } else {
-    /* Maybe need to serialize? */
-    sign = a[0] & 1;
+    unsigned char tmp[MAX_FIELD_SIZE];
+    fe->to_bytes(tmp, a);
+    sign = tmp[0] & 1;
   }
 
   return sign;
@@ -1602,7 +1605,7 @@ fe_isqrt(prime_field_t *fe, fe_t r, const fe_t u, const fe_t v) {
 
   if (fe->isqrt) {
     /* Fast inverse square root chain. */
-    ret = fe->isqrt(r, u, v);
+    ret &= fe->isqrt(r, u, v);
   } else {
     fe_t z;
 
