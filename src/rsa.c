@@ -347,18 +347,18 @@ rsa_priv_export(unsigned char *out, size_t *out_len, const rsa_priv_t *k) {
 
   /* 0x30 [size] [body] */
   out[pos++] = 0x30;
-  pos += asn1_write_size(out, pos, size);
+  pos = asn1_write_size(out, pos, size);
   out[pos++] = 0x02;
   out[pos++] = 0x01;
   out[pos++] = 0x00; /* version */
-  pos += asn1_write_int(out, pos, k->n);
-  pos += asn1_write_int(out, pos, k->e);
-  pos += asn1_write_int(out, pos, k->d);
-  pos += asn1_write_int(out, pos, k->p);
-  pos += asn1_write_int(out, pos, k->q);
-  pos += asn1_write_int(out, pos, k->dp);
-  pos += asn1_write_int(out, pos, k->dq);
-  pos += asn1_write_int(out, pos, k->qi);
+  pos = asn1_write_int(out, pos, k->n);
+  pos = asn1_write_int(out, pos, k->e);
+  pos = asn1_write_int(out, pos, k->d);
+  pos = asn1_write_int(out, pos, k->p);
+  pos = asn1_write_int(out, pos, k->q);
+  pos = asn1_write_int(out, pos, k->dp);
+  pos = asn1_write_int(out, pos, k->dq);
+  pos = asn1_write_int(out, pos, k->qi);
 
   *out_len = pos;
 }
@@ -948,9 +948,9 @@ rsa_pub_export(unsigned char *out, size_t *out_len, const rsa_pub_t *k) {
 
   /* 0x30 [size] [body] */
   out[pos++] = 0x30;
-  pos += asn1_write_size(out, pos, size);
-  pos += asn1_write_int(out, pos, k->n);
-  pos += asn1_write_int(out, pos, k->e);
+  pos = asn1_write_size(out, pos, size);
+  pos = asn1_write_int(out, pos, k->n);
+  pos = asn1_write_int(out, pos, k->e);
 
   *out_len = pos;
 }
@@ -1332,7 +1332,7 @@ fail:
 }
 
 size_t
-rsa_privkey_size(const unsigned char *key, size_t key_len) {
+rsa_privkey_bits(const unsigned char *key, size_t key_len) {
   rsa_priv_t k;
   size_t r = 0;
 
@@ -1424,8 +1424,7 @@ int
 rsa_pubkey_create(unsigned char *out,
                   size_t *out_len,
                   const unsigned char *key,
-                  size_t key_len,
-                  const unsigned char *entropy) {
+                  size_t key_len) {
   rsa_priv_t k;
   rsa_pub_t p;
   int r = 0;
@@ -1451,7 +1450,7 @@ fail:
 }
 
 size_t
-rsa_pubkey_size(const unsigned char *key, size_t key_len) {
+rsa_pubkey_bits(const unsigned char *key, size_t key_len) {
   rsa_pub_t k;
   size_t r = 0;
 
@@ -1855,7 +1854,7 @@ fail:
   return r;
 }
 
-static int
+int
 rsa_decrypt_oaep(unsigned char *out,
                  size_t *out_len,
                  int type,
@@ -2092,11 +2091,12 @@ rsa_verify_pss(int type,
     if (em[0] != 0x00)
       goto fail;
 
-    em += 1;
+    if (!pss_verify(type, msg, msg_len, em + 1, bits - 1, salt_len))
+      goto fail;
+  } else {
+    if (!pss_verify(type, msg, msg_len, em, bits - 1, salt_len))
+      goto fail;
   }
-
-  if (!pss_verify(type, msg, msg_len, em, bits - 1, salt_len))
-    goto fail;
 
   r = 1;
 fail:

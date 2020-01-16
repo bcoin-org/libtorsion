@@ -70,6 +70,7 @@ mpz_cleanse(mpz_t n) {
 
 static void
 mpz_random_bits(mpz_t ret, size_t bits, drbg_t *rng) {
+  /* Assumes nails are not enabled. */
   size_t size = (bits + GMP_NUMB_BITS - 1) / GMP_NUMB_BITS;
   size_t low = GMP_NUMB_BITS - (size * GMP_NUMB_BITS - bits);
   mp_limb_t *limbs = mpz_limbs_write(ret, size);
@@ -80,11 +81,13 @@ mpz_random_bits(mpz_t ret, size_t bits, drbg_t *rng) {
     limbs[size - 1] &= (((mp_limb_t)1 << low) - 1);
 
   mpz_limbs_finish(ret, size);
+
+  assert(mpz_bitlen(ret) <= bits);
 }
 
 static void
 mpz_random_int(mpz_t ret, const mpz_t max, drbg_t *rng) {
-  size_t bits = mpz_bitlen(ret);
+  size_t bits = mpz_bitlen(max);
 
   mpz_set(ret, max);
 
@@ -343,6 +346,49 @@ fail:
 
 static int
 mpz_is_prime(const mpz_t p, drbg_t *rng) {
+  static const mp_limb_t primes_a =
+    3ul * 5ul * 7ul * 11ul * 13ul * 17ul * 19ul * 23ul * 37ul;
+  static const mp_limb_t primes_b = 29ul * 31ul * 41ul * 43ul * 47ul * 53ul;
+  mp_limb_t ra, rb;
+
+  if (mpz_sgn(p) <= 0)
+    return 0;
+
+  if (mpz_cmp_ui(p, 64) < 0) {
+    static const unsigned long long prime_mask = 0ull
+      | 1ull <<  2 | 1ull <<  3 | 1ull <<  5 | 1ull << 7
+      | 1ull << 11 | 1ull << 13 | 1ull << 17 | 1ull << 19
+      | 1ull << 23 | 1ull << 29 | 1ull << 31 | 1ull << 37
+      | 1ull << 41 | 1ull << 43 | 1ull << 47 | 1ull << 53
+      | 1ull << 59 | 1ull << 61;
+
+    return (prime_mask >> mpz_getlimbn(p, 0)) & 1;
+  }
+
+  if (mpz_even_p(p))
+    return 0;
+
+  ra = mpz_fdiv_ui(p, primes_a);
+  rb = mpz_fdiv_ui(p, primes_b);
+
+  if (ra % 3 == 0
+      || ra % 5 == 0
+      || ra % 7 == 0
+      || ra % 11 == 0
+      || ra % 13 == 0
+      || ra % 17 == 0
+      || ra % 19 == 0
+      || ra % 23 == 0
+      || ra % 37 == 0
+      || rb % 29 == 0
+      || rb % 31 == 0
+      || rb % 41 == 0
+      || rb % 43 == 0
+      || rb % 47 == 0
+      || rb % 53 == 0) {
+    return 0;
+  }
+
   if (!mpz_is_prime_mr(p, 20 + 1, 1, rng))
     return 0;
 
@@ -360,6 +406,7 @@ mpz_random_prime(mpz_t ret, size_t bits, drbg_t *rng) {
     mpz_random_bits(ret, bits, rng);
     mpz_setbit(ret, 0);
     mpz_setbit(ret, bits - 1);
+    assert(mpz_bitlen(ret) == bits);
   } while (!mpz_is_prime(ret, rng));
 }
 

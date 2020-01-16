@@ -7,6 +7,7 @@
 #include <stdint.h>
 #include <limits.h>
 #include <sys/time.h>
+#include <torsion/rsa.h>
 
 #ifndef _WIN32
 #include <sys/types.h>
@@ -2632,6 +2633,85 @@ test_eddsa_random(drbg_t *rng) {
 }
 
 static void
+test_rsa(drbg_t *rng) {
+  unsigned char *priv = malloc(RSA_MAX_PRIV_SIZE);
+  unsigned char *pub = malloc(RSA_MAX_PUB_SIZE);
+  unsigned char *sig = malloc(RSA_MAX_MOD_SIZE);
+  unsigned char *ct = malloc(RSA_MAX_MOD_SIZE);
+  unsigned char *pt = malloc(RSA_MAX_MOD_SIZE);
+  size_t priv_len = RSA_MAX_PRIV_SIZE;
+  size_t pub_len = RSA_MAX_PUB_SIZE;
+  size_t sig_len = RSA_MAX_MOD_SIZE;
+  size_t ct_len = RSA_MAX_MOD_SIZE;
+  size_t pt_len = RSA_MAX_MOD_SIZE;
+  unsigned char msg[32];
+  unsigned char entropy[32];
+  size_t i, j;
+
+  assert(priv != NULL);
+  assert(pub != NULL);
+  assert(sig != NULL);
+  assert(ct != NULL);
+  assert(pt != NULL);
+
+  printf("Testing RSA...\n");
+
+  for (i = 0; i < 10; i++) {
+    drbg_generate(rng, entropy, 32);
+
+    assert(rsa_privkey_generate(priv, &priv_len, 1024, 65537, entropy));
+    assert(rsa_privkey_verify(priv, priv_len));
+
+    assert(rsa_pubkey_create(pub, &pub_len, priv, priv_len));
+    assert(rsa_pubkey_verify(pub, pub_len));
+
+    drbg_generate(rng, msg, 32);
+    drbg_generate(rng, entropy, 32);
+
+    j = random_int(rng, 128);
+
+    assert(rsa_sign(sig, &sig_len, HASH_SHA256, msg, 32, priv, priv_len, entropy));
+    assert(rsa_verify(HASH_SHA256, msg, 32, sig, sig_len, pub, pub_len, 1));
+    sig[j] ^= 1;
+    assert(!rsa_verify(HASH_SHA256, msg, 32, sig, sig_len, pub, pub_len, 1));
+
+    drbg_generate(rng, msg, 32);
+    drbg_generate(rng, entropy, 32);
+
+    assert(rsa_encrypt(ct, &ct_len, msg, 32, pub, pub_len, entropy));
+    assert(rsa_decrypt(pt, &pt_len, ct, ct_len, priv, priv_len, 1, entropy));
+    assert(pt_len == 32);
+    assert(memcmp(pt, msg, 32) == 0);
+    ct[j] ^= 1;
+    assert(!rsa_decrypt(pt, &pt_len, ct, ct_len, priv, priv_len, 1, entropy));
+
+    drbg_generate(rng, msg, 32);
+    drbg_generate(rng, entropy, 32);
+
+    assert(rsa_encrypt_oaep(ct, &ct_len, HASH_SHA256, msg, 32, pub, pub_len, NULL, 0, entropy));
+    assert(rsa_decrypt_oaep(pt, &pt_len, HASH_SHA256, ct, ct_len, priv, priv_len, NULL, 0, 1, entropy));
+    assert(pt_len == 32);
+    assert(memcmp(pt, msg, 32) == 0);
+    ct[j] ^= 1;
+    assert(!rsa_decrypt_oaep(pt, &pt_len, HASH_SHA256, ct, ct_len, priv, priv_len, NULL, 0, 1, entropy));
+
+    drbg_generate(rng, msg, 32);
+    drbg_generate(rng, entropy, 32);
+
+    assert(rsa_sign_pss(sig, &sig_len, HASH_SHA256, msg, 32, priv, priv_len, 0, entropy));
+    assert(rsa_verify_pss(HASH_SHA256, msg, 32, sig, sig_len, pub, pub_len, 0, 1));
+    sig[j] ^= 1;
+    assert(!rsa_verify_pss(HASH_SHA256, msg, 32, sig, sig_len, pub, pub_len, 0, 1));
+  }
+
+  free(priv);
+  free(pub);
+  free(sig);
+  free(ct);
+  free(pt);
+}
+
+static void
 bench_start(struct timeval *start) {
   gettimeofday(start, NULL);
 }
@@ -2894,6 +2974,7 @@ main(int argc, char **argv) {
     test_ecdsa_random(&rng);
     test_ecdh_random(&rng);
     test_eddsa_random(&rng);
+    test_rsa(&rng);
   }
   return 0;
 }

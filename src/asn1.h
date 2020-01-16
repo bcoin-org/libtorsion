@@ -145,7 +145,7 @@ asn1_size_int(const mpz_t n) {
   size_t size = (bits + 7) / 8;
 
   if ((bits & 7) == 0)
-    size += mpz_tstbit(n, bits - 1);
+    size += (mpz_tstbit(n, bits - 1) != 0);
 
   if (bits == 0)
     size = 1;
@@ -180,14 +180,14 @@ asn1_write_int(unsigned char *data, size_t pos, const mpz_t n) {
   size_t pad = 0;
 
   if ((bits & 7) == 0)
-    pad = mpz_tstbit(n, bits - 1);
+    pad = (mpz_tstbit(n, bits - 1) != 0);
 
   if (bits == 0)
     size = 1;
 
   data[pos++] = 0x02;
 
-  pos += asn1_write_size(data, pos, pad + size);
+  pos = asn1_write_size(data, pos, pad + size);
 
   if (pad)
     data[pos++] = 0x00;

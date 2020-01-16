@@ -13,13 +13,17 @@ extern "C" {
 
 #define ecdsa_context_create torsion_ecdsa_context_create
 #define ecdsa_context_destroy torsion_ecdsa_context_destroy
+#define ecdsa_context_randomize torsion_ecdsa_context_randomize
 #define ecdsa_scratch_create torsion_ecdsa_scratch_create
 #define ecdsa_scratch_destroy torsion_ecdsa_scratch_destroy
 #define ecdsa_scalar_size torsion_ecdsa_scalar_size
+#define ecdsa_scalar_bits torsion_ecdsa_scalar_bits
 #define ecdsa_field_size torsion_ecdsa_field_size
+#define ecdsa_field_bits torsion_ecdsa_field_bits
 #define ecdsa_privkey_size torsion_ecdsa_privkey_size
 #define ecdsa_pubkey_size torsion_ecdsa_pubkey_size
 #define ecdsa_sig_size torsion_ecdsa_sig_size
+#define ecdsa_schnorr_size torsion_ecdsa_schnorr_size
 #define ecdsa_privkey_generate torsion_ecdsa_privkey_generate
 #define ecdsa_privkey_verify torsion_ecdsa_privkey_verify
 #define ecdsa_privkey_tweak_add torsion_ecdsa_privkey_tweak_add
@@ -54,10 +58,13 @@ extern "C" {
 
 #define schnorr_context_create torsion_schnorr_context_create
 #define schnorr_context_destroy torsion_schnorr_context_destroy
+#define schnorr_context_randomize torsion_schnorr_context_randomize
 #define schnorr_scratch_create torsion_schnorr_scratch_create
 #define schnorr_scratch_destroy torsion_schnorr_scratch_destroy
 #define schnorr_scalar_size torsion_schnorr_scalar_size
+#define schnorr_scalar_bits torsion_schnorr_scalar_bits
 #define schnorr_field_size torsion_schnorr_field_size
+#define schnorr_field_bits torsion_schnorr_field_bits
 #define schnorr_privkey_size torsion_schnorr_privkey_size
 #define schnorr_pubkey_size torsion_schnorr_pubkey_size
 #define schnorr_sig_size torsion_schnorr_sig_size
@@ -89,7 +96,9 @@ extern "C" {
 #define ecdh_context_create torsion_ecdh_context_create
 #define ecdh_context_destroy torsion_ecdh_context_destroy
 #define ecdh_scalar_size torsion_ecdh_scalar_size
+#define ecdh_scalar_bits torsion_ecdh_scalar_bits
 #define ecdh_field_size torsion_ecdh_field_size
+#define ecdh_field_bits torsion_ecdh_field_bits
 #define ecdh_privkey_size torsion_ecdh_privkey_size
 #define ecdh_pubkey_size torsion_ecdh_pubkey_size
 #define ecdh_privkey_generate torsion_ecdh_privkey_generate
@@ -107,10 +116,13 @@ extern "C" {
 
 #define eddsa_context_create torsion_eddsa_context_create
 #define eddsa_context_destroy torsion_eddsa_context_destroy
+#define eddsa_context_randomize torsion_eddsa_context_randomize
 #define eddsa_scratch_create torsion_eddsa_scratch_create
 #define eddsa_scratch_destroy torsion_eddsa_scratch_destroy
 #define eddsa_scalar_size torsion_eddsa_scalar_size
+#define eddsa_scalar_bits torsion_eddsa_scalar_bits
 #define eddsa_field_size torsion_eddsa_field_size
+#define eddsa_field_bits torsion_eddsa_field_bits
 #define eddsa_privkey_size torsion_eddsa_privkey_size
 #define eddsa_pubkey_size torsion_eddsa_pubkey_size
 #define eddsa_sig_size torsion_eddsa_sig_size
@@ -154,15 +166,38 @@ extern "C" {
 #define eddsa_derive torsion_eddsa_derive
 
 /*
- * EC
+ * Defs
  */
 
-#define ECC_MAX_FIELD_SIZE 66
-#define ECC_MAX_SCALAR_SIZE 66
-#define ECC_MAX_PRIV_SIZE ECC_MAX_SCALAR_SIZE /* 66 */
-#define ECC_MAX_PUB_SIZE (1 + ECC_MAX_FIELD_SIZE * 2) /* 133 */
-#define ECC_MAX_SIG_SIZE (ECC_MAX_FIELD_SIZE + ECC_MAX_SCALAR_SIZE) /* 132 */
-#define ECC_MAX_DER_SIZE (9 + ECC_MAX_SIG_SIZE) /* 141 */
+#define ECDSA_MAX_FIELD_SIZE 66
+#define ECDSA_MAX_SCALAR_SIZE 66
+#define ECDSA_MAX_PRIV_SIZE ECDSA_MAX_SCALAR_SIZE /* 66 */
+#define ECDSA_MAX_PUB_SIZE (1 + ECDSA_MAX_FIELD_SIZE * 2) /* 133 */
+#define ECDSA_MAX_SIG_SIZE (ECDSA_MAX_SCALAR_SIZE * 2) /* 132 */
+#define ECDSA_MAX_DER_SIZE (9 + ECDSA_MAX_SIG_SIZE) /* 141 */
+#define ECDSA_MAX_SCHNORR_SIZE (ECDSA_MAX_FIELD_SIZE + ECDSA_MAX_SCALAR_SIZE) /* 132 */
+
+#define SCHNORR_MAX_FIELD_SIZE 66
+#define SCHNORR_MAX_SCALAR_SIZE 66
+#define SCHNORR_MAX_PRIV_SIZE SCHNORR_MAX_SCALAR_SIZE /* 66 */
+#define SCHNORR_MAX_PUB_SIZE SCHNORR_MAX_FIELD_SIZE /* 66 */
+#define SCHNORR_MAX_SIG_SIZE (SCHNORR_MAX_FIELD_SIZE + SCHNORR_MAX_SCALAR_SIZE) /* 132 */
+
+#define ECDH_MAX_FIELD_SIZE 56
+#define ECDH_MAX_SCALAR_SIZE 56
+#define ECDH_MAX_PRIV_SIZE ECDH_MAX_SCALAR_SIZE /* 56 */
+#define ECDH_MAX_PUB_SIZE ECDH_MAX_FIELD_SIZE /* 56 */
+
+#define EDDSA_MAX_FIELD_SIZE 56
+#define EDDSA_MAX_SCALAR_SIZE 56
+#define EDDSA_MAX_PRIV_SIZE (EDDSA_MAX_FIELD_SIZE + 1) /* 57 */
+#define EDDSA_MAX_PUB_SIZE (EDDSA_MAX_FIELD_SIZE + 1) /* 57 */
+#define EDDSA_MAX_PREFIX_SIZE (EDDSA_MAX_FIELD_SIZE + 1) /* 57 */
+#define EDDSA_MAX_SIG_SIZE (EDDSA_MAX_PUB_SIZE * 2) /* 114 */
+
+/*
+ * Structs
+ */
 
 typedef struct _wei_s ecdsa_t;
 typedef struct _wei_scratch_s ecdsa_scratch_t;
@@ -172,11 +207,18 @@ typedef struct _mont_s ecdh_t;
 typedef struct _edwards_s eddsa_t;
 typedef struct _edwards_scratch_s eddsa_scratch_t;
 
+/*
+ * ECDSA
+ */
+
 ecdsa_t *
 ecdsa_context_create(const char *id);
 
 void
 ecdsa_context_destroy(ecdsa_t *ec);
+
+void
+ecdsa_context_randomize(ecdsa_t *ec, const unsigned char *entropy);
 
 ecdsa_scratch_t *
 ecdsa_scratch_create(ecdsa_t *ec);
@@ -188,7 +230,13 @@ size_t
 ecdsa_scalar_size(ecdsa_t *ec);
 
 size_t
+ecdsa_scalar_bits(ecdsa_t *ec);
+
+size_t
 ecdsa_field_size(ecdsa_t *ec);
+
+size_t
+ecdsa_field_bits(ecdsa_t *ec);
 
 size_t
 ecdsa_privkey_size(ecdsa_t *ec);
@@ -198,6 +246,9 @@ ecdsa_pubkey_size(ecdsa_t *ec, int compact);
 
 size_t
 ecdsa_sig_size(ecdsa_t *ec);
+
+size_t
+ecdsa_schnorr_size(ecdsa_t *ec);
 
 void
 ecdsa_privkey_generate(ecdsa_t *ec,
@@ -279,11 +330,7 @@ ecdsa_pubkey_to_hash(ecdsa_t *ec,
                      const unsigned char *seed);
 
 int
-ecdsa_pubkey_verify(ecdsa_t *ec,
-                    unsigned char *out,
-                    const unsigned char *pub,
-                    size_t pub_len,
-                    int compact);
+ecdsa_pubkey_verify(ecdsa_t *ec, const unsigned char *pub, size_t pub_len);
 
 int
 ecdsa_pubkey_tweak_add(ecdsa_t *ec,
@@ -421,6 +468,9 @@ schnorr_context_create(const char *id);
 void
 schnorr_context_destroy(schnorr_t *ec);
 
+void
+schnorr_context_randomize(schnorr_t *ec, const unsigned char *entropy);
+
 schnorr_scratch_t *
 schnorr_scratch_create(schnorr_t *ec);
 
@@ -431,7 +481,13 @@ size_t
 schnorr_scalar_size(schnorr_t *ec);
 
 size_t
+schnorr_scalar_bits(schnorr_t *ec);
+
+size_t
 schnorr_field_size(schnorr_t *ec);
+
+size_t
+schnorr_field_bits(schnorr_t *ec);
 
 size_t
 schnorr_privkey_size(schnorr_t *ec);
@@ -592,7 +648,13 @@ size_t
 ecdh_scalar_size(ecdh_t *ec);
 
 size_t
+ecdh_scalar_bits(ecdh_t *ec);
+
+size_t
 ecdh_field_size(ecdh_t *ec);
+
+size_t
+ecdh_field_bits(ecdh_t *ec);
 
 size_t
 ecdh_privkey_size(ecdh_t *ec);
@@ -665,6 +727,9 @@ eddsa_context_create(const char *id);
 void
 eddsa_context_destroy(eddsa_t *ec);
 
+void
+eddsa_context_randomize(eddsa_t *ec, const unsigned char *entropy);
+
 eddsa_scratch_t *
 eddsa_scratch_create(eddsa_t *ec);
 
@@ -675,7 +740,13 @@ size_t
 eddsa_scalar_size(eddsa_t *ec);
 
 size_t
+eddsa_scalar_bits(eddsa_t *ec);
+
+size_t
 eddsa_field_size(eddsa_t *ec);
+
+size_t
+eddsa_field_bits(eddsa_t *ec);
 
 size_t
 eddsa_privkey_size(eddsa_t *ec);

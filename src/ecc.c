@@ -130,6 +130,7 @@ typedef struct _prime_field_s {
   mp_limb_t p[MAX_REDUCE_LIMBS];
   mp_size_t limbs;
   mp_size_t adj_limbs;
+  unsigned char mask;
   unsigned char raw[MAX_FIELD_SIZE];
   scalar_field_t sc;
   fe_add_func *add;
@@ -1112,8 +1113,6 @@ fe_import(prime_field_t *fe, fe_t r, const unsigned char *raw) {
     } else {
       fe->from_bytes(r, raw);
     }
-
-    fe->carry(r, r);
   }
 
   return bytes_lt(raw, fe->raw, fe->size, fe->endian);
@@ -1132,6 +1131,31 @@ fe_import_be(prime_field_t *fe, fe_t r, const unsigned char *raw) {
   }
 
   return fe_import(fe, r, raw);
+}
+
+static int
+fe_import_uniform(prime_field_t *fe, fe_t r, const unsigned char *raw) {
+  int ret;
+
+  if (fe->mask != 0xff) {
+    unsigned char tmp[MAX_FIELD_SIZE];
+
+    memcpy(tmp, raw, fe->size);
+
+    if (fe->endian == -1)
+      tmp[fe->size - 1] &= fe->mask;
+    else
+      tmp[0] &= fe->mask;
+
+    ret = fe_import(fe, r, tmp);
+  } else {
+    ret = fe_import(fe, r, raw);
+  }
+
+  if (fe->carry)
+    fe->carry(r, r);
+
+  return ret;
 }
 
 static void
@@ -1223,11 +1247,6 @@ fe_get_limbs(prime_field_t *fe, mp_limb_t *r, const fe_t a) {
   fe_export(fe, tmp, a);
 
   mpn_import(r, fe->limbs, tmp, fe->size, fe->endian);
-}
-
-static int
-fe_set_num(prime_field_t *fe, fe_t r, const mpz_t a) {
-  return fe_set_limbs(fe, r, mpz_limbs_read(a), mpz_size(a));
 }
 
 #ifdef TORSION_TEST
@@ -1438,7 +1457,7 @@ fe_invert_var(prime_field_t *fe, fe_t r, const fe_t a) {
 
   ret = mpn_invert_n(rp, rp, fe->p, fe->limbs);
 
-  fe_set_limbs(fe, r, rp, fe->limbs);
+  assert(fe_set_limbs(fe, r, rp, fe->limbs));
 
   return ret;
 }
@@ -1672,9 +1691,17 @@ prime_field_init(prime_field_t *fe, const prime_def_t *def, int endian) {
   fe->words = def->words;
   fe->adj_size = fe->size + ((fe->bits & 7) == 0);
   fe->adj_limbs = ((fe->adj_size * 8) + GMP_NUMB_BITS - 1) / GMP_NUMB_BITS;
+  fe->mask = 0xff;
 
   if ((fe->shift % FIELD_WORD_SIZE) != 0)
     fe->shift += FIELD_WORD_SIZE - (fe->shift % FIELD_WORD_SIZE);
+
+  if ((fe->bits & 7) != 0) {
+    unsigned int ignore = fe->size * 8 - fe->bits;
+    unsigned int mask = (1 << (8 - ignore)) - 1;
+
+    fe->mask = mask;
+  }
 
   mpn_import_be(fe->p, ARRAY_SIZE(fe->p), def->p, fe->size);
 
@@ -2418,7 +2445,7 @@ jge_equal_r(wei_t *ec, const jge_t *p, const sc_t x) {
 
   fe_sqr(fe, zz, p->z);
 
-  fe_set_sc(fe, sc, rx, x);
+  assert(fe_set_sc(fe, sc, rx, x));
   fe_mul(fe, rx, rx, zz);
 
   if (fe_equal(fe, p->x, rx))
@@ -4453,7 +4480,7 @@ wei_point_from_uniform(wei_t *ec, wge_t *p, const unsigned char *bytes) {
   prime_field_t *fe = &ec->fe;
   fe_t u;
 
-  fe_import(fe, u, bytes);
+  fe_import_uniform(fe, u, bytes);
 
   if (ec->zero_a)
     wei_svdw(ec, p, u);
@@ -4937,21 +4964,7 @@ pge_import(mont_t *ec, pge_t *r, const unsigned char *raw) {
   /* [RFC7748] Section 5. */
   prime_field_t *fe = &ec->fe;
 
-  if ((fe->bits & 7) != 0) {
-    /* Ignore the hi bit for curve25519. */
-    unsigned char tmp[MAX_FIELD_SIZE];
-    unsigned int ignore = fe->size * 8 - fe->bits;
-    unsigned int mask = (1 << (8 - ignore)) - 1;
-
-    memcpy(tmp, raw, fe->size);
-
-    tmp[fe->size - 1] &= mask;
-
-    fe_import(fe, r->x, tmp);
-  } else {
-    fe_import(fe, r->x, raw);
-  }
-
+  fe_import_uniform(fe, r->x, raw);
   fe_set(fe, r->z, fe->one);
 }
 
@@ -5451,7 +5464,7 @@ mont_point_from_uniform(mont_t *ec, mge_t *p, const unsigned char *bytes) {
   prime_field_t *fe = &ec->fe;
   fe_t u;
 
-  fe_import(fe, u, bytes);
+  fe_import_uniform(fe, u, bytes);
 
   mont_elligator2(ec, p, u);
 
@@ -6657,7 +6670,7 @@ edwards_point_from_uniform(edwards_t *ec, xge_t *p,
   prime_field_t *fe = &ec->fe;
   fe_t u;
 
-  fe_import(fe, u, bytes);
+  fe_import_uniform(fe, u, bytes);
 
   edwards_elligator2(ec, p, u);
 
@@ -7642,7 +7655,7 @@ static const wei_def_t curve_secp256k1 = {
  */
 
 static const mont_def_t curve_x25519 = {
-  .id = "X22519",
+  .id = "X25519",
   .fe = &field_p25519,
   .sc = &field_q25519,
   /* 486662 */
@@ -7966,6 +7979,11 @@ ecdsa_context_destroy(wei_t *ec) {
     free(ec);
 }
 
+void
+ecdsa_context_randomize(wei_t *ec, const unsigned char *entropy) {
+  wei_randomize(ec, entropy);
+}
+
 wei_scratch_t *
 ecdsa_scratch_create(wei_t *ec) {
   return malloc(sizeof(wei_scratch_t));
@@ -7983,8 +8001,18 @@ ecdsa_scalar_size(wei_t *ec) {
 }
 
 size_t
+ecdsa_scalar_bits(wei_t *ec) {
+  return ec->sc.bits;
+}
+
+size_t
 ecdsa_field_size(wei_t *ec) {
   return ec->fe.size;
+}
+
+size_t
+ecdsa_field_bits(wei_t *ec) {
+  return ec->fe.bits;
 }
 
 size_t
@@ -7994,12 +8022,17 @@ ecdsa_privkey_size(wei_t *ec) {
 
 size_t
 ecdsa_pubkey_size(wei_t *ec, int compact) {
-  return compact ? 1 + ec->fe.size * 2 : 1 + ec->fe.size;
+  return compact ? 1 + ec->fe.size : 1 + ec->fe.size * 2;
 }
 
 size_t
 ecdsa_sig_size(wei_t *ec) {
   return ec->sc.size * 2;
+}
+
+size_t
+ecdsa_schnorr_size(wei_t *ec) {
+  return ec->fe.size + ec->sc.size;
 }
 
 void
@@ -8274,11 +8307,7 @@ ecdsa_pubkey_to_hash(wei_t *ec,
 }
 
 int
-ecdsa_pubkey_verify(wei_t *ec,
-                    unsigned char *out,
-                    const unsigned char *pub,
-                    size_t pub_len,
-                    int compact) {
+ecdsa_pubkey_verify(wei_t *ec, const unsigned char *pub, size_t pub_len) {
   wge_t A;
 
   return wge_import(ec, &A, pub, pub_len);
@@ -9016,7 +9045,7 @@ ecdsa_recover(wei_t *ec,
     return 0;
 
   /* Assumes n < p. */
-  fe_set_sc(fe, sc, x, r);
+  assert(fe_set_sc(fe, sc, x, r));
 
   if (high) {
     if (sc_cmp_var(sc, r, ec->pmodn) >= 0)
@@ -9459,6 +9488,11 @@ schnorr_context_destroy(wei_t *ec) {
   ecdsa_context_destroy(ec);
 }
 
+void
+schnorr_context_randomize(wei_t *ec, const unsigned char *entropy) {
+  ecdsa_context_randomize(ec, entropy);
+}
+
 wei_scratch_t *
 schnorr_scratch_create(wei_t *ec) {
   return ecdsa_scratch_create(ec);
@@ -9475,8 +9509,18 @@ schnorr_scalar_size(wei_t *ec) {
 }
 
 size_t
+schnorr_scalar_bits(wei_t *ec) {
+  return ec->sc.bits;
+}
+
+size_t
 schnorr_field_size(wei_t *ec) {
   return ec->fe.size;
+}
+
+size_t
+schnorr_field_bits(wei_t *ec) {
+  return ec->fe.bits;
 }
 
 size_t
@@ -10257,8 +10301,18 @@ ecdh_scalar_size(mont_t *ec) {
 }
 
 size_t
+ecdh_scalar_bits(mont_t *ec) {
+  return ec->sc.bits;
+}
+
+size_t
 ecdh_field_size(mont_t *ec) {
   return ec->fe.size;
+}
+
+size_t
+ecdh_field_bits(mont_t *ec) {
+  return ec->fe.bits;
 }
 
 size_t
@@ -10531,6 +10585,11 @@ eddsa_context_destroy(edwards_t *ec) {
     free(ec);
 }
 
+void
+eddsa_context_randomize(edwards_t *ec, const unsigned char *entropy) {
+  edwards_randomize(ec, entropy);
+}
+
 edwards_scratch_t *
 eddsa_scratch_create(edwards_t *ec) {
   return malloc(sizeof(edwards_scratch_t));
@@ -10548,8 +10607,18 @@ eddsa_scalar_size(edwards_t *ec) {
 }
 
 size_t
+eddsa_scalar_bits(edwards_t *ec) {
+  return ec->sc.bits;
+}
+
+size_t
 eddsa_field_size(edwards_t *ec) {
   return ec->fe.size;
+}
+
+size_t
+eddsa_field_bits(edwards_t *ec) {
+  return ec->fe.bits;
 }
 
 size_t
