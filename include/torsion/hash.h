@@ -378,7 +378,7 @@ void
 keccak_update(keccak_t *ctx, const void *data, size_t len);
 
 void
-keccak_final(keccak_t *ctx, unsigned char *out, int pad, size_t len);
+keccak_final(keccak_t *ctx, unsigned char *out, unsigned char pad, size_t len);
 
 /*
  * BLAKE2s
