@@ -219,7 +219,6 @@ typedef struct _blake2s_s {
   uint8_t buf[64];
   size_t buflen;
   size_t outlen;
-  uint8_t last_node;
 } blake2s_t;
 
 typedef struct _blake2b_s {
@@ -229,7 +228,6 @@ typedef struct _blake2b_s {
   uint8_t buf[128];
   size_t buflen;
   size_t outlen;
-  uint8_t last_node;
 } blake2b_t;
 
 typedef struct _hash_s {

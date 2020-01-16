@@ -1715,7 +1715,7 @@ blake2s_compress(blake2s_t *ctx, const uint8_t *chunk) {
   size_t i;
 
   for (i = 0; i < 16; i++)
-    m[i] = read32le(chunk + i * sizeof(m[i]));
+    m[i] = read32le(chunk + i * 4);
 
   for (i = 0; i < 8; i++)
     v[i] = ctx->h[i];
@@ -1807,9 +1807,6 @@ blake2s_final(blake2s_t *ctx, unsigned char *out) {
 
   blake2s_increment(ctx, (uint32_t)ctx->buflen);
 
-  if (ctx->last_node)
-    ctx->f[1] = (uint32_t)-1;
-
   ctx->f[0] = (uint32_t)-1;
 
   memset(ctx->buf + ctx->buflen, 0, 64 - ctx->buflen);
@@ -1817,10 +1814,12 @@ blake2s_final(blake2s_t *ctx, unsigned char *out) {
   blake2s_compress(ctx, ctx->buf);
 
   for (i = 0; i < 8; i++)
-    write32le(buffer + sizeof(ctx->h[i]) * i, ctx->h[i]);
+    write32le(buffer + i * 4, ctx->h[i]);
 
   memcpy(out, buffer, ctx->outlen);
+
   cleanse(buffer, sizeof(buffer));
+  cleanse(ctx, sizeof(blake2s_t));
 }
 
 /*
@@ -1866,7 +1865,6 @@ blake2b_init(blake2b_t *ctx,
   for (i = 0; i < 8; i++)
     ctx->h[i] = blake2b_iv[i];
 
-  /* shift left 32 bits? */
   ctx->h[0] ^= 0x01010000 ^ (keylen << 8) ^ outlen;
 
   if (keylen > 0) {
@@ -1894,7 +1892,7 @@ blake2b_compress(blake2b_t *ctx, const uint8_t *chunk) {
   size_t i;
 
   for (i = 0; i < 16; i++)
-    m[i] = read64le(chunk + i * sizeof(m[i]));
+    m[i] = read64le(chunk + i * 8);
 
   for (i = 0; i < 8; i++)
     v[i] = ctx->h[i];
@@ -1951,7 +1949,7 @@ blake2b_compress(blake2b_t *ctx, const uint8_t *chunk) {
 
 void
 blake2b_update(blake2b_t *ctx, const void *data, size_t len) {
-  const unsigned char * in = (const unsigned char *)data;
+  const unsigned char *in = (const unsigned char *)data;
 
   if (len > 0) {
     size_t left = ctx->buflen;
@@ -1988,20 +1986,19 @@ blake2b_final(blake2b_t *ctx, unsigned char *out) {
 
   blake2b_increment(ctx, ctx->buflen);
 
-  if (ctx->last_node)
-    ctx->f[1] = (uint64_t)-1;
-
   ctx->f[0] = (uint64_t)-1;
 
   memset(ctx->buf + ctx->buflen, 0x00, 128 - ctx->buflen);
 
   blake2b_compress(ctx, ctx->buf);
 
-  for ( i = 0; i < 8; i++)
-    write64le(buffer + sizeof(ctx->h[i]) * i, ctx->h[i]);
+  for (i = 0; i < 8; i++)
+    write64le(buffer + i * 8, ctx->h[i]);
 
   memcpy(out, buffer, ctx->outlen);
+
   cleanse(buffer, sizeof(buffer));
+  cleanse(ctx, sizeof(blake2b_t));
 }
 
 /*
