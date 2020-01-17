@@ -9483,7 +9483,18 @@ ecdsa_schnorr_verify_batch(wei_t *ec,
 
 wei_t *
 schnorr_context_create(const char *id) {
-  return ecdsa_context_create(id);
+  wei_t *ec = ecdsa_context_create(id);
+
+  if (ec == NULL)
+    return NULL;
+
+  /* Must be congruent to 3 mod 4. */
+  if ((ec->fe.p[0] & 3) != 3) {
+    ecdsa_context_destroy(ec);
+    return 0;
+  }
+
+  return ec;
 }
 
 void

@@ -30,7 +30,8 @@
 /* `mpz_jacobi` is not implemented in mini-gmp. */
 static int
 mpz_jacobi(const mpz_t x, const mpz_t y) {
-  unsigned long s, bmod8;
+  mpz_limb_t bmod8;
+  mpz_size_t s;
   mpz_t a, b, c;
   int j = 1;
 
@@ -124,6 +125,7 @@ mpn_tdiv_qr(mp_limb_t *qp,
   mpz_t q, r, n, d;
 
   assert(nn >= dn);
+  assert(dn > 0);
   assert(qxn == 0);
   assert(dp[dn - 1] != 0);
 
