@@ -15,6 +15,7 @@ if test x"$2" = x'mini'; then
     -Wno-unused-function \
     -Wno-unused-const-variable \
     -Wno-unused-parameter \
+    -Wno-implicit-fallthrough \
     -std=c89 \
     -O3 \
     "$def" \
@@ -30,6 +31,7 @@ if test x"$2" = x'mini'; then
     src/poly1305.c \
     src/rsa.c \
     src/salsa20.c \
+    src/siphash.c \
     src/test.c \
     src/util.c
 else
@@ -39,6 +41,7 @@ else
     -Wno-unused-function \
     -Wno-unused-const-variable \
     -Wno-unused-parameter \
+    -Wno-implicit-fallthrough \
     -std=c89 \
     -O3 \
     "$def" \
@@ -55,6 +58,7 @@ else
     src/poly1305.c \
     src/rsa.c \
     src/salsa20.c \
+    src/siphash.c \
     src/test.c \
     src/util.c
 fi

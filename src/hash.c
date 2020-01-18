@@ -1906,8 +1906,8 @@ keccak_permute(keccak_t *ctx) {
     :
     : [st] "r" (ctx->state),
       [rc] "r" (rc)
-    : "rbx", "r12", "r13", "r14", // Necessary
-      "rax", "rcx", "rdx", "rdi", // Not necessary (but better to be safe)
+    : "rbx", "r12", "r13", "r14", /* Necessary */
+      "rax", "rcx", "rdx", "rdi", /* Not necessary (but better to be safe) */
       "r8",  "r9",  "r10", "r11",
       "cc", "memory"
   );

@@ -81,8 +81,9 @@ _siphash(const unsigned char *data, size_t len, const unsigned char *key) {
   uint64_t v1 = k1 ^ c1;
   uint64_t v2 = k0 ^ c2;
   uint64_t v3 = k1 ^ c3;
+  uint32_t i;
 
-  for (uint32_t i = 0; i < blocks; i++) {
+  for (i = 0; i < blocks; i++) {
     uint64_t d = read64(data);
     data += 8;
     v3 ^= d;
