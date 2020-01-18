@@ -16,10 +16,14 @@ extern "C" {
 #define rsa_privkey_verify torsion_rsa_privkey_verify
 #define rsa_privkey_recover torsion_rsa_privkey_recover
 #define rsa_privkey_normalize torsion_rsa_privkey_normalize
+#define rsa_privkey_import torsion_rsa_privkey_import
+#define rsa_privkey_export torsion_rsa_privkey_export
 #define rsa_pubkey_create torsion_rsa_pubkey_create
 #define rsa_pubkey_bits torsion_rsa_pubkey_bits
 #define rsa_pubkey_verify torsion_rsa_pubkey_verify
 #define rsa_pubkey_normalize torsion_rsa_pubkey_normalize
+#define rsa_pubkey_import torsion_rsa_pubkey_import
+#define rsa_pubkey_export torsion_rsa_pubkey_export
 #define rsa_sign torsion_rsa_sign
 #define rsa_verify torsion_rsa_verify
 #define rsa_encrypt torsion_rsa_encrypt
@@ -133,6 +137,19 @@ rsa_privkey_normalize(unsigned char *out,
                       size_t key_len);
 
 int
+rsa_privkey_import(unsigned char *out,
+                   size_t *out_len,
+                   const unsigned char *key,
+                   size_t key_len,
+                   const unsigned char *entropy);
+
+int
+rsa_privkey_export(unsigned char *out,
+                   size_t *out_len,
+                   const unsigned char *key,
+                   size_t key_len);
+
+int
 rsa_pubkey_create(unsigned char *out,
                   size_t *out_len,
                   const unsigned char *key,
@@ -149,6 +166,18 @@ rsa_pubkey_normalize(unsigned char *out,
                      size_t *out_len,
                      const unsigned char *key,
                      size_t key_len);
+
+int
+rsa_pubkey_import(unsigned char *out,
+                  size_t *out_len,
+                  const unsigned char *key,
+                  size_t key_len);
+
+int
+rsa_pubkey_export(unsigned char *out,
+                  size_t *out_len,
+                  const unsigned char *key,
+                  size_t key_len);
 
 int
 rsa_sign(unsigned char *out,

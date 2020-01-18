@@ -95,7 +95,9 @@ dsa_group_import(dsa_group_t *group,
 }
 
 static void
-dsa_group_export(unsigned char *out, size_t *out_len, const dsa_group_t *group) {
+dsa_group_export(unsigned char *out,
+                 size_t *out_len,
+                 const dsa_group_t *group) {
   size_t size = 0;
   size_t pos = 0;
 
@@ -109,6 +111,35 @@ dsa_group_export(unsigned char *out, size_t *out_len, const dsa_group_t *group) 
   pos = asn1_write_int(out, pos, group->p);
   pos = asn1_write_int(out, pos, group->q);
   pos = asn1_write_int(out, pos, group->g);
+
+  *out_len = pos;
+}
+
+static int
+dsa_group_import_dumb(dsa_group_t *group,
+                      const unsigned char *data,
+                      size_t len) {
+  if (!asn1_read_dumb(group->p, &data, &len))
+    return 0;
+
+  if (!asn1_read_dumb(group->q, &data, &len))
+    return 0;
+
+  if (!asn1_read_dumb(group->g, &data, &len))
+    return 0;
+
+  return 1;
+}
+
+static void
+dsa_group_export_dumb(unsigned char *out,
+                      size_t *out_len,
+                      const dsa_group_t *group) {
+  size_t pos = 0;
+
+  pos = asn1_write_dumb(out, pos, group->p);
+  pos = asn1_write_dumb(out, pos, group->q);
+  pos = asn1_write_dumb(out, pos, group->g);
 
   *out_len = pos;
 }
@@ -334,6 +365,35 @@ dsa_pub_export(unsigned char *out, size_t *out_len, const dsa_pub_t *k) {
 }
 
 static int
+dsa_pub_import_dumb(dsa_pub_t *k, const unsigned char *data, size_t len) {
+  if (!asn1_read_dumb(k->p, &data, &len))
+    return 0;
+
+  if (!asn1_read_dumb(k->q, &data, &len))
+    return 0;
+
+  if (!asn1_read_dumb(k->g, &data, &len))
+    return 0;
+
+  if (!asn1_read_dumb(k->y, &data, &len))
+    return 0;
+
+  return 1;
+}
+
+static void
+dsa_pub_export_dumb(unsigned char *out, size_t *out_len, const dsa_pub_t *k) {
+  size_t pos = 0;
+
+  pos = asn1_write_dumb(out, pos, k->p);
+  pos = asn1_write_dumb(out, pos, k->q);
+  pos = asn1_write_dumb(out, pos, k->g);
+  pos = asn1_write_dumb(out, pos, k->y);
+
+  *out_len = pos;
+}
+
+static int
 dsa_pub_is_sane(const dsa_pub_t *k) {
   dsa_group_t group;
   mpz_t pm1;
@@ -462,6 +522,39 @@ dsa_priv_export(unsigned char *out, size_t *out_len, const dsa_priv_t *k) {
   pos = asn1_write_int(out, pos, k->g);
   pos = asn1_write_int(out, pos, k->y);
   pos = asn1_write_int(out, pos, k->x);
+
+  *out_len = pos;
+}
+
+static int
+dsa_priv_import_dumb(dsa_priv_t *k, const unsigned char *data, size_t len) {
+  if (!asn1_read_dumb(k->p, &data, &len))
+    return 0;
+
+  if (!asn1_read_dumb(k->q, &data, &len))
+    return 0;
+
+  if (!asn1_read_dumb(k->g, &data, &len))
+    return 0;
+
+  if (!asn1_read_dumb(k->y, &data, &len))
+    return 0;
+
+  if (!asn1_read_dumb(k->x, &data, &len))
+    return 0;
+
+  return 1;
+}
+
+static void
+dsa_priv_export_dumb(unsigned char *out, size_t *out_len, const dsa_priv_t *k) {
+  size_t pos = 0;
+
+  pos = asn1_write_dumb(out, pos, k->p);
+  pos = asn1_write_dumb(out, pos, k->q);
+  pos = asn1_write_dumb(out, pos, k->g);
+  pos = asn1_write_dumb(out, pos, k->y);
+  pos = asn1_write_dumb(out, pos, k->x);
 
   *out_len = pos;
 }
@@ -736,6 +829,7 @@ fail:
   return r;
 }
 
+/* TODO: Remove. */
 int
 dsa_params_normalize(unsigned char *out, size_t *out_len,
                      const unsigned char *params, size_t params_len) {
@@ -748,6 +842,48 @@ dsa_params_normalize(unsigned char *out, size_t *out_len,
     goto fail;
 
   dsa_group_export(out, out_len, &group);
+  r = 1;
+fail:
+  dsa_group_clear(&group);
+  return r;
+}
+
+int
+dsa_params_import(unsigned char *out, size_t *out_len,
+                  const unsigned char *params, size_t params_len) {
+  dsa_group_t group;
+  int r = 0;
+
+  dsa_group_init(&group);
+
+  if (!dsa_group_import_dumb(&group, params, params_len))
+    goto fail;
+
+  if (!dsa_group_is_sane(&group))
+    goto fail;
+
+  dsa_group_export(out, out_len, &group);
+  r = 1;
+fail:
+  dsa_group_clear(&group);
+  return r;
+}
+
+int
+dsa_params_export(unsigned char *out, size_t *out_len,
+                  const unsigned char *params, size_t params_len) {
+  dsa_group_t group;
+  int r = 0;
+
+  dsa_group_init(&group);
+
+  if (!dsa_group_import(&group, params, params_len, 1))
+    goto fail;
+
+  if (!dsa_group_is_sane(&group))
+    goto fail;
+
+  dsa_group_export_dumb(out, out_len, &group);
   r = 1;
 fail:
   dsa_group_clear(&group);
@@ -849,6 +985,7 @@ fail:
   return r;
 }
 
+/* TODO: Remove. */
 int
 dsa_privkey_recover(unsigned char *out, size_t *out_len,
                     const unsigned char *key, size_t key_len) {
@@ -870,6 +1007,7 @@ fail:
   return r;
 }
 
+/* TODO: Remove. */
 int
 dsa_privkey_normalize(unsigned char *out, size_t *out_len,
                       const unsigned char *key, size_t key_len) {
@@ -882,6 +1020,48 @@ dsa_privkey_normalize(unsigned char *out, size_t *out_len,
     goto fail;
 
   dsa_priv_export(out, out_len, &k);
+  r = 1;
+fail:
+  dsa_priv_clear(&k);
+  return r;
+}
+
+int
+dsa_privkey_import(unsigned char *out, size_t *out_len,
+                   const unsigned char *key, size_t key_len) {
+  dsa_priv_t k;
+  int r = 0;
+
+  dsa_priv_init(&k);
+
+  if (!dsa_priv_import_dumb(&k, key, key_len))
+    goto fail;
+
+  if (!dsa_priv_recover(&k))
+    goto fail;
+
+  dsa_priv_export(out, out_len, &k);
+  r = 1;
+fail:
+  dsa_priv_clear(&k);
+  return r;
+}
+
+int
+dsa_privkey_export(unsigned char *out, size_t *out_len,
+                   const unsigned char *key, size_t key_len) {
+  dsa_priv_t k;
+  int r = 0;
+
+  dsa_priv_init(&k);
+
+  if (!dsa_priv_import(&k, key, key_len, 1))
+    goto fail;
+
+  if (!dsa_priv_is_sane(&k))
+    goto fail;
+
+  dsa_priv_export_dumb(out, out_len, &k);
   r = 1;
 fail:
   dsa_priv_clear(&k);
@@ -959,6 +1139,7 @@ fail:
   return r;
 }
 
+/* TODO: Remove. */
 int
 dsa_pubkey_normalize(unsigned char *out, size_t *out_len,
                      const unsigned char *key, size_t key_len) {
@@ -971,6 +1152,48 @@ dsa_pubkey_normalize(unsigned char *out, size_t *out_len,
     goto fail;
 
   dsa_pub_export(out, out_len, &k);
+  r = 1;
+fail:
+  dsa_pub_clear(&k);
+  return r;
+}
+
+int
+dsa_pubkey_import(unsigned char *out, size_t *out_len,
+                  const unsigned char *key, size_t key_len) {
+  dsa_pub_t k;
+  int r = 0;
+
+  dsa_pub_init(&k);
+
+  if (!dsa_pub_import_dumb(&k, key, key_len))
+    goto fail;
+
+  if (!dsa_pub_is_sane(&k))
+    goto fail;
+
+  dsa_pub_export(out, out_len, &k);
+  r = 1;
+fail:
+  dsa_pub_clear(&k);
+  return r;
+}
+
+int
+dsa_pubkey_export(unsigned char *out, size_t *out_len,
+                  const unsigned char *key, size_t key_len) {
+  dsa_pub_t k;
+  int r = 0;
+
+  dsa_pub_init(&k);
+
+  if (!dsa_pub_import(&k, key, key_len, 1))
+    goto fail;
+
+  if (!dsa_pub_is_sane(&k))
+    goto fail;
+
+  dsa_pub_export_dumb(out, out_len, &k);
   r = 1;
 fail:
   dsa_pub_clear(&k);

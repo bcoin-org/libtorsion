@@ -127,6 +127,35 @@ asn1_read_int(mpz_t n, const unsigned char **data, size_t *len, int strict) {
   return 1;
 }
 
+static int
+asn1_read_dumb(mpz_t n, const unsigned char **data, size_t *len) {
+  size_t size;
+
+  if (*len < 2)
+    return 0;
+
+  /* First byte. */
+  size = **data;
+  *data += 1;
+  *len -= 1;
+
+  /* Second byte. */
+  size <<= 8;
+  size |= **data;
+  *data += 1;
+  *len -= 1;
+
+  if (size > *len)
+    return 0;
+
+  mpz_import(n, size, 1, 1, 0, 0, *data);
+
+  *data += size;
+  *len -= size;
+
+  return 1;
+}
+
 static size_t
 asn1_size_size(size_t size) {
   if (size <= 0x7f) /* [size] */
@@ -196,6 +225,20 @@ asn1_write_int(unsigned char *data, size_t pos, const mpz_t n) {
     mpz_export(data + pos, NULL, 1, 1, 0, 0, n);
   else
     data[pos] = 0x00;
+
+  pos += size;
+
+  return pos;
+}
+
+static size_t
+asn1_write_dumb(unsigned char *data, size_t pos, const mpz_t n) {
+  size_t size = mpz_bytelen(n);
+
+  data[pos++] = size >> 8;
+  data[pos++] = size;
+
+  mpz_export(data + pos, NULL, 1, 1, 0, 0, n);
 
   pos += size;
 

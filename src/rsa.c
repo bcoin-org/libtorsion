@@ -364,6 +364,51 @@ rsa_priv_export(unsigned char *out, size_t *out_len, const rsa_priv_t *k) {
 }
 
 static int
+rsa_priv_import_dumb(rsa_priv_t *k, const unsigned char *data, size_t len) {
+  if (!asn1_read_dumb(k->n, &data, &len))
+    return 0;
+
+  if (!asn1_read_dumb(k->e, &data, &len))
+    return 0;
+
+  if (!asn1_read_dumb(k->d, &data, &len))
+    return 0;
+
+  if (!asn1_read_dumb(k->p, &data, &len))
+    return 0;
+
+  if (!asn1_read_dumb(k->q, &data, &len))
+    return 0;
+
+  if (!asn1_read_dumb(k->dp, &data, &len))
+    return 0;
+
+  if (!asn1_read_dumb(k->dq, &data, &len))
+    return 0;
+
+  if (!asn1_read_dumb(k->qi, &data, &len))
+    return 0;
+
+  return 1;
+}
+
+static void
+rsa_priv_export_dumb(unsigned char *out, size_t *out_len, const rsa_priv_t *k) {
+  size_t pos = 0;
+
+  pos = asn1_write_dumb(out, pos, k->n);
+  pos = asn1_write_dumb(out, pos, k->e);
+  pos = asn1_write_dumb(out, pos, k->d);
+  pos = asn1_write_dumb(out, pos, k->p);
+  pos = asn1_write_dumb(out, pos, k->q);
+  pos = asn1_write_dumb(out, pos, k->dp);
+  pos = asn1_write_dumb(out, pos, k->dq);
+  pos = asn1_write_dumb(out, pos, k->qi);
+
+  *out_len = pos;
+}
+
+static int
 rsa_priv_generate(rsa_priv_t *k,
                   size_t bits,
                   uint64_t exp,
@@ -956,6 +1001,27 @@ rsa_pub_export(unsigned char *out, size_t *out_len, const rsa_pub_t *k) {
 }
 
 static int
+rsa_pub_import_dumb(rsa_pub_t *k, const unsigned char *data, size_t len) {
+  if (!asn1_read_dumb(k->n, &data, &len))
+    return 0;
+
+  if (!asn1_read_dumb(k->e, &data, &len))
+    return 0;
+
+  return 1;
+}
+
+static void
+rsa_pub_export_dumb(unsigned char *out, size_t *out_len, const rsa_pub_t *k) {
+  size_t pos = 0;
+
+  pos = asn1_write_dumb(out, pos, k->n);
+  pos = asn1_write_dumb(out, pos, k->e);
+
+  *out_len = pos;
+}
+
+static int
 rsa_pub_verify(const rsa_pub_t *k) {
   size_t nbits = mpz_bitlen(k->n);
   size_t ebits = mpz_bitlen(k->e);
@@ -1366,6 +1432,7 @@ fail:
   return r;
 }
 
+/* TODO: Remove. */
 int
 rsa_privkey_recover(unsigned char *out,
                     size_t *out_len,
@@ -1399,6 +1466,7 @@ fail:
   return r;
 }
 
+/* TODO: Remove. */
 int
 rsa_privkey_normalize(unsigned char *out,
                       size_t *out_len,
@@ -1421,6 +1489,62 @@ fail:
 }
 
 int
+rsa_privkey_import(unsigned char *out,
+                   size_t *out_len,
+                   const unsigned char *key,
+                   size_t key_len,
+                   const unsigned char *entropy) {
+  rsa_priv_t k;
+  int r = 0;
+
+  rsa_priv_init(&k);
+
+  if (!rsa_priv_import_dumb(&k, key, key_len))
+    goto fail;
+
+  if (!rsa_priv_verify(&k)) {
+    r = mpz_sgn(k.p) & mpz_sgn(k.q) & mpz_sgn(k.e);
+
+    if (r)
+      r = rsa_priv_recover_pqe(&k, k.p, k.q, k.e);
+    else
+      r = rsa_priv_recover_ned(&k, k.n, k.e, k.d, entropy);
+
+    if (!r)
+      goto fail;
+  }
+
+  rsa_priv_export(out, out_len, &k);
+  r = 1;
+fail:
+  rsa_priv_clear(&k);
+  return r;
+}
+
+int
+rsa_privkey_export(unsigned char *out,
+                   size_t *out_len,
+                   const unsigned char *key,
+                   size_t key_len) {
+  rsa_priv_t k;
+  int r = 0;
+
+  rsa_priv_init(&k);
+
+  if (!rsa_priv_import(&k, key, key_len, 1))
+    goto fail;
+
+  if (!rsa_priv_verify(&k))
+    goto fail;
+
+  rsa_priv_export_dumb(out, out_len, &k);
+  r = 1;
+fail:
+  rsa_priv_clear(&k);
+  return r;
+}
+
+int
 rsa_pubkey_create(unsigned char *out,
                   size_t *out_len,
                   const unsigned char *key,
@@ -1430,7 +1554,6 @@ rsa_pubkey_create(unsigned char *out,
   int r = 0;
 
   rsa_priv_init(&k);
-  rsa_pub_init(&p);
 
   if (!rsa_priv_import(&k, key, key_len, 1))
     goto fail;
@@ -1438,14 +1561,13 @@ rsa_pubkey_create(unsigned char *out,
   if (!rsa_priv_verify(&k))
     goto fail;
 
-  mpz_set(p.n, k.n);
-  mpz_set(p.e, k.e);
+  mpz_roset(p.n, k.n);
+  mpz_roset(p.e, k.e);
 
   rsa_pub_export(out, out_len, &p);
   r = 1;
 fail:
   rsa_priv_clear(&k);
-  rsa_pub_clear(&p);
   return r;
 }
 
@@ -1484,6 +1606,7 @@ fail:
   return r;
 }
 
+/* TODO: Remove. */
 int
 rsa_pubkey_normalize(unsigned char *out,
                      size_t *out_len,
@@ -1499,6 +1622,52 @@ rsa_pubkey_normalize(unsigned char *out,
     goto fail;
 
   rsa_pub_export(out, out_len, &k);
+  r = 1;
+fail:
+  rsa_pub_clear(&k);
+  return r;
+}
+
+int
+rsa_pubkey_import(unsigned char *out,
+                  size_t *out_len,
+                  const unsigned char *key,
+                  size_t key_len) {
+  rsa_pub_t k;
+  int r = 0;
+
+  rsa_pub_init(&k);
+
+  if (!rsa_pub_import_dumb(&k, key, key_len))
+    goto fail;
+
+  if (!rsa_pub_verify(&k))
+    goto fail;
+
+  rsa_pub_export(out, out_len, &k);
+  r = 1;
+fail:
+  rsa_pub_clear(&k);
+  return r;
+}
+
+int
+rsa_pubkey_export(unsigned char *out,
+                  size_t *out_len,
+                  const unsigned char *key,
+                  size_t key_len) {
+  rsa_pub_t k;
+  int r = 0;
+
+  rsa_pub_init(&k);
+
+  if (!rsa_pub_import(&k, key, key_len, 1))
+    goto fail;
+
+  if (!rsa_pub_verify(&k))
+    goto fail;
+
+  rsa_pub_export_dumb(out, out_len, &k);
   r = 1;
 fail:
   rsa_pub_clear(&k);
