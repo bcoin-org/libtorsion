@@ -23,6 +23,7 @@ if test x"$2" = x'mini'; then
     src/aead.c \
     src/chacha20.c \
     src/drbg.c \
+    src/dsa.c \
     src/hash.c \
     src/kdf.c \
     src/mini-gmp.c \
@@ -48,6 +49,7 @@ else
     src/aead.c \
     src/chacha20.c \
     src/drbg.c \
+    src/dsa.c \
     src/hash.c \
     src/kdf.c \
     src/poly1305.c \

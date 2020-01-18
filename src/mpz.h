@@ -12,6 +12,7 @@
 /* Avoid collisions with future versions of GMP. */
 #define mpz_bitlen(n) (mpz_sgn(n) == 0 ? 0 : mpz_sizeinbase(n, 2))
 #define mpz_bytelen(n) ((mpz_bitlen(n) + 7) / 8)
+#define mpz_roset torsion_mpz_roset
 #define mpz_export_pad torsion_mpz_export_pad
 #define mpz_cleanse torsion_mpz_cleanse
 #define mpz_random_bits torsion_mpz_random_bits
@@ -24,6 +25,12 @@
 /*
  * MPZ Extras
  */
+
+static void
+mpz_roset(mpz_t r, const mpz_t x) {
+  mpz_roinit_n(r, mpz_limbs_read(x),
+    (mp_size_t)mpz_sgn(x) * (mp_size_t)mpz_size(x));
+}
 
 static void
 mpz_export_pad(unsigned char *out, const mpz_t n, size_t size, int endian) {
@@ -345,7 +352,7 @@ fail:
 }
 
 static int
-mpz_is_prime(const mpz_t p, drbg_t *rng) {
+mpz_is_prime(const mpz_t p, unsigned long rounds, drbg_t *rng) {
   static const mp_limb_t primes_a =
     3ul * 5ul * 7ul * 11ul * 13ul * 17ul * 19ul * 23ul * 37ul;
   static const mp_limb_t primes_b = 29ul * 31ul * 41ul * 43ul * 47ul * 53ul;
@@ -389,7 +396,7 @@ mpz_is_prime(const mpz_t p, drbg_t *rng) {
     return 0;
   }
 
-  if (!mpz_is_prime_mr(p, 20 + 1, 1, rng))
+  if (!mpz_is_prime_mr(p, rounds + 1, 1, rng))
     return 0;
 
   if (!mpz_is_prime_lucas(p, 0))
@@ -407,7 +414,7 @@ mpz_random_prime(mpz_t ret, size_t bits, drbg_t *rng) {
     mpz_setbit(ret, 0);
     mpz_setbit(ret, bits - 1);
     assert(mpz_bitlen(ret) == bits);
-  } while (!mpz_is_prime(ret, rng));
+  } while (!mpz_is_prime(ret, 20, rng));
 }
 
 #endif /* _TORSION_MPZ_H */
