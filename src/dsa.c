@@ -73,16 +73,16 @@ dsa_group_roset_pub(dsa_group_t *group, const dsa_pub_t *k) {
 
 static int
 dsa_group_import(dsa_group_t *group, const unsigned char *data, size_t len) {
-  if (!asn1_read_seq(&data, &len))
+  if (!asn1_read_seq(&data, &len, 1))
     return 0;
 
-  if (!asn1_read_int(group->p, &data, &len))
+  if (!asn1_read_mpz(group->p, &data, &len, 1))
     return 0;
 
-  if (!asn1_read_int(group->q, &data, &len))
+  if (!asn1_read_mpz(group->q, &data, &len, 1))
     return 0;
 
-  if (!asn1_read_int(group->g, &data, &len))
+  if (!asn1_read_mpz(group->g, &data, &len, 1))
     return 0;
 
   if (len != 0)
@@ -98,16 +98,16 @@ dsa_group_export(unsigned char *out,
   size_t size = 0;
   size_t pos = 0;
 
-  size += asn1_size_int(group->p);
-  size += asn1_size_int(group->q);
-  size += asn1_size_int(group->g);
+  size += asn1_size_mpz(group->p);
+  size += asn1_size_mpz(group->q);
+  size += asn1_size_mpz(group->g);
 
   /* 0x30 [size] [body] */
   out[pos++] = 0x30;
   pos = asn1_write_size(out, pos, size);
-  pos = asn1_write_int(out, pos, group->p);
-  pos = asn1_write_int(out, pos, group->q);
-  pos = asn1_write_int(out, pos, group->g);
+  pos = asn1_write_mpz(out, pos, group->p);
+  pos = asn1_write_mpz(out, pos, group->q);
+  pos = asn1_write_mpz(out, pos, group->g);
 
   *out_len = pos;
 }
@@ -317,19 +317,19 @@ dsa_pub_roset_priv(dsa_pub_t *r, const dsa_priv_t *k) {
 
 static int
 dsa_pub_import(dsa_pub_t *k, const unsigned char *data, size_t len) {
-  if (!asn1_read_seq(&data, &len))
+  if (!asn1_read_seq(&data, &len, 1))
     return 0;
 
-  if (!asn1_read_int(k->y, &data, &len))
+  if (!asn1_read_mpz(k->y, &data, &len, 1))
     return 0;
 
-  if (!asn1_read_int(k->p, &data, &len))
+  if (!asn1_read_mpz(k->p, &data, &len, 1))
     return 0;
 
-  if (!asn1_read_int(k->q, &data, &len))
+  if (!asn1_read_mpz(k->q, &data, &len, 1))
     return 0;
 
-  if (!asn1_read_int(k->g, &data, &len))
+  if (!asn1_read_mpz(k->g, &data, &len, 1))
     return 0;
 
   if (len != 0)
@@ -343,18 +343,18 @@ dsa_pub_export(unsigned char *out, size_t *out_len, const dsa_pub_t *k) {
   size_t size = 0;
   size_t pos = 0;
 
-  size += asn1_size_int(k->y);
-  size += asn1_size_int(k->p);
-  size += asn1_size_int(k->q);
-  size += asn1_size_int(k->g);
+  size += asn1_size_mpz(k->y);
+  size += asn1_size_mpz(k->p);
+  size += asn1_size_mpz(k->q);
+  size += asn1_size_mpz(k->g);
 
   /* 0x30 [size] [body] */
   out[pos++] = 0x30;
   pos = asn1_write_size(out, pos, size);
-  pos = asn1_write_int(out, pos, k->y);
-  pos = asn1_write_int(out, pos, k->p);
-  pos = asn1_write_int(out, pos, k->q);
-  pos = asn1_write_int(out, pos, k->g);
+  pos = asn1_write_mpz(out, pos, k->y);
+  pos = asn1_write_mpz(out, pos, k->p);
+  pos = asn1_write_mpz(out, pos, k->q);
+  pos = asn1_write_mpz(out, pos, k->g);
 
   *out_len = pos;
 }
@@ -459,30 +459,25 @@ dsa_priv_clear(dsa_priv_t *k) {
 
 static int
 dsa_priv_import(dsa_priv_t *k, const unsigned char *data, size_t len) {
-  if (!asn1_read_seq(&data, &len))
+  if (!asn1_read_seq(&data, &len, 1))
     return 0;
 
-  /* Read version first. */
-  if (!asn1_read_int(k->p, &data, &len))
+  if (!asn1_read_version(&data, &len, 0, 1))
     return 0;
 
-  /* Should be zero. */
-  if (mpz_sgn(k->p) != 0)
+  if (!asn1_read_mpz(k->p, &data, &len, 1))
     return 0;
 
-  if (!asn1_read_int(k->p, &data, &len))
+  if (!asn1_read_mpz(k->q, &data, &len, 1))
     return 0;
 
-  if (!asn1_read_int(k->q, &data, &len))
+  if (!asn1_read_mpz(k->g, &data, &len, 1))
     return 0;
 
-  if (!asn1_read_int(k->g, &data, &len))
+  if (!asn1_read_mpz(k->y, &data, &len, 1))
     return 0;
 
-  if (!asn1_read_int(k->y, &data, &len))
-    return 0;
-
-  if (!asn1_read_int(k->x, &data, &len))
+  if (!asn1_read_mpz(k->x, &data, &len, 1))
     return 0;
 
   if (len != 0)
@@ -496,24 +491,22 @@ dsa_priv_export(unsigned char *out, size_t *out_len, const dsa_priv_t *k) {
   size_t size = 0;
   size_t pos = 0;
 
-  size += 3; /* version */
-  size += asn1_size_int(k->p);
-  size += asn1_size_int(k->q);
-  size += asn1_size_int(k->g);
-  size += asn1_size_int(k->y);
-  size += asn1_size_int(k->x);
+  size += asn1_size_version(0);
+  size += asn1_size_mpz(k->p);
+  size += asn1_size_mpz(k->q);
+  size += asn1_size_mpz(k->g);
+  size += asn1_size_mpz(k->y);
+  size += asn1_size_mpz(k->x);
 
   /* 0x30 [size] [body] */
   out[pos++] = 0x30;
   pos = asn1_write_size(out, pos, size);
-  out[pos++] = 0x02;
-  out[pos++] = 0x01;
-  out[pos++] = 0x00; /* version */
-  pos = asn1_write_int(out, pos, k->p);
-  pos = asn1_write_int(out, pos, k->q);
-  pos = asn1_write_int(out, pos, k->g);
-  pos = asn1_write_int(out, pos, k->y);
-  pos = asn1_write_int(out, pos, k->x);
+  pos = asn1_write_version(out, pos, 0);
+  pos = asn1_write_mpz(out, pos, k->p);
+  pos = asn1_write_mpz(out, pos, k->q);
+  pos = asn1_write_mpz(out, pos, k->g);
+  pos = asn1_write_mpz(out, pos, k->y);
+  pos = asn1_write_mpz(out, pos, k->x);
 
   *out_len = pos;
 }
@@ -675,13 +668,13 @@ dsa_sig_clear(dsa_sig_t *sig) {
 
 static int
 dsa_sig_import_der(dsa_sig_t *sig, const unsigned char *data, size_t len) {
-  if (!asn1_read_seq(&data, &len))
+  if (!asn1_read_seq(&data, &len, 1))
     return 0;
 
-  if (!asn1_read_int(sig->r, &data, &len))
+  if (!asn1_read_mpz(sig->r, &data, &len, 1))
     return 0;
 
-  if (!asn1_read_int(sig->s, &data, &len))
+  if (!asn1_read_mpz(sig->s, &data, &len, 1))
     return 0;
 
   if (len != 0)
@@ -701,14 +694,14 @@ dsa_sig_export_der(unsigned char *out, size_t *out_len, const dsa_sig_t *sig) {
   size_t size = 0;
   size_t pos = 0;
 
-  size += asn1_size_int(sig->r);
-  size += asn1_size_int(sig->s);
+  size += asn1_size_mpz(sig->r);
+  size += asn1_size_mpz(sig->s);
 
   /* 0x30 [size] [body] */
   out[pos++] = 0x30;
   pos = asn1_write_size(out, pos, size);
-  pos = asn1_write_int(out, pos, sig->r);
-  pos = asn1_write_int(out, pos, sig->s);
+  pos = asn1_write_mpz(out, pos, sig->r);
+  pos = asn1_write_mpz(out, pos, sig->s);
 
   *out_len = pos;
 }

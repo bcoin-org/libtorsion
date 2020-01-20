@@ -29,6 +29,7 @@
 #include "fields/p448.h"
 #include "fields/p251.h"
 
+#include "asn1.h"
 #include "mpn.h"
 
 #if CHAR_BIT != 8
@@ -8438,223 +8439,67 @@ ecdsa_sig_export(wei_t *ec,
                  size_t *out_len,
                  const unsigned char *sig) {
   scalar_field_t *sc = &ec->sc;
-  unsigned char r[MAX_SCALAR_SIZE + 1];
-  unsigned char s[MAX_SCALAR_SIZE + 1];
+  unsigned char tmp[MAX_DER_SIZE];
   const unsigned char *rp = sig;
   const unsigned char *sp = sig + sc->size;
-  size_t rlen = sc->size;
-  size_t slen = sc->size;
-  size_t rn, sn, seq, wide, len;
+  size_t size = 0;
+  size_t pos = 0;
+  int overflow;
 
-  memset(r, 0x00, sc->size + 1);
-  memset(s, 0x00, sc->size + 1);
+  overflow = memcmp(rp, sc->raw, sc->size) >= 0
+          || memcmp(sp, sc->raw, sc->size) >= 0;
 
-  assert(sc->size < 0x7d);
+  if (overflow) {
+    tmp[pos++] = 0x30;
+    tmp[pos++] = 0x06;
+    tmp[pos++] = 0x02;
+    tmp[pos++] = 0x01;
+    tmp[pos++] = 0x00;
+    tmp[pos++] = 0x02;
+    tmp[pos++] = 0x01;
+    tmp[pos++] = 0x00;
+  } else {
+    size += asn1_size_int(rp, sc->size);
+    size += asn1_size_int(sp, sc->size);
 
-  while (rlen > 1 && rp[0] == 0) {
-    rlen--;
-    rp++;
+    /* 0x30 [size] [body] */
+    tmp[pos++] = 0x30;
+    pos = asn1_write_size(tmp, pos, size);
+    pos = asn1_write_int(tmp, pos, rp, sc->size);
+    pos = asn1_write_int(tmp, pos, sp, sc->size);
   }
 
-  while (slen > 1 && sp[0] == 0) {
-    slen--;
-    sp++;
-  }
-
-  rn = ((rp[0] & 0x80) != 0);
-  sn = ((sp[0] & 0x80) != 0);
-
-  memcpy(r + rn, rp, rlen);
-  memcpy(s + sn, sp, slen);
-
-  rlen += rn;
-  slen += sn;
-
-  seq = 2 + rlen + 2 + slen;
-  wide = (seq >= 0x80);
-  len = 2 + wide + seq;
-
-  if (len > *out_len)
-    return 0;
-
-  *out++ = 0x30;
-
-  if (wide)
-    *out++ = 0x81;
-
-  *out++ = seq;
-  *out++ = 0x02;
-  *out++ = rlen;
-
-  memcpy(out, r, rlen);
-  out += rlen;
-
-  *out++ = 0x02;
-  *out++ = slen;
-
-  memcpy(out, s, slen);
-  out += slen;
-
-  *out_len = len;
+  memcpy(out, tmp, pos);
+  *out_len = pos;
 
   return 1;
 }
 
-int
-ecdsa_sig_import_lax(wei_t *ec,
-                     unsigned char *out,
-                     const unsigned char *der,
-                     size_t der_len) {
+static int
+_ecdsa_sig_import(wei_t *ec,
+                  unsigned char *out,
+                  const unsigned char *der,
+                  size_t der_len,
+                  int strict) {
   scalar_field_t *sc = &ec->sc;
   unsigned char r[MAX_SCALAR_SIZE];
   unsigned char s[MAX_SCALAR_SIZE];
-  size_t rpos, rlen, spos, slen, lenbyte;
-  size_t pos = 0;
-  int overflow = 0;
+  int overflow;
 
-  /* Sequence tag byte */
-  if (pos == der_len || der[pos] != 0x30)
+  if (!asn1_read_seq(&der, &der_len, strict))
     return 0;
 
-  pos++;
-
-  /* Sequence length bytes */
-  if (pos == der_len)
+  if (!asn1_read_int(r, sc->size, &der, &der_len, strict))
     return 0;
 
-  lenbyte = der[pos++];
-
-  if (lenbyte & 0x80) {
-    lenbyte -= 0x80;
-
-    if (pos + lenbyte > der_len)
-      return 0;
-
-    pos += lenbyte;
-  }
-
-  /* Integer tag byte for R */
-  if (pos == der_len || der[pos] != 0x02)
+  if (!asn1_read_int(s, sc->size, &der, &der_len, strict))
     return 0;
 
-  pos++;
-
-  /* Integer length for R */
-  if (pos == der_len)
+  if (strict && der_len != 0)
     return 0;
 
-  lenbyte = der[pos++];
-
-  if (lenbyte & 0x80) {
-    lenbyte -= 0x80;
-
-    if (pos + lenbyte > der_len)
-      return 0;
-
-    while (lenbyte > 0 && der[pos] == 0) {
-      pos++;
-      lenbyte--;
-    }
-
-    assert(sizeof(size_t) >= 4);
-
-    if (lenbyte >= 4)
-      return 0;
-
-    rlen = 0;
-
-    while (lenbyte > 0) {
-      rlen = (rlen << 8) + der[pos];
-      pos++;
-      lenbyte--;
-    }
-  } else {
-    rlen = lenbyte;
-  }
-
-  if (rlen > der_len - pos)
-    return 0;
-
-  rpos = pos;
-  pos += rlen;
-
-  /* Integer tag byte for S */
-  if (pos == der_len || der[pos] != 0x02)
-    return 0;
-
-  pos++;
-
-  /* Integer length for S */
-  if (pos == der_len)
-    return 0;
-
-  lenbyte = der[pos++];
-
-  if (lenbyte & 0x80) {
-    lenbyte -= 0x80;
-
-    if (pos + lenbyte > der_len)
-      return 0;
-
-    while (lenbyte > 0 && der[pos] == 0) {
-      pos++;
-      lenbyte--;
-    }
-
-    assert(sizeof(size_t) >= 4);
-
-    if (lenbyte >= 4)
-      return 0;
-
-    slen = 0;
-
-    while (lenbyte > 0) {
-      slen = (slen << 8) + der[pos];
-      pos++;
-      lenbyte--;
-    }
-  } else {
-    slen = lenbyte;
-  }
-
-  if (slen > der_len - pos)
-    return 0;
-
-  spos = pos;
-  pos += slen;
-
-  /* Ignore leading zeroes in R */
-  while (rlen > 0 && der[rpos] == 0) {
-    rlen--;
-    rpos++;
-  }
-
-  /* Copy R value */
-  if (rlen > sc->size) {
-    overflow = 1;
-  } else {
-    memset(r, 0x00, sc->size - rlen);
-    memcpy(r + sc->size - rlen, der + rpos, rlen);
-  }
-
-  /* Ignore leading zeroes in S */
-  while (slen > 0 && der[spos] == 0) {
-    slen--;
-    spos++;
-  }
-
-  /* Copy S value */
-  if (slen > sc->size) {
-    overflow = 1;
-  } else {
-    memset(s, 0x00, sc->size - slen);
-    memcpy(s + sc->size - slen, der + spos, slen);
-  }
-
-  if (!overflow) {
-    overflow = memcmp(r, sc->raw, sc->size) >= 0
-            || memcmp(s, sc->raw, sc->size) >= 0;
-  }
+  overflow = memcmp(r, sc->raw, sc->size) >= 0
+          || memcmp(s, sc->raw, sc->size) >= 0;
 
   if (overflow) {
     memset(out, 0x00, sc->size * 2);
@@ -8671,19 +8516,15 @@ ecdsa_sig_import(wei_t *ec,
                  unsigned char *out,
                  const unsigned char *der,
                  size_t der_len) {
-  unsigned char tmp[MAX_SIG_SIZE];
-  size_t tmp_len = sizeof(tmp);
+  return _ecdsa_sig_import(ec, out, der, der_len, 1);
+}
 
-  if (!ecdsa_sig_import_lax(ec, out, der, der_len))
-    return 0;
-
-  if (!ecdsa_sig_export(ec, tmp, &tmp_len, out))
-    return 0;
-
-  if (der_len != tmp_len)
-    return 0;
-
-  return bytes_equal(der, tmp, tmp_len);
+int
+ecdsa_sig_import_lax(wei_t *ec,
+                     unsigned char *out,
+                     const unsigned char *der,
+                     size_t der_len) {
+  return _ecdsa_sig_import(ec, out, der, der_len, 0);
 }
 
 int

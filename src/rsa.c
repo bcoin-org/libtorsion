@@ -286,39 +286,34 @@ rsa_priv_set(rsa_priv_t *r, const rsa_priv_t *k) {
 
 static int
 rsa_priv_import(rsa_priv_t *k, const unsigned char *data, size_t len) {
-  if (!asn1_read_seq(&data, &len))
+  if (!asn1_read_seq(&data, &len, 1))
     return 0;
 
-  /* Read version first. */
-  if (!asn1_read_int(k->n, &data, &len))
+  if (!asn1_read_version(&data, &len, 0, 1))
     return 0;
 
-  /* Should be zero. */
-  if (mpz_sgn(k->n) != 0)
+  if (!asn1_read_mpz(k->n, &data, &len, 1))
     return 0;
 
-  if (!asn1_read_int(k->n, &data, &len))
+  if (!asn1_read_mpz(k->e, &data, &len, 1))
     return 0;
 
-  if (!asn1_read_int(k->e, &data, &len))
+  if (!asn1_read_mpz(k->d, &data, &len, 1))
     return 0;
 
-  if (!asn1_read_int(k->d, &data, &len))
+  if (!asn1_read_mpz(k->p, &data, &len, 1))
     return 0;
 
-  if (!asn1_read_int(k->p, &data, &len))
+  if (!asn1_read_mpz(k->q, &data, &len, 1))
     return 0;
 
-  if (!asn1_read_int(k->q, &data, &len))
+  if (!asn1_read_mpz(k->dp, &data, &len, 1))
     return 0;
 
-  if (!asn1_read_int(k->dp, &data, &len))
+  if (!asn1_read_mpz(k->dq, &data, &len, 1))
     return 0;
 
-  if (!asn1_read_int(k->dq, &data, &len))
-    return 0;
-
-  if (!asn1_read_int(k->qi, &data, &len))
+  if (!asn1_read_mpz(k->qi, &data, &len, 1))
     return 0;
 
   if (len != 0)
@@ -332,30 +327,28 @@ rsa_priv_export(unsigned char *out, size_t *out_len, const rsa_priv_t *k) {
   size_t size = 0;
   size_t pos = 0;
 
-  size += 3; /* version */
-  size += asn1_size_int(k->n);
-  size += asn1_size_int(k->e);
-  size += asn1_size_int(k->d);
-  size += asn1_size_int(k->p);
-  size += asn1_size_int(k->q);
-  size += asn1_size_int(k->dp);
-  size += asn1_size_int(k->dq);
-  size += asn1_size_int(k->qi);
+  size += asn1_size_version(0);
+  size += asn1_size_mpz(k->n);
+  size += asn1_size_mpz(k->e);
+  size += asn1_size_mpz(k->d);
+  size += asn1_size_mpz(k->p);
+  size += asn1_size_mpz(k->q);
+  size += asn1_size_mpz(k->dp);
+  size += asn1_size_mpz(k->dq);
+  size += asn1_size_mpz(k->qi);
 
   /* 0x30 [size] [body] */
   out[pos++] = 0x30;
   pos = asn1_write_size(out, pos, size);
-  out[pos++] = 0x02;
-  out[pos++] = 0x01;
-  out[pos++] = 0x00; /* version */
-  pos = asn1_write_int(out, pos, k->n);
-  pos = asn1_write_int(out, pos, k->e);
-  pos = asn1_write_int(out, pos, k->d);
-  pos = asn1_write_int(out, pos, k->p);
-  pos = asn1_write_int(out, pos, k->q);
-  pos = asn1_write_int(out, pos, k->dp);
-  pos = asn1_write_int(out, pos, k->dq);
-  pos = asn1_write_int(out, pos, k->qi);
+  pos = asn1_write_version(out, pos, 0);
+  pos = asn1_write_mpz(out, pos, k->n);
+  pos = asn1_write_mpz(out, pos, k->e);
+  pos = asn1_write_mpz(out, pos, k->d);
+  pos = asn1_write_mpz(out, pos, k->p);
+  pos = asn1_write_mpz(out, pos, k->q);
+  pos = asn1_write_mpz(out, pos, k->dp);
+  pos = asn1_write_mpz(out, pos, k->dq);
+  pos = asn1_write_mpz(out, pos, k->qi);
 
   *out_len = pos;
 }
@@ -1003,13 +996,13 @@ rsa_pub_set(rsa_pub_t *r, const rsa_pub_t *k) {
 
 static int
 rsa_pub_import(rsa_pub_t *k, const unsigned char *data, size_t len) {
-  if (!asn1_read_seq(&data, &len))
+  if (!asn1_read_seq(&data, &len, 1))
     return 0;
 
-  if (!asn1_read_int(k->n, &data, &len))
+  if (!asn1_read_mpz(k->n, &data, &len, 1))
     return 0;
 
-  if (!asn1_read_int(k->e, &data, &len))
+  if (!asn1_read_mpz(k->e, &data, &len, 1))
     return 0;
 
   if (len != 0)
@@ -1023,14 +1016,14 @@ rsa_pub_export(unsigned char *out, size_t *out_len, const rsa_pub_t *k) {
   size_t size = 0;
   size_t pos = 0;
 
-  size += asn1_size_int(k->n);
-  size += asn1_size_int(k->e);
+  size += asn1_size_mpz(k->n);
+  size += asn1_size_mpz(k->e);
 
   /* 0x30 [size] [body] */
   out[pos++] = 0x30;
   pos = asn1_write_size(out, pos, size);
-  pos = asn1_write_int(out, pos, k->n);
-  pos = asn1_write_int(out, pos, k->e);
+  pos = asn1_write_mpz(out, pos, k->n);
+  pos = asn1_write_mpz(out, pos, k->e);
 
   *out_len = pos;
 }
