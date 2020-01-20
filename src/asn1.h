@@ -11,10 +11,7 @@
  */
 
 static int
-asn1_read_size(size_t *size,
-               const unsigned char **data,
-               size_t *len,
-               int strict) {
+asn1_read_size(size_t *size, const unsigned char **data, size_t *len) {
   unsigned char ch;
 
   assert(sizeof(size_t) * CHAR_BIT >= 32);
@@ -35,7 +32,7 @@ asn1_read_size(size_t *size,
     size_t i;
 
     /* Indefinite form. */
-    if (strict && bytes == 0)
+    if (bytes == 0)
       return 0;
 
     /* Long form. */
@@ -55,11 +52,11 @@ asn1_read_size(size_t *size,
       *size <<= 8;
       *size |= ch;
 
-      if (strict && *size == 0)
+      if (*size == 0)
         return 0;
     }
 
-    if (strict && *size < 0x80)
+    if (*size < 0x80)
       return 0;
   }
 
@@ -67,7 +64,7 @@ asn1_read_size(size_t *size,
 }
 
 static int
-asn1_read_seq(const unsigned char **data, size_t *len, int strict) {
+asn1_read_seq(const unsigned char **data, size_t *len) {
   size_t size;
 
   if (*len == 0 || **data != 0x30)
@@ -76,17 +73,18 @@ asn1_read_seq(const unsigned char **data, size_t *len, int strict) {
   *data += 1;
   *len -= 1;
 
-  if (!asn1_read_size(&size, data, len, strict))
+  if (!asn1_read_size(&size, data, len))
     return 0;
 
-  if (strict && size != *len)
+  if (size != *len)
     return 0;
 
   return 1;
 }
 
 static int
-asn1_read_int(mpz_t n, const unsigned char **data, size_t *len, int strict) {
+asn1_read_int(mpz_t n, const unsigned char **data, size_t *len) {
+  const unsigned char *num;
   size_t size;
 
   if (*len == 0 || **data != 0x02)
@@ -95,28 +93,26 @@ asn1_read_int(mpz_t n, const unsigned char **data, size_t *len, int strict) {
   *data += 1;
   *len -= 1;
 
-  if (!asn1_read_size(&size, data, len, strict))
+  if (!asn1_read_size(&size, data, len))
     return 0;
 
   if (size > *len)
     return 0;
 
-  if (strict) {
-    const unsigned char *num = *data;
+  num = *data;
 
-    /* No reason to have an integer larger than this. */
-    if (size == 0 || size > 1 + 2048)
+  /* No reason to have an integer larger than this. */
+  if (size == 0 || size > 1 + 2048)
+    return 0;
+
+  /* No negatives. */
+  if (num[0] & 0x80)
+    return 0;
+
+  /* Allow zero only if it prefixes a high bit. */
+  if (size > 1) {
+    if (num[0] == 0x00 && (num[1] & 0x80) == 0x00)
       return 0;
-
-    /* No negatives. */
-    if (num[0] & 0x80)
-      return 0;
-
-    /* Allow zero only if it prefixes a high bit. */
-    if (size > 1) {
-      if (num[0] == 0x00 && (num[1] & 0x80) == 0x00)
-        return 0;
-    }
   }
 
   mpz_import(n, size, 1, 1, 0, 0, *data);
@@ -173,8 +169,8 @@ asn1_size_int(const mpz_t n) {
   size_t bits = mpz_bitlen(n);
   size_t size = (bits + 7) / 8;
 
-  if ((bits & 7) == 0)
-    size += (mpz_tstbit(n, bits - 1) != 0);
+  if (bits > 0 && (bits & 7) == 0)
+    size += mpz_tstbit(n, bits - 1);
 
   if (bits == 0)
     size = 1;
@@ -208,8 +204,8 @@ asn1_write_int(unsigned char *data, size_t pos, const mpz_t n) {
   size_t size = (bits + 7) / 8;
   size_t pad = 0;
 
-  if ((bits & 7) == 0)
-    pad = (mpz_tstbit(n, bits - 1) != 0);
+  if (bits > 0 && (bits & 7) == 0)
+    pad = mpz_tstbit(n, bits - 1);
 
   if (bits == 0)
     size = 1;

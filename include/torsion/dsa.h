@@ -11,11 +11,11 @@ extern "C" {
  * Symbol Aliases
  */
 
+#define dsa_params_create torsion_dsa_params_create
 #define dsa_params_generate torsion_dsa_params_generate
 #define dsa_params_bits torsion_dsa_params_bits
 #define dsa_params_qbits torsion_dsa_params_qbits
 #define dsa_params_verify torsion_dsa_params_verify
-#define dsa_params_normalize torsion_dsa_params_normalize
 #define dsa_params_import torsion_dsa_params_import
 #define dsa_params_export torsion_dsa_params_export
 #define dsa_privkey_create torsion_dsa_privkey_create
@@ -23,20 +23,16 @@ extern "C" {
 #define dsa_privkey_bits torsion_dsa_privkey_bits
 #define dsa_privkey_qbits torsion_dsa_privkey_qbits
 #define dsa_privkey_verify torsion_dsa_privkey_verify
-#define dsa_privkey_recover torsion_dsa_privkey_recover
-#define dsa_privkey_normalize torsion_dsa_privkey_normalize
 #define dsa_privkey_import torsion_dsa_privkey_import
 #define dsa_privkey_export torsion_dsa_privkey_export
 #define dsa_pubkey_create torsion_dsa_pubkey_create
 #define dsa_pubkey_bits torsion_dsa_pubkey_bits
 #define dsa_pubkey_qbits torsion_dsa_pubkey_qbits
 #define dsa_pubkey_verify torsion_dsa_pubkey_verify
-#define dsa_pubkey_normalize torsion_dsa_pubkey_normalize
 #define dsa_pubkey_import torsion_dsa_pubkey_import
 #define dsa_pubkey_export torsion_dsa_pubkey_export
 #define dsa_sig_export torsion_dsa_sig_export
 #define dsa_sig_import torsion_dsa_sig_import
-#define dsa_sig_import_lax torsion_dsa_sig_import_lax
 #define dsa_sign torsion_dsa_sign
 #define dsa_verify torsion_dsa_verify
 #define dsa_derive torsion_dsa_derive
@@ -87,6 +83,10 @@ extern "C" {
  */
 
 int
+dsa_params_create(unsigned char *out, size_t *out_len,
+                  const unsigned char *key, size_t key_len);
+
+int
 dsa_params_generate(unsigned char *out,
                     size_t *out_len,
                     size_t bits,
@@ -100,10 +100,6 @@ dsa_params_qbits(const unsigned char *params, size_t params_len);
 
 int
 dsa_params_verify(const unsigned char *params, size_t params_len);
-
-int
-dsa_params_normalize(unsigned char *out, size_t *out_len,
-                     const unsigned char *params, size_t params_len);
 
 int
 dsa_params_import(unsigned char *out, size_t *out_len,
@@ -134,14 +130,6 @@ int
 dsa_privkey_verify(const unsigned char *key, size_t key_len);
 
 int
-dsa_privkey_recover(unsigned char *out, size_t *out_len,
-                    const unsigned char *key, size_t key_len);
-
-int
-dsa_privkey_normalize(unsigned char *out, size_t *out_len,
-                      const unsigned char *key, size_t key_len);
-
-int
 dsa_privkey_import(unsigned char *out, size_t *out_len,
                    const unsigned char *key, size_t key_len);
 
@@ -161,10 +149,6 @@ dsa_pubkey_qbits(const unsigned char *key, size_t key_len);
 
 int
 dsa_pubkey_verify(const unsigned char *key, size_t key_len);
-
-int
-dsa_pubkey_normalize(unsigned char *out, size_t *out_len,
-                     const unsigned char *key, size_t key_len);
 
 int
 dsa_pubkey_import(unsigned char *out, size_t *out_len,
@@ -187,13 +171,6 @@ dsa_sig_import(unsigned char *out,
                const unsigned char *sig,
                size_t sig_len,
                size_t qsize);
-
-int
-dsa_sig_import_lax(unsigned char *out,
-                   size_t *out_len,
-                   const unsigned char *sig,
-                   size_t sig_len,
-                   size_t qsize);
 
 int
 dsa_sign(unsigned char *out, size_t *out_len,

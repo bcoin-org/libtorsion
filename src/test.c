@@ -2671,37 +2671,42 @@ test_rsa(drbg_t *rng) {
     j = random_int(rng, 128);
 
     assert(rsa_sign(sig, &sig_len, HASH_SHA256, msg, 32, priv, priv_len, entropy));
-    assert(rsa_verify(HASH_SHA256, msg, 32, sig, sig_len, pub, pub_len, 1));
+    assert(rsa_verify(HASH_SHA256, msg, 32, sig, sig_len, pub, pub_len));
     sig[j] ^= 1;
-    assert(!rsa_verify(HASH_SHA256, msg, 32, sig, sig_len, pub, pub_len, 1));
+    assert(!rsa_verify(HASH_SHA256, msg, 32, sig, sig_len, pub, pub_len));
 
     drbg_generate(rng, msg, 32);
     drbg_generate(rng, entropy, 32);
 
     assert(rsa_encrypt(ct, &ct_len, msg, 32, pub, pub_len, entropy));
-    assert(rsa_decrypt(pt, &pt_len, ct, ct_len, priv, priv_len, 1, entropy));
+    assert(rsa_decrypt(pt, &pt_len, ct, ct_len, priv, priv_len, entropy));
     assert(pt_len == 32);
     assert(memcmp(pt, msg, 32) == 0);
     ct[j] ^= 1;
-    assert(!rsa_decrypt(pt, &pt_len, ct, ct_len, priv, priv_len, 1, entropy));
-
-    drbg_generate(rng, msg, 32);
-    drbg_generate(rng, entropy, 32);
-
-    assert(rsa_encrypt_oaep(ct, &ct_len, HASH_SHA256, msg, 32, pub, pub_len, NULL, 0, entropy));
-    assert(rsa_decrypt_oaep(pt, &pt_len, HASH_SHA256, ct, ct_len, priv, priv_len, NULL, 0, 1, entropy));
-    assert(pt_len == 32);
-    assert(memcmp(pt, msg, 32) == 0);
-    ct[j] ^= 1;
-    assert(!rsa_decrypt_oaep(pt, &pt_len, HASH_SHA256, ct, ct_len, priv, priv_len, NULL, 0, 1, entropy));
+    assert(!rsa_decrypt(pt, &pt_len, ct, ct_len, priv, priv_len, entropy));
 
     drbg_generate(rng, msg, 32);
     drbg_generate(rng, entropy, 32);
 
     assert(rsa_sign_pss(sig, &sig_len, HASH_SHA256, msg, 32, priv, priv_len, 0, entropy));
-    assert(rsa_verify_pss(HASH_SHA256, msg, 32, sig, sig_len, pub, pub_len, 0, 1));
+    assert(rsa_verify_pss(HASH_SHA256, msg, 32, sig, sig_len, pub, pub_len, 0));
     sig[j] ^= 1;
-    assert(!rsa_verify_pss(HASH_SHA256, msg, 32, sig, sig_len, pub, pub_len, 0, 1));
+    assert(!rsa_verify_pss(HASH_SHA256, msg, 32, sig, sig_len, pub, pub_len, 0));
+
+    assert(rsa_sign_pss(sig, &sig_len, HASH_SHA256, msg, 32, priv, priv_len, -1, entropy));
+    assert(rsa_verify_pss(HASH_SHA256, msg, 32, sig, sig_len, pub, pub_len, -1));
+    sig[j] ^= 1;
+    assert(!rsa_verify_pss(HASH_SHA256, msg, 32, sig, sig_len, pub, pub_len, -1));
+
+    drbg_generate(rng, msg, 32);
+    drbg_generate(rng, entropy, 32);
+
+    assert(rsa_encrypt_oaep(ct, &ct_len, HASH_SHA256, msg, 32, pub, pub_len, NULL, 0, entropy));
+    assert(rsa_decrypt_oaep(pt, &pt_len, HASH_SHA256, ct, ct_len, priv, priv_len, NULL, 0, entropy));
+    assert(pt_len == 32);
+    assert(memcmp(pt, msg, 32) == 0);
+    ct[j] ^= 1;
+    assert(!rsa_decrypt_oaep(pt, &pt_len, HASH_SHA256, ct, ct_len, priv, priv_len, NULL, 0, entropy));
   }
 
   free(priv);

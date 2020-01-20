@@ -15,19 +15,19 @@ typedef unsigned uint128_t __attribute__((mode(TI)));
 #endif
 #endif
 
-#define ROTL(x, b) (uint64_t)(((x) << (b)) | ((x) >> (64 - (b))))
+#define ROTL64(x, b) (uint64_t)(((x) << (b)) | ((x) >> (64 - (b))))
 
-#define SIPROUND do {                    \
-  v0 += v1; v1 = ROTL(v1, 13); v1 ^= v0; \
-  v0 = ROTL(v0, 32);                     \
-  v2 += v3; v3 = ROTL(v3, 16); v3 ^= v2; \
-  v0 += v3; v3 = ROTL(v3, 21); v3 ^= v0; \
-  v2 += v1; v1 = ROTL(v1, 17); v1 ^= v2; \
-  v2 = ROTL(v2, 32);                     \
+#define SIPROUND do {                      \
+  v0 += v1; v1 = ROTL64(v1, 13); v1 ^= v0; \
+  v0 = ROTL64(v0, 32);                     \
+  v2 += v3; v3 = ROTL64(v3, 16); v3 ^= v2; \
+  v0 += v3; v3 = ROTL64(v3, 21); v3 ^= v0; \
+  v2 += v1; v1 = ROTL64(v1, 17); v1 ^= v2; \
+  v2 = ROTL64(v2, 32);                     \
 } while (0)
 
 static uint64_t
-read64(const void *src) {
+read64le(const void *src) {
 #ifndef WORDS_BIGENDIAN
   uint64_t w;
   memcpy(&w, src, sizeof w);
@@ -68,28 +68,28 @@ reduce64(uint64_t a, uint64_t b) {
 
 static uint64_t
 _siphash(const unsigned char *data, size_t len, const unsigned char *key) {
-  uint32_t blocks = len >> 3;
   uint64_t c0 = 0x736f6d6570736575ull;
   uint64_t c1 = 0x646f72616e646f6dull;
   uint64_t c2 = 0x6c7967656e657261ull;
   uint64_t c3 = 0x7465646279746573ull;
   uint64_t f0 = (uint64_t)len << 56;
   uint64_t f1 = 0xff;
-  uint64_t k0 = read64(key);
-  uint64_t k1 = read64(key + 8);
+  uint64_t k0 = read64le(key);
+  uint64_t k1 = read64le(key + 8);
   uint64_t v0 = k0 ^ c0;
   uint64_t v1 = k1 ^ c1;
   uint64_t v2 = k0 ^ c2;
   uint64_t v3 = k1 ^ c3;
-  uint32_t i;
+  size_t blocks = len >> 3;
+  size_t i;
 
-  for (i = 0; i < blocks; i++) {
-    uint64_t d = read64(data);
-    data += 8;
-    v3 ^= d;
+  for (i = 0; i < blocks; i++, data += 8) {
+    uint64_t word = read64le(data);
+
+    v3 ^= word;
     SIPROUND;
     SIPROUND;
-    v0 ^= d;
+    v0 ^= word;
   }
 
   switch (len & 7) {
@@ -107,9 +107,6 @@ _siphash(const unsigned char *data, size_t len, const unsigned char *key) {
       f0 |= (uint64_t)data[1] << 8;
     case 1:
       f0 |= (uint64_t)data[0];
-      break;
-    case 0:
-      break;
   }
 
   v3 ^= f0;
@@ -136,8 +133,8 @@ _siphash64(uint64_t num, const unsigned char *key) {
   uint64_t c3 = 0x7465646279746573ull;
   uint64_t f0 = num;
   uint64_t f1 = 0xff;
-  uint64_t k0 = read64(key);
-  uint64_t k1 = read64(key + 8);
+  uint64_t k0 = read64le(key);
+  uint64_t k1 = read64le(key + 8);
   uint64_t v0 = k0 ^ c0;
   uint64_t v1 = k1 ^ c1;
   uint64_t v2 = k0 ^ c2;
@@ -163,10 +160,10 @@ static uint64_t
 _siphash64k256(uint64_t num, const unsigned char *key) {
   uint64_t f0 = num;
   uint64_t f1 = 0xff;
-  uint64_t k0 = read64(key);
-  uint64_t k1 = read64(key + 8);
-  uint64_t k2 = read64(key + 16);
-  uint64_t k3 = read64(key + 24);
+  uint64_t k0 = read64le(key);
+  uint64_t k1 = read64le(key + 8);
+  uint64_t k2 = read64le(key + 16);
+  uint64_t k3 = read64le(key + 24);
   uint64_t v0 = k0;
   uint64_t v1 = k1;
   uint64_t v2 = k2;
@@ -218,6 +215,6 @@ sipmod(const unsigned char *data,
        size_t len,
        const unsigned char *key,
        uint64_t m) {
-  uint64_t v = _siphash(data, len, key);
-  return reduce64(v, m);
+  uint64_t h = _siphash(data, len, key);
+  return reduce64(h, m);
 }

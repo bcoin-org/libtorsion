@@ -72,23 +72,20 @@ dsa_group_roset_pub(dsa_group_t *group, const dsa_pub_t *k) {
 }
 
 static int
-dsa_group_import(dsa_group_t *group,
-                const unsigned char *data,
-                size_t len,
-                int strict) {
-  if (!asn1_read_seq(&data, &len, strict))
+dsa_group_import(dsa_group_t *group, const unsigned char *data, size_t len) {
+  if (!asn1_read_seq(&data, &len))
     return 0;
 
-  if (!asn1_read_int(group->p, &data, &len, strict))
+  if (!asn1_read_int(group->p, &data, &len))
     return 0;
 
-  if (!asn1_read_int(group->q, &data, &len, strict))
+  if (!asn1_read_int(group->q, &data, &len))
     return 0;
 
-  if (!asn1_read_int(group->g, &data, &len, strict))
+  if (!asn1_read_int(group->g, &data, &len))
     return 0;
 
-  if (strict && len != 0)
+  if (len != 0)
     return 0;
 
   return 1;
@@ -319,25 +316,23 @@ dsa_pub_roset_priv(dsa_pub_t *r, const dsa_priv_t *k) {
 }
 
 static int
-dsa_pub_import(dsa_pub_t *k,
-               const unsigned char *data,
-               size_t len, int strict) {
-  if (!asn1_read_seq(&data, &len, strict))
+dsa_pub_import(dsa_pub_t *k, const unsigned char *data, size_t len) {
+  if (!asn1_read_seq(&data, &len))
     return 0;
 
-  if (!asn1_read_int(k->y, &data, &len, strict))
+  if (!asn1_read_int(k->y, &data, &len))
     return 0;
 
-  if (!asn1_read_int(k->p, &data, &len, strict))
+  if (!asn1_read_int(k->p, &data, &len))
     return 0;
 
-  if (!asn1_read_int(k->q, &data, &len, strict))
+  if (!asn1_read_int(k->q, &data, &len))
     return 0;
 
-  if (!asn1_read_int(k->g, &data, &len, strict))
+  if (!asn1_read_int(k->g, &data, &len))
     return 0;
 
-  if (strict && len != 0)
+  if (len != 0)
     return 0;
 
   return 1;
@@ -463,37 +458,34 @@ dsa_priv_clear(dsa_priv_t *k) {
 }
 
 static int
-dsa_priv_import(dsa_priv_t *k,
-                const unsigned char *data,
-                size_t len,
-                int strict) {
-  if (!asn1_read_seq(&data, &len, strict))
+dsa_priv_import(dsa_priv_t *k, const unsigned char *data, size_t len) {
+  if (!asn1_read_seq(&data, &len))
     return 0;
 
   /* Read version first. */
-  if (!asn1_read_int(k->p, &data, &len, strict))
+  if (!asn1_read_int(k->p, &data, &len))
     return 0;
 
   /* Should be zero. */
-  if (strict && mpz_sgn(k->p) != 0)
+  if (mpz_sgn(k->p) != 0)
     return 0;
 
-  if (!asn1_read_int(k->p, &data, &len, strict))
+  if (!asn1_read_int(k->p, &data, &len))
     return 0;
 
-  if (!asn1_read_int(k->q, &data, &len, strict))
+  if (!asn1_read_int(k->q, &data, &len))
     return 0;
 
-  if (!asn1_read_int(k->g, &data, &len, strict))
+  if (!asn1_read_int(k->g, &data, &len))
     return 0;
 
-  if (!asn1_read_int(k->y, &data, &len, strict))
+  if (!asn1_read_int(k->y, &data, &len))
     return 0;
 
-  if (!asn1_read_int(k->x, &data, &len, strict))
+  if (!asn1_read_int(k->x, &data, &len))
     return 0;
 
-  if (strict && len != 0)
+  if (len != 0)
     return 0;
 
   return 1;
@@ -682,20 +674,17 @@ dsa_sig_clear(dsa_sig_t *sig) {
 }
 
 static int
-dsa_sig_import_der(dsa_sig_t *sig,
-                   const unsigned char *data,
-                   size_t len,
-                   int strict) {
-  if (!asn1_read_seq(&data, &len, strict))
+dsa_sig_import_der(dsa_sig_t *sig, const unsigned char *data, size_t len) {
+  if (!asn1_read_seq(&data, &len))
     return 0;
 
-  if (!asn1_read_int(sig->r, &data, &len, strict))
+  if (!asn1_read_int(sig->r, &data, &len))
     return 0;
 
-  if (!asn1_read_int(sig->s, &data, &len, strict))
+  if (!asn1_read_int(sig->s, &data, &len))
     return 0;
 
-  if (strict && len != 0)
+  if (len != 0)
     return 0;
 
   return 1;
@@ -762,6 +751,35 @@ dsa_sig_export_rs(unsigned char *out, size_t *out_len,
  */
 
 int
+dsa_params_create(unsigned char *out, size_t *out_len,
+                  const unsigned char *key, size_t key_len) {
+  dsa_priv_t priv;
+  dsa_pub_t pub;
+  dsa_group_t group;
+  int r = 0;
+
+  dsa_priv_init(&priv);
+  dsa_pub_init(&pub);
+
+  if (dsa_priv_import(&priv, key, key_len))
+    dsa_group_roset_priv(&group, &priv);
+  else if (dsa_pub_import(&pub, key, key_len))
+    dsa_group_roset_pub(&group, &pub);
+  else
+    goto fail;
+
+  if (!dsa_group_is_sane(&group))
+    goto fail;
+
+  dsa_group_export(out, out_len, &group);
+  r = 1;
+fail:
+  dsa_priv_clear(&priv);
+  dsa_pub_clear(&pub);
+  return r;
+}
+
+int
 dsa_params_generate(unsigned char *out,
                     size_t *out_len,
                     size_t bits,
@@ -788,7 +806,10 @@ dsa_params_bits(const unsigned char *params, size_t params_len) {
 
   dsa_group_init(&group);
 
-  if (!dsa_group_import(&group, params, params_len, 1))
+  if (!dsa_group_import(&group, params, params_len))
+    goto fail;
+
+  if (!dsa_group_is_sane(&group))
     goto fail;
 
   size = mpz_bitlen(group.p);
@@ -804,7 +825,10 @@ dsa_params_qbits(const unsigned char *params, size_t params_len) {
 
   dsa_group_init(&group);
 
-  if (!dsa_group_import(&group, params, params_len, 1))
+  if (!dsa_group_import(&group, params, params_len))
+    goto fail;
+
+  if (!dsa_group_is_sane(&group))
     goto fail;
 
   size = mpz_bitlen(group.q);
@@ -820,29 +844,10 @@ dsa_params_verify(const unsigned char *params, size_t params_len) {
 
   dsa_group_init(&group);
 
-  if (!dsa_group_import(&group, params, params_len, 1))
+  if (!dsa_group_import(&group, params, params_len))
     goto fail;
 
   r = dsa_group_verify(&group);
-fail:
-  dsa_group_clear(&group);
-  return r;
-}
-
-/* TODO: Remove. */
-int
-dsa_params_normalize(unsigned char *out, size_t *out_len,
-                     const unsigned char *params, size_t params_len) {
-  dsa_group_t group;
-  int r = 0;
-
-  dsa_group_init(&group);
-
-  if (!dsa_group_import(&group, params, params_len, 0))
-    goto fail;
-
-  dsa_group_export(out, out_len, &group);
-  r = 1;
 fail:
   dsa_group_clear(&group);
   return r;
@@ -877,7 +882,7 @@ dsa_params_export(unsigned char *out, size_t *out_len,
 
   dsa_group_init(&group);
 
-  if (!dsa_group_import(&group, params, params_len, 1))
+  if (!dsa_group_import(&group, params, params_len))
     goto fail;
 
   if (!dsa_group_is_sane(&group))
@@ -903,7 +908,7 @@ dsa_privkey_create(unsigned char *out,
   dsa_group_init(&group);
   dsa_priv_init(&k);
 
-  if (!dsa_group_import(&group, params, params_len, 1))
+  if (!dsa_group_import(&group, params, params_len))
     goto fail;
 
   if (!dsa_group_is_sane(&group))
@@ -944,7 +949,10 @@ dsa_privkey_bits(const unsigned char *key, size_t key_len) {
 
   dsa_priv_init(&k);
 
-  if (!dsa_priv_import(&k, key, key_len, 1))
+  if (!dsa_priv_import(&k, key, key_len))
+    goto fail;
+
+  if (!dsa_priv_is_sane(&k))
     goto fail;
 
   size = mpz_bitlen(k.p);
@@ -960,7 +968,10 @@ dsa_privkey_qbits(const unsigned char *key, size_t key_len) {
 
   dsa_priv_init(&k);
 
-  if (!dsa_priv_import(&k, key, key_len, 1))
+  if (!dsa_priv_import(&k, key, key_len))
+    goto fail;
+
+  if (!dsa_priv_is_sane(&k))
     goto fail;
 
   size = mpz_bitlen(k.q);
@@ -976,51 +987,10 @@ dsa_privkey_verify(const unsigned char *key, size_t key_len) {
 
   dsa_priv_init(&k);
 
-  if (!dsa_priv_import(&k, key, key_len, 1))
+  if (!dsa_priv_import(&k, key, key_len))
     goto fail;
 
   r = dsa_priv_verify(&k);
-fail:
-  dsa_priv_clear(&k);
-  return r;
-}
-
-/* TODO: Remove. */
-int
-dsa_privkey_recover(unsigned char *out, size_t *out_len,
-                    const unsigned char *key, size_t key_len) {
-  dsa_priv_t k;
-  int r = 0;
-
-  dsa_priv_init(&k);
-
-  if (!dsa_priv_import(&k, key, key_len, 1))
-    goto fail;
-
-  if (!dsa_priv_recover(&k))
-    goto fail;
-
-  dsa_priv_export(out, out_len, &k);
-  r = 1;
-fail:
-  dsa_priv_clear(&k);
-  return r;
-}
-
-/* TODO: Remove. */
-int
-dsa_privkey_normalize(unsigned char *out, size_t *out_len,
-                      const unsigned char *key, size_t key_len) {
-  dsa_priv_t k;
-  int r = 0;
-
-  dsa_priv_init(&k);
-
-  if (!dsa_priv_import(&k, key, key_len, 0))
-    goto fail;
-
-  dsa_priv_export(out, out_len, &k);
-  r = 1;
 fail:
   dsa_priv_clear(&k);
   return r;
@@ -1055,7 +1025,7 @@ dsa_privkey_export(unsigned char *out, size_t *out_len,
 
   dsa_priv_init(&k);
 
-  if (!dsa_priv_import(&k, key, key_len, 1))
+  if (!dsa_priv_import(&k, key, key_len))
     goto fail;
 
   if (!dsa_priv_is_sane(&k))
@@ -1077,7 +1047,7 @@ dsa_pubkey_create(unsigned char *out, size_t *out_len,
 
   dsa_priv_init(&k);
 
-  if (!dsa_priv_import(&k, key, key_len, 1))
+  if (!dsa_priv_import(&k, key, key_len))
     goto fail;
 
   if (!dsa_priv_is_sane(&k))
@@ -1098,7 +1068,10 @@ dsa_pubkey_bits(const unsigned char *key, size_t key_len) {
 
   dsa_pub_init(&k);
 
-  if (!dsa_pub_import(&k, key, key_len, 1))
+  if (!dsa_pub_import(&k, key, key_len))
+    goto fail;
+
+  if (!dsa_pub_is_sane(&k))
     goto fail;
 
   size = mpz_bitlen(k.p);
@@ -1114,7 +1087,10 @@ dsa_pubkey_qbits(const unsigned char *key, size_t key_len) {
 
   dsa_pub_init(&k);
 
-  if (!dsa_pub_import(&k, key, key_len, 1))
+  if (!dsa_pub_import(&k, key, key_len))
+    goto fail;
+
+  if (!dsa_pub_is_sane(&k))
     goto fail;
 
   size = mpz_bitlen(k.q);
@@ -1130,29 +1106,10 @@ dsa_pubkey_verify(const unsigned char *key, size_t key_len) {
 
   dsa_pub_init(&k);
 
-  if (!dsa_pub_import(&k, key, key_len, 1))
+  if (!dsa_pub_import(&k, key, key_len))
     goto fail;
 
   r = dsa_pub_verify(&k);
-fail:
-  dsa_pub_clear(&k);
-  return r;
-}
-
-/* TODO: Remove. */
-int
-dsa_pubkey_normalize(unsigned char *out, size_t *out_len,
-                     const unsigned char *key, size_t key_len) {
-  dsa_pub_t k;
-  int r = 0;
-
-  dsa_pub_init(&k);
-
-  if (!dsa_pub_import(&k, key, key_len, 0))
-    goto fail;
-
-  dsa_pub_export(out, out_len, &k);
-  r = 1;
 fail:
   dsa_pub_clear(&k);
   return r;
@@ -1187,7 +1144,7 @@ dsa_pubkey_export(unsigned char *out, size_t *out_len,
 
   dsa_pub_init(&k);
 
-  if (!dsa_pub_import(&k, key, key_len, 1))
+  if (!dsa_pub_import(&k, key, key_len))
     goto fail;
 
   if (!dsa_pub_is_sane(&k))
@@ -1230,19 +1187,18 @@ fail:
   return r;
 }
 
-static int
-_dsa_sig_import(unsigned char *out,
-                size_t *out_len,
-                const unsigned char *sig,
-                size_t sig_len,
-                size_t qsize,
-                int strict) {
+int
+dsa_sig_import(unsigned char *out,
+               size_t *out_len,
+               const unsigned char *sig,
+               size_t sig_len,
+               size_t qsize) {
   dsa_sig_t S;
   int r = 0;
 
   dsa_sig_init(&S);
 
-  if (!dsa_sig_import_der(&S, sig, sig_len, strict))
+  if (!dsa_sig_import_der(&S, sig, sig_len))
     goto fail;
 
   if (!dsa_sig_is_sane(&S))
@@ -1252,24 +1208,6 @@ _dsa_sig_import(unsigned char *out,
 fail:
   dsa_sig_clear(&S);
   return r;
-}
-
-int
-dsa_sig_import(unsigned char *out,
-               size_t *out_len,
-               const unsigned char *sig,
-               size_t sig_len,
-               size_t qsize) {
-  return _dsa_sig_import(out, out_len, sig, sig_len, qsize, 1);
-}
-
-int
-dsa_sig_import_lax(unsigned char *out,
-                   size_t *out_len,
-                   const unsigned char *sig,
-                   size_t sig_len,
-                   size_t qsize) {
-  return _dsa_sig_import(out, out_len, sig, sig_len, qsize, 0);
 }
 
 static void
@@ -1372,7 +1310,7 @@ dsa_sign(unsigned char *out, size_t *out_len,
   mpz_init(s);
   dsa_priv_init(&priv);
 
-  if (!dsa_priv_import(&priv, key, key_len, 1))
+  if (!dsa_priv_import(&priv, key, key_len))
     goto fail;
 
   if (!dsa_priv_is_sane(&priv))
@@ -1490,7 +1428,7 @@ dsa_verify(const unsigned char *msg, size_t msg_len,
   dsa_pub_init(&k);
   dsa_sig_init(&S);
 
-  if (!dsa_pub_import(&k, key, key_len, 1))
+  if (!dsa_pub_import(&k, key, key_len))
     goto fail;
 
   if (!dsa_pub_is_sane(&k))
@@ -1555,10 +1493,10 @@ dsa_derive(unsigned char *out, size_t *out_len,
   dsa_priv_init(&k2);
   mpz_init(e);
 
-  if (!dsa_pub_import(&k1, pub, pub_len, 1))
+  if (!dsa_pub_import(&k1, pub, pub_len))
     goto fail;
 
-  if (!dsa_priv_import(&k2, priv, priv_len, 1))
+  if (!dsa_priv_import(&k2, priv, priv_len))
     goto fail;
 
   if (mpz_cmp(k1.p, k2.p) != 0

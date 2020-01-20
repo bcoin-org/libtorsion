@@ -14,14 +14,11 @@ extern "C" {
 #define rsa_privkey_generate torsion_rsa_privkey_generate
 #define rsa_privkey_bits torsion_rsa_privkey_bits
 #define rsa_privkey_verify torsion_rsa_privkey_verify
-#define rsa_privkey_recover torsion_rsa_privkey_recover
-#define rsa_privkey_normalize torsion_rsa_privkey_normalize
 #define rsa_privkey_import torsion_rsa_privkey_import
 #define rsa_privkey_export torsion_rsa_privkey_export
 #define rsa_pubkey_create torsion_rsa_pubkey_create
 #define rsa_pubkey_bits torsion_rsa_pubkey_bits
 #define rsa_pubkey_verify torsion_rsa_pubkey_verify
-#define rsa_pubkey_normalize torsion_rsa_pubkey_normalize
 #define rsa_pubkey_import torsion_rsa_pubkey_import
 #define rsa_pubkey_export torsion_rsa_pubkey_export
 #define rsa_sign torsion_rsa_sign
@@ -87,25 +84,6 @@ extern "C" {
   + 2 + 1 + RSA_MAX_EXP_SIZE /* e */ \
 )
 
-#define RSA_PRIV_SIZE(bits) (0                \
-  + 4 /* seq */                               \
-  + 3 /* version */                           \
-  + 4 + 1 + ((bits) + 7) / 8 /* n */          \
-  + 2 + 1 + RSA_MAX_EXP_SIZE /* e */          \
-  + 4 + 1 + ((bits) + 7) / 8 /* d */          \
-  + 4 + 1 + ((bits) + 7) / 8 / 2 + 1 /* p */  \
-  + 4 + 1 + ((bits) + 7) / 8 / 2 + 1 /* q */  \
-  + 4 + 1 + ((bits) + 7) / 8 / 2 + 1 /* dp */ \
-  + 4 + 1 + ((bits) + 7) / 8 / 2 + 1 /* dq */ \
-  + 4 + 1 + ((bits) + 7) / 8 /* qi */         \
-)
-
-#define RSA_PUB_SIZE(bits) (0        \
-  + 4 /* seq */                      \
-  + 4 + 1 + ((bits) + 7) / 8 /* n */ \
-  + 2 + 1 + RSA_MAX_EXP_SIZE /* e */ \
-)
-
 /*
  * RSA
  */
@@ -122,19 +100,6 @@ rsa_privkey_bits(const unsigned char *key, size_t key_len);
 
 int
 rsa_privkey_verify(const unsigned char *key, size_t key_len);
-
-int
-rsa_privkey_recover(unsigned char *out,
-                    size_t *out_len,
-                    const unsigned char *key,
-                    size_t key_len,
-                    const unsigned char *entropy);
-
-int
-rsa_privkey_normalize(unsigned char *out,
-                      size_t *out_len,
-                      const unsigned char *key,
-                      size_t key_len);
 
 int
 rsa_privkey_import(unsigned char *out,
@@ -160,12 +125,6 @@ rsa_pubkey_bits(const unsigned char *key, size_t key_len);
 
 int
 rsa_pubkey_verify(const unsigned char *key, size_t key_len);
-
-int
-rsa_pubkey_normalize(unsigned char *out,
-                     size_t *out_len,
-                     const unsigned char *key,
-                     size_t key_len);
 
 int
 rsa_pubkey_import(unsigned char *out,
@@ -196,8 +155,7 @@ rsa_verify(int type,
            const unsigned char *sig,
            size_t sig_len,
            const unsigned char *key,
-           size_t key_len,
-           int strict);
+           size_t key_len);
 
 int
 rsa_encrypt(unsigned char *out,
@@ -215,8 +173,28 @@ rsa_decrypt(unsigned char *out,
             size_t msg_len,
             const unsigned char *key,
             size_t key_len,
-            int strict,
             const unsigned char *entropy);
+
+int
+rsa_sign_pss(unsigned char *out,
+             size_t *out_len,
+             int type,
+             const unsigned char *msg,
+             size_t msg_len,
+             const unsigned char *key,
+             size_t key_len,
+             int salt_len,
+             const unsigned char *entropy);
+
+int
+rsa_verify_pss(int type,
+               const unsigned char *msg,
+               size_t msg_len,
+               const unsigned char *sig,
+               size_t sig_len,
+               const unsigned char *key,
+               size_t key_len,
+               int salt_len);
 
 int
 rsa_encrypt_oaep(unsigned char *out,
@@ -240,49 +218,7 @@ rsa_decrypt_oaep(unsigned char *out,
                  size_t key_len,
                  const unsigned char *label,
                  size_t label_len,
-                 int strict,
                  const unsigned char *entropy);
-
-int
-rsa_sign_pss(unsigned char *out,
-             size_t *out_len,
-             int type,
-             const unsigned char *msg,
-             size_t msg_len,
-             const unsigned char *key,
-             size_t key_len,
-             int salt_len,
-             const unsigned char *entropy);
-
-int
-rsa_verify_pss(int type,
-               const unsigned char *msg,
-               size_t msg_len,
-               const unsigned char *sig,
-               size_t sig_len,
-               const unsigned char *key,
-               size_t key_len,
-               int salt_len,
-               int strict);
-
-int
-rsa_encrypt_raw(unsigned char *out,
-                size_t *out_len,
-                const unsigned char *msg,
-                size_t msg_len,
-                const unsigned char *key,
-                size_t key_len,
-                int strict);
-
-int
-rsa_decrypt_raw(unsigned char *out,
-                size_t *out_len,
-                const unsigned char *msg,
-                size_t msg_len,
-                const unsigned char *key,
-                size_t key_len,
-                int strict,
-                const unsigned char *entropy);
 
 int
 rsa_veil(unsigned char *out,
@@ -292,7 +228,6 @@ rsa_veil(unsigned char *out,
          size_t bits,
          const unsigned char *key,
          size_t key_len,
-         int strict,
          const unsigned char *entropy);
 
 int
@@ -302,8 +237,7 @@ rsa_unveil(unsigned char *out,
            size_t msg_len,
            size_t bits,
            const unsigned char *key,
-           size_t key_len,
-           int strict);
+           size_t key_len);
 
 #ifdef __cplusplus
 }
