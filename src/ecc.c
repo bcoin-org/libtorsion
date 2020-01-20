@@ -624,6 +624,11 @@ sc_is_high(scalar_field_t *sc, const sc_t a) {
   return (cy == 0) & (sc_equal(sc, a, sc->nh) ^ 1);
 }
 
+static int
+sc_is_high_var(scalar_field_t *sc, const sc_t a) {
+  return sc_cmp_var(sc, a, sc->nh) > 0;
+}
+
 static void
 sc_neg(scalar_field_t *sc, sc_t r, const sc_t a) {
   const mp_limb_t *np = sc->n;
@@ -8433,131 +8438,67 @@ ecdsa_pubkey_negate(wei_t *ec,
   return wge_export(ec, out, out_len, &A, compact);
 }
 
-int
-ecdsa_sig_export(wei_t *ec,
+static void
+ecdsa_encode_der(wei_t *ec,
                  unsigned char *out,
                  size_t *out_len,
-                 const unsigned char *sig) {
+                 const sc_t r,
+                 const sc_t s) {
   scalar_field_t *sc = &ec->sc;
-  unsigned char tmp[MAX_DER_SIZE];
-  const unsigned char *rp = sig;
-  const unsigned char *sp = sig + sc->size;
+  unsigned char rp[MAX_SCALAR_SIZE];
+  unsigned char sp[MAX_SCALAR_SIZE];
   size_t size = 0;
   size_t pos = 0;
-  int overflow;
 
-  overflow = memcmp(rp, sc->raw, sc->size) >= 0
-          || memcmp(sp, sc->raw, sc->size) >= 0;
+  sc_export(sc, rp, r);
+  sc_export(sc, sp, s);
 
-  if (overflow) {
-    tmp[pos++] = 0x30;
-    tmp[pos++] = 0x06;
-    tmp[pos++] = 0x02;
-    tmp[pos++] = 0x01;
-    tmp[pos++] = 0x00;
-    tmp[pos++] = 0x02;
-    tmp[pos++] = 0x01;
-    tmp[pos++] = 0x00;
-  } else {
-    size += asn1_size_int(rp, sc->size);
-    size += asn1_size_int(sp, sc->size);
+  size += asn1_size_int(rp, sc->size);
+  size += asn1_size_int(sp, sc->size);
 
-    /* 0x30 [size] [body] */
-    tmp[pos++] = 0x30;
-    pos = asn1_write_size(tmp, pos, size);
-    pos = asn1_write_int(tmp, pos, rp, sc->size);
-    pos = asn1_write_int(tmp, pos, sp, sc->size);
-  }
+  /* 0x30 [size] [body] */
+  out[pos++] = 0x30;
+  pos = asn1_write_size(out, pos, size);
+  pos = asn1_write_int(out, pos, rp, sc->size);
+  pos = asn1_write_int(out, pos, sp, sc->size);
 
-  memcpy(out, tmp, pos);
   *out_len = pos;
-
-  return 1;
 }
 
 static int
-_ecdsa_sig_import(wei_t *ec,
-                  unsigned char *out,
-                  const unsigned char *der,
-                  size_t der_len,
-                  int strict) {
+ecdsa_decode_der(wei_t *ec,
+                 sc_t r,
+                 sc_t s,
+                 const unsigned char *der,
+                 size_t der_len,
+                 int strict) {
   scalar_field_t *sc = &ec->sc;
-  unsigned char r[MAX_SCALAR_SIZE];
-  unsigned char s[MAX_SCALAR_SIZE];
-  int overflow;
+  unsigned char rp[MAX_SCALAR_SIZE];
+  unsigned char sp[MAX_SCALAR_SIZE];
+  int ret = 1;
 
   if (!asn1_read_seq(&der, &der_len, strict))
     return 0;
 
-  if (!asn1_read_int(r, sc->size, &der, &der_len, strict))
+  if (!asn1_read_int(rp, sc->size, &der, &der_len, strict))
     return 0;
 
-  if (!asn1_read_int(s, sc->size, &der, &der_len, strict))
+  if (!asn1_read_int(sp, sc->size, &der, &der_len, strict))
     return 0;
 
   if (strict && der_len != 0)
     return 0;
 
-  overflow = memcmp(r, sc->raw, sc->size) >= 0
-          || memcmp(s, sc->raw, sc->size) >= 0;
+  ret &= sc_import(sc, r, rp);
+  ret &= sc_import(sc, s, sp);
 
-  if (overflow) {
-    memset(out, 0x00, sc->size * 2);
-  } else {
-    memcpy(out, r, sc->size);
-    memcpy(out + sc->size, s, sc->size);
+  /* libsecp256k1 behavior. */
+  if (!ret) {
+    sc_zero(sc, r);
+    sc_zero(sc, s);
   }
 
   return 1;
-}
-
-int
-ecdsa_sig_import(wei_t *ec,
-                 unsigned char *out,
-                 const unsigned char *der,
-                 size_t der_len) {
-  return _ecdsa_sig_import(ec, out, der, der_len, 1);
-}
-
-int
-ecdsa_sig_import_lax(wei_t *ec,
-                     unsigned char *out,
-                     const unsigned char *der,
-                     size_t der_len) {
-  return _ecdsa_sig_import(ec, out, der, der_len, 0);
-}
-
-int
-ecdsa_sig_normalize(wei_t *ec, unsigned char *out, const unsigned char *sig) {
-  scalar_field_t *sc = &ec->sc;
-  sc_t r, s;
-
-  if (!sc_import(sc, r, sig))
-    return 0;
-
-  if (!sc_import(sc, s, sig + sc->size))
-    return 0;
-
-  sc_minimize(sc, s, s);
-
-  sc_export(sc, out, r);
-  sc_export(sc, out + sc->size, s);
-
-  return 1;
-}
-
-int
-ecdsa_is_low_s(wei_t *ec, const unsigned char *sig) {
-  scalar_field_t *sc = &ec->sc;
-  sc_t r, s;
-
-  if (!sc_import(sc, r, sig))
-    return 0;
-
-  if (!sc_import(sc, s, sig + sc->size))
-    return 0;
-
-  return sc_is_high(sc, s) ^ 1;
 }
 
 static int
@@ -8617,6 +8558,93 @@ ecdsa_reduce(wei_t *ec, sc_t r, const unsigned char *msg, size_t msg_len) {
   cleanse(tmp, sizeof(tmp));
 
   return ret;
+}
+
+int
+ecdsa_sig_export(wei_t *ec,
+                 unsigned char *out,
+                 size_t *out_len,
+                 const unsigned char *sig) {
+  scalar_field_t *sc = &ec->sc;
+  sc_t r, s;
+
+  if (!sc_import(sc, r, sig))
+    return 0;
+
+  if (!sc_import(sc, s, sig + sc->size))
+    return 0;
+
+  ecdsa_encode_der(ec, out, out_len, r, s);
+
+  return 1;
+}
+
+int
+ecdsa_sig_import(wei_t *ec,
+                 unsigned char *out,
+                 const unsigned char *der,
+                 size_t der_len) {
+  scalar_field_t *sc = &ec->sc;
+  sc_t r, s;
+
+  if (!ecdsa_decode_der(ec, r, s, der, der_len, 1))
+    return 0;
+
+  sc_export(sc, out, r);
+  sc_export(sc, out + sc->size, s);
+
+  return 1;
+}
+
+int
+ecdsa_sig_import_lax(wei_t *ec,
+                     unsigned char *out,
+                     const unsigned char *der,
+                     size_t der_len) {
+  scalar_field_t *sc = &ec->sc;
+  sc_t r, s;
+
+  if (!ecdsa_decode_der(ec, r, s, der, der_len, 0))
+    return 0;
+
+  sc_export(sc, out, r);
+  sc_export(sc, out + sc->size, s);
+
+  return 1;
+}
+
+int
+ecdsa_sig_normalize(wei_t *ec, unsigned char *out, const unsigned char *sig) {
+  scalar_field_t *sc = &ec->sc;
+  sc_t r, s;
+
+  if (!sc_import(sc, r, sig))
+    return 0;
+
+  if (!sc_import(sc, s, sig + sc->size))
+    return 0;
+
+  if (sc_is_high_var(sc, s))
+    sc_neg(sc, s, s);
+
+  sc_export(sc, out, r);
+  sc_export(sc, out + sc->size, s);
+
+  return 1;
+}
+
+int
+ecdsa_is_low_s(wei_t *ec, const unsigned char *sig) {
+  scalar_field_t *sc = &ec->sc;
+  sc_t r, s;
+
+  if (!sc_import(sc, r, sig))
+    return 0;
+
+  if (!sc_import(sc, s, sig + sc->size))
+    return 0;
+
+  return !sc_is_high_var(sc, s);
 }
 
 int
@@ -8695,6 +8723,7 @@ ecdsa_sign(wei_t *ec,
 
   drbg_init(&rng, ec->hash, bytes, sc->size * 2);
 
+  /* Constant-time (assuming 1 iteration). */
   for (;;) {
     drbg_generate(&rng, bytes, sc->size);
 

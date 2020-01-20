@@ -180,8 +180,15 @@ asn1_read_mpz(mpz_t n, const unsigned char **data, size_t *len, int strict) {
     }
   }
 
+  /* Eat leading zeroes. */
+  while (size > 1 && **data == 0x00) {
+    *data += 1;
+    *len -= 1;
+    size -= 1;
+  }
+
   /* Invalid size. */
-  if (size > 1 + 2048)
+  if (size > 2048)
     return 0;
 
   mpz_import(n, size, 1, 1, 0, 0, *data);
