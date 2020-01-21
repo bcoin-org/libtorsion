@@ -1,3 +1,13 @@
+/*!
+ * p256.h - p256 field element for libtorsion
+ * Copyright (c) 2020, Christopher Jeffrey (MIT License).
+ * https://github.com/bcoin-org/libtorsion
+ *
+ * Parts of this software are based on google/boringssl:
+ *  Copyright (c) 1998-2011 The OpenSSL Project.  All rights reserved.
+ *  https://github.com/google/boringssl
+ */
+
 #ifdef TORSION_USE_64BIT
 typedef uint64_t p256_fe_word_t;
 #define P256_FIELD_WORDS 4

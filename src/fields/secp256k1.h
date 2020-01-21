@@ -1,3 +1,13 @@
+/*!
+ * secp256k1.h - secp256k1 for libtorsion
+ * Copyright (c) 2020, Christopher Jeffrey (MIT License).
+ * https://github.com/bcoin-org/libtorsion
+ *
+ * Parts of this software are based on bitcoin-core/secp256k1:
+ *   Copyright (c) 2013 Pieter Wuille
+ *   https://github.com/bitcoin-core/secp256k1
+ */
+
 #ifdef TORSION_USE_64BIT
 typedef uint64_t secp256k1_fe_word_t;
 #define SECP256K1_FIELD_WORDS 4

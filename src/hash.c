@@ -1,4 +1,16 @@
-/* permutation/compression functions from nettle */
+/*!
+ * hash.c - hash functions for libtorsion
+ * Copyright (c) 2020, Christopher Jeffrey (MIT License).
+ * https://github.com/bcoin-org/libtorsion
+ *
+ * Parts of this software are based on gnutls/nettle:
+ *   Copyright (c) 1998-2019, Niels Möller and Contributors
+ *   https://github.com/gnutls/nettle
+ *
+ * Parts of this software are based on BLAKE2/BLAKE2:
+ *   CC0 1.0 Universal
+ *   https://github.com/BLAKE2/BLAKE2
+ */
 
 #include <assert.h>
 #include <stdlib.h>

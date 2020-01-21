@@ -1,3 +1,9 @@
+/*!
+ * p521.h - p521 field element for libtorsion
+ * Copyright (c) 2020, Christopher Jeffrey (MIT License).
+ * https://github.com/bcoin-org/libtorsion
+ */
+
 #ifdef TORSION_USE_64BIT
 typedef uint64_t p521_fe_word_t;
 #define P521_FIELD_WORDS 9

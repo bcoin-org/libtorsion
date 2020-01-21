@@ -1,3 +1,13 @@
+/*!
+ * p25519.h - p25519 field element for libtorsion
+ * Copyright (c) 2020, Christopher Jeffrey (MIT License).
+ * https://github.com/bcoin-org/libtorsion
+ *
+ * Parts of this software are based on floodyberry/curve25519-donna:
+ *   Placed into the public domain by Andrew Moon.
+ *   https://github.com/floodyberry/curve25519-donna
+ */
+
 #ifdef TORSION_USE_64BIT
 typedef uint64_t p25519_fe_word_t;
 #define P25519_FIELD_WORDS 5
@@ -43,13 +53,6 @@ p25519_fe_sqrn(p25519_fe_t out, const p25519_fe_t in, int rounds) {
   for (i = 0; i < rounds; i++)
     p25519_fe_sqr(out, out);
 }
-
-/*
-  Public domain by Andrew M. <liquidsun@gmail.com>
-  See: https://github.com/floodyberry/curve25519-donna
-
-  Curve25519 implementation agnostic helpers
-*/
 
 #ifdef TORSION_USE_64BIT
 static const p25519_fe_t p25519_sqrtneg1 = {

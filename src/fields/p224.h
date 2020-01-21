@@ -1,3 +1,13 @@
+/*!
+ * p224.h - p224 field element for libtorsion
+ * Copyright (c) 2020, Christopher Jeffrey (MIT License).
+ * https://github.com/bcoin-org/libtorsion
+ *
+ * Parts of this software are based on openssl/openssl:
+ *  Copyright (c) 1998-2018 The OpenSSL Project. All rights reserved.
+ *  https://github.com/openssl/openssl
+ */
+
 #ifdef TORSION_USE_64BIT
 typedef uint64_t p224_fe_word_t;
 #define P224_FIELD_WORDS 4

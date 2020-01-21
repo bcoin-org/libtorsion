@@ -1,7 +1,133 @@
 /*!
- * ecc.c - elliptic curves for C89
+ * ecc.c - elliptic curves for libtorsion
  * Copyright (c) 2020, Christopher Jeffrey (MIT License).
- * https://github.com/chjj/ec
+ * https://github.com/bcoin-org/libtorsion
+ *
+ * Parts of this software are based on indutny/elliptic:
+ *   Copyright (c) 2014, Fedor Indutny (MIT License).
+ *   https://github.com/indutny/elliptic
+ *
+ * Formulas from DJB and Tanja Lange [EFD].
+ *
+ * References:
+ *
+ *   [GECC] Guide to Elliptic Curve Cryptography
+ *     D. Hankerson, A. Menezes, and S. Vanstone
+ *     https://tinyurl.com/guide-to-ecc
+ *
+ *   [GLV] Faster Point Multiplication on Elliptic Curves
+ *     R. Gallant, R. Lambert, and S. Vanstone
+ *     https://link.springer.com/content/pdf/10.1007/3-540-44647-8_11.pdf
+ *
+ *   [MONT1] Montgomery curves and the Montgomery ladder
+ *     Daniel J. Bernstein, Tanja Lange
+ *     https://eprint.iacr.org/2017/293.pdf
+ *
+ *   [SQUARED] Elligator Squared
+ *     Mehdi Tibouchi
+ *     https://eprint.iacr.org/2014/043.pdf
+ *
+ *   [SEC1] SEC 1: Elliptic Curve Cryptography, Version 2.0
+ *     Certicom Research
+ *     http://www.secg.org/sec1-v2.pdf
+ *
+ *   [EFD] Explicit-Formulas Database
+ *     Daniel J. Bernstein, Tanja Lange
+ *     https://hyperelliptic.org/EFD/index.html
+ *
+ *   [SAFE] SafeCurves: choosing safe curves for elliptic-curve cryptography
+ *     Daniel J. Bernstein
+ *     https://safecurves.cr.yp.to/
+ *
+ *   [SSWU1] Efficient Indifferentiable Hashing into Ordinary Elliptic Curves
+ *     E. Brier, J. Coron, T. Icart, D. Madore, H. Randriam, M. Tibouchi
+ *     https://eprint.iacr.org/2009/340.pdf
+ *
+ *   [SSWU2] Rational points on certain hyperelliptic curves over finite fields
+ *     Maciej Ulas
+ *     https://arxiv.org/abs/0706.1448
+ *
+ *   [H2EC] Hashing to Elliptic Curves
+ *     A. Faz-Hernandez, S. Scott, N. Sullivan, R. S. Wahby, C. A. Wood
+ *     https://git.io/JeWz6
+ *     https://github.com/cfrg/draft-irtf-cfrg-hash-to-curve
+ *
+ *   [SVDW1] Construction of Rational Points on Elliptic Curves
+ *     A. Shallue, C. E. van de Woestijne
+ *     https://works.bepress.com/andrew_shallue/1/download/
+ *
+ *   [SVDW2] Indifferentiable Hashing to Barreto-Naehrig Curves
+ *     Pierre-Alain Fouque, Mehdi Tibouchi
+ *     https://www.di.ens.fr/~fouque/pub/latincrypt12.pdf
+ *
+ *   [SVDW3] Covert ECDH over secp256k1
+ *     Pieter Wuille
+ *     https://gist.github.com/sipa/29118d3fcfac69f9930d57433316c039
+ *
+ *   [MONT2] Montgomery Curve (wikipedia)
+ *     https://en.wikipedia.org/wiki/Montgomery_curve
+ *
+ *   [SIDE2] Weierstrass Elliptic Curves and Side-Channel Attacks
+ *     Eric Brier, Marc Joye
+ *     http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.2.273&rep=rep1&type=pdf
+ *
+ *   [SIDE3] Unified Point Addition Formulae and Side-Channel Attacks
+ *     Douglas Stebila, Nicolas Theriault
+ *     https://eprint.iacr.org/2005/419.pdf
+ *
+ *   [MONT3] Montgomery Curves and their arithmetic
+ *     C. Costello, B. Smith
+ *     https://eprint.iacr.org/2017/212.pdf
+ *
+ *   [ELL2] Elliptic-curve points indistinguishable from uniform random strings
+ *     D. Bernstein, M. Hamburg, A. Krasnova, T. Lange
+ *     https://elligator.cr.yp.to/elligator-20130828.pdf
+ *
+ *   [RFC7748] Elliptic Curves for Security
+ *     A. Langley, M. Hamburg, S. Turner
+ *     https://tools.ietf.org/html/rfc7748
+ *
+ *   [TWISTED] Twisted Edwards Curves
+ *     D. Bernstein, P. Birkner, M. Joye, T. Lange, C. Peters
+ *     https://eprint.iacr.org/2008/013.pdf
+ *
+ *   [RFC8032] Edwards-Curve Digital Signature Algorithm (EdDSA)
+ *     S. Josefsson, SJD AB, I. Liusvaara
+ *     https://tools.ietf.org/html/rfc8032
+ *
+ *   [SCHNORR] Schnorr Signatures for secp256k1
+ *     Pieter Wuille
+ *     https://github.com/sipa/bips/blob/bip-schnorr/bip-schnorr.mediawiki
+ *
+ *   [CASH] Schnorr Signature specification
+ *     Mark B. Lundeberg
+ *     https://github.com/bitcoincashorg/bitcoincash.org/blob/master/spec/2019-05-15-schnorr.md
+ *
+ *   [JCEN12] Efficient Software Implementation of Public-Key Cryptography
+ *            on Sensor Networks Using the MSP430X Microcontroller
+ *     C. P. L. Gouvea, L. B. Oliveira, J. Lopez
+ *     http://conradoplg.cryptoland.net/files/2010/12/jcen12.pdf
+ *
+ *   [FIPS186] Federal Information Processing Standards Publication
+ *     National Institute of Standards and Technology
+ *     https://tinyurl.com/fips-186-3
+ *
+ *   [FIPS186] Suite B Implementer's Guide to FIPS 186-3 (ECDSA)
+ *     https://tinyurl.com/fips186-guide
+ *
+ *   [RFC6979] Deterministic Usage of the Digital Signature
+ *             Algorithm (DSA) and Elliptic Curve Digital
+ *             Signature Algorithm (ECDSA)
+ *     T. Pornin
+ *     https://tools.ietf.org/html/rfc6979
+ *
+ *   [EDDSA] High-speed high-security signatures
+ *     D. J. Bernstein, N. Duif, T. Lange, P. Schwabe, B. Yang
+ *     https://ed25519.cr.yp.to/ed25519-20110926.pdf
+ *
+ *   [RFC8032] Edwards-Curve Digital Signature Algorithm (EdDSA)
+ *     S. Josefsson, I. Liusvaara
+ *     https://tools.ietf.org/html/rfc8032
  */
 
 #include <assert.h>

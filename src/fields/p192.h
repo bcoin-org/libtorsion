@@ -1,3 +1,9 @@
+/*!
+ * p192.h - p192 field element for libtorsion
+ * Copyright (c) 2020, Christopher Jeffrey (MIT License).
+ * https://github.com/bcoin-org/libtorsion
+ */
+
 #ifdef TORSION_USE_64BIT
 typedef uint64_t p192_fe_word_t;
 #define P192_FIELD_WORDS 4

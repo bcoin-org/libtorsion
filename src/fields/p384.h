@@ -1,3 +1,9 @@
+/*!
+ * p384.h - p384 field element for libtorsion
+ * Copyright (c) 2020, Christopher Jeffrey (MIT License).
+ * https://github.com/bcoin-org/libtorsion
+ */
+
 #ifdef TORSION_USE_64BIT
 typedef uint64_t p384_fe_word_t;
 #define P384_FIELD_WORDS 6

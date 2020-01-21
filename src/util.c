@@ -1,3 +1,9 @@
+/*!
+ * util.c - utils for libtorsion
+ * Copyright (c) 2020, Christopher Jeffrey (MIT License).
+ * https://github.com/bcoin-org/libtorsion
+ */
+
 #include <stddef.h>
 #include <string.h>
 

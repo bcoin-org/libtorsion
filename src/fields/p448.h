@@ -1,14 +1,13 @@
-/*
- * Copyright 2017-2018 The OpenSSL Project Authors. All Rights Reserved.
- * Copyright 2015-2016 Cryptography Research, Inc.
+/*!
+ * p448.h - p448 field element for libtorsion
+ * Copyright (c) 2020, Christopher Jeffrey (MIT License).
+ * https://github.com/bcoin-org/libtorsion
  *
- * Licensed under the OpenSSL license (the "License").  You may not use
- * this file except in compliance with the License.  You can obtain a copy
- * in the file LICENSE in the source distribution or at
- * https://www.openssl.org/source/license.html
- *
- * Originally written by Mike Hamburg
+ * Parts of this software are based on goldilocks:
+ *   Copyright (c) 2014-2017 Cryptography Research, Inc.
+ *   https://git.zx2c4.com/goldilocks
  */
+
 #ifdef TORSION_USE_64BIT
 typedef uint64_t p448_fe_word_t;
 #define P448_FIELD_WORDS 8

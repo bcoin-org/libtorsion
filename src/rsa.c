@@ -1,3 +1,23 @@
+/*!
+ * rsa.c - rsa for libtorsion
+ * Copyright (c) 2020, Christopher Jeffrey (MIT License).
+ * https://github.com/bcoin-org/libtorsion
+ *
+ * Parts of this software are based on golang/go:
+ *   Copyright (c) 2009 The Go Authors. All rights reserved.
+ *   https://github.com/golang/go
+ *
+ * References:
+ *
+ *   [RFC8017] PKCS #1: RSA Cryptography Specifications Version 2.2
+ *     K. Moriarty, B. Kaliski, J. Jonsson, A. Rusch
+ *     https://tools.ietf.org/html/rfc8017
+ *
+ *   [FIPS186] Federal Information Processing Standards Publication 186-4
+ *     National Institute of Standards and Technology
+ *     https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.186-4.pdf
+ */
+
 #include <assert.h>
 #include <stdlib.h>
 #include <stdint.h>

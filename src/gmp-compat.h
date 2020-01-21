@@ -1,3 +1,9 @@
+/*!
+ * gmp-compat.h - gmp wrapper libtorsion
+ * Copyright (c) 2020, Christopher Jeffrey (MIT License).
+ * https://github.com/bcoin-org/libtorsion
+ */
+
 #ifndef _TORSION_GMP_COMPAT_H
 #define _TORSION_GMP_COMPAT_H
 

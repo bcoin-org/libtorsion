@@ -1,3 +1,13 @@
+/*!
+ * aead.c - aead for libtorsion
+ * Copyright (c) 2020, Christopher Jeffrey (MIT License).
+ * https://github.com/bcoin-org/libtorsion
+ *
+ * Resources:
+ *   https://tools.ietf.org/html/rfc7539#section-2.8
+ *   https://github.com/openssh/openssh-portable
+ */
+
 #include <assert.h>
 #include <stdint.h>
 #include <stdlib.h>

@@ -1,3 +1,13 @@
+/*!
+ * mpz.h - mpz helpers for libtorsion
+ * Copyright (c) 2020, Christopher Jeffrey (MIT License).
+ * https://github.com/bcoin-org/libtorsion
+ *
+ * Parts of this software are based on golang/go:
+ *   Copyright (c) 2009, The Go Authors. All rights reserved.
+ *   https://github.com/golang/go
+ */
+
 #ifndef _TORSION_MPZ_H
 #define _TORSION_MPZ_H
 

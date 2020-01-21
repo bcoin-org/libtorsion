@@ -1,3 +1,13 @@
+/*!
+ * mpn.h - mpn helpers for libtorsion
+ * Copyright (c) 2020, Christopher Jeffrey (MIT License).
+ * https://github.com/bcoin-org/libtorsion
+ *
+ * Parts of this software are based on gnutls/nettle:
+ *   Copyright (c) 1998-2019, Niels Möller and Contributors
+ *   https://github.com/gnutls/nettle
+ */
+
 #ifndef _TORSION_MPN_H
 #define _TORSION_MPN_H
 

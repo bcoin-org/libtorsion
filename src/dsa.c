@@ -1,3 +1,28 @@
+/*!
+ * dsa.c - dsa for libtorsion
+ * Copyright (c) 2020, Christopher Jeffrey (MIT License).
+ * https://github.com/bcoin-org/libtorsion
+ *
+ * Parts of this software are based on golang/go:
+ *   Copyright (c) 2009 The Go Authors. All rights reserved.
+ *   https://github.com/golang/go
+ *
+ * References:
+ *
+ *   [FIPS186] Federal Information Processing Standards Publication
+ *     National Institute of Standards and Technology
+ *     http://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.186-4.pdf
+ *
+ *   [DSA] Digital Signature Algorithm (wikipedia)
+ *     https://en.wikipedia.org/wiki/Digital_Signature_Algorithm
+ *
+ *   [RFC6979] Deterministic Usage of the Digital Signature
+ *             Algorithm (DSA) and Elliptic Curve Digital
+ *             Signature Algorithm (ECDSA)
+ *     T. Pornin
+ *     https://tools.ietf.org/html/rfc6979
+ */
+
 #include <assert.h>
 #include <stdlib.h>
 #include <stdint.h>

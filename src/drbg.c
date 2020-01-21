@@ -1,3 +1,18 @@
+/*!
+ * drbg.c - hmac-drbg implementation for libtorsion
+ * Copyright (c) 2020, Christopher Jeffrey (MIT License).
+ * https://github.com/bcoin-org/libtorsion
+ *
+ * Parts of this software are based on indutny/hmac-drbg:
+ *   Copyright Fedor Indutny, 2017.
+ *   https://github.com/indutny/hmac-drbg
+ *
+ * Resources:
+ *   https://tools.ietf.org/html/rfc6979
+ *   https://csrc.nist.gov/publications/detail/sp/800-90a/archive/2012-01-23
+ *   https://github.com/indutny/hmac-drbg/blob/master/lib/hmac-drbg.js
+ */
+
 #include <assert.h>
 #include <stdlib.h>
 #include <stdint.h>

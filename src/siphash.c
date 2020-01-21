@@ -1,3 +1,20 @@
+/*!
+ * siphash.c - siphash for libtorsion
+ * Copyright (c) 2020, Christopher Jeffrey (MIT License).
+ * https://github.com/bcoin-org/libtorsion
+ *
+ * Parts of this software are based on bitcoin/bitcoin:
+ *   Copyright (c) 2009-2019, The Bitcoin Core Developers (MIT License).
+ *   Copyright (c) 2009-2019, The Bitcoin Developers (MIT License).
+ *   https://github.com/bitcoin/bitcoin
+ *
+ * Resources:
+ *   https://en.wikipedia.org/wiki/SipHash
+ *   https://131002.net/siphash/
+ *   https://131002.net/siphash/siphash.pdf
+ *   https://github.com/bitcoin/bitcoin/blob/master/src/crypto/siphash.cpp
+ */
+
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
@@ -52,6 +69,7 @@ reduce64(uint64_t a, uint64_t b) {
 #elif defined(_MSC_VER) && defined(TORSION_USE_64BIT)
   return __umulh(a, b);
 #else
+  /* https://stackoverflow.com/questions/28868367 */
   uint64_t ahi = a >> 32;
   uint64_t alo = a & 0xffffffff;
   uint64_t bhi = b >> 32;

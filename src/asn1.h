@@ -1,3 +1,9 @@
+/*!
+ * asn1.h - asn1 for libtorsion
+ * Copyright (c) 2020, Christopher Jeffrey (MIT License).
+ * https://github.com/bcoin-org/libtorsion
+ */
+
 #ifndef _TORSION_ASN1_H
 #define _TORSION_ASN1_H
 

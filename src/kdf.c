@@ -1,3 +1,27 @@
+/*!
+ * kdf.c - kdf for libtorsion
+ * Copyright (c) 2020, Christopher Jeffrey (MIT License).
+ * https://github.com/bcoin-org/libtorsion
+ *
+ * Parts of this software are based on Tarsnap/scrypt:
+ *   Copyright (c) 2005-2016, Colin Percival. All rights reserved.
+ *   Copyright (c) 2005-2016, Tarsnap Backup Inc. All rights reserved.
+ *   Copyright (c) 2014, Sean Kelly. All rights reserved.
+ *   https://github.com/Tarsnap/scrypt
+ *
+ * Resources:
+ *   https://en.wikipedia.org/wiki/PBKDF2
+ *   https://tools.ietf.org/html/rfc2898
+ *   https://tools.ietf.org/html/rfc2898#section-5.2
+ *   https://tools.ietf.org/html/rfc6070
+ *   https://www.emc.com/collateral/white-papers/h11302-pkcs5v2-1-password-based-cryptography-standard-wp.pdf
+ *   http://nvlpubs.nist.gov/nistpubs/Legacy/SP/nistspecialpublication800-132.pdf
+ *   https://en.wikipedia.org/wiki/Scrypt
+ *   http://www.tarsnap.com/scrypt.html
+ *   http://www.tarsnap.com/scrypt/scrypt.pdf
+ *   https://github.com/Tarsnap/scrypt/blob/master/lib/crypto/crypto_scrypt-ref.c
+ */
+
 #include <stdlib.h>
 #include <stdint.h>
 #include <limits.h>
