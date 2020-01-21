@@ -539,9 +539,6 @@ rsa_priv_verify(const rsa_priv_t *k) {
   mpz_init(lam);
   mpz_init(tmp);
 
-  mpz_sub_ui(pm1, k->p, 1);
-  mpz_sub_ui(qm1, k->q, 1);
-
   /* n >= 2^511 and n mod 2 != 0 */
   if (mpz_bitlen(k->n) < RSA_MIN_MOD_BITS || !mpz_odd_p(k->n))
     goto fail;
@@ -550,19 +547,21 @@ rsa_priv_verify(const rsa_priv_t *k) {
   if (mpz_cmp_ui(k->e, RSA_MIN_EXP) < 0 || !mpz_odd_p(k->e))
     goto fail;
 
-  /* phi = (p - 1) * (q - 1)  */
-  mpz_mul(phi, pm1, qm1);
-
-  /* d >= 2 and d < phi */
-  if (mpz_cmp_ui(k->d, 2) < 0 || mpz_cmp(k->d, phi) >= 0)
-    goto fail;
-
   /* p >= 3 and p mod 2 != 0 */
   if (mpz_cmp_ui(k->p, 3) < 0 || !mpz_odd_p(k->p))
     goto fail;
 
   /* q >= 3 and q mod 2 != 0 */
   if (mpz_cmp_ui(k->q, 3) < 0 || !mpz_odd_p(k->q))
+    goto fail;
+
+  /* phi = (p - 1) * (q - 1)  */
+  mpz_sub_ui(pm1, k->p, 1);
+  mpz_sub_ui(qm1, k->q, 1);
+  mpz_mul(phi, pm1, qm1);
+
+  /* d >= 2 and d < phi */
+  if (mpz_cmp_ui(k->d, 2) < 0 || mpz_cmp(k->d, phi) >= 0)
     goto fail;
 
   /* dp != 0 and dp < p - 1 */
