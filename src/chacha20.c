@@ -1,7 +1,7 @@
 /*!
  * chacha20.c - chacha20 for C89
  * Copyright (c) 2019-2020, Christopher Jeffrey (MIT License).
- * https://github.com/chjj/libtorsion
+ * https://github.com/bcoin-org/libtorsion
  *
  * Resources:
  *   https://en.wikipedia.org/wiki/Chacha20
