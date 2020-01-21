@@ -419,12 +419,9 @@ rsa_priv_generate(rsa_priv_t *k,
    * when used with RSA, however, Carmichael's
    * may lend itself to some perf benefits.
    *
-   * We currently use Euler's totient in order
-   * to maintain compatibility with OpenSSL.
-   *
    * [1] https://crypto.stackexchange.com/a/29595
    */
-  mpz_t pm1, qm1, phi;
+  mpz_t pm1, qm1, phi, lam, tmp;
   drbg_t rng;
 
   if (bits < RSA_MIN_MOD_BITS
@@ -440,6 +437,8 @@ rsa_priv_generate(rsa_priv_t *k,
   mpz_init(pm1);
   mpz_init(qm1);
   mpz_init(phi);
+  mpz_init(lam);
+  mpz_init(tmp);
 
   mpz_set_ui(k->e, exp >> 32);
   mpz_mul_2exp(k->e, k->e, 32);
@@ -465,11 +464,24 @@ rsa_priv_generate(rsa_priv_t *k,
     if (mpz_bitlen(k->n) != bits)
       continue;
 
+    /* Euler's totient: (p - 1) * (q - 1). */
     mpz_sub_ui(pm1, k->p, 1);
     mpz_sub_ui(qm1, k->q, 1);
     mpz_mul(phi, pm1, qm1);
 
-    if (!mpz_invert(k->d, k->e, phi))
+    mpz_gcd(tmp, k->e, phi);
+
+    if (mpz_cmp_ui(tmp, 1) != 0)
+      continue;
+
+    /* Carmichael's function: lcm(p - 1, q - 1). */
+    mpz_gcd(tmp, pm1, qm1);
+    mpz_divexact(lam, phi, tmp);
+
+    if (!mpz_invert(k->d, k->e, lam))
+      continue;
+
+    if (mpz_bitlen(k->d) <= ((bits + 1) >> 1))
       continue;
 
     mpz_mod(k->dp, k->d, pm1);
@@ -485,6 +497,8 @@ rsa_priv_generate(rsa_priv_t *k,
   mpz_cleanse(pm1);
   mpz_cleanse(qm1);
   mpz_cleanse(phi);
+  mpz_cleanse(lam);
+  mpz_cleanse(tmp);
 
   return 1;
 }
@@ -574,7 +588,8 @@ rsa_priv_verify(const rsa_priv_t *k) {
     goto fail;
 
   /* lam = lcm(p - 1, q - 1) */
-  mpz_lcm(lam, pm1, qm1);
+  mpz_gcd(tmp, pm1, qm1);
+  mpz_divexact(lam, phi, tmp);
 
   /* e * d mod lam == 1 */
   mpz_mul(tmp, k->e, k->d);
@@ -616,7 +631,7 @@ static int
 rsa_priv_from_pqe(rsa_priv_t *out,
                   const mpz_t p0, const mpz_t q0, const mpz_t e) {
   /* Recover from (p, q, e). */
-  mpz_t p, q, pm1, qm1, phi;
+  mpz_t p, q, pm1, qm1, lam;
   rsa_priv_t k;
   int r = 0;
 
@@ -626,7 +641,7 @@ rsa_priv_from_pqe(rsa_priv_t *out,
   mpz_init(q);
   mpz_init(pm1);
   mpz_init(qm1);
-  mpz_init(phi);
+  mpz_init(lam);
 
   mpz_set(p, p0);
   mpz_set(q, q0);
@@ -661,9 +676,9 @@ rsa_priv_from_pqe(rsa_priv_t *out,
 
   mpz_sub_ui(pm1, p, 1);
   mpz_sub_ui(qm1, q, 1);
-  mpz_mul(phi, pm1, qm1);
+  mpz_lcm(lam, pm1, qm1);
 
-  if (!mpz_invert(k.d, e, phi))
+  if (!mpz_invert(k.d, e, lam))
     goto fail;
 
   mpz_set(k.p, p);
@@ -684,7 +699,7 @@ fail:
   mpz_cleanse(q);
   mpz_cleanse(pm1);
   mpz_cleanse(qm1);
-  mpz_cleanse(phi);
+  mpz_cleanse(lam);
   return r;
 }
 
@@ -692,12 +707,14 @@ static int
 rsa_priv_from_pqd(rsa_priv_t *out,
                   const mpz_t p, const mpz_t q, const mpz_t d) {
   /* Recover from (p, q, d). */
-  mpz_t pm1, qm1, phi, e;
+  mpz_t pm1, qm1, phi, lam, tmp, e;
   int r = 0;
 
   mpz_init(pm1);
   mpz_init(qm1);
   mpz_init(phi);
+  mpz_init(lam);
+  mpz_init(tmp);
   mpz_init(e);
 
   if (mpz_cmp_ui(p, 3) < 0 || mpz_bitlen(p) > RSA_MAX_MOD_BITS)
@@ -716,7 +733,10 @@ rsa_priv_from_pqd(rsa_priv_t *out,
   if (mpz_cmp_ui(d, 2) < 0 || mpz_cmp(d, phi) >= 0)
     goto fail;
 
-  if (!mpz_invert(e, d, phi))
+  mpz_gcd(tmp, pm1, qm1);
+  mpz_divexact(lam, phi, tmp);
+
+  if (!mpz_invert(e, d, lam))
     goto fail;
 
   /* Recover from (p, q, e). */
@@ -725,6 +745,8 @@ fail:
   mpz_cleanse(pm1);
   mpz_cleanse(qm1);
   mpz_cleanse(phi);
+  mpz_cleanse(lam);
+  mpz_cleanse(tmp);
   mpz_cleanse(e);
   return r;
 }
