@@ -26,6 +26,8 @@ extern "C" {
 #define ecdsa_schnorr_size torsion_ecdsa_schnorr_size
 #define ecdsa_privkey_generate torsion_ecdsa_privkey_generate
 #define ecdsa_privkey_verify torsion_ecdsa_privkey_verify
+#define ecdsa_privkey_export torsion_ecdsa_privkey_export
+#define ecdsa_privkey_import torsion_ecdsa_privkey_import
 #define ecdsa_privkey_tweak_add torsion_ecdsa_privkey_tweak_add
 #define ecdsa_privkey_tweak_mul torsion_ecdsa_privkey_tweak_mul
 #define ecdsa_privkey_reduce torsion_ecdsa_privkey_reduce
@@ -38,6 +40,8 @@ extern "C" {
 #define ecdsa_pubkey_from_hash torsion_ecdsa_pubkey_from_hash
 #define ecdsa_pubkey_to_hash torsion_ecdsa_pubkey_to_hash
 #define ecdsa_pubkey_verify torsion_ecdsa_pubkey_verify
+#define ecdsa_pubkey_export torsion_ecdsa_pubkey_export
+#define ecdsa_pubkey_import torsion_ecdsa_pubkey_import
 #define ecdsa_pubkey_tweak_add torsion_ecdsa_pubkey_tweak_add
 #define ecdsa_pubkey_tweak_mul torsion_ecdsa_pubkey_tweak_mul
 #define ecdsa_pubkey_add torsion_ecdsa_pubkey_add
@@ -103,6 +107,8 @@ extern "C" {
 #define ecdh_pubkey_size torsion_ecdh_pubkey_size
 #define ecdh_privkey_generate torsion_ecdh_privkey_generate
 #define ecdh_privkey_verify torsion_ecdh_privkey_verify
+#define ecdh_privkey_export torsion_ecdh_privkey_export
+#define ecdh_privkey_import torsion_ecdh_privkey_import
 #define ecdh_pubkey_create torsion_ecdh_pubkey_create
 #define ecdh_pubkey_convert torsion_ecdh_pubkey_convert
 #define ecdh_pubkey_from_uniform torsion_ecdh_pubkey_from_uniform
@@ -110,6 +116,8 @@ extern "C" {
 #define ecdh_pubkey_from_hash torsion_ecdh_pubkey_from_hash
 #define ecdh_pubkey_to_hash torsion_ecdh_pubkey_to_hash
 #define ecdh_pubkey_verify torsion_ecdh_pubkey_verify
+#define ecdh_pubkey_export torsion_ecdh_pubkey_export
+#define ecdh_pubkey_import torsion_ecdh_pubkey_import
 #define ecdh_pubkey_is_small torsion_ecdh_pubkey_is_small
 #define ecdh_pubkey_has_torsion torsion_ecdh_pubkey_has_torsion
 #define ecdh_derive torsion_ecdh_derive
@@ -131,6 +139,8 @@ extern "C" {
 #define eddsa_privkey_expand torsion_eddsa_privkey_expand
 #define eddsa_privkey_convert torsion_eddsa_privkey_convert
 #define eddsa_privkey_verify torsion_eddsa_privkey_verify
+#define eddsa_privkey_export torsion_eddsa_privkey_export
+#define eddsa_privkey_import torsion_eddsa_privkey_import
 #define eddsa_scalar_verify torsion_eddsa_scalar_verify
 #define eddsa_scalar_is_zero torsion_eddsa_scalar_is_zero
 #define eddsa_scalar_clamp torsion_eddsa_scalar_clamp
@@ -147,6 +157,8 @@ extern "C" {
 #define eddsa_pubkey_from_hash torsion_eddsa_pubkey_from_hash
 #define eddsa_pubkey_to_hash torsion_eddsa_pubkey_to_hash
 #define eddsa_pubkey_verify torsion_eddsa_pubkey_verify
+#define eddsa_pubkey_export torsion_eddsa_pubkey_export
+#define eddsa_pubkey_import torsion_eddsa_pubkey_import
 #define eddsa_pubkey_is_infinity torsion_eddsa_pubkey_is_infinity
 #define eddsa_pubkey_is_small torsion_eddsa_pubkey_is_small
 #define eddsa_pubkey_has_torsion torsion_eddsa_pubkey_has_torsion
@@ -259,6 +271,17 @@ int
 ecdsa_privkey_verify(ecdsa_t *ec, const unsigned char *priv);
 
 int
+ecdsa_privkey_export(ecdsa_t *ec,
+                     unsigned char *out,
+                     const unsigned char *priv);
+
+int
+ecdsa_privkey_import(ecdsa_t *ec,
+                     unsigned char *out,
+                     const unsigned char *bytes,
+                     size_t len);
+
+int
 ecdsa_privkey_tweak_add(ecdsa_t *ec,
                         unsigned char *out,
                         const unsigned char *priv,
@@ -331,6 +354,24 @@ ecdsa_pubkey_to_hash(ecdsa_t *ec,
 
 int
 ecdsa_pubkey_verify(ecdsa_t *ec, const unsigned char *pub, size_t pub_len);
+
+int
+ecdsa_pubkey_export(ecdsa_t *ec,
+                    unsigned char *x,
+                    unsigned char *y,
+                    const unsigned char *pub,
+                    size_t pub_len);
+
+int
+ecdsa_pubkey_import(ecdsa_t *ec,
+                    unsigned char *out,
+                    size_t *out_len,
+                    const unsigned char *x,
+                    size_t x_len,
+                    const unsigned char *y,
+                    size_t y_len,
+                    int sign,
+                    int compact);
 
 int
 ecdsa_pubkey_tweak_add(ecdsa_t *ec,
@@ -514,7 +555,8 @@ schnorr_privkey_export(schnorr_t *ec,
 int
 schnorr_privkey_import(schnorr_t *ec,
                        unsigned char *out,
-                       const unsigned char *bytes);
+                       const unsigned char *bytes,
+                       size_t len);
 
 int
 schnorr_privkey_tweak_add(schnorr_t *ec,
@@ -573,16 +615,15 @@ schnorr_pubkey_verify(schnorr_t *ec,
 
 int
 schnorr_pubkey_export(schnorr_t *ec,
-                      unsigned char *out,
-                      size_t *out_len,
-                      const unsigned char *pub,
-                      int compact);
+                      unsigned char *x,
+                      unsigned char *y,
+                      const unsigned char *pub);
 
 int
 schnorr_pubkey_import(schnorr_t *ec,
                       unsigned char *out,
-                      const unsigned char *pub,
-                      size_t pub_len);
+                      const unsigned char *x,
+                      size_t x_len);
 
 int
 schnorr_pubkey_tweak_add(schnorr_t *ec,
@@ -670,6 +711,15 @@ ecdh_privkey_generate(ecdh_t *ec,
 int
 ecdh_privkey_verify(ecdh_t *ec, const unsigned char *priv);
 
+int
+ecdh_privkey_export(ecdh_t *ec, unsigned char *out, const unsigned char *priv);
+
+int
+ecdh_privkey_import(ecdh_t *ec,
+                    unsigned char *out,
+                    const unsigned char *bytes,
+                    size_t len);
+
 void
 ecdh_pubkey_create(ecdh_t *ec, unsigned char *pub, const unsigned char *priv);
 
@@ -704,6 +754,19 @@ ecdh_pubkey_to_hash(ecdh_t *ec,
 
 int
 ecdh_pubkey_verify(ecdh_t *ec, const unsigned char *pub);
+
+int
+ecdh_pubkey_export(ecdh_t *ec,
+                   unsigned char *x,
+                   unsigned char *y,
+                   const unsigned char *pub,
+                   int sign);
+
+int
+ecdh_pubkey_import(ecdh_t *ec,
+                   unsigned char *out,
+                   const unsigned char *x,
+                   size_t x_len);
 
 int
 ecdh_pubkey_is_small(ecdh_t *ec, const unsigned char *pub);
@@ -780,6 +843,17 @@ eddsa_privkey_convert(eddsa_t *ec,
 
 int
 eddsa_privkey_verify(eddsa_t *ec, const unsigned char *priv);
+
+int
+eddsa_privkey_export(eddsa_t *ec,
+                     unsigned char *out,
+                     const unsigned char *priv);
+
+int
+eddsa_privkey_import(eddsa_t *ec,
+                     unsigned char *out,
+                     const unsigned char *bytes,
+                     size_t len);
 
 int
 eddsa_scalar_verify(eddsa_t *ec, const unsigned char *scalar);
@@ -861,6 +935,20 @@ eddsa_pubkey_to_hash(eddsa_t *ec,
 int
 eddsa_pubkey_verify(eddsa_t *ec, const unsigned char *pub);
 
+int
+eddsa_pubkey_export(eddsa_t *ec,
+                    unsigned char *x,
+                    unsigned char *y,
+                    const unsigned char *pub);
+
+int
+eddsa_pubkey_import(eddsa_t *ec,
+                    unsigned char *out,
+                    const unsigned char *x,
+                    size_t x_len,
+                    const unsigned char *y,
+                    size_t y_len,
+                    int sign);
 int
 eddsa_pubkey_is_infinity(eddsa_t *ec, const unsigned char *pub);
 

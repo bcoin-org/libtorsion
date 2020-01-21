@@ -5629,6 +5629,36 @@ xge_set_xy(edwards_t *ec, xge_t *r, const fe_t x, const fe_t y) {
 }
 
 static int
+xge_set_x(edwards_t *ec, xge_t *r, const fe_t x, int sign) {
+  /* y^2 = (a * x^2 - 1) / (d * x^2 - 1) */
+  prime_field_t *fe = &ec->fe;
+  fe_t y, x2, lhs, rhs;
+  int ret;
+
+  fe_sqr(fe, x2, x);
+  edwards_mul_a(ec, lhs, x2);
+  fe_sub(fe, lhs, lhs, fe->one);
+  fe_mul(fe, rhs, x2, ec->d);
+  fe_sub(fe, rhs, rhs, fe->one);
+
+  ret = fe_isqrt(fe, y, lhs, rhs);
+
+  if (sign != -1)
+    fe_set_odd(fe, y, y, sign);
+
+  xge_set_xy(ec, r, x, y);
+
+#ifdef TORSION_TEST
+  assert(xge_validate(ec, r) == ret);
+#endif
+
+  if (sign != -1)
+    ret &= (fe_is_zero(fe, y) & (sign != 0)) ^ 1;
+
+  return ret;
+}
+
+static int
 xge_set_y(edwards_t *ec, xge_t *r, const fe_t y, int sign) {
   /* [RFC8032] Section 5.1.3 & 5.2.3. */
   /* x^2 = (y^2 - 1) / (d * y^2 - a) */
@@ -8080,6 +8110,49 @@ ecdsa_privkey_verify(wei_t *ec, const unsigned char *priv) {
 }
 
 int
+ecdsa_privkey_export(wei_t *ec, unsigned char *out, const unsigned char *priv) {
+  scalar_field_t *sc = &ec->sc;
+
+  if (!ecdsa_privkey_verify(ec, priv))
+    return 0;
+
+  memcpy(out, priv, sc->size);
+
+  return 1;
+}
+
+int
+ecdsa_privkey_import(wei_t *ec,
+                     unsigned char *out,
+                     const unsigned char *bytes,
+                     size_t len) {
+  scalar_field_t *sc = &ec->sc;
+  unsigned char key[MAX_SCALAR_SIZE];
+  int r = 0;
+
+  while (len > 0 && bytes[0] == 0x00) {
+    len -= 1;
+    bytes += 1;
+  }
+
+  if (len > sc->size)
+    goto fail;
+
+  memset(key, 0x00, sc->size - len);
+  memcpy(key + sc->size - len, bytes, len);
+
+  if (!ecdsa_privkey_verify(ec, key))
+    goto fail;
+
+  memcpy(out, key, sc->size);
+
+  r = 1;
+fail:
+  cleanse(key, sizeof(key));
+  return r;
+}
+
+int
 ecdsa_privkey_tweak_add(wei_t *ec,
                         unsigned char *out,
                         const unsigned char *priv,
@@ -8320,6 +8393,80 @@ ecdsa_pubkey_verify(wei_t *ec, const unsigned char *pub, size_t pub_len) {
   wge_t A;
 
   return wge_import(ec, &A, pub, pub_len);
+}
+
+int
+ecdsa_pubkey_export(wei_t *ec,
+                    unsigned char *x,
+                    unsigned char *y,
+                    const unsigned char *pub,
+                    size_t pub_len) {
+  prime_field_t *fe = &ec->fe;
+  wge_t A;
+
+  if (!wge_import(ec, &A, pub, pub_len))
+    return 0;
+
+  assert(!A.inf);
+
+  fe_export(fe, x, A.x);
+  fe_export(fe, y, A.y);
+
+  return 1;
+}
+
+int
+ecdsa_pubkey_import(wei_t *ec,
+                    unsigned char *out,
+                    size_t *out_len,
+                    const unsigned char *x,
+                    size_t x_len,
+                    const unsigned char *y,
+                    size_t y_len,
+                    int sign,
+                    int compact) {
+  prime_field_t *fe = &ec->fe;
+  unsigned char xp[MAX_FIELD_SIZE];
+  unsigned char yp[MAX_FIELD_SIZE];
+  int has_y = (y_len > 0);
+  wge_t A;
+
+  while (x_len > 0 && x[0] == 0x00) {
+    x_len -= 1;
+    x += 1;
+  }
+
+  while (y_len > 0 && y[0] == 0x00) {
+    y_len -= 1;
+    y += 1;
+  }
+
+  if (x_len > fe->size || y_len > fe->size)
+    return 0;
+
+  memset(xp, 0x00, fe->size - x_len);
+  memcpy(xp + fe->size - x_len, x, x_len);
+
+  memset(yp, 0x00, fe->size - y_len);
+  memcpy(yp + fe->size - y_len, y, y_len);
+
+  if (!fe_import(fe, A.x, xp))
+    return 0;
+
+  if (!fe_import(fe, A.y, yp))
+    return 0;
+
+  if (has_y) {
+    wge_set_xy(ec, &A, A.x, A.y);
+
+    if (!wge_validate(ec, &A))
+      return 0;
+  } else {
+    if (!wge_set_x(ec, &A, A.x, sign))
+      return 0;
+  }
+
+  return wge_export(ec, out, out_len, &A, compact);
 }
 
 int
@@ -9463,15 +9610,9 @@ fail:
 int
 schnorr_privkey_import(wei_t *ec,
                        unsigned char *out,
-                       const unsigned char *bytes) {
-  scalar_field_t *sc = &ec->sc;
-
-  if (!schnorr_privkey_verify(ec, bytes))
-    return 0;
-
-  memcpy(out, bytes, sc->size);
-
-  return 1;
+                       const unsigned char *bytes,
+                       size_t len) {
+  return ecdsa_privkey_import(ec, out, bytes, len);
 }
 
 int
@@ -9622,26 +9763,44 @@ schnorr_pubkey_verify(wei_t *ec, unsigned char *out, const unsigned char *pub) {
 
 int
 schnorr_pubkey_export(wei_t *ec,
-                      unsigned char *out,
-                      size_t *out_len,
-                      const unsigned char *pub,
-                      int compact) {
+                      unsigned char *x,
+                      unsigned char *y,
+                      const unsigned char *pub) {
+  prime_field_t *fe = &ec->fe;
   wge_t A;
 
   if (!wge_import_x(ec, &A, pub))
     return 0;
 
-  return wge_export(ec, out, out_len, &A, compact);
+  assert(!A.inf);
+
+  fe_export(fe, x, A.x);
+  fe_export(fe, y, A.y);
+
+  return 1;
 }
 
 int
 schnorr_pubkey_import(wei_t *ec,
                       unsigned char *out,
-                      const unsigned char *pub,
-                      size_t pub_len) {
+                      const unsigned char *x,
+                      size_t x_len) {
+  prime_field_t *fe = &ec->fe;
+  unsigned char xp[MAX_FIELD_SIZE];
   wge_t A;
 
-  if (!wge_import(ec, &A, pub, pub_len))
+  while (x_len > 0 && x[0] == 0x00) {
+    x_len -= 1;
+    x += 1;
+  }
+
+  if (x_len > fe->size)
+    return 0;
+
+  memset(xp, 0x00, fe->size - x_len);
+  memcpy(xp + fe->size - x_len, x, x_len);
+
+  if (!wge_import_x(ec, &A, xp))
     return 0;
 
   return wge_export_x(ec, out, &A);
@@ -10230,6 +10389,35 @@ ecdh_privkey_verify(mont_t *ec, const unsigned char *priv) {
   return 1;
 }
 
+int
+ecdh_privkey_export(mont_t *ec, unsigned char *out, const unsigned char *priv) {
+  memcpy(out, priv, ec->sc.size);
+  return 1;
+}
+
+int
+ecdh_privkey_import(mont_t *ec,
+                    unsigned char *out,
+                    const unsigned char *bytes,
+                    size_t len) {
+  scalar_field_t *sc = &ec->sc;
+  unsigned char key[MAX_SCALAR_SIZE];
+
+  while (len > 0 && bytes[len - 1] == 0x00)
+    len -= 1;
+
+  if (len > sc->size)
+    return 0;
+
+  memcpy(key, bytes, len);
+  memset(key + len, 0x00, sc->size - len);
+  memcpy(out, key, sc->size);
+
+  cleanse(key, sizeof(key));
+
+  return 1;
+}
+
 void
 ecdh_pubkey_create(mont_t *ec, unsigned char *pub, const unsigned char *priv) {
   unsigned char clamped[MAX_SCALAR_SIZE];
@@ -10368,6 +10556,52 @@ ecdh_pubkey_verify(mont_t *ec, const unsigned char *pub) {
   pge_import(ec, &A, pub);
 
   return pge_validate(ec, &A);
+}
+
+int
+ecdh_pubkey_export(mont_t *ec,
+                   unsigned char *x,
+                   unsigned char *y,
+                   const unsigned char *pub,
+                   int sign) {
+  prime_field_t *fe = &ec->fe;
+  mge_t A;
+
+  if (!mge_import(ec, &A, pub, sign))
+    return 0;
+
+  assert(!A.inf);
+
+  fe_export(fe, x, A.x);
+  fe_export(fe, y, A.y);
+
+  return 1;
+}
+
+int
+ecdh_pubkey_import(mont_t *ec,
+                   unsigned char *out,
+                   const unsigned char *x,
+                   size_t x_len) {
+  prime_field_t *fe = &ec->fe;
+  unsigned char xp[MAX_FIELD_SIZE];
+  pge_t A;
+
+  while (x_len > 0 && x[x_len - 1] == 0x00)
+    x_len -= 1;
+
+  if (x_len > fe->size)
+    return 0;
+
+  memcpy(xp, x, x_len);
+  memset(xp + x_len, 0x00, fe->size - x_len);
+
+  pge_import(ec, &A, xp);
+
+  if (!pge_validate(ec, &A))
+    return 0;
+
+  return pge_export(ec, out, &A);
 }
 
 int
@@ -10601,6 +10835,27 @@ eddsa_privkey_verify(edwards_t *ec, const unsigned char *priv) {
 }
 
 int
+eddsa_privkey_export(edwards_t *ec,
+                     unsigned char *out,
+                     const unsigned char *priv) {
+  memcpy(out, priv, ec->fe.adj_size);
+  return 1;
+}
+
+int
+eddsa_privkey_import(edwards_t *ec,
+                     unsigned char *out,
+                     const unsigned char *bytes,
+                     size_t len) {
+  if (len != ec->fe.adj_size)
+    return 0;
+
+  memcpy(out, bytes, ec->fe.adj_size);
+
+  return 1;
+}
+
+int
 eddsa_scalar_verify(edwards_t *ec, const unsigned char *scalar) {
   return 1;
 }
@@ -10814,6 +11069,77 @@ int
 eddsa_pubkey_verify(edwards_t *ec, const unsigned char *pub) {
   xge_t A;
   return xge_import(ec, &A, pub);
+}
+
+int
+eddsa_pubkey_export(edwards_t *ec,
+                    unsigned char *x,
+                    unsigned char *y,
+                    const unsigned char *pub) {
+  prime_field_t *fe = &ec->fe;
+  xge_t A;
+
+  if (!xge_import(ec, &A, pub))
+    return 0;
+
+  fe_export(fe, x, A.x);
+  fe_export(fe, y, A.y);
+
+  return 1;
+}
+
+int
+eddsa_pubkey_import(edwards_t *ec,
+                    unsigned char *out,
+                    const unsigned char *x,
+                    size_t x_len,
+                    const unsigned char *y,
+                    size_t y_len,
+                    int sign) {
+  prime_field_t *fe = &ec->fe;
+  unsigned char xp[MAX_FIELD_SIZE];
+  unsigned char yp[MAX_FIELD_SIZE];
+  int has_x = (x_len > 0);
+  int has_y = (y_len > 0);
+  xge_t A;
+
+  while (x_len > 0 && x[x_len - 1] == 0x00)
+    x_len -= 1;
+
+  while (y_len > 0 && y[y_len - 1] == 0x00)
+    y_len -= 1;
+
+  if (x_len > fe->size || y_len > fe->size)
+    return 0;
+
+  memcpy(xp, x, x_len);
+  memset(xp + x_len, 0x00, fe->size - x_len);
+
+  memcpy(yp, y, y_len);
+  memset(yp + y_len, 0x00, fe->size - y_len);
+
+  if (!fe_import(fe, A.x, xp))
+    return 0;
+
+  if (!fe_import(fe, A.y, yp))
+    return 0;
+
+  if (has_x && has_y) {
+    xge_set_xy(ec, &A, A.x, A.y);
+
+    if (!xge_validate(ec, &A))
+      return 0;
+  } else if (has_x) {
+    if (!xge_set_x(ec, &A, A.x, sign))
+      return 0;
+  } else if (has_y) {
+    if (!xge_set_y(ec, &A, A.y, sign))
+      return 0;
+  }
+
+  xge_export(ec, out, &A);
+
+  return 1;
 }
 
 int
