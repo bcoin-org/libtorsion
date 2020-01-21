@@ -20,7 +20,7 @@ if test x"$2" = x'mini'; then
     -O3 \
     "$def" \
     -I./include \
-    -o test \
+    -o test-internal \
     src/aead.c \
     src/chacha20.c \
     src/drbg.c \
@@ -48,7 +48,7 @@ else
     -DTORSION_USE_GMP \
     -I./include \
     -lgmp \
-    -o test \
+    -o test-internal \
     src/aead.c \
     src/chacha20.c \
     src/drbg.c \
