@@ -32,7 +32,7 @@ if test x"$2" = x'mini'; then
     src/rsa.c \
     src/salsa20.c \
     src/siphash.c \
-    src/test.c \
+    src/test-internal.c \
     src/util.c
 else
   gcc -g \
@@ -59,6 +59,6 @@ else
     src/rsa.c \
     src/salsa20.c \
     src/siphash.c \
-    src/test.c \
+    src/test-internal.c \
     src/util.c
 fi
