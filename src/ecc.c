@@ -2565,6 +2565,7 @@ jge_equal_x(wei_t *ec, const jge_t *p, const fe_t x) {
        & (jge_is_zero(ec, p) ^ 1);
 }
 
+#ifdef ECC_WITH_TRICK
 static int
 jge_equal_r(wei_t *ec, const jge_t *p, const sc_t x) {
   prime_field_t *fe = &ec->fe;
@@ -2608,6 +2609,7 @@ jge_equal_r(wei_t *ec, const jge_t *p, const sc_t x) {
 
   return 1;
 }
+#endif
 
 static void
 jge_neg(wei_t *ec, jge_t *r, const jge_t *a) {
@@ -4640,10 +4642,9 @@ wei_point_to_uniform(wei_t *ec,
     ret = wei_sswui(ec, u, p, hint);
 
   fe_export(fe, bytes, u);
+  fe_cleanse(fe, u);
 
   bytes[0] |= (hint >> 8) & ~fe->mask;
-
-  fe_cleanse(fe, u);
 
   return ret;
 }
@@ -5621,10 +5622,9 @@ mont_point_to_uniform(mont_t *ec,
   ret = mont_invert2(ec, u, p, hint);
 
   fe_export(fe, bytes, u);
+  fe_cleanse(fe, u);
 
   bytes[fe->size - 1] |= (hint >> 8) & ~fe->mask;
-
-  fe_cleanse(fe, u);
 
   return ret;
 }
@@ -6860,10 +6860,9 @@ edwards_point_to_uniform(edwards_t *ec,
   ret = edwards_invert2(ec, u, p, hint);
 
   fe_export(fe, bytes, u);
+  fe_cleanse(fe, u);
 
   bytes[fe->size - 1] |= (hint >> 8) & ~fe->mask;
-
-  fe_cleanse(fe, u);
 
   return ret;
 }

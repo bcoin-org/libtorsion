@@ -978,15 +978,10 @@ rsa_priv_decrypt(const rsa_priv_t *k,
   mpz_add(m, m, mq);
   mpz_mod(m, m, k->n);
 
-  /* In reality we would want to
-   * throw an error here, however,
-   * OpenSSL swallows the error
-   * and corrects the result.
-   */
   mpz_powm(mp, m, k->e, k->n);
 
   if (mpz_cmp(mp, c) != 0)
-    mpz_powm_sec(m, c, k->d, k->n);
+    goto fail;
 #else
   /* m = c^d mod n */
   mpz_powm_sec(m, c, k->d, k->n);
