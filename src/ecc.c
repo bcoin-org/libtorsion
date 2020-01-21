@@ -4514,6 +4514,9 @@ wei_point_to_uniform(wei_t *ec,
     ret = wei_sswui(ec, u, p, hint);
 
   fe_export(fe, bytes, u);
+
+  bytes[0] |= (hint >> 8) & ~fe->mask;
+
   fe_cleanse(fe, u);
 
   return ret;
@@ -5492,6 +5495,9 @@ mont_point_to_uniform(mont_t *ec,
   ret = mont_invert2(ec, u, p, hint);
 
   fe_export(fe, bytes, u);
+
+  bytes[fe->size - 1] |= (hint >> 8) & ~fe->mask;
+
   fe_cleanse(fe, u);
 
   return ret;
@@ -6728,6 +6734,9 @@ edwards_point_to_uniform(edwards_t *ec,
   ret = edwards_invert2(ec, u, p, hint);
 
   fe_export(fe, bytes, u);
+
+  bytes[fe->size - 1] |= (hint >> 8) & ~fe->mask;
+
   fe_cleanse(fe, u);
 
   return ret;
