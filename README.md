@@ -1,8 +1,8 @@
-# ec
+# libtorsion
 
-Experimental EC library in C (currently lacking a name).
+Crypto library in C89, primarily for EC. Currently in an experimental state.
 
-Intended to be the new EC backend for [bcrypto].
+Intended to be the new backend for [bcrypto].
 
 ## Design Approach
 
