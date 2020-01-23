@@ -472,9 +472,9 @@ rsa_priv_generate(rsa_priv_t *k,
     if (mpz_cmp(k->p, k->q) < 0)
       mpz_swap(k->p, k->q);
 
-    mpz_sub(pm1, k->p, k->q);
+    mpz_sub(tmp, k->p, k->q);
 
-    if (mpz_bitlen(pm1) <= (bits >> 1) - 99)
+    if (mpz_bitlen(tmp) <= (bits >> 1) - 99)
       continue;
 
     mpz_mul(k->n, k->p, k->q);

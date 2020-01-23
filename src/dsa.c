@@ -632,26 +632,28 @@ dsa_priv_create(dsa_priv_t *k,
 
 static int
 dsa_priv_generate(dsa_priv_t *k, size_t bits, const unsigned char *entropy) {
-  unsigned char seed[64];
+  unsigned char entropy1[32];
+  unsigned char entropy2[32];
   dsa_group_t group;
-  sha512_t hash;
+  drbg_t rng;
   int r = 0;
 
   dsa_group_init(&group);
 
-  sha512_init(&hash);
-  sha512_update(&hash, entropy, 32);
-  sha512_final(&hash, seed);
+  drbg_init(&rng, HASH_SHA256, entropy, 32);
+  drbg_generate(&rng, entropy2, 32);
+  drbg_generate(&rng, entropy1, 32);
 
-  if (!dsa_group_generate(&group, bits, seed))
+  if (!dsa_group_generate(&group, bits, entropy1))
     goto fail;
 
-  dsa_priv_create(k, &group, seed + 32);
+  dsa_priv_create(k, &group, entropy2);
   r = 1;
 fail:
   dsa_group_clear(&group);
-  cleanse(&hash, sizeof(hash));
-  cleanse(seed, sizeof(seed));
+  cleanse(&rng, sizeof(rng));
+  cleanse(entropy1, sizeof(entropy1));
+  cleanse(entropy2, sizeof(entropy2));
   return r;
 }
 
