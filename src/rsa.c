@@ -1216,7 +1216,6 @@ rsa_pub_unveil(const rsa_pub_t *k,
   mpz_init(v);
   mpz_import(v, msg_len, 1, 1, 0, 0, msg);
 
-  /* bits != 0 - new check */
   if (bits != 0 && mpz_bitlen(v) > bits)
     goto fail;
 
