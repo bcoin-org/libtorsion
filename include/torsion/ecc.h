@@ -265,7 +265,7 @@ ecdsa_schnorr_size(ecdsa_t *ec);
 void
 ecdsa_privkey_generate(ecdsa_t *ec,
                        unsigned char *out,
-                       const unsigned char *seed);
+                       const unsigned char *entropy);
 
 int
 ecdsa_privkey_verify(ecdsa_t *ec, const unsigned char *priv);
@@ -350,7 +350,7 @@ ecdsa_pubkey_to_hash(ecdsa_t *ec,
                      unsigned char *out,
                      const unsigned char *pub,
                      size_t pub_len,
-                     const unsigned char *seed);
+                     const unsigned char *entropy);
 
 int
 ecdsa_pubkey_verify(ecdsa_t *ec, const unsigned char *pub, size_t pub_len);
@@ -542,7 +542,7 @@ schnorr_sig_size(schnorr_t *ec);
 void
 schnorr_privkey_generate(schnorr_t *ec,
                          unsigned char *out,
-                         const unsigned char *seed);
+                         const unsigned char *entropy);
 
 int
 schnorr_privkey_verify(schnorr_t *ec, const unsigned char *priv);
@@ -606,7 +606,7 @@ int
 schnorr_pubkey_to_hash(schnorr_t *ec,
                        unsigned char *out,
                        const unsigned char *pub,
-                       const unsigned char *seed);
+                       const unsigned char *entropy);
 
 int
 schnorr_pubkey_verify(schnorr_t *ec,
@@ -706,7 +706,7 @@ ecdh_pubkey_size(ecdh_t *ec);
 void
 ecdh_privkey_generate(ecdh_t *ec,
                       unsigned char *out,
-                      const unsigned char *seed);
+                      const unsigned char *entropy);
 
 int
 ecdh_privkey_verify(ecdh_t *ec, const unsigned char *priv);
@@ -750,7 +750,7 @@ int
 ecdh_pubkey_to_hash(ecdh_t *ec,
                     unsigned char *out,
                     const unsigned char *pub,
-                    const unsigned char *seed);
+                    const unsigned char *entropy);
 
 int
 ecdh_pubkey_verify(ecdh_t *ec, const unsigned char *pub);
@@ -823,12 +823,12 @@ eddsa_sig_size(eddsa_t *ec);
 void
 eddsa_privkey_generate(eddsa_t *ec,
                        unsigned char *out,
-                       const unsigned char *seed);
+                       const unsigned char *entropy);
 
 void
 eddsa_scalar_generate(eddsa_t *ec,
                       unsigned char *out,
-                      const unsigned char *seed);
+                      const unsigned char *entropy);
 
 void
 eddsa_privkey_expand(eddsa_t *ec,
@@ -930,7 +930,7 @@ int
 eddsa_pubkey_to_hash(eddsa_t *ec,
                      unsigned char *out,
                      const unsigned char *pub,
-                     const unsigned char *seed);
+                     const unsigned char *entropy);
 
 int
 eddsa_pubkey_verify(eddsa_t *ec, const unsigned char *pub);

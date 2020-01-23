@@ -4667,14 +4667,14 @@ static void
 wei_point_to_hash(wei_t *ec,
                   unsigned char *bytes,
                   const wge_t *p,
-                  const unsigned char *seed) {
+                  const unsigned char *entropy) {
   /* [SQUARED] Algorithm 1, Page 8, Section 3.3. */
   prime_field_t *fe = &ec->fe;
   unsigned int hint;
   wge_t p1, p2;
   drbg_t rng;
 
-  drbg_init(&rng, HASH_SHA256, seed, 32);
+  drbg_init(&rng, HASH_SHA256, entropy, 32);
 
   for (;;) {
     drbg_generate(&rng, bytes, fe->size);
@@ -5647,14 +5647,14 @@ static void
 mont_point_to_hash(mont_t *ec,
                    unsigned char *bytes,
                    const mge_t *p,
-                   const unsigned char *seed) {
+                   const unsigned char *entropy) {
   /* [SQUARED] Algorithm 1, Page 8, Section 3.3. */
   prime_field_t *fe = &ec->fe;
   unsigned int hint;
   mge_t p1, p2;
   drbg_t rng;
 
-  drbg_init(&rng, HASH_SHA256, seed, 32);
+  drbg_init(&rng, HASH_SHA256, entropy, 32);
 
   for (;;) {
     drbg_generate(&rng, bytes, fe->size);
@@ -6885,14 +6885,14 @@ static void
 edwards_point_to_hash(edwards_t *ec,
                       unsigned char *bytes,
                       const xge_t *p,
-                      const unsigned char *seed) {
+                      const unsigned char *entropy) {
   /* [SQUARED] Algorithm 1, Page 8, Section 3.3. */
   prime_field_t *fe = &ec->fe;
   unsigned int hint;
   xge_t p1, p2;
   drbg_t rng;
 
-  drbg_init(&rng, HASH_SHA256, seed, 32);
+  drbg_init(&rng, HASH_SHA256, entropy, 32);
 
   for (;;) {
     drbg_generate(&rng, bytes, fe->size);
@@ -8211,11 +8211,11 @@ ecdsa_schnorr_size(wei_t *ec) {
 void
 ecdsa_privkey_generate(wei_t *ec,
                        unsigned char *out,
-                       const unsigned char *seed) {
+                       const unsigned char *entropy) {
   scalar_field_t *sc = &ec->sc;
   drbg_t rng;
 
-  drbg_init(&rng, HASH_SHA256, seed, 32);
+  drbg_init(&rng, HASH_SHA256, entropy, 32);
 
   for (;;) {
     drbg_generate(&rng, out, sc->size);
@@ -8511,13 +8511,13 @@ ecdsa_pubkey_to_hash(wei_t *ec,
                      unsigned char *out,
                      const unsigned char *pub,
                      size_t pub_len,
-                     const unsigned char *seed) {
+                     const unsigned char *entropy) {
   wge_t A;
 
   if (!wge_import(ec, &A, pub, pub_len))
     return 0;
 
-  wei_point_to_hash(ec, out, &A, seed);
+  wei_point_to_hash(ec, out, &A, entropy);
 
   return 1;
 }
@@ -9706,8 +9706,8 @@ schnorr_sig_size(wei_t *ec) {
 void
 schnorr_privkey_generate(wei_t *ec,
                          unsigned char *out,
-                         const unsigned char *seed) {
-  return ecdsa_privkey_generate(ec, out, seed);
+                         const unsigned char *entropy) {
+  return ecdsa_privkey_generate(ec, out, entropy);
 }
 
 int
@@ -9877,13 +9877,13 @@ int
 schnorr_pubkey_to_hash(wei_t *ec,
                        unsigned char *out,
                        const unsigned char *pub,
-                       const unsigned char *seed) {
+                       const unsigned char *entropy) {
   wge_t A;
 
   if (!wge_import_x(ec, &A, pub))
     return 0;
 
-  wei_point_to_hash(ec, out, &A, seed);
+  wei_point_to_hash(ec, out, &A, entropy);
 
   return 1;
 }
@@ -10505,11 +10505,11 @@ ecdh_pubkey_size(mont_t *ec) {
 void
 ecdh_privkey_generate(mont_t *ec,
                       unsigned char *out,
-                      const unsigned char *seed) {
+                      const unsigned char *entropy) {
   scalar_field_t *sc = &ec->sc;
   drbg_t rng;
 
-  drbg_init(&rng, HASH_SHA256, seed, 32);
+  drbg_init(&rng, HASH_SHA256, entropy, 32);
 
   drbg_generate(&rng, out, sc->size);
 
@@ -10672,13 +10672,13 @@ int
 ecdh_pubkey_to_hash(mont_t *ec,
                     unsigned char *out,
                     const unsigned char *pub,
-                    const unsigned char *seed) {
+                    const unsigned char *entropy) {
   mge_t A;
 
   if (!mge_import(ec, &A, pub, -1))
     return 0;
 
-  mont_point_to_hash(ec, out, &A, seed);
+  mont_point_to_hash(ec, out, &A, entropy);
 
   return 1;
 }
@@ -10905,11 +10905,11 @@ eddsa_privkey_hash(edwards_t *ec,
 void
 eddsa_privkey_generate(edwards_t *ec,
                        unsigned char *out,
-                       const unsigned char *seed) {
+                       const unsigned char *entropy) {
   prime_field_t *fe = &ec->fe;
   drbg_t rng;
 
-  drbg_init(&rng, HASH_SHA256, seed, 32);
+  drbg_init(&rng, HASH_SHA256, entropy, 32);
 
   drbg_generate(&rng, out, fe->adj_size);
 
@@ -10919,11 +10919,11 @@ eddsa_privkey_generate(edwards_t *ec,
 void
 eddsa_scalar_generate(edwards_t *ec,
                       unsigned char *out,
-                      const unsigned char *seed) {
+                      const unsigned char *entropy) {
   scalar_field_t *sc = &ec->sc;
   drbg_t rng;
 
-  drbg_init(&rng, HASH_SHA256, seed, 32);
+  drbg_init(&rng, HASH_SHA256, entropy, 32);
 
   drbg_generate(&rng, out, sc->size);
 
@@ -11188,13 +11188,13 @@ int
 eddsa_pubkey_to_hash(edwards_t *ec,
                      unsigned char *out,
                      const unsigned char *pub,
-                     const unsigned char *seed) {
+                     const unsigned char *entropy) {
   xge_t A;
 
   if (!xge_import(ec, &A, pub))
     return 0;
 
-  edwards_point_to_hash(ec, out, &A, seed);
+  edwards_point_to_hash(ec, out, &A, entropy);
 
   return 1;
 }
