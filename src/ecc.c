@@ -3992,7 +3992,7 @@ wei_jmul_multi_normal_var(wei_t *ec,
   }
 
   /* Compute max scalar size. */
-  for (i = 0; i < (int)len; i++) {
+  for (i = 0; (size_t)i < len; i++) {
     int bits = sc_bitlen_var(sc, coeffs[i]) + 1;
 
     if (bits > max)
@@ -4002,7 +4002,7 @@ wei_jmul_multi_normal_var(wei_t *ec,
   /* Compute NAFs. */
   sc_naf_var(sc, naf0, k0, 1, NAF_WIDTH_PRE, max);
 
-  for (i = 0; i < (int)len; i += 2) {
+  for (i = 0; (size_t)i < len; i += 2) {
     const wge_t *p1 = &points[i + 0];
     const wge_t *p2 = &points[i + 1];
     const sc_t *k1 = &coeffs[i + 0];
@@ -4115,7 +4115,7 @@ wei_jmul_multi_endo_var(wei_t *ec,
   sc_naf_var(sc, naf0, k1, s1, NAF_WIDTH_PRE, max);
   sc_naf_var(sc, naf1, k2, s2, NAF_WIDTH_PRE, max);
 
-  for (i = 0; i < (int)len; i++) {
+  for (i = 0; (size_t)i < len; i++) {
     /* Split scalar. */
     wei_endo_split(ec, k1, &s1, k2, &s2, coeffs[i]);
 
@@ -6583,7 +6583,7 @@ edwards_mul_multi_var(edwards_t *ec,
   }
 
   /* Compute max scalar size. */
-  for (i = 0; i < (int)len; i++) {
+  for (i = 0; (size_t)i < len; i++) {
     int bits = sc_bitlen_var(sc, coeffs[i]) + 1;
 
     if (bits > max)
@@ -6593,7 +6593,7 @@ edwards_mul_multi_var(edwards_t *ec,
   /* Compute NAFs. */
   sc_naf_var(sc, naf0, k0, 1, NAF_WIDTH_PRE, max);
 
-  for (i = 0; i < (int)len; i += 2) {
+  for (i = 0; (size_t)i < len; i += 2) {
     const xge_t *p1 = &points[i + 0];
     const xge_t *p2 = &points[i + 1];
     const sc_t *k1 = &coeffs[i + 0];

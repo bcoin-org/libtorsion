@@ -126,13 +126,13 @@ static void
 mpz_random_bits(mpz_t ret, size_t bits, drbg_t *rng) {
   /* Assumes nails are not enabled. */
   size_t size = (bits + GMP_NUMB_BITS - 1) / GMP_NUMB_BITS;
-  size_t low = GMP_NUMB_BITS - (size * GMP_NUMB_BITS - bits);
+  size_t low = bits % GMP_NUMB_BITS;
   mp_limb_t *limbs = mpz_limbs_write(ret, size);
 
   drbg_generate(rng, limbs, size * sizeof(mp_limb_t));
 
-  if (low != GMP_NUMB_BITS)
-    limbs[size - 1] &= (((mp_limb_t)1 << low) - 1);
+  if (low != 0)
+    limbs[size - 1] &= ((mp_limb_t)1 << low) - 1;
 
   mpz_limbs_finish(ret, size);
 
@@ -409,7 +409,7 @@ mpz_is_prime(const mpz_t p, unsigned long rounds, drbg_t *rng) {
     return 0;
 
   if (mpz_cmp_ui(p, 64) < 0) {
-    static const unsigned long long prime_mask = 0ull
+    static const uint64_t prime_mask = 0ull
       | 1ull <<  2 | 1ull <<  3 | 1ull <<  5 | 1ull << 7
       | 1ull << 11 | 1ull << 13 | 1ull << 17 | 1ull << 19
       | 1ull << 23 | 1ull << 29 | 1ull << 31 | 1ull << 37
