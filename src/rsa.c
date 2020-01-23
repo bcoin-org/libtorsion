@@ -460,9 +460,7 @@ rsa_priv_generate(rsa_priv_t *k,
   mpz_init(lam);
   mpz_init(tmp);
 
-  mpz_set_ui(k->e, exp >> 32);
-  mpz_mul_2exp(k->e, k->e, 32);
-  mpz_add_ui(k->e, k->e, exp & 0xffffffffull);
+  mpz_set_u64(k->e, exp);
 
   for (;;) {
     mpz_random_prime(k->p, (bits >> 1) + (bits & 1), &rng);

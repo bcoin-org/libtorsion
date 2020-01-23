@@ -23,6 +23,8 @@
 #define mpz_bitlen(n) (mpz_sgn(n) == 0 ? 0 : mpz_sizeinbase(n, 2))
 #define mpz_bytelen(n) ((mpz_bitlen(n) + 7) / 8)
 #define mpz_roset torsion_mpz_roset
+#define mpz_set_u64 torsion_mpz_set_u64
+#define mpz_get_u64 torsion_mpz_get_u64
 #define mpz_export_pad torsion_mpz_export_pad
 #define mpz_cleanse torsion_mpz_cleanse
 #define mpz_random_bits torsion_mpz_random_bits
@@ -40,6 +42,41 @@ static void
 mpz_roset(mpz_t r, const mpz_t x) {
   mpz_roinit_n(r, mpz_limbs_read(x),
     (mp_size_t)mpz_sgn(x) * (mp_size_t)mpz_size(x));
+}
+
+static void
+mpz_set_u64(mpz_t r, uint64_t num) {
+  if (GMP_NUMB_BITS >= 64) {
+    mp_limb_t *limbs = mpz_limbs_write(r, 1);
+    limbs[0] = (mp_limb_t)num;
+    mpz_limbs_finish(r, 1);
+    return;
+  }
+
+  if (GMP_NUMB_BITS == 32) {
+    mp_limb_t *limbs = mpz_limbs_write(r, 2);
+    limbs[0] = (mp_limb_t)(num >>  0);
+    limbs[1] = (mp_limb_t)(num >> 32);
+    mpz_limbs_finish(r, 2);
+    return;
+  }
+
+  assert(0);
+}
+
+static uint64_t
+mpz_get_u64(const mpz_t x) {
+  if (GMP_NUMB_BITS >= 64)
+    return mpz_getlimbn(x, 0);
+
+  if (GMP_NUMB_BITS == 32) {
+    return ((uint64_t)mpz_getlimbn(x, 1) << 32)
+         | ((uint64_t)mpz_getlimbn(x, 0) <<  0);
+  }
+
+  assert(0);
+
+  return 0;
 }
 
 static void
@@ -379,7 +416,7 @@ mpz_is_prime(const mpz_t p, unsigned long rounds, drbg_t *rng) {
       | 1ull << 41 | 1ull << 43 | 1ull << 47 | 1ull << 53
       | 1ull << 59 | 1ull << 61;
 
-    return (prime_mask >> mpz_getlimbn(p, 0)) & 1;
+    return (prime_mask >> mpz_get_ui(p)) & 1;
   }
 
   if (mpz_even_p(p))
@@ -417,14 +454,58 @@ mpz_is_prime(const mpz_t p, unsigned long rounds, drbg_t *rng) {
 
 static void
 mpz_random_prime(mpz_t ret, size_t bits, drbg_t *rng) {
+  static const uint64_t primes[15] =
+    { 3,  5,  7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53 };
+  static const uint64_t product = 16294579238595022365ull;
+  uint64_t mod, delta, m, p;
+  mpz_t prod, tmp;
+  size_t i;
+
   assert(bits > 1);
 
-  do {
+  mpz_init(prod);
+  mpz_init(tmp);
+
+  mpz_set_u64(prod, product);
+
+  for (;;) {
     mpz_random_bits(ret, bits, rng);
-    mpz_setbit(ret, 0);
+
     mpz_setbit(ret, bits - 1);
-    assert(mpz_bitlen(ret) == bits);
-  } while (!mpz_is_prime(ret, 20, rng));
+    mpz_setbit(ret, bits - 2);
+    mpz_setbit(ret, 0);
+
+    mpz_mod(tmp, ret, prod);
+    mod = mpz_get_u64(tmp);
+
+    for (delta = 0; delta < (1ull << 20); delta += 2) {
+      m = mod + delta;
+
+      for (i = 0; i < sizeof(primes) / sizeof(primes[0]); i++) {
+        p = primes[i];
+
+        if ((m % p) == 0 && (bits > 6 || m != p))
+          goto next;
+      }
+
+      mpz_add_ui(ret, ret, (mp_limb_t)delta);
+
+      break;
+next:
+      ;
+    }
+
+    if (mpz_bitlen(ret) != bits)
+      continue;
+
+    if (!mpz_is_prime(ret, 20, rng))
+      continue;
+
+    break;
+  }
+
+  mpz_cleanse(prod);
+  mpz_cleanse(tmp);
 }
 
 #endif /* _TORSION_MPZ_H */
