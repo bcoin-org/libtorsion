@@ -223,13 +223,13 @@ scrypt_derive(unsigned char *out,
   if (N > UINT32_MAX)
     return 0;
 
-  if ((uint64_t)r * (uint64_t)p >= (1 << 25))
+  if ((uint64_t)r * (uint64_t)p >= (1ull << 25))
     return 0;
 
-  if (r >= (1 << 24))
+  if (r >= (1ul << 24))
     return 0;
 
-  if ((uint64_t)r * N >= (1 << 25))
+  if ((uint64_t)r * N >= (1ull << 25))
     return 0;
 
   if (N == 0 || (N & (N - 1)) != 0)
