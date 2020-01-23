@@ -9316,6 +9316,12 @@ ecdsa_schnorr_hash_ram(wei_t *ec, sc_t e,
 }
 
 int
+ecdsa_schnorr_support(wei_t *ec) {
+  /* Must satisfy p = 3 mod 4. */
+  return (ec->fe.p[0] & 3) == 3;
+}
+
+int
 ecdsa_schnorr_sign(wei_t *ec,
                    unsigned char *sig,
                    const unsigned char *msg,
@@ -9549,7 +9555,7 @@ ecdsa_schnorr_verify_batch(wei_t *ec,
         memcpy(Araw, pub, pub_len);
       } else if (pub_len == fe->size * 2 + 1) {
         Araw[0] = 0x02 | (pub[pub_len - 1] & 1);
-        memcpy(Araw + 1, pub + 1 + fe->size, fe->size);
+        memcpy(Araw + 1, pub + 1, fe->size);
       } else {
         memset(Araw, 0x00, fe->size + 1);
       }

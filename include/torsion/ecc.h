@@ -56,6 +56,7 @@ extern "C" {
 #define ecdsa_verify torsion_ecdsa_verify
 #define ecdsa_recover torsion_ecdsa_recover
 #define ecdsa_derive torsion_ecdsa_derive
+#define ecdsa_schnorr_support torsion_ecdsa_schnorr_support
 #define ecdsa_schnorr_sign torsion_ecdsa_schnorr_sign
 #define ecdsa_schnorr_verify torsion_ecdsa_schnorr_verify
 #define ecdsa_schnorr_verify_batch torsion_ecdsa_schnorr_verify_batch
@@ -476,6 +477,9 @@ ecdsa_derive(ecdsa_t *ec,
              const size_t pub_len,
              const unsigned char *priv,
              int compact);
+
+int
+ecdsa_schnorr_support(ecdsa_t *ec);
 
 int
 ecdsa_schnorr_sign(ecdsa_t *ec,
