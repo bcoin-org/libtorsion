@@ -14,6 +14,7 @@
 #include <stdint.h>
 #include <string.h>
 #include <torsion/chacha20.h>
+#include <torsion/util.h>
 
 /*
  * Helpers
@@ -111,7 +112,7 @@ chacha20_init(chacha20_t *ctx,
 
   ctx->pos = 0;
 
-  memset(tmp, 0x00, sizeof(tmp));
+  cleanse(tmp, sizeof(tmp));
 }
 
 static void
@@ -327,5 +328,5 @@ chacha20_derive(unsigned char *out,
   write32le(out + 24, state[14]);
   write32le(out + 28, state[15]);
 
-  memset(state, 0, sizeof(state));
+  cleanse(state, sizeof(state));
 }

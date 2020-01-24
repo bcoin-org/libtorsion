@@ -165,6 +165,274 @@ write64le(void *dst, uint64_t w) {
 }
 
 /*
+ * MD2
+ */
+
+static const uint8_t md2_S[256] = {
+  41, 46, 67, 201, 162, 216, 124, 1, 61, 54, 84, 161, 236, 240, 6,
+  19, 98, 167, 5, 243, 192, 199, 115, 140, 152, 147, 43, 217, 188,
+  76, 130, 202, 30, 155, 87, 60, 253, 212, 224, 22, 103, 66, 111, 24,
+  138, 23, 229, 18, 190, 78, 196, 214, 218, 158, 222, 73, 160, 251,
+  245, 142, 187, 47, 238, 122, 169, 104, 121, 145, 21, 178, 7, 63,
+  148, 194, 16, 137, 11, 34, 95, 33, 128, 127, 93, 154, 90, 144, 50,
+  39, 53, 62, 204, 231, 191, 247, 151, 3, 255, 25, 48, 179, 72, 165,
+  181, 209, 215, 94, 146, 42, 172, 86, 170, 198, 79, 184, 56, 210,
+  150, 164, 125, 182, 118, 252, 107, 226, 156, 116, 4, 241, 69, 157,
+  112, 89, 100, 113, 135, 32, 134, 91, 207, 101, 230, 45, 168, 2, 27,
+  96, 37, 173, 174, 176, 185, 246, 28, 70, 97, 105, 52, 64, 126, 15,
+  85, 71, 163, 35, 221, 81, 175, 58, 195, 92, 249, 206, 186, 197,
+  234, 38, 44, 83, 13, 110, 133, 40, 132, 9, 211, 223, 205, 244, 65,
+  129, 77, 82, 106, 220, 55, 200, 108, 193, 171, 250, 36, 225, 123,
+  8, 12, 189, 177, 74, 120, 136, 149, 139, 227, 99, 232, 109, 233,
+  203, 213, 254, 59, 0, 29, 57, 242, 239, 183, 14, 102, 88, 208, 228,
+  166, 119, 114, 248, 235, 117, 75, 10, 49, 68, 80, 180, 143, 237,
+  31, 26, 219, 153, 141, 51, 159, 17, 131, 20
+};
+
+void
+md2_init(md2_t *ctx) {
+  memset(ctx, 0, sizeof(md2_t));
+}
+
+static void
+md2_transform(md2_t *ctx, const unsigned char *chunk) {
+  uint8_t t, l;
+  size_t j, k;
+
+  for (j = 0; j < 16; j++) {
+    ctx->state[16 + j] = chunk[j];
+    ctx->state[32 + j] = ctx->state[16 + j] ^ ctx->state[j];
+  }
+
+  t = 0;
+
+  for (j = 0; j < 18; j++) {
+    for (k = 0; k < 48; k++) {
+      ctx->state[k] ^= md2_S[t];
+      t = ctx->state[k];
+    }
+    t += (uint8_t)j;
+  }
+
+  l = ctx->checksum[15];
+
+  for (j = 0; j < 16; j++) {
+    ctx->checksum[j] ^= md2_S[chunk[j] ^ l];
+    l = ctx->checksum[j];
+  }
+}
+
+void
+md2_update(md2_t *ctx, const void *data, size_t len) {
+  const unsigned char *bytes = (const unsigned char *)data;
+  size_t pos = ctx->size & 15;
+  size_t off = 0;
+
+  ctx->size += len;
+
+  if (pos > 0) {
+    size_t want = 16 - pos;
+
+    if (want > len)
+      want = len;
+
+    memcpy(ctx->block + pos, bytes + off, want);
+
+    pos += want;
+    len -= want;
+    off += want;
+
+    if (pos < 16)
+      return;
+
+    md2_transform(ctx, ctx->block);
+  }
+
+  while (len >= 16) {
+    md2_transform(ctx, bytes + off);
+    off += 16;
+    len -= 16;
+  }
+
+  if (len > 0)
+    memcpy(ctx->block, bytes + off, len);
+}
+
+void
+md2_final(md2_t *ctx, unsigned char *out) {
+  size_t pos = ctx->size & 15;
+  size_t left = 16 - pos;
+  unsigned char pad[16];
+  size_t i;
+
+  for (i = 0; i < left; i++)
+    pad[i] = left;
+
+  md2_update(ctx, pad, left);
+  md2_update(ctx, ctx->checksum, 16);
+
+  memcpy(out, ctx->state, 16);
+}
+
+/*
+ * MD4
+ */
+
+static const unsigned char md4_P[64] = {
+  0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+};
+
+void
+md4_init(md4_t *ctx) {
+  ctx->state[0] = 0x67452301;
+  ctx->state[1] = 0xefcdab89;
+  ctx->state[2] = 0x98badcfe;
+  ctx->state[3] = 0x10325476;
+  ctx->size = 0;
+}
+
+static void
+md4_transform(md4_t *ctx, const unsigned char *chunk) {
+  uint32_t data[16];
+  uint32_t a, b, c, d;
+  unsigned int i;
+
+  for (i = 0; i < 16; i++, chunk += 4)
+    data[i] = read32le(chunk);
+
+  a = ctx->state[0];
+  b = ctx->state[1];
+  c = ctx->state[2];
+  d = ctx->state[3];
+
+#define F(x, y, z) (((y) & (x)) | ((z) & ~(x)))
+#define G(x, y, z) (((y) & (x)) | ((z) & (x)) | ((y) & (z)))
+#define H(x, y, z) ((x) ^ (y) ^ (z))
+#define ROUND(f, w, x, y, z, data, s) \
+  (w += f(x, y, z) + data,  w = w << s | w >> (32 - s))
+
+  ROUND(F, a, b, c, d, data[ 0], 3);
+  ROUND(F, d, a, b, c, data[ 1], 7);
+  ROUND(F, c, d, a, b, data[ 2], 11);
+  ROUND(F, b, c, d, a, data[ 3], 19);
+  ROUND(F, a, b, c, d, data[ 4], 3);
+  ROUND(F, d, a, b, c, data[ 5], 7);
+  ROUND(F, c, d, a, b, data[ 6], 11);
+  ROUND(F, b, c, d, a, data[ 7], 19);
+  ROUND(F, a, b, c, d, data[ 8], 3);
+  ROUND(F, d, a, b, c, data[ 9], 7);
+  ROUND(F, c, d, a, b, data[10], 11);
+  ROUND(F, b, c, d, a, data[11], 19);
+  ROUND(F, a, b, c, d, data[12], 3);
+  ROUND(F, d, a, b, c, data[13], 7);
+  ROUND(F, c, d, a, b, data[14], 11);
+  ROUND(F, b, c, d, a, data[15], 19);
+
+  ROUND(G, a, b, c, d, data[ 0] + 0x5a827999, 3);
+  ROUND(G, d, a, b, c, data[ 4] + 0x5a827999, 5);
+  ROUND(G, c, d, a, b, data[ 8] + 0x5a827999, 9);
+  ROUND(G, b, c, d, a, data[12] + 0x5a827999, 13);
+  ROUND(G, a, b, c, d, data[ 1] + 0x5a827999, 3);
+  ROUND(G, d, a, b, c, data[ 5] + 0x5a827999, 5);
+  ROUND(G, c, d, a, b, data[ 9] + 0x5a827999, 9);
+  ROUND(G, b, c, d, a, data[13] + 0x5a827999, 13);
+  ROUND(G, a, b, c, d, data[ 2] + 0x5a827999, 3);
+  ROUND(G, d, a, b, c, data[ 6] + 0x5a827999, 5);
+  ROUND(G, c, d, a, b, data[10] + 0x5a827999, 9);
+  ROUND(G, b, c, d, a, data[14] + 0x5a827999, 13);
+  ROUND(G, a, b, c, d, data[ 3] + 0x5a827999, 3);
+  ROUND(G, d, a, b, c, data[ 7] + 0x5a827999, 5);
+  ROUND(G, c, d, a, b, data[11] + 0x5a827999, 9);
+  ROUND(G, b, c, d, a, data[15] + 0x5a827999, 13);
+
+  ROUND(H, a, b, c, d, data[ 0] + 0x6ed9eba1, 3);
+  ROUND(H, d, a, b, c, data[ 8] + 0x6ed9eba1, 9);
+  ROUND(H, c, d, a, b, data[ 4] + 0x6ed9eba1, 11);
+  ROUND(H, b, c, d, a, data[12] + 0x6ed9eba1, 15);
+  ROUND(H, a, b, c, d, data[ 2] + 0x6ed9eba1, 3);
+  ROUND(H, d, a, b, c, data[10] + 0x6ed9eba1, 9);
+  ROUND(H, c, d, a, b, data[ 6] + 0x6ed9eba1, 11);
+  ROUND(H, b, c, d, a, data[14] + 0x6ed9eba1, 15);
+  ROUND(H, a, b, c, d, data[ 1] + 0x6ed9eba1, 3);
+  ROUND(H, d, a, b, c, data[ 9] + 0x6ed9eba1, 9);
+  ROUND(H, c, d, a, b, data[ 5] + 0x6ed9eba1, 11);
+  ROUND(H, b, c, d, a, data[13] + 0x6ed9eba1, 15);
+  ROUND(H, a, b, c, d, data[ 3] + 0x6ed9eba1, 3);
+  ROUND(H, d, a, b, c, data[11] + 0x6ed9eba1, 9);
+  ROUND(H, c, d, a, b, data[ 7] + 0x6ed9eba1, 11);
+  ROUND(H, b, c, d, a, data[15] + 0x6ed9eba1, 15);
+
+#undef F
+#undef G
+#undef H
+#undef ROUND
+
+  ctx->state[0] += a;
+  ctx->state[1] += b;
+  ctx->state[2] += c;
+  ctx->state[3] += d;
+}
+
+void
+md4_update(md4_t *ctx, const void *data, size_t len) {
+  const unsigned char *bytes = (const unsigned char *)data;
+  size_t pos = ctx->size & 63;
+  size_t off = 0;
+
+  ctx->size += len;
+
+  if (pos > 0) {
+    size_t want = 64 - pos;
+
+    if (want > len)
+      want = len;
+
+    memcpy(ctx->block + pos, bytes + off, want);
+
+    pos += want;
+    len -= want;
+    off += want;
+
+    if (pos < 64)
+      return;
+
+    md4_transform(ctx, ctx->block);
+  }
+
+  while (len >= 64) {
+    md4_transform(ctx, bytes + off);
+    off += 64;
+    len -= 64;
+  }
+
+  if (len > 0)
+    memcpy(ctx->block, bytes + off, len);
+}
+
+void
+md4_final(md4_t *ctx, unsigned char *out) {
+  size_t pos = ctx->size & 63;
+  uint64_t len = ctx->size << 3;
+  unsigned char D[8];
+  size_t i;
+
+  write64le(D, len);
+
+  md4_update(ctx, md4_P, 1 + ((119 - pos) & 63));
+  md4_update(ctx, D, 8);
+
+  for (i = 0; i < 4; i++)
+    write32le(out + i * 4, ctx->state[i]);
+}
+
+/*
  * MD5
  */
 
@@ -192,7 +460,7 @@ static void
 md5_transform(md5_t *ctx, const unsigned char *chunk) {
   uint32_t data[16];
   uint32_t a, b, c, d;
-  unsigned i;
+  unsigned int i;
 
   for (i = 0; i < 16; i++, chunk += 4)
     data[i] = read32le(chunk);
@@ -207,7 +475,7 @@ md5_transform(md5_t *ctx, const unsigned char *chunk) {
 #define F3(x, y, z) ((x) ^ (y) ^ (z))
 #define F4(x, y, z) ((y) ^ ((x) | ~(z)))
 #define ROUND(f, w, x, y, z, data, s) \
-(w += f(x, y, z) + data,  w = w << s | w >> (32 - s), w += x)
+  (w += f(x, y, z) + data,  w = w << s | w >> (32 - s), w += x)
 
   ROUND(F1, a, b, c, d, data[ 0] + 0xd76aa478, 7);
   ROUND(F1, d, a, b, c, data[ 1] + 0xe8c7b756, 12);
@@ -339,11 +607,28 @@ md5_final(md5_t *ctx, unsigned char *out) {
 
   for (i = 0; i < 4; i++)
     write32le(out + i * 4, ctx->state[i]);
+}
 
-  cleanse(ctx->state, sizeof(ctx->state));
-  cleanse(ctx->block, sizeof(ctx->block));
+/*
+ * MD5SHA1
+ */
 
-  ctx->size = 0;
+void
+md5sha1_init(md5sha1_t *ctx) {
+  md5_init(&ctx->md5);
+  sha1_init(&ctx->sha1);
+}
+
+void
+md5sha1_update(md5sha1_t *ctx, const void *data, size_t len) {
+  md5_update(&ctx->md5, data, len);
+  sha1_update(&ctx->sha1, data, len);
+}
+
+void
+md5sha1_final(md5sha1_t *ctx, unsigned char *out) {
+  md5_final(&ctx->md5, out);
+  sha1_final(&ctx->sha1, out + 16);
 }
 
 /*
@@ -663,11 +948,6 @@ ripemd160_final(ripemd160_t *ctx, unsigned char *out) {
 
   for (i = 0; i < 5; i++)
     write32le(out + i * 4, ctx->state[i]);
-
-  cleanse(ctx->state, sizeof(ctx->state));
-  cleanse(ctx->block, sizeof(ctx->block));
-
-  ctx->size = 0;
 }
 
 /*
@@ -876,11 +1156,6 @@ sha1_final(sha1_t *ctx, unsigned char *out) {
 
   for (i = 0; i < 5; i++)
     write32be(out + i * 4, ctx->state[i]);
-
-  cleanse(ctx->state, sizeof(ctx->state));
-  cleanse(ctx->block, sizeof(ctx->block));
-
-  ctx->size = 0;
 }
 
 /*
@@ -981,7 +1256,7 @@ sha256_transform(sha256_t *ctx, const unsigned char *chunk) {
 #define s1(x) (ROTL32(15, (x)) ^ ROTL32(13, (x)) ^ ((x) >> 10))
 
 #define EXPAND(W,i) \
-(W[(i) & 15] += (s1(W[((i)-2) & 15]) + W[((i)-7) & 15] + s0(W[((i)-15) & 15])))
+  (W[(i) & 15] += (s1(W[((i)-2) & 15]) + W[((i)-7) & 15] + s0(W[((i)-15) & 15])))
 
 #define ROUND(a, b, c, d, e, f, g, h, k, data) do { \
   h += S1(e) + Ch(e, f, g) + k + data;              \
@@ -1088,11 +1363,6 @@ sha256_final(sha256_t *ctx, unsigned char *out) {
 
   for (i = 0; i < 8; i++)
     write32be(out + i * 4, ctx->state[i]);
-
-  cleanse(ctx->state, sizeof(ctx->state));
-  cleanse(ctx->block, sizeof(ctx->block));
-
-  ctx->size = 0;
 }
 #endif /* TORSION_USE_OPENSSL */
 
@@ -1268,7 +1538,7 @@ sha512_transform(sha512_t *ctx, const unsigned char *chunk) {
 #define s1(x) (ROTL64(45, (x)) ^ ROTL64(3, (x)) ^ ((x) >> 6))
 
 #define EXPAND(W,i) \
-(W[(i) & 15] += (s1(W[((i)-2) & 15]) + W[((i)-7) & 15] + s0(W[((i)-15) & 15])))
+  (W[(i) & 15] += (s1(W[((i)-2) & 15]) + W[((i)-7) & 15] + s0(W[((i)-15) & 15])))
 
 #define ROUND(a, b, c, d, e, f, g, h, k, data) do { \
   h += S1(e) + Ch(e, f, g) + k + data;              \
@@ -1376,11 +1646,6 @@ sha512_final(sha512_t *ctx, unsigned char *out) {
 
   for (i = 0; i < 8; i++)
     write64be(out + i * 8, ctx->state[i]);
-
-  cleanse(ctx->state, sizeof(ctx->state));
-  cleanse(ctx->block, sizeof(ctx->block));
-
-  ctx->size = 0;
 }
 #endif /* TORSION_USE_OPENSSL */
 
@@ -2082,12 +2347,6 @@ keccak_final(keccak_t *ctx, unsigned char *out, unsigned char pad, size_t len) {
 
   for (i = 0; i < len; i++)
     out[i] = ctx->state[i >> 3] >> (8 * (i & 7));
-
-  cleanse(ctx->state, sizeof(ctx->state));
-  cleanse(ctx->block, sizeof(ctx->block));
-
-  ctx->bs = 0;
-  ctx->pos = 0;
 }
 
 /*
@@ -2260,7 +2519,6 @@ blake2s_final(blake2s_t *ctx, unsigned char *out) {
   memcpy(out, buffer, ctx->outlen);
 
   cleanse(buffer, sizeof(buffer));
-  cleanse(ctx, sizeof(blake2s_t));
 }
 
 /*
@@ -2439,7 +2697,6 @@ blake2b_final(blake2b_t *ctx, unsigned char *out) {
   memcpy(out, buffer, ctx->outlen);
 
   cleanse(buffer, sizeof(buffer));
-  cleanse(ctx, sizeof(blake2b_t));
 }
 
 /*
@@ -2450,8 +2707,17 @@ void
 hash_init(hash_t *hash, int type) {
   hash->type = type;
   switch (hash->type) {
+    case HASH_MD2:
+      md2_init(&hash->ctx.md2);
+      break;
+    case HASH_MD4:
+      md4_init(&hash->ctx.md5);
+      break;
     case HASH_MD5:
       md5_init(&hash->ctx.md5);
+      break;
+    case HASH_MD5SHA1:
+      md5sha1_init(&hash->ctx.md5sha1);
       break;
     case HASH_RIPEMD160:
       ripemd160_init(&hash->ctx.ripemd160);
@@ -2526,8 +2792,17 @@ hash_init(hash_t *hash, int type) {
 void
 hash_update(hash_t *hash, const void *data, size_t len) {
   switch (hash->type) {
+    case HASH_MD2:
+      md2_update(&hash->ctx.md2, data, len);
+      break;
+    case HASH_MD4:
+      md4_update(&hash->ctx.md5, data, len);
+      break;
     case HASH_MD5:
       md5_update(&hash->ctx.md5, data, len);
+      break;
+    case HASH_MD5SHA1:
+      md5sha1_update(&hash->ctx.md5sha1, data, len);
       break;
     case HASH_RIPEMD160:
       ripemd160_update(&hash->ctx.ripemd160, data, len);
@@ -2578,8 +2853,17 @@ hash_update(hash_t *hash, const void *data, size_t len) {
 void
 hash_final(hash_t *hash, unsigned char *out, size_t len) {
   switch (hash->type) {
+    case HASH_MD2:
+      md2_final(&hash->ctx.md2, out);
+      break;
+    case HASH_MD4:
+      md4_final(&hash->ctx.md5, out);
+      break;
     case HASH_MD5:
       md5_final(&hash->ctx.md5, out);
+      break;
+    case HASH_MD5SHA1:
+      md5sha1_final(&hash->ctx.md5sha1, out);
       break;
     case HASH_RIPEMD160:
       ripemd160_final(&hash->ctx.ripemd160, out);
@@ -2657,10 +2941,10 @@ hash_has_backend(int type) {
     case HASH_KECCAK256 :
     case HASH_KECCAK384 :
     case HASH_KECCAK512 :
-    /*case HASH_MD2:*/
-    /*case HASH_MD4:*/
+    case HASH_MD2:
+    case HASH_MD4:
     case HASH_MD5:
-    /*case HASH_MD5SHA1:*/
+    case HASH_MD5SHA1:
     case HASH_RIPEMD160:
     case HASH_SHA1:
     case HASH_SHA224:

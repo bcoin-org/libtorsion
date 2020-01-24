@@ -12,9 +12,18 @@ extern "C" {
  * Symbol Aliases
  */
 
+#define md2_init torsion_md2_init
+#define md2_update torsion_md2_update
+#define md2_final torsion_md2_final
+#define md4_init torsion_md4_init
+#define md4_update torsion_md4_update
+#define md4_final torsion_md4_final
 #define md5_init torsion_md5_init
 #define md5_update torsion_md5_update
 #define md5_final torsion_md5_final
+#define md5sha1_init torsion_md5sha1_init
+#define md5sha1_update torsion_md5sha1_update
+#define md5sha1_final torsion_md5sha1_final
 #define ripemd160_init torsion_ripemd160_init
 #define ripemd160_update torsion_ripemd160_update
 #define ripemd160_final torsion_ripemd160_final
@@ -165,11 +174,20 @@ extern "C" {
  * Structs
  */
 
+typedef struct _md2_s {
+  unsigned char state[48];
+  unsigned char checksum[16];
+  unsigned char block[16];
+  size_t size;
+} md2_t;
+
 typedef struct _md5_s {
   uint32_t state[4];
   uint8_t block[64];
   uint64_t size;
 } md5_t;
+
+typedef md5_t md4_t;
 
 typedef struct _ripemd160_s {
   uint32_t state[5];
@@ -182,6 +200,11 @@ typedef struct _sha1_s {
   uint8_t block[64];
   uint64_t size;
 } sha1_t;
+
+typedef struct _md5sha1_s {
+  md5_t md5;
+  sha1_t sha1;
+} md5sha1_t;
 
 typedef struct _sha256_s {
   uint32_t state[8];
@@ -233,7 +256,9 @@ typedef struct _blake2b_s {
 typedef struct _hash_s {
   int type;
   union {
+    md2_t md2;
     md5_t md5;
+    md5sha1_t md5sha1;
     ripemd160_t ripemd160;
     sha1_t sha1;
     sha256_t sha256;
@@ -251,6 +276,32 @@ typedef struct _hmac_s {
 } hmac_t;
 
 /*
+ * MD2
+ */
+
+void
+md2_init(md2_t *ctx);
+
+void
+md2_update(md2_t *ctx, const void *data, size_t len);
+
+void
+md2_final(md2_t *ctx, unsigned char *out);
+
+/*
+ * MD4
+ */
+
+void
+md4_init(md4_t *ctx);
+
+void
+md4_update(md4_t *ctx, const void *data, size_t len);
+
+void
+md4_final(md4_t *ctx, unsigned char *out);
+
+/*
  * MD5
  */
 
@@ -262,6 +313,19 @@ md5_update(md5_t *ctx, const void *data, size_t len);
 
 void
 md5_final(md5_t *ctx, unsigned char *out);
+
+/*
+ * MD5SHA1
+ */
+
+void
+md5sha1_init(md5sha1_t *ctx);
+
+void
+md5sha1_update(md5sha1_t *ctx, const void *data, size_t len);
+
+void
+md5sha1_final(md5sha1_t *ctx, unsigned char *out);
 
 /*
  * RIPEMD160

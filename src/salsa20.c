@@ -16,6 +16,7 @@
 #include <stdint.h>
 #include <string.h>
 #include <torsion/salsa20.h>
+#include <torsion/util.h>
 
 /*
  * Helpers
@@ -115,7 +116,7 @@ salsa20_init(salsa20_t *ctx,
 
   ctx->pos = 0;
 
-  memset(tmp, 0x00, sizeof(tmp));
+  cleanse(tmp, sizeof(tmp));
 }
 
 static void
@@ -395,5 +396,5 @@ salsa20_derive(unsigned char *out,
   write32le(out + 24, state[8]);
   write32le(out + 28, state[9]);
 
-  memset(state, 0, sizeof(state));
+  cleanse(state, sizeof(state));
 }
