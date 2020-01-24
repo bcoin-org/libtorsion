@@ -2621,15 +2621,6 @@ jge_neg(wei_t *ec, jge_t *r, const jge_t *a) {
 }
 
 static void
-jge_zero_cond(wei_t *ec, jge_t *r, const jge_t *a, unsigned int flag) {
-  prime_field_t *fe = &ec->fe;
-
-  fe_select(fe, r->x, a->x, fe->one, flag);
-  fe_select(fe, r->y, a->y, fe->one, flag);
-  fe_select(fe, r->z, a->z, fe->zero, flag);
-}
-
-static void
 jge_neg_cond(wei_t *ec, jge_t *r, const jge_t *a, unsigned int flag) {
   prime_field_t *fe = &ec->fe;
 
@@ -3004,7 +2995,9 @@ jge_dbl(wei_t *ec, jge_t *r, const jge_t *p) {
   else
     jge_dblj(ec, r, p);
 
-  jge_zero_cond(ec, r, r, inf);
+  fe_select(fe, r->x, r->x, fe->one, inf);
+  fe_select(fe, r->y, r->y, fe->one, inf);
+  fe_select(fe, r->z, r->z, fe->zero, inf);
 }
 
 static void
@@ -5943,16 +5936,6 @@ xge_neg(edwards_t *ec, xge_t *r, const xge_t *a) {
   fe_set(fe, r->y, a->y);
   fe_set(fe, r->z, a->z);
   fe_neg(fe, r->t, a->t);
-}
-
-static void
-xge_zero_cond(edwards_t *ec, xge_t *r, const xge_t *a, unsigned int flag) {
-  prime_field_t *fe = &ec->fe;
-
-  fe_select(fe, r->x, a->x, fe->zero, flag);
-  fe_select(fe, r->y, a->y, fe->one, flag);
-  fe_select(fe, r->z, a->z, fe->one, flag);
-  fe_select(fe, r->t, a->t, fe->zero, flag);
 }
 
 static void
