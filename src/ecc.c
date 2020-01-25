@@ -8638,28 +8638,6 @@ ecdsa_pubkey_tweak_mul(wei_t *ec,
 }
 
 int
-ecdsa_pubkey_add(wei_t *ec,
-                 unsigned char *out,
-                 size_t *out_len,
-                 const unsigned char *pub1,
-                 size_t pub1_len,
-                 const unsigned char *pub2,
-                 size_t pub2_len,
-                 int compact) {
-  wge_t A1, A2;
-
-  if (!wge_import(ec, &A1, pub1, pub1_len))
-    return 0;
-
-  if (!wge_import(ec, &A2, pub2, pub2_len))
-    return 0;
-
-  wge_add(ec, &A1, &A1, &A2);
-
-  return wge_export(ec, out, out_len, &A1, compact);
-}
-
-int
 ecdsa_pubkey_combine(wei_t *ec,
                      unsigned char *out,
                      size_t *out_len,
@@ -9972,24 +9950,6 @@ schnorr_pubkey_tweak_mul(wei_t *ec,
   sc_cleanse(sc, t);
 
   return wge_export_x(ec, out, &A);
-}
-
-int
-schnorr_pubkey_add(wei_t *ec,
-                   unsigned char *out,
-                   const unsigned char *pub1,
-                   const unsigned char *pub2) {
-  wge_t A1, A2;
-
-  if (!wge_import_x(ec, &A1, pub1))
-    return 0;
-
-  if (!wge_import_x(ec, &A2, pub2))
-    return 0;
-
-  wge_add(ec, &A1, &A1, &A2);
-
-  return wge_export_x(ec, out, &A1);
 }
 
 int
@@ -11341,25 +11301,6 @@ eddsa_pubkey_tweak_mul(edwards_t *ec,
   xge_export(ec, out, &A);
 
   sc_cleanse(sc, t);
-
-  return 1;
-}
-
-int
-eddsa_pubkey_add(edwards_t *ec,
-                 unsigned char *out,
-                 const unsigned char *pub1,
-                 const unsigned char *pub2) {
-  xge_t A1, A2;
-
-  if (!xge_import(ec, &A1, pub1))
-    return 0;
-
-  if (!xge_import(ec, &A2, pub2))
-    return 0;
-
-  xge_add(ec, &A1, &A1, &A2);
-  xge_export(ec, out, &A1);
 
   return 1;
 }
