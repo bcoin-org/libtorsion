@@ -589,11 +589,11 @@ bytes_lte(const unsigned char *a,
 #endif
 
 #if __has_builtin(__builtin_clz)
-#define count_bits(x) (sizeof(unsigned int) * CHAR_BIT - __builtin_clz(x))
+#define __torsion_clz __builtin_clz
 #else
 static int
-count_bits(unsigned int x) {
-  /* https://graphics.stanford.edu/~seander/bithacks.html#IntegerLogDeBruijn */
+__torsion_clz(unsigned int x) {
+  /* https://en.wikipedia.org/wiki/Find_first_set#CLZ */
   static const int debruijn[32] = {
     0, 9, 1, 10, 13, 21, 2, 29, 11, 14, 16, 18, 22, 25, 3, 30,
     8, 12, 20, 28, 15, 17, 24, 7, 19, 27, 23, 6, 26, 5, 4, 31
@@ -607,9 +607,11 @@ count_bits(unsigned int x) {
   v |= v >> 8;
   v |= v >> 16;
 
-  return debruijn[(uint32_t)(v * 0x07c4acddu) >> 27] + (x != 0);
+  return debruijn[(uint32_t)(v * 0x07c4acddu) >> 27];
 }
 #endif
+
+#define bit_length(x) (sizeof(unsigned int) * CHAR_BIT - __torsion_clz(x))
 
 /*
  * Scalar
@@ -818,7 +820,7 @@ sc_sub(scalar_field_t *sc, sc_t r, const sc_t a, const sc_t b) {
 static void
 sc_mul_word(scalar_field_t *sc, sc_t r, const sc_t a, unsigned int word) {
   /* Only constant-time if `word` is constant. */
-  int bits = count_bits(word);
+  int bits = bit_length(word);
   int i;
 
   if (word > 1 && (word & (word - 1)) == 0) {
@@ -1530,7 +1532,7 @@ fe_sub(prime_field_t *fe, fe_t r, const fe_t a, const fe_t b) {
 static void
 fe_mul_word(prime_field_t *fe, fe_t r, const fe_t a, unsigned int word) {
   /* Only constant-time if `word` is constant. */
-  int bits = count_bits(word);
+  int bits = bit_length(word);
   int i;
 
   if (word > 1 && (word & (word - 1)) == 0) {
@@ -5272,7 +5274,7 @@ pge_to_mge(mont_t *ec, mge_t *r, const pge_t *p, int sign) {
 
 static void
 pge_mulh(mont_t *ec, pge_t *r, const pge_t *p) {
-  int bits = count_bits(ec->h);
+  int bits = bit_length(ec->h);
   int i;
 
   pge_set(ec, r, p);
@@ -6192,7 +6194,7 @@ xge_normalize_var(edwards_t *ec, xge_t *r, const xge_t *p) {
 
 static void
 xge_mulh(edwards_t *ec, xge_t *r, const xge_t *p) {
-  int bits = count_bits(ec->h);
+  int bits = bit_length(ec->h);
   int i;
 
   xge_set(ec, r, p);
