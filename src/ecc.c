@@ -1036,10 +1036,10 @@ sc_naf_var(scalar_field_t *sc,
         cy = mpn_sub_1(k, k, kn, z);
       }
 
-      kn -= (k[kn - 1] == 0);
-
-      assert(kn <= nn);
+      assert(kn <= nn + 1);
       assert(cy == 0);
+
+      kn -= (k[kn - 1] == 0);
     }
 
     naf[i++] = z * sign;
