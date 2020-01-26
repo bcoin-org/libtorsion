@@ -589,10 +589,10 @@ bytes_lte(const unsigned char *a,
 #endif
 
 #if __has_builtin(__builtin_clz)
-#define __torsion_clz __builtin_clz
+#define bit_length(x) (sizeof(unsigned int) * CHAR_BIT - __builtin_clz(x))
 #else
 static int
-__torsion_clz(unsigned int x) {
+bit_length(unsigned int x) {
   /* https://en.wikipedia.org/wiki/Find_first_set#CLZ */
   static const int debruijn[32] = {
     0, 9, 1, 10, 13, 21, 2, 29, 11, 14, 16, 18, 22, 25, 3, 30,
@@ -607,11 +607,9 @@ __torsion_clz(unsigned int x) {
   v |= v >> 8;
   v |= v >> 16;
 
-  return debruijn[(uint32_t)(v * 0x07c4acddu) >> 27];
+  return 32 - debruijn[(uint32_t)(v * 0x07c4acddu) >> 27];
 }
 #endif
-
-#define bit_length(x) (sizeof(unsigned int) * CHAR_BIT - __torsion_clz(x))
 
 /*
  * Scalar
