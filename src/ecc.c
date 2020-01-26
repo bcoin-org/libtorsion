@@ -9560,7 +9560,13 @@ ecdsa_schnorr_verify_batch(wei_t *ec,
 
     ecdsa_schnorr_hash_ram(ec, e, Rraw, Araw, msg);
 
-    sc_random(sc, a, &rng);
+    if (j == 0) {
+      sc_zero(sc, a);
+      a[0] = 1;
+    } else {
+      sc_random(sc, a, &rng);
+    }
+
     sc_mul(sc, e, e, a);
     sc_mul(sc, s, s, a);
     sc_add(sc, sum, sum, s);
@@ -10315,7 +10321,13 @@ schnorr_verify_batch(wei_t *ec,
 
     schnorr_hash_ram(ec, e, Rraw, pub, msg);
 
-    sc_random(sc, a, &rng);
+    if (j == 0) {
+      sc_zero(sc, a);
+      a[0] = 1;
+    } else {
+      sc_random(sc, a, &rng);
+    }
+
     sc_mul(sc, e, e, a);
     sc_mul(sc, s, s, a);
     sc_add(sc, sum, sum, s);
@@ -11819,7 +11831,13 @@ eddsa_verify_batch(edwards_t *ec,
 
     eddsa_hash_ram(ec, e, ph, ctx, ctx_len, Rraw, pub, msg, msg_len);
 
-    sc_random(sc, a, &rng);
+    if (j == 0) {
+      sc_zero(sc, a);
+      a[0] = 1;
+    } else {
+      sc_random(sc, a, &rng);
+    }
+
     sc_mul(sc, e, e, a);
     sc_mul(sc, s, s, a);
     sc_add(sc, sum, sum, s);
