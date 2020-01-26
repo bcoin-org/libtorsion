@@ -1209,9 +1209,6 @@ fe_cleanse(prime_field_t *fe, fe_t r) {
 
 static int
 fe_import(prime_field_t *fe, fe_t r, const unsigned char *raw) {
-  unsigned char tmp[MAX_FIELD_SIZE];
-  size_t i;
-
   if (fe->from_montgomery) {
     /* Use a constant time barrett reduction
      * to montgomerize the field element.
@@ -1241,11 +1238,15 @@ fe_import(prime_field_t *fe, fe_t r, const unsigned char *raw) {
       memcpy(r, xp, fe->limbs * sizeof(mp_limb_t));
     } else {
       /* Export as little endian. */
+      unsigned char tmp[MAX_FIELD_SIZE];
       mpn_export_le(tmp, fe->size, xp, fe->limbs);
       fe->from_bytes(r, tmp);
     }
   } else {
     if (fe->endian == 1) {
+      unsigned char tmp[MAX_FIELD_SIZE];
+      size_t i;
+
       /* Swap endianness. */
       for (i = 0; i < fe->size; i++)
         tmp[i] = raw[fe->size - 1 - i];
@@ -1301,9 +1302,6 @@ fe_import_uniform(prime_field_t *fe, fe_t r, const unsigned char *raw) {
 
 static void
 fe_export(prime_field_t *fe, unsigned char *raw, const fe_t a) {
-  int i = 0;
-  int j = fe->size - 1;
-
   if (fe->from_montgomery) {
     fe_t tmp;
 
@@ -1332,6 +1330,9 @@ fe_export(prime_field_t *fe, unsigned char *raw, const fe_t a) {
   }
 
   if (fe->endian == 1) {
+    int i = 0;
+    int j = fe->size - 1;
+
     while (i < j) {
       unsigned char t = raw[j];
 
