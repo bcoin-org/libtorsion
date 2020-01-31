@@ -120,6 +120,18 @@ print_hex(const unsigned char *data, size_t len) {
   printf("%s\n", str);
 }
 
+static size_t
+stupid_count_bits(uint32_t x) {
+  size_t bits = 0;
+
+  while (x != 0) {
+    bits += 1;
+    x >>= 1;
+  }
+
+  return bits;
+}
+
 static void
 test_scalar(void) {
   printf("Scalar sanity check.\n");
@@ -291,6 +303,20 @@ test_field_element(void) {
 
   raw[7] += 1;
   assert(!fe_import(fe, t, raw));
+}
+
+static void
+test_bitlen(void) {
+  uint32_t i;
+
+  printf("Bit length sanity check.\n");
+
+  for (i = 0; i <= UINT16_MAX; i++)
+    assert(bit_length(i) == stupid_count_bits(i));
+
+  assert(bit_length((1ul << 24) - 1ul) == 24);
+  assert(bit_length(1ul << 24) == 25);
+  assert(bit_length(UINT32_MAX) == 32);
 }
 
 static void
@@ -2945,6 +2971,7 @@ main(int argc, char **argv) {
   } else {
     test_scalar();
     test_field_element();
+    test_bitlen();
     test_wei_points_p256(&rng);
     test_wei_points_p521(&rng);
     test_wei_points_secp256k1(&rng);

@@ -589,9 +589,10 @@ bytes_lte(const unsigned char *a,
 #endif
 
 #if __has_builtin(__builtin_clz)
-#define bit_length(x) (sizeof(unsigned int) * CHAR_BIT - __builtin_clz(x))
+#define bit_length(x) \
+  ((sizeof(unsigned int) * CHAR_BIT - __builtin_clz(x)) * ((x) != 0))
 #else
-static int
+static size_t
 bit_length(uint32_t x) {
   /* http://aggregate.org/MAGIC/#Leading%20Zero%20Count */
   x |= x >> 1;
