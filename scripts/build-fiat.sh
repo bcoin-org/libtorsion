@@ -12,7 +12,7 @@ if test -z "$prefix" -o ! -e "$solinas"; then
 fi
 
 # 2^192 - 2^64 - 1
-"$solinas" --static 'p192' '7' '2^192 - 2^64 - 1' '32' > ./src/fields/p192_32.h
+"$solinas" --static 'p192' '9' '2^192 - 2^64 - 1' '32' > ./src/fields/p192_32.h
 "$solinas" --static 'p192' '4' '2^192 - 2^64 - 1' '64' > ./src/fields/p192_64.h
 
 # 2^224 - 2^96 + 1
@@ -28,7 +28,7 @@ fi
 "$montgomery" --static 'p384' '2^384 - 2^128 - 2^96 + 2^32 - 1' '64' > ./src/fields/p384_64.h
 
 # 2^521 - 1
-"$solinas" --static 'p521' '18' '2^521 - 1' '32' > ./src/fields/p521_32.h
+"$solinas" --static 'p521' '19' '2^521 - 1' '32' > ./src/fields/p521_32.h
 "$solinas" --static 'p521' '9' '2^521 - 1' '64' > ./src/fields/p521_64.h
 
 # 2^256 - 2^32 - 977
@@ -61,7 +61,7 @@ fi
   from_bytes > ./src/fields/p25519_64.h
 
 # 2^448 - 2^224 - 1
-"$solinas" --static 'p448' '15' '2^448 - 2^224 - 1' '32' > ./src/fields/p448_32.h
+"$solinas" --static 'p448' '18' '2^448 - 2^224 - 1' '32' > ./src/fields/p448_32.h
 "$solinas" --static 'p448' '8' '2^448 - 2^224 - 1' '64' > ./src/fields/p448_64.h
 
 # 2^251 - 9

@@ -173,7 +173,7 @@ typedef uint64_t fe_word_t;
 #else
 typedef uint32_t fe_word_t;
 #define FIELD_WORD_SIZE 32
-#define MAX_FIELD_WORDS 18
+#define MAX_FIELD_WORDS 19
 #endif
 
 #define MAX_FIELD_BITS 521
