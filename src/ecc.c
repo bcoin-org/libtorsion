@@ -3334,16 +3334,6 @@ jge_mixed_sub(wei_t *ec, jge_t *r, const jge_t *a, const wge_t *b) {
 }
 
 static void
-jge_dblp_var(wei_t *ec, jge_t *r, const jge_t *p, size_t pow) {
-  size_t i;
-
-  jge_set(ec, r, p);
-
-  for (i = 0; i < pow; i++)
-    jge_dbl_var(ec, r, r);
-}
-
-static void
 jge_to_wge(wei_t *ec, wge_t *r, const jge_t *p) {
   /* https://hyperelliptic.org/EFD/g1p/auto-shortw-jacobian.html#scaling-z
    * 1I + 3M + 1S
@@ -6025,16 +6015,6 @@ xge_sub(edwards_t *ec, xge_t *r, const xge_t *a, const xge_t *b) {
   xge_t c;
   xge_neg(ec, &c, b);
   xge_add(ec, r, a, &c);
-}
-
-static void
-xge_dblp(edwards_t *ec, xge_t *r, const xge_t *p, size_t pow) {
-  size_t i;
-
-  xge_set(ec, r, p);
-
-  for (i = 0; i < pow; i++)
-    xge_dbl(ec, r, r);
 }
 
 static void
