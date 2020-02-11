@@ -84,84 +84,75 @@ p25519_fe_equal(const p25519_fe_t a, const p25519_fe_t b) {
   return (z - 1) >> 31;
 }
 
-/*
- * In:  b =   2^5 - 2^0
- * Out: b = 2^250 - 2^0
- */
 static void
 p25519_fe_pow_two5mtwo0_two250mtwo0(p25519_fe_t b) {
   p25519_fe_t t0, c;
 
-  /* 2^5  - 2^0 */ /* b */
-  /* 2^10 - 2^5 */ p25519_fe_sqrn(t0, b, 5);
-  /* 2^10 - 2^0 */ p25519_fe_mul(b, t0, b);
-  /* 2^20 - 2^10 */ p25519_fe_sqrn(t0, b, 10);
-  /* 2^20 - 2^0 */ p25519_fe_mul(c, t0, b);
-  /* 2^40 - 2^20 */ p25519_fe_sqrn(t0, c, 20);
-  /* 2^40 - 2^0 */ p25519_fe_mul(t0, t0, c);
-  /* 2^50 - 2^10 */ p25519_fe_sqrn(t0, t0, 10);
-  /* 2^50 - 2^0 */ p25519_fe_mul(b, t0, b);
-  /* 2^100 - 2^50 */ p25519_fe_sqrn(t0, b, 50);
-  /* 2^100 - 2^0 */ p25519_fe_mul(c, t0, b);
-  /* 2^200 - 2^100 */ p25519_fe_sqrn(t0, c, 100);
-  /* 2^200 - 2^0 */ p25519_fe_mul(t0, t0, c);
-  /* 2^250 - 2^50 */ p25519_fe_sqrn(t0, t0, 50);
-  /* 2^250 - 2^0 */ p25519_fe_mul(b, t0, b);
+  /* In:  b =   2^5 - 2^0 */
+  /* Out: b = 2^250 - 2^0 */
+  p25519_fe_sqrn(t0, b, 5);
+  p25519_fe_mul(b, t0, b);
+  p25519_fe_sqrn(t0, b, 10);
+  p25519_fe_mul(c, t0, b);
+  p25519_fe_sqrn(t0, c, 20);
+  p25519_fe_mul(t0, t0, c);
+  p25519_fe_sqrn(t0, t0, 10);
+  p25519_fe_mul(b, t0, b);
+  p25519_fe_sqrn(t0, b, 50);
+  p25519_fe_mul(c, t0, b);
+  p25519_fe_sqrn(t0, c, 100);
+  p25519_fe_mul(t0, t0, c);
+  p25519_fe_sqrn(t0, t0, 50);
+  p25519_fe_mul(b, t0, b);
 }
 
-/*
- * z^((p+3)/8) = z^(2^252 - 2)
- */
 static void
 p25519_fe_pow_two252m2(p25519_fe_t two252m2, const p25519_fe_t z) {
   p25519_fe_t b, c, t0;
 
-  /* 2 */ p25519_fe_sqrn(c, z, 1); /* c = 2 */
-  /* 8 */ p25519_fe_sqrn(t0, c, 2); /* t0 = 8 */
-  /* 9 */ p25519_fe_mul(b, t0, z); /* b = 9 */
-  /* 11 */ p25519_fe_mul(c, b, c); /* c = 11 */
-  /* 22 */ p25519_fe_sqrn(t0, c, 1);
-  /* 2^5 - 2^0 = 31 */ p25519_fe_mul(b, t0, b);
-  /* 2^250 - 2^0 */ p25519_fe_pow_two5mtwo0_two250mtwo0(b);
-  /* 2^252 - 2^1 */ p25519_fe_sqrn(b, b, 1);
-  /* 2^252 - 2 */ p25519_fe_mul(b, b, z);
-  /* 2^252 - 2 */ p25519_fe_sqrn(two252m2, b, 1);
+  /* z^((p + 3) / 8) = z^(2^252 - 2) */
+  p25519_fe_sqrn(c, z, 1);
+  p25519_fe_sqrn(t0, c, 2);
+  p25519_fe_mul(b, t0, z);
+  p25519_fe_mul(c, b, c);
+  p25519_fe_sqrn(t0, c, 1);
+  p25519_fe_mul(b, t0, b);
+  p25519_fe_pow_two5mtwo0_two250mtwo0(b);
+  p25519_fe_sqrn(b, b, 1);
+  p25519_fe_mul(b, b, z);
+  p25519_fe_sqrn(two252m2, b, 1);
 }
 
-/*
- * z^((p-5)/8) = z^(2^252 - 3)
- */
 static void
 p25519_fe_pow_two252m3(p25519_fe_t two252m3, const p25519_fe_t z) {
   p25519_fe_t b, c, t0;
 
-  /* 2 */ p25519_fe_sqrn(c, z, 1); /* c = 2 */
-  /* 8 */ p25519_fe_sqrn(t0, c, 2); /* t0 = 8 */
-  /* 9 */ p25519_fe_mul(b, t0, z); /* b = 9 */
-  /* 11 */ p25519_fe_mul(c, b, c); /* c = 11 */
-  /* 22 */ p25519_fe_sqrn(t0, c, 1);
-  /* 2^5 - 2^0 = 31 */ p25519_fe_mul(b, t0, b);
-  /* 2^250 - 2^0 */ p25519_fe_pow_two5mtwo0_two250mtwo0(b);
-  /* 2^252 - 2^2 */ p25519_fe_sqrn(b, b, 2);
-  /* 2^252 - 3 */ p25519_fe_mul(two252m3, b, z);
+  /* z^((p - 5) / 8) = z^(2^252 - 3) */
+  p25519_fe_sqrn(c, z, 1);
+  p25519_fe_sqrn(t0, c, 2);
+  p25519_fe_mul(b, t0, z);
+  p25519_fe_mul(c, b, c);
+  p25519_fe_sqrn(t0, c, 1);
+  p25519_fe_mul(b, t0, b);
+  p25519_fe_pow_two5mtwo0_two250mtwo0(b);
+  p25519_fe_sqrn(b, b, 2);
+  p25519_fe_mul(two252m3, b, z);
 }
 
-/*
- * z^(p - 2) = z(2^255 - 21)
- */
 static void
 p25519_fe_invert(p25519_fe_t out, const p25519_fe_t z) {
   p25519_fe_t a, t0, b;
 
-  /* 2 */ p25519_fe_sqrn(a, z, 1); /* a = 2 */
-  /* 8 */ p25519_fe_sqrn(t0, a, 2);
-  /* 9 */ p25519_fe_mul(b, t0, z); /* b = 9 */
-  /* 11 */ p25519_fe_mul(a, b, a); /* a = 11 */
-  /* 22 */ p25519_fe_sqrn(t0, a, 1);
-  /* 2^5 - 2^0 = 31 */ p25519_fe_mul(b, t0, b);
-  /* 2^250 - 2^0 */ p25519_fe_pow_two5mtwo0_two250mtwo0(b);
-  /* 2^255 - 2^5 */ p25519_fe_sqrn(b, b, 5);
-  /* 2^255 - 21 */ p25519_fe_mul(out, b, a);
+  /* z^(p - 2) = z(2^255 - 21) */
+  p25519_fe_sqrn(a, z, 1);
+  p25519_fe_sqrn(t0, a, 2);
+  p25519_fe_mul(b, t0, z);
+  p25519_fe_mul(a, b, a);
+  p25519_fe_sqrn(t0, a, 1);
+  p25519_fe_mul(b, t0, b);
+  p25519_fe_pow_two5mtwo0_two250mtwo0(b);
+  p25519_fe_sqrn(b, b, 5);
+  p25519_fe_mul(out, b, a);
 }
 
 static int
@@ -169,9 +160,13 @@ p25519_fe_sqrt(p25519_fe_t out, const p25519_fe_t x) {
   p25519_fe_t a, b, c;
   int r;
 
+  /* A = X^((p + 3) / 8) */
   p25519_fe_pow_two252m2(a, x);
+
+  /* B = A * I */
   p25519_fe_mul(b, a, p25519_sqrtneg1);
 
+  /* A = B (if A^2 != X) */
   p25519_fe_sqr(c, a);
   r = p25519_fe_equal(c, x);
 

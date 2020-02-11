@@ -184,7 +184,7 @@ p224_fe_sqrt_var(p224_fe_t out, const p224_fe_t in) {
    *
    *     while t != 1:
    *       t = t^2 mod p
-   *       m += 1;
+   *       m += 1
    *
    *     if m == 0:
    *       break
@@ -206,6 +206,7 @@ p224_fe_sqrt_var(p224_fe_t out, const p224_fe_t in) {
   p224_fe_pow_e(y, in);
   p224_fe_pow_s(b, in);
   p224_fe_set(g, p224_g);
+  p224_fe_set(out, p224_zero);
 
   /* Note that b happens to be the first
    * step of Euler's criterion. Squaring
@@ -215,10 +216,8 @@ p224_fe_sqrt_var(p224_fe_t out, const p224_fe_t in) {
   p224_fe_sqrn(t, b, 95);
 
   /* Zero. */
-  if (p224_fe_equal(t, p224_zero)) {
-    p224_fe_set(out, p224_zero);
+  if (p224_fe_equal(t, p224_zero))
     return 1;
-  }
 
   /* Quadratic non-residue. */
   if (!p224_fe_equal(t, p224_one))
