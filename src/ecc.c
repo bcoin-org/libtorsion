@@ -4578,10 +4578,6 @@ wei_point_to_hash(wei_t *ec,
 
   for (;;) {
     drbg_generate(&rng, bytes, fe->size);
-
-    if (!bytes_lt(bytes, fe->raw, fe->size, fe->endian))
-      continue;
-
     wei_point_from_uniform(ec, &p1, bytes);
 
     /* Avoid 2-torsion points. */
@@ -5558,10 +5554,6 @@ mont_point_to_hash(mont_t *ec,
 
   for (;;) {
     drbg_generate(&rng, bytes, fe->size);
-
-    if (!bytes_lt(bytes, fe->raw, fe->size, fe->endian))
-      continue;
-
     mont_point_from_uniform(ec, &p1, bytes);
 
     /* Avoid 2-torsion points. */
@@ -6730,10 +6722,6 @@ edwards_point_to_hash(edwards_t *ec,
 
   for (;;) {
     drbg_generate(&rng, bytes, fe->size);
-
-    if (!bytes_lt(bytes, fe->raw, fe->size, fe->endian))
-      continue;
-
     edwards_point_from_uniform(ec, &p1, bytes);
 
     /* Avoid 2-torsion points. */
