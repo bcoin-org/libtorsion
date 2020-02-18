@@ -3702,6 +3702,8 @@ wei_jmul_endo(wei_t *ec, jge_t *r, const wge_t *p, const sc_t k) {
   jge_t t1, t2;
   sc_t k1, k2;
 
+  assert(ec->endo == 1);
+
   wge_set(ec, &p1, p);
   wge_endo_beta(ec, &p2, &p1);
   wei_endo_split(ec, k1, &s1, k2, &s2, k);
