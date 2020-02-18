@@ -3620,22 +3620,22 @@ wei_jmul_g(wei_t *ec, jge_t *r, const sc_t k) {
   scalar_field_t *sc = &ec->sc;
   size_t i, j, b;
   sc_t k0;
-  wge_t p;
+  wge_t t;
 
   /* Blind if available. */
   sc_add(sc, k0, k, ec->blind);
 
   /* Multiply in constant time. */
-  wge_zero(ec, &p);
   wge_to_jge(ec, r, &ec->unblind);
+  wge_zero(ec, &t);
 
   for (i = 0; i < WND_STEPS(sc->bits); i++) {
     b = sc_get_bits(sc, k0, i * WND_WIDTH, WND_WIDTH);
 
     for (j = 0; j < WND_SIZE; j++)
-      wge_select(ec, &p, &p, &ec->windows[i * WND_SIZE + j], j == b);
+      wge_select(ec, &t, &t, &ec->windows[i * WND_SIZE + j], j == b);
 
-    jge_mixed_add(ec, r, r, &p);
+    jge_mixed_add(ec, r, r, &t);
   }
 
   /* Cleanse. */
@@ -3671,17 +3671,19 @@ wei_jmul_normal(wei_t *ec, jge_t *r, const wge_t *p, const sc_t k) {
   jge_zero(ec, &t);
 
   for (i = start; i >= 0; i--) {
-    if (i != start) {
-      for (j = 0; j < WND_WIDTH; j++)
-        jge_dbl(ec, r, r);
-    }
-
     b = sc_get_bits(sc, k, i * WND_WIDTH, WND_WIDTH);
 
     for (j = 0; j < WND_SIZE; j++)
       jge_select(ec, &t, &t, &table[j], j == b);
 
-    jge_add(ec, r, r, &t);
+    if (i == start) {
+      jge_set(ec, r, &t);
+    } else {
+      for (j = 0; j < WND_WIDTH; j++)
+        jge_dbl(ec, r, r);
+
+      jge_add(ec, r, r, &t);
+    }
   }
 
   cleanse(&b, sizeof(b));
@@ -3694,11 +3696,11 @@ wei_jmul_endo(wei_t *ec, jge_t *r, const wge_t *p, const sc_t k) {
   mp_size_t start = WND_STEPS(bits) - 1;
   jge_t table1[WND_SIZE];
   jge_t table2[WND_SIZE];
-  mp_size_t i, j, b;
+  mp_size_t i, j, b1, b2;
   int32_t s1, s2;
   wge_t p1, p2;
+  jge_t t1, t2;
   sc_t k1, k2;
-  jge_t t;
 
   wge_set(ec, &p1, p);
   wge_endo_beta(ec, &p2, &p1);
@@ -3726,33 +3728,34 @@ wei_jmul_endo(wei_t *ec, jge_t *r, const wge_t *p, const sc_t k) {
   }
 
   jge_zero(ec, r);
-  jge_zero(ec, &t);
+  jge_zero(ec, &t1);
+  jge_zero(ec, &t2);
 
   for (i = start; i >= 0; i--) {
-    if (i != start) {
-      for (j = 0; j < WND_WIDTH; j++)
-        jge_dbl(ec, r, r);
+    b1 = sc_get_bits(sc, k1, i * WND_WIDTH, WND_WIDTH);
+    b2 = sc_get_bits(sc, k2, i * WND_WIDTH, WND_WIDTH);
+
+    for (j = 0; j < WND_SIZE; j++) {
+      jge_select(ec, &t1, &t1, &table1[j], j == b1);
+      jge_select(ec, &t2, &t2, &table2[j], j == b2);
     }
 
-    b = sc_get_bits(sc, k1, i * WND_WIDTH, WND_WIDTH);
+    if (i == start) {
+      jge_add(ec, r, &t1, &t2);
+    } else {
+      for (j = 0; j < WND_WIDTH; j++)
+        jge_dbl(ec, r, r);
 
-    for (j = 0; j < WND_SIZE; j++)
-      jge_select(ec, &t, &t, &table1[j], j == b);
-
-    jge_add(ec, r, r, &t);
-
-    b = sc_get_bits(sc, k2, i * WND_WIDTH, WND_WIDTH);
-
-    for (j = 0; j < WND_SIZE; j++)
-      jge_select(ec, &t, &t, &table2[j], j == b);
-
-    jge_add(ec, r, r, &t);
+      jge_add(ec, r, r, &t1);
+      jge_add(ec, r, r, &t2);
+    }
   }
 
   sc_cleanse(sc, k1);
   sc_cleanse(sc, k2);
 
-  cleanse(&b, sizeof(b));
+  cleanse(&b1, sizeof(b1));
+  cleanse(&b2, sizeof(b2));
   cleanse(&s1, sizeof(s1));
   cleanse(&s2, sizeof(s2));
 }
@@ -6295,22 +6298,22 @@ edwards_mul_g(edwards_t *ec, xge_t *r, const sc_t k) {
   scalar_field_t *sc = &ec->sc;
   size_t i, j, b;
   sc_t k0;
-  xge_t p;
+  xge_t t;
 
   /* Blind if available. */
   sc_add(sc, k0, k, ec->blind);
 
   /* Multiply in constant time. */
-  xge_zero(ec, &p);
   xge_set(ec, r, &ec->unblind);
+  xge_zero(ec, &t);
 
   for (i = 0; i < WND_STEPS(sc->bits); i++) {
     b = sc_get_bits(sc, k0, i * WND_WIDTH, WND_WIDTH);
 
     for (j = 0; j < WND_SIZE; j++)
-      xge_select(ec, &p, &p, &ec->windows[i * WND_SIZE + j], j == b);
+      xge_select(ec, &t, &t, &ec->windows[i * WND_SIZE + j], j == b);
 
-    xge_add(ec, r, r, &p);
+    xge_add(ec, r, r, &t);
   }
 
   /* Cleanse. */
@@ -6340,17 +6343,19 @@ edwards_mul(edwards_t *ec, xge_t *r, const xge_t *p, const sc_t k) {
   xge_zero(ec, &t);
 
   for (i = start; i >= 0; i--) {
-    if (i != start) {
-      for (j = 0; j < WND_WIDTH; j++)
-        xge_dbl(ec, r, r);
-    }
-
     b = sc_get_bits(sc, k, i * WND_WIDTH, WND_WIDTH);
 
     for (j = 0; j < WND_SIZE; j++)
       xge_select(ec, &t, &t, &table[j], j == b);
 
-    xge_add(ec, r, r, &t);
+    if (i == start) {
+      xge_set(ec, r, &t);
+    } else {
+      for (j = 0; j < WND_WIDTH; j++)
+        xge_dbl(ec, r, r);
+
+      xge_add(ec, r, r, &t);
+    }
   }
 
   cleanse(&b, sizeof(b));
