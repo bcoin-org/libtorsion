@@ -97,11 +97,16 @@
  *
  *   [SCHNORR] Schnorr Signatures for secp256k1
  *     Pieter Wuille
- *     https://github.com/sipa/bips/blob/bip-schnorr/bip-schnorr.mediawiki
+ *     https://github.com/sipa/bips/blob/d194620/bip-schnorr.mediawiki
  *
  *   [CASH] Schnorr Signature specification
  *     Mark B. Lundeberg
  *     https://github.com/bitcoincashorg/bitcoincash.org/blob/master/spec/2019-05-15-schnorr.md
+ *
+ *   [BIP340] Schnorr Signatures for secp256k1
+ *     Pieter Wuille, Jonas Nick, Tim Ruffing
+ *     https://github.com/sipa/bips/blob/bip-taproot/bip-0340.mediawiki
+ *     https://github.com/bitcoin/bips/blob/master/bip-0340.mediawiki
  *
  *   [JCEN12] Efficient Software Implementation of Public-Key Cryptography
  *            on Sensor Networks Using the MSP430X Microcontroller
@@ -2082,7 +2087,18 @@ wge_export(wei_t *ec,
 }
 
 static int
-wge_import_x(wei_t *ec, wge_t *r, const unsigned char *raw) {
+wge_import_even(wei_t *ec, wge_t *r, const unsigned char *raw) {
+  /* [BIP340] "Specification". */
+  prime_field_t *fe = &ec->fe;
+
+  if (!fe_import(fe, r->x, raw))
+    return 0;
+
+  return wge_set_x(ec, r, r->x, 0);
+}
+
+static int
+wge_import_square(wei_t *ec, wge_t *r, const unsigned char *raw) {
   /* [SCHNORR] "Specification". */
   prime_field_t *fe = &ec->fe;
 
@@ -2095,6 +2111,7 @@ wge_import_x(wei_t *ec, wge_t *r, const unsigned char *raw) {
 static int
 wge_export_x(wei_t *ec, unsigned char *raw, const wge_t *p) {
   /* [SCHNORR] "Specification". */
+  /* [BIP340] "Specification". */
   prime_field_t *fe = &ec->fe;
 
   if (p->inf)
@@ -2179,6 +2196,11 @@ wge_is_square_var(wei_t *ec, const wge_t *p) {
     return 0;
 
   return fe_is_square_var(&ec->fe, p->y);
+}
+
+static int
+wge_is_even(wei_t *ec, const wge_t *p) {
+  return (fe_is_odd(&ec->fe, p->y) ^ 1) & (p->inf ^ 1);
 }
 
 static int
@@ -9075,7 +9097,7 @@ ecdsa_schnorr_hash_am(wei_t *ec, sc_t k,
   hash_init(&hash, ec->hash);
   hash_update(&hash, scalar, sc->size);
   hash_update(&hash, msg, 32);
-  hash_final(&hash, bytes + off, sc->size);
+  hash_final(&hash, bytes + off, hash_size);
 
   sc_import_reduce(sc, k, bytes);
 
@@ -9106,7 +9128,7 @@ ecdsa_schnorr_hash_ram(wei_t *ec, sc_t e,
   hash_update(&hash, R, fe->size);
   hash_update(&hash, A, fe->size + 1);
   hash_update(&hash, msg, 32);
-  hash_final(&hash, bytes + off, sc->size);
+  hash_final(&hash, bytes + off, hash_size);
 
   sc_import_reduce(sc, e, bytes);
 
@@ -9116,6 +9138,7 @@ ecdsa_schnorr_hash_ram(wei_t *ec, sc_t e,
 
 int
 ecdsa_schnorr_support(wei_t *ec) {
+  /* [SCHNORR] "Footnotes". */
   /* Must satisfy p = 3 mod 4. */
   return (ec->fe.p[0] & 3) == 3;
 }
@@ -9381,7 +9404,7 @@ ecdsa_schnorr_verify_batch(wei_t *ec,
     const unsigned char *Rraw = sig;
     const unsigned char *sraw = sig + fe->size;
 
-    if (!wge_import_x(ec, &R, Rraw))
+    if (!wge_import_square(ec, &R, Rraw))
       return 0;
 
     if (!wge_import(ec, &A, pub, pub_len))
@@ -9530,23 +9553,21 @@ schnorr_privkey_export(wei_t *ec,
                        const unsigned char *priv) {
   scalar_field_t *sc = &ec->sc;
   sc_t a;
-  jge_t A;
+  wge_t A;
   int ret = 0;
 
   if (!sc_import(sc, a, priv))
     goto fail;
 
-  wei_jmul_g(ec, &A, a);
+  wei_mul_g(ec, &A, a);
 
-  if (!jge_is_square_var(ec, &A))
-    sc_neg(sc, a, a);
-
+  sc_neg_cond(sc, a, a, wge_is_even(ec, &A) ^ 1);
   sc_export(sc, out, a);
 
   ret = 1;
 fail:
   sc_cleanse(sc, a);
-  jge_cleanse(ec, &A);
+  wge_cleanse(ec, &A);
   return ret;
 }
 
@@ -9565,7 +9586,7 @@ schnorr_privkey_tweak_add(wei_t *ec,
                           const unsigned char *tweak) {
   scalar_field_t *sc = &ec->sc;
   sc_t a, t;
-  jge_t A;
+  wge_t A;
   int ret = 0;
 
   if (!sc_import(sc, a, priv))
@@ -9577,11 +9598,9 @@ schnorr_privkey_tweak_add(wei_t *ec,
   if (!sc_import(sc, t, tweak))
     goto fail;
 
-  wei_jmul_g(ec, &A, a);
+  wei_mul_g(ec, &A, a);
 
-  if (!jge_is_square_var(ec, &A))
-    sc_neg(sc, a, a);
-
+  sc_neg_cond(sc, a, a, wge_is_even(ec, &A) ^ 1);
   sc_add(sc, a, a, t);
 
   if (sc_is_zero(sc, a))
@@ -9593,7 +9612,7 @@ schnorr_privkey_tweak_add(wei_t *ec,
 fail:
   sc_cleanse(sc, a);
   sc_cleanse(sc, t);
-  jge_cleanse(ec, &A);
+  wge_cleanse(ec, &A);
   return ret;
 }
 
@@ -9665,7 +9684,7 @@ schnorr_pubkey_to_uniform(wei_t *ec,
                           unsigned int hint) {
   wge_t A;
 
-  if (!wge_import_x(ec, &A, pub))
+  if (!wge_import_even(ec, &A, pub))
     return 0;
 
   return wei_point_to_uniform(ec, out, &A, hint);
@@ -9689,7 +9708,7 @@ schnorr_pubkey_to_hash(wei_t *ec,
                        const unsigned char *entropy) {
   wge_t A;
 
-  if (!wge_import_x(ec, &A, pub))
+  if (!wge_import_even(ec, &A, pub))
     return 0;
 
   wei_point_to_hash(ec, out, &A, entropy);
@@ -9701,7 +9720,7 @@ int
 schnorr_pubkey_verify(wei_t *ec, unsigned char *out, const unsigned char *pub) {
   wge_t A;
 
-  return wge_import_x(ec, &A, pub);
+  return wge_import_even(ec, &A, pub);
 }
 
 int
@@ -9712,7 +9731,7 @@ schnorr_pubkey_export(wei_t *ec,
   prime_field_t *fe = &ec->fe;
   wge_t A;
 
-  if (!wge_import_x(ec, &A, pub))
+  if (!wge_import_even(ec, &A, pub))
     return 0;
 
   assert(!A.inf);
@@ -9743,7 +9762,7 @@ schnorr_pubkey_import(wei_t *ec,
   memset(xp, 0x00, fe->size - x_len);
   memcpy(xp + fe->size - x_len, x, x_len);
 
-  if (!wge_import_x(ec, &A, xp))
+  if (!wge_import_even(ec, &A, xp))
     return 0;
 
   return wge_export_x(ec, out, &A);
@@ -9758,7 +9777,7 @@ schnorr_pubkey_tweak_add(wei_t *ec,
   wge_t A, T;
   sc_t t;
 
-  if (!wge_import_x(ec, &A, pub))
+  if (!wge_import_even(ec, &A, pub))
     return 0;
 
   if (!sc_import(sc, t, tweak))
@@ -9781,7 +9800,7 @@ schnorr_pubkey_tweak_mul(wei_t *ec,
   wge_t A;
   sc_t t;
 
-  if (!wge_import_x(ec, &A, pub))
+  if (!wge_import_even(ec, &A, pub))
     return 0;
 
   if (!sc_import(sc, t, tweak))
@@ -9806,7 +9825,7 @@ schnorr_pubkey_combine(wei_t *ec,
   jge_zero(ec, &P);
 
   for (i = 0; i < len; i++) {
-    if (!wge_import_x(ec, &A, pubs[i]))
+    if (!wge_import_even(ec, &A, pubs[i]))
       return 0;
 
     jge_mixed_add(ec, &P, &P, &A);
@@ -9819,27 +9838,35 @@ schnorr_pubkey_combine(wei_t *ec,
 
 static void
 schnorr_hash_init(hash_t *hash, int type, const char *tag) {
-  size_t size = hash_output_size(type);
-  unsigned char bytes[HASH_MAX_OUTPUT_SIZE * 2];
+  /* [BIP340] "Tagged Hashes". */
+  size_t hash_size = hash_output_size(type);
+  unsigned char bytes[HASH_MAX_OUTPUT_SIZE];
 
   hash_init(hash, type);
   hash_update(hash, tag, strlen(tag));
-  hash_final(hash, bytes, size);
-  memcpy(bytes + size, bytes, size);
+  hash_final(hash, bytes, hash_size);
 
   hash_init(hash, type);
-  hash_update(hash, bytes, size * 2);
+  hash_update(hash, bytes, hash_size);
+  hash_update(hash, bytes, hash_size);
 }
 
 static void
 schnorr_hash_am(wei_t *ec, sc_t k,
                 const unsigned char *scalar,
-                const unsigned char *msg) {
+                const unsigned char *point,
+                const unsigned char *msg,
+                const unsigned char *aux,
+                size_t aux_len) {
+  prime_field_t *fe = &ec->fe;
   scalar_field_t *sc = &ec->sc;
+  unsigned char haux[HASH_MAX_OUTPUT_SIZE];
   unsigned char bytes[MAX_SCALAR_SIZE];
+  unsigned char secret[MAX_SCALAR_SIZE];
   size_t hash_size = hash_output_size(ec->hash);
   size_t off = 0;
   hash_t hash;
+  size_t i;
 
   assert(MAX_SCALAR_SIZE >= HASH_MAX_OUTPUT_SIZE);
 
@@ -9848,15 +9875,26 @@ schnorr_hash_am(wei_t *ec, sc_t k,
     memset(bytes, 0x00, off);
   }
 
-  schnorr_hash_init(&hash, ec->hash, "BIPSchnorrDerive");
+  schnorr_hash_init(&hash, ec->hash, "BIP340/aux");
 
-  hash_update(&hash, scalar, sc->size);
+  hash_update(&hash, aux, aux_len);
+  hash_final(&hash, haux, hash_size);
+
+  for (i = 0; i < sc->size; i++)
+    secret[i] = scalar[i] ^ haux[i % hash_size];
+
+  schnorr_hash_init(&hash, ec->hash, "BIP340/nonce");
+
+  hash_update(&hash, secret, sc->size);
+  hash_update(&hash, point, fe->size);
   hash_update(&hash, msg, 32);
-  hash_final(&hash, bytes + off, sc->size);
+  hash_final(&hash, bytes + off, hash_size);
 
   sc_import_reduce(sc, k, bytes);
 
+  cleanse(haux, sizeof(haux));
   cleanse(bytes, sizeof(bytes));
+  cleanse(secret, sizeof(secret));
   cleanse(&hash, sizeof(hash));
 }
 
@@ -9879,12 +9917,12 @@ schnorr_hash_ram(wei_t *ec, sc_t e,
     memset(bytes, 0x00, off);
   }
 
-  schnorr_hash_init(&hash, ec->hash, "BIPSchnorr");
+  schnorr_hash_init(&hash, ec->hash, "BIP340/challenge");
 
   hash_update(&hash, R, fe->size);
   hash_update(&hash, A, fe->size);
   hash_update(&hash, msg, 32);
-  hash_final(&hash, bytes + off, sc->size);
+  hash_final(&hash, bytes + off, hash_size);
 
   sc_import_reduce(sc, e, bytes);
 
@@ -9896,28 +9934,32 @@ int
 schnorr_sign(wei_t *ec,
              unsigned char *sig,
              const unsigned char *msg,
-             const unsigned char *priv) {
+             const unsigned char *priv,
+             const unsigned char *aux,
+             size_t aux_len) {
   /* Schnorr Signing.
    *
-   * [SCHNORR] "Default Signing".
+   * [BIP340] "Default Signing".
    *
    * Assumptions:
    *
    *   - Let `H` be a cryptographic hash function.
    *   - Let `m` be a 32-byte array.
    *   - Let `a` be a secret non-zero scalar.
+   *   - Let `d` be a 0 to 32-byte array.
    *   - k != 0.
    *
    * Computation:
    *
    *   A = G * a
-   *   a = -a mod n, if y(A) is not square
-   *   k = H("BIPSchnorrDerive", a, m) mod n
+   *   a = -a mod n, if y(A) is not even
+   *   x = x(A)
+   *   t = a xor H("BIP340/aux", d)
+   *   k = H("BIP340/nonce", t, x, m) mod n
    *   R = G * k
    *   k = -k mod n, if y(R) is not square
    *   r = x(R)
-   *   x = x(A)
-   *   e = H("BIPSchnorr", r, x, m) mod n
+   *   e = H("BIP340/challenge", r, x, m) mod n
    *   s = (k + e * a) mod n
    *   S = (r, s)
    *
@@ -9939,6 +9981,9 @@ schnorr_sign(wei_t *ec,
   /* Must satisfy p = 3 mod 4. */
   assert((fe->p[0] & 3) == 3);
 
+  if (aux_len > 32)
+    goto fail;
+
   if (!sc_import(sc, a, priv))
     goto fail;
 
@@ -9947,10 +9992,12 @@ schnorr_sign(wei_t *ec,
 
   wei_mul_g(ec, &A, a);
 
-  sc_neg_cond(sc, a, a, wge_is_square(ec, &A) ^ 1);
+  sc_neg_cond(sc, a, a, wge_is_even(ec, &A) ^ 1);
   sc_export(sc, araw, a);
 
-  schnorr_hash_am(ec, k, araw, msg);
+  wge_export_x(ec, Araw, &A);
+
+  schnorr_hash_am(ec, k, araw, Araw, msg, aux, aux_len);
 
   if (sc_is_zero(sc, k))
     goto fail;
@@ -9960,7 +10007,6 @@ schnorr_sign(wei_t *ec,
   sc_neg_cond(sc, k, k, wge_is_square(ec, &R) ^ 1);
 
   wge_export_x(ec, Rraw, &R);
-  wge_export_x(ec, Araw, &A);
 
   schnorr_hash_ram(ec, e, Rraw, Araw, msg);
 
@@ -9989,7 +10035,7 @@ schnorr_verify(wei_t *ec,
                const unsigned char *pub) {
   /* Schnorr Verification.
    *
-   * [SCHNORR] "Verification".
+   * [BIP340] "Verification".
    *
    * Assumptions:
    *
@@ -9998,7 +10044,7 @@ schnorr_verify(wei_t *ec,
    *   - Let `r` and `s` be signature elements.
    *   - Let `x` be a field element.
    *   - r^3 + a * r + b is square in F(p).
-   *   - x^3 + a * x + b is square in F(p).
+   *   - x^3 + a * x + b is even in F(p).
    *   - r < p, s < n, x < p.
    *   - R != O.
    *
@@ -10006,13 +10052,13 @@ schnorr_verify(wei_t *ec,
    *
    *   R = (r, sqrt(r^3 + a * r + b))
    *   A = (x, sqrt(x^3 + a * x + b))
-   *   e = H("BIPSchnorr", r, x, m) mod n
+   *   e = H("BIP340/challenge", r, x, m) mod n
    *   R == G * s - A * e
    *
    * We can skip a square root with:
    *
    *   A = (x, sqrt(x^3 + a * x + b))
-   *   e = H("BIPSchnorr", r, x, m) mod n
+   *   e = H("BIP340/challenge", r, x, m) mod n
    *   R = G * s - A * e
    *   y(R) is square
    *   x(R) == r
@@ -10044,7 +10090,7 @@ schnorr_verify(wei_t *ec,
   if (!sc_import(sc, s, sraw))
     return 0;
 
-  if (!wge_import_x(ec, &A, pub))
+  if (!wge_import_even(ec, &A, pub))
     return 0;
 
   schnorr_hash_ram(ec, e, Rraw, pub, msg);
@@ -10071,7 +10117,7 @@ schnorr_verify_batch(wei_t *ec,
                      wei_scratch_t *scratch) {
   /* Schnorr Batch Verification.
    *
-   * [SCHNORR] "Batch Verification".
+   * [BIP340] "Batch Verification".
    *
    * Assumptions:
    *
@@ -10081,7 +10127,7 @@ schnorr_verify_batch(wei_t *ec,
    *   - Let `x` be a field element.
    *   - Let `i` be the batch item index.
    *   - r^3 + a * r + b is square in F(p).
-   *   - x^3 + a * x + b is square in F(p).
+   *   - x^3 + a * x + b is even in F(p).
    *   - r < p, s < n, x < p.
    *   - a1 = 1 mod n.
    *
@@ -10089,7 +10135,7 @@ schnorr_verify_batch(wei_t *ec,
    *
    *   Ri = (ri, sqrt(ri^3 + a * ri + b))
    *   Ai = (xi, sqrt(xi^3 + a * xi + b))
-   *   ei = H("BIPSchnorr", ri, xi, mi) mod n
+   *   ei = H("BIP340/challenge", ri, xi, mi) mod n
    *   ai = random integer in [1,n-1]
    *   lhs = si * ai + ... mod n
    *   rhs = Ri * ai + Ai * (ei * ai mod n) + ...
@@ -10142,10 +10188,10 @@ schnorr_verify_batch(wei_t *ec,
     const unsigned char *Rraw = sig;
     const unsigned char *sraw = sig + fe->size;
 
-    if (!wge_import_x(ec, &R, Rraw))
+    if (!wge_import_square(ec, &R, Rraw))
       return 0;
 
-    if (!wge_import_x(ec, &A, pub))
+    if (!wge_import_even(ec, &A, pub))
       return 0;
 
     if (!sc_import(sc, s, sraw))
@@ -10212,7 +10258,7 @@ schnorr_derive(wei_t *ec,
   if (sc_is_zero(sc, a))
     goto fail;
 
-  if (!wge_import_x(ec, &A, pub))
+  if (!wge_import_even(ec, &A, pub))
     goto fail;
 
   wei_mul(ec, &P, &A, a);
