@@ -9394,12 +9394,10 @@ ecdsa_schnorr_verify_batch(wei_t *ec,
 
     ecdsa_schnorr_hash_ram(ec, e, Rraw, Araw, msg);
 
-    if (j == 0) {
-      sc_zero(sc, a);
-      a[0] = 1;
-    } else {
+    if (j == 0)
+      sc_set_word(sc, a, 1);
+    else
       sc_random(sc, a, &rng);
-    }
 
     sc_mul(sc, e, e, a);
     sc_mul(sc, s, s, a);
@@ -10155,12 +10153,10 @@ schnorr_verify_batch(wei_t *ec,
 
     schnorr_hash_ram(ec, e, Rraw, pub, msg);
 
-    if (j == 0) {
-      sc_zero(sc, a);
-      a[0] = 1;
-    } else {
+    if (j == 0)
+      sc_set_word(sc, a, 1);
+    else
       sc_random(sc, a, &rng);
-    }
 
     sc_mul(sc, e, e, a);
     sc_mul(sc, s, s, a);
@@ -11487,7 +11483,7 @@ eddsa_verify(edwards_t *ec,
     return 0;
 
   if ((fe->bits & 7) == 0) {
-    if (sraw[fe->size] != 0)
+    if (sraw[fe->size] != 0x00)
       return 0;
   }
 
@@ -11551,7 +11547,7 @@ eddsa_verify_single(edwards_t *ec,
     return 0;
 
   if ((fe->bits & 7) == 0) {
-    if (sraw[fe->size] != 0)
+    if (sraw[fe->size] != 0x00)
       return 0;
   }
 
@@ -11659,18 +11655,16 @@ eddsa_verify_batch(edwards_t *ec,
       return 0;
 
     if ((fe->bits & 7) == 0) {
-      if (sraw[fe->size] != 0)
+      if (sraw[fe->size] != 0x00)
         return 0;
     }
 
     eddsa_hash_ram(ec, e, ph, ctx, ctx_len, Rraw, pub, msg, msg_len);
 
-    if (j == 0) {
-      sc_zero(sc, a);
-      a[0] = 1;
-    } else {
+    if (j == 0)
+      sc_set_word(sc, a, 1);
+    else
       sc_random(sc, a, &rng);
-    }
 
     sc_mul(sc, e, e, a);
     sc_mul(sc, s, s, a);
