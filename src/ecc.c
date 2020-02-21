@@ -11335,7 +11335,7 @@ eddsa_sign_with_scalar(edwards_t *ec,
   sc_export(sc, sraw, s);
 
   if ((fe->bits & 7) == 0)
-    sraw[fe->size] = 0;
+    sraw[fe->size] = 0x00;
 
   cleanse(Araw, sizeof(Araw));
   sc_cleanse(sc, k);
