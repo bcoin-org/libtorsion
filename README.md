@@ -1,8 +1,8 @@
 # libtorsion
 
-Crypto library in C89, primarily for EC. Currently in an experimental state.
+Crypto library in C89, primarily for EC. Still semi-experimental.
 
-Intended to be the new backend for [bcrypto].
+Used as the backend for [bcrypto].
 
 ## Design Approach
 
@@ -28,18 +28,14 @@ Intended to be the new backend for [bcrypto].
     - curve448
     - edwards25519
     - edwards448
-    - edwards1174
+    - curve1174
 
 - Schemes:
     - ECDSA
-    - BIP-Schnorr Legacy
-    - BIP-Schnorr
+    - [BIP-Schnorr][schnorr]
+    - [BIP340][bip340]
     - ECDH
     - EdDSA
-
-## Todo
-
-- Optimize functions to reduce stack usage.
 
 ## Contribution and License Agreement
 
@@ -55,3 +51,5 @@ See LICENSE for more info.
 
 [bcrypto]: https://github.com/bcoin-org/bcrypto
 [fiat-crypto]: https://github.com/mit-plv/fiat-crypto
+[schnorr]: https://github.com/sipa/bips/blob/d194620/bip-schnorr.mediawiki
+[bip340]: https://github.com/sipa/bips/blob/bip-taproot/bip-0340.mediawiki
