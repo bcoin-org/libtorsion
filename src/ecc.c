@@ -9051,7 +9051,7 @@ ecdsa_derive(const wei_t *ec,
              unsigned char *secret,
              size_t *secret_len,
              const unsigned char *pub,
-             const size_t pub_len,
+             size_t pub_len,
              const unsigned char *priv,
              int compact) {
   const scalar_field_t *sc = &ec->sc;
