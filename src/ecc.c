@@ -8850,7 +8850,7 @@ ecdsa_sign(const wei_t *ec,
     if (sc_is_zero(sc, r))
       continue;
 
-    sc_invert(sc, k, k);
+    assert(sc_invert(sc, k, k));
     sc_mul(sc, s, r, a);
     sc_add(sc, s, s, m);
     sc_mul(sc, s, s, k);
@@ -8920,11 +8920,12 @@ ecdsa_verify(const wei_t *ec,
   const scalar_field_t *sc = &ec->sc;
   sc_t m, r, s, u1, u2;
   wge_t A;
-  jge_t Rj;
-#ifndef ECC_WITH_TRICK
+#ifdef ECC_WITH_TRICK
+  jge_t R;
+#else
   const prime_field_t *fe = &ec->fe;
-  wge_t Ra;
-  sc_t re;
+  wge_t R;
+  sc_t x;
 #endif
 
   ecdsa_reduce(ec, m, msg, msg_len);
@@ -8941,25 +8942,26 @@ ecdsa_verify(const wei_t *ec,
   if (sc_is_zero(sc, r) || sc_is_zero(sc, s))
     return 0;
 
-  if (sc_is_high(sc, s))
+  if (sc_is_high_var(sc, s))
     return 0;
 
-  sc_invert_var(sc, s, s);
+  assert(sc_invert_var(sc, s, s));
   sc_mul(sc, u1, m, s);
   sc_mul(sc, u2, r, s);
 
-  wei_jmul_double_var(ec, &Rj, u1, &A, u2);
-
 #ifdef ECC_WITH_TRICK
-  return jge_equal_r(ec, &Rj, r);
+  wei_jmul_double_var(ec, &R, u1, &A, u2);
+
+  return jge_equal_r(ec, &R, r);
 #else
-  if (jge_is_zero(ec, &Rj))
+  wei_mul_double_var(ec, &R, u1, &A, u2);
+
+  if (wge_is_zero(ec, &R))
     return 0;
 
-  jge_to_wge_var(ec, &Ra, &Rj);
-  sc_set_fe(sc, fe, re, Ra.x);
+  sc_set_fe(sc, fe, x, R.x);
 
-  return sc_equal(sc, r, re);
+  return sc_equal(sc, x, r);
 #endif
 }
 
@@ -9020,7 +9022,7 @@ ecdsa_recover(const wei_t *ec,
   if (sc_is_zero(sc, r) || sc_is_zero(sc, s))
     return 0;
 
-  if (sc_is_high(sc, s))
+  if (sc_is_high_var(sc, s))
     return 0;
 
   /* Assumes n < p. */
@@ -9036,7 +9038,7 @@ ecdsa_recover(const wei_t *ec,
   if (!wge_set_x(ec, &R, x, sign))
     return 0;
 
-  sc_invert_var(sc, r, r);
+  assert(sc_invert_var(sc, r, r));
   sc_mul(sc, s1, m, r);
   sc_mul(sc, s2, s, r);
   sc_neg(sc, s1, s1);
