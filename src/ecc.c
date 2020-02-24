@@ -2058,10 +2058,10 @@ wge_import(wei_t *ec, wge_t *r, const unsigned char *raw, size_t len) {
 
 static int
 wge_export(wei_t *ec,
-          unsigned char *raw,
-          size_t *len,
-          const wge_t *p,
-          int compact) {
+           unsigned char *raw,
+           size_t *len,
+           const wge_t *p,
+           int compact) {
   /* [SEC1] Page 10, Section 2.3.3. */
   prime_field_t *fe = &ec->fe;
 
@@ -3929,10 +3929,10 @@ wei_jmul_double_var(wei_t *ec,
 
 static void
 wei_mul_double_var(wei_t *ec,
-                     wge_t *r,
-                     const sc_t k1,
-                     const wge_t *p2,
-                     const sc_t k2) {
+                   wge_t *r,
+                   const sc_t k1,
+                   const wge_t *p2,
+                   const sc_t k2) {
   jge_t j;
   wei_jmul_double_var(ec, &j, k1, p2, k2);
   jge_to_wge_var(ec, r, &j);
@@ -4123,12 +4123,12 @@ wei_jmul_multi_var(wei_t *ec,
 
 static void
 wei_mul_multi_var(wei_t *ec,
-                   wge_t *r,
-                   const sc_t k0,
-                   const wge_t *points,
-                   const sc_t *coeffs,
-                   size_t len,
-                   wei_scratch_t *scratch) {
+                  wge_t *r,
+                  const sc_t k0,
+                  const wge_t *points,
+                  const sc_t *coeffs,
+                  size_t len,
+                  wei_scratch_t *scratch) {
   jge_t j;
   wei_jmul_multi_var(ec, &j, k0, points, coeffs, len, scratch);
   jge_to_wge_var(ec, r, &j);
@@ -5756,8 +5756,8 @@ xge_import(edwards_t *ec, xge_t *r, const unsigned char *raw) {
 
 static void
 xge_export(edwards_t *ec,
-          unsigned char *raw,
-          const xge_t *p) {
+           unsigned char *raw,
+           const xge_t *p) {
   /* [RFC8032] Section 5.1.2. */
   prime_field_t *fe = &ec->fe;
   fe_t x, y, z;
@@ -6682,9 +6682,9 @@ edwards_point_from_uniform(edwards_t *ec, xge_t *p,
 
 static int
 edwards_point_to_uniform(edwards_t *ec,
-                      unsigned char *bytes,
-                      const xge_t *p,
-                      unsigned int hint) {
+                         unsigned char *bytes,
+                         const xge_t *p,
+                         unsigned int hint) {
   prime_field_t *fe = &ec->fe;
   fe_t u;
   int ret;
