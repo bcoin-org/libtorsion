@@ -8465,7 +8465,8 @@ ecdsa_pubkey_tweak_add(const wei_t *ec,
                        const unsigned char *tweak,
                        int compact) {
   const scalar_field_t *sc = &ec->sc;
-  wge_t A, T;
+  wge_t A;
+  jge_t T;
   sc_t t;
 
   if (!wge_import(ec, &A, pub, pub_len))
@@ -8474,8 +8475,10 @@ ecdsa_pubkey_tweak_add(const wei_t *ec,
   if (!sc_import(sc, t, tweak))
     return 0;
 
-  wei_mul_g(ec, &T, t);
-  wge_add(ec, &A, &A, &T);
+  wei_jmul_g(ec, &T, t);
+
+  jge_mixed_add(ec, &T, &T, &A);
+  jge_to_wge(ec, &A, &T);
 
   sc_cleanse(sc, t);
 
@@ -9786,7 +9789,8 @@ schnorr_pubkey_tweak_add(const wei_t *ec,
                          const unsigned char *pub,
                          const unsigned char *tweak) {
   const scalar_field_t *sc = &ec->sc;
-  wge_t A, T;
+  wge_t A;
+  jge_t T;
   sc_t t;
 
   if (!wge_import_even(ec, &A, pub))
@@ -9795,8 +9799,10 @@ schnorr_pubkey_tweak_add(const wei_t *ec,
   if (!sc_import(sc, t, tweak))
     return 0;
 
-  wei_mul_g(ec, &T, t);
-  wge_add(ec, &A, &A, &T);
+  wei_jmul_g(ec, &T, t);
+
+  jge_mixed_add(ec, &T, &T, &A);
+  jge_to_wge(ec, &A, &T);
 
   sc_cleanse(sc, t);
 
