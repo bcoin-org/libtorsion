@@ -715,7 +715,11 @@ sc_set_fe(const scalar_field_t *sc,
           const prime_field_t *fe,
           sc_t r, const fe_t a) {
   unsigned char tmp[MAX_FIELD_SIZE];
+
+  assert(sc->size == fe->size);
+
   fe_export(fe, tmp, a);
+
   return sc_import_reduce(sc, r, tmp);
 }
 
@@ -1438,6 +1442,9 @@ fe_set_sc(const prime_field_t *fe,
           fe_t r, const sc_t a) {
   unsigned char tmp[MAX_SCALAR_SIZE];
   int ret;
+
+  assert(sc->bits <= fe->bits);
+  assert(sc->size == fe->size);
 
   sc_export(sc, tmp, a);
 
@@ -9142,7 +9149,7 @@ ecdsa_schnorr_hash_chal(const wei_t *ec, sc_t e,
 int
 ecdsa_schnorr_support(const wei_t *ec) {
   /* [SCHNORR] "Footnotes". */
-  /* Must satisfy p = 3 mod 4. */
+  /* Must be congruent to 3 mod 4. */
   return (ec->fe.p[0] & 3) == 3;
 }
 
@@ -9188,8 +9195,7 @@ ecdsa_schnorr_sign(const wei_t *ec,
   wge_t A, R;
   int ret = 0;
 
-  /* Must satisfy p = 3 mod 4. */
-  if ((fe->p[0] & 3) != 3)
+  if (!ecdsa_schnorr_support(ec))
     return 0;
 
   if (!sc_import(sc, a, priv))
@@ -9284,8 +9290,7 @@ ecdsa_schnorr_verify(const wei_t *ec,
   wge_t A;
   jge_t R;
 
-  /* Must satisfy p = 3 mod 4. */
-  if ((fe->p[0] & 3) != 3)
+  if (!ecdsa_schnorr_support(ec))
     return 0;
 
   if (!fe_import(fe, r, Rraw))
@@ -9358,8 +9363,7 @@ ecdsa_schnorr_verify_batch(const wei_t *ec,
   size_t j = 0;
   size_t i;
 
-  /* Must satisfy p = 3 mod 4. */
-  if ((fe->p[0] & 3) != 3)
+  if (!ecdsa_schnorr_support(ec))
     return 0;
 
   /* Seed RNG. */
@@ -9477,7 +9481,7 @@ schnorr_context_create(const char *id) {
   /* Must be congruent to 3 mod 4. */
   if ((ec->fe.p[0] & 3) != 3) {
     ecdsa_context_destroy(ec);
-    return 0;
+    return NULL;
   }
 
   return ec;
@@ -9560,6 +9564,9 @@ schnorr_privkey_export(const wei_t *ec,
   int ret = 0;
 
   if (!sc_import(sc, a, priv))
+    goto fail;
+
+  if (sc_is_zero(sc, a))
     goto fail;
 
   wei_mul_g(ec, &A, a);
@@ -9983,9 +9990,6 @@ schnorr_sign(const wei_t *ec,
   wge_t A, R;
   int ret = 0;
 
-  /* Must satisfy p = 3 mod 4. */
-  assert((fe->p[0] & 3) == 3);
-
   if (aux_len > 32)
     goto fail;
 
@@ -10086,9 +10090,6 @@ schnorr_verify(const wei_t *ec,
   wge_t A;
   jge_t R;
 
-  /* Must satisfy p = 3 mod 4. */
-  assert((fe->p[0] & 3) == 3);
-
   if (!fe_import(fe, r, Rraw))
     return 0;
 
@@ -10156,9 +10157,6 @@ schnorr_verify_batch(const wei_t *ec,
   sc_t sum, s, e, a;
   size_t j = 0;
   size_t i;
-
-  /* Must satisfy p = 3 mod 4. */
-  assert((fe->p[0] & 3) == 3);
 
   /* Seed RNG. */
   {
