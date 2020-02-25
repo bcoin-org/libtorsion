@@ -2265,7 +2265,7 @@ wge_dbl_var(const wei_t *ec, wge_t *r, const wge_t *p) {
   fe_add(fe, l, t, l);
   fe_add(fe, l, l, ec->a);
   fe_add(fe, t, p->y, p->y);
-  fe_invert_var(fe, t, t);
+  assert(fe_invert_var(fe, t, t));
   fe_mul(fe, l, l, t);
 
   /* X3 = L^2 - 2 * X1 */
@@ -2343,7 +2343,7 @@ wge_add_var(const wei_t *ec, wge_t *r, const wge_t *a, const wge_t *b) {
   /* L = (Y1 - Y2) / (X1 - X2) */
   fe_sub(fe, l, a->y, b->y);
   fe_sub(fe, t, a->x, b->x);
-  fe_invert_var(fe, t, t);
+  assert(fe_invert_var(fe, t, t));
   fe_mul(fe, l, l, t);
 
   /* X3 = L^2 - X1 - X2 */
@@ -3408,7 +3408,7 @@ jge_to_wge_var(const wei_t *ec, wge_t *r, const jge_t *p) {
   }
 
   /* A = 1 / Z1 */
-  fe_invert_var(fe, a, p->z);
+  assert(fe_invert_var(fe, a, p->z));
 
   /* AA = A^2 */
   fe_sqr(fe, aa, a);
@@ -6067,10 +6067,7 @@ xge_normalize_var(const edwards_t *ec, xge_t *r, const xge_t *p) {
 
   /* Z = 1 */
   if (fe_equal(fe, p->z, fe->one)) {
-    fe_set(fe, r->x, p->x);
-    fe_set(fe, r->y, p->y);
-    fe_set(fe, r->z, fe->one);
-    fe_set(fe, r->t, p->t);
+    xge_set(ec, r, p);
     return;
   }
 
