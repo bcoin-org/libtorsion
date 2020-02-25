@@ -8266,7 +8266,7 @@ ecdsa_privkey_invert(const wei_t *ec,
   if (sc_is_zero(sc, a))
     goto fail;
 
-  sc_invert(sc, a, a);
+  assert(sc_invert(sc, a, a));
   sc_export(sc, out, a);
 
   ret = 1;
@@ -8394,7 +8394,7 @@ ecdsa_pubkey_export(const wei_t *ec,
   if (!wge_import(ec, &A, pub, pub_len))
     return 0;
 
-  assert(!A.inf);
+  assert(!wge_is_zero(ec, &A));
 
   fe_export(fe, x, A.x);
   fe_export(fe, y, A.y);
@@ -9746,7 +9746,7 @@ schnorr_pubkey_export(const wei_t *ec,
   if (!wge_import_even(ec, &A, pub))
     return 0;
 
-  assert(!A.inf);
+  assert(!wge_is_zero(ec, &A));
 
   fe_export(fe, x, A.x);
   fe_export(fe, y, A.y);
@@ -10442,7 +10442,7 @@ ecdh_pubkey_convert(const mont_t *ec,
     pge_mulh(ec, &P, &P);
 
     sc_set_word(sc, k, 16);
-    sc_invert_var(sc, k, k);
+    assert(sc_invert_var(sc, k, k));
 
     mont_mul(ec, &P, &P, k);
 
@@ -10552,7 +10552,7 @@ ecdh_pubkey_export(const mont_t *ec,
   if (!mge_import(ec, &A, pub, sign))
     return 0;
 
-  assert(!A.inf);
+  assert(!mge_is_zero(ec, &A));
 
   fe_export(fe, x, A.x);
   fe_export(fe, y, A.y);
