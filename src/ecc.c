@@ -2267,9 +2267,9 @@ wge_dbl_var(const wei_t *ec, wge_t *r, const wge_t *p) {
   }
 
   /* L = (3 * X1^2 + a) / (2 * Y1) */
-  fe_sqr(fe, l, p->x);
-  fe_add(fe, t, l, l);
-  fe_add(fe, l, t, l);
+  fe_sqr(fe, t, p->x);
+  fe_add(fe, l, t, t);
+  fe_add(fe, l, l, t);
   fe_add(fe, l, l, ec->a);
   fe_add(fe, t, p->y, p->y);
   assert(fe_invert_var(fe, t, t));
