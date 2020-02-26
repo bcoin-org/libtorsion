@@ -171,7 +171,7 @@ test_wei_mul_g_p256(drbg_t *rng) {
     0x03
   };
 
-  ecdsa_t *ec = ecdsa_context_create("P256");
+  ecdsa_t *ec = ecdsa_context_create(ECDSA_CURVE_P256);
   unsigned char entropy[32];
   unsigned char q_raw[33];
   size_t q_size;
@@ -216,7 +216,7 @@ test_wei_mul_p256(drbg_t *rng) {
     0x56
   };
 
-  ecdsa_t *ec = ecdsa_context_create("P256");
+  ecdsa_t *ec = ecdsa_context_create(ECDSA_CURVE_P256);
   unsigned char q_raw[33];
   size_t q_size;
 
@@ -248,7 +248,7 @@ test_wei_mul_g_secp256k1(drbg_t *rng) {
     0x82
   };
 
-  ecdsa_t *ec = ecdsa_context_create("SECP256K1");
+  ecdsa_t *ec = ecdsa_context_create(ECDSA_CURVE_SECP256K1);
   unsigned char entropy[32];
   unsigned char q_raw[33];
   size_t q_size;
@@ -293,7 +293,7 @@ test_wei_mul_secp256k1(drbg_t *rng) {
     0xd2
   };
 
-  ecdsa_t *ec = ecdsa_context_create("SECP256K1");
+  ecdsa_t *ec = ecdsa_context_create(ECDSA_CURVE_SECP256K1);
   unsigned char q_raw[33];
   size_t q_size;
 
@@ -339,7 +339,7 @@ test_ecdsa_vector_p192(drbg_t *rng) {
     0x08, 0x9d, 0x10, 0xd4, 0xb1, 0x07, 0xbe, 0xa8
   };
 
-  ecdsa_t *ec = ecdsa_context_create("P192");
+  ecdsa_t *ec = ecdsa_context_create(ECDSA_CURVE_P192);
   unsigned int param = 0;
   unsigned char rec[25];
   unsigned char entropy[32];
@@ -400,7 +400,7 @@ test_ecdsa_vector_p224(drbg_t *rng) {
     0x99, 0xaf, 0xe4, 0xf5, 0x15, 0x81, 0xcc, 0xfa
   };
 
-  ecdsa_t *ec = ecdsa_context_create("P224");
+  ecdsa_t *ec = ecdsa_context_create(ECDSA_CURVE_P224);
   unsigned int param = 0;
   unsigned char rec[29];
   unsigned char entropy[32];
@@ -463,7 +463,7 @@ test_ecdsa_vector_p256(drbg_t *rng) {
     0x45, 0x11, 0x43, 0x75, 0x00, 0x0d, 0x96, 0xc5
   };
 
-  ecdsa_t *ec = ecdsa_context_create("P256");
+  ecdsa_t *ec = ecdsa_context_create(ECDSA_CURVE_P256);
   unsigned int param = 1;
   unsigned char rec[33];
   unsigned char entropy[32];
@@ -536,7 +536,7 @@ test_ecdsa_vector_p384(drbg_t *rng) {
     0x09, 0xf0, 0x31, 0x57, 0xd1, 0xac, 0x49, 0x06
   };
 
-  ecdsa_t *ec = ecdsa_context_create("P384");
+  ecdsa_t *ec = ecdsa_context_create(ECDSA_CURVE_P384);
   unsigned int param = 1;
   unsigned char rec[49];
   unsigned char entropy[32];
@@ -621,7 +621,7 @@ test_ecdsa_vector_p521(drbg_t *rng) {
     0x3a, 0xe1, 0xe2, 0x17
   };
 
-  ecdsa_t *ec = ecdsa_context_create("P521");
+  ecdsa_t *ec = ecdsa_context_create(ECDSA_CURVE_P521);
   unsigned int param = 0;
   unsigned char rec[67];
   unsigned char entropy[32];
@@ -686,7 +686,7 @@ test_ecdsa_vector_secp256k1(drbg_t *rng) {
 
   printf("Testing SECP256K1 (vector).\n");
 
-  ecdsa_t *ec = ecdsa_context_create("SECP256K1");
+  ecdsa_t *ec = ecdsa_context_create(ECDSA_CURVE_SECP256K1);
   unsigned int param = 0;
   unsigned char rec[33];
   unsigned char entropy[32];
@@ -718,7 +718,7 @@ test_ecdh_vector_x25519(void) {
   unsigned char u[32];
   unsigned char t[32];
   size_t i = 0;
-  ecdh_t *ec = ecdh_context_create("X25519");
+  ecdh_t *ec = ecdh_context_create(ECDH_CURVE_X25519);
 
   /* From RFC 7748 */
   const unsigned char intervals[3][32] = {
@@ -786,7 +786,7 @@ test_ecdh_vector_x448(void) {
   unsigned char u[56];
   unsigned char t[56];
   size_t i = 0;
-  ecdh_t *ec = ecdh_context_create("X448");
+  ecdh_t *ec = ecdh_context_create(ECDH_CURVE_X448);
 
   /* From RFC 7748 */
   const unsigned char intervals[4][56] = {
@@ -890,7 +890,7 @@ test_edwards_mul_g_ed25519(drbg_t *rng) {
     0xcb, 0xe1, 0x07, 0x8f, 0x01, 0x21, 0xaf, 0x21
   };
 
-  eddsa_t *ec = eddsa_context_create("ED25519");
+  eddsa_t *ec = eddsa_context_create(EDDSA_CURVE_ED25519);
   unsigned char entropy[32];
   unsigned char q_raw[32];
 
@@ -930,7 +930,7 @@ test_edwards_mul_ed25519(drbg_t *rng) {
     0x11, 0x40, 0x3b, 0xd3, 0x08, 0x99, 0x05, 0x92
   };
 
-  eddsa_t *ec = eddsa_context_create("ED25519");
+  eddsa_t *ec = eddsa_context_create(EDDSA_CURVE_ED25519);
   unsigned char q_raw[32];
 
   printf("Testing mul (vector, ed25519).\n");
@@ -976,7 +976,7 @@ test_eddsa_vector_ed25519(drbg_t *rng) {
     0x82, 0xb2, 0x69, 0xec, 0x82, 0x52, 0x7b, 0x08
   };
 
-  eddsa_t *ec = eddsa_context_create("ED25519");
+  eddsa_t *ec = eddsa_context_create(EDDSA_CURVE_ED25519);
   unsigned char rec[32];
   unsigned char entropy[32];
   unsigned char sig0[64];
@@ -1049,7 +1049,7 @@ test_eddsa_vector_ed448(drbg_t *rng) {
     0x36, 0x00
   };
 
-  eddsa_t *ec = eddsa_context_create("ED448");
+  eddsa_t *ec = eddsa_context_create(EDDSA_CURVE_ED448);
   unsigned char rec[57];
   unsigned char entropy[32];
   unsigned char sig0[114];
@@ -1090,7 +1090,7 @@ test_sswu(void) {
     0x8a
   };
 
-  ecdsa_t *ec = ecdsa_context_create("P256");
+  ecdsa_t *ec = ecdsa_context_create(ECDSA_CURVE_P256);
   unsigned char out[33];
   size_t out_len;
 
@@ -1122,7 +1122,7 @@ test_svdw(void) {
     0x20
   };
 
-  ecdsa_t *ec = ecdsa_context_create("SECP256K1");
+  ecdsa_t *ec = ecdsa_context_create(ECDSA_CURVE_SECP256K1);
   unsigned char out[33];
   size_t out_len;
 
@@ -1153,7 +1153,7 @@ test_elligator2_mont(void) {
     0x52, 0x2a, 0x2f, 0xff, 0x35, 0x16, 0x0e, 0x04
   };
 
-  ecdh_t *ec = ecdh_context_create("X25519");
+  ecdh_t *ec = ecdh_context_create(ECDH_CURVE_X25519);
   unsigned char out[32];
 
   printf("Testing Elligator 2 (x25519).\n");
@@ -1182,7 +1182,7 @@ test_elligator2_edwards(void) {
     0x98, 0x5c, 0xc0, 0x9a, 0x34, 0x80, 0xd0, 0x0d
   };
 
-  eddsa_t *ec = eddsa_context_create("ED25519");
+  eddsa_t *ec = eddsa_context_create(EDDSA_CURVE_ED25519);
   unsigned char out[32];
 
   printf("Testing Elligator 2 (ed25519).\n");
@@ -1203,7 +1203,7 @@ test_ecdsa_random(drbg_t *rng) {
 
   for (i = 0; i < ARRAY_SIZE(wei_curves); i++) {
     const char *id = wei_curves[i];
-    ecdsa_t *ec = ecdsa_context_create(id);
+    ecdsa_t *ec = ecdsa_context_create(i);
     size_t fe_size = ecdsa_field_size(ec);
     size_t fe_bits = ecdsa_field_bits(ec);
     size_t sc_size = ecdsa_scalar_size(ec);
@@ -1272,7 +1272,7 @@ test_ecdh_random(drbg_t *rng) {
 
   for (i = 0; i < ARRAY_SIZE(mont_curves); i++) {
     const char *id = mont_curves[i];
-    ecdh_t *ec = ecdh_context_create(id);
+    ecdh_t *ec = ecdh_context_create(i);
     size_t fe_size = ecdh_field_size(ec);
 
     printf("  - %s\n", id);
@@ -1309,7 +1309,7 @@ test_eddsa_random(drbg_t *rng) {
 
   for (i = 0; i < ARRAY_SIZE(edwards_curves); i++) {
     const char *id = edwards_curves[i];
-    eddsa_t *ec = eddsa_context_create(id);
+    eddsa_t *ec = eddsa_context_create(i);
     size_t fe_size = eddsa_field_size(ec);
     size_t sc_size = eddsa_scalar_size(ec);
 
@@ -1465,7 +1465,7 @@ bench_end(struct timeval *start, size_t ops) {
 
 static void
 bench_mul_g(drbg_t *rng) {
-  ecdsa_t *ec = ecdsa_context_create("SECP256K1");
+  ecdsa_t *ec = ecdsa_context_create(ECDSA_CURVE_SECP256K1);
   unsigned char pub[33];
   size_t pub_len;
   unsigned char bytes[32];
@@ -1488,7 +1488,7 @@ bench_mul_g(drbg_t *rng) {
 
 static void
 bench_mul(drbg_t *rng) {
-  ecdsa_t *ec = ecdsa_context_create("SECP256K1");
+  ecdsa_t *ec = ecdsa_context_create(ECDSA_CURVE_SECP256K1);
   unsigned char k0[32];
   unsigned char k1[32];
   unsigned char p0[65];
@@ -1516,7 +1516,7 @@ bench_mul(drbg_t *rng) {
 
 static void
 bench_ecdsa(drbg_t *rng) {
-  ecdsa_t *ec = ecdsa_context_create("SECP256K1");
+  ecdsa_t *ec = ecdsa_context_create(ECDSA_CURVE_SECP256K1);
   unsigned char entropy[32];
   unsigned char priv[32];
   unsigned char msg[32];
@@ -1550,7 +1550,7 @@ bench_ecdsa(drbg_t *rng) {
 
 static void
 bench_ecdh(drbg_t *rng) {
-  ecdh_t *ec = ecdh_context_create("X25519");
+  ecdh_t *ec = ecdh_context_create(ECDH_CURVE_X25519);
   unsigned char priv[ECDH_MAX_SCALAR_SIZE];
   unsigned char pub[ECDH_MAX_FIELD_SIZE];
   unsigned char secret[ECDH_MAX_FIELD_SIZE];
@@ -1575,7 +1575,7 @@ bench_ecdh(drbg_t *rng) {
 
 static void
 bench_eddsa(drbg_t *rng) {
-  eddsa_t *ec = eddsa_context_create("X25519");
+  eddsa_t *ec = eddsa_context_create(EDDSA_CURVE_ED25519);
   unsigned char entropy[32];
   unsigned char priv[32];
   unsigned char msg[32];

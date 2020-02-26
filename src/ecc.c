@@ -514,10 +514,6 @@ typedef struct _edwards_scratch_s {
 #define __has_builtin(x) 0
 #endif
 
-#ifndef ARRAY_SIZE
-#define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
-#endif
-
 static uint32_t
 bytes_zero(const unsigned char *a, size_t size) {
   /* Compute (a == 0) in constant time. */
@@ -8008,22 +8004,10 @@ static const edwards_def_t *edwards_curves[3] = {
  */
 
 wei_t *
-ecdsa_context_create(const char *id) {
+ecdsa_context_create(int type) {
   wei_t *ec = NULL;
-  const wei_def_t *def = NULL;
-  size_t i;
 
-  if (id == NULL)
-    return NULL;
-
-  for (i = 0; i < ARRAY_SIZE(wei_curves); i++) {
-    if (strcmp(wei_curves[i]->id, id) == 0) {
-      def = wei_curves[i];
-      break;
-    }
-  }
-
-  if (def == NULL)
+  if (type < 0 || type > ECDSA_CURVE_MAX)
     return NULL;
 
   ec = malloc(sizeof(wei_t));
@@ -8031,7 +8015,7 @@ ecdsa_context_create(const char *id) {
   if (ec == NULL)
     return NULL;
 
-  wei_init(ec, def);
+  wei_init(ec, wei_curves[type]);
 
   return ec;
 }
@@ -9452,8 +9436,8 @@ ecdsa_schnorr_verify_batch(const wei_t *ec,
  */
 
 wei_t *
-schnorr_context_create(const char *id) {
-  wei_t *ec = ecdsa_context_create(id);
+schnorr_context_create(int type) {
+  wei_t *ec = ecdsa_context_create(type);
 
   if (ec == NULL)
     return NULL;
@@ -10245,22 +10229,10 @@ schnorr_derive(const wei_t *ec,
  */
 
 mont_t *
-ecdh_context_create(const char *id) {
+ecdh_context_create(int type) {
   mont_t *ec = NULL;
-  const mont_def_t *def = NULL;
-  size_t i;
 
-  if (id == NULL)
-    return NULL;
-
-  for (i = 0; i < ARRAY_SIZE(mont_curves); i++) {
-    if (strcmp(mont_curves[i]->id, id) == 0) {
-      def = mont_curves[i];
-      break;
-    }
-  }
-
-  if (def == NULL)
+  if (type < 0 || type > ECDH_CURVE_MAX)
     return NULL;
 
   ec = malloc(sizeof(mont_t));
@@ -10268,7 +10240,7 @@ ecdh_context_create(const char *id) {
   if (ec == NULL)
     return NULL;
 
-  mont_init(ec, def);
+  mont_init(ec, mont_curves[type]);
 
   return ec;
 }
@@ -10613,22 +10585,10 @@ ecdh_derive(const mont_t *ec,
  */
 
 edwards_t *
-eddsa_context_create(const char *id) {
+eddsa_context_create(int type) {
   edwards_t *ec = NULL;
-  const edwards_def_t *def = NULL;
-  size_t i;
 
-  if (id == NULL)
-    return NULL;
-
-  for (i = 0; i < ARRAY_SIZE(edwards_curves); i++) {
-    if (strcmp(edwards_curves[i]->id, id) == 0) {
-      def = edwards_curves[i];
-      break;
-    }
-  }
-
-  if (def == NULL)
+  if (type < 0 || type > EDDSA_CURVE_MAX)
     return NULL;
 
   ec = malloc(sizeof(edwards_t));
@@ -10636,7 +10596,7 @@ eddsa_context_create(const char *id) {
   if (ec == NULL)
     return NULL;
 
-  edwards_init(ec, def);
+  edwards_init(ec, edwards_curves[type]);
 
   return ec;
 }

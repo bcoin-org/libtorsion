@@ -19,6 +19,10 @@
 #endif
 #endif
 
+#ifndef ARRAY_SIZE
+#define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
+#endif
+
 static int
 get_entropy(void *dst, size_t len) {
 #ifndef _WIN32

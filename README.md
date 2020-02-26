@@ -13,6 +13,8 @@ Used as the backend for [bcrypto].
   functions for this).
 - Keep constant-time multiplication algorithms as simple as possible.
 - Constant time, stack-based, and so on.
+- Expose a simple opaque API which accepts all arguments in wire format
+  (this eases implementation for language bindings, wasm, and other ffis).
 - Dependency-less (aside from a vendored mini-gmp).
 
 ## Current Features
@@ -36,6 +38,60 @@ Used as the backend for [bcrypto].
     - [BIP340][bip340]
     - ECDH
     - EdDSA
+
+## Example
+
+``` c
+#include <assert.h>
+#include <stdlib.h>
+#include <torsion/ecc.h>
+#include <torsion/hash.h>
+
+int main(void) {
+  ecdsa_t *ec = ecdsa_context_create(ECDSA_CURVE_SECP256K1);
+  const char *str = "hello world";
+  unsigned char priv[32];
+  unsigned char entropy[32];
+  unsigned char msg[32];
+  unsigned char pub[33];
+  unsigned char sig[64];
+  sha256_t hash;
+  size_t i;
+
+  assert(ec != NULL);
+
+  /* Hash our message with sha256. */
+  sha256_init(&hash);
+  sha256_update(&hash, str, sizeof(str) - 1);
+  sha256_final(&hash, msg);
+
+  /* Generate some entropy. */
+  /* Note: use real entropy in practice! */
+  for (i = 0; i < 32; i++)
+    entropy[i] = rand();
+
+  /* Generate a key pair using entropy. */
+  ecdsa_privkey_generate(ec, priv, entropy);
+  assert(ecdsa_pubkey_create(ec, pub, NULL, priv, 1));
+
+  /* Sign in constant time. */
+  assert(ecdsa_sign(ec, sig, NULL, msg, sizeof(msg), priv));
+
+  /* Verify our signature. */
+  assert(ecdsa_verify(ec, msg, sizeof(msg), sig, pub, sizeof(pub)));
+
+  /* Cleanup. */
+  ecdsa_context_destroy(ec);
+
+  return 0;
+}
+```
+
+Compile with:
+
+``` bash
+$ gcc -o example -ltorsion example.c
+```
 
 ## Contribution and License Agreement
 
