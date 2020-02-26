@@ -108,4 +108,4 @@ See LICENSE for more info.
 [bcrypto]: https://github.com/bcoin-org/bcrypto
 [fiat-crypto]: https://github.com/mit-plv/fiat-crypto
 [schnorr]: https://github.com/sipa/bips/blob/d194620/bip-schnorr.mediawiki
-[bip340]: https://github.com/sipa/bips/blob/bip-taproot/bip-0340.mediawiki
+[bip340]: https://github.com/bitcoin/bips/blob/master/bip-0340.mediawiki
