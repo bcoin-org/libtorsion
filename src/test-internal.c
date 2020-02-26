@@ -234,6 +234,8 @@ test_scalar(void) {
     sc_reduce(sc, r, t);
 
     assert(sc_is_zero(sc, r));
+    sc_neg(sc, r, r);
+    assert(sc_is_zero(sc, r));
 
     raw[0] -= 1;
     assert(sc_import(sc, r, raw));
@@ -1665,7 +1667,7 @@ test_mont_points_x25519(void) {
   mge_set(ec, &g, &ec->g);
   mge_to_pge(ec, &jg, &ec->g);
 
-  assert(mge_import(ec, &p, g_raw, 1));
+  assert(mge_import(ec, &p, g_raw, 0));
 
   mge_to_pge(ec, &jp, &p);
   mge_to_pge(ec, &jq, &ec->g);
@@ -1676,8 +1678,8 @@ test_mont_points_x25519(void) {
   assert(mge_equal(ec, &p, &ec->g));
   assert(pge_equal(ec, &jp, &jq));
 
-  assert(mge_import(ec, &q, g2_raw, 1));
-  assert(mge_import(ec, &r, g3_raw, 1));
+  assert(mge_import(ec, &q, g2_raw, 0));
+  assert(mge_import(ec, &r, g3_raw, 0));
 
   mge_to_pge(ec, &jq, &q);
   mge_to_pge(ec, &jr, &r);
@@ -1704,7 +1706,7 @@ test_mont_points_x25519(void) {
   assert(!pge_is_zero(ec, &jq));
   assert(!pge_is_zero(ec, &jr));
 
-  pge_to_mge(ec, &p, &jp, 1);
+  pge_to_mge(ec, &p, &jp, 0);
 
   assert(mge_equal(ec, &p, &q));
 
