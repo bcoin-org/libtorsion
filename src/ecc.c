@@ -261,7 +261,6 @@ typedef struct _prime_field_s {
   size_t adj_size;
   mp_limb_t p[MAX_REDUCE_LIMBS];
   mp_size_t limbs;
-  mp_size_t adj_limbs;
   unsigned char mask;
   unsigned char raw[MAX_FIELD_SIZE];
   scalar_field_t sc;
@@ -511,6 +510,10 @@ typedef struct _edwards_scratch_s {
  * Helpers
  */
 
+#ifndef __has_builtin
+#define __has_builtin(x) 0
+#endif
+
 #ifndef ARRAY_SIZE
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
 #endif
@@ -585,20 +588,15 @@ bytes_lte(const unsigned char *a,
   return lt | eq;
 }
 
-#ifndef __has_builtin
-#if defined(__GNUC__) && (__GNUC__ > 3 || (__GNUC__ == 3 && __GNUC_MINOR__ > 3))
-#define __has_builtin(x) 1
-#else
-#define __has_builtin(x) 0
-#endif
-#endif
-
-#if __has_builtin(__builtin_clz)
-#define bit_length(x) \
-  ((sizeof(unsigned int) * CHAR_BIT - __builtin_clz(x)) * ((x) != 0))
-#else
 static size_t
 bit_length(uint32_t x) {
+#if (defined(__GNUC__) && (__GNUC__ > 3 || (__GNUC__ == 3 && __GNUC_MINOR__ >= 4))) \
+    || (defined(__clang__) && __has_builtin(__builtin_clz))
+  if (x == 0) /* Undefined behavior. */
+    return 0;
+
+  return sizeof(unsigned int) * CHAR_BIT - __builtin_clz(x);
+#else
   /* http://aggregate.org/MAGIC/#Leading%20Zero%20Count */
   x |= x >> 1;
   x |= x >> 2;
@@ -611,8 +609,79 @@ bit_length(uint32_t x) {
   x += x >> 8;
   x += x >> 16;
   return x & 0x0000003fu;
-}
 #endif
+}
+
+static void
+reverse_bytes(void *out, const void *in, size_t size) {
+#ifdef TORSION_USE_64BIT
+#if (defined(__GNUC__) && (__GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 3))) \
+    || (defined(__clang__) && __has_builtin(__builtin_bswap64))
+  if ((((uintptr_t)out | (uintptr_t)in | size) & 7) == 0) {
+    const uint64_t *from = (const uint64_t *)in;
+    uint64_t *to = (uint64_t *)out;
+    size_t len = size >> 3;
+    size_t i;
+
+    for (i = 0; i < len; i++)
+      to[i] = __builtin_bswap64(from[len - 1 - i]);
+
+    return;
+  }
+#endif
+#endif
+  {
+    const unsigned char *from = (const unsigned char *)in;
+    unsigned char *to = (unsigned char *)out;
+    size_t i;
+
+    for (i = 0; i < size; i++)
+      to[i] = from[size - 1 - i];
+  }
+}
+
+static void
+reverse_inplace(void *ptr, size_t size) {
+#ifdef TORSION_USE_64BIT
+#if (defined(__GNUC__) && (__GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 3))) \
+    || (defined(__clang__) && __has_builtin(__builtin_bswap64))
+  if ((((uintptr_t)ptr | size) & 7) == 0) {
+    uint64_t *arr = (uint64_t *)ptr;
+    size_t len = size >> 3;
+    long i = 0;
+    long j = (long)len - 1;
+    uint64_t tmp;
+
+    while (i < j) {
+      tmp = __builtin_bswap64(arr[i]);
+      arr[i] = __builtin_bswap64(arr[j]);
+      arr[j] = tmp;
+      i += 1;
+      j -= 1;
+    }
+
+    if (len & 1)
+      arr[i] = __builtin_bswap64(arr[i]);
+
+    return;
+  }
+#endif
+#endif
+  {
+    unsigned char *raw = (unsigned char *)ptr;
+    long i = 0;
+    long j = (long)size - 1;
+    unsigned char tmp;
+
+    while (i < j) {
+      tmp = raw[i];
+      raw[i] = raw[j];
+      raw[j] = tmp;
+      i += 1;
+      j -= 1;
+    }
+  }
+}
 
 /*
  * Scalar
@@ -654,7 +723,7 @@ sc_import_weak(const scalar_field_t *sc, sc_t r, const unsigned char *raw) {
 
   mpn_cnd_select(cy == 0, r, r, sp, nn);
 
-  cleanse(sp, sizeof(sp));
+  cleanse(sp, sc->limbs);
 
   return cy != 0;
 }
@@ -668,7 +737,7 @@ sc_import_strong(const scalar_field_t *sc, sc_t r, const unsigned char *raw) {
 
   sc_reduce(sc, r, rp);
 
-  cleanse(rp, sizeof(rp));
+  cleanse(rp, sc->shift * 2);
 
   return bytes_lt(raw, sc->raw, sc->size, sc->endian);
 }
@@ -939,7 +1008,7 @@ sc_mulshift(const scalar_field_t *sc, sc_t r,
   mpn_zero(r + rn, nn - rn);
   mpn_copyi(r, rp, rn);
 
-  mpn_cleanse(scratch, ARRAY_SIZE(scratch));
+  mpn_cleanse(scratch, sc->limbs * 2 + 1);
 }
 
 static int
@@ -1221,7 +1290,7 @@ sc_random(const scalar_field_t *sc, sc_t k, drbg_t *rng) {
     break;
   }
 
-  cleanse(bytes, sizeof(bytes));
+  cleanse(bytes, sc->size);
 }
 
 /*
@@ -1276,12 +1345,7 @@ fe_import(const prime_field_t *fe, fe_t r, const unsigned char *raw) {
   } else {
     if (fe->endian == 1) {
       unsigned char tmp[MAX_FIELD_SIZE];
-      size_t i;
-
-      /* Swap endianness. */
-      for (i = 0; i < fe->size; i++)
-        tmp[i] = raw[fe->size - 1 - i];
-
+      reverse_bytes(tmp, raw, fe->size);
       fe->from_bytes(r, tmp);
     } else {
       fe->from_bytes(r, raw);
@@ -1295,11 +1359,7 @@ static int
 fe_import_be(const prime_field_t *fe, fe_t r, const unsigned char *raw) {
   if (fe->endian == -1) {
     unsigned char tmp[MAX_FIELD_SIZE];
-    size_t i;
-
-    for (i = 0; i < fe->size; i++)
-      tmp[i] = raw[fe->size - 1 - i];
-
+    reverse_bytes(tmp, raw, fe->size);
     return fe_import(fe, r, tmp);
   }
 
@@ -1360,20 +1420,8 @@ fe_export(const prime_field_t *fe, unsigned char *raw, const fe_t a) {
     fe->to_bytes(raw, a);
   }
 
-  if (fe->endian == 1) {
-    int i = 0;
-    int j = fe->size - 1;
-
-    while (i < j) {
-      unsigned char t = raw[j];
-
-      raw[j] = raw[i];
-      raw[i] = t;
-
-      i += 1;
-      j -= 1;
-    }
-  }
+  if (fe->endian == 1)
+    reverse_inplace(raw, fe->size);
 }
 
 static void
@@ -1401,7 +1449,7 @@ fe_select(const prime_field_t *fe,
 
 static void
 fe_set(const prime_field_t *fe, fe_t r, const fe_t a) {
-  memcpy(r, a, sizeof(fe_t));
+  memcpy(r, a, fe->words * sizeof(fe_word_t));
 }
 
 static int
@@ -1436,23 +1484,18 @@ fe_print(const prime_field_t *fe, const fe_t a) {
 }
 #endif
 
-static int
+static void
 fe_set_sc(const prime_field_t *fe,
           const scalar_field_t *sc,
           fe_t r, const sc_t a) {
+  /* Assumes n < p. */
   unsigned char tmp[MAX_SCALAR_SIZE];
-  int ret;
 
-  assert(sc->bits <= fe->bits);
   assert(sc->size == fe->size);
 
   sc_export(sc, tmp, a);
 
-  ret = fe_import(fe, r, tmp);
-
-  cleanse(tmp, sizeof(tmp));
-
-  return ret;
+  assert(fe_import(fe, r, tmp));
 }
 
 static void
@@ -1460,7 +1503,7 @@ fe_set_word(const prime_field_t *fe, fe_t r, uint32_t word) {
   if (fe->from_montgomery) {
     unsigned char tmp[MAX_FIELD_SIZE];
 
-    memset(tmp, 0x00, sizeof(tmp));
+    memset(tmp, 0x00, fe->size);
 
     if (fe->endian == 1) {
       tmp[fe->size - 4] = (word >> 24) & 0xff;
@@ -1809,7 +1852,7 @@ fe_random(const prime_field_t *fe, fe_t x, drbg_t *rng) {
     break;
   }
 
-  cleanse(bytes, sizeof(bytes));
+  cleanse(bytes, fe->size);
 }
 
 /*
@@ -1867,7 +1910,6 @@ prime_field_init(prime_field_t *fe, const prime_def_t *def, int endian) {
   fe->shift = def->bits;
   fe->words = def->words;
   fe->adj_size = fe->size + ((fe->bits & 7) == 0);
-  fe->adj_limbs = ((fe->adj_size * 8) + GMP_NUMB_BITS - 1) / GMP_NUMB_BITS;
   fe->mask = 0xff;
 
   if ((fe->shift % FIELD_WORD_SIZE) != 0)
@@ -2041,6 +2083,7 @@ wge_import(const wei_t *ec, wge_t *r, const unsigned char *raw, size_t len) {
 
       return 1;
     }
+
     case 0x04:
     case 0x06:
     case 0x07: {
@@ -2063,6 +2106,7 @@ wge_import(const wei_t *ec, wge_t *r, const unsigned char *raw, size_t len) {
 
       return 1;
     }
+
     default: {
       return 0;
     }
@@ -2642,7 +2686,7 @@ jge_equal_r(const wei_t *ec, const jge_t *p, const sc_t x) {
 
   fe_sqr(fe, zz, p->z);
 
-  assert(fe_set_sc(fe, sc, rx, x));
+  fe_set_sc(fe, sc, rx, x);
   fe_mul(fe, rx, rx, zz);
 
   if (fe_equal(fe, p->x, rx))
@@ -4246,7 +4290,7 @@ wei_sswu(const wei_t *ec, wge_t *p, const fe_t u) {
 
   fe_select(fe, x1, x1, x2, alpha ^ 1);
   fe_select(fe, y1, y1, y2, alpha ^ 1);
-  fe_sqrt(fe, y1, y1);
+  assert(fe_sqrt(fe, y1, y1));
 
   fe_set_odd(fe, y1, y1, fe_is_odd(fe, u));
 
@@ -4422,7 +4466,8 @@ wei_svdw(const wei_t *ec, wge_t *p, const fe_t u) {
 
   wei_svdwf(ec, x, y, u);
 
-  fe_sqrt(fe, y, y);
+  assert(fe_sqrt(fe, y, y));
+
   fe_set_odd(fe, y, y, fe_is_odd(fe, u));
 
   wge_set_xy(ec, p, x, y);
@@ -5464,7 +5509,7 @@ mont_elligator2(const mont_t *ec, mge_t *r, const fe_t u) {
 
   fe_select(fe, x1, x1, x2, alpha ^ 1);
   fe_select(fe, y1, y1, y2, alpha ^ 1);
-  fe_sqrt(fe, y1, y1);
+  assert(fe_sqrt(fe, y1, y1));
 
   fe_set_odd(fe, y1, y1, fe_is_odd(fe, u));
 
@@ -6620,7 +6665,7 @@ edwards_elligator2(const edwards_t *ec, xge_t *r, const fe_t u) {
 
   fe_select(fe, x1, x1, x2, alpha ^ 1);
   fe_select(fe, y1, y1, y2, alpha ^ 1);
-  fe_sqrt(fe, y1, y1);
+  assert(fe_sqrt(fe, y1, y1));
 
   fe_set_odd(fe, y1, y1, fe_is_odd(fe, u));
 
@@ -8131,7 +8176,7 @@ ecdsa_privkey_import(const wei_t *ec,
 
   r = 1;
 fail:
-  cleanse(key, sizeof(key));
+  cleanse(key, sc->size);
   return r;
 }
 
@@ -8224,7 +8269,7 @@ ecdsa_privkey_reduce(const wei_t *ec,
 
   ret = 1;
 fail:
-  cleanse(key, sizeof(key));
+  cleanse(key, sc->size);
   sc_cleanse(sc, a);
   return ret;
 }
@@ -8666,7 +8711,7 @@ ecdsa_reduce(const wei_t *ec, sc_t r,
 
   ret = sc_import_weak(sc, r, tmp);
 
-  cleanse(tmp, sizeof(tmp));
+  cleanse(tmp, sc->size);
 
   return ret;
 }
@@ -8882,7 +8927,7 @@ fail:
   sc_cleanse(sc, r);
   sc_cleanse(sc, s);
   wge_cleanse(ec, &R);
-  cleanse(bytes, sizeof(bytes));
+  cleanse(bytes, sc->size * 2);
   return ret;
 }
 
@@ -9032,8 +9077,7 @@ ecdsa_recover(const wei_t *ec,
   if (sc_is_high_var(sc, s))
     return 0;
 
-  /* Assumes n < p. */
-  assert(fe_set_sc(fe, sc, x, r));
+  fe_set_sc(fe, sc, x, r);
 
   if (high) {
     if (sc_cmp_var(sc, r, ec->pmodn) >= 0)
@@ -9114,7 +9158,7 @@ ecdsa_schnorr_hash_nonce(const wei_t *ec, sc_t k,
 
   sc_import_reduce(sc, k, bytes);
 
-  cleanse(bytes, sizeof(bytes));
+  cleanse(bytes, sc->size);
   cleanse(&hash, sizeof(hash));
 }
 
@@ -9145,7 +9189,7 @@ ecdsa_schnorr_hash_chal(const wei_t *ec, sc_t e,
 
   sc_import_reduce(sc, e, bytes);
 
-  cleanse(bytes, sizeof(bytes));
+  cleanse(bytes, sc->size);
   cleanse(&hash, sizeof(hash));
 }
 
@@ -9230,7 +9274,7 @@ ecdsa_schnorr_sign(const wei_t *ec,
 
   ret = 1;
 fail:
-  cleanse(Araw, sizeof(Araw));
+  cleanse(Araw, fe->size + 1);
   sc_cleanse(sc, a);
   sc_cleanse(sc, k);
   sc_cleanse(sc, e);
@@ -9910,9 +9954,9 @@ schnorr_hash_nonce(const wei_t *ec, sc_t k,
 
   sc_import_reduce(sc, k, bytes);
 
-  cleanse(haux, sizeof(haux));
-  cleanse(bytes, sizeof(bytes));
-  cleanse(secret, sizeof(secret));
+  cleanse(haux, hash_size);
+  cleanse(bytes, sc->size);
+  cleanse(secret, sc->size);
   cleanse(&hash, sizeof(hash));
 }
 
@@ -9944,7 +9988,7 @@ schnorr_hash_chal(const wei_t *ec, sc_t e,
 
   sc_import_reduce(sc, e, bytes);
 
-  cleanse(bytes, sizeof(bytes));
+  cleanse(bytes, sc->size);
   cleanse(&hash, sizeof(hash));
 }
 
@@ -10032,8 +10076,8 @@ schnorr_sign(const wei_t *ec,
 
   ret = 1;
 fail:
-  cleanse(araw, sizeof(araw));
-  cleanse(Araw, sizeof(Araw));
+  cleanse(araw, sc->size);
+  cleanse(Araw, fe->size);
   sc_cleanse(sc, a);
   sc_cleanse(sc, k);
   sc_cleanse(sc, e);
@@ -10399,7 +10443,7 @@ ecdh_privkey_import(const mont_t *ec,
   memset(key + len, 0x00, sc->size - len);
   memcpy(out, key, sc->size);
 
-  cleanse(key, sizeof(key));
+  cleanse(key, sc->size);
 
   return 1;
 }
@@ -10421,7 +10465,7 @@ ecdh_pubkey_create(const mont_t *ec,
 
   assert(pge_export(ec, pub, &A));
 
-  cleanse(clamped, sizeof(clamped));
+  cleanse(clamped, sc->size);
   sc_cleanse(sc, a);
   pge_cleanse(ec, &A);
 }
@@ -10644,7 +10688,7 @@ ecdh_derive(const mont_t *ec,
 
   ret = pge_export(ec, secret, &P);
 
-  cleanse(clamped, sizeof(clamped));
+  cleanse(clamped, sc->size);
   sc_cleanse(sc, a);
   pge_cleanse(ec, &A);
   pge_cleanse(ec, &P);
@@ -10800,7 +10844,7 @@ eddsa_privkey_expand(const edwards_t *ec,
   memcpy(scalar, bytes, sc->size);
   memcpy(prefix, bytes + fe->adj_size, fe->adj_size);
 
-  cleanse(bytes, sizeof(bytes));
+  cleanse(bytes, fe->adj_size * 2);
 }
 
 void
@@ -10808,13 +10852,14 @@ eddsa_privkey_convert(const edwards_t *ec,
                       unsigned char *scalar,
                       const unsigned char *priv) {
   unsigned char bytes[(MAX_FIELD_SIZE + 1) * 2];
+  const prime_field_t *fe = &ec->fe;
   const scalar_field_t *sc = &ec->sc;
 
   eddsa_privkey_hash(ec, bytes, priv);
 
   memcpy(scalar, bytes, sc->size);
 
-  cleanse(bytes, sizeof(bytes));
+  cleanse(bytes, fe->adj_size * 2);
 }
 
 int
@@ -10919,7 +10964,7 @@ eddsa_scalar_reduce(const edwards_t *ec,
   sc_export(sc, out, a);
   sc_cleanse(sc, a);
 
-  cleanse(scalar, sizeof(scalar));
+  cleanse(scalar, sc->size);
 }
 
 void
@@ -10970,12 +11015,13 @@ void
 eddsa_pubkey_create(const edwards_t *ec,
                     unsigned char *pub,
                     const unsigned char *priv) {
+  const scalar_field_t *sc = &ec->sc;
   unsigned char scalar[MAX_SCALAR_SIZE];
 
   eddsa_privkey_convert(ec, scalar, priv);
   eddsa_pubkey_from_scalar(ec, pub, scalar);
 
-  cleanse(scalar, sizeof(scalar));
+  cleanse(scalar, sc->size);
 }
 
 int
@@ -11280,12 +11326,12 @@ eddsa_hash_final(const edwards_t *ec, hash_t *hash, sc_t r) {
 
   hash_final(hash, bytes, fe->adj_size * 2);
 
-  mpn_import(k, ARRAY_SIZE(k), bytes, fe->adj_size * 2, sc->endian);
+  mpn_import(k, sc->shift * 2, bytes, fe->adj_size * 2, sc->endian);
 
   sc_reduce(sc, r, k);
 
-  cleanse(bytes, sizeof(bytes));
-  mpn_cleanse(k, ARRAY_SIZE(k));
+  cleanse(bytes, fe->adj_size * 2);
+  mpn_cleanse(k, sc->shift * 2);
 }
 
 static void
@@ -11396,7 +11442,7 @@ eddsa_sign_with_scalar(const edwards_t *ec,
   if ((fe->bits & 7) == 0)
     sraw[fe->size] = 0x00;
 
-  cleanse(Araw, sizeof(Araw));
+  cleanse(Araw, fe->adj_size);
   sc_cleanse(sc, k);
   sc_cleanse(sc, a);
   sc_cleanse(sc, e);
@@ -11414,6 +11460,8 @@ eddsa_sign(const edwards_t *ec,
            int ph,
            const unsigned char *ctx,
            size_t ctx_len) {
+  const prime_field_t *fe = &ec->fe;
+  const scalar_field_t *sc = &ec->sc;
   unsigned char scalar[MAX_SCALAR_SIZE];
   unsigned char prefix[MAX_FIELD_SIZE + 1];
 
@@ -11423,8 +11471,8 @@ eddsa_sign(const edwards_t *ec,
                          scalar, prefix,
                          ph, ctx, ctx_len);
 
-  cleanse(scalar, sizeof(scalar));
-  cleanse(prefix, sizeof(prefix));
+  cleanse(scalar, sc->size);
+  cleanse(prefix, fe->adj_size);
 }
 
 void
@@ -11437,6 +11485,8 @@ eddsa_sign_tweak_add(const edwards_t *ec,
                      int ph,
                      const unsigned char *ctx,
                      size_t ctx_len) {
+  const prime_field_t *fe = &ec->fe;
+  const scalar_field_t *sc = &ec->sc;
   unsigned char scalar[MAX_SCALAR_SIZE];
   unsigned char prefix[MAX_FIELD_SIZE + 1];
   hash_t hash;
@@ -11455,8 +11505,8 @@ eddsa_sign_tweak_add(const edwards_t *ec,
                          scalar, prefix,
                          ph, ctx, ctx_len);
 
-  cleanse(scalar, sizeof(scalar));
-  cleanse(prefix, sizeof(prefix));
+  cleanse(scalar, sc->size);
+  cleanse(prefix, fe->adj_size);
 }
 
 void
@@ -11469,6 +11519,8 @@ eddsa_sign_tweak_mul(const edwards_t *ec,
                      int ph,
                      const unsigned char *ctx,
                      size_t ctx_len) {
+  const prime_field_t *fe = &ec->fe;
+  const scalar_field_t *sc = &ec->sc;
   unsigned char scalar[MAX_SCALAR_SIZE];
   unsigned char prefix[MAX_FIELD_SIZE + 1];
   hash_t hash;
@@ -11487,8 +11539,8 @@ eddsa_sign_tweak_mul(const edwards_t *ec,
                          scalar, prefix,
                          ph, ctx, ctx_len);
 
-  cleanse(scalar, sizeof(scalar));
-  cleanse(prefix, sizeof(prefix));
+  cleanse(scalar, sc->size);
+  cleanse(prefix, fe->adj_size);
 }
 
 int
@@ -11795,7 +11847,7 @@ eddsa_derive_with_scalar(const edwards_t *ec,
 
   ret = 1;
 fail:
-  cleanse(clamped, sizeof(clamped));
+  cleanse(clamped, sc->size);
   sc_cleanse(sc, a);
   xge_cleanse(ec, &A);
   xge_cleanse(ec, &P);
@@ -11807,6 +11859,7 @@ eddsa_derive(const edwards_t *ec,
              unsigned char *secret,
              const unsigned char *pub,
              const unsigned char *priv) {
+  const scalar_field_t *sc = &ec->sc;
   unsigned char scalar[MAX_SCALAR_SIZE];
   int ret;
 
@@ -11814,7 +11867,7 @@ eddsa_derive(const edwards_t *ec,
 
   ret = eddsa_derive_with_scalar(ec, secret, pub, scalar);
 
-  cleanse(scalar, sizeof(scalar));
+  cleanse(scalar, sc->size);
 
   return ret;
 }
