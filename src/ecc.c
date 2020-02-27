@@ -8630,8 +8630,6 @@ ecdsa_reduce(const wei_t *ec, sc_t r,
   memset(tmp, 0x00, sc->size - msg_len);
   memcpy(tmp + sc->size - msg_len, msg, msg_len);
 
-  assert(sc->endian == 1);
-
   /* Shift by the remaining bits. */
   /* Note that the message length is not secret. */
   if (msg_len * 8 > sc->bits) {
