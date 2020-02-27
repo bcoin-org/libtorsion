@@ -331,7 +331,7 @@ typedef struct _wei_s {
   scalar_field_t sc;
   unsigned int h;
   mp_limb_t pmodn[MAX_REDUCE_LIMBS];
-  fe_t red_n;
+  fe_t fe_n;
   fe_t a;
   fe_t b;
   fe_t c;
@@ -630,7 +630,7 @@ reverse_bytes(void *out, const void *in, size_t size) {
 }
 
 static void
-reverse_inplace(void *ptr, size_t size) {
+swap_bytes(void *ptr, size_t size) {
 #ifdef TORSION_USE_64BIT
 #if (defined(__GNUC__) && (__GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 3))) \
     || (defined(__clang__) && __has_builtin(__builtin_bswap64))
@@ -1410,7 +1410,7 @@ fe_export(const prime_field_t *fe, unsigned char *raw, const fe_t a) {
   }
 
   if (fe->endian == 1)
-    reverse_inplace(raw, fe->size);
+    swap_bytes(raw, fe->size);
 }
 
 static void
@@ -1506,7 +1506,7 @@ fe_set_word(const prime_field_t *fe, fe_t r, uint32_t word) {
       tmp[3] = (word >> 24) & 0xff;
     }
 
-    fe_import(fe, r, tmp);
+    assert(fe_import(fe, r, tmp));
   } else {
     /* Note: the limit of the word size here depends
      * on how saturated the field implementation is.
@@ -2585,10 +2585,10 @@ jge_is_zero(const wei_t *ec, const jge_t *a) {
 static int
 jge_equal(const wei_t *ec, const jge_t *a, const jge_t *b) {
   const prime_field_t *fe = &ec->fe;
-  fe_t z1, z2, e1, e2;
   int inf1 = jge_is_zero(ec, a);
   int inf2 = jge_is_zero(ec, b);
   int both = inf1 & inf2;
+  fe_t z1, z2, e1, e2;
   int ret = 1;
 
   /* P = O, Q = O */
@@ -2615,6 +2615,8 @@ jge_equal(const wei_t *ec, const jge_t *a, const jge_t *b) {
 
 static int
 jge_is_square(const wei_t *ec, const jge_t *p) {
+  /* [SCHNORR] "Optimizations". */
+  /* [BIP340] "Optimizations". */
   const prime_field_t *fe = &ec->fe;
   fe_t yz;
 
@@ -2626,6 +2628,8 @@ jge_is_square(const wei_t *ec, const jge_t *p) {
 
 static int
 jge_is_square_var(const wei_t *ec, const jge_t *p) {
+  /* [SCHNORR] "Optimizations". */
+  /* [BIP340] "Optimizations". */
   const prime_field_t *fe = &ec->fe;
   fe_t yz;
 
@@ -2639,6 +2643,8 @@ jge_is_square_var(const wei_t *ec, const jge_t *p) {
 
 static int
 jge_equal_x(const wei_t *ec, const jge_t *p, const fe_t x) {
+  /* [SCHNORR] "Optimizations". */
+  /* [BIP340] "Optimizations". */
   const prime_field_t *fe = &ec->fe;
   fe_t xz;
 
@@ -2652,11 +2658,14 @@ jge_equal_x(const wei_t *ec, const jge_t *p, const fe_t x) {
 #ifdef ECC_WITH_TRICK
 static int
 jge_equal_r_var(const wei_t *ec, const jge_t *p, const sc_t x) {
+  /* Generalized version of the trick used in libsecp256k1: */
+  /* https://github.com/bitcoin-core/secp256k1/commit/ce7eb6f */
   const prime_field_t *fe = &ec->fe;
   const scalar_field_t *sc = &ec->sc;
   mp_limb_t cp[MAX_FIELD_LIMBS + 1];
   mp_size_t cn = fe->limbs + 1;
   fe_t zz, rx, rn;
+  mp_limb_t cy;
 
   assert(fe->limbs >= sc->limbs);
 
@@ -2674,13 +2683,15 @@ jge_equal_r_var(const wei_t *ec, const jge_t *p, const sc_t x) {
   mpn_zero(cp + sc->limbs, cn - sc->limbs);
   mpn_copyi(cp, x, sc->limbs);
 
-  fe_mul(fe, rn, ec->red_n, zz);
+  fe_mul(fe, rn, ec->fe_n, zz);
 
   assert(sc->n[cn - 1] == 0);
   assert(fe->p[cn - 1] == 0);
 
   for (;;) {
-    mpn_add_n(cp, cp, sc->n, cn);
+    cy = mpn_add_n(cp, cp, sc->n, cn);
+
+    assert(cy == 0);
 
     if (mpn_cmp(cp, fe->p, cn) >= 0)
       return 0;
@@ -3534,7 +3545,7 @@ wei_init(wei_t *ec, const wei_def_t *def) {
 
   sc_reduce(sc, ec->pmodn, fe->p);
 
-  fe_set_limbs(fe, ec->red_n, sc->n, sc->limbs);
+  fe_set_limbs(fe, ec->fe_n, sc->n, sc->limbs);
   fe_import(fe, ec->a, def->a);
   fe_import(fe, ec->b, def->b);
   fe_import(fe, ec->c, def->c);
@@ -5137,10 +5148,10 @@ pge_is_zero(const mont_t *ec, const pge_t *a) {
 static int
 pge_equal(const mont_t *ec, const pge_t *a, const pge_t *b) {
   const prime_field_t *fe = &ec->fe;
-  fe_t e1, e2;
   int inf1 = pge_is_zero(ec, a);
   int inf2 = pge_is_zero(ec, b);
   int both = inf1 & inf2;
+  fe_t e1, e2;
   int ret = 1;
 
   /* P = O, Q = O */
@@ -9039,7 +9050,7 @@ ecdsa_recover(const wei_t *ec,
     if (sc_cmp_var(sc, r, ec->pmodn) >= 0)
       return 0;
 
-    fe_add(fe, x, x, ec->red_n);
+    fe_add(fe, x, x, ec->fe_n);
   }
 
   if (!wge_set_x(ec, &R, x, sign))
