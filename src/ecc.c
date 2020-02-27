@@ -8814,25 +8814,20 @@ ecdsa_sign(const wei_t *ec,
 
   drbg_init(&rng, ec->hash, bytes, sc->size * 2);
 
-retry:
-  ok = 1;
+  do {
+    drbg_generate(&rng, bytes, sc->size);
 
-  drbg_generate(&rng, bytes, sc->size);
+    ok = ecdsa_reduce(ec, k, bytes, sc->size);
 
-  ok &= ecdsa_reduce(ec, k, bytes, sc->size);
-  ok &= sc_is_zero(sc, k) ^ 1;
+    wei_mul_g(ec, &R, k);
 
-  wei_mul_g(ec, &R, k);
+    sign = fe_is_odd(fe, R.y);
+    high = sc_set_fe(sc, fe, r, R.x) ^ 1;
 
-  ok &= wge_is_zero(ec, &R) ^ 1;
-
-  sign = fe_is_odd(fe, R.y);
-  high = sc_set_fe(sc, fe, r, R.x) ^ 1;
-
-  ok &= sc_is_zero(sc, r) ^ 1;
-
-  if (!ok)
-    goto retry;
+    ok &= sc_is_zero(sc, k) ^ 1;
+    ok &= wge_is_zero(ec, &R) ^ 1;
+    ok &= sc_is_zero(sc, r) ^ 1;
+  } while (!ok);
 
   assert(sc_invert(sc, k, k));
   sc_mul(sc, s, r, a);
