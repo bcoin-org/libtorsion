@@ -390,8 +390,6 @@ typedef struct _wei_scratch_s {
  * Montgomery
  */
 
-typedef void clamp_func(unsigned char *raw);
-
 /* mge = montgomery group element (affine) */
 typedef struct _mge_s {
   fe_t x;
@@ -421,7 +419,6 @@ typedef struct _mont_s {
   fe_t a0;
   fe_t b0;
   mge_t g;
-  clamp_func *clamp;
 } mont_t;
 
 typedef struct _mont_def_s {
@@ -437,7 +434,6 @@ typedef struct _mont_def_s {
   const unsigned char c[MAX_FIELD_SIZE];
   const unsigned char x[MAX_FIELD_SIZE];
   const unsigned char y[MAX_FIELD_SIZE];
-  clamp_func *clamp;
 } mont_def_t;
 
 /*
@@ -477,7 +473,6 @@ typedef struct _edwards_s {
   xge_t unblind;
   xge_t windows[MAX_WNDS_SIZE];
   xge_t points[NAF_SIZE_PRE];
-  clamp_func *clamp;
 } edwards_t;
 
 typedef struct _edwards_def_s {
@@ -495,7 +490,6 @@ typedef struct _edwards_def_s {
   const unsigned char c[MAX_FIELD_SIZE];
   const unsigned char x[MAX_FIELD_SIZE];
   const unsigned char y[MAX_FIELD_SIZE];
-  clamp_func *clamp;
 } edwards_def_t;
 
 typedef struct _edwards_scratch_s {
@@ -5336,7 +5330,6 @@ mont_init(mont_t *ec, const mont_def_t *def) {
   scalar_field_t *sc = &ec->sc;
 
   ec->h = def->h;
-  ec->clamp = def->clamp;
 
   prime_field_init(fe, def->fe, -1);
   scalar_field_init(sc, def->sc, -1);
@@ -5395,8 +5388,23 @@ mont_init_isomorphism(mont_t *ec, const mont_def_t *def) {
 
 static void
 mont_clamp(const mont_t *ec, unsigned char *out, const unsigned char *in) {
-  memcpy(out, in, ec->sc.size);
-  ec->clamp(out);
+  size_t size = ec->sc.size;
+  size_t top = ec->fe.bits & 7;
+
+  if (top == 0)
+    top = 8;
+
+  /* Copy. */
+  memcpy(out, in, size);
+
+  /* Ensure a multiple of the cofactor. */
+  out[0] &= -ec->h;
+
+  /* Clamp to the prime. */
+  out[size - 1] &= (1 << top) - 1;
+
+  /* Set the high bit. */
+  out[size - 1] |= 1 << (top - 1);
 }
 
 static void
@@ -6260,7 +6268,6 @@ edwards_init(edwards_t *ec, const edwards_def_t *def) {
   ec->context = def->context;
   ec->prefix = def->prefix;
   ec->h = def->h;
-  ec->clamp = def->clamp;
 
   prime_field_init(fe, def->fe, -1);
   scalar_field_init(sc, def->sc, -1);
@@ -6349,8 +6356,23 @@ static void
 edwards_clamp(const edwards_t *ec,
               unsigned char *out,
               const unsigned char *in) {
-  memcpy(out, in, ec->sc.size);
-  ec->clamp(out);
+  size_t size = ec->sc.size;
+  size_t top = ec->fe.bits & 7;
+
+  if (top == 0)
+    top = 8;
+
+  /* Copy. */
+  memcpy(out, in, size);
+
+  /* Ensure a multiple of the cofactor. */
+  out[0] &= -ec->h;
+
+  /* Clamp to the prime. */
+  out[size - 1] &= (1 << top) - 1;
+
+  /* Set the high bit. */
+  out[size - 1] |= 1 << (top - 1);
 }
 
 static void
@@ -7766,8 +7788,7 @@ static const mont_def_t curve_x25519 = {
     0x1f, 0xe1, 0x22, 0xd3, 0x88, 0xb7, 0x2e, 0xb3,
     0x6d, 0xc2, 0xb2, 0x81, 0x92, 0x83, 0x9e, 0x4d,
     0xd6, 0x16, 0x3a, 0x5d, 0x81, 0x31, 0x2c, 0x14
-  },
-  .clamp = p25519_clamp
+  }
 };
 
 static const mont_def_t curve_x448 = {
@@ -7824,8 +7845,7 @@ static const mont_def_t curve_x448 = {
     0xb8, 0x02, 0x7e, 0x23, 0x46, 0x43, 0x0d, 0x21,
     0x13, 0x12, 0xc4, 0xb1, 0x50, 0x67, 0x7a, 0xf7,
     0x6f, 0xd7, 0x22, 0x3d, 0x45, 0x7b, 0x5b, 0x1a
-  },
-  .clamp = p448_clamp
+  }
 };
 
 /*
@@ -7877,8 +7897,7 @@ static const edwards_def_t curve_ed25519 = {
     0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66,
     0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66,
     0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x58
-  },
-  .clamp = p25519_clamp
+  }
 };
 
 static const edwards_def_t curve_ed448 = {
@@ -7939,8 +7958,7 @@ static const edwards_def_t curve_ed448 = {
     0x3a, 0xd3, 0xff, 0x1c, 0xe6, 0x7c, 0x39, 0xc4,
     0xfd, 0xbd, 0x13, 0x2c, 0x4e, 0xd7, 0xc8, 0xad,
     0x98, 0x08, 0x79, 0x5b, 0xf2, 0x30, 0xfa, 0x14
-  },
-  .clamp = p448_clamp
+  }
 };
 
 static const edwards_def_t curve_ed1174 = {
@@ -7986,8 +8004,7 @@ static const edwards_def_t curve_ed1174 = {
     0x66, 0x56, 0x84, 0x11, 0x69, 0x84, 0x0e, 0x0c,
     0x4f, 0xe2, 0xde, 0xe2, 0xaf, 0x3f, 0x97, 0x6b,
     0xa4, 0xcc, 0xb1, 0xbf, 0x9b, 0x46, 0x36, 0x0e
-  },
-  .clamp = p251_clamp
+  }
 };
 
 /*

@@ -221,10 +221,3 @@ p25519_fe_isqrt(p25519_fe_t out, const p25519_fe_t u, const p25519_fe_t v) {
 
   return css | fss;
 }
-
-static void
-p25519_clamp(unsigned char *raw) {
-  raw[0] &= 0xf8; /* -8 */
-  raw[31] &= 0x7f;
-  raw[31] |= 0x40;
-}
