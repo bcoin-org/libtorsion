@@ -1543,14 +1543,24 @@ fe_is_zero(const prime_field_t *fe, const fe_t a) {
 
 static int
 fe_equal(const prime_field_t *fe, const fe_t a, const fe_t b) {
-  fe_t c;
+  fe_word_t z = 0;
+  size_t i;
 
-  fe->sub(c, a, b);
+  if (fe->from_montgomery) {
+    for (i = 0; i < fe->words; i++)
+      z |= a[i] ^ b[i];
+  } else {
+    unsigned char x[MAX_FIELD_SIZE];
+    unsigned char y[MAX_FIELD_SIZE];
 
-  if (fe->carry)
-    fe->carry(c, c);
+    fe->to_bytes(x, a);
+    fe->to_bytes(y, b);
 
-  return fe_is_zero(fe, c);
+    for (i = 0; i < fe->size; i++)
+      z |= (fe_word_t)x[i] ^ (fe_word_t)y[i];
+  }
+
+  return z == 0;
 }
 
 static int
