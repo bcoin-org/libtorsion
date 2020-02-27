@@ -18,5 +18,5 @@ static void
 p251_clamp(unsigned char *raw) {
   raw[0] &= 0xfc; /* -4 */
   raw[31] &= 0x07;
-  raw[31] |= 0x08;
+  raw[31] |= 0x04;
 }
