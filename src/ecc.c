@@ -1066,10 +1066,10 @@ sc_bitlen_var(const scalar_field_t *sc, const sc_t a) {
 }
 
 static mp_limb_t
-sc_get_bits(const scalar_field_t *sc, const sc_t a, size_t i, size_t w) {
-  (void)sc;
+sc_get_bits(const scalar_field_t *sc, const sc_t k, size_t i, size_t w) {
   mp_limb_t mask = ((mp_limb_t)1 << w) - 1;
-  return (a[i / GMP_NUMB_BITS] >> (i % GMP_NUMB_BITS)) & mask;
+  (void)sc;
+  return (k[i / GMP_NUMB_BITS] >> (i % GMP_NUMB_BITS)) & mask;
 }
 
 static mp_limb_t

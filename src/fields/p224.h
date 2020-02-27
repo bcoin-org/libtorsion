@@ -25,7 +25,6 @@ typedef p224_fe_word_t p224_fe_t[P224_FIELD_WORDS];
 #define p224_fe_neg fiat_p224_opp
 #define p224_fe_mul fiat_p224_mul
 #define p224_fe_sqr fiat_p224_square
-#define p224_fe_nonzero fiat_p224_nonzero
 
 #ifdef TORSION_USE_64BIT
 static const p224_fe_t p224_zero = {0, 0, 0, 0};
@@ -72,13 +71,13 @@ p224_fe_set(p224_fe_t out, const p224_fe_t in) {
 
 static int
 p224_fe_equal(const p224_fe_t a, const p224_fe_t b) {
-  p224_fe_t c;
-  p224_fe_word_t ret;
+  p224_fe_word_t z = 0;
+  size_t i;
 
-  p224_fe_sub(c, a, b);
-  fiat_p224_nonzero(&ret, c);
+  for (i = 0; i < P224_FIELD_WORDS; i++)
+    z |= a[i] ^ b[i];
 
-  return ret == 0;
+  return z == 0;
 }
 
 static void

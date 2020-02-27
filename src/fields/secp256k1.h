@@ -25,7 +25,6 @@ typedef secp256k1_fe_word_t secp256k1_fe_t[SECP256K1_FIELD_WORDS];
 #define secp256k1_fe_neg fiat_secp256k1_opp
 #define secp256k1_fe_mul fiat_secp256k1_mul
 #define secp256k1_fe_sqr fiat_secp256k1_square
-#define secp256k1_fe_nonzero fiat_secp256k1_nonzero
 
 static void
 secp256k1_fe_set(secp256k1_fe_t out, const secp256k1_fe_t in) {
@@ -39,6 +38,17 @@ secp256k1_fe_set(secp256k1_fe_t out, const secp256k1_fe_t in) {
   out[6] = in[6];
   out[7] = in[7];
 #endif
+}
+
+static int
+secp256k1_fe_equal(const secp256k1_fe_t a, const secp256k1_fe_t b) {
+  secp256k1_fe_word_t z = 0;
+  size_t i;
+
+  for (i = 0; i < SECP256K1_FIELD_WORDS; i++)
+    z |= a[i] ^ b[i];
+
+  return z == 0;
 }
 
 static void
@@ -113,7 +123,7 @@ secp256k1_fe_invert(secp256k1_fe_t out, const secp256k1_fe_t in) {
 static int
 secp256k1_fe_sqrt(secp256k1_fe_t out, const secp256k1_fe_t in) {
   secp256k1_fe_t x2, x3, x6, x9, x11, x22, x44, x88, x176, x220, x223, t1;
-  secp256k1_fe_word_t ret;
+  int ret;
 
   secp256k1_fe_sqr(x2, in);
   secp256k1_fe_mul(x2, x2, in);
@@ -166,13 +176,11 @@ secp256k1_fe_sqrt(secp256k1_fe_t out, const secp256k1_fe_t in) {
   secp256k1_fe_sqr(x2, t1);
 
   secp256k1_fe_sqr(t1, x2);
-  secp256k1_fe_sub(t1, t1, in);
+  ret = secp256k1_fe_equal(t1, in);
 
   secp256k1_fe_set(out, x2);
 
-  secp256k1_fe_nonzero(&ret, t1);
-
-  return ret == 0;
+  return ret;
 }
 
 static void
@@ -191,40 +199,23 @@ secp256k1_fe_pow_pm3d4(secp256k1_fe_t r, const secp256k1_fe_t a) {
   secp256k1_fe_mul(w15, w11, w4);
 
   secp256k1_fe_set(r, w15);
-  secp256k1_fe_sqr(r, r);
-  secp256k1_fe_sqr(r, r);
-  secp256k1_fe_sqr(r, r);
-  secp256k1_fe_sqr(r, r);
+  secp256k1_fe_sqrn(r, r, 4);
 
   for (i = 0; i < 54; i++) {
     secp256k1_fe_mul(r, r, w15);
-    secp256k1_fe_sqr(r, r);
-    secp256k1_fe_sqr(r, r);
-    secp256k1_fe_sqr(r, r);
-    secp256k1_fe_sqr(r, r);
+    secp256k1_fe_sqrn(r, r, 4);
   }
 
   secp256k1_fe_mul(r, r, w14);
-  secp256k1_fe_sqr(r, r);
-  secp256k1_fe_sqr(r, r);
-  secp256k1_fe_sqr(r, r);
-  secp256k1_fe_sqr(r, r);
+  secp256k1_fe_sqrn(r, r, 4);
 
   for (i = 0; i < 5; i++) {
     secp256k1_fe_mul(r, r, w15);
-    secp256k1_fe_sqr(r, r);
-    secp256k1_fe_sqr(r, r);
-    secp256k1_fe_sqr(r, r);
-    secp256k1_fe_sqr(r, r);
+    secp256k1_fe_sqrn(r, r, 4);
   }
 
   secp256k1_fe_mul(r, r, w12);
-  secp256k1_fe_sqr(r, r);
-  secp256k1_fe_sqr(r, r);
-  secp256k1_fe_sqr(r, r);
-  secp256k1_fe_sqr(r, r);
-  secp256k1_fe_sqr(r, r);
-  secp256k1_fe_sqr(r, r);
+  secp256k1_fe_sqrn(r, r, 6);
 
   secp256k1_fe_mul(r, r, w11);
 }
@@ -234,7 +225,7 @@ secp256k1_fe_isqrt(secp256k1_fe_t r,
                    const secp256k1_fe_t u,
                    const secp256k1_fe_t v) {
   secp256k1_fe_t u2, u3, u5, v3, p, x, c;
-  secp256k1_fe_word_t ret;
+  int ret;
 
   /* x = u^3 * v * (u^5 * v^3)^((p - 3) / 4) mod p */
   secp256k1_fe_sqr(u2, u);
@@ -250,12 +241,9 @@ secp256k1_fe_isqrt(secp256k1_fe_t r,
   /* x^2 * v == u */
   secp256k1_fe_sqr(c, x);
   secp256k1_fe_mul(c, c, v);
-
-  secp256k1_fe_sub(c, c, u);
+  ret = secp256k1_fe_equal(c, u);
 
   secp256k1_fe_set(r, x);
 
-  secp256k1_fe_nonzero(&ret, c);
-
-  return ret == 0;
+  return ret;
 }
