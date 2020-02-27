@@ -4,7 +4,6 @@ CFLAGS := \
 	-Wextra \
 	-Wno-unused-function \
 	-Wno-unused-const-variable \
-	-Wno-unused-parameter \
 	-Wno-implicit-fallthrough \
 	-std=c89 \
 	-I./include \

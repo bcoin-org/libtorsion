@@ -14,7 +14,6 @@ if test x"$2" = x'mini'; then
     -Wextra \
     -Wno-unused-function \
     -Wno-unused-const-variable \
-    -Wno-unused-parameter \
     -Wno-implicit-fallthrough \
     -std=c89 \
     -O3 \
@@ -40,7 +39,6 @@ else
     -Wextra \
     -Wno-unused-function \
     -Wno-unused-const-variable \
-    -Wno-unused-parameter \
     -Wno-implicit-fallthrough \
     -std=c89 \
     -O3 \

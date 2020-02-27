@@ -192,7 +192,7 @@ test_wei_mul_g_p256(drbg_t *rng) {
 }
 
 static void
-test_wei_mul_p256(drbg_t *rng) {
+test_wei_mul_p256() {
   const unsigned char p_raw[33] = {
     0x03, 0x42, 0x67, 0xab, 0xc7, 0xde, 0x72, 0x0f,
     0x14, 0x5a, 0xbc, 0x94, 0xb9, 0x5b, 0x33, 0x50,
@@ -269,7 +269,7 @@ test_wei_mul_g_secp256k1(drbg_t *rng) {
 }
 
 static void
-test_wei_mul_secp256k1(drbg_t *rng) {
+test_wei_mul_secp256k1() {
   const unsigned char p_raw[33] = {
     0x02, 0x0a, 0xfc, 0xf3, 0x56, 0xdb, 0x98, 0x4f,
     0xa0, 0x33, 0x98, 0x35, 0xfe, 0xb4, 0xd9, 0x65,
@@ -908,7 +908,7 @@ test_edwards_mul_g_ed25519(drbg_t *rng) {
 }
 
 static void
-test_edwards_mul_ed25519(drbg_t *rng) {
+test_edwards_mul_ed25519() {
   const unsigned char p_raw[32] = {
     0xe1, 0xb0, 0x38, 0x25, 0x32, 0xd6, 0x5a, 0x8f,
     0x8d, 0xb3, 0x9a, 0x07, 0xff, 0x2a, 0x80, 0x9c,
@@ -1628,9 +1628,9 @@ main(int argc, char **argv) {
       bench_eddsa(&rng);
   } else {
     test_wei_mul_g_p256(&rng);
-    test_wei_mul_p256(&rng);
+    test_wei_mul_p256();
     test_wei_mul_g_secp256k1(&rng);
-    test_wei_mul_secp256k1(&rng);
+    test_wei_mul_secp256k1();
     test_ecdsa_vector_p192(&rng);
     test_ecdsa_vector_p224(&rng);
     test_ecdsa_vector_p256(&rng);
@@ -1640,7 +1640,7 @@ main(int argc, char **argv) {
     test_ecdh_vector_x25519();
     test_ecdh_vector_x448();
     test_edwards_mul_g_ed25519(&rng);
-    test_edwards_mul_ed25519(&rng);
+    test_edwards_mul_ed25519();
     test_eddsa_vector_ed25519(&rng);
     test_eddsa_vector_ed448(&rng);
     test_sswu();
