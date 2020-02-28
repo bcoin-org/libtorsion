@@ -67,9 +67,9 @@ static void
 p521_fe_sqrn(p521_fe_t out, const p521_fe_t in, int rounds) {
   int i;
 
-  p521_fe_set(out, in);
+  p521_fe_sqr(out, in);
 
-  for (i = 0; i < rounds; i++)
+  for (i = 1; i < rounds; i++)
     p521_fe_sqr(out, out);
 }
 

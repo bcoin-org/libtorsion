@@ -57,15 +57,15 @@ static void
 p384_fe_sqrn(p384_fe_t out, const p384_fe_t in, int rounds) {
   int i;
 
-  p384_fe_set(out, in);
+  p384_fe_sqr(out, in);
 
-  for (i = 0; i < rounds; i++)
+  for (i = 1; i < rounds; i++)
     p384_fe_sqr(out, out);
 }
 
 static void
 p384_fe_invert(p384_fe_t out, const p384_fe_t in) {
-  /* https://briansmith.org/ecc-inversion-addition-chains-01 */
+  /* https://briansmith.org/ecc-inversion-addition-chains-01#p384_field_inversion */
   /* 255x1 1x0 32x1 64x0 30x1 1x0 1x1 */
   p384_fe_t x1, x2, x3, x6, x12, x15, x30, x60, x120;
 

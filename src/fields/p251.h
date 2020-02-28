@@ -58,9 +58,9 @@ static void
 p251_fe_sqrn(p251_fe_t out, const p251_fe_t in, int rounds) {
   int i;
 
-  p251_fe_set(out, in);
+  p251_fe_sqr(out, in);
 
-  for (i = 0; i < rounds; i++)
+  for (i = 1; i < rounds; i++)
     p251_fe_sqr(out, out);
 }
 

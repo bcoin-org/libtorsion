@@ -80,9 +80,15 @@ static void
 p224_fe_sqrn(p224_fe_t out, const p224_fe_t in, int rounds) {
   int i;
 
-  p224_fe_set(out, in);
+  /* Handle zero for the tonelli-shanks loop. */
+  if (rounds == 0) {
+    p224_fe_set(out, in);
+    return;
+  }
 
-  for (i = 0; i < rounds; i++)
+  p224_fe_sqr(out, in);
+
+  for (i = 1; i < rounds; i++)
     p224_fe_sqr(out, out);
 }
 

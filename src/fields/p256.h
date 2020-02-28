@@ -51,9 +51,9 @@ static void
 p256_fe_sqrn(p256_fe_t out, const p256_fe_t in, int rounds) {
   int i;
 
-  p256_fe_set(out, in);
+  p256_fe_sqr(out, in);
 
-  for (i = 0; i < rounds; i++)
+  for (i = 1; i < rounds; i++)
     p256_fe_sqr(out, out);
 }
 

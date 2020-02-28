@@ -55,14 +55,15 @@ static void
 secp256k1_fe_sqrn(secp256k1_fe_t out, const secp256k1_fe_t in, int rounds) {
   int i;
 
-  secp256k1_fe_set(out, in);
+  secp256k1_fe_sqr(out, in);
 
-  for (i = 0; i < rounds; i++)
+  for (i = 1; i < rounds; i++)
     secp256k1_fe_sqr(out, out);
 }
 
 static void
 secp256k1_fe_invert(secp256k1_fe_t out, const secp256k1_fe_t in) {
+  /* https://briansmith.org/ecc-inversion-addition-chains-01#secp256k1_field_inversion */
   /* https://github.com/bitcoin-core/secp256k1/blob/master/src/field_impl.h */
   /* 15M + 255S */
   secp256k1_fe_t x1, x2, x3, x6, x9, x11, x22, x44, x88, x176, x220, x223;

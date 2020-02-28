@@ -79,9 +79,9 @@ static void
 p25519_fe_sqrn(p25519_fe_t out, const p25519_fe_t in, int rounds) {
   int i;
 
-  p25519_fe_set(out, in);
+  p25519_fe_sqr(out, in);
 
-  for (i = 0; i < rounds; i++)
+  for (i = 1; i < rounds; i++)
     p25519_fe_sqr(out, out);
 }
 
