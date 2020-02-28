@@ -64,6 +64,7 @@ secp256k1_fe_sqrn(secp256k1_fe_t out, const secp256k1_fe_t in, int rounds) {
 /* https://github.com/bitcoin-core/secp256k1/blob/master/src/field_impl.h */
 static void
 secp256k1_fe_invert(secp256k1_fe_t out, const secp256k1_fe_t in) {
+  /* 15M + 255S */
   secp256k1_fe_t x2, x3, x6, x9, x11, x22, x44, x88, x176, x220, x223, t1;
 
   secp256k1_fe_sqr(x2, in);
@@ -122,6 +123,7 @@ secp256k1_fe_invert(secp256k1_fe_t out, const secp256k1_fe_t in) {
 /* https://github.com/bitcoin-core/secp256k1/blob/master/src/field_impl.h */
 static int
 secp256k1_fe_sqrt(secp256k1_fe_t out, const secp256k1_fe_t in) {
+  /* 13M + 254S */
   secp256k1_fe_t x2, x3, x6, x9, x11, x22, x44, x88, x176, x220, x223, t1;
   int ret;
 
@@ -184,46 +186,60 @@ secp256k1_fe_sqrt(secp256k1_fe_t out, const secp256k1_fe_t in) {
 }
 
 static void
-secp256k1_fe_pow_pm3d4(secp256k1_fe_t r, const secp256k1_fe_t a) {
-  /* Compute a^((p - 3) / 4) with sliding window. Could be improved. */
-  secp256k1_fe_t w2, w4, w11, w12, w14, w15;
+secp256k1_fe_pow_pm3d4(secp256k1_fe_t out, const secp256k1_fe_t in) {
+  /* Compute a^((p - 3) / 4) with sliding window. */
+  /* 41M + 253S */
+  secp256k1_fe_t t2, t3, t4, t8, t16, t32, t64, t252, t255;
   int i;
 
-  secp256k1_fe_sqr(w2, a);
-  secp256k1_fe_sqr(w4, w2);
-  secp256k1_fe_sqr(w11, w4);
-  secp256k1_fe_mul(w11, w11, w2);
-  secp256k1_fe_mul(w11, w11, a);
-  secp256k1_fe_mul(w12, w11, a);
-  secp256k1_fe_mul(w14, w12, w2);
-  secp256k1_fe_mul(w15, w11, w4);
+  secp256k1_fe_sqr(t2, in);
+  secp256k1_fe_mul(t3, t2, in);
+  secp256k1_fe_sqr(t4, t2);
+  secp256k1_fe_sqr(t8, t4);
+  secp256k1_fe_sqr(t16, t8);
+  secp256k1_fe_sqr(t32, t16);
+  secp256k1_fe_sqr(t64, t32);
 
-  secp256k1_fe_set(r, w15);
-  secp256k1_fe_sqrn(r, r, 4);
+  secp256k1_fe_sqr(t252, t64);
+  secp256k1_fe_mul(t252, t252, t64);
+  secp256k1_fe_mul(t252, t252, t32);
+  secp256k1_fe_mul(t252, t252, t16);
+  secp256k1_fe_mul(t252, t252, t8);
+  secp256k1_fe_mul(t252, t252, t4);
 
-  for (i = 0; i < 54; i++) {
-    secp256k1_fe_mul(r, r, w15);
-    secp256k1_fe_sqrn(r, r, 4);
+  secp256k1_fe_mul(t255, t252, t2);
+  secp256k1_fe_mul(t255, t255, in);
+
+  secp256k1_fe_set(out, t255);
+
+  for (i = 0; i < 26; i++) {
+    secp256k1_fe_sqrn(out, out, 8);
+    secp256k1_fe_mul(out, out, t255);
   }
 
-  secp256k1_fe_mul(r, r, w14);
-  secp256k1_fe_sqrn(r, r, 4);
+  secp256k1_fe_sqrn(out, out, 8);
+  secp256k1_fe_mul(out, out, t252);
+  secp256k1_fe_mul(out, out, t2);
 
-  for (i = 0; i < 5; i++) {
-    secp256k1_fe_mul(r, r, w15);
-    secp256k1_fe_sqrn(r, r, 4);
-  }
+  secp256k1_fe_sqrn(out, out, 8);
+  secp256k1_fe_mul(out, out, t255);
 
-  secp256k1_fe_mul(r, r, w12);
-  secp256k1_fe_sqrn(r, r, 6);
+  secp256k1_fe_sqrn(out, out, 8);
+  secp256k1_fe_mul(out, out, t255);
 
-  secp256k1_fe_mul(r, r, w11);
+  secp256k1_fe_sqrn(out, out, 8);
+  secp256k1_fe_mul(out, out, t252);
+
+  secp256k1_fe_sqrn(out, out, 6);
+  secp256k1_fe_mul(out, out, t8);
+  secp256k1_fe_mul(out, out, t3);
 }
 
 static int
 secp256k1_fe_isqrt(secp256k1_fe_t r,
                    const secp256k1_fe_t u,
                    const secp256k1_fe_t v) {
+  /* 48M + 256S */
   secp256k1_fe_t u2, u3, u5, v3, p, x, c;
   int ret;
 

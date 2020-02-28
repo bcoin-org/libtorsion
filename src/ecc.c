@@ -975,7 +975,6 @@ sc_mulshift(const scalar_field_t *sc, sc_t r,
   mp_limb_t *rp = scratch;
   mp_size_t rn = sc->limbs * 2;
   mp_size_t nn = sc->limbs;
-  mp_size_t i = shift - 1;
   mp_size_t limbs = shift / GMP_NUMB_BITS;
   mp_size_t left = shift % GMP_NUMB_BITS;
   mp_limb_t bit, cy;
@@ -987,7 +986,7 @@ sc_mulshift(const scalar_field_t *sc, sc_t r,
   rp[rn] = 0;
 
   /* bit = (r >> 271) & 1 */
-  bit = rp[i / GMP_NUMB_BITS] >> (i % GMP_NUMB_BITS);
+  bit = mpn_get_bit(rp, shift - 1);
 
   /* r >>= 256 */
   rp += limbs;
@@ -1003,7 +1002,7 @@ sc_mulshift(const scalar_field_t *sc, sc_t r,
 
   /* r += bit */
   rn += 1;
-  cy = mpn_add_1(rp, rp, rn, bit & 1);
+  cy = mpn_add_1(rp, rp, rn, bit);
   rn -= (rp[rn - 1] == 0);
 
   assert(cy == 0);
@@ -1021,33 +1020,44 @@ sc_invert_var(const scalar_field_t *sc, sc_t r, const sc_t a) {
 }
 
 static void
-sc_pow(const scalar_field_t *sc, sc_t r, const sc_t a, const sc_t e) {
+sc_pow(const scalar_field_t *sc, sc_t r, const sc_t a, const mp_limb_t *e) {
   /* Used for inversion if not available otherwise. */
-  mp_size_t i;
-  sc_t b;
+  mp_size_t start = WND_STEPS(sc->bits) - 1;
+  sc_t table[WND_SIZE];
+  mp_size_t i, j;
+  mp_limb_t b;
 
-  sc_set_word(sc, b, 1);
+  sc_set_word(sc, table[0], 1);
+  sc_set(sc, table[1], a);
 
-  for (i = sc->bits - 1; i >= 0; i--) {
-    mp_limb_t bit = e[i / GMP_NUMB_BITS] >> (i % GMP_NUMB_BITS);
-
-    sc_sqr(sc, b, b);
-
-    if (bit & 1)
-      sc_mul(sc, b, b, a);
+  for (i = 2; i < WND_SIZE; i += 2) {
+    sc_sqr(sc, table[i], table[i >> 1]);
+    sc_mul(sc, table[i + 1], table[i], a);
   }
 
-  sc_set(sc, r, b);
+  sc_set_word(sc, r, 1);
+
+  for (i = start; i >= 0; i--) {
+    b = mpn_get_bits(e, i * WND_WIDTH, WND_WIDTH);
+
+    if (i == start) {
+      sc_set(sc, r, table[b]);
+    } else {
+      for (j = 0; j < WND_WIDTH; j++)
+        sc_sqr(sc, r, r);
+
+      sc_mul(sc, r, r, table[b]);
+    }
+  }
 }
 
 static int
 sc_invert(const scalar_field_t *sc, sc_t r, const sc_t a) {
   int ret = sc_is_zero(sc, a) ^ 1;
-  sc_t e;
+  mp_limb_t e[MAX_SCALAR_LIMBS];
 
   /* e = n - 2 */
-  mpn_copyi(e, sc->n, sc->limbs);
-  mpn_sub_1(e, e, sc->limbs, 2);
+  mpn_sub_1(e, sc->n, sc->limbs, 2);
 
   sc_pow(sc, r, a, e);
 
@@ -1060,16 +1070,15 @@ sc_bitlen_var(const scalar_field_t *sc, const sc_t a) {
 }
 
 static mp_limb_t
-sc_get_bits(const scalar_field_t *sc, const sc_t k, size_t i, size_t w) {
-  mp_limb_t mask = ((mp_limb_t)1 << w) - 1;
+sc_get_bit(const scalar_field_t *sc, const sc_t k, size_t i) {
   (void)sc;
-  return (k[i / GMP_NUMB_BITS] >> (i % GMP_NUMB_BITS)) & mask;
+  return mpn_get_bit(k, i);
 }
 
 static mp_limb_t
-sc_get_bit(const scalar_field_t *sc, const sc_t k, size_t i) {
+sc_get_bits(const scalar_field_t *sc, const sc_t k, size_t i, size_t w) {
   (void)sc;
-  return (k[i / GMP_NUMB_BITS] >> (i % GMP_NUMB_BITS)) & 1;
+  return mpn_get_bits(k, i, w);
 }
 
 static size_t
@@ -1655,22 +1664,34 @@ fe_mul121666(const prime_field_t *fe, fe_t r, const fe_t a) {
 
 static void
 fe_pow(const prime_field_t *fe, fe_t r, const fe_t a, const mp_limb_t *e) {
-  /* Used for inversion and legendre if not available otherwise. */
-  mp_size_t i;
-  fe_t b;
+  /* Used for inversion and square roots if not available otherwise. */
+  mp_size_t start = WND_STEPS(fe->bits) - 1;
+  fe_t table[WND_SIZE];
+  mp_size_t i, j;
+  mp_limb_t b;
 
-  fe_set(fe, b, fe->one);
+  fe_set(fe, table[0], fe->one);
+  fe_set(fe, table[1], a);
 
-  for (i = fe->bits - 1; i >= 0; i--) {
-    mp_limb_t bit = e[i / GMP_NUMB_BITS] >> (i % GMP_NUMB_BITS);
-
-    fe_sqr(fe, b, b);
-
-    if (bit & 1)
-      fe_mul(fe, b, b, a);
+  for (i = 2; i < WND_SIZE; i += 2) {
+    fe_sqr(fe, table[i], table[i >> 1]);
+    fe_mul(fe, table[i + 1], table[i], a);
   }
 
-  fe_set(fe, r, b);
+  fe_set(fe, r, fe->one);
+
+  for (i = start; i >= 0; i--) {
+    b = mpn_get_bits(e, i * WND_WIDTH, WND_WIDTH);
+
+    if (i == start) {
+      fe_set(fe, r, table[b]);
+    } else {
+      for (j = 0; j < WND_WIDTH; j++)
+        fe_sqr(fe, r, r);
+
+      fe_mul(fe, r, r, table[b]);
+    }
+  }
 }
 
 static int
@@ -1699,8 +1720,7 @@ fe_invert(const prime_field_t *fe, fe_t r, const fe_t a) {
     mp_limb_t e[MAX_FIELD_LIMBS];
 
     /* e = p - 2 */
-    mpn_copyi(e, fe->p, fe->limbs);
-    mpn_sub_1(e, e, fe->limbs, 2);
+    mpn_sub_1(e, fe->p, fe->limbs, 2);
 
     fe_pow(fe, r, a, e);
   }
@@ -1722,8 +1742,7 @@ fe_sqrt(const prime_field_t *fe, fe_t r, const fe_t a) {
 
     if ((fe->p[0] & 3) == 3) {
       /* b = a^((p + 1) / 4) mod p */
-      mpn_copyi(e, fe->p, fe->limbs + 1);
-      mpn_add_1(e, e, fe->limbs + 1, 1);
+      mpn_add_1(e, fe->p, fe->limbs + 1, 1);
       mpn_rshift(e, e, fe->limbs + 1, 2);
       fe_pow(fe, b, a, e);
     } else if ((fe->p[0] & 7) == 5) {
@@ -1733,8 +1752,7 @@ fe_sqrt(const prime_field_t *fe, fe_t r, const fe_t a) {
       fe_add(fe, a2, a, a);
 
       /* c = a2^((p - 5) / 8) mod p */
-      mpn_copyi(e, fe->p, fe->limbs);
-      mpn_sub_1(e, e, fe->limbs, 5);
+      mpn_sub_1(e, fe->p, fe->limbs, 5);
       mpn_rshift(e, e, fe->limbs, 3);
       fe_pow(fe, c, a2, e);
 
@@ -1787,8 +1805,7 @@ fe_is_square(const prime_field_t *fe, const fe_t a) {
     fe_t b;
 
     /* e = (p - 1) / 2 */
-    mpn_copyi(e, fe->p, fe->limbs);
-    mpn_sub_1(e, e, fe->limbs, 1);
+    mpn_sub_1(e, fe->p, fe->limbs, 1);
     mpn_rshift(e, e, fe->limbs, 1);
 
     fe_pow(fe, b, a, e);
@@ -7105,7 +7122,7 @@ static const prime_def_t field_p192 = {
   .to_bytes = fiat_p192_to_bytes,
   .from_bytes = fiat_p192_from_bytes,
   .carry = fiat_p192_carry,
-  .invert = NULL,
+  .invert = p192_fe_invert,
   .sqrt = p192_fe_sqrt,
   .isqrt = NULL,
   .scmul_121666 = NULL
@@ -7452,9 +7469,9 @@ static const prime_def_t field_p251 = {
   .to_bytes = fiat_p251_to_bytes,
   .from_bytes = fiat_p251_from_bytes,
   .carry = fiat_p251_carry,
-  .invert = NULL,
-  .sqrt = NULL,
-  .isqrt = NULL,
+  .invert = p251_fe_invert,
+  .sqrt = p251_fe_sqrt,
+  .isqrt = p251_fe_isqrt,
   .scmul_121666 = NULL
 };
 
