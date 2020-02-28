@@ -7331,7 +7331,7 @@ static const prime_def_t field_p256k1 = {
   fiat_secp256k1_selectznz,
   fiat_secp256k1_to_bytes,
   fiat_secp256k1_from_bytes,
-  NULL,
+  fiat_secp256k1_carry,
   NULL,
   secp256k1_fe_invert,
   secp256k1_fe_sqrt,
