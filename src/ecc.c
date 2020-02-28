@@ -9238,8 +9238,8 @@ ecdsa_schnorr_sign(const wei_t *ec,
 
   sc_neg_cond(sc, k, k, wge_is_square(ec, &R) ^ 1);
 
-  wge_export_x(ec, Rraw, &R);
-  wge_export(ec, Araw, NULL, &A, 1);
+  ret &= wge_export_x(ec, Rraw, &R);
+  ret &= wge_export(ec, Araw, NULL, &A, 1);
 
   ecdsa_schnorr_hash_challenge(ec, e, Rraw, Araw, msg, msg_len);
 
@@ -9326,7 +9326,7 @@ ecdsa_schnorr_verify(const wei_t *ec,
   if (!wge_import(ec, &A, pub, pub_len))
     return 0;
 
-  wge_export(ec, Araw, NULL, &A, 1);
+  assert(wge_export(ec, Araw, NULL, &A, 1));
 
   ecdsa_schnorr_hash_challenge(ec, e, Rraw, Araw, msg, msg_len);
 
@@ -9450,7 +9450,7 @@ ecdsa_schnorr_verify_batch(const wei_t *ec,
     if (!sc_import(sc, s, sraw))
       return 0;
 
-    wge_export(ec, Araw, NULL, &A, 1);
+    assert(wge_export(ec, Araw, NULL, &A, 1));
 
     ecdsa_schnorr_hash_challenge(ec, e, Rraw, Araw, msg, msg_len);
 
@@ -10041,7 +10041,7 @@ schnorr_sign(const wei_t *ec,
   sc_neg_cond(sc, a, a, wge_is_even(ec, &A) ^ 1);
   sc_export(sc, araw, a);
 
-  wge_export_x(ec, Araw, &A);
+  ret &= wge_export_x(ec, Araw, &A);
 
   schnorr_hash_nonce(ec, k, araw, Araw, msg, msg_len, aux, aux_len);
 
@@ -10051,7 +10051,7 @@ schnorr_sign(const wei_t *ec,
 
   sc_neg_cond(sc, k, k, wge_is_square(ec, &R) ^ 1);
 
-  wge_export_x(ec, Rraw, &R);
+  ret &= wge_export_x(ec, Rraw, &R);
 
   schnorr_hash_challenge(ec, e, Rraw, Araw, msg, msg_len);
 
