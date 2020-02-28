@@ -9612,7 +9612,10 @@ schnorr_privkey_verify(const wei_t *ec, const unsigned char *priv) {
 int
 schnorr_privkey_export(const wei_t *ec,
                        unsigned char *out,
+                       unsigned char *x,
+                       unsigned char *y,
                        const unsigned char *priv) {
+  const prime_field_t *fe = &ec->fe;
   const scalar_field_t *sc = &ec->sc;
   sc_t a;
   wge_t A;
@@ -9624,7 +9627,11 @@ schnorr_privkey_export(const wei_t *ec,
   wei_mul_g(ec, &A, a);
 
   sc_neg_cond(sc, a, a, wge_is_even(ec, &A) ^ 1);
+  wge_neg_cond(ec, &A, &A, wge_is_even(ec, &A) ^ 1);
+
   sc_export(sc, out, a);
+  fe_export(fe, x, A.x);
+  fe_export(fe, y, A.y);
 
   sc_cleanse(sc, a);
 
