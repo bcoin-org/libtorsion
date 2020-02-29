@@ -1354,19 +1354,6 @@ fe_cleanse(const prime_field_t *fe, fe_t r) {
 static int
 fe_import(const prime_field_t *fe, fe_t r, const unsigned char *raw) {
   int ret = bytes_lt(raw, fe->raw, fe->size, fe->endian);
-  unsigned char masked[MAX_FIELD_SIZE];
-
-  /* Ignore the high bits. */
-  if (fe->mask != 0xff) {
-    memcpy(masked, raw, fe->size);
-
-    if (fe->endian == -1)
-      masked[fe->size - 1] &= fe->mask;
-    else
-      masked[0] &= fe->mask;
-
-    raw = masked;
-  }
 
   if (fe->from_montgomery) {
     /* Use a constant time barrett reduction
@@ -1383,6 +1370,14 @@ fe_import(const prime_field_t *fe, fe_t r, const unsigned char *raw) {
     /* x = (x << shift) mod p */
     mpn_zero(xp, fe->sc.shift * 2);
     mpn_import(xp + shift, fe->limbs, raw, fe->size, fe->endian);
+
+    /* Ignore the high bits. */
+    if ((fe->bits & 7) != 0) {
+      mp_limb_t mask = ((mp_limb_t)1 << (fe->bits % GMP_NUMB_BITS)) - 1;
+
+      if (mask != 0)
+        xp[shift + fe->limbs - 1] &= mask;
+    }
 
     /* Align if necessary. */
     if (left != 0)
@@ -1402,6 +1397,20 @@ fe_import(const prime_field_t *fe, fe_t r, const unsigned char *raw) {
       fe->from_bytes(r, tmp);
     }
   } else {
+    unsigned char masked[MAX_FIELD_SIZE];
+
+    /* Ignore the high bits. */
+    if ((fe->bits & 7) != 0) {
+      memcpy(masked, raw, fe->size);
+
+      if (fe->endian == -1)
+        masked[fe->size - 1] &= fe->mask;
+      else
+        masked[0] &= fe->mask;
+
+      raw = masked;
+    }
+
     /* Deserialize and carry. */
     if (fe->endian == 1) {
       unsigned char tmp[MAX_FIELD_SIZE];
