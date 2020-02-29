@@ -1903,6 +1903,8 @@ scalar_field_set(scalar_field_t *sc,
                  const unsigned char *modulus,
                  size_t bits,
                  int endian) {
+  memset(sc, 0, sizeof(scalar_field_t));
+
   sc->endian = endian;
   sc->limbs = (bits + GMP_NUMB_BITS - 1) / GMP_NUMB_BITS;
   sc->size = (bits + 7) / 8;
@@ -1945,6 +1947,8 @@ scalar_field_init(scalar_field_t *sc, const scalar_def_t *def, int endian) {
 
 static void
 prime_field_init(prime_field_t *fe, const prime_def_t *def, int endian) {
+  memset(fe, 0, sizeof(prime_field_t));
+
   fe->endian = endian;
   fe->limbs = (def->bits + GMP_NUMB_BITS - 1) / GMP_NUMB_BITS;
   fe->size = (def->bits + 7) / 8;
@@ -5430,7 +5434,7 @@ mont_init(mont_t *ec, const mont_def_t *def) {
   /* b0 = 1 / b^2 */
   fe_sqr(fe, ec->b0, ec->bi);
 
-  /* i16 = 1 / 16 */
+  /* i16 = 1 / 16 (mod n) */
   if (fe->bits == 448) {
     sc_set_word(sc, ec->i16, 16);
     assert(sc_invert_var(sc, ec->i16, ec->i16));
@@ -5461,6 +5465,9 @@ mont_init_isomorphism(mont_t *ec, const mont_def_t *def) {
 
   ec->invert = def->invert;
   fe_import_be(fe, ec->c, def->c);
+
+  if (fe_is_zero(fe, ec->c))
+    fe_set(fe, ec->c, fe->one);
 }
 
 static void
@@ -6402,6 +6409,9 @@ edwards_init_isomorphism(edwards_t *ec, const edwards_def_t *def) {
   ec->invert = def->invert;
   fe_import_be(fe, ec->c, def->c);
 
+  if (fe_is_zero(fe, ec->c))
+    fe_set(fe, ec->c, fe->one);
+
   if (!ec->invert) {
     fe_add(fe, u, ec->a, ec->d);
     fe_sub(fe, v, ec->a, ec->d);
@@ -6411,7 +6421,7 @@ edwards_init_isomorphism(edwards_t *ec, const edwards_def_t *def) {
   }
 
   fe_add(fe, u, u, u);
-  fe_invert_var(fe, v, v);
+  assert(fe_invert_var(fe, v, v));
   fe_mul(fe, ec->A, u, v);
 
   if (!ec->invert)
@@ -6421,9 +6431,9 @@ edwards_init_isomorphism(edwards_t *ec, const edwards_def_t *def) {
 
   fe_sqr(fe, v, ec->c);
   fe_mul(fe, v, v, ec->a);
-  fe_invert_var(fe, v, v);
+  assert(fe_invert_var(fe, v, v));
   fe_mul(fe, ec->B, u, v);
-  fe_invert_var(fe, ec->Bi, ec->B);
+  assert(fe_invert_var(fe, ec->Bi, ec->B));
 
   /* A0 = A / B */
   fe_mul(fe, ec->A0, ec->A, ec->Bi);
@@ -8187,8 +8197,12 @@ ecdsa_context_create(int type) {
 
 void
 ecdsa_context_destroy(wei_t *ec) {
-  if (ec != NULL)
+  if (ec != NULL) {
+    sc_cleanse(&ec->sc, ec->blind);
+    wge_cleanse(ec, &ec->unblind);
+
     free(ec);
+  }
 }
 
 void
@@ -10811,8 +10825,12 @@ eddsa_context_create(int type) {
 
 void
 eddsa_context_destroy(edwards_t *ec) {
-  if (ec != NULL)
+  if (ec != NULL) {
+    sc_cleanse(&ec->sc, ec->blind);
+    xge_cleanse(ec, &ec->unblind);
+
     free(ec);
+  }
 }
 
 void
