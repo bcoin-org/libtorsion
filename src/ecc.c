@@ -213,7 +213,8 @@ typedef uint32_t fe_word_t;
 typedef mp_limb_t sc_t[MAX_SCALAR_LIMBS];
 struct _scalar_field_s;
 
-typedef void sc_invert_func(const struct _scalar_field_s *sc, sc_t r, const sc_t x);
+typedef void
+sc_invert_func(const struct _scalar_field_s *sc, sc_t r, const sc_t x);
 
 typedef struct _scalar_field_s {
   int endian;
@@ -238,21 +239,51 @@ typedef struct _scalar_def_s {
  * Prime Field
  */
 
-typedef void fe_add_func(fe_word_t *out1, const fe_word_t *arg1, const fe_word_t *arg2);
-typedef void fe_sub_func(fe_word_t *out1, const fe_word_t *arg1, const fe_word_t *arg2);
-typedef void fe_opp_func(fe_word_t *out1, const fe_word_t *arg1);
-typedef void fe_mul_func(fe_word_t *out1, const fe_word_t *arg1, const fe_word_t *arg2);
-typedef void fe_sqr_func(fe_word_t *out1, const fe_word_t *arg1);
-typedef void fe_from_montgomery_func(fe_word_t *out1, const fe_word_t *arg1);
-typedef void fe_nonzero_func(fe_word_t *out1, const fe_word_t *arg1);
-typedef void fe_selectznz_func(fe_word_t *out1, unsigned char arg1, const fe_word_t *arg2, const fe_word_t *arg3);
-typedef void fe_to_bytes_func(uint8_t *out1, const fe_word_t *arg1);
-typedef void fe_from_bytes_func(fe_word_t *out1, const uint8_t *arg1);
-typedef void fe_carry_func(fe_word_t *out1, const fe_word_t *arg1);
-typedef void fe_invert_func(fe_word_t *out, const fe_word_t *in);
-typedef int fe_sqrt_func(fe_word_t *out, const fe_word_t *in);
-typedef int fe_isqrt_func(fe_word_t *out, const fe_word_t *u, const fe_word_t *v);
-typedef void fe_scmul_121666(fe_word_t *out1, const fe_word_t *arg1);
+typedef void
+fe_add_func(fe_word_t *out1, const fe_word_t *arg1, const fe_word_t *arg2);
+
+typedef void
+fe_sub_func(fe_word_t *out1, const fe_word_t *arg1, const fe_word_t *arg2);
+
+typedef void
+fe_opp_func(fe_word_t *out1, const fe_word_t *arg1);
+
+typedef void
+fe_mul_func(fe_word_t *out1, const fe_word_t *arg1, const fe_word_t *arg2);
+
+typedef void
+fe_sqr_func(fe_word_t *out1, const fe_word_t *arg1);
+
+typedef void
+fe_from_montgomery_func(fe_word_t *out1, const fe_word_t *arg1);
+
+typedef void
+fe_nonzero_func(fe_word_t *out1, const fe_word_t *arg1);
+
+typedef void
+fe_selectznz_func(fe_word_t *out1, unsigned char arg1,
+                  const fe_word_t *arg2, const fe_word_t *arg3);
+
+typedef void
+fe_to_bytes_func(uint8_t *out1, const fe_word_t *arg1);
+
+typedef void
+fe_from_bytes_func(fe_word_t *out1, const uint8_t *arg1);
+
+typedef void
+fe_carry_func(fe_word_t *out1, const fe_word_t *arg1);
+
+typedef void
+fe_invert_func(fe_word_t *out, const fe_word_t *in);
+
+typedef int
+fe_sqrt_func(fe_word_t *out, const fe_word_t *in);
+
+typedef int
+fe_isqrt_func(fe_word_t *out, const fe_word_t *u, const fe_word_t *v);
+
+typedef void
+fe_scmul_121666(fe_word_t *out1, const fe_word_t *arg1);
 
 typedef fe_word_t fe_t[MAX_FIELD_WORDS];
 
@@ -279,10 +310,10 @@ typedef struct _prime_field_s {
   fe_to_bytes_func *to_bytes;
   fe_from_bytes_func *from_bytes;
   fe_carry_func *carry;
+  fe_scmul_121666 *scmul_121666;
   fe_invert_func *invert;
   fe_sqrt_func *sqrt;
   fe_isqrt_func *isqrt;
-  fe_scmul_121666 *scmul_121666;
   fe_t zero;
   fe_t one;
   fe_t two;
@@ -306,10 +337,10 @@ typedef struct _prime_def_s {
   fe_to_bytes_func *to_bytes;
   fe_from_bytes_func *from_bytes;
   fe_carry_func *carry;
+  fe_scmul_121666 *scmul_121666;
   fe_invert_func *invert;
   fe_sqrt_func *sqrt;
   fe_isqrt_func *isqrt;
-  fe_scmul_121666 *scmul_121666;
 } prime_def_t;
 
 /*
@@ -363,7 +394,6 @@ typedef struct _wei_s {
 } wei_t;
 
 typedef struct _wei_def_s {
-  const char *id;
   int hash;
   const prime_def_t *fe;
   const scalar_def_t *sc;
@@ -409,7 +439,6 @@ typedef struct _pge_s {
 } pge_t;
 
 typedef struct _mont_s {
-  const char *prefix;
   prime_field_t fe;
   scalar_field_t sc;
   unsigned int h;
@@ -427,7 +456,6 @@ typedef struct _mont_s {
 } mont_t;
 
 typedef struct _mont_def_s {
-  const char *id;
   const prime_def_t *fe;
   const scalar_def_t *sc;
   unsigned int h;
@@ -480,7 +508,6 @@ typedef struct _edwards_s {
 } edwards_t;
 
 typedef struct _edwards_def_s {
-  const char *id;
   int hash;
   int context;
   const char *prefix;
@@ -1668,12 +1695,6 @@ fe_sqr(const prime_field_t *fe, fe_t r, const fe_t a) {
 }
 
 static void
-fe_mul121666(const prime_field_t *fe, fe_t r, const fe_t a) {
-  assert(fe->scmul_121666 != NULL);
-  fe->scmul_121666(r, a);
-}
-
-static void
 fe_pow(const prime_field_t *fe, fe_t r, const fe_t a, const mp_limb_t *e) {
   /* Used for inversion and square roots if not available otherwise. */
   mp_size_t start = WND_STEPS(fe->bits) - 1;
@@ -1955,10 +1976,10 @@ prime_field_init(prime_field_t *fe, const prime_def_t *def, int endian) {
   fe->to_bytes = def->to_bytes;
   fe->from_bytes = def->from_bytes;
   fe->carry = def->carry;
+  fe->scmul_121666 = def->scmul_121666;
   fe->invert = def->invert;
   fe->sqrt = def->sqrt;
   fe->isqrt = def->isqrt;
-  fe->scmul_121666 = def->scmul_121666;
 
   fe_set_word(fe, fe->zero, 0);
   fe_set_word(fe, fe->one, 1);
@@ -5458,7 +5479,7 @@ mont_mul_a24(const mont_t *ec, fe_t r, const fe_t a) {
   const prime_field_t *fe = &ec->fe;
 
   if (fe->scmul_121666)
-    fe_mul121666(fe, r, a);
+    fe->scmul_121666(r, a);
   else
     fe_mul(fe, r, a, ec->a24);
 }
@@ -7144,9 +7165,9 @@ static const prime_def_t field_p192 = {
   fiat_p192_to_bytes,
   fiat_p192_from_bytes,
   fiat_p192_carry,
+  NULL,
   p192_fe_invert,
   p192_fe_sqrt,
-  NULL,
   NULL
 };
 
@@ -7185,9 +7206,9 @@ static const prime_def_t field_p224 = {
   fiat_p224_to_bytes,
   fiat_p224_from_bytes,
   NULL,
+  NULL,
   p224_fe_invert,
   p224_fe_sqrt_var,
-  NULL,
   NULL
 };
 
@@ -7227,9 +7248,9 @@ static const prime_def_t field_p256 = {
   fiat_p256_to_bytes,
   fiat_p256_from_bytes,
   NULL,
+  NULL,
   p256_fe_invert,
   p256_fe_sqrt,
-  NULL,
   NULL
 };
 
@@ -7271,9 +7292,9 @@ static const prime_def_t field_p384 = {
   fiat_p384_to_bytes,
   fiat_p384_from_bytes,
   NULL,
+  NULL,
   p384_fe_invert,
   p384_fe_sqrt,
-  NULL,
   NULL
 };
 
@@ -7320,9 +7341,9 @@ static const prime_def_t field_p521 = {
   fiat_p521_to_bytes,
   fiat_p521_from_bytes,
   fiat_p521_carry,
+  NULL,
   p521_fe_invert,
   p521_fe_sqrt,
-  NULL,
   NULL
 };
 
@@ -7367,10 +7388,10 @@ static const prime_def_t field_p256k1 = {
   fiat_secp256k1_to_bytes,
   fiat_secp256k1_from_bytes,
   NULL,
+  NULL,
   secp256k1_fe_invert,
   secp256k1_fe_sqrt,
-  secp256k1_fe_isqrt,
-  NULL
+  secp256k1_fe_isqrt
 };
 
 static const scalar_def_t field_q256k1 = {
@@ -7409,10 +7430,10 @@ static const prime_def_t field_p25519 = {
   fiat_p25519_to_bytes,
   fiat_p25519_from_bytes,
   fiat_p25519_carry,
+  fiat_p25519_carry_scmul_121666,
   p25519_fe_invert,
   p25519_fe_sqrt,
-  p25519_fe_isqrt,
-  fiat_p25519_carry_scmul_121666
+  p25519_fe_isqrt
 };
 
 static const scalar_def_t field_q25519 = {
@@ -7454,10 +7475,10 @@ static const prime_def_t field_p448 = {
   fiat_p448_to_bytes,
   fiat_p448_from_bytes,
   fiat_p448_carry,
+  NULL,
   p448_fe_invert,
   p448_fe_sqrt,
-  p448_fe_isqrt,
-  NULL
+  p448_fe_isqrt
 };
 
 static const scalar_def_t field_q448 = {
@@ -7499,10 +7520,10 @@ static const prime_def_t field_p251 = {
   fiat_p251_to_bytes,
   fiat_p251_from_bytes,
   fiat_p251_carry,
+  NULL,
   p251_fe_invert,
   p251_fe_sqrt,
-  p251_fe_isqrt,
-  NULL
+  p251_fe_isqrt
 };
 
 static const scalar_def_t field_q251 = {
@@ -7521,7 +7542,6 @@ static const scalar_def_t field_q251 = {
  */
 
 static const wei_def_t curve_p192 = {
-  "P192",
   HASH_SHA256,
   &field_p192,
   &field_q192,
@@ -7561,7 +7581,6 @@ static const wei_def_t curve_p192 = {
 };
 
 static const wei_def_t curve_p224 = {
-  "P224",
   HASH_SHA256,
   &field_p224,
   &field_q224,
@@ -7605,7 +7624,6 @@ static const wei_def_t curve_p224 = {
 };
 
 static const wei_def_t curve_p256 = {
-  "P256",
   HASH_SHA256,
   &field_p256,
   &field_q256,
@@ -7649,7 +7667,6 @@ static const wei_def_t curve_p256 = {
 };
 
 static const wei_def_t curve_p384 = {
-  "P384",
   HASH_SHA384,
   &field_p384,
   &field_q384,
@@ -7701,7 +7718,6 @@ static const wei_def_t curve_p384 = {
 };
 
 static const wei_def_t curve_p521 = {
-  "P521",
   HASH_SHA512,
   &field_p521,
   &field_q521,
@@ -7765,7 +7781,6 @@ static const wei_def_t curve_p521 = {
 };
 
 static const wei_def_t curve_secp256k1 = {
-  "SECP256K1",
   HASH_SHA256,
   &field_p256k1,
   &field_q256k1,
@@ -7850,7 +7865,6 @@ static const wei_def_t curve_secp256k1 = {
  */
 
 static const mont_def_t curve_x25519 = {
-  "X25519",
   &field_p25519,
   &field_q25519,
   8,
@@ -7896,7 +7910,6 @@ static const mont_def_t curve_x25519 = {
 };
 
 static const mont_def_t curve_x448 = {
-  "X448",
   &field_p448,
   &field_q448,
   4,
@@ -7959,7 +7972,6 @@ static const mont_def_t curve_x448 = {
  */
 
 static const edwards_def_t curve_ed25519 = {
-  "ED25519",
   HASH_SHA512,
   0,
   "SigEd25519 no Ed25519 collisions",
@@ -8009,7 +8021,6 @@ static const edwards_def_t curve_ed25519 = {
 };
 
 static const edwards_def_t curve_ed448 = {
-  "ED448",
   HASH_SHAKE256,
   1,
   "SigEd448",
@@ -8072,7 +8083,6 @@ static const edwards_def_t curve_ed448 = {
 };
 
 static const edwards_def_t curve_ed1174 = {
-  "ED1174",
   HASH_SHA512,
   1,
   "SigEd1174",
@@ -11872,7 +11882,8 @@ eddsa_verify_batch(const edwards_t *ec,
       sc_mul_word(sc, sum, sum, ec->h);
       sc_neg(sc, sum, sum);
 
-      edwards_mul_multi_var(ec, &R, sum, points, (const sc_t *)coeffs, j, scratch);
+      edwards_mul_multi_var(ec, &R, sum, points,
+                            (const sc_t *)coeffs, j, scratch);
 
       if (!xge_is_zero(ec, &R))
         return 0;
@@ -11887,7 +11898,8 @@ eddsa_verify_batch(const edwards_t *ec,
     sc_mul_word(sc, sum, sum, ec->h);
     sc_neg(sc, sum, sum);
 
-    edwards_mul_multi_var(ec, &R, sum, points, (const sc_t *)coeffs, j, scratch);
+    edwards_mul_multi_var(ec, &R, sum, points,
+                          (const sc_t *)coeffs, j, scratch);
 
     if (!xge_is_zero(ec, &R))
       return 0;

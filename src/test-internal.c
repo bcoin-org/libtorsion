@@ -23,6 +23,26 @@
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
 #endif
 
+static const char *wei_curve_names[6] = {
+  "P192",
+  "P224",
+  "P256",
+  "P384",
+  "P521",
+  "SECP256K1"
+};
+
+static const char *mont_curve_names[2] = {
+  "X25519",
+  "X448"
+};
+
+static const char *edwards_curve_names[3] = {
+  "ED25519",
+  "ED448",
+  "ED1174"
+};
+
 static int
 get_entropy(void *dst, size_t len) {
 #ifndef _WIN32
@@ -2513,7 +2533,7 @@ test_ecdsa_random(drbg_t *rng) {
   for (i = 0; i < ARRAY_SIZE(wei_curves); i++) {
     const wei_def_t *def = wei_curves[i];
 
-    printf("  - %s\n", def->id);
+    printf("  - %s\n", wei_curve_names[i]);
 
     wei_init(&ec, def);
 
@@ -2580,7 +2600,7 @@ test_ecdh_random(drbg_t *rng) {
   for (i = 0; i < ARRAY_SIZE(mont_curves); i++) {
     const mont_def_t *def = mont_curves[i];
 
-    printf("  - %s\n", def->id);
+    printf("  - %s\n", mont_curve_names[i]);
 
     mont_init(&ec, def);
 
@@ -2618,7 +2638,7 @@ test_eddsa_random(drbg_t *rng) {
   for (i = 0; i < ARRAY_SIZE(edwards_curves); i++) {
     const edwards_def_t *def = edwards_curves[i];
 
-    printf("  - %s\n", def->id);
+    printf("  - %s\n", edwards_curve_names[i]);
 
     edwards_init(&ec, def);
 
