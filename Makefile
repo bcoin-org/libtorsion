@@ -1,5 +1,6 @@
 CFLAGS := \
 	-g \
+	-std=c89 \
 	-pedantic \
 	-Wall \
 	-Wextra \
@@ -10,7 +11,6 @@ CFLAGS := \
 	-Wno-declaration-after-statement \
 	-Wno-long-long \
 	-Wno-overlength-strings \
-	-std=c89 \
 	-I./include \
 	-fPIC \
 	-O3 \
