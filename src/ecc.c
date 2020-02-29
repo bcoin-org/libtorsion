@@ -3569,6 +3569,8 @@ wei_init(wei_t *ec, const wei_def_t *def) {
   scalar_field_t *sc = &ec->sc;
   fe_t m3;
 
+  memset(ec, 0, sizeof(wei_t));
+
   ec->hash = def->hash;
   ec->h = def->h;
 
@@ -5372,6 +5374,8 @@ mont_init(mont_t *ec, const mont_def_t *def) {
   prime_field_t *fe = &ec->fe;
   scalar_field_t *sc = &ec->sc;
 
+  memset(ec, 0, sizeof(mont_t));
+
   ec->h = def->h;
 
   prime_field_init(fe, def->fe, -1);
@@ -6306,6 +6310,8 @@ static void
 edwards_init(edwards_t *ec, const edwards_def_t *def) {
   prime_field_t *fe = &ec->fe;
   scalar_field_t *sc = &ec->sc;
+
+  memset(ec, 0, sizeof(edwards_t));
 
   ec->hash = def->hash;
   ec->context = def->context;
