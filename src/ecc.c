@@ -9094,11 +9094,6 @@ ecdsa_verify(const wei_t *ec,
   sc_t x;
 #endif
 
-  ecdsa_reduce(ec, m, msg, msg_len);
-
-  if (!wge_import(ec, &A, pub, pub_len))
-    return 0;
-
   if (!sc_import(sc, r, sig))
     return 0;
 
@@ -9110,6 +9105,11 @@ ecdsa_verify(const wei_t *ec,
 
   if (sc_is_high_var(sc, s))
     return 0;
+
+  if (!wge_import(ec, &A, pub, pub_len))
+    return 0;
+
+  ecdsa_reduce(ec, m, msg, msg_len);
 
   assert(sc_invert_var(sc, s, s));
   sc_mul(sc, u1, m, s);
@@ -9177,8 +9177,6 @@ ecdsa_recover(const wei_t *ec,
   fe_t x;
   wge_t R, A;
 
-  ecdsa_reduce(ec, m, msg, msg_len);
-
   if (!sc_import(sc, r, sig))
     return 0;
 
@@ -9202,6 +9200,8 @@ ecdsa_recover(const wei_t *ec,
 
   if (!wge_set_x(ec, &R, x, sign))
     return 0;
+
+  ecdsa_reduce(ec, m, msg, msg_len);
 
   assert(sc_invert_var(sc, r, r));
   sc_mul(sc, s1, m, r);
@@ -9571,13 +9571,13 @@ ecdsa_schnorr_verify_batch(const wei_t *ec,
     const unsigned char *Rraw = sig;
     const unsigned char *sraw = sig + fe->size;
 
+    if (!sc_import(sc, s, sraw))
+      return 0;
+
     if (!wge_import_square(ec, &R, Rraw))
       return 0;
 
     if (!wge_import(ec, &A, pub, pub_len))
-      return 0;
-
-    if (!sc_import(sc, s, sraw))
       return 0;
 
     assert(wge_export(ec, Araw, NULL, &A, 1));
@@ -10375,13 +10375,13 @@ schnorr_verify_batch(const wei_t *ec,
     const unsigned char *Rraw = sig;
     const unsigned char *sraw = sig + fe->size;
 
+    if (!sc_import(sc, s, sraw))
+      return 0;
+
     if (!wge_import_square(ec, &R, Rraw))
       return 0;
 
     if (!wge_import_even(ec, &A, pub))
-      return 0;
-
-    if (!sc_import(sc, s, sraw))
       return 0;
 
     schnorr_hash_challenge(ec, e, Rraw, pub, msg, msg_len);
