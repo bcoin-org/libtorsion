@@ -1,10 +1,15 @@
 CFLAGS := \
 	-g \
+	-pedantic \
 	-Wall \
 	-Wextra \
+	-Wshadow \
 	-Wno-unused-function \
 	-Wno-unused-const-variable \
 	-Wno-implicit-fallthrough \
+	-Wno-declaration-after-statement \
+	-Wno-long-long \
+	-Wno-overlength-strings \
 	-std=c89 \
 	-I./include \
 	-fPIC \
