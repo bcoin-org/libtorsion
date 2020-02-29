@@ -452,6 +452,7 @@ typedef struct _mont_s {
   fe_t a24;
   fe_t a0;
   fe_t b0;
+  sc_t i16;
   mge_t g;
 } mont_t;
 
@@ -5258,7 +5259,8 @@ pge_ladder(const mont_t *ec,
            pge_t *p5,
            const pge_t *p1,
            const pge_t *p2,
-           const pge_t *p3) {
+           const pge_t *p3,
+           int affine) {
   /* https://hyperelliptic.org/EFD/g1p/auto-montgom-xz.html#ladder-ladd-1987-m-3
    * 6M + 4S + 8A + 1*a24
    */
@@ -5298,7 +5300,9 @@ pge_ladder(const mont_t *ec,
   /* X5 = Z1 * (DA + CB)^2 */
   fe_add(fe, p5->x, da, cb);
   fe_sqr(fe, p5->x, p5->x);
-  fe_mul(fe, p5->x, p5->x, p1->z);
+
+  if (!affine)
+    fe_mul(fe, p5->x, p5->x, p1->z);
 
   /* Z5 = X1 * (DA - CB)^2 */
   fe_sub(fe, p5->z, da, cb);
@@ -5426,6 +5430,12 @@ mont_init(mont_t *ec, const mont_def_t *def) {
   /* b0 = 1 / b^2 */
   fe_sqr(fe, ec->b0, ec->bi);
 
+  /* i16 = 1 / 16 */
+  if (fe->bits == 448) {
+    sc_set_word(sc, ec->i16, 16);
+    assert(sc_invert_var(sc, ec->i16, ec->i16));
+  }
+
   fe_import_be(fe, ec->g.x, def->x);
   fe_import_be(fe, ec->g.y, def->y);
   ec->g.inf = 0;
@@ -5498,6 +5508,7 @@ mont_mul(const mont_t *ec, pge_t *r, const pge_t *p, const sc_t k) {
    */
   const prime_field_t *fe = &ec->fe;
   const scalar_field_t *sc = &ec->sc;
+  int affine = fe_equal(fe, p->z, fe->one);
   mp_limb_t swap = 0;
   mp_limb_t bit = 0;
   mp_size_t i;
@@ -5516,7 +5527,7 @@ mont_mul(const mont_t *ec, pge_t *r, const pge_t *p, const sc_t k) {
     pge_swap(ec, &a, &b, swap ^ bit);
 
     /* Single coordinate add+double. */
-    pge_ladder(ec, &a, &b, p, &a, &b);
+    pge_ladder(ec, &a, &b, p, &a, &b, affine);
 
     swap = bit;
   }
@@ -10565,10 +10576,8 @@ ecdh_pubkey_convert(const mont_t *ec,
                     const unsigned char *pub,
                     int sign) {
   const prime_field_t *fe = &ec->fe;
-  const scalar_field_t *sc = &ec->sc;
   mge_t A;
   pge_t P;
-  sc_t k;
   xge_t e;
   int ret = 1;
 
@@ -10576,12 +10585,9 @@ ecdh_pubkey_convert(const mont_t *ec,
   if (fe->bits == 448) {
     ret &= pge_import(ec, &P, pub);
 
+    /* P * 4 * 4 / 16 = P */
     pge_mulh(ec, &P, &P);
-
-    sc_set_word(sc, k, 16);
-    assert(sc_invert_var(sc, k, k));
-
-    mont_mul(ec, &P, &P, k);
+    mont_mul(ec, &P, &P, ec->i16);
 
     assert(pge_to_mge(ec, &A, &P, -1));
   } else {
