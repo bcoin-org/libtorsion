@@ -954,7 +954,7 @@ test_wei_multi_mul_p256(drbg_t *rng) {
   sc_set(sc, coeffs[0], k1);
   sc_set(sc, coeffs[1], k2);
 
-  wei_mul_multi_var(ec, &q, k0, points, coeffs, 2, &scratch);
+  wei_mul_multi_var(ec, &q, k0, points, (const sc_t *)coeffs, 2, &scratch);
 
   assert(wge_equal(ec, &q, &expect));
 
@@ -1231,7 +1231,7 @@ test_wei_multi_mul_secp256k1(drbg_t *rng) {
   sc_set(sc, coeffs[0], k1);
   sc_set(sc, coeffs[1], k2);
 
-  wei_mul_multi_var(ec, &q, k0, points, coeffs, 2, &scratch);
+  wei_mul_multi_var(ec, &q, k0, points, (const sc_t *)coeffs, 2, &scratch);
 
   assert(wge_equal(ec, &q, &expect));
 
@@ -2253,7 +2253,7 @@ test_edwards_multi_mul_ed25519(drbg_t *rng) {
   sc_set(sc, coeffs[0], k1);
   sc_set(sc, coeffs[1], k2);
 
-  edwards_mul_multi_var(ec, &q, k0, points, coeffs, 2, &scratch);
+  edwards_mul_multi_var(ec, &q, k0, points, (const sc_t *)coeffs, 2, &scratch);
 
   assert(xge_equal(ec, &q, &expect));
 

@@ -10,12 +10,17 @@ fi
 
 if test x"$2" = x'mini'; then
   gcc -g \
+    -std=c89 \
+    -pedantic \
     -Wall \
     -Wextra \
+    -Wshadow \
     -Wno-unused-function \
     -Wno-unused-const-variable \
     -Wno-implicit-fallthrough \
-    -std=c89 \
+    -Wno-declaration-after-statement \
+    -Wno-long-long \
+    -Wno-overlength-strings \
     -O3 \
     "$def" \
     -I./include \
@@ -35,12 +40,17 @@ if test x"$2" = x'mini'; then
     src/util.c
 else
   gcc -g \
+    -std=c89 \
+    -pedantic \
     -Wall \
     -Wextra \
+    -Wshadow \
     -Wno-unused-function \
     -Wno-unused-const-variable \
     -Wno-implicit-fallthrough \
-    -std=c89 \
+    -Wno-declaration-after-statement \
+    -Wno-long-long \
+    -Wno-overlength-strings \
     -O3 \
     "$def" \
     -DTORSION_USE_GMP \
