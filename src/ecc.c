@@ -5565,7 +5565,7 @@ mont_mul_g(const mont_t *ec, pge_t *r, const sc_t k) {
 
 static void
 mont_solve_y0(const mont_t *ec, fe_t y2, const fe_t x) {
-  /* y^2 = x^3 + A * x^2 + B * x */
+  /* y'^2 = x'^3 + A' * x'^2 + B' * x' */
   const prime_field_t *fe = &ec->fe;
   fe_t x2, x3, ax2, bx;
 
@@ -6704,7 +6704,7 @@ edwards_randomize(edwards_t *ec, const unsigned char *entropy) {
 
 static void
 edwards_solve_y0(const edwards_t *ec, fe_t y2, const fe_t x) {
-  /* y^2 = x^3 + A * x^2 + B * x */
+  /* y'^2 = x'^3 + A' * x'^2 + B' * x' */
   const prime_field_t *fe = &ec->fe;
   fe_t x2, x3, ax2, bx;
 
