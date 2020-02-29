@@ -5511,7 +5511,7 @@ mont_mul_a24(const mont_t *ec, fe_t r, const fe_t a) {
 }
 
 static void
-mont_mul(const mont_t *ec, pge_t *r, const pge_t *p, const sc_t k) {
+mont_mul(const mont_t *ec, pge_t *r, const pge_t *p, const sc_t k, int affine) {
   /* Multiply with the Montgomery Ladder.
    *
    * [MONT3] Algorithm 7, Page 16, Section 5.3.
@@ -5524,7 +5524,6 @@ mont_mul(const mont_t *ec, pge_t *r, const pge_t *p, const sc_t k) {
    */
   const prime_field_t *fe = &ec->fe;
   const scalar_field_t *sc = &ec->sc;
-  int affine = fe_equal(fe, p->z, fe->one);
   mp_limb_t swap = 0;
   mp_limb_t bit = 0;
   mp_size_t i;
@@ -5561,7 +5560,7 @@ static void
 mont_mul_g(const mont_t *ec, pge_t *r, const sc_t k) {
   pge_t g;
   mge_to_pge(ec, &g, &ec->g);
-  mont_mul(ec, r, &g, k);
+  mont_mul(ec, r, &g, k, 1);
 }
 
 static void
@@ -10610,7 +10609,7 @@ ecdh_pubkey_convert(const mont_t *ec,
 
     /* P * 4 * 4 / 16 = P */
     pge_mulh(ec, &P, &P);
-    mont_mul(ec, &P, &P, ec->i16);
+    mont_mul(ec, &P, &P, ec->i16, 0);
 
     assert(pge_to_mge(ec, &A, &P, -1));
   } else {
@@ -10773,7 +10772,7 @@ ecdh_pubkey_has_torsion(const mont_t *ec, const unsigned char *pub) {
 
   zero = fe_is_zero(fe, A.x);
 
-  mont_mul(ec, &A, &A, sc->n);
+  mont_mul(ec, &A, &A, sc->n, 0);
 
   ret &= (pge_is_zero(ec, &A) ^ 1) | zero;
 
@@ -10797,7 +10796,7 @@ ecdh_derive(const mont_t *ec,
 
   pge_import_unsafe(ec, &A, pub);
 
-  mont_mul(ec, &P, &A, a);
+  mont_mul(ec, &P, &A, a, 1);
 
   ret &= pge_export(ec, secret, &P);
 
