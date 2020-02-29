@@ -1061,8 +1061,10 @@ sc_invert(const scalar_field_t *sc, sc_t r, const sc_t a) {
   int ret = sc_is_zero(sc, a) ^ 1;
 
   if (sc->invert) {
+    /* Fast inversion chain. */
     sc->invert(sc, r, a);
   } else {
+    /* Fermat's little theorem. */
     mp_limb_t e[MAX_SCALAR_LIMBS];
 
     /* e = n - 2 */
