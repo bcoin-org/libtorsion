@@ -218,7 +218,7 @@ static int
 secp256k1_fe_isqrt(secp256k1_fe_t r,
                    const secp256k1_fe_t u,
                    const secp256k1_fe_t v) {
-  /* 48M + 256S */
+  /* 21M + 257S */
   secp256k1_fe_t u2, u3, u5, v3, p, x, c;
   int ret;
 
