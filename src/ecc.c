@@ -6918,16 +6918,19 @@ _mont_to_edwards(const prime_field_t *fe, xge_t *r,
     fe_mul(fe, u5, u4, p->x);
     fe_sqr(fe, v2, p->y);
 
-    fe_mul_word(fe, a, p->y, 4);
+    fe_add(fe, a, p->y, p->y); /* x4 */
+    fe_add(fe, a, a, a);
     fe_sub(fe, b, u2, fe->one);
-    fe_mul_word(fe, d, u2, 2);
-    fe_mul_word(fe, e, v2, 4);
-    fe_mul_word(fe, f, u3, 2);
+    fe_add(fe, d, u2, u2); /* x2 */
+    fe_add(fe, e, v2, v2); /* x4 */
+    fe_add(fe, e, e, e);
+    fe_add(fe, f, u3, u3); /* x2 */
     fe_mul(fe, g, p->x, v2);
-    fe_mul_word(fe, g, g, 4);
+    fe_add(fe, g, g, g); /* x4 */
+    fe_add(fe, g, g, g);
     fe_mul(fe, h, u2, v2);
-    fe_mul_word(fe, h, h, 2);
-    fe_mul_word(fe, i, v2, 2);
+    fe_add(fe, h, h, h); /* x2 */
+    fe_add(fe, i, v2, v2); /* x2 */
 
     fe_mul(fe, xx, a, b);
 
