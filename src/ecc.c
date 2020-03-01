@@ -552,20 +552,6 @@ bytes_zero(const unsigned char *a, size_t size) {
 }
 
 static int
-bytes_equal(const unsigned char *a,
-            const unsigned char *b,
-            size_t size) {
-  /* Compute (a == b) in constant time. */
-  uint32_t z = 0;
-  size_t i;
-
-  for (i = 0; i < size; i++)
-    z |= (uint32_t)a[i] ^ (uint32_t)b[i];
-
-  return (z - 1) >> 31;
-}
-
-static int
 bytes_lt(const unsigned char *a,
          const unsigned char *b,
          size_t size,
@@ -587,30 +573,6 @@ bytes_lt(const unsigned char *a,
   }
 
   return lt & (eq ^ 1);
-}
-
-static int
-bytes_lte(const unsigned char *a,
-          const unsigned char *b,
-          size_t size,
-          int endian) {
-  /* Compute (a <= b) in constant time. */
-  size_t i = endian < 0 ? size - 1 : 0;
-  uint32_t eq = 1;
-  uint32_t lt = 0;
-  uint32_t x, y;
-
-  assert(endian == -1 || endian == 1);
-
-  while (size--) {
-    x = a[i];
-    y = b[i];
-    lt = ((eq ^ 1) & lt) | (eq & ((x - y) >> 31));
-    eq &= ((x ^ y) - 1) >> 31;
-    i += endian;
-  }
-
-  return lt | eq;
 }
 
 static size_t
