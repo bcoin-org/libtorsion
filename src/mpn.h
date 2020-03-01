@@ -210,8 +210,10 @@ mpn_import(mp_limb_t *rp, mp_size_t rn,
            const unsigned char *xp, size_t xn, int endian) {
   if (endian == 1)
     mpn_import_be(rp, rn, xp, xn);
-  else
+  else if (endian == -1)
     mpn_import_le(rp, rn, xp, xn);
+  else
+    assert(0 && "invalid endianness");
 }
 
 static void
@@ -278,8 +280,10 @@ mpn_export(unsigned char *rp, size_t rn,
            const mp_limb_t *xp, mp_size_t xn, int endian) {
   if (endian == 1)
     mpn_export_be(rp, rn, xp, xn);
-  else
+  else if (endian == -1)
     mpn_export_le(rp, rn, xp, xn);
+  else
+    assert(0 && "invalid endianness");
 }
 
 static int
