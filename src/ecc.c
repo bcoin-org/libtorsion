@@ -539,7 +539,7 @@ typedef struct _edwards_scratch_s {
 #define __has_builtin(x) 0
 #endif
 
-static uint32_t
+static int
 bytes_zero(const unsigned char *a, size_t size) {
   /* Compute (a == 0) in constant time. */
   uint32_t z = 0;
@@ -551,7 +551,7 @@ bytes_zero(const unsigned char *a, size_t size) {
   return (z - 1) >> 31;
 }
 
-static uint32_t
+static int
 bytes_equal(const unsigned char *a,
             const unsigned char *b,
             size_t size) {
@@ -565,45 +565,49 @@ bytes_equal(const unsigned char *a,
   return (z - 1) >> 31;
 }
 
-static uint32_t
+static int
 bytes_lt(const unsigned char *a,
          const unsigned char *b,
-         int size,
+         size_t size,
          int endian) {
   /* Compute (a < b) in constant time. */
-  int le = (endian == -1);
-  int i = le ? size - 1 : 0;
+  size_t i = endian < 0 ? size - 1 : 0;
   uint32_t eq = 1;
   uint32_t lt = 0;
   uint32_t x, y;
 
-  for (; le ? i >= 0 : i < size; le ? i-- : i++) {
+  assert(endian == -1 || endian == 1);
+
+  while (size--) {
     x = a[i];
     y = b[i];
     lt = ((eq ^ 1) & lt) | (eq & ((x - y) >> 31));
     eq &= ((x ^ y) - 1) >> 31;
+    i += endian;
   }
 
   return lt & (eq ^ 1);
 }
 
-static uint32_t
+static int
 bytes_lte(const unsigned char *a,
           const unsigned char *b,
-          int size,
+          size_t size,
           int endian) {
   /* Compute (a <= b) in constant time. */
-  int le = (endian == -1);
-  int i = le ? size - 1 : 0;
+  size_t i = endian < 0 ? size - 1 : 0;
   uint32_t eq = 1;
   uint32_t lt = 0;
   uint32_t x, y;
 
-  for (; le ? i >= 0 : i < size; le ? i-- : i++) {
+  assert(endian == -1 || endian == 1);
+
+  while (size--) {
     x = a[i];
     y = b[i];
     lt = ((eq ^ 1) & lt) | (eq & ((x - y) >> 31));
     eq &= ((x ^ y) - 1) >> 31;
+    i += endian;
   }
 
   return lt | eq;
@@ -634,73 +638,26 @@ bit_length(uint32_t x) {
 }
 
 static void
-reverse_copy(void *out, const void *in, size_t size) {
-#ifdef TORSION_USE_64BIT
-#if (defined(__GNUC__) && (__GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 3))) \
-    || (defined(__clang__) && __has_builtin(__builtin_bswap64))
-  if ((((uintptr_t)out | (uintptr_t)in | size) & 7) == 0) {
-    const uint64_t *from = (const uint64_t *)in;
-    uint64_t *to = (uint64_t *)out;
-    size_t len = size >> 3;
-    size_t i;
+reverse_copy(unsigned char *dst, const unsigned char *src, size_t size) {
+  size_t i = 0;
+  size_t j = size - 1;
 
-    for (i = 0; i < len; i++)
-      to[i] = __builtin_bswap64(from[len - 1 - i]);
-
-    return;
-  }
-#endif
-#endif
-  {
-    const unsigned char *from = (const unsigned char *)in;
-    unsigned char *to = (unsigned char *)out;
-    size_t i;
-
-    for (i = 0; i < size; i++)
-      to[i] = from[size - 1 - i];
-  }
+  while (size--)
+    dst[i++] = src[j--];
 }
 
 static void
-reverse_bytes(void *ptr, size_t size) {
-#ifdef TORSION_USE_64BIT
-#if (defined(__GNUC__) && (__GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 3))) \
-    || (defined(__clang__) && __has_builtin(__builtin_bswap64))
-  if ((((uintptr_t)ptr | size) & 7) == 0) {
-    uint64_t *arr = (uint64_t *)ptr;
-    size_t len = size >> 3;
-    long i = 0;
-    long j = (long)len - 1;
-    uint64_t tmp;
+reverse_bytes(unsigned char *ptr, size_t size) {
+  size_t i = 0;
+  size_t j = size - 1;
+  unsigned char tmp;
 
-    while (i < j) {
-      tmp = __builtin_bswap64(arr[i]);
-      arr[i] = __builtin_bswap64(arr[j]);
-      arr[j] = tmp;
-      i += 1;
-      j -= 1;
-    }
+  size >>= 1;
 
-    if (len & 1)
-      arr[i] = __builtin_bswap64(arr[i]);
-
-    return;
-  }
-#endif
-#endif
-  {
-    unsigned char *raw = (unsigned char *)ptr;
-    long i = 0;
-    long j = (long)size - 1;
-    unsigned char tmp;
-
-    while (i < j) {
-      tmp = raw[i];
-      raw[i] = raw[j];
-      raw[j] = tmp;
-      i += 1;
-      j -= 1;
-    }
+  while (size--) {
+    tmp = ptr[i];
+    ptr[i++] = ptr[j];
+    ptr[j--] = tmp;
   }
 }
 
