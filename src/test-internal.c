@@ -145,7 +145,7 @@ print_hex(const unsigned char *data, size_t len) {
 }
 
 static size_t
-stupid_count_bits(uint32_t x) {
+stupid_bit_length(uint32_t x) {
   size_t bits = 0;
 
   while (x != 0) {
@@ -154,6 +154,29 @@ stupid_count_bits(uint32_t x) {
   }
 
   return bits;
+}
+
+static int
+stupid_bytes_zero(const unsigned char *a, size_t size) {
+  while (size--) {
+    if (a[size] != 0)
+      return 0;
+  }
+
+  return 1;
+}
+
+static int
+revcmp(const unsigned char *a, const unsigned char *b, size_t size) {
+  while (size--) {
+    if (a[size] < b[size])
+      return -1;
+
+    if (a[size] > b[size])
+      return 1;
+  }
+
+  return 0;
 }
 
 static void
@@ -332,13 +355,96 @@ test_field_element(void) {
 }
 
 static void
+test_zero(drbg_t *rng) {
+  printf("Zero bytes sanity check.\n");
+
+  {
+    const unsigned char zero[4] = {0, 0, 0, 0};
+    const unsigned char one[4] = {0, 0, 0, 1};
+    const unsigned char full[4] = {0xff, 0xff, 0xff, 0xff};
+
+    assert(bytes_zero(zero, 4));
+    assert(!bytes_zero(one, 4));
+    assert(!bytes_zero(full, 4));
+  }
+
+  {
+    size_t i;
+
+    for (i = 0; i < 1000; i++) {
+      unsigned char a[32];
+
+      random_bytes(rng, a, sizeof(a));
+
+      if (i % 10 == 0)
+        memset(a, 0x00, sizeof(a));
+
+      assert(bytes_zero(a, 32) == stupid_bytes_zero(a, 32));
+    }
+  }
+}
+
+static void
+test_lt(drbg_t *rng) {
+  printf("LT sanity check.\n");
+
+  {
+    const unsigned char mod[4] = {1, 2, 3, 4};
+    const unsigned char minus1[4] = {1, 2, 3, 3};
+    const unsigned char plus1[4] = {1, 2, 3, 5};
+    const unsigned char full[4] = {0xff, 0xff, 0xff, 0xff};
+
+    assert(bytes_lt(minus1, mod, 4, 1));
+    assert(!bytes_lt(mod, mod, 4, 1));
+    assert(!bytes_lt(plus1, mod, 4, 1));
+    assert(bytes_lt(mod, full, 4, 1));
+    assert(!bytes_lt(full, mod, 4, 1));
+  }
+
+  {
+    const unsigned char mod[4] = {4, 3, 2, 1};
+    const unsigned char minus1[4] = {3, 3, 2, 1};
+    const unsigned char plus1[4] = {5, 3, 2, 1};
+    const unsigned char full[4] = {0xff, 0xff, 0xff, 0xff};
+
+    assert(bytes_lt(minus1, mod, 4, -1));
+    assert(!bytes_lt(mod, mod, 4, -1));
+    assert(!bytes_lt(plus1, mod, 4, -1));
+    assert(bytes_lt(mod, full, 4, -1));
+    assert(!bytes_lt(full, mod, 4, -1));
+  }
+
+  {
+    size_t i;
+
+    for (i = 0; i < 1000; i++) {
+      unsigned char a[32];
+      unsigned char b[32];
+
+      random_bytes(rng, a, sizeof(a));
+      random_bytes(rng, b, sizeof(b));
+
+      assert(bytes_lt(a, a, 32, 1) == 0);
+      assert(bytes_lt(b, b, 32, 1) == 0);
+      assert(bytes_lt(a, b, 32, 1) == (memcmp(a, b, 32) < 0));
+      assert(bytes_lt(b, a, 32, 1) == (memcmp(b, a, 32) < 0));
+
+      assert(bytes_lt(a, a, 32, -1) == 0);
+      assert(bytes_lt(b, b, 32, -1) == 0);
+      assert(bytes_lt(a, b, 32, -1) == (revcmp(a, b, 32) < 0));
+      assert(bytes_lt(b, a, 32, -1) == (revcmp(b, a, 32) < 0));
+    }
+  }
+}
+
+static void
 test_bitlen(void) {
   uint32_t i;
 
   printf("Bit length sanity check.\n");
 
   for (i = 0; i <= UINT16_MAX; i++)
-    assert(bit_length(i) == stupid_count_bits(i));
+    assert(bit_length(i) == stupid_bit_length(i));
 
   assert(bit_length((1ul << 24) - 1ul) == 24);
   assert(bit_length(1ul << 24) == 25);
@@ -2997,6 +3103,8 @@ main(int argc, char **argv) {
   } else {
     test_scalar();
     test_field_element();
+    test_zero(&rng);
+    test_lt(&rng);
     test_bitlen();
     test_wei_points_p256(&rng);
     test_wei_points_p521(&rng);
