@@ -67,3 +67,5 @@ fi
 # 2^251 - 9
 "$solinas" --static 'p251' '10' '2^251 - 9' '32' > ./src/fields/p251_32.h
 "$solinas" --static 'p251' '5' '2^251 - 9' '64' > ./src/fields/p251_64.h
+
+./scripts/preprocess.js

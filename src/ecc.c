@@ -149,6 +149,12 @@
 #include <torsion/hash.h>
 #include <torsion/util.h>
 
+#if defined(TORSION_USE_64BIT) && defined(__GNUC__)
+#define FIAT_EXTENSION __extension__
+#else
+#define FIAT_EXTENSION
+#endif
+
 #include "fields/p192.h"
 #include "fields/p224.h"
 #include "fields/p256.h"
