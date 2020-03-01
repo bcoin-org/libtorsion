@@ -634,7 +634,7 @@ bit_length(uint32_t x) {
 }
 
 static void
-reverse_bytes(void *out, const void *in, size_t size) {
+reverse_copy(void *out, const void *in, size_t size) {
 #ifdef TORSION_USE_64BIT
 #if (defined(__GNUC__) && (__GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 3))) \
     || (defined(__clang__) && __has_builtin(__builtin_bswap64))
@@ -662,7 +662,7 @@ reverse_bytes(void *out, const void *in, size_t size) {
 }
 
 static void
-swap_bytes(void *ptr, size_t size) {
+reverse_bytes(void *ptr, size_t size) {
 #ifdef TORSION_USE_64BIT
 #if (defined(__GNUC__) && (__GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 3))) \
     || (defined(__clang__) && __has_builtin(__builtin_bswap64))
@@ -1353,8 +1353,6 @@ fe_cleanse(const prime_field_t *fe, fe_t r) {
 
 static int
 fe_import(const prime_field_t *fe, fe_t r, const unsigned char *raw) {
-  int ret = bytes_lt(raw, fe->raw, fe->size, fe->endian);
-
   if (fe->from_montgomery) {
     /* Use a constant time barrett reduction
      * to montgomerize the field element.
@@ -1364,7 +1362,7 @@ fe_import(const prime_field_t *fe, fe_t r, const unsigned char *raw) {
     mp_size_t left = fe->shift % GMP_NUMB_BITS;
     mp_size_t xn = fe->limbs + shift + (left != 0);
 
-    /* We can only handle 2*(max+1) limbs. */
+    /* We can only handle 2*(size+1) limbs. */
     assert(xn <= fe->sc.shift);
 
     /* x = (x << shift) mod p */
@@ -1379,10 +1377,11 @@ fe_import(const prime_field_t *fe, fe_t r, const unsigned char *raw) {
         xp[shift + fe->limbs - 1] &= mask;
     }
 
-    /* Align if necessary. */
+    /* Shift more if necessary. */
     if (left != 0)
       assert(mpn_lshift(xp, xp, xn, left) == 0);
 
+    /* Reduce the shift. */
     sc_reduce(&fe->sc, xp, xp);
 
     if (GMP_NUMB_BITS == FIELD_WORD_SIZE) {
@@ -1391,46 +1390,36 @@ fe_import(const prime_field_t *fe, fe_t r, const unsigned char *raw) {
       assert((size_t)fe->limbs == fe->words);
       memcpy(r, xp, fe->limbs * sizeof(mp_limb_t));
     } else {
-      /* Export as little endian. */
+      /* Export as little endian first. */
       unsigned char tmp[MAX_FIELD_SIZE];
       mpn_export_le(tmp, fe->size, xp, fe->limbs);
       fe->from_bytes(r, tmp);
     }
   } else {
-    unsigned char masked[MAX_FIELD_SIZE];
+    unsigned char tmp[MAX_FIELD_SIZE];
+
+    /* Swap endianness if necessary. */
+    if (fe->endian == 1)
+      reverse_copy(tmp, raw, fe->size);
+    else
+      memcpy(tmp, raw, fe->size);
 
     /* Ignore the high bits. */
-    if ((fe->bits & 7) != 0) {
-      memcpy(masked, raw, fe->size);
-
-      if (fe->endian == -1)
-        masked[fe->size - 1] &= fe->mask;
-      else
-        masked[0] &= fe->mask;
-
-      raw = masked;
-    }
+    tmp[fe->size - 1] &= fe->mask;
 
     /* Deserialize and carry. */
-    if (fe->endian == 1) {
-      unsigned char tmp[MAX_FIELD_SIZE];
-      reverse_bytes(tmp, raw, fe->size);
-      fe->from_bytes(r, tmp);
-    } else {
-      fe->from_bytes(r, raw);
-    }
-
+    fe->from_bytes(r, tmp);
     fe->carry(r, r);
   }
 
-  return ret;
+  return bytes_lt(raw, fe->raw, fe->size, fe->endian);
 }
 
 static int
 fe_import_be(const prime_field_t *fe, fe_t r, const unsigned char *raw) {
   if (fe->endian == -1) {
     unsigned char tmp[MAX_FIELD_SIZE];
-    reverse_bytes(tmp, raw, fe->size);
+    reverse_copy(tmp, raw, fe->size);
     return fe_import(fe, r, tmp);
   }
 
@@ -1440,10 +1429,10 @@ fe_import_be(const prime_field_t *fe, fe_t r, const unsigned char *raw) {
 static void
 fe_export(const prime_field_t *fe, unsigned char *raw, const fe_t a) {
   if (fe->from_montgomery) {
-    fe_t tmp;
+    fe_t b;
 
     /* Demontgomerize. */
-    fe->from_montgomery(tmp, a);
+    fe->from_montgomery(b, a);
 
     if (fe->size != fe->words * (FIELD_WORD_SIZE / 8)) {
       /* Fiat accepts bytes serialized as full
@@ -1452,22 +1441,23 @@ fe_export(const prime_field_t *fe, unsigned char *raw, const fe_t a) {
        * during deserialization as fiat will zero
        * the remaining limbs.
        */
-      unsigned char buf[MAX_FIELD_SIZE];
+      unsigned char tmp[MAX_FIELD_SIZE];
 
       assert(fe->bits == 224);
       assert(FIELD_WORD_SIZE == 64);
 
-      fe->to_bytes(buf, tmp);
-      memcpy(raw, buf, fe->size);
+      fe->to_bytes(tmp, b);
+
+      memcpy(raw, tmp, fe->size);
     } else {
-      fe->to_bytes(raw, tmp);
+      fe->to_bytes(raw, b);
     }
   } else {
     fe->to_bytes(raw, a);
   }
 
   if (fe->endian == 1)
-    swap_bytes(raw, fe->size);
+    reverse_bytes(raw, fe->size);
 }
 
 static void
