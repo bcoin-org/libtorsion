@@ -35,6 +35,10 @@ fi
 "$montgomery" --static 'secp256k1' '2^256 - 2^32 - 977' '32' > ./src/fields/secp256k1_32.h
 "$montgomery" --static 'secp256k1' '2^256 - 2^32 - 977' '64' > ./src/fields/secp256k1_64.h
 
+# 2^256 - 2^32 - 977 (faster for GCC, slower for clang)
+# "$solinas" --static 'secp256k1' '12' '2^256 - 2^32 - 977' '32' > ./src/fields/secp256k1_32.h
+# "$solinas" --static 'secp256k1' '8' '2^256 - 2^32 - 977' '64' > ./src/fields/secp256k1_64.h
+
 # 2^255 - 19
 "$solinas" --static 'p25519' '10' '2^255 - 19' '32' \
   carry_mul \
