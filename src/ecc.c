@@ -678,6 +678,10 @@ sc_import_weak(const scalar_field_t *sc, sc_t r, const unsigned char *raw) {
 
   cleanse(sp, sc->limbs);
 
+#ifdef TORSION_TEST
+  assert(mpn_cmp(r, np, nn) < 0);
+#endif
+
   return cy != 0;
 }
 
