@@ -16,7 +16,6 @@ if test x"$2" = x'mini'; then
     -Wextra \
     -Wshadow \
     -Wno-unused-function \
-    -Wno-unused-const-variable \
     -Wno-implicit-fallthrough \
     -Wno-declaration-after-statement \
     -Wno-long-long \
@@ -46,7 +45,6 @@ else
     -Wextra \
     -Wshadow \
     -Wno-unused-function \
-    -Wno-unused-const-variable \
     -Wno-implicit-fallthrough \
     -Wno-declaration-after-statement \
     -Wno-long-long \
