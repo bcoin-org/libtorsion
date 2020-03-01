@@ -615,7 +615,7 @@ reverse_copy(unsigned char *dst, const unsigned char *src, size_t size) {
 }
 
 static void
-reverse_bytes(unsigned char *ptr, size_t size) {
+reverse_bytes(unsigned char *raw, size_t size) {
   size_t i = 0;
   size_t j = size - 1;
   unsigned char tmp;
@@ -623,9 +623,9 @@ reverse_bytes(unsigned char *ptr, size_t size) {
   size >>= 1;
 
   while (size--) {
-    tmp = ptr[i];
-    ptr[i++] = ptr[j];
-    ptr[j--] = tmp;
+    tmp = raw[i];
+    raw[i++] = raw[j];
+    raw[j--] = tmp;
   }
 }
 
@@ -804,6 +804,10 @@ sc_neg(const scalar_field_t *sc, sc_t r, const sc_t a) {
   assert(cy == 0);
 
   mpn_cnd_zero(zero, r, r, nn);
+
+#ifdef TORSION_TEST
+  assert(sc_cmp_var(sc, r, sc->n) < 0);
+#endif
 }
 
 static void
@@ -837,6 +841,10 @@ sc_add(const scalar_field_t *sc, sc_t r, const sc_t ap, const sc_t bp) {
   /* r = r - n if u >= n */
   cy = mpn_sub_n(vp, up, np, nn);
   mpn_cnd_select(cy == 0, r, up, vp, sc->limbs);
+
+#ifdef TORSION_TEST
+  assert(sc_cmp_var(sc, r, sc->n) < 0);
+#endif
 }
 
 static void
@@ -899,6 +907,10 @@ sc_reduce(const scalar_field_t *sc, sc_t r, const mp_limb_t *ap) {
   /* u = u - n if u >= n */
   cy = mpn_sub_n(qp, up, np, sh);
   mpn_cnd_select(cy == 0, r, up, qp, sc->limbs);
+
+#ifdef TORSION_TEST
+  assert(sc_cmp_var(sc, r, sc->n) < 0);
+#endif
 }
 
 static void
@@ -969,6 +981,10 @@ sc_mulshift(const scalar_field_t *sc, sc_t r,
   mpn_copyi(r, rp, rn);
 
   mpn_cleanse(scratch, sc->limbs * 2 + 1);
+
+#ifdef TORSION_TEST
+  assert(sc_cmp_var(sc, r, sc->n) < 0);
+#endif
 }
 
 static int
