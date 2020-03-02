@@ -2,13 +2,18 @@
 
 set -ex
 
-def='-DTORSION_USE_64BIT'
+def1='-DTORSION_USE_64BIT'
+def2='-DMINI_GMP_LIMB_TYPE=long'
 
 if test x"$1" = x'32'; then
-  def='-DTORSION_32BIT'
+  def1='-DTORSION_USE_32BIT'
 fi
 
-if test x"$2" = x'mini'; then
+if test x"$2" = x'32'; then
+  def2='-DMINI_GMP_LIMB_TYPE=int'
+fi
+
+if test x"$3" = x'mini'; then
   gcc -g \
     -std=c89 \
     -pedantic \
@@ -23,7 +28,8 @@ if test x"$2" = x'mini'; then
     -Wno-long-long \
     -Wno-overlength-strings \
     -O3 \
-    "$def" \
+    "$def1" \
+    "$def2" \
     -I./include \
     -o test-internal \
     src/aead.c \
@@ -52,7 +58,8 @@ else
     -Wno-long-long \
     -Wno-overlength-strings \
     -O3 \
-    "$def" \
+    "$def1" \
+    "$def2" \
     -DTORSION_USE_GMP \
     -I./include \
     -lgmp \
