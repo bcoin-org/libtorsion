@@ -3659,7 +3659,7 @@ wei_endo_split(const wei_t *ec,
    * This involves precomputing `g1` and `g2` as:
    *
    *   d = a1 * b2 - b1 * a2
-   *   t = ceil(log2(d)) + 16
+   *   t = ceil(log2(d+1)) + 16
    *   g1 = round((2^t * b2) / d)
    *   g2 = round((2^t * b1) / d)
    *
@@ -3667,7 +3667,7 @@ wei_endo_split(const wei_t *ec,
    *
    * `c1` and `c2` can then be computed as follows:
    *
-   *   t = ceil(log2(n)) + 16
+   *   t = ceil(log2(n+1)) + 16
    *   c1 = (k * g1) >> t
    *   c2 = -((k * g2) >> t)
    *   k1 = k - c1 * a1 - c2 * a2
@@ -3680,7 +3680,7 @@ wei_endo_split(const wei_t *ec,
    *
    * libsecp256k1 modifies the computation further:
    *
-   *   t = ceil(log2(n)) + 16
+   *   t = ceil(log2(n+1)) + 16
    *   c1 = ((k * g1) >> t) * -b1
    *   c2 = ((k * -g2) >> t) * -b2
    *   k2 = c1 + c2
@@ -8779,7 +8779,7 @@ ecdsa_reduce(const wei_t *ec, sc_t r,
    *
    * FIPS186 simply modulos the entire byte
    * array by the order, whereas SEC1 takes
-   * the left-most ceil(log2(n)) bits modulo
+   * the left-most ceil(log2(n+1)) bits modulo
    * the order (and maybe does other stuff).
    *
    * Instead of trying to decipher all of
