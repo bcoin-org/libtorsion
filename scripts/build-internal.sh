@@ -17,6 +17,8 @@ if test x"$2" = x'mini'; then
     -Wshadow \
     -Wno-unused-function \
     -Wno-implicit-fallthrough \
+    -Wno-unused-parameter \
+    -Wno-sign-compare \
     -Wno-declaration-after-statement \
     -Wno-long-long \
     -Wno-overlength-strings \
