@@ -228,10 +228,10 @@ typedef struct _scalar_field_s {
   size_t bits;
   mp_size_t shift;
   mp_limb_t n[MAX_REDUCE_LIMBS];
+  unsigned char raw[MAX_SCALAR_SIZE];
   mp_limb_t nh[MAX_REDUCE_LIMBS];
   mp_limb_t m[MAX_REDUCE_LIMBS];
   mp_size_t limbs;
-  unsigned char raw[MAX_SCALAR_SIZE];
   sc_invert_func *invert;
 } scalar_field_t;
 
@@ -302,7 +302,8 @@ typedef struct _prime_field_s {
   size_t adj_size;
   mp_limb_t p[MAX_REDUCE_LIMBS];
   mp_size_t limbs;
-  unsigned char mask;
+  unsigned char byte_mask;
+  mp_limb_t limb_mask;
   unsigned char raw[MAX_FIELD_SIZE];
   scalar_field_t sc;
   fe_add_func *add;
@@ -1315,12 +1316,7 @@ fe_import(const prime_field_t *fe, fe_t r, const unsigned char *raw) {
     mpn_import(xp + shift, fe->limbs, raw, fe->size, fe->endian);
 
     /* Ignore the high bits. */
-    if ((fe->bits & 7) != 0) {
-      mp_limb_t mask = ((mp_limb_t)1 << (fe->bits % GMP_NUMB_BITS)) - 1;
-
-      if (mask != 0)
-        xp[shift + fe->limbs - 1] &= mask;
-    }
+    xp[shift + fe->limbs - 1] &= fe->limb_mask;
 
     /* Shift more if necessary. */
     if (left != 0)
@@ -1350,7 +1346,7 @@ fe_import(const prime_field_t *fe, fe_t r, const unsigned char *raw) {
       memcpy(tmp, raw, fe->size);
 
     /* Ignore the high bits. */
-    tmp[fe->size - 1] &= fe->mask;
+    tmp[fe->size - 1] &= fe->byte_mask;
 
     /* Deserialize and carry. */
     fe->from_bytes(r, tmp);
@@ -1847,21 +1843,45 @@ scalar_field_set(scalar_field_t *sc,
                  const unsigned char *modulus,
                  size_t bits,
                  int endian) {
+  /* Scalar field using Barrett reduction. */
   memset(sc, 0, sizeof(scalar_field_t));
 
+  /* Field constants. */
   sc->endian = endian;
   sc->limbs = (bits + GMP_NUMB_BITS - 1) / GMP_NUMB_BITS;
   sc->size = (bits + 7) / 8;
   sc->bits = bits;
   sc->shift = (sc->limbs + 1) * 2;
 
+  /* Deserialize order into GMP limbs. */
   mpn_import_be(sc->n, MAX_REDUCE_LIMBS, modulus, sc->size);
 
+  /* Keep a raw representation for byte comparisons. */
+  mpn_export(sc->raw, sc->size, sc->n, sc->limbs, sc->endian);
+
+  /* Store `n / 2` for ECDSA checks and scalar minimization. */
   mpn_rshift(sc->nh, sc->n, MAX_REDUCE_LIMBS, 1);
 
   /* Compute the barrett reduction constant `m`:
    *
    *   m = (1 << (bits * 2)) / n
+   *
+   * Where `bits` is equal to `(limbs + 1) * limb_bits`.
+   *
+   * This is necessary because the scalar being reduced
+   * cannot be larger than `bits * 2`. In particular,
+   * EdDSA may require scalars of `(field_bits + 8) * 2`
+   * bits to be reduced. Ed448 is notably affected.
+   *
+   * Thus, we add a single limb even though that isn't
+   * typically necessary for barrett reduction on an
+   * elliptic curve's finite field for scalars.
+   *
+   * Because of this, `(limbs + 1) * 4` limbs must be
+   * allocated to actually perform the reduction, and
+   * the scalar must be no larger than `(limbs + 1) * 2`
+   * limbs in size. On a 256 bit curve, this allocates
+   * 160 and 80 bytes respectively.
    */
   {
     mp_limb_t x[MAX_REDUCE_LIMBS];
@@ -1874,8 +1894,7 @@ scalar_field_set(scalar_field_t *sc,
     mpn_tdiv_qr(sc->m, x, 0, x, sc->shift + 1, sc->n, sc->limbs);
   }
 
-  mpn_export(sc->raw, sc->size, sc->n, sc->limbs, sc->endian);
-
+  /* Optimized scalar inverse (optional). */
   sc->invert = NULL;
 }
 
@@ -1891,8 +1910,10 @@ scalar_field_init(scalar_field_t *sc, const scalar_def_t *def, int endian) {
 
 static void
 prime_field_init(prime_field_t *fe, const prime_def_t *def, int endian) {
+  /* Prime field using a fiat backend. */
   memset(fe, 0, sizeof(prime_field_t));
 
+  /* Field constants. */
   fe->endian = endian;
   fe->limbs = (def->bits + GMP_NUMB_BITS - 1) / GMP_NUMB_BITS;
   fe->size = (def->bits + 7) / 8;
@@ -1900,20 +1921,40 @@ prime_field_init(prime_field_t *fe, const prime_def_t *def, int endian) {
   fe->shift = def->bits;
   fe->words = def->words;
   fe->adj_size = fe->size + ((fe->bits & 7) == 0);
-  fe->mask = 0xff;
+  fe->byte_mask = 0xff;
+  fe->limb_mask = ~((mp_limb_t)0);
 
+  /* Number of bits to shift for montgomerization. */
+  /* Note that fiat aligns to the word size. */
   if ((fe->shift % FIELD_WORD_SIZE) != 0)
     fe->shift += FIELD_WORD_SIZE - (fe->shift % FIELD_WORD_SIZE);
 
-  if ((fe->bits & 7) != 0)
-    fe->mask = (1 << (fe->bits & 7)) - 1;
+  /* Masks to ignore high bits during deserialization. */
+  if ((fe->bits & 7) != 0) {
+    fe->byte_mask = (1 << (fe->bits & 7)) - 1;
+    fe->limb_mask = ((mp_limb_t)1 << (fe->bits % GMP_NUMB_BITS)) - 1;
+  }
 
+  /* Deserialize prime into GMP limbs. */
   mpn_import_be(fe->p, MAX_REDUCE_LIMBS, def->p, fe->size);
 
+  /* Keep a raw representation for byte comparisons. */
   mpn_export(fe->raw, fe->size, fe->p, fe->limbs, fe->endian);
 
+  /* We use a barrett reduction to montgomerize
+   * field elements by computing:
+   *
+   *   x = (x << shift) mod p
+   *
+   * Allocate a scalar field to achieve this.
+   */
   scalar_field_set(&fe->sc, def->p, def->bits, endian);
 
+  /* Function pointers for field arithmetic. In
+   * addition to fiat's default functions, we
+   * have optimized addition chains for inversions,
+   * square roots, and inverse square roots.
+   */
   fe->add = def->add;
   fe->sub = def->sub;
   fe->opp = def->opp;
@@ -1930,6 +1971,7 @@ prime_field_init(prime_field_t *fe, const prime_def_t *def, int endian) {
   fe->sqrt = def->sqrt;
   fe->isqrt = def->isqrt;
 
+  /* Pre-montgomerized constants. */
   fe_set_word(fe, fe->zero, 0);
   fe_set_word(fe, fe->one, 1);
   fe_set_word(fe, fe->two, 2);
@@ -4612,7 +4654,7 @@ wei_point_to_uniform(const wei_t *ec,
   fe_export(fe, bytes, u);
   fe_cleanse(fe, u);
 
-  bytes[0] |= (hint >> 8) & ~fe->mask;
+  bytes[0] |= (hint >> 8) & ~fe->byte_mask;
 
   return ret;
 }
@@ -5672,7 +5714,7 @@ mont_point_to_uniform(const mont_t *ec,
   fe_export(fe, bytes, u);
   fe_cleanse(fe, u);
 
-  bytes[fe->size - 1] |= (hint >> 8) & ~fe->mask;
+  bytes[fe->size - 1] |= (hint >> 8) & ~fe->byte_mask;
 
   return ret;
 }
@@ -6818,7 +6860,7 @@ edwards_point_to_uniform(const edwards_t *ec,
   fe_export(fe, bytes, u);
   fe_cleanse(fe, u);
 
-  bytes[fe->size - 1] |= (hint >> 8) & ~fe->mask;
+  bytes[fe->size - 1] |= (hint >> 8) & ~fe->byte_mask;
 
   return ret;
 }
