@@ -666,21 +666,19 @@ sc_import(const scalar_field_t *sc, sc_t r, const unsigned char *raw) {
 static int
 sc_import_weak(const scalar_field_t *sc, sc_t r, const unsigned char *raw) {
   /* Weak reduction if we're aligned to 8 bits. */
-  const mp_limb_t *np = sc->n;
-  mp_size_t nn = sc->limbs;
   mp_limb_t sp[MAX_SCALAR_LIMBS];
   mp_limb_t cy;
 
   sc_import_raw(sc, r, raw);
 
-  cy = mpn_sub_n(sp, r, np, nn);
+  cy = mpn_sub_n(sp, r, sc->n, sc->limbs);
 
-  mpn_cnd_select(cy == 0, r, r, sp, nn);
+  mpn_cnd_select(cy == 0, r, r, sp, sc->limbs);
 
   cleanse(sp, sc->limbs);
 
 #ifdef TORSION_TEST
-  assert(mpn_cmp(r, np, nn) < 0);
+  assert(mpn_cmp(r, sc->n, sc->limbs) < 0);
 #endif
 
   return cy != 0;
@@ -800,18 +798,18 @@ sc_is_high_var(const scalar_field_t *sc, const sc_t a) {
 
 static void
 sc_neg(const scalar_field_t *sc, sc_t r, const sc_t a) {
-  const mp_limb_t *np = sc->n;
-  mp_size_t nn = sc->limbs;
   mp_limb_t zero = sc_is_zero(sc, a);
   mp_limb_t cy;
 
-  cy = mpn_sub_n(r, np, a, nn);
+  /* r = n - a */
+  cy = mpn_sub_n(r, sc->n, a, sc->limbs);
   assert(cy == 0);
 
-  mpn_cnd_zero(zero, r, r, nn);
+  /* r = 0 if a = 0 */
+  mpn_cnd_zero(zero, r, r, sc->limbs);
 
 #ifdef TORSION_TEST
-  assert(sc_cmp_var(sc, r, sc->n) < 0);
+  assert(mpn_cmp(r, sc->n, sc->limbs) < 0);
 #endif
 }
 
@@ -824,31 +822,29 @@ sc_neg_cond(const scalar_field_t *sc, sc_t r, const sc_t a, unsigned int flag) {
 }
 
 static void
-sc_add(const scalar_field_t *sc, sc_t r, const sc_t ap, const sc_t bp) {
-  const mp_limb_t *np = sc->n;
-  mp_size_t nn = sc->limbs + 1;
-  mp_limb_t up[MAX_SCALAR_LIMBS + 1];
-  mp_limb_t vp[MAX_SCALAR_LIMBS + 1];
+sc_add(const scalar_field_t *sc, sc_t r, const sc_t a, const sc_t b) {
+  mp_limb_t ap[MAX_SCALAR_LIMBS + 1];
+  mp_limb_t bp[MAX_SCALAR_LIMBS + 1];
   mp_limb_t cy;
 
-  assert(np[nn - 1] == 0);
+  assert(sc->n[sc->limbs] == 0);
 
-  mpn_copyi(up, ap, sc->limbs);
-  mpn_copyi(vp, bp, sc->limbs);
+  mpn_copyi(ap, a, sc->limbs);
+  mpn_copyi(bp, b, sc->limbs);
 
-  up[nn - 1] = 0;
-  vp[nn - 1] = 0;
+  ap[sc->limbs] = 0;
+  bp[sc->limbs] = 0;
 
   /* r = a + b */
-  cy = mpn_add_n(up, up, vp, nn);
+  cy = mpn_add_n(ap, ap, bp, sc->limbs + 1);
   assert(cy == 0);
 
-  /* r = r - n if u >= n */
-  cy = mpn_sub_n(vp, up, np, nn);
-  mpn_cnd_select(cy == 0, r, up, vp, sc->limbs);
+  /* r = r - n if r >= n */
+  cy = mpn_sub_n(bp, ap, sc->n, sc->limbs + 1);
+  mpn_cnd_select(cy == 0, r, ap, bp, sc->limbs);
 
 #ifdef TORSION_TEST
-  assert(sc_cmp_var(sc, r, sc->n) < 0);
+  assert(mpn_cmp(r, sc->n, sc->limbs) < 0);
 #endif
 }
 
@@ -889,30 +885,29 @@ sc_mul_word(const scalar_field_t *sc, sc_t r, const sc_t a, unsigned int word) {
 
 static void
 sc_reduce(const scalar_field_t *sc, sc_t r, const mp_limb_t *ap) {
-  /* Barrett reduction. */
-  const mp_limb_t *np = sc->n;
-  const mp_limb_t *mp = sc->m;
-  mp_limb_t qp[1 + MAX_REDUCE_LIMBS + MAX_SCALAR_LIMBS + 3]; /* 264 bytes */
-  mp_limb_t *hp = qp + 1;
+  /* Barrett reduction (264 bytes). */
+  mp_limb_t scratch[1 + MAX_REDUCE_LIMBS + MAX_SCALAR_LIMBS + 3];
+  mp_limb_t *qp = scratch;
+  mp_limb_t *hp = scratch + 1;
   mp_limb_t cy;
 
   /* h = a * m */
-  mpn_mul(hp, ap, sc->shift, mp, sc->limbs + 3);
+  mpn_mul(hp, ap, sc->shift, sc->m, sc->limbs + 3);
 
   /* h = h >> shift */
   hp += sc->shift;
 
   /* q = a - h * n */
-  mpn_mul(qp, hp, sc->limbs + 3, np, sc->limbs);
+  mpn_mul(qp, hp, sc->limbs + 3, sc->n, sc->limbs);
   cy = mpn_sub_n(qp, ap, qp, sc->shift);
   assert(cy == 0);
 
   /* q = q - n if q >= n */
-  cy = mpn_sub_n(hp, qp, np, sc->limbs + 1);
+  cy = mpn_sub_n(hp, qp, sc->n, sc->limbs + 1);
   mpn_cnd_select(cy == 0, r, qp, hp, sc->limbs);
 
 #ifdef TORSION_TEST
-  assert(sc_cmp_var(sc, r, sc->n) < 0);
+  assert(mpn_cmp(r, sc->n, sc->limbs) < 0);
 #endif
 }
 
@@ -946,17 +941,16 @@ sc_mulshift(const scalar_field_t *sc, sc_t r,
             size_t shift) {
   /* Compute r = round((a * b) >> 272). */
   mp_limb_t scratch[MAX_SCALAR_LIMBS * 2 + 1];
-  mp_limb_t *rp = scratch;
-  mp_size_t rn = sc->limbs * 2;
-  mp_size_t nn = sc->limbs;
   mp_size_t limbs = shift / GMP_NUMB_BITS;
   mp_size_t left = shift % GMP_NUMB_BITS;
+  mp_limb_t *rp = scratch;
+  mp_size_t rn = sc->limbs * 2;
   mp_limb_t bit, cy;
 
   assert(shift > sc->bits);
 
   /* r = a * b */
-  mpn_mul_n(rp, a, b, nn);
+  mpn_mul_n(rp, a, b, sc->limbs);
   rp[rn] = 0;
 
   /* bit = (r >> 271) & 1 */
@@ -980,15 +974,15 @@ sc_mulshift(const scalar_field_t *sc, sc_t r,
   rn -= (rp[rn - 1] == 0);
 
   assert(cy == 0);
-  assert(rn <= nn);
+  assert(rn <= sc->limbs);
 
-  mpn_zero(r + rn, nn - rn);
+  mpn_zero(r + rn, sc->limbs - rn);
   mpn_copyi(r, rp, rn);
 
   mpn_cleanse(scratch, sc->limbs * 2 + 1);
 
 #ifdef TORSION_TEST
-  assert(sc_cmp_var(sc, r, sc->n) < 0);
+  assert(mpn_cmp(r, sc->n, sc->limbs) < 0);
 #endif
 }
 
@@ -1110,16 +1104,15 @@ sc_naf_var(const scalar_field_t *sc,
    * [GECC] Algorithm 3.35, Page 100, Section 3.3.
    */
   mp_limb_t k[MAX_SCALAR_LIMBS + 2];
-  mp_size_t nn = sc->limbs;
   mp_size_t kn = sc->limbs;
   mp_limb_t cy;
   int32_t pow = 1 << (width + 1);
   size_t i = 0;
   int32_t z;
 
-  mpn_copyi(k, x, nn);
+  mpn_copyi(k, x, sc->limbs);
 
-  k[nn] = 0;
+  k[sc->limbs] = 0;
 
   while (kn > 0 && k[kn - 1] == 0)
     kn -= 1;
@@ -1140,7 +1133,7 @@ sc_naf_var(const scalar_field_t *sc,
         cy = mpn_sub_1(k, k, kn, z);
       }
 
-      assert(kn <= nn + 1);
+      assert(kn <= sc->limbs + 1);
       assert(cy == 0);
 
       kn -= (k[kn - 1] == 0);
@@ -1174,7 +1167,6 @@ sc_jsf_var(const scalar_field_t *sc,
    */
   mp_limb_t k1[MAX_SCALAR_LIMBS];
   mp_limb_t k2[MAX_SCALAR_LIMBS];
-  mp_size_t nn = sc->limbs;
   mp_size_t n1 = sc->limbs;
   mp_size_t n2 = sc->limbs;
   size_t i = 0;
@@ -1194,8 +1186,8 @@ sc_jsf_var(const scalar_field_t *sc,
     3  /* 1 1 */
   };
 
-  mpn_copyi(k1, x1, nn);
-  mpn_copyi(k2, x2, nn);
+  mpn_copyi(k1, x1, sc->limbs);
+  mpn_copyi(k2, x2, sc->limbs);
 
   while (n1 > 0 && k1[n1 - 1] == 0)
     n1 -= 1;
