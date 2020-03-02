@@ -195,7 +195,7 @@ typedef uint32_t fe_word_t;
 #define MAX_SCALAR_SIZE 66
 #define MAX_SCALAR_LIMBS \
   ((MAX_SCALAR_BITS + GMP_NUMB_BITS - 1) / GMP_NUMB_BITS)
-#define MAX_REDUCE_LIMBS ((MAX_SCALAR_LIMBS + 1) * 4)
+#define MAX_REDUCE_LIMBS (MAX_SCALAR_LIMBS * 2 + 2)
 
 #define MAX_PUB_SIZE (1 + MAX_FIELD_SIZE * 2)
 #define MAX_SIG_SIZE (MAX_FIELD_SIZE + MAX_SCALAR_SIZE)
@@ -691,11 +691,11 @@ sc_import_strong(const scalar_field_t *sc, sc_t r, const unsigned char *raw) {
   /* Otherwise, a full reduction. */
   mp_limb_t rp[MAX_REDUCE_LIMBS];
 
-  mpn_import(rp, sc->shift * 2, raw, sc->size, sc->endian);
+  mpn_import(rp, sc->shift, raw, sc->size, sc->endian);
 
   sc_reduce(sc, r, rp);
 
-  cleanse(rp, sc->shift * 2);
+  cleanse(rp, sc->shift);
 
   return bytes_lt(raw, sc->raw, sc->size, sc->endian);
 }
@@ -892,26 +892,24 @@ sc_reduce(const scalar_field_t *sc, sc_t r, const mp_limb_t *ap) {
   /* Barrett reduction. */
   const mp_limb_t *np = sc->n;
   const mp_limb_t *mp = sc->m;
-  mp_size_t sh = sc->shift;
-  mp_limb_t qp[MAX_REDUCE_LIMBS];
-  mp_limb_t up[MAX_REDUCE_LIMBS];
-  mp_limb_t *hp = qp;
+  mp_limb_t qp[1 + MAX_REDUCE_LIMBS + MAX_SCALAR_LIMBS + 3]; /* 264 bytes */
+  mp_limb_t *hp = qp + 1;
   mp_limb_t cy;
 
-  /* q = a * m */
-  mpn_mul_n(qp, ap, mp, sh);
+  /* h = a * m */
+  mpn_mul(hp, ap, sc->shift, mp, sc->limbs + 3);
 
-  /* h = q >> k */
-  hp += sh;
+  /* h = h >> shift */
+  hp += sc->shift;
 
-  /* u = a - h * n */
-  mpn_mul_n(up, hp, np, sh);
-  cy = mpn_sub_n(up, ap, up, sh * 2);
+  /* q = a - h * n */
+  mpn_mul(qp, hp, sc->limbs + 3, np, sc->limbs);
+  cy = mpn_sub_n(qp, ap, qp, sc->shift);
   assert(cy == 0);
 
-  /* u = u - n if u >= n */
-  cy = mpn_sub_n(qp, up, np, sh);
-  mpn_cnd_select(cy == 0, r, up, qp, sc->limbs);
+  /* q = q - n if q >= n */
+  cy = mpn_sub_n(hp, qp, np, sc->limbs + 1);
+  mpn_cnd_select(cy == 0, r, qp, hp, sc->limbs);
 
 #ifdef TORSION_TEST
   assert(sc_cmp_var(sc, r, sc->n) < 0);
@@ -920,24 +918,26 @@ sc_reduce(const scalar_field_t *sc, sc_t r, const mp_limb_t *ap) {
 
 static void
 sc_mul(const scalar_field_t *sc, sc_t r, const sc_t a, const sc_t b) {
-  mp_limb_t ap[MAX_REDUCE_LIMBS];
-  mp_size_t an = sc->limbs * 2;
+  mp_limb_t rp[MAX_REDUCE_LIMBS]; /* 160 bytes */
 
-  mpn_zero(ap + an, sc->shift * 2 - an);
-  mpn_mul_n(ap, a, b, sc->limbs);
+  mpn_mul_n(rp, a, b, sc->limbs);
 
-  sc_reduce(sc, r, ap);
+  rp[sc->shift - 2] = 0;
+  rp[sc->shift - 1] = 0;
+
+  sc_reduce(sc, r, rp);
 }
 
 static void
 sc_sqr(const scalar_field_t *sc, sc_t r, const sc_t a) {
-  mp_limb_t ap[MAX_REDUCE_LIMBS];
-  mp_size_t an = sc->limbs * 2;
+  mp_limb_t rp[MAX_REDUCE_LIMBS]; /* 160 bytes */
 
-  mpn_zero(ap + an, sc->shift * 2 - an);
-  mpn_sqr(ap, a, sc->limbs);
+  mpn_sqr(rp, a, sc->limbs);
 
-  sc_reduce(sc, r, ap);
+  rp[sc->shift - 2] = 0;
+  rp[sc->shift - 1] = 0;
+
+  sc_reduce(sc, r, rp);
 }
 
 static void
@@ -1308,11 +1308,11 @@ fe_import(const prime_field_t *fe, fe_t r, const unsigned char *raw) {
     mp_size_t left = fe->shift % GMP_NUMB_BITS;
     mp_size_t xn = fe->limbs + shift + (left != 0);
 
-    /* We can only handle 2*(size+1) limbs. */
+    /* We can only handle 2*size+2 limbs. */
     assert(xn <= fe->sc.shift);
 
     /* x = (x << shift) mod p */
-    mpn_zero(xp, fe->sc.shift * 2);
+    mpn_zero(xp, fe->sc.shift);
     mpn_import(xp + shift, fe->limbs, raw, fe->size, fe->endian);
 
     /* Ignore the high bits. */
@@ -1851,7 +1851,7 @@ scalar_field_set(scalar_field_t *sc,
   sc->limbs = (bits + GMP_NUMB_BITS - 1) / GMP_NUMB_BITS;
   sc->size = (bits + 7) / 8;
   sc->bits = bits;
-  sc->shift = (sc->limbs + 1) * 2;
+  sc->shift = sc->limbs * 2 + 2;
 
   /* Deserialize order into GMP limbs. */
   mpn_import_be(sc->n, MAX_REDUCE_LIMBS, modulus, sc->size);
@@ -1866,32 +1866,38 @@ scalar_field_set(scalar_field_t *sc,
    *
    *   m = (1 << (bits * 2)) / n
    *
-   * Where `bits` is equal to `(limbs + 1) * limb_bits`.
+   * Where `bits` should be greater than or equal to
+   * `field_bytes * 8 + 8`. We align this to limbs,
+   * so `bits * 2` should be greater than or equal
+   * to `field_limbs * 2 + 1` in terms of limbs.
    *
-   * This is necessary because the scalar being reduced
-   * cannot be larger than `bits * 2`. In particular,
-   * EdDSA may require scalars of `(field_bits + 8) * 2`
-   * bits to be reduced. Ed448 is notably affected.
+   * Since we do not have access to the prime field
+   * here, we assume that a prime field would never
+   * be more than 1 limb larger, and we add a padding
+   * of 1. The calculation becomes:
    *
-   * Thus, we add a single limb even though that isn't
-   * typically necessary for barrett reduction on an
-   * elliptic curve's finite field for scalars.
+   *   shift = field_limbs * 2 + 2
    *
-   * Because of this, `(limbs + 1) * 4` limbs must be
-   * allocated to actually perform the reduction, and
-   * the scalar must be no larger than `(limbs + 1) * 2`
-   * limbs in size. On a 256 bit curve, this allocates
-   * 160 and 80 bytes respectively.
+   * This is necessary because the scalar being
+   * reduced cannot be larger than `bits * 2`. EdDSA
+   * in particular has large size requirements where:
+   *
+   *   max_scalar_bits = (field_bytes + 1) * 2 * 8
+   *
+   * Ed448 is the most severely affected by this, as
+   * it appends an extra byte to the field element.
    */
   {
-    mp_limb_t x[MAX_REDUCE_LIMBS];
+    mp_limb_t x[MAX_REDUCE_LIMBS + 1];
 
     mpn_zero(sc->m, MAX_REDUCE_LIMBS);
-    mpn_zero(x, MAX_REDUCE_LIMBS);
+    mpn_zero(x, MAX_REDUCE_LIMBS + 1);
 
     x[sc->shift] = 1;
 
     mpn_tdiv_qr(sc->m, x, 0, x, sc->shift + 1, sc->n, sc->limbs);
+
+    assert(sc->m[sc->limbs + 3] == 0);
   }
 
   /* Optimized scalar inverse (optional). */
@@ -11427,11 +11433,11 @@ eddsa_hash_final(const edwards_t *ec, hash_t *hash, sc_t r) {
 
   hash_final(hash, bytes, fe->adj_size * 2);
 
-  mpn_import(k, sc->shift * 2, bytes, fe->adj_size * 2, sc->endian);
+  mpn_import(k, sc->shift, bytes, fe->adj_size * 2, sc->endian);
 
   sc_reduce(sc, r, k);
 
-  mpn_cleanse(k, sc->shift * 2);
+  mpn_cleanse(k, sc->shift);
 
   cleanse(bytes, fe->adj_size * 2);
 }
