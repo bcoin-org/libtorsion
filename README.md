@@ -49,7 +49,7 @@ Used as the backend for [bcrypto].
 
 int main(void) {
   ecdsa_t *ec = ecdsa_context_create(ECDSA_CURVE_SECP256K1);
-  const char *str = "hello world";
+  const char str[] = "hello world";
   unsigned char priv[32];
   unsigned char entropy[32];
   unsigned char msg[32];
