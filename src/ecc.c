@@ -166,8 +166,8 @@
 #include "fields/p251.h"
 
 #include "asn1.h"
-#include "mpn.h"
 #include "internal.h"
+#include "mpn.h"
 
 #if CHAR_BIT != 8
 #error "sane char widths please"
@@ -4236,7 +4236,7 @@ wei_randomize(wei_t *ec, const unsigned char *entropy) {
   wge_t unblind;
   drbg_t rng;
 
-  drbg_init(&rng, HASH_SHA256, entropy, 32);
+  drbg_init(&rng, HASH_SHA256, entropy, ENTROPY_SIZE);
 
   sc_random(sc, blind, &rng);
 
@@ -4686,7 +4686,7 @@ wei_point_to_hash(const wei_t *ec,
   wge_t p1, p2;
   drbg_t rng;
 
-  drbg_init(&rng, HASH_SHA256, entropy, 32);
+  drbg_init(&rng, HASH_SHA256, entropy, ENTROPY_SIZE);
 
   for (;;) {
     drbg_generate(&rng, bytes, fe->size);
@@ -5746,7 +5746,7 @@ mont_point_to_hash(const mont_t *ec,
   mge_t p1, p2;
   drbg_t rng;
 
-  drbg_init(&rng, HASH_SHA256, entropy, 32);
+  drbg_init(&rng, HASH_SHA256, entropy, ENTROPY_SIZE);
 
   for (;;) {
     drbg_generate(&rng, bytes, fe->size);
@@ -6667,7 +6667,7 @@ edwards_randomize(edwards_t *ec, const unsigned char *entropy) {
   xge_t unblind;
   drbg_t rng;
 
-  drbg_init(&rng, HASH_SHA256, entropy, 32);
+  drbg_init(&rng, HASH_SHA256, entropy, ENTROPY_SIZE);
 
   sc_random(sc, blind, &rng);
 
@@ -6893,7 +6893,7 @@ edwards_point_to_hash(const edwards_t *ec,
   xge_t p1, p2;
   drbg_t rng;
 
-  drbg_init(&rng, HASH_SHA256, entropy, 32);
+  drbg_init(&rng, HASH_SHA256, entropy, ENTROPY_SIZE);
 
   for (;;) {
     drbg_generate(&rng, bytes, fe->size);
@@ -8260,7 +8260,7 @@ ecdsa_privkey_generate(const wei_t *ec,
   const scalar_field_t *sc = &ec->sc;
   drbg_t rng;
 
-  drbg_init(&rng, HASH_SHA256, entropy, 32);
+  drbg_init(&rng, HASH_SHA256, entropy, ENTROPY_SIZE);
 
   do {
     drbg_generate(&rng, out, sc->size);
@@ -10495,7 +10495,7 @@ ecdh_privkey_generate(const mont_t *ec,
   const scalar_field_t *sc = &ec->sc;
   drbg_t rng;
 
-  drbg_init(&rng, HASH_SHA256, entropy, 32);
+  drbg_init(&rng, HASH_SHA256, entropy, ENTROPY_SIZE);
 
   drbg_generate(&rng, out, sc->size);
 
@@ -10891,7 +10891,7 @@ eddsa_privkey_generate(const edwards_t *ec,
   const prime_field_t *fe = &ec->fe;
   drbg_t rng;
 
-  drbg_init(&rng, HASH_SHA256, entropy, 32);
+  drbg_init(&rng, HASH_SHA256, entropy, ENTROPY_SIZE);
 
   drbg_generate(&rng, out, fe->adj_size);
 
@@ -10905,7 +10905,7 @@ eddsa_scalar_generate(const edwards_t *ec,
   const scalar_field_t *sc = &ec->sc;
   drbg_t rng;
 
-  drbg_init(&rng, HASH_SHA256, entropy, 32);
+  drbg_init(&rng, HASH_SHA256, entropy, ENTROPY_SIZE);
 
   drbg_generate(&rng, out, sc->size);
 

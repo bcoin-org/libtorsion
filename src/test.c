@@ -28,6 +28,7 @@
 #include <torsion/salsa20.h>
 #include <torsion/siphash.h>
 #include <torsion/util.h>
+#include "internal.h"
 
 #ifndef ARRAY_SIZE
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
@@ -93,16 +94,16 @@ get_entropy(void *dst, size_t len) {
 
 static void
 random_init(drbg_t *rng) {
-  unsigned char entropy[32];
+  unsigned char entropy[ENTROPY_SIZE];
 
-  if (!get_entropy(entropy, sizeof(entropy))) {
+  if (!get_entropy(entropy, ENTROPY_SIZE)) {
     size_t i;
 
-    for (i = 0; i < 32; i++)
+    for (i = 0; i < ENTROPY_SIZE; i++)
       entropy[i] = (unsigned char)rand();
   }
 
-  drbg_init(rng, HASH_SHA256, entropy, 32);
+  drbg_init(rng, HASH_SHA256, entropy, ENTROPY_SIZE);
 }
 
 static void
@@ -172,7 +173,7 @@ test_wei_mul_g_p256(drbg_t *rng) {
   };
 
   ecdsa_t *ec = ecdsa_context_create(ECDSA_CURVE_P256);
-  unsigned char entropy[32];
+  unsigned char entropy[ENTROPY_SIZE];
   unsigned char q_raw[33];
   size_t q_size;
 
@@ -249,7 +250,7 @@ test_wei_mul_g_secp256k1(drbg_t *rng) {
   };
 
   ecdsa_t *ec = ecdsa_context_create(ECDSA_CURVE_SECP256K1);
-  unsigned char entropy[32];
+  unsigned char entropy[ENTROPY_SIZE];
   unsigned char q_raw[33];
   size_t q_size;
 
@@ -342,7 +343,7 @@ test_ecdsa_vector_p192(drbg_t *rng) {
   ecdsa_t *ec = ecdsa_context_create(ECDSA_CURVE_P192);
   unsigned int param = 0;
   unsigned char rec[25];
-  unsigned char entropy[32];
+  unsigned char entropy[ENTROPY_SIZE];
   unsigned char sig0[48];
   unsigned int param0;
   size_t rec_len;
@@ -403,7 +404,7 @@ test_ecdsa_vector_p224(drbg_t *rng) {
   ecdsa_t *ec = ecdsa_context_create(ECDSA_CURVE_P224);
   unsigned int param = 0;
   unsigned char rec[29];
-  unsigned char entropy[32];
+  unsigned char entropy[ENTROPY_SIZE];
   unsigned char sig0[56];
   unsigned int param0;
   size_t rec_len;
@@ -466,7 +467,7 @@ test_ecdsa_vector_p256(drbg_t *rng) {
   ecdsa_t *ec = ecdsa_context_create(ECDSA_CURVE_P256);
   unsigned int param = 1;
   unsigned char rec[33];
-  unsigned char entropy[32];
+  unsigned char entropy[ENTROPY_SIZE];
   unsigned char sig0[64];
   unsigned int param0;
   size_t rec_len;
@@ -539,7 +540,7 @@ test_ecdsa_vector_p384(drbg_t *rng) {
   ecdsa_t *ec = ecdsa_context_create(ECDSA_CURVE_P384);
   unsigned int param = 1;
   unsigned char rec[49];
-  unsigned char entropy[32];
+  unsigned char entropy[ENTROPY_SIZE];
   unsigned char sig0[96];
   unsigned int param0;
   size_t rec_len;
@@ -624,7 +625,7 @@ test_ecdsa_vector_p521(drbg_t *rng) {
   ecdsa_t *ec = ecdsa_context_create(ECDSA_CURVE_P521);
   unsigned int param = 0;
   unsigned char rec[67];
-  unsigned char entropy[32];
+  unsigned char entropy[ENTROPY_SIZE];
   unsigned char sig0[132];
   unsigned int param0;
   size_t rec_len;
@@ -689,7 +690,7 @@ test_ecdsa_vector_secp256k1(drbg_t *rng) {
   ecdsa_t *ec = ecdsa_context_create(ECDSA_CURVE_SECP256K1);
   unsigned int param = 0;
   unsigned char rec[33];
-  unsigned char entropy[32];
+  unsigned char entropy[ENTROPY_SIZE];
   unsigned char sig0[64];
   unsigned int param0;
   size_t rec_len;
@@ -891,7 +892,7 @@ test_edwards_mul_g_ed25519(drbg_t *rng) {
   };
 
   eddsa_t *ec = eddsa_context_create(EDDSA_CURVE_ED25519);
-  unsigned char entropy[32];
+  unsigned char entropy[ENTROPY_SIZE];
   unsigned char q_raw[32];
 
   printf("Testing mul_g (vector, ed25519).\n");
@@ -978,7 +979,7 @@ test_eddsa_vector_ed25519(drbg_t *rng) {
 
   eddsa_t *ec = eddsa_context_create(EDDSA_CURVE_ED25519);
   unsigned char rec[32];
-  unsigned char entropy[32];
+  unsigned char entropy[ENTROPY_SIZE];
   unsigned char sig0[64];
 
   printf("Testing EdDSA (ed25519 vector).\n");
@@ -1051,7 +1052,7 @@ test_eddsa_vector_ed448(drbg_t *rng) {
 
   eddsa_t *ec = eddsa_context_create(EDDSA_CURVE_ED448);
   unsigned char rec[57];
-  unsigned char entropy[32];
+  unsigned char entropy[ENTROPY_SIZE];
   unsigned char sig0[114];
 
   printf("Testing EdDSA (ed448 vector).\n");
@@ -1211,7 +1212,7 @@ test_ecdsa_random(drbg_t *rng) {
     printf("  - %s\n", id);
 
     for (j = 0; j < 100; j++) {
-      unsigned char entropy[32];
+      unsigned char entropy[ENTROPY_SIZE];
       unsigned char priv[ECDSA_MAX_PRIV_SIZE];
       unsigned char msg[ECDSA_MAX_SCALAR_SIZE];
       unsigned char sig[ECDSA_MAX_SIG_SIZE];
@@ -1316,7 +1317,7 @@ test_eddsa_random(drbg_t *rng) {
     printf("  - %s\n", id);
 
     for (j = 0; j < 100; j++) {
-      unsigned char entropy[32];
+      unsigned char entropy[ENTROPY_SIZE];
       unsigned char priv[EDDSA_MAX_PRIV_SIZE];
       unsigned char msg[EDDSA_MAX_SCALAR_SIZE];
       unsigned char sig[EDDSA_MAX_SIG_SIZE];
@@ -1372,7 +1373,7 @@ test_rsa(drbg_t *rng) {
   size_t ct_len = RSA_MAX_MOD_SIZE;
   size_t pt_len = RSA_MAX_MOD_SIZE;
   unsigned char msg[32];
-  unsigned char entropy[32];
+  unsigned char entropy[ENTROPY_SIZE];
   size_t i, j;
 
   assert(priv != NULL);
@@ -1384,7 +1385,7 @@ test_rsa(drbg_t *rng) {
   printf("Testing RSA...\n");
 
   for (i = 0; i < 10; i++) {
-    drbg_generate(rng, entropy, 32);
+    drbg_generate(rng, entropy, sizeof(entropy));
 
     assert(rsa_privkey_generate(priv, &priv_len, 1024, 65537, entropy));
     assert(rsa_privkey_verify(priv, priv_len));
@@ -1393,7 +1394,7 @@ test_rsa(drbg_t *rng) {
     assert(rsa_pubkey_verify(pub, pub_len));
 
     drbg_generate(rng, msg, 32);
-    drbg_generate(rng, entropy, 32);
+    drbg_generate(rng, entropy, sizeof(entropy));
 
     j = random_int(rng, 128);
 
@@ -1403,7 +1404,7 @@ test_rsa(drbg_t *rng) {
     assert(!rsa_verify(HASH_SHA256, msg, 32, sig, sig_len, pub, pub_len));
 
     drbg_generate(rng, msg, 32);
-    drbg_generate(rng, entropy, 32);
+    drbg_generate(rng, entropy, sizeof(entropy));
 
     assert(rsa_encrypt(ct, &ct_len, msg, 32, pub, pub_len, entropy));
     assert(rsa_decrypt(pt, &pt_len, ct, ct_len, priv, priv_len, entropy));
@@ -1413,7 +1414,7 @@ test_rsa(drbg_t *rng) {
     assert(!rsa_decrypt(pt, &pt_len, ct, ct_len, priv, priv_len, entropy));
 
     drbg_generate(rng, msg, 32);
-    drbg_generate(rng, entropy, 32);
+    drbg_generate(rng, entropy, sizeof(entropy));
 
     assert(rsa_sign_pss(sig, &sig_len, HASH_SHA256, msg, 32, priv, priv_len, 0, entropy));
     assert(rsa_verify_pss(HASH_SHA256, msg, 32, sig, sig_len, pub, pub_len, 0));
@@ -1426,7 +1427,7 @@ test_rsa(drbg_t *rng) {
     assert(!rsa_verify_pss(HASH_SHA256, msg, 32, sig, sig_len, pub, pub_len, -1));
 
     drbg_generate(rng, msg, 32);
-    drbg_generate(rng, entropy, 32);
+    drbg_generate(rng, entropy, sizeof(entropy));
 
     assert(rsa_encrypt_oaep(ct, &ct_len, HASH_SHA256, msg, 32, pub, pub_len, NULL, 0, entropy));
     assert(rsa_decrypt_oaep(pt, &pt_len, HASH_SHA256, ct, ct_len, priv, priv_len, NULL, 0, entropy));
@@ -1517,7 +1518,7 @@ bench_mul(drbg_t *rng) {
 static void
 bench_ecdsa(drbg_t *rng) {
   ecdsa_t *ec = ecdsa_context_create(ECDSA_CURVE_SECP256K1);
-  unsigned char entropy[32];
+  unsigned char entropy[ENTROPY_SIZE];
   unsigned char priv[32];
   unsigned char msg[32];
   unsigned char sig[64];
@@ -1576,7 +1577,7 @@ bench_ecdh(drbg_t *rng) {
 static void
 bench_eddsa(drbg_t *rng) {
   eddsa_t *ec = eddsa_context_create(EDDSA_CURVE_ED25519);
-  unsigned char entropy[32];
+  unsigned char entropy[ENTROPY_SIZE];
   unsigned char priv[32];
   unsigned char msg[32];
   unsigned char sig[64];

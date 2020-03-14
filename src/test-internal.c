@@ -83,16 +83,16 @@ get_entropy(void *dst, size_t len) {
 
 static void
 random_init(drbg_t *rng) {
-  unsigned char entropy[32];
+  unsigned char entropy[ENTROPY_SIZE];
 
-  if (!get_entropy(entropy, sizeof(entropy))) {
+  if (!get_entropy(entropy, ENTROPY_SIZE)) {
     size_t i;
 
-    for (i = 0; i < 32; i++)
+    for (i = 0; i < ENTROPY_SIZE; i++)
       entropy[i] = (unsigned char)rand();
   }
 
-  drbg_init(rng, HASH_SHA256, entropy, 32);
+  drbg_init(rng, HASH_SHA256, entropy, ENTROPY_SIZE);
 }
 
 static void
@@ -481,7 +481,7 @@ test_wei_points_p256(drbg_t *rng) {
   wei_t *ec = &curve;
   wge_t g, p, q, r;
   jge_t jg, jp, jq, jr;
-  unsigned char entropy[32];
+  unsigned char entropy[ENTROPY_SIZE];
   unsigned char p_raw[33];
   size_t p_size;
 
@@ -567,7 +567,7 @@ test_wei_points_p521(drbg_t *rng) {
   wei_t *ec = &curve;
   wge_t g, p, q, r;
   jge_t jg, jp, jq, jr;
-  unsigned char entropy[32];
+  unsigned char entropy[ENTROPY_SIZE];
   unsigned char p_raw[67];
   size_t p_size;
 
@@ -713,7 +713,7 @@ test_wei_points_secp256k1(drbg_t *rng) {
   wei_t *ec = &curve;
   wge_t g, p, q, r;
   jge_t jg, jp, jq, jr;
-  unsigned char entropy[32];
+  unsigned char entropy[ENTROPY_SIZE];
   unsigned char p_raw[33];
   size_t p_size;
 
@@ -814,7 +814,7 @@ test_wei_mul_g_p256(drbg_t *rng) {
   wei_t *ec = &curve;
   sc_t k;
   wge_t q, expect;
-  unsigned char entropy[32];
+  unsigned char entropy[ENTROPY_SIZE];
   unsigned char q_raw[33];
   size_t q_size;
   scalar_field_t *sc = &ec->sc;
@@ -873,7 +873,7 @@ test_wei_mul_p256(drbg_t *rng) {
   wei_t *ec = &curve;
   sc_t k;
   wge_t p, q, expect;
-  unsigned char entropy[32];
+  unsigned char entropy[ENTROPY_SIZE];
   unsigned char q_raw[33];
   size_t q_size;
   scalar_field_t *sc = &ec->sc;
@@ -941,7 +941,7 @@ test_wei_double_mul_p256(drbg_t *rng) {
   wei_t *ec = &curve;
   sc_t k1, k2;
   wge_t p, q, expect;
-  unsigned char entropy[32];
+  unsigned char entropy[ENTROPY_SIZE];
   unsigned char q_raw[33];
   size_t q_size;
   scalar_field_t *sc = &ec->sc;
@@ -1025,7 +1025,7 @@ test_wei_multi_mul_p256(drbg_t *rng) {
   wei_t *ec = &curve;
   sc_t k0, k1, k2;
   wge_t p1, p2, q, expect;
-  unsigned char entropy[32];
+  unsigned char entropy[ENTROPY_SIZE];
   unsigned char q_raw[33];
   size_t q_size;
   scalar_field_t *sc = &ec->sc;
@@ -1091,7 +1091,7 @@ test_wei_mul_g_secp256k1(drbg_t *rng) {
   wei_t *ec = &curve;
   sc_t k;
   wge_t q, expect;
-  unsigned char entropy[32];
+  unsigned char entropy[ENTROPY_SIZE];
   unsigned char q_raw[33];
   size_t q_size;
   scalar_field_t *sc = &ec->sc;
@@ -1150,7 +1150,7 @@ test_wei_mul_secp256k1(drbg_t *rng) {
   wei_t *ec = &curve;
   sc_t k;
   wge_t p, q, expect;
-  unsigned char entropy[32];
+  unsigned char entropy[ENTROPY_SIZE];
   unsigned char q_raw[33];
   size_t q_size;
   scalar_field_t *sc = &ec->sc;
@@ -1218,7 +1218,7 @@ test_wei_double_mul_secp256k1(drbg_t *rng) {
   wei_t *ec = &curve;
   sc_t k1, k2;
   wge_t p, q, expect;
-  unsigned char entropy[32];
+  unsigned char entropy[ENTROPY_SIZE];
   unsigned char q_raw[33];
   size_t q_size;
   scalar_field_t *sc = &ec->sc;
@@ -1302,7 +1302,7 @@ test_wei_multi_mul_secp256k1(drbg_t *rng) {
   wei_t *ec = &curve;
   sc_t k0, k1, k2;
   wge_t p1, p2, q, expect;
-  unsigned char entropy[32];
+  unsigned char entropy[ENTROPY_SIZE];
   unsigned char q_raw[33];
   size_t q_size;
   scalar_field_t *sc = &ec->sc;
@@ -1382,7 +1382,7 @@ test_ecdsa_vector_p192(drbg_t *rng) {
   wei_t *ec = &curve;
   unsigned int param = 0;
   unsigned char rec[25];
-  unsigned char entropy[32];
+  unsigned char entropy[ENTROPY_SIZE];
   unsigned char sig0[48];
   unsigned int param0;
   size_t rec_len;
@@ -1444,7 +1444,7 @@ test_ecdsa_vector_p224(drbg_t *rng) {
   wei_t *ec = &curve;
   unsigned int param = 0;
   unsigned char rec[29];
-  unsigned char entropy[32];
+  unsigned char entropy[ENTROPY_SIZE];
   unsigned char sig0[56];
   unsigned int param0;
   size_t rec_len;
@@ -1508,7 +1508,7 @@ test_ecdsa_vector_p256(drbg_t *rng) {
   wei_t *ec = &curve;
   unsigned int param = 1;
   unsigned char rec[33];
-  unsigned char entropy[32];
+  unsigned char entropy[ENTROPY_SIZE];
   unsigned char sig0[64];
   unsigned int param0;
   size_t rec_len;
@@ -1582,7 +1582,7 @@ test_ecdsa_vector_p384(drbg_t *rng) {
   wei_t *ec = &curve;
   unsigned int param = 1;
   unsigned char rec[49];
-  unsigned char entropy[32];
+  unsigned char entropy[ENTROPY_SIZE];
   unsigned char sig0[96];
   unsigned int param0;
   size_t rec_len;
@@ -1668,7 +1668,7 @@ test_ecdsa_vector_p521(drbg_t *rng) {
   wei_t *ec = &curve;
   unsigned int param = 0;
   unsigned char rec[67];
-  unsigned char entropy[32];
+  unsigned char entropy[ENTROPY_SIZE];
   unsigned char sig0[132];
   unsigned int param0;
   size_t rec_len;
@@ -1734,7 +1734,7 @@ test_ecdsa_vector_secp256k1(drbg_t *rng) {
   wei_t *ec = &curve;
   unsigned int param = 0;
   unsigned char rec[33];
-  unsigned char entropy[32];
+  unsigned char entropy[ENTROPY_SIZE];
   unsigned char sig0[64];
   unsigned int param0;
   size_t rec_len;
@@ -2009,7 +2009,7 @@ test_edwards_points_ed25519(drbg_t *rng) {
   edwards_t *ec = &curve;
   xge_t g, p, q, r;
   xge_t jg, jp, jq, jr;
-  unsigned char entropy[32];
+  unsigned char entropy[ENTROPY_SIZE];
   unsigned char p_raw[32];
 
   const unsigned char g_raw[32] = {
@@ -2127,7 +2127,7 @@ test_edwards_mul_g_ed25519(drbg_t *rng) {
   edwards_t *ec = &curve;
   sc_t k;
   xge_t q, expect;
-  unsigned char entropy[32];
+  unsigned char entropy[ENTROPY_SIZE];
   unsigned char q_raw[32];
   scalar_field_t *sc = &ec->sc;
 
@@ -2182,7 +2182,7 @@ test_edwards_mul_ed25519(drbg_t *rng) {
   edwards_t *ec = &curve;
   sc_t k;
   xge_t p, q, expect;
-  unsigned char entropy[32];
+  unsigned char entropy[ENTROPY_SIZE];
   unsigned char q_raw[32];
   scalar_field_t *sc = &ec->sc;
 
@@ -2246,7 +2246,7 @@ test_edwards_double_mul_ed25519(drbg_t *rng) {
   edwards_t *ec = &curve;
   sc_t k1, k2;
   xge_t p, q, expect;
-  unsigned char entropy[32];
+  unsigned char entropy[ENTROPY_SIZE];
   unsigned char q_raw[32];
   scalar_field_t *sc = &ec->sc;
 
@@ -2325,7 +2325,7 @@ test_edwards_multi_mul_ed25519(drbg_t *rng) {
   edwards_t *ec = &curve;
   sc_t k0, k1, k2;
   xge_t p1, p2, q, expect;
-  unsigned char entropy[32];
+  unsigned char entropy[ENTROPY_SIZE];
   unsigned char q_raw[32];
   scalar_field_t *sc = &ec->sc;
   edwards_scratch_t scratch;
@@ -2405,7 +2405,7 @@ test_eddsa_vector_ed25519(drbg_t *rng) {
   edwards_t curve;
   edwards_t *ec = &curve;
   unsigned char rec[32];
-  unsigned char entropy[32];
+  unsigned char entropy[ENTROPY_SIZE];
   unsigned char sig0[64];
 
   printf("Testing EdDSA (ed25519 vector).\n");
@@ -2479,7 +2479,7 @@ test_eddsa_vector_ed448(drbg_t *rng) {
   edwards_t curve;
   edwards_t *ec = &curve;
   unsigned char rec[57];
-  unsigned char entropy[32];
+  unsigned char entropy[ENTROPY_SIZE];
   unsigned char sig0[114];
 
   printf("Testing EdDSA (ed448 vector).\n");
@@ -2644,7 +2644,7 @@ test_ecdsa_random(drbg_t *rng) {
     wei_init(&ec, def);
 
     for (j = 0; j < 100; j++) {
-      unsigned char entropy[32];
+      unsigned char entropy[ENTROPY_SIZE];
       unsigned char priv[MAX_SCALAR_SIZE];
       unsigned char msg[MAX_SCALAR_SIZE];
       unsigned char sig[MAX_SCALAR_SIZE * 2];
@@ -2749,7 +2749,7 @@ test_eddsa_random(drbg_t *rng) {
     edwards_init(&ec, def);
 
     for (j = 0; j < 100; j++) {
-      unsigned char entropy[32];
+      unsigned char entropy[ENTROPY_SIZE];
       unsigned char priv[MAX_FIELD_SIZE];
       unsigned char msg[MAX_SCALAR_SIZE];
       unsigned char sig[MAX_FIELD_SIZE * 2];
@@ -2803,7 +2803,7 @@ test_rsa(drbg_t *rng) {
   size_t ct_len = RSA_MAX_MOD_SIZE;
   size_t pt_len = RSA_MAX_MOD_SIZE;
   unsigned char msg[32];
-  unsigned char entropy[32];
+  unsigned char entropy[ENTROPY_SIZE];
   size_t i, j;
 
   assert(priv != NULL);
@@ -2815,7 +2815,7 @@ test_rsa(drbg_t *rng) {
   printf("Testing RSA...\n");
 
   for (i = 0; i < 10; i++) {
-    drbg_generate(rng, entropy, 32);
+    drbg_generate(rng, entropy, sizeof(entropy));
 
     assert(rsa_privkey_generate(priv, &priv_len, 1024, 65537, entropy));
     assert(rsa_privkey_verify(priv, priv_len));
@@ -2824,7 +2824,7 @@ test_rsa(drbg_t *rng) {
     assert(rsa_pubkey_verify(pub, pub_len));
 
     drbg_generate(rng, msg, 32);
-    drbg_generate(rng, entropy, 32);
+    drbg_generate(rng, entropy, sizeof(entropy));
 
     j = random_int(rng, 128);
 
@@ -2834,7 +2834,7 @@ test_rsa(drbg_t *rng) {
     assert(!rsa_verify(HASH_SHA256, msg, 32, sig, sig_len, pub, pub_len));
 
     drbg_generate(rng, msg, 32);
-    drbg_generate(rng, entropy, 32);
+    drbg_generate(rng, entropy, sizeof(entropy));
 
     assert(rsa_encrypt(ct, &ct_len, msg, 32, pub, pub_len, entropy));
     assert(rsa_decrypt(pt, &pt_len, ct, ct_len, priv, priv_len, entropy));
@@ -2844,7 +2844,7 @@ test_rsa(drbg_t *rng) {
     assert(!rsa_decrypt(pt, &pt_len, ct, ct_len, priv, priv_len, entropy));
 
     drbg_generate(rng, msg, 32);
-    drbg_generate(rng, entropy, 32);
+    drbg_generate(rng, entropy, sizeof(entropy));
 
     assert(rsa_sign_pss(sig, &sig_len, HASH_SHA256, msg, 32, priv, priv_len, 0, entropy));
     assert(rsa_verify_pss(HASH_SHA256, msg, 32, sig, sig_len, pub, pub_len, 0));
@@ -2857,7 +2857,7 @@ test_rsa(drbg_t *rng) {
     assert(!rsa_verify_pss(HASH_SHA256, msg, 32, sig, sig_len, pub, pub_len, -1));
 
     drbg_generate(rng, msg, 32);
-    drbg_generate(rng, entropy, 32);
+    drbg_generate(rng, entropy, sizeof(entropy));
 
     assert(rsa_encrypt_oaep(ct, &ct_len, HASH_SHA256, msg, 32, pub, pub_len, NULL, 0, entropy));
     assert(rsa_decrypt_oaep(pt, &pt_len, HASH_SHA256, ct, ct_len, priv, priv_len, NULL, 0, entropy));
@@ -2983,7 +2983,7 @@ bench_double_mul(drbg_t *rng) {
 static void
 bench_ecdsa(drbg_t *rng) {
   wei_t ec;
-  unsigned char entropy[32];
+  unsigned char entropy[ENTROPY_SIZE];
   unsigned char priv[32];
   unsigned char msg[32];
   unsigned char sig[64];
@@ -3043,7 +3043,7 @@ static void
 bench_eddsa(drbg_t *rng) {
   size_t i;
   edwards_t ec;
-  unsigned char entropy[32];
+  unsigned char entropy[ENTROPY_SIZE];
   unsigned char priv[32];
   unsigned char msg[32];
   unsigned char sig[64];
