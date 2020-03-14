@@ -8750,24 +8750,28 @@ ecdsa_decode_der(const wei_t *ec,
   unsigned char sp[MAX_SCALAR_SIZE];
 
   if (!asn1_read_seq(&der, &der_len, strict))
-    return 0;
+    goto fail;
 
   if (!asn1_read_int(rp, sc->size, &der, &der_len, strict))
-    return 0;
+    goto fail;
 
   if (!asn1_read_int(sp, sc->size, &der, &der_len, strict))
-    return 0;
+    goto fail;
 
   if (strict && der_len != 0)
-    return 0;
+    goto fail;
 
   if (!sc_import(sc, r, rp))
-    return 0;
+    goto fail;
 
   if (!sc_import(sc, s, sp))
-    return 0;
+    goto fail;
 
   return 1;
+fail:
+  sc_zero(sc, r);
+  sc_zero(sc, s);
+  return 0;
 }
 
 static int
@@ -8836,16 +8840,19 @@ ecdsa_sig_export(const wei_t *ec,
                  const unsigned char *sig) {
   const scalar_field_t *sc = &ec->sc;
   sc_t r, s;
+  int ret = 1;
 
-  if (!sc_import(sc, r, sig))
-    return 0;
+  ret &= sc_import(sc, r, sig);
+  ret &= sc_import(sc, s, sig + sc->size);
 
-  if (!sc_import(sc, s, sig + sc->size))
-    return 0;
+  if (!ret) {
+    sc_zero(sc, r);
+    sc_zero(sc, s);
+  }
 
   ecdsa_encode_der(ec, out, out_len, r, s);
 
-  return 1;
+  return ret;
 }
 
 int
@@ -8855,14 +8862,14 @@ ecdsa_sig_import(const wei_t *ec,
                  size_t der_len) {
   const scalar_field_t *sc = &ec->sc;
   sc_t r, s;
+  int ret = 1;
 
-  if (!ecdsa_decode_der(ec, r, s, der, der_len, 1))
-    return 0;
+  ret &= ecdsa_decode_der(ec, r, s, der, der_len, 1);
 
   sc_export(sc, out, r);
   sc_export(sc, out + sc->size, s);
 
-  return 1;
+  return ret;
 }
 
 int
@@ -8872,14 +8879,14 @@ ecdsa_sig_import_lax(const wei_t *ec,
                      size_t der_len) {
   const scalar_field_t *sc = &ec->sc;
   sc_t r, s;
+  int ret = 1;
 
-  if (!ecdsa_decode_der(ec, r, s, der, der_len, 0))
-    return 0;
+  ret &= ecdsa_decode_der(ec, r, s, der, der_len, 0);
 
   sc_export(sc, out, r);
   sc_export(sc, out + sc->size, s);
 
-  return 1;
+  return ret;
 }
 
 int
@@ -9159,29 +9166,31 @@ ecdsa_recover(const wei_t *ec,
   fe_t x;
   wge_t R, A;
 
+  wge_zero(ec, &A);
+
   if (!sc_import(sc, r, sig))
-    return 0;
+    goto fail;
 
   if (!sc_import(sc, s, sig + sc->size))
-    return 0;
+    goto fail;
 
   if (sc_is_zero(sc, r) || sc_is_zero(sc, s))
-    return 0;
+    goto fail;
 
   if (sc_is_high_var(sc, s))
-    return 0;
+    goto fail;
 
   fe_set_sc(fe, sc, x, r);
 
   if (high) {
     if (sc_cmp_var(sc, r, ec->pmodn) >= 0)
-      return 0;
+      goto fail;
 
     fe_add(fe, x, x, ec->fe_n);
   }
 
   if (!wge_set_x(ec, &R, x, sign))
-    return 0;
+    goto fail;
 
   ecdsa_reduce(ec, m, msg, msg_len);
 
@@ -9192,6 +9201,7 @@ ecdsa_recover(const wei_t *ec,
 
   wei_mul_double_var(ec, &A, s1, &R, s2);
 
+fail:
   return wge_export(ec, pub, pub_len, &A, compact);
 }
 
