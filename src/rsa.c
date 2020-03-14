@@ -28,6 +28,7 @@
 #include <torsion/util.h>
 #include "asn1.h"
 #include "mpz.h"
+#include "internal.h"
 
 /*
  * Constants
@@ -503,7 +504,7 @@ rsa_priv_generate(rsa_priv_t *k,
     mpz_mod(k->dp, k->d, pm1);
     mpz_mod(k->dq, k->d, qm1);
 
-    assert(mpz_invert(k->qi, k->q, k->p));
+    CHECK(mpz_invert(k->qi, k->q, k->p));
 
     break;
   }
@@ -704,7 +705,7 @@ rsa_priv_from_pqe(rsa_priv_t *out,
   if (!mpz_invert(k.qi, q, p))
     goto fail;
 
-  assert(rsa_priv_verify(&k));
+  CHECK(rsa_priv_verify(&k));
 
   rsa_priv_set(out, &k);
   r = 1;
