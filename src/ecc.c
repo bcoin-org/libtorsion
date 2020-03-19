@@ -2671,22 +2671,22 @@ wge_naf_points_var(const wei_t *ec, wge_t *out,
                    const wge_t *p, size_t width) {
   /* NOTE: Only called on initialization. */
   size_t size = 1 << (width - 1);
-  jge_t *points = malloc(size * sizeof(jge_t)); /* 27kb */
+  jge_t *wnd = malloc(size * sizeof(jge_t)); /* 27kb */
   jge_t j, dbl;
   size_t i;
 
-  assert(points != NULL);
+  assert(wnd != NULL);
 
   wge_to_jge(ec, &j, p);
   jge_dbl_var(ec, &dbl, &j);
-  jge_set(ec, &points[0], &j);
+  jge_set(ec, &wnd[0], &j);
 
   for (i = 1; i < size; i++)
-    jge_add_var(ec, &points[i], &points[i - 1], &dbl);
+    jge_add_var(ec, &wnd[i], &wnd[i - 1], &dbl);
 
-  jge_to_wge_all_var(ec, out, points, size);
+  jge_to_wge_all_var(ec, out, wnd, size);
 
-  free(points);
+  free(wnd);
 }
 
 static void
