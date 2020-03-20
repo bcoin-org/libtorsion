@@ -485,6 +485,7 @@ typedef struct _mont_s {
   fe_t a;
   fe_t b;
   fe_t z;
+  int b_one;
   int invert;
   fe_t c;
   fe_t bi;
@@ -2057,6 +2058,15 @@ prime_field_init(prime_field_t *fe, const prime_def_t *def, int endian) {
  */
 
 static void
+wei_mul_a(const wei_t *ec, fe_t r, const fe_t x);
+
+static void
+wei_solve_y2(const wei_t *ec, fe_t r, const fe_t x);
+
+static int
+wei_validate_xy(const wei_t *ec, const fe_t x, const fe_t y);
+
+static void
 wge_to_jge(const wei_t *ec, jge_t *r, const wge_t *a);
 
 static void
@@ -2115,40 +2125,19 @@ wge_cleanse(const wei_t *ec, wge_t *r) {
 }
 
 static int
-wge_validate_xy(const wei_t *ec, const fe_t x, const fe_t y) {
-  /* [GECC] Page 89, Section 3.2.2. */
-  const prime_field_t *fe = &ec->fe;
-  fe_t lhs, rhs, ax;
-
-  /* y^2 = x^3 + a * x + b */
-  fe_sqr(fe, lhs, y);
-  fe_sqr(fe, rhs, x);
-  fe_mul(fe, rhs, rhs, x);
-  fe_mul(fe, ax, ec->a, x);
-  fe_add(fe, rhs, rhs, ax);
-  fe_add(fe, rhs, rhs, ec->b);
-
-  return fe_equal(fe, lhs, rhs);
-}
-
-static int
 wge_validate(const wei_t *ec, const wge_t *p) {
-  return wge_validate_xy(ec, p->x, p->y) | p->inf;
+  return wei_validate_xy(ec, p->x, p->y) | p->inf;
 }
 
 static int
 wge_set_x(const wei_t *ec, wge_t *r, const fe_t x, int sign) {
   /* [GECC] Page 89, Section 3.2.2. */
   const prime_field_t *fe = &ec->fe;
-  fe_t y, ax;
+  fe_t y;
   int ret;
 
   /* y^2 = x^3 + a * x + b */
-  fe_sqr(fe, y, x);
-  fe_mul(fe, y, y, x);
-  fe_mul(fe, ax, ec->a, x);
-  fe_add(fe, y, y, ax);
-  fe_add(fe, y, y, ec->b);
+  wei_solve_y2(ec, y, x);
 
   ret = fe_sqrt(fe, y, y);
 
@@ -2165,7 +2154,7 @@ wge_set_x(const wei_t *ec, wge_t *r, const fe_t x, int sign) {
 static int
 wge_set_xy(const wei_t *ec, wge_t *r, const fe_t x, const fe_t y) {
   const prime_field_t *fe = &ec->fe;
-  int ret = wge_validate_xy(ec, x, y);
+  int ret = wei_validate_xy(ec, x, y);
 
   fe_select(fe, r->x, x, fe->zero, ret ^ 1);
   fe_select(fe, r->y, y, fe->zero, ret ^ 1);
@@ -3391,7 +3380,7 @@ jge_add(const wei_t *ec, jge_t *r, const jge_t *a, const jge_t *b) {
   if (!ec->zero_a) {
     fe_sqr(fe, l, z);
     fe_sqr(fe, l, l);
-    fe_mul(fe, l, l, ec->a);
+    wei_mul_a(ec, l, l);
     fe_add(fe, r0, r0, l);
   }
 
@@ -3538,7 +3527,7 @@ jge_mixed_add(const wei_t *ec, jge_t *r, const jge_t *a, const wge_t *b) {
   if (!ec->zero_a) {
     fe_sqr(fe, l, a->z);
     fe_sqr(fe, l, l);
-    fe_mul(fe, l, l, ec->a);
+    wei_mul_a(ec, l, l);
     fe_add(fe, r0, r0, l);
   }
 
@@ -3913,6 +3902,49 @@ wei_has_small_gap(const wei_t *ec) {
   mpn_tdiv_qr(&q, r, 0, fe->p, fe->limbs, sc->n, sc->limbs);
 
   return q == 1;
+}
+
+static void
+wei_mul_a(const wei_t *ec, fe_t r, const fe_t x) {
+  const prime_field_t *fe = &ec->fe;
+
+  if (ec->zero_a) {
+    fe_zero(fe, r);
+  } else if (ec->three_a) {
+    fe_t t;
+    fe_add(fe, t, x, x);
+    fe_add(fe, t, t, x);
+    fe_neg(fe, r, t);
+  } else {
+    fe_mul(fe, r, x, ec->a);
+  }
+}
+
+static void
+wei_solve_y2(const wei_t *ec, fe_t r, const fe_t x) {
+  /* [GECC] Page 89, Section 3.2.2. */
+  const prime_field_t *fe = &ec->fe;
+  fe_t x3, ax;
+
+  /* y^2 = x^3 + a * x + b */
+  fe_sqr(fe, x3, x);
+  fe_mul(fe, x3, x3, x);
+  wei_mul_a(ec, ax, x);
+  fe_add(fe, r, x3, ax);
+  fe_add(fe, r, r, ec->b);
+}
+
+static int
+wei_validate_xy(const wei_t *ec, const fe_t x, const fe_t y) {
+  /* [GECC] Page 89, Section 3.2.2. */
+  const prime_field_t *fe = &ec->fe;
+  fe_t lhs, rhs;
+
+  /* y^2 = x^3 + a * x + b */
+  fe_sqr(fe, lhs, y);
+  wei_solve_y2(ec, rhs, x);
+
+  return fe_equal(fe, lhs, rhs);
 }
 
 static void
@@ -4546,20 +4578,6 @@ wei_randomize(wei_t *ec, const unsigned char *entropy) {
 }
 
 static void
-wei_solve_y2(const wei_t *ec, fe_t r, const fe_t x) {
-  /* [GECC] Page 89, Section 3.2.2. */
-  const prime_field_t *fe = &ec->fe;
-  fe_t y2, ax;
-
-  /* y^2 = x^3 + a * x + b */
-  fe_sqr(fe, y2, x);
-  fe_mul(fe, y2, y2, x);
-  fe_mul(fe, ax, ec->a, x);
-  fe_add(fe, y2, y2, ax);
-  fe_add(fe, r, y2, ec->b);
-}
-
-static void
 wei_sswu(const wei_t *ec, wge_t *p, const fe_t u) {
   /* Simplified Shallue-Woestijne-Ulas Method.
    *
@@ -4672,14 +4690,14 @@ wei_sswui(const wei_t *ec, fe_t u, const wge_t *p, unsigned int hint) {
   fe_sqr(fe, n1, p->x);
   fe_mul(fe, a2x2, n0, n1);
 
-  fe_mul(fe, abx2, ec->a, ec->b);
+  wei_mul_a(ec, abx2, ec->b);
   fe_mul(fe, abx2, abx2, p->x);
   fe_add(fe, abx2, abx2, abx2);
 
   fe_sqr(fe, b23, ec->b);
   fe_mul_word(fe, b23, b23, 3);
 
-  fe_mul(fe, axb, ec->a, p->x);
+  wei_mul_a(ec, axb, p->x);
   fe_add(fe, axb, axb, ec->b);
 
   fe_sub(fe, c, a2x2, abx2);
@@ -5030,7 +5048,22 @@ wei_point_to_hash(const wei_t *ec,
  */
 
 static void
+mont_mul_b(const mont_t *ec, fe_t r, const fe_t x);
+
+static void
+mont_div_b(const mont_t *ec, fe_t r, const fe_t x);
+
+static void
 mont_mul_a24(const mont_t *ec, fe_t r, const fe_t a);
+
+static void
+mont_solve_y2(const mont_t *ec, fe_t r, const fe_t x);
+
+static int
+mont_validate_xy(const mont_t *ec, const fe_t x, const fe_t y);
+
+static int
+mont_validate_x(const mont_t *ec, const fe_t x);
 
 static void
 _mont_to_edwards(const prime_field_t *fe, xge_t *r,
@@ -5060,26 +5093,8 @@ mge_cleanse(const mont_t *ec, mge_t *r) {
 }
 
 static int
-mge_validate_xy(const mont_t *ec, const fe_t x, const fe_t y) {
-  /* [MONT3] Page 3, Section 2. */
-  /* B * y^2 = x^3 + A * x^2 + x */
-  const prime_field_t *fe = &ec->fe;
-  fe_t lhs, rhs, x2, x3;
-
-  fe_sqr(fe, lhs, y);
-  fe_mul(fe, lhs, ec->b, lhs);
-  fe_sqr(fe, x2, x);
-  fe_mul(fe, x3, x2, x);
-  fe_mul(fe, x2, ec->a, x2);
-  fe_add(fe, rhs, x3, x2);
-  fe_add(fe, rhs, rhs, x);
-
-  return fe_equal(fe, lhs, rhs);
-}
-
-static int
 mge_validate(const mont_t *ec, const mge_t *p) {
-  return mge_validate_xy(ec, p->x, p->y) | p->inf;
+  return mont_validate_xy(ec, p->x, p->y) | p->inf;
 }
 
 static int
@@ -5087,15 +5102,10 @@ mge_set_x(const mont_t *ec, mge_t *r, const fe_t x, int sign) {
   /* [MONT3] Page 3, Section 2. */
   /* B * y^2 = x^3 + A * x^2 + x */
   const prime_field_t *fe = &ec->fe;
-  fe_t y, x2, x3;
+  fe_t y;
   int ret;
 
-  fe_sqr(fe, x2, x);
-  fe_mul(fe, x3, x2, x);
-  fe_mul(fe, x2, ec->a, x2);
-  fe_add(fe, y, x3, x2);
-  fe_add(fe, y, y, x);
-  fe_mul(fe, y, y, ec->bi);
+  mont_solve_y2(ec, y, x);
 
   ret = fe_sqrt(fe, y, y);
 
@@ -5112,7 +5122,7 @@ mge_set_x(const mont_t *ec, mge_t *r, const fe_t x, int sign) {
 static int
 mge_set_xy(const mont_t *ec, mge_t *r, const fe_t x, const fe_t y) {
   const prime_field_t *fe = &ec->fe;
-  int ret = mge_validate_xy(ec, x, y);
+  int ret = mont_validate_xy(ec, x, y);
 
   fe_select(fe, r->x, x, fe->zero, ret ^ 1);
   fe_select(fe, r->y, y, fe->zero, ret ^ 1);
@@ -5222,13 +5232,13 @@ mge_dbl(const mont_t *ec, mge_t *r, const mge_t *p) {
   fe_add(fe, l, l, t);
   fe_add(fe, l, l, x3);
   fe_add(fe, t, p->y, p->y);
-  fe_mul(fe, t, t, ec->b);
+  mont_mul_b(ec, t, t);
   fe_invert(fe, t, t);
   fe_mul(fe, l, l, t);
 
   /* X3 = b * L^2 - a - 2 * X1 */
   fe_sqr(fe, x3, l);
-  fe_mul(fe, x3, x3, ec->b);
+  mont_mul_b(ec, x3, x3);
   fe_sub(fe, x3, x3, ec->a);
   fe_sub(fe, x3, x3, p->x);
   fe_sub(fe, x3, x3, p->x);
@@ -5281,7 +5291,7 @@ mge_add(const mont_t *ec, mge_t *r, const mge_t *a, const mge_t *b) {
 
   /* Z = 2 * b * Y1 */
   fe_add(fe, z, a->y, a->y);
-  fe_mul(fe, z, z, ec->b);
+  mont_mul_b(ec, z, z);
 
   /* Check for doubling (X1 = X2, Y1 = Y2). */
   dbl = fe_is_zero(fe, h) & fe_is_zero(fe, r0);
@@ -5301,7 +5311,7 @@ mge_add(const mont_t *ec, mge_t *r, const mge_t *a, const mge_t *b) {
 
   /* X3 = b * L^2 - a - X1 - X2 */
   fe_sqr(fe, x3, l);
-  fe_mul(fe, x3, x3, ec->b);
+  mont_mul_b(ec, x3, x3);
   fe_sub(fe, x3, x3, ec->a);
   fe_sub(fe, x3, x3, a->x);
   fe_sub(fe, x3, x3, b->x);
@@ -5395,24 +5405,6 @@ pge_cleanse(const mont_t *ec, pge_t *r) {
 }
 
 static int
-pge_validate_x(const mont_t *ec, const fe_t x) {
-  /* [MONT3] Page 3, Section 2. */
-  /* https://hyperelliptic.org/EFD/g1p/auto-montgom.html */
-  const prime_field_t *fe = &ec->fe;
-  fe_t x2, x3, ax2, y2;
-
-  /* B * y^2 = x^3 + A * x^2 + x */
-  fe_sqr(fe, x2, x);
-  fe_mul(fe, x3, x2, x);
-  fe_mul(fe, ax2, ec->a, x2);
-  fe_add(fe, y2, x3, ax2);
-  fe_add(fe, y2, y2, x);
-  fe_mul(fe, y2, y2, ec->bi);
-
-  return fe_is_square(fe, y2);
-}
-
-static int
 pge_validate(const mont_t *ec, const pge_t *p) {
   const prime_field_t *fe = &ec->fe;
   fe_t x2, x3, z2, ax2, xz2, y2;
@@ -5426,7 +5418,7 @@ pge_validate(const mont_t *ec, const pge_t *p) {
   fe_mul(fe, xz2, p->x, z2);
   fe_add(fe, y2, x3, ax2);
   fe_add(fe, y2, y2, xz2);
-  fe_mul(fe, y2, y2, ec->bi);
+  mont_div_b(ec, y2, y2);
   fe_mul(fe, y2, y2, p->z);
 
   /* sqrt(y^2 * z^4) = y * z^2 */
@@ -5436,7 +5428,7 @@ pge_validate(const mont_t *ec, const pge_t *p) {
 static int
 pge_set_x(const mont_t *ec, pge_t *r, const fe_t x) {
   const prime_field_t *fe = &ec->fe;
-  int ret = pge_validate_x(ec, x);
+  int ret = mont_validate_x(ec, x);
 
   fe_select(fe, r->x, x, fe->one, ret ^ 1);
   fe_select(fe, r->z, fe->one, fe->zero, ret ^ 1);
@@ -5722,6 +5714,8 @@ mont_init(mont_t *ec, const mont_def_t *def) {
     fe_set_word(fe, ec->z, def->z);
   }
 
+  ec->b_one = fe_equal(fe, ec->b, fe->one);
+
   mont_init_isomorphism(ec, def);
 
   fe_invert_var(fe, ec->bi, ec->b);
@@ -5810,6 +5804,26 @@ mont_clamp(const mont_t *ec, unsigned char *out, const unsigned char *in) {
 }
 
 static void
+mont_mul_b(const mont_t *ec, fe_t r, const fe_t x) {
+  const prime_field_t *fe = &ec->fe;
+
+  if (ec->b_one)
+    fe_set(fe, r, x);
+  else
+    fe_mul(fe, r, x, ec->b);
+}
+
+static void
+mont_div_b(const mont_t *ec, fe_t r, const fe_t x) {
+  const prime_field_t *fe = &ec->fe;
+
+  if (ec->b_one)
+    fe_set(fe, r, x);
+  else
+    fe_mul(fe, r, x, ec->bi);
+}
+
+static void
 mont_mul_a24(const mont_t *ec, fe_t r, const fe_t a) {
   const prime_field_t *fe = &ec->fe;
 
@@ -5817,6 +5831,52 @@ mont_mul_a24(const mont_t *ec, fe_t r, const fe_t a) {
     fe->scmul_121666(r, a);
   else
     fe_mul(fe, r, a, ec->a24);
+}
+
+static void
+mont_solve_y2(const mont_t *ec, fe_t r, const fe_t x) {
+  /* [MONT3] Page 3, Section 2. */
+  /* B * y^2 = x^3 + A * x^2 + x */
+  const prime_field_t *fe = &ec->fe;
+  fe_t by2, x2, x3;
+
+  fe_sqr(fe, x2, x);
+  fe_mul(fe, x3, x2, x);
+  fe_mul(fe, x2, x2, ec->a);
+  fe_add(fe, by2, x3, x2);
+  fe_add(fe, by2, by2, x);
+  mont_div_b(ec, r, by2);
+}
+
+static int
+mont_validate_xy(const mont_t *ec, const fe_t x, const fe_t y) {
+  /* [MONT3] Page 3, Section 2. */
+  /* y^2 = (x^3 + A * x^2 + x) / B */
+  const prime_field_t *fe = &ec->fe;
+  fe_t lhs, rhs;
+
+  fe_sqr(fe, lhs, y);
+  mont_solve_y2(ec, rhs, x);
+
+  return fe_equal(fe, lhs, rhs);
+}
+
+static int
+mont_validate_x(const mont_t *ec, const fe_t x) {
+  /* [MONT3] Page 3, Section 2. */
+  /* https://hyperelliptic.org/EFD/g1p/auto-montgom.html */
+  const prime_field_t *fe = &ec->fe;
+  fe_t x2, x3, ax2, y2;
+
+  /* B * y^2 = x^3 + A * x^2 + x */
+  fe_sqr(fe, x2, x);
+  fe_mul(fe, x3, x2, x);
+  fe_mul(fe, ax2, ec->a, x2);
+  fe_add(fe, y2, x3, ax2);
+  fe_add(fe, y2, y2, x);
+  mont_div_b(ec, y2, y2);
+
+  return fe_is_square(fe, y2);
 }
 
 static void
@@ -5871,17 +5931,22 @@ mont_mul_g(const mont_t *ec, pge_t *r, const sc_t k) {
 }
 
 static void
-mont_solve_y0(const mont_t *ec, fe_t y2, const fe_t x) {
+mont_solve_y0(const mont_t *ec, fe_t r, const fe_t x) {
   /* y'^2 = x'^3 + A' * x'^2 + B' * x' */
   const prime_field_t *fe = &ec->fe;
-  fe_t x2, x3, ax2, bx;
+  fe_t x2, x3, bx;
 
   fe_sqr(fe, x2, x);
   fe_mul(fe, x3, x2, x);
-  fe_mul(fe, ax2, ec->a0, x2);
-  fe_mul(fe, bx, ec->b0, x);
-  fe_add(fe, y2, x3, ax2);
-  fe_add(fe, y2, y2, bx);
+  fe_mul(fe, x2, x2, ec->a0);
+
+  if (ec->b_one)
+    fe_set(fe, bx, x);
+  else
+    fe_mul(fe, bx, ec->b0, x);
+
+  fe_add(fe, r, x3, x2);
+  fe_add(fe, r, r, bx);
 }
 
 static void
@@ -5965,8 +6030,8 @@ mont_elligator2(const mont_t *ec, mge_t *r, const fe_t u) {
 
   fe_set_odd(fe, y1, y1, fe_is_odd(fe, u));
 
-  fe_mul(fe, x1, x1, ec->b);
-  fe_mul(fe, y1, y1, ec->b);
+  mont_mul_b(ec, x1, x1);
+  mont_mul_b(ec, y1, y1);
 
   fe_set(fe, r->x, x1);
   fe_set(fe, r->y, y1);
@@ -5999,8 +6064,8 @@ mont_invert2(const mont_t *ec, fe_t u, const mge_t *p, unsigned int hint) {
   fe_t x0, y0, n, d;
   int ret;
 
-  fe_mul(fe, x0, p->x, ec->bi);
-  fe_mul(fe, y0, p->y, ec->bi);
+  mont_div_b(ec, x0, p->x);
+  mont_div_b(ec, y0, p->y);
 
   fe_add(fe, n, x0, ec->a0);
   fe_set(fe, d, x0);
@@ -6119,6 +6184,9 @@ mont_point_to_hash(const mont_t *ec,
 static void
 edwards_mul_a(const edwards_t *ec, fe_t r, const fe_t x);
 
+static int
+edwards_validate_xy(const edwards_t *ec, const fe_t x, const fe_t y);
+
 static void
 _edwards_to_mont(const prime_field_t *fe, mge_t *r,
                  const xge_t *p, const fe_t c,
@@ -6146,25 +6214,6 @@ xge_cleanse(const edwards_t *ec, xge_t *r) {
   fe_cleanse(fe, r->y);
   fe_cleanse(fe, r->z);
   fe_cleanse(fe, r->t);
-}
-
-static int
-xge_validate_xy(const edwards_t *ec, const fe_t x, const fe_t y) {
-  /* [TWISTED] Definition 2.1, Page 3, Section 2. */
-  /*           Page 11, Section 6. */
-  /* a * x^2 + y^2 = 1 + d * x^2 * y^2 */
-  const prime_field_t *fe = &ec->fe;
-  fe_t x2, y2, dxy, lhs, rhs;
-
-  fe_sqr(fe, x2, x);
-  fe_sqr(fe, y2, y);
-  fe_mul(fe, dxy, ec->d, x2);
-  fe_mul(fe, dxy, dxy, y2);
-  edwards_mul_a(ec, lhs, x2);
-  fe_add(fe, lhs, lhs, y2);
-  fe_add(fe, rhs, fe->one, dxy);
-
-  return fe_equal(fe, lhs, rhs);
 }
 
 static int
@@ -6199,7 +6248,7 @@ xge_validate(const edwards_t *ec, const xge_t *p) {
 static int
 xge_set_xy(const edwards_t *ec, xge_t *r, const fe_t x, const fe_t y) {
   const prime_field_t *fe = &ec->fe;
-  int ret = xge_validate_xy(ec, x, y);
+  int ret = edwards_validate_xy(ec, x, y);
 
   fe_select(fe, r->x, x, fe->zero, ret ^ 1);
   fe_select(fe, r->y, y, fe->one, ret ^ 1);
@@ -6822,6 +6871,25 @@ edwards_mul_a(const edwards_t *ec, fe_t r, const fe_t x) {
     fe_mul(fe, r, x, ec->a);
 }
 
+static int
+edwards_validate_xy(const edwards_t *ec, const fe_t x, const fe_t y) {
+  /* [TWISTED] Definition 2.1, Page 3, Section 2. */
+  /*           Page 11, Section 6. */
+  /* a * x^2 + y^2 = 1 + d * x^2 * y^2 */
+  const prime_field_t *fe = &ec->fe;
+  fe_t x2, y2, dxy, lhs, rhs;
+
+  fe_sqr(fe, x2, x);
+  fe_sqr(fe, y2, y);
+  fe_mul(fe, dxy, ec->d, x2);
+  fe_mul(fe, dxy, dxy, y2);
+  edwards_mul_a(ec, lhs, x2);
+  fe_add(fe, lhs, lhs, y2);
+  fe_add(fe, rhs, fe->one, dxy);
+
+  return fe_equal(fe, lhs, rhs);
+}
+
 static void
 edwards_mul_g(const edwards_t *ec, xge_t *r, const sc_t k) {
   /* Fixed-base method for point multiplication.
@@ -7055,7 +7123,7 @@ edwards_randomize(edwards_t *ec, const unsigned char *entropy) {
 }
 
 static void
-edwards_solve_y0(const edwards_t *ec, fe_t y2, const fe_t x) {
+edwards_solve_y0(const edwards_t *ec, fe_t r, const fe_t x) {
   /* y'^2 = x'^3 + A' * x'^2 + B' * x' */
   const prime_field_t *fe = &ec->fe;
   fe_t x2, x3, ax2, bx;
@@ -7064,8 +7132,8 @@ edwards_solve_y0(const edwards_t *ec, fe_t y2, const fe_t x) {
   fe_mul(fe, x3, x2, x);
   fe_mul(fe, ax2, ec->A0, x2);
   fe_mul(fe, bx, ec->B0, x);
-  fe_add(fe, y2, x3, ax2);
-  fe_add(fe, y2, y2, bx);
+  fe_add(fe, r, x3, ax2);
+  fe_add(fe, r, r, bx);
 }
 
 static void
