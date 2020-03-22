@@ -304,15 +304,13 @@ typedef struct _prime_field_s {
   int endian;
   size_t size;
   size_t bits;
-  size_t shift;
   size_t words;
   size_t adj_size;
   mp_limb_t p[MAX_REDUCE_LIMBS];
   mp_size_t limbs;
-  unsigned char byte_mask;
-  mp_limb_t limb_mask;
+  unsigned char mask;
   unsigned char raw[MAX_FIELD_SIZE];
-  scalar_field_t sc;
+  fe_t r2;
   fe_add_func *add;
   fe_sub_func *sub;
   fe_opp_func *opp;
@@ -1351,62 +1349,25 @@ fe_cleanse(const prime_field_t *fe, fe_t r) {
 
 static int
 fe_import(const prime_field_t *fe, fe_t r, const unsigned char *raw) {
-  if (fe->from_montgomery) {
-    /* Use a constant time barrett reduction
-     * to montgomerize the field element.
-     */
-    mp_limb_t xp[MAX_REDUCE_LIMBS];
-    mp_size_t shift = fe->shift / GMP_NUMB_BITS;
-    mp_size_t left = fe->shift % GMP_NUMB_BITS;
-    mp_size_t xn = fe->limbs + shift + (left != 0);
-    mp_limb_t cy;
+  unsigned char tmp[MAX_FIELD_SIZE];
 
-    /* We can only handle 2*size+2 limbs. */
-    assert(xn <= fe->sc.shift);
+  /* Swap endianness if necessary. */
+  if (fe->endian == 1)
+    reverse_copy(tmp, raw, fe->size);
+  else
+    memcpy(tmp, raw, fe->size);
 
-    /* x = (x << shift) mod p */
-    mpn_zero(xp, fe->sc.shift);
-    mpn_import(xp + shift, fe->limbs, raw, fe->size, fe->endian);
+  /* Ignore the high bits. */
+  tmp[fe->size - 1] &= fe->mask;
 
-    /* Ignore the high bits. */
-    xp[shift + fe->limbs - 1] &= fe->limb_mask;
+  /* Deserialize. */
+  fe->from_bytes(r, tmp);
 
-    /* Shift more if necessary. */
-    if (left != 0) {
-      cy = mpn_lshift(xp, xp, xn, left);
-      assert(cy == 0);
-    }
-
-    /* Reduce the shift. */
-    sc_reduce(&fe->sc, xp, xp);
-
-    if (GMP_NUMB_BITS == FIELD_WORD_SIZE) {
-      /* Import directly. */
-      assert(sizeof(mp_limb_t) == sizeof(fe_word_t));
-      assert((size_t)fe->limbs == fe->words);
-      memcpy(r, xp, fe->limbs * sizeof(mp_limb_t));
-    } else {
-      /* Export as little endian first. */
-      unsigned char tmp[MAX_FIELD_SIZE];
-      mpn_export_le(tmp, fe->size, xp, fe->limbs);
-      fe->from_bytes(r, tmp);
-    }
-  } else {
-    unsigned char tmp[MAX_FIELD_SIZE];
-
-    /* Swap endianness if necessary. */
-    if (fe->endian == 1)
-      reverse_copy(tmp, raw, fe->size);
-    else
-      memcpy(tmp, raw, fe->size);
-
-    /* Ignore the high bits. */
-    tmp[fe->size - 1] &= fe->byte_mask;
-
-    /* Deserialize and carry. */
-    fe->from_bytes(r, tmp);
+  /* Montgomerize/carry. */
+  if (fe->from_montgomery)
+    fe->mul(r, r, fe->r2);
+  else
     fe->carry(r, r);
-  }
 
   return bytes_lt(raw, fe->raw, fe->size, fe->endian);
 }
@@ -1906,22 +1867,19 @@ fe_random(const prime_field_t *fe, fe_t x, drbg_t *rng) {
  */
 
 static void
-scalar_field_set(scalar_field_t *sc,
-                 const unsigned char *modulus,
-                 size_t bits,
-                 int endian) {
+scalar_field_init(scalar_field_t *sc, const scalar_def_t *def, int endian) {
   /* Scalar field using Barrett reduction. */
   memset(sc, 0, sizeof(scalar_field_t));
 
   /* Field constants. */
   sc->endian = endian;
-  sc->limbs = (bits + GMP_NUMB_BITS - 1) / GMP_NUMB_BITS;
-  sc->size = (bits + 7) / 8;
-  sc->bits = bits;
+  sc->limbs = (def->bits + GMP_NUMB_BITS - 1) / GMP_NUMB_BITS;
+  sc->size = (def->bits + 7) / 8;
+  sc->bits = def->bits;
   sc->shift = sc->limbs * 2 + 2;
 
   /* Deserialize order into GMP limbs. */
-  mpn_import_be(sc->n, MAX_REDUCE_LIMBS, modulus, sc->size);
+  mpn_import_be(sc->n, MAX_REDUCE_LIMBS, def->n, sc->size);
 
   /* Keep a raw representation for byte comparisons. */
   mpn_export(sc->raw, sc->size, sc->n, sc->limbs, sc->endian);
@@ -1968,12 +1926,6 @@ scalar_field_set(scalar_field_t *sc,
   }
 
   /* Optimized scalar inverse (optional). */
-  sc->invert = NULL;
-}
-
-static void
-scalar_field_init(scalar_field_t *sc, const scalar_def_t *def, int endian) {
-  scalar_field_set(sc, def->n, def->bits, endian);
   sc->invert = def->invert;
 }
 
@@ -1991,22 +1943,13 @@ prime_field_init(prime_field_t *fe, const prime_def_t *def, int endian) {
   fe->limbs = (def->bits + GMP_NUMB_BITS - 1) / GMP_NUMB_BITS;
   fe->size = (def->bits + 7) / 8;
   fe->bits = def->bits;
-  fe->shift = def->bits;
   fe->words = def->words;
   fe->adj_size = fe->size + ((fe->bits & 7) == 0);
-  fe->byte_mask = 0xff;
-  fe->limb_mask = ~((mp_limb_t)0);
-
-  /* Number of bits to shift for montgomerization. */
-  /* Note that fiat aligns to the word size. */
-  if ((fe->shift % FIELD_WORD_SIZE) != 0)
-    fe->shift += FIELD_WORD_SIZE - (fe->shift % FIELD_WORD_SIZE);
+  fe->mask = 0xff;
 
   /* Masks to ignore high bits during deserialization. */
-  if ((fe->bits & 7) != 0) {
-    fe->byte_mask = (1 << (fe->bits & 7)) - 1;
-    fe->limb_mask = ((mp_limb_t)1 << (fe->bits % GMP_NUMB_BITS)) - 1;
-  }
+  if ((fe->bits & 7) != 0)
+    fe->mask = (1 << (fe->bits & 7)) - 1;
 
   /* Deserialize prime into GMP limbs. */
   mpn_import_be(fe->p, MAX_REDUCE_LIMBS, def->p, fe->size);
@@ -2014,14 +1957,36 @@ prime_field_init(prime_field_t *fe, const prime_def_t *def, int endian) {
   /* Keep a raw representation for byte comparisons. */
   mpn_export(fe->raw, fe->size, fe->p, fe->limbs, fe->endian);
 
-  /* We use a barrett reduction to montgomerize
-   * field elements by computing:
+  /* We need to montgomerize field elements with:
    *
-   *   x = (x << shift) mod p
+   *   r2 = (1 << (bits * 2)) mod p
    *
-   * Allocate a scalar field to achieve this.
+   * Note that `bits` will be aligned to the word size.
    */
-  scalar_field_set(&fe->sc, def->p, def->bits, endian);
+  if (def->from_montgomery) {
+    mp_limb_t q[MAX_SCALAR_LIMBS * 4 + 2];
+    mp_limb_t r[MAX_SCALAR_LIMBS * 4 + 2];
+    mp_size_t aligned = fe->words * FIELD_WORD_SIZE;
+    mp_size_t shift = (aligned * 2) / GMP_NUMB_BITS;
+    mp_size_t left = (aligned * 2) % GMP_NUMB_BITS;
+    unsigned char tmp[MAX_FIELD_SIZE];
+
+    assert(((size_t)shift + 1) * GMP_NUMB_BITS <= sizeof(r) * CHAR_BIT);
+
+    mpn_zero(q, MAX_SCALAR_LIMBS * 4 + 2);
+    mpn_zero(r, MAX_SCALAR_LIMBS * 4 + 2);
+
+    r[shift] = 1;
+
+    if (left != 0)
+      CHECK(mpn_lshift(r, r, shift + 1, left) == 0);
+
+    mpn_tdiv_qr(q, r, 0, r, shift + 1, fe->p, fe->limbs);
+    mpn_export_le(tmp, fe->size, r, fe->limbs);
+
+    /* Import our magic field element. */
+    def->from_bytes(fe->r2, tmp);
+  }
 
   /* Function pointers for field arithmetic. In
    * addition to fiat's default functions, we
@@ -4978,7 +4943,7 @@ wei_point_to_uniform(const wei_t *ec,
 
   wge_cleanse(ec, &p0);
 
-  bytes[0] |= (hint >> 8) & ~fe->byte_mask;
+  bytes[0] |= (hint >> 8) & ~fe->mask;
 
   return ret;
 }
@@ -6115,7 +6080,7 @@ mont_point_to_uniform(const mont_t *ec,
 
   mge_cleanse(ec, &p0);
 
-  bytes[fe->size - 1] |= (hint >> 8) & ~fe->byte_mask;
+  bytes[fe->size - 1] |= (hint >> 8) & ~fe->mask;
 
   return ret;
 }
@@ -7309,7 +7274,7 @@ edwards_point_to_uniform(const edwards_t *ec,
 
   xge_cleanse(ec, &p0);
 
-  bytes[fe->size - 1] |= (hint >> 8) & ~fe->byte_mask;
+  bytes[fe->size - 1] |= (hint >> 8) & ~fe->mask;
 
   return ret;
 }
