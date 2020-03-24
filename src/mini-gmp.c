@@ -99,7 +99,7 @@
   mp_limb_t __clz_x = (x);                                            \
   unsigned __clz_c = 0;                                               \
   int LOCAL_SHIFT_BITS = 8;                                           \
-  if (GMP_LIMB_BITS > LOCAL_SHIFT_BITS) {                             \
+  if (GMP_LIMB_BITS > (size_t)LOCAL_SHIFT_BITS) {                     \
     for (; (__clz_x & ((mp_limb_t)0xff << (GMP_LIMB_BITS - 8))) == 0; \
            __clz_c += 8) {                                            \
       __clz_x <<= LOCAL_SHIFT_BITS;                                   \
@@ -1530,7 +1530,7 @@ mpz_get_ui(const mpz_t u) {
     unsigned long r = 0;
     mp_size_t n = GMP_ABS(u->_mp_size);
 
-    n = GMP_MIN(n, 1 + (mp_size_t)(GMP_ULONG_BITS - 1) / GMP_LIMB_BITS);
+    n = GMP_MIN(n, 1 + (mp_size_t)(GMP_ULONG_BITS - 1) / (mp_size_t)GMP_LIMB_BITS);
 
     while (--n >= 0)
       r = (r << LOCAL_GMP_LIMB_BITS) + u->_mp_d[n];
@@ -3855,7 +3855,7 @@ gmp_popcount_limb(mp_limb_t x) {
     w = ((w >> 8) & 0x000f) + (w & 0x000f);
     c += w;
 
-    if (GMP_LIMB_BITS > LOCAL_SHIFT_BITS)
+    if (GMP_LIMB_BITS > (size_t)LOCAL_SHIFT_BITS)
       x >>= LOCAL_SHIFT_BITS;
     else
       x = 0;
