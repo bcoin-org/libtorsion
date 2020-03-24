@@ -85,6 +85,8 @@
 #define GMP_DBL_MANT_BITS (53)
 #endif
 
+#define GMP_SQR_TOOM2_THRESHOLD ((521 + GMP_LIMB_BITS - 1) / GMP_LIMB_BITS)
+
 /* Return non-zero if xp,xsize and yp,ysize overlap.
    If xp+xsize<=yp there's no overlap, or if yp+ysize<=xp there's no
    overlap.  If both these are false, there's an overlap. */
@@ -616,8 +618,42 @@ mpn_mul_n(mp_ptr rp, mp_srcptr ap, mp_srcptr bp, mp_size_t n) {
 }
 
 void
-mpn_sqr(mp_ptr rp, mp_srcptr ap, mp_size_t n) {
-  mpn_mul(rp, ap, n, ap, n);
+mpn_sqr(mp_ptr rp, mp_srcptr up, mp_size_t n) {
+  mp_size_t i;
+
+  assert(n >= 1);
+  assert(!GMP_MPN_OVERLAP_P(rp, 2 * n, up, n));
+
+  if (n == 1) {
+    mp_limb_t ul, lpl;
+    ul = up[0];
+    gmp_umul_ppmm(rp[1], lpl, ul, ul);
+    rp[0] = lpl;
+  } else if ((size_t)n <= GMP_SQR_TOOM2_THRESHOLD) {
+    mp_limb_t tarr[2 * GMP_SQR_TOOM2_THRESHOLD];
+    mp_limb_t cy, ul, lpl;
+    mp_ptr tp = tarr;
+
+    cy = mpn_mul_1(tp, up + 1, n - 1, up[0]);
+    tp[n - 1] = cy;
+
+    for (i = 2; i < n; i++) {
+      cy = mpn_addmul_1(tp + 2 * i - 2, up + i, n - i, up[i - 1]);
+      tp[n + i - 2] = cy;
+    }
+
+    for (i = 0; i < n; i++)  {
+      ul = up[i];
+      gmp_umul_ppmm(rp[2 * i + 1], lpl, ul, ul);
+      rp[2 * i] = lpl;
+    }
+
+    cy = mpn_lshift(tp, tp, 2 * n - 2, 1);
+    cy += mpn_add_n(rp + 1, rp + 1, tp, 2 * n - 2);
+    rp[2 * n - 1] += cy;
+  } else {
+    mpn_mul_n(rp, up, up, n);
+  }
 }
 
 mp_limb_t
@@ -2002,7 +2038,9 @@ mpz_mul(mpz_t r, const mpz_t u, const mpz_t v) {
 
   tp = t->_mp_d;
 
-  if (un >= vn)
+  if (u == v)
+    mpn_sqr(tp, u->_mp_d, un);
+  else if (un >= vn)
     mpn_mul(tp, u->_mp_d, un, v->_mp_d, vn);
   else
     mpn_mul(tp, v->_mp_d, vn, u->_mp_d, un);
