@@ -3158,6 +3158,183 @@ mpz_powm_ui(mpz_t r, const mpz_t b, unsigned long elimb, const mpz_t m) {
   mpz_clear(e);
 }
 
+#ifdef MINI_GMP_USE_POWM_SEC
+static void
+mpn_cnd_select(mp_limb_t cnd,
+               mp_ptr zp,
+               mp_srcptr xp,
+               mp_srcptr yp,
+               mp_size_t n) {
+  mp_limb_t cond = (cnd != 0);
+  mp_limb_t mask0 = cond - 1;
+  mp_limb_t mask1 = ~mask0;
+  mp_size_t i;
+
+  for (i = 0; i < n; i++)
+    zp[i] = (xp[i] & mask0) | (yp[i] & mask1);
+}
+
+static void
+mpn_mont(mp_ptr zp,
+         mp_srcptr xp,
+         mp_srcptr yp,
+         mp_srcptr mp,
+         mp_limb_t k,
+         mp_size_t n) {
+  mp_limb_t c2, c3, cx, cy;
+  mp_limb_t c1 = 0;
+  mp_size_t i;
+
+  mpn_zero(zp, n * 2);
+
+  for (i = 0; i < n; i++) {
+    c2 = mpn_addmul_1(zp + i, xp, n, yp[i]);
+    c3 = mpn_addmul_1(zp + i, mp, n, zp[i] * k);
+    cx = c1 + c2;
+    cy = cx + c3;
+    zp[n + i] = cy;
+    c1 = (cx < c2) | (cy < c3);
+  }
+
+  /* Guarantees zn <= mn, but not necessarily z < m. */
+  mpn_sub_n(zp, zp + n, mp, n);
+  mpn_cnd_select(c1 != 0, zp, zp + n, zp, n);
+}
+
+static void
+mpn_powm_sec(mp_ptr zp,
+             mp_srcptr xp, mp_size_t xn,
+             mp_srcptr yp, mp_size_t yn,
+             mp_srcptr mp, mp_size_t mn,
+             mp_ptr scratch) {
+  /* Scratch Layout:
+   *
+   *   up = mod_limbs
+   *   z1 = 2 * mod_limbs
+   *   z2 = 2 * mod_limbs
+   *   one = mod_limbs
+   *   tmp = mod_limbs
+   *   wnds = ((1 << 4) + 1) * mod_limbs
+   *   total = 24 * mod_limbs
+   *
+   * Precomputation:
+   *
+   *   k = -m^-1 mod 2^limb_width
+   *   rr = 2^(2 * mod_limbs) mod m
+   *
+   * We assume the modulus is not secret.
+   */
+  mp_ptr up = &scratch[0];
+  mp_ptr z1 = &scratch[mn];
+  mp_ptr z2 = &scratch[3 * mn];
+  mp_ptr one = &scratch[5 * mn];
+  mp_ptr tmp = &scratch[6 * mn];
+  mp_ptr wnds = &scratch[7 * mn];
+  mp_ptr rr = &wnds[3 * mn];
+  mp_ptr wnd[1 << 4];
+  mp_size_t start = (yn * GMP_LIMB_BITS + 3) / 4 - 1;
+  mp_limb_t k, t, b, j, cy;
+  mp_size_t i;
+
+  assert((GMP_LIMB_BITS & 3) == 0);
+  assert(xn >= 0);
+  assert(yn >= 0);
+  assert(mn > 0);
+  assert(xn <= mn);
+  assert(mp[mn - 1] != 0);
+  assert((mp[0] & 1) != 0);
+
+  mpn_copyi(up, xp, xn);
+  mpn_zero(up + xn, mn - xn);
+
+  k = 2 - mp[0];
+  t = mp[0] - 1;
+
+  for (i = 1; (size_t)i < GMP_LIMB_BITS; i <<= 1) {
+    t *= t;
+    k *= (t + 1);
+  }
+
+  k = -k;
+
+  mpn_zero(rr, mn * 2);
+  rr[mn * 2] = 1;
+  mpn_tdiv_qr(wnds, rr, 0, rr, mn * 2 + 1, mp, mn);
+
+  one[0] = 1;
+  mpn_zero(one + 1, mn - 1);
+
+  for (i = 0; i < (1 << 4); i++)
+    wnd[i] = &wnds[i * mn];
+
+  mpn_mont(wnd[0], one, rr, mp, k, mn);
+  mpn_mont(wnd[1], up, rr, mp, k, mn);
+
+  for (i = 2; i < (1 << 4); i++)
+    mpn_mont(wnd[i], wnd[i - 1], wnd[1], mp, k, mn);
+
+  mpn_copyi(z1, wnd[0], mn);
+
+  for (i = start; i >= 0; i--) {
+    b = (yp[(i * 4) / GMP_LIMB_BITS] >> ((i * 4) % GMP_LIMB_BITS)) & 15;
+
+    for (j = 0; j < (1 << 4); j++)
+      mpn_cnd_select(j == b, tmp, tmp, wnd[j], mn);
+
+    if (i == start) {
+      mpn_copyi(z2, tmp, mn);
+    } else {
+      mpn_mont(z2, z1, z1, mp, k, mn);
+      mpn_mont(z1, z2, z2, mp, k, mn);
+      mpn_mont(z2, z1, z1, mp, k, mn);
+      mpn_mont(z1, z2, z2, mp, k, mn);
+      mpn_mont(z2, z1, tmp, mp, k, mn);
+    }
+
+    MP_PTR_SWAP(z1, z2);
+  }
+
+  mpn_mont(z2, z1, one, mp, k, mn);
+
+  cy = mpn_sub_n(z1, z2, mp, mn);
+  mpn_cnd_select(cy == 0, zp, z2, z1, mn);
+}
+
+void
+mpz_powm_sec(mpz_ptr r, mpz_srcptr b, mpz_srcptr e, mpz_srcptr m) {
+  mp_ptr rp, scratch;
+  mp_size_t rn;
+  mpz_t t;
+
+  assert(e->_mp_size > 0);
+  assert(m->_mp_size > 0);
+  assert((m->_mp_d[0] & 1) != 0);
+
+  rp = r->_mp_d;
+  rn = m->_mp_size;
+
+  mpz_init(t);
+
+  if (mpz_sgn(b) < 0 || mpz_cmp(b, m) >= 0)
+    mpz_mod(t, b, m);
+  else
+    mpz_set(t, b);
+
+  scratch = gmp_xalloc_limbs(24 * rn);
+
+  rp = MPZ_REALLOC(r, rn);
+
+  mpn_powm_sec(rp, t->_mp_d, t->_mp_size,
+                   e->_mp_d, e->_mp_size,
+                   m->_mp_d, m->_mp_size,
+                   scratch);
+
+  r->_mp_size = mpn_normalized_size(rp, rn);
+
+  gmp_free(scratch);
+  mpz_clear(t);
+}
+#else /* MINI_GMP_USE_POWM_SEC */
 void
 mpz_powm_sec(mpz_t r, const mpz_t b, const mpz_t e, const mpz_t m) {
   assert(mpz_sgn(e) > 0);
@@ -3165,6 +3342,7 @@ mpz_powm_sec(mpz_t r, const mpz_t b, const mpz_t e, const mpz_t m) {
 
   mpz_powm(r, b, e, m);
 }
+#endif /* MINI_GMP_USE_POWM_SEC */
 
 /* x=trunc(y^(1/z)), r=y-x^z */
 void
