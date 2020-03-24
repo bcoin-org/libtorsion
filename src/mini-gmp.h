@@ -46,12 +46,12 @@ extern "C" {
 #endif
 
 void mp_set_memory_functions (void *(*) (size_t),
-			      void *(*) (void *, size_t, size_t),
-			      void (*) (void *, size_t));
+                              void *(*) (void *, size_t, size_t),
+                              void (*) (void *, size_t));
 
 void mp_get_memory_functions (void *(**) (size_t),
-			      void *(**) (void *, size_t, size_t),
-			      void (**) (void *, size_t));
+                              void *(**) (void *, size_t, size_t),
+                              void (**) (void *, size_t));
 
 #ifndef MINI_GMP_LIMB_TYPE
 #define MINI_GMP_LIMB_TYPE long
@@ -66,12 +66,12 @@ typedef const mp_limb_t *mp_srcptr;
 
 typedef struct
 {
-  int _mp_alloc;		/* Number of *limbs* allocated and pointed
-				   to by the _mp_d field.  */
-  int _mp_size;			/* abs(_mp_size) is the number of limbs the
-				   last field points to.  If _mp_size is
-				   negative this is a negative number.  */
-  mp_limb_t *_mp_d;		/* Pointer to the limbs.  */
+  int _mp_alloc;                /* Number of *limbs* allocated and pointed
+                                   to by the _mp_d field.  */
+  int _mp_size;                        /* abs(_mp_size) is the number of limbs the
+                                   last field points to.  If _mp_size is
+                                   negative this is a negative number.  */
+  mp_limb_t *_mp_d;                /* Pointer to the limbs.  */
 } __mpz_struct;
 
 typedef __mpz_struct mpz_t[1];
@@ -289,8 +289,8 @@ int mpz_init_set_str (mpz_t, const char *, int);
   || defined (_FILE_DEFINED)          /* Microsoft */           \
   || defined (__STDIO__)              /* Apple MPW MrC */       \
   || defined (_MSL_STDIO_H)           /* Metrowerks */          \
-  || defined (_STDIO_H_INCLUDED)      /* QNX4 */		\
-  || defined (_ISO_STDIO_ISO_H)       /* Sun C++ */		\
+  || defined (_STDIO_H_INCLUDED)      /* QNX4 */                \
+  || defined (_ISO_STDIO_ISO_H)       /* Sun C++ */                \
   || defined (__STDIO_LOADED)         /* VMS */
 size_t mpz_out_str (FILE *, int, const mpz_t);
 #endif
