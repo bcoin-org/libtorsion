@@ -40,8 +40,24 @@
 #ifndef __MINI_GMP_H__
 #define __MINI_GMP_H__
 
+#define MINI_GMP_FIXED_LIMBS
+
 /* For size_t */
 #include <stddef.h>
+
+#ifdef MINI_GMP_FIXED_LIMBS
+/* For uint(32,64}_t */
+#include <stdint.h>
+#else
+/* For CHAR_BIT */
+#include <limits.h>
+#endif
+
+#ifdef __GNUC__
+#define MINI_GMP_EXTENSION __extension__
+#else
+#define MINI_GMP_EXTENSION
+#endif
 
 #if defined(__cplusplus)
 extern "C" {
@@ -78,6 +94,7 @@ extern "C" {
 #define mpn_neg _torsion_mpn_neg
 #define mpn_popcount _torsion_mpn_popcount
 #define mpn_invert_3by2 _torsion_mpn_invert_3by2
+#define mpn_tdiv_qr _torsion_mpn_tdiv_qr
 #define mpn_get_str _torsion_mpn_get_str
 #define mpn_set_str _torsion_mpn_set_str
 #define mpz_init _torsion_mpz_init
@@ -144,9 +161,11 @@ extern "C" {
 #define mpz_gcd_ui _torsion_mpz_gcd_ui
 #define mpz_gcd _torsion_mpz_gcd
 #define mpz_gcdext _torsion_mpz_gcdext
+#define mpn_gcdext _torsion_mpn_gcdext
 #define mpz_lcm_ui _torsion_mpz_lcm_ui
 #define mpz_lcm _torsion_mpz_lcm
 #define mpz_invert _torsion_mpz_invert
+#define mpz_jacobi _torsion_mpz_jacobi
 #define mpz_sqrtrem _torsion_mpz_sqrtrem
 #define mpz_sqrt _torsion_mpz_sqrt
 #define mpz_perfect_square_p _torsion_mpz_perfect_square_p
@@ -154,6 +173,7 @@ extern "C" {
 #define mpz_ui_pow_ui _torsion_mpz_ui_pow_ui
 #define mpz_powm _torsion_mpz_powm
 #define mpz_powm_ui _torsion_mpz_powm_ui
+#define mpz_powm_sec _torsion_mpz_powm_sec
 #define mpz_rootrem _torsion_mpz_rootrem
 #define mpz_root _torsion_mpz_root
 #define mpz_fac_ui _torsion_mpz_fac_ui
@@ -210,27 +230,29 @@ void mp_get_memory_functions(void *(**)(size_t),
                              void *(**)(void *, size_t, size_t),
                              void (**)(void *, size_t));
 
-#define MINI_GMP_FIXED_LIMBS
-
-#ifdef MINI_GMP_FIXED_LIMBS
-#include <stdint.h>
-#ifdef TORSION_USE_64BIT
+#if defined(MINI_GMP_FIXED_LIMBS) && defined(TORSION_USE_64BIT)
 typedef uint64_t mp_limb_t;
-#ifdef __GNUC__
-__extension__ typedef unsigned __int128 mp_wide_t;
-#else
-typedef unsigned __int128 mp_wide_t;
-#endif
-#else
+MINI_GMP_EXTENSION typedef unsigned __int128 mp_wide_t;
+#define GMP_LIMB_BITS 64
+#define GMP_NUMB_MASK UINT64_C(0xffffffffffffffff)
+#elif defined(MINI_GMP_FIXED_LIMBS)
 typedef uint32_t mp_limb_t;
 typedef uint64_t mp_wide_t;
-#endif
+#define GMP_LIMB_BITS 32
+#define GMP_NUMB_MASK UINT32_C(0xffffffff)
 #else
 #ifndef MINI_GMP_LIMB_TYPE
 #define MINI_GMP_LIMB_TYPE long
 #endif
 typedef unsigned MINI_GMP_LIMB_TYPE mp_limb_t;
+#define GMP_LIMB_BITS ((int)(sizeof(mp_limb_t) * CHAR_BIT))
+#define GMP_NUMB_MASK (~((mp_limb_t)0))
 #endif
+
+#define GMP_NUMB_BITS GMP_LIMB_BITS
+#define GMP_NUMB_MAX GMP_NUMB_MASK
+#define GMP_NAIL_BITS 0
+#define GMP_NAIL_MASK 0
 
 typedef long mp_size_t;
 typedef unsigned long mp_bitcnt_t;
@@ -292,6 +314,10 @@ mp_bitcnt_t mpn_popcount(mp_srcptr, mp_size_t);
 
 mp_limb_t mpn_invert_3by2(mp_limb_t, mp_limb_t);
 #define mpn_invert_limb(x) mpn_invert_3by2((x), 0)
+
+void mpn_tdiv_qr(mp_ptr, mp_ptr, mp_size_t,
+                 mp_srcptr, mp_size_t,
+                 mp_srcptr, mp_size_t);
 
 size_t mpn_get_str(unsigned char *, int, mp_ptr, mp_size_t);
 mp_size_t mpn_set_str(mp_ptr, const unsigned char *, size_t, int);
@@ -377,9 +403,13 @@ int mpz_divisible_ui_p(const mpz_t, unsigned long);
 unsigned long mpz_gcd_ui(mpz_t, const mpz_t, unsigned long);
 void mpz_gcd(mpz_t, const mpz_t, const mpz_t);
 void mpz_gcdext(mpz_t, mpz_t, mpz_t, const mpz_t, const mpz_t);
+mp_size_t mpn_gcdext(mp_ptr, mp_ptr, mp_size_t *,
+                     mp_ptr, mp_size_t, mp_ptr, mp_size_t);
+
 void mpz_lcm_ui(mpz_t, const mpz_t, unsigned long);
 void mpz_lcm(mpz_t, const mpz_t, const mpz_t);
 int mpz_invert(mpz_t, const mpz_t, const mpz_t);
+int mpz_jacobi(const mpz_t, const mpz_t);
 
 void mpz_sqrtrem(mpz_t, mpz_t, const mpz_t);
 void mpz_sqrt(mpz_t, const mpz_t);
@@ -389,6 +419,7 @@ void mpz_pow_ui(mpz_t, const mpz_t, unsigned long);
 void mpz_ui_pow_ui(mpz_t, unsigned long, unsigned long);
 void mpz_powm(mpz_t, const mpz_t, const mpz_t, const mpz_t);
 void mpz_powm_ui(mpz_t, const mpz_t, unsigned long, const mpz_t);
+void mpz_powm_sec(mpz_t, const mpz_t, const mpz_t, const mpz_t);
 
 void mpz_rootrem(mpz_t, mpz_t, const mpz_t, unsigned long);
 int mpz_root(mpz_t, const mpz_t, unsigned long);

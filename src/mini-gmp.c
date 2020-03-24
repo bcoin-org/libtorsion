@@ -59,6 +59,7 @@
 #endif
 
 /* Macros */
+#undef GMP_LIMB_BITS
 #define GMP_LIMB_BITS (sizeof(mp_limb_t) * CHAR_BIT)
 
 #define GMP_LIMB_MAX ((mp_limb_t)~(mp_limb_t)0)
@@ -1121,6 +1122,32 @@ mpn_div_qr(mp_ptr qp, mp_ptr np, mp_size_t nn, mp_srcptr dp, mp_size_t dn) {
 
   if (tp)
     gmp_free(tp);
+}
+
+void
+mpn_tdiv_qr(mp_ptr qp,
+            mp_ptr rp,
+            mp_size_t qxn,
+            mp_srcptr np,
+            mp_size_t nn,
+            mp_srcptr dp,
+            mp_size_t dn) {
+  assert(nn >= dn);
+  assert(dn > 0);
+  assert(qxn == 0);
+  assert(dp[dn - 1] != 0);
+
+  if (rp == np) {
+    mpn_div_qr(qp, rp, nn, dp, dn);
+  } else {
+    mp_ptr tp = gmp_xalloc_limbs(nn);
+
+    mpn_copyi(tp, np, nn);
+    mpn_div_qr(qp, tp, nn, dp, dn);
+    mpn_copyi(rp, tp, dn);
+
+    gmp_free(tp);
+  }
 }
 
 /* MPN base conversion. */
@@ -2820,6 +2847,44 @@ mpz_gcdext(mpz_t g, mpz_t s, mpz_t t, const mpz_t u, const mpz_t v) {
   mpz_clear(t1);
 }
 
+mp_size_t
+mpn_gcdext(mp_ptr gp,
+           mp_ptr sp,
+           mp_size_t *sn,
+           mp_ptr up,
+           mp_size_t un,
+           mp_ptr vp,
+           mp_size_t vn) {
+  mp_size_t gn;
+  mpz_t g, s, u, v;
+
+  assert(un >= vn);
+  assert(vn > 0);
+
+  mpz_init(g);
+  mpz_init(s);
+  mpz_roinit_n(u, up, un);
+  mpz_roinit_n(v, vp, vn);
+
+  mpz_gcdext(g, s, NULL, u, v);
+
+  mpn_zero(gp, vn);
+  mpn_zero(sp, vn + 1);
+  mpn_zero(up, un);
+  mpn_zero(vp, vn);
+
+  gn = g->_mp_size;
+  *sn = s->_mp_size;
+
+  mpn_copyi(gp, g->_mp_d, GMP_ABS(gn));
+  mpn_copyi(sp, s->_mp_d, GMP_ABS(*sn));
+
+  mpz_clear(g);
+  mpz_clear(s);
+
+  return gn;
+}
+
 void
 mpz_lcm(mpz_t r, const mpz_t u, const mpz_t v) {
   mpz_t g;
@@ -2882,6 +2947,70 @@ mpz_invert(mpz_t r, const mpz_t u, const mpz_t m) {
   mpz_clear(tr);
 
   return invertible;
+}
+
+int
+mpz_jacobi(const mpz_t x, const mpz_t y) {
+  mp_limb_t bmod8;
+  mpz_t a, b, c;
+  mp_size_t s;
+  int j = 1;
+
+  assert(mpz_odd_p(y));
+
+  mpz_init(a);
+  mpz_init(b);
+  mpz_init(c);
+
+  mpz_set(a, x);
+  mpz_set(b, y);
+
+  if (mpz_sgn(b) < 0) {
+    if (mpz_sgn(a) < 0)
+      j = -1;
+
+    mpz_neg(b, b);
+  }
+
+  for (;;) {
+    if (mpz_cmp_ui(b, 1) == 0)
+      break;
+
+    if (mpz_sgn(a) == 0) {
+      j = 0;
+      break;
+    }
+
+    mpz_mod(a, a, b);
+
+    if (mpz_sgn(a) == 0) {
+      j = 0;
+      break;
+    }
+
+    s = mpz_scan1(a, 0);
+
+    if (s & 1) {
+      bmod8 = mpz_getlimbn(b, 0) & 7;
+
+      if (bmod8 == 3 || bmod8 == 5)
+        j = -j;
+    }
+
+    mpz_tdiv_q_2exp(c, a, s);
+
+    if ((mpz_getlimbn(b, 0) & 3) == 3 && (mpz_getlimbn(c, 0) & 3) == 3)
+      j = -j;
+
+    mpz_swap(a, b);
+    mpz_swap(b, c);
+  }
+
+  mpz_clear(a);
+  mpz_clear(b);
+  mpz_clear(c);
+
+  return j;
 }
 
 /* Higher level operations (sqrt, pow and root) */
@@ -3027,6 +3156,14 @@ mpz_powm_ui(mpz_t r, const mpz_t b, unsigned long elimb, const mpz_t m) {
   mpz_init_set_ui(e, elimb);
   mpz_powm(r, b, e, m);
   mpz_clear(e);
+}
+
+void
+mpz_powm_sec(mpz_t r, const mpz_t b, const mpz_t e, const mpz_t m) {
+  assert(mpz_sgn(e) > 0);
+  assert(mpz_odd_p(m));
+
+  mpz_powm(r, b, e, m);
 }
 
 /* x=trunc(y^(1/z)), r=y-x^z */
