@@ -177,6 +177,8 @@ salsa20_block(salsa20_t *ctx) {
 
     "shrl $1, %%edx\n"
 
+    ".align 16\n"
+
     "1:\n"
 
     "movaps %%xmm3, %%xmm4\n"

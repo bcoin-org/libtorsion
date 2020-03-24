@@ -142,6 +142,8 @@ chacha20_block(chacha20_t *ctx) {
 
     "shrl $1, %%edx\n"
 
+    ".align 16\n"
+
     "1:\n"
 
     "paddd %%xmm1, %%xmm0\n"

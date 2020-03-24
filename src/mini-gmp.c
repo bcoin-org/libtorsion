@@ -631,15 +631,21 @@ mpn_sqr_diag_addlsh1(mp_ptr rp, mp_srcptr tp, mp_srcptr up, mp_size_t n) {
   __asm__ __volatile__(
     "decq %%rcx\n"
     "shlq %%rcx\n"
+
     "movq (%%rdx),%%rax\n"
+
     "leaq (%%rdi,%%rcx,8),%%rdi\n"
     "leaq (%%rsi,%%rcx,8),%%rsi\n"
     "leaq (%%rdx,%%rcx,4),%%r11\n"
     "negq %%rcx\n"
+
     "mulq %%rax\n"
     "movq %%rax,(%%rdi,%%rcx,8)\n"
+
     "xorl %%ebx,%%ebx\n"
     "jmp 2f\n"
+
+    ".align 16\n"
     "1:\n" /* top */
     "addq %%r10,%%r8\n"
     "adcq %%rax,%%r9\n"
@@ -652,11 +658,12 @@ mpn_sqr_diag_addlsh1(mp_ptr rp, mp_srcptr tp, mp_srcptr up, mp_size_t n) {
     "adcq %%r8,%%r8\n"
     "adcq %%r9,%%r9\n"
     "leaq (%%rdx,%%rbx,1),%%r10\n"
-    "setb %%bl\n"
+    "setc %%bl\n"
     "mulq %%rax\n"
     "addq $2,%%rcx\n"
     "js 1b\n"
-    /* end */
+
+    "3:\n" /* end */
     "addq %%r10,%%r8\n"
     "adcq %%rax,%%r9\n"
     "movq %%r8,-8(%%rdi)\n"

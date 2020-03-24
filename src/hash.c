@@ -1829,6 +1829,8 @@ keccak_permute(keccak_t *ctx) {
     "pxor %%xmm8, %%xmm10\n"
     "pxor %%xmm9, %%xmm11\n"
 
+    ".align 16\n"
+
     "1:\n"
 
     "pshufd $0x4e, %%xmm11, %%xmm11\n"
