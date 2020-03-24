@@ -131,6 +131,13 @@
   (sl) = __x;                                       \
 } while (0)
 
+#ifdef MINI_GMP_FIXED_LIMBS
+#define gmp_umul_ppmm(w1, w0, u, v) do {   \
+  mp_wide_t __ww = (mp_wide_t)(u) * (v);   \
+  w0 = (mp_limb_t)__ww;                    \
+  w1 = (mp_limb_t)(__ww >> GMP_LIMB_BITS); \
+} while (0)
+#else
 #define gmp_umul_ppmm(w1, w0, u, v) do {                                      \
   int LOCAL_GMP_LIMB_BITS = GMP_LIMB_BITS;                                    \
   if (sizeof(unsigned int) * CHAR_BIT >= 2 * GMP_LIMB_BITS) {                 \
@@ -166,6 +173,7 @@
     (w0) = (__x1 << (GMP_LIMB_BITS / 2)) + (__x0 & GMP_LLIMB_MASK);           \
   }                                                                           \
 } while (0)
+#endif
 
 #define gmp_udiv_qrnnd_preinv(q, r, nh, nl, d, di) do {      \
   mp_limb_t _qh, _ql, _r, _mask;                             \
@@ -1972,7 +1980,7 @@ mpz_mul(mpz_t r, const mpz_t u, const mpz_t v) {
   rn = un + vn;
   rn -= tp[rn - 1] == 0;
 
-  t->_mp_size = sign ? - rn : rn;
+  t->_mp_size = sign ? -rn : rn;
 
   mpz_swap(r, t);
   mpz_clear(t);
@@ -2008,7 +2016,7 @@ mpz_mul_2exp(mpz_t r, const mpz_t u, mp_bitcnt_t bits) {
 
   mpn_zero(rp, limbs);
 
-  r->_mp_size = (u->_mp_size < 0) ? - rn : rn;
+  r->_mp_size = (u->_mp_size < 0) ? -rn : rn;
 }
 
 void

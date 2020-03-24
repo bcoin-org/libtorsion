@@ -210,11 +210,28 @@ void mp_get_memory_functions(void *(**)(size_t),
                              void *(**)(void *, size_t, size_t),
                              void (**)(void *, size_t));
 
+#define MINI_GMP_FIXED_LIMBS
+
+#ifdef MINI_GMP_FIXED_LIMBS
+#include <stdint.h>
+#ifdef TORSION_USE_64BIT
+typedef uint64_t mp_limb_t;
+#ifdef __GNUC__
+__extension__ typedef unsigned __int128 mp_wide_t;
+#else
+typedef unsigned __int128 mp_wide_t;
+#endif
+#else
+typedef uint32_t mp_limb_t;
+typedef uint64_t mp_wide_t;
+#endif
+#else
 #ifndef MINI_GMP_LIMB_TYPE
 #define MINI_GMP_LIMB_TYPE long
 #endif
-
 typedef unsigned MINI_GMP_LIMB_TYPE mp_limb_t;
+#endif
+
 typedef long mp_size_t;
 typedef unsigned long mp_bitcnt_t;
 
