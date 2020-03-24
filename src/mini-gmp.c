@@ -85,8 +85,6 @@
 #define GMP_DBL_MANT_BITS (53)
 #endif
 
-#define GMP_SQR_TOOM2_THRESHOLD ((521 + GMP_LIMB_BITS - 1) / GMP_LIMB_BITS)
-
 /* Return non-zero if xp,xsize and yp,ysize overlap.
    If xp+xsize<=yp there's no overlap, or if yp+ysize<=xp there's no
    overlap.  If both these are false, there's an overlap. */
@@ -617,10 +615,65 @@ mpn_mul_n(mp_ptr rp, mp_srcptr ap, mp_srcptr bp, mp_size_t n) {
   mpn_mul(rp, ap, n, bp, n);
 }
 
+#ifdef TORSION_USE_ASM
+static void
+mpn_sqr_diag_addlsh1(mp_ptr rp, mp_srcptr tp, mp_srcptr up, mp_size_t n) {
+  /* Borrowed from:
+   * https://gmplib.org/repo/gmp-6.2/file/tip/mpn/x86_64/sqr_diag_addlsh1.asm
+   *
+   * Registers:
+   *
+   *   %rdi = rp
+   *   %rsi = tp
+   *   %rdx = up
+   *   %rcx = n
+   */
+  __asm__ __volatile__(
+    "decq %%rcx\n"
+    "shlq %%rcx\n"
+    "movq (%%rdx),%%rax\n"
+    "leaq (%%rdi,%%rcx,8),%%rdi\n"
+    "leaq (%%rsi,%%rcx,8),%%rsi\n"
+    "leaq (%%rdx,%%rcx,4),%%r11\n"
+    "negq %%rcx\n"
+    "mulq %%rax\n"
+    "movq %%rax,(%%rdi,%%rcx,8)\n"
+    "xorl %%ebx,%%ebx\n"
+    "jmp 2f\n"
+    "1:\n" /* top */
+    "addq %%r10,%%r8\n"
+    "adcq %%rax,%%r9\n"
+    "movq %%r8,-8(%%rdi,%%rcx,8)\n"
+    "movq %%r9,(%%rdi,%%rcx,8)\n"
+    "2:\n" /* mid */
+    "movq 8(%%r11,%%rcx,4),%%rax\n"
+    "movq (%%rsi,%%rcx,8),%%r8\n"
+    "movq 8(%%rsi,%%rcx,8),%%r9\n"
+    "adcq %%r8,%%r8\n"
+    "adcq %%r9,%%r9\n"
+    "leaq (%%rdx,%%rbx,1),%%r10\n"
+    "setb %%bl\n"
+    "mulq %%rax\n"
+    "addq $2,%%rcx\n"
+    "js 1b\n"
+    /* end */
+    "addq %%r10,%%r8\n"
+    "adcq %%rax,%%r9\n"
+    "movq %%r8,-8(%%rdi)\n"
+    "movq %%r9,(%%rdi)\n"
+    "adcq %%rbx,%%rdx\n"
+    "movq %%rdx,8(%%rdi)\n"
+    :
+    : "D" (rp), "S" (tp), "d" (up), "c" (n)
+    : "rax", "rbx", "ebx", "bl",
+      "r8", "r9", "r10", "r11",
+      "cc", "memory"
+  );
+}
+#endif
+
 void
 mpn_sqr(mp_ptr rp, mp_srcptr up, mp_size_t n) {
-  mp_size_t i;
-
   assert(n >= 1);
   assert(!GMP_MPN_OVERLAP_P(rp, 2 * n, up, n));
 
@@ -629,10 +682,32 @@ mpn_sqr(mp_ptr rp, mp_srcptr up, mp_size_t n) {
     ul = up[0];
     gmp_umul_ppmm(rp[1], lpl, ul, ul);
     rp[0] = lpl;
-  } else if ((size_t)n <= GMP_SQR_TOOM2_THRESHOLD) {
-    mp_limb_t tarr[2 * GMP_SQR_TOOM2_THRESHOLD];
+#ifdef TORSION_USE_ASM
+  } else {
+    /* https://gmplib.org/repo/gmp-6.2/file/tip/mpn/x86_64/sqr_diag_addlsh1.asm */
+    mp_size_t i;
+    mp_ptr xp;
+
+    rp += 1;
+    rp[n - 1] = mpn_mul_1(rp, up + 1, n - 1, up[0]);
+
+    for (i = n - 2; i != 0; i--) {
+      up += 1;
+      rp += 2;
+      rp[i] = mpn_addmul_1(rp, up + 1, i, up[0]);
+    }
+
+    xp = rp - 2 * n + 3;
+    mpn_sqr_diag_addlsh1(xp, xp + 1, up - n + 2, n);
+  }
+#else
+#define SQR_TOOM2_THRESHOLD ((521 + GMP_LIMB_BITS - 1) / GMP_LIMB_BITS)
+  } else if ((size_t)n <= SQR_TOOM2_THRESHOLD) {
+    /* https://gmplib.org/repo/gmp-6.2/file/tip/mpn/generic/sqr_basecase.c */
+    mp_limb_t tarr[2 * SQR_TOOM2_THRESHOLD];
     mp_limb_t cy, ul, lpl;
     mp_ptr tp = tarr;
+    mp_size_t i;
 
     cy = mpn_mul_1(tp, up + 1, n - 1, up[0]);
     tp[n - 1] = cy;
@@ -654,6 +729,8 @@ mpn_sqr(mp_ptr rp, mp_srcptr up, mp_size_t n) {
   } else {
     mpn_mul_n(rp, up, up, n);
   }
+#undef SQR_TOOM2_THRESHOLD
+#endif
 }
 
 mp_limb_t
@@ -2996,12 +3073,9 @@ mpz_jacobi(const mpz_t x, const mpz_t y) {
 
   assert(mpz_odd_p(y));
 
-  mpz_init(a);
-  mpz_init(b);
+  mpz_init_set(a, x);
+  mpz_init_set(b, y);
   mpz_init(c);
-
-  mpz_set(a, x);
-  mpz_set(b, y);
 
   if (mpz_sgn(b) < 0) {
     if (mpz_sgn(a) < 0)
