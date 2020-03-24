@@ -1,0 +1,7 @@
+*.a
+*.o
+*.out
+*.so
+test
+test-internal
+vgcore.*
