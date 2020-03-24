@@ -1,39 +1,41 @@
-/* mini-gmp, a minimalistic implementation of a GNU GMP subset.
-
-Copyright 2011-2015, 2017, 2019 Free Software Foundation, Inc.
-
-This file is part of the GNU MP Library.
-
-The GNU MP Library is free software; you can redistribute it and/or modify
-it under the terms of either:
-
-  * the GNU Lesser General Public License as published by the Free
-    Software Foundation; either version 3 of the License, or (at your
-    option) any later version.
-
-or
-
-  * the GNU General Public License as published by the Free Software
-    Foundation; either version 2 of the License, or (at your option) any
-    later version.
-
-or both in parallel, as here.
-
-The GNU MP Library is distributed in the hope that it will be useful, but
-WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-for more details.
-
-You should have received copies of the GNU General Public License and the
-GNU Lesser General Public License along with the GNU MP Library.  If not,
-see https://www.gnu.org/licenses/.  */
+/*!
+ * mini-gmp, a minimalistic implementation of a GNU GMP subset.
+ *
+ * Copyright 2011-2015, 2017, 2019 Free Software Foundation, Inc.
+ *
+ * This file is part of the GNU MP Library.
+ *
+ * The GNU MP Library is free software; you can redistribute it and/or modify
+ * it under the terms of either:
+ *
+ *   * the GNU Lesser General Public License as published by the Free
+ *     Software Foundation; either version 3 of the License, or (at your
+ *     option) any later version.
+ *
+ * or
+ *
+ *   * the GNU General Public License as published by the Free Software
+ *     Foundation; either version 2 of the License, or (at your option) any
+ *     later version.
+ *
+ * or both in parallel, as here.
+ *
+ * The GNU MP Library is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+ * or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+ * for more details.
+ *
+ * You should have received copies of the GNU General Public License and the
+ * GNU Lesser General Public License along with the GNU MP Library.  If not,
+ * see https://www.gnu.org/licenses/.  */
 
 /* About mini-gmp: This is a minimal implementation of a subset of the
-   GMP interface. It is intended for inclusion into applications which
-   have modest bignums needs, as a fallback when the real GMP library
-   is not installed.
-
-   This file defines the public interface. */
+ * GMP interface. It is intended for inclusion into applications which
+ * have modest bignums needs, as a fallback when the real GMP library
+ * is not installed.
+ *
+ * This file defines the public interface.
+ */
 
 #ifndef __MINI_GMP_H__
 #define __MINI_GMP_H__
@@ -47,7 +49,7 @@ extern "C" {
 
 void mp_set_memory_functions(void *(*)(size_t),
                              void *(*)(void *, size_t, size_t),
-                             void(*)(void *, size_t));
+                             void (*)(void *, size_t));
 
 void mp_get_memory_functions(void *(**)(size_t),
                              void *(**)(void *, size_t, size_t),
@@ -64,14 +66,13 @@ typedef unsigned long mp_bitcnt_t;
 typedef mp_limb_t *mp_ptr;
 typedef const mp_limb_t *mp_srcptr;
 
-typedef struct
-{
-  int _mp_alloc;                /* Number of *limbs* allocated and pointed
-                                   to by the _mp_d field.  */
-  int _mp_size;                        /* abs(_mp_size) is the number of limbs the
-                                   last field points to.  If _mp_size is
-                                   negative this is a negative number.  */
-  mp_limb_t *_mp_d;                /* Pointer to the limbs.  */
+typedef struct {
+  int _mp_alloc;    /* Number of *limbs* allocated and pointed
+                       to by the _mp_d field.  */
+  int _mp_size;     /* abs(_mp_size) is the number of limbs the
+                       last field points to.  If _mp_size is
+                       negative this is a negative number.  */
+  mp_limb_t *_mp_d; /* Pointer to the limbs.  */
 } __mpz_struct;
 
 typedef __mpz_struct mpz_t[1];
