@@ -1765,17 +1765,15 @@ keccak_permute(keccak_t *ctx) {
   /* Borrowed from:
    * https://github.com/gnutls/nettle/blob/master/x86_64/sha3-permute.asm
    *
-   * Note: we stripped out the handmade clobber guards
-   * and use %rbx instead of %rbp (GCC doesn't allow
-   * clobber guards for %rbp).
+   * Registers:
    *
-   * Layout:
    *   %rdi = state pointer (ctx->state)
-   *   %r14 = constants pointer (rc, reversed)
+   *   %rsi = round constants pointer (reversed)
    *   %r8 = round counter (starts at 24, decrements)
    *
    * For reference, our full range of clobbered registers:
-   * rax, rbx, rcx, rdx, rdi, r8, r9, r10, r11, r12, r13, r14
+   *
+   *   %rax, %rbx, %rcx, %rdx, %rdi, %rsi, %r8, %r9, %r10, %r11, %r12, %r13
    */
   static const uint64_t rc[25] = {
     0x0000000000000000ull,
@@ -1794,8 +1792,6 @@ keccak_permute(keccak_t *ctx) {
   };
 
   __asm__ __volatile__(
-    "movq %[st], %%rdi\n"
-    "movq %[rc], %%r14\n"
     "movl $24, %%r8d\n"
 
     "movq (%%rdi), %%rax\n"
@@ -2087,7 +2083,7 @@ keccak_permute(keccak_t *ctx) {
     "pxor %%xmm14, %%xmm1\n"
     "pxor %%xmm15, %%xmm3\n"
 
-    "xorq (%%r14, %%r8, 8), %%rax\n"
+    "xorq (%%rsi, %%r8, 8), %%rax\n"
 
     "movq %%rcx, (%%rdi)\n"
     "movq (%%rdi), %%xmm10\n"
@@ -2181,11 +2177,9 @@ keccak_permute(keccak_t *ctx) {
     "movups %%xmm8, 168(%%rdi)\n"
     "movups %%xmm9, 184(%%rdi)\n"
     :
-    : [st] "r" (ctx->state),
-      [rc] "r" (rc)
-    : "rbx", "r12", "r13", "r14", /* Necessary */
-      "rax", "rcx", "rdx", "rdi", /* Not necessary (but better to be safe) */
-      "r8",  "r9",  "r10", "r11",
+    : "D" (ctx->state), "S" (rc)
+    : "rax", "rbx", "rcx", "rdx",
+      "r8", "r9", "r10", "r11", "r12", "r13",
       "cc", "memory"
   );
 #else

@@ -127,17 +127,16 @@ salsa20_block(salsa20_t *ctx) {
    * https://github.com/gnutls/nettle/blob/master/x86_64/salsa20-core-internal.asm
    *
    * Layout:
-   *   %rsi = src pointer (&ctx->state[0])
-   *   %rdi = dst pointer (&output[0])
+   *
+   *   %rdi = dst pointer (stream)
+   *   %rsi = src pointer (ctx->state)
    *   %edx = rounds integer (nettle does `20 >> 1`)
    *
    * For reference, our full range of clobbered registers:
-   * rsi, rdi, edx
+   *
+   *   %rsi, %rdi, %edx
    */
   __asm__ __volatile__(
-    "movq %[src], %%rsi\n"
-    "movq %[dst], %%rdi\n"
-
     "mov $-1, %%edx\n"
     "movd %%edx, %%xmm6\n"
 
@@ -294,9 +293,8 @@ salsa20_block(salsa20_t *ctx) {
 
     "incq 32(%%rsi)\n"
     :
-    : [src] "r" (ctx->state),
-      [dst] "r" (stream)
-    : "rsi", "rdi", "edx", "cc", "memory"
+    : "D" (stream), "S" (ctx->state)
+    : "edx", "cc", "memory"
   );
 #else
   size_t i;
