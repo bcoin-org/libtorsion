@@ -1240,8 +1240,7 @@ sha256_transform(sha256_t *ctx, const unsigned char *chunk) {
    *
    * For reference, our full range of clobbered registers:
    *
-   *   %rdi, %rsi, %rdx, %edi, %eax, %ebx, %ecx,
-   *   %r8, %r9, %r10, %r11, %r12, %r13, %r14, %r15
+   *   %rdi, %rsi, %rdx, %edi, %eax, %ebx, %ecx, %r[8-14]
    */
   __asm__ __volatile__(
     "sub $72, %%rsp\n"
@@ -4185,7 +4184,7 @@ keccak_permute(keccak_t *ctx) {
    *
    * For reference, our full range of clobbered registers:
    *
-   *   %rax, %rbx, %rcx, %rdx, %rdi, %rsi, %r8, %r9, %r10, %r11, %r12, %r13
+   *   %rax, %rbx, %rcx, %rdx, %rdi, %rsi, %r[8-13], %xmm[0-15]
    */
   static const uint64_t rc[25] = {
     0x0000000000000000ull,
@@ -4594,6 +4593,10 @@ keccak_permute(keccak_t *ctx) {
     : "D" (ctx->state), "S" (rc)
     : "rax", "rbx", "rcx", "rdx",
       "r8", "r9", "r10", "r11", "r12", "r13",
+      "xmm0", "xmm1", "xmm2", "xmm3",
+      "xmm4", "xmm5", "xmm6", "xmm7",
+      "xmm8", "xmm9", "xmm10", "xmm11",
+      "xmm12", "xmm13", "xmm14", "xmm15",
       "cc", "memory"
   );
 #else

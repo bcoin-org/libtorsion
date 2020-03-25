@@ -134,7 +134,7 @@ salsa20_block(salsa20_t *ctx) {
    *
    * For reference, our full range of clobbered registers:
    *
-   *   %rsi, %rdi, %edx
+   *   %rsi, %rdi, %edx, %xmm[0-8]
    */
   __asm__ __volatile__(
     "mov $-1, %%edx\n"
@@ -296,7 +296,9 @@ salsa20_block(salsa20_t *ctx) {
     "incq 32(%%rsi)\n"
     :
     : "D" (stream), "S" (ctx->state)
-    : "edx", "cc", "memory"
+    : "edx", "xmm0", "xmm1", "xmm2",
+      "xmm3", "xmm4", "xmm5", "xmm6",
+      "xmm7", "xmm8", "cc", "memory"
   );
 #else
   size_t i;
