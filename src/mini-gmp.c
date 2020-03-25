@@ -681,6 +681,7 @@ mpn_sqr_diag_addlsh1(mp_ptr rp, mp_srcptr tp, mp_srcptr up, mp_size_t n) {
 
 void
 mpn_sqr(mp_ptr rp, mp_srcptr up, mp_size_t n) {
+  /* https://gmplib.org/repo/gmp-6.2/file/tip/mpn/generic/sqr_basecase.c */
   assert(n >= 1);
   assert(!GMP_MPN_OVERLAP_P(rp, 2 * n, up, n));
 
@@ -691,7 +692,6 @@ mpn_sqr(mp_ptr rp, mp_srcptr up, mp_size_t n) {
     rp[0] = lpl;
 #ifdef TORSION_USE_ASM
   } else {
-    /* https://gmplib.org/repo/gmp-6.2/file/tip/mpn/x86_64/sqr_diag_addlsh1.asm */
     mp_size_t i;
     mp_ptr xp;
 
@@ -710,7 +710,6 @@ mpn_sqr(mp_ptr rp, mp_srcptr up, mp_size_t n) {
 #else
 #define SQR_TOOM2_THRESHOLD ((521 + GMP_LIMB_BITS - 1) / GMP_LIMB_BITS)
   } else if ((size_t)n <= SQR_TOOM2_THRESHOLD) {
-    /* https://gmplib.org/repo/gmp-6.2/file/tip/mpn/generic/sqr_basecase.c */
     mp_limb_t tarr[2 * SQR_TOOM2_THRESHOLD];
     mp_limb_t cy, ul, lpl;
     mp_ptr tp = tarr;
