@@ -140,7 +140,7 @@ salsa20_block(salsa20_t *ctx) {
     "mov $-1, %%edx\n"
     "movd %%edx, %%xmm6\n"
 
-    "movl $20, %%edx\n"
+    "movl $10, %%edx\n"
 
     "pshufd $0x09, %%xmm6, %%xmm8\n"
     "pshufd $0x41, %%xmm6, %%xmm7\n"
@@ -174,8 +174,6 @@ salsa20_block(salsa20_t *ctx) {
     "pand %%xmm8, %%xmm0\n"
     "pxor %%xmm0, %%xmm2\n"
     "pxor %%xmm4, %%xmm0\n"
-
-    "shrl $1, %%edx\n"
 
     ".align 16\n"
 

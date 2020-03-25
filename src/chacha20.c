@@ -133,14 +133,12 @@ chacha20_block(chacha20_t *ctx) {
    *   %rsi, %rdi, %edx, %xmm[0-5]
    */
   __asm__ __volatile__(
-    "movl $20, %%edx\n"
+    "movl $10, %%edx\n"
 
     "movups (%%rsi), %%xmm0\n"
     "movups 16(%%rsi), %%xmm1\n"
     "movups 32(%%rsi), %%xmm2\n"
     "movups 48(%%rsi), %%xmm3\n"
-
-    "shrl $1, %%edx\n"
 
     ".align 16\n"
 
