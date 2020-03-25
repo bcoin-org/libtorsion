@@ -371,15 +371,118 @@ gmp_xrealloc_limbs(mp_ptr old, mp_size_t size) {
 
 void
 mpn_copyi(mp_ptr d, mp_srcptr s, mp_size_t n) {
+#ifdef TORSION_USE_ASM
+  /* From:
+   * https://gmplib.org/repo/gmp-6.2/file/tip/mpn/x86_64/copyi.asm
+   *
+   * Registers:
+   *
+   *   %rdi = rp
+   *   %rsi = up
+   *   %rdx = n
+   */
+  __asm__ __volatile__(
+    "lea -8(%%rdi), %%rdi\n"
+    "sub $4, %%rdx\n"
+    "jc 2f\n" /* end */
+
+    "1:\n" /* top */
+    "mov (%%rsi), %%rax\n"
+    "mov 8(%%rsi), %%r9\n"
+    "lea 32(%%rdi), %%rdi\n"
+    "mov 16(%%rsi), %%r10\n"
+    "mov 24(%%rsi), %%r11\n"
+    "lea 32(%%rsi), %%rsi\n"
+    "mov %%rax, -24(%%rdi)\n"
+    "mov %%r9, -16(%%rdi)\n"
+    "sub $4, %%rdx\n"
+    "mov %%r10, -8(%%rdi)\n"
+    "mov %%r11, (%%rdi)\n"
+    "jnc 1b\n" /* top */
+
+    "2:\n" /* end */
+    "shr %%edx\n"
+    "jnc 3f\n"
+    "mov (%%rsi), %%rax\n"
+    "mov %%rax, 8(%%rdi)\n"
+    "lea 8(%%rdi), %%rdi\n"
+    "lea 8(%%rsi), %%rsi\n"
+    "3: shr %%edx\n"
+    "jnc 4f\n"
+    "mov (%%rsi), %%rax\n"
+    "mov 8(%%rsi), %%r9\n"
+    "mov %%rax, 8(%%rdi)\n"
+    "mov %%r9, 16(%%rdi)\n"
+    "4:\n"
+    :
+    : "D" (d), "S" (s), "d" (n)
+    : "rax", "r9", "r10", "r11",
+      "cc", "memory"
+  );
+#else
   mp_size_t i;
   for (i = 0; i < n; i++)
     d[i] = s[i];
+#endif
 }
 
 void
 mpn_copyd(mp_ptr d, mp_srcptr s, mp_size_t n) {
+#ifdef TORSION_USE_ASM
+  /* From:
+   * https://gmplib.org/repo/gmp-6.2/file/tip/mpn/x86_64/copyd.asm
+   *
+   * Registers:
+   *
+   *   %rdi = rp
+   *   %rsi = up
+   *   %rdx = n
+   */
+  __asm__ __volatile__(
+    "lea -8(%%rsi,%%rdx,8), %%rsi\n"
+    "lea (%%rdi,%%rdx,8), %%rdi\n"
+    "sub $4, %%rdx\n"
+    "jc 2f\n" /* end */
+    "nop\n"
+
+    "1:\n" /* top */
+    "mov (%%rsi), %%rax\n"
+    "mov -8(%%rsi), %%r9\n"
+    "lea -32(%%rdi), %%rdi\n"
+    "mov -16(%%rsi), %%r10\n"
+    "mov -24(%%rsi), %%r11\n"
+    "lea -32(%%rsi), %%rsi\n"
+    "mov %%rax, 24(%%rdi)\n"
+    "mov %%r9, 16(%%rdi)\n"
+    "sub $4, %%rdx\n"
+    "mov %%r10, 8(%%rdi)\n"
+    "mov %%r11, (%%rdi)\n"
+    "jnc 1b\n" /* top */
+
+    "2:\n" /* end */
+    "shr %%edx\n"
+    "jnc 3f\n"
+    "mov (%%rsi), %%rax\n"
+    "mov %%rax, -8(%%rdi)\n"
+    "lea -8(%%rdi), %%rdi\n"
+    "lea -8(%%rsi), %%rsi\n"
+    "3:\n"
+    "shr %%edx\n"
+    "jnc 4f\n"
+    "mov (%%rsi), %%rax\n"
+    "mov -8(%%rsi), %%r9\n"
+    "mov %%rax, -8(%%rdi)\n"
+    "mov %%r9, -16(%%rdi)\n"
+    "4:\n"
+    :
+    : "D" (d), "S" (s), "d" (n)
+    : "rax", "r9", "r10", "r11",
+      "cc", "memory"
+  );
+#else
   while (--n >= 0)
     d[n] = s[n];
+#endif
 }
 
 int
@@ -417,6 +520,112 @@ mpn_zero(mp_ptr rp, mp_size_t n) {
     rp[n] = 0;
 }
 
+/* From:
+ * https://gmplib.org/repo/gmp-6.2/file/tip/mpn/x86_64/aors_n.asm
+ *
+ * Registers:
+ *
+ *   %rdi = rp (rcx)
+ *   %rsi = up (rdx)
+ *   %rdx = vp (r8)
+ *   %rcx = n (r9)
+ */
+#define AORS_N(ADCSBB)                      \
+  __asm__ __volatile__(                     \
+    "mov %%ecx, %%eax\n"                    \
+    /* guard for n == 0 */                  \
+    "inc %%eax\n"                           \
+    "dec %%eax\n"                           \
+    "jz 7f\n" /* exit */                    \
+    /* end guard */                         \
+    "shr $2, %%rcx\n"                       \
+    "and $3, %%eax\n"                       \
+    "jrcxz 1f\n" /* lt4 */                  \
+                                            \
+    "mov (%%rsi), %%r8\n"                   \
+    "mov 8(%%rsi), %%r9\n"                  \
+    "dec %%rcx\n"                           \
+    "jmp 5f\n" /* mid */                    \
+                                            \
+    "1:\n" /* lt4 */                        \
+    "dec %%eax\n"                           \
+    "mov (%%rsi), %%r8\n"                   \
+    "jnz 2f\n" /* 2 */                      \
+    ADCSBB " (%%rdx), %%r8\n"               \
+    "mov %%r8, (%%rdi)\n"                   \
+    "adc %%eax, %%eax\n"                    \
+    "jmp 7f\n" /* exit */                   \
+                                            \
+    "2:\n" /* 2 */                          \
+    "dec %%eax\n"                           \
+    "mov 8(%%rsi), %%r9\n"                  \
+    "jnz 3f\n" /* 3 */                      \
+    ADCSBB " (%%rdx), %%r8\n"               \
+    ADCSBB " 8(%%rdx), %%r9\n"              \
+    "mov %%r8, (%%rdi)\n"                   \
+    "mov %%r9, 8(%%rdi)\n"                  \
+    "adc %%eax, %%eax\n"                    \
+    "jmp 7f\n" /* exit */                   \
+                                            \
+    "3:\n" /* 3 */                          \
+    "mov 16(%%rsi), %%r10\n"                \
+    ADCSBB " (%%rdx), %%r8\n"               \
+    ADCSBB " 8(%%rdx), %%r9\n"              \
+    ADCSBB " 16(%%rdx), %%r10\n"            \
+    "mov %%r8, (%%rdi)\n"                   \
+    "mov %%r9, 8(%%rdi)\n"                  \
+    "mov %%r10, 16(%%rdi)\n"                \
+    "setc %%al\n"                           \
+    "jmp 7f\n" /* exit */                   \
+                                            \
+    ".align 16\n"                           \
+    "4:\n" /* top */                        \
+    ADCSBB " (%%rdx), %%r8\n"               \
+    ADCSBB " 8(%%rdx), %%r9\n"              \
+    ADCSBB " 16(%%rdx), %%r10\n"            \
+    ADCSBB " 24(%%rdx), %%r11\n"            \
+    "mov %%r8, (%%rdi)\n"                   \
+    "lea 32(%%rsi), %%rsi\n"                \
+    "mov %%r9, 8(%%rdi)\n"                  \
+    "mov %%r10, 16(%%rdi)\n"                \
+    "dec %%rcx\n"                           \
+    "mov %%r11, 24(%%rdi)\n"                \
+    "lea 32(%%rdx), %%rdx\n"                \
+    "mov (%%rsi), %%r8\n"                   \
+    "mov 8(%%rsi), %%r9\n"                  \
+    "lea 32(%%rdi), %%rdi\n"                \
+    "5:\n" /* mid */                        \
+    "mov 16(%%rsi), %%r10\n"                \
+    "mov 24(%%rsi), %%r11\n"                \
+    "jnz 4b\n" /* top */                    \
+                                            \
+    "6:\n" /* end */                        \
+    "lea 32(%%rsi), %%rsi\n"                \
+    ADCSBB " (%%rdx), %%r8\n"               \
+    ADCSBB " 8(%%rdx), %%r9\n"              \
+    ADCSBB " 16(%%rdx), %%r10\n"            \
+    ADCSBB " 24(%%rdx), %%r11\n"            \
+    "lea 32(%%rdx), %%rdx\n"                \
+    "mov %%r8, (%%rdi)\n"                   \
+    "mov %%r9, 8(%%rdi)\n"                  \
+    "mov %%r10, 16(%%rdi)\n"                \
+    "mov %%r11, 24(%%rdi)\n"                \
+    "lea 32(%%rdi), %%rdi\n"                \
+                                            \
+    "inc %%eax\n"                           \
+    "dec %%eax\n"                           \
+    "jnz 1b\n" /* lt4 */                    \
+    "adc %%eax, %%eax\n"                    \
+    "7:\n" /* exit */                       \
+    "movq $0, %0\n"                         \
+    "movb %%al, %0\n"                       \
+    : "=m" (cy)                             \
+    : "D" (rp), "S" (ap), "d" (bp), "c" (n) \
+    : "al", "eax", "ebx",                   \
+      "rax", "rbx", "r8", "r9",             \
+      "r10", "r11", "cc", "memory"          \
+  );                                        \
+
 mp_limb_t
 mpn_add_1(mp_ptr rp, mp_srcptr ap, mp_size_t n, mp_limb_t b) {
   mp_size_t i;
@@ -437,6 +646,11 @@ mpn_add_1(mp_ptr rp, mp_srcptr ap, mp_size_t n, mp_limb_t b) {
 
 mp_limb_t
 mpn_add_n(mp_ptr rp, mp_srcptr ap, mp_srcptr bp, mp_size_t n) {
+#ifdef TORSION_USE_ASM
+  mp_limb_t cy;
+  AORS_N("adc")
+  return cy;
+#else
   mp_size_t i;
   mp_limb_t cy;
 
@@ -451,6 +665,7 @@ mpn_add_n(mp_ptr rp, mp_srcptr ap, mp_srcptr bp, mp_size_t n) {
   }
 
   return cy;
+#endif
 }
 
 mp_limb_t
@@ -488,6 +703,11 @@ mpn_sub_1(mp_ptr rp, mp_srcptr ap, mp_size_t n, mp_limb_t b) {
 
 mp_limb_t
 mpn_sub_n(mp_ptr rp, mp_srcptr ap, mp_srcptr bp, mp_size_t n) {
+#ifdef TORSION_USE_ASM
+  mp_limb_t cy;
+  AORS_N("sbb")
+  return cy;
+#else
   mp_size_t i;
   mp_limb_t cy;
 
@@ -501,6 +721,7 @@ mpn_sub_n(mp_ptr rp, mp_srcptr ap, mp_srcptr bp, mp_size_t n) {
   }
 
   return cy;
+#endif
 }
 
 mp_limb_t
@@ -519,6 +740,130 @@ mpn_sub(mp_ptr rp, mp_srcptr ap, mp_size_t an, mp_srcptr bp, mp_size_t bn) {
 
 mp_limb_t
 mpn_mul_1(mp_ptr rp, mp_srcptr up, mp_size_t n, mp_limb_t vl) {
+#ifdef TORSION_USE_ASM
+  /* From:
+   * https://gmplib.org/repo/gmp-6.2/file/tip/mpn/x86_64/mul_1.asm
+   *
+   * Registers:
+   *
+   *   %rdi = rp (rcx)
+   *   %rsi = up (rdx)
+   *   %rdx = n_param (r8)
+   *   %rcx = vl (r9)
+   *   %r11 = n
+   */
+  mp_limb_t cy;
+
+  __asm__ __volatile__(
+    "xor %%r10, %%r10\n"
+    "1:\n" /* common */
+    "mov (%%rsi), %%rax\n" /* read first u limb early */
+    "mov %%rdx, %%rbx\n" /* move away n from rdx, mul uses it */
+    "mul %%rcx\n"
+    "mov %%rbx, %%r11\n"
+
+    "add %%r10, %%rax\n"
+    "adc $0, %%rdx\n"
+
+    "and $3, %%ebx\n"
+    "jz 4f\n" /* b0 */
+    "cmp $2, %%ebx\n"
+    "jz 6f\n" /* b2 */
+    "jg 5f\n" /* b3 */
+
+    "2:\n" /* b1 */
+    "dec %%r11\n"
+    "jne 3f\n" /* gt1 */
+    "mov %%rax, (%%rdi)\n"
+    "jmp 12f\n" /* ret */
+    "3:\n" /* gt1 */
+    "lea 8(%%rsi,%%r11,8), %%rsi\n"
+    "lea -8(%%rdi,%%r11,8), %%rdi\n"
+    "neg %%r11\n"
+    "xor %%r10, %%r10\n"
+    "xor %%ebx, %%ebx\n"
+    "mov %%rax, %%r9\n"
+    "mov (%%rsi,%%r11,8), %%rax\n"
+    "mov %%rdx, %%r8\n"
+    "jmp 8f\n" /* L1 */
+
+    "4:\n" /* b0 */
+    "lea (%%rsi,%%r11,8), %%rsi\n"
+    "lea -16(%%rdi,%%r11,8), %%rdi\n"
+    "neg %%r11\n"
+    "xor %%r10, %%r10\n"
+    "mov %%rax, %%r8\n"
+    "mov %%rdx, %%rbx\n"
+    "jmp 9f\n" /* L0 */
+
+    "5:\n" /* b3 */
+    "lea -8(%%rsi,%%r11,8), %%rsi\n"
+    "lea -24(%%rdi,%%r11,8), %%rdi\n"
+    "neg %%r11\n"
+    "mov %%rax, %%rbx\n"
+    "mov %%rdx, %%r10\n"
+    "jmp 10f\n" /* L3 */
+
+    "6:\n" /* b2 */
+    "lea -16(%%rsi,%%r11,8), %%rsi\n"
+    "lea -32(%%rdi,%%r11,8), %%rdi\n"
+    "neg %%r11\n"
+    "xor %%r8, %%r8\n"
+    "xor %%ebx, %%ebx\n"
+    "mov %%rax, %%r10\n"
+    "mov 24(%%rsi,%%r11,8), %%rax\n"
+    "mov %%rdx, %%r9\n"
+    "jmp 11f\n" /* L2 */
+
+    ".align 16\n"
+    "7:\n" /* top */
+    "mov %%r10, (%%rdi,%%r11,8)\n"
+    "add %%rax, %%r9\n"
+    "mov (%%rsi,%%r11,8), %%rax\n"
+    "adc %%rdx, %%r8\n"
+    "mov $0, %%r10d\n"
+    "8:\n" /* L1 */
+    "mul %%rcx\n"
+    "mov %%r9, 8(%%rdi,%%r11,8)\n"
+    "add %%rax, %%r8\n"
+    "adc %%rdx, %%rbx\n"
+    "9:\n" /* L0 */
+    "mov 8(%%rsi,%%r11,8), %%rax\n"
+    "mul %%rcx\n"
+    "mov %%r8, 16(%%rdi,%%r11,8)\n"
+    "add %%rax, %%rbx\n"
+    "adc %%rdx, %%r10\n"
+    "10:\n" /* L3 */
+    "mov 16(%%rsi,%%r11,8), %%rax\n"
+    "mul %%rcx\n"
+    "mov %%rbx, 24(%%rdi,%%r11,8)\n"
+    "mov $0, %%r8d\n" /* zero */
+    "mov %%r8, %%rbx\n" /* zero */
+    "add %%rax, %%r10\n"
+    "mov 24(%%rsi,%%r11,8), %%rax\n"
+    "mov %%r8, %%r9\n" /* zero */
+    "adc %%rdx, %%r9\n"
+    "11:\n" /* L2 */
+    "mul %%rcx\n"
+    "add $4, %%r11\n"
+    "js 7b\n" /* top */
+
+    "mov %%r10, (%%rdi,%%r11,8)\n"
+    "add %%rax, %%r9\n"
+    "adc %%r8, %%rdx\n"
+    "mov %%r9, 8(%%rdi,%%r11,8)\n"
+    "add %%r8, %%rdx\n"
+    "12:\n" /* ret */
+    "movq %%rdx, %0\n"
+    : "=m" (cy)
+    : "D" (rp), "S" (up), "d" (n), "c" (vl)
+    : "rax", "rbx", "ebx",
+      "r8", "r9", "r10", "r11",
+      "cc", "memory"
+  );
+
+  return cy;
+#else
   mp_limb_t ul, cl, hpl, lpl;
 
   assert(n >= 1);
@@ -536,10 +881,131 @@ mpn_mul_1(mp_ptr rp, mp_srcptr up, mp_size_t n, mp_limb_t vl) {
   } while (--n != 0);
 
   return cl;
+#endif
 }
+
+/* From:
+ * https://gmplib.org/repo/gmp-6.2/file/tip/mpn/x86_64/aorsmul_1.asm
+ *
+ * Registers:
+ *
+ *   %rdi = rp (rcx)
+ *   %rsi = up (rdx)
+ *   %rdx = n_param (r8)
+ *   %rcx = vl (r9)
+ *   %r11 = n
+ */
+#define AORSMUL_1(ADDSUB)                                        \
+  __asm__ __volatile__(                                          \
+    "mov (%%rsi), %%rax\n" /* read first u limb early */         \
+    "mov %%rdx, %%rbx\n" /* move away n from rdx, mul uses it */ \
+    "mul %%rcx\n"                                                \
+    "mov %%rbx, %%r11\n"                                         \
+                                                                 \
+    "and $3, %%ebx\n"                                            \
+    "jz 3f\n" /* b0 */                                           \
+    "cmp $2, %%ebx\n"                                            \
+    "jz 5f\n" /* b2 */                                           \
+    "jg 4f\n" /* b3 */                                           \
+                                                                 \
+    "1:\n" /* b1 */                                              \
+    "dec %%r11\n"                                                \
+    "jne 2f\n" /* gt1 */                                         \
+    ADDSUB " %%rax, (%%rdi)\n"                                   \
+    "jmp 11f\n" /* ret */                                        \
+    "2:\n" /* gt1 */                                             \
+    "lea 8(%%rsi,%%r11,8), %%rsi\n"                              \
+    "lea -8(%%rdi,%%r11,8), %%rdi\n"                             \
+    "neg %%r11\n"                                                \
+    "xor %%r10, %%r10\n"                                         \
+    "xor %%ebx, %%ebx\n"                                         \
+    "mov %%rax, %%r9\n"                                          \
+    "mov (%%rsi,%%r11,8), %%rax\n"                               \
+    "mov %%rdx, %%r8\n"                                          \
+    "jmp 7f\n" /* L1 */                                          \
+                                                                 \
+    "3:\n" /* b0 */                                              \
+    "lea (%%rsi,%%r11,8), %%rsi\n"                               \
+    "lea -16(%%rdi,%%r11,8), %%rdi\n"                            \
+    "neg %%r11\n"                                                \
+    "xor %%r10, %%r10\n"                                         \
+    "mov %%rax, %%r8\n"                                          \
+    "mov %%rdx, %%rbx\n"                                         \
+    "jmp 8f\n" /* L0 */                                          \
+                                                                 \
+    "4:\n" /* b3 */                                              \
+    "lea -8(%%rsi,%%r11,8), %%rsi\n"                             \
+    "lea -24(%%rdi,%%r11,8), %%rdi\n"                            \
+    "neg %%r11\n"                                                \
+    "mov %%rax, %%rbx\n"                                         \
+    "mov %%rdx, %%r10\n"                                         \
+    "jmp 9f\n" /* L3 */                                          \
+                                                                 \
+    "5:\n" /* b2 */                                              \
+    "lea -16(%%rsi,%%r11,8), %%rsi\n"                            \
+    "lea -32(%%rdi,%%r11,8), %%rdi\n"                            \
+    "neg %%r11\n"                                                \
+    "xor %%r8, %%r8\n"                                           \
+    "xor %%ebx, %%ebx\n"                                         \
+    "mov %%rax, %%r10\n"                                         \
+    "mov 24(%%rsi,%%r11,8), %%rax\n"                             \
+    "mov %%rdx, %%r9\n"                                          \
+    "jmp 10f\n" /* L2 */                                         \
+                                                                 \
+    ".align 16\n"                                                \
+    "6:\n" /* top */                                             \
+    ADDSUB " %%r10, (%%rdi,%%r11,8)\n"                           \
+    "adc %%rax, %%r9\n"                                          \
+    "mov (%%rsi,%%r11,8), %%rax\n"                               \
+    "adc %%rdx, %%r8\n"                                          \
+    "mov $0, %%r10d\n"                                           \
+    "7:\n" /* L1 */                                              \
+    "mul %%rcx\n"                                                \
+    ADDSUB " %%r9, 8(%%rdi,%%r11,8)\n"                           \
+    "adc %%rax, %%r8\n"                                          \
+    "adc %%rdx, %%rbx\n"                                         \
+    "8:\n" /* L0 */                                              \
+    "mov 8(%%rsi,%%r11,8), %%rax\n"                              \
+    "mul %%rcx\n"                                                \
+    ADDSUB " %%r8, 16(%%rdi,%%r11,8)\n"                          \
+    "adc %%rax, %%rbx\n"                                         \
+    "adc %%rdx, %%r10\n"                                         \
+    "9:\n" /* L3 */                                              \
+    "mov 16(%%rsi,%%r11,8), %%rax\n"                             \
+    "mul %%rcx\n"                                                \
+    ADDSUB " %%rbx, 24(%%rdi,%%r11,8)\n"                         \
+    "mov $0, %%r8d\n"                                            \
+    "mov %%r8, %%rbx\n" /* zero */                               \
+    "adc %%rax, %%r10\n"                                         \
+    "mov 24(%%rsi,%%r11,8), %%rax\n"                             \
+    "mov %%r8, %%r9\n" /* zero */                                \
+    "adc %%rdx, %%r9\n"                                          \
+    "10:\n" /* L2 */                                             \
+    "mul %%rcx\n"                                                \
+    "add $4, %%r11\n"                                            \
+    "js 6b\n" /* top */                                          \
+                                                                 \
+    ADDSUB " %%r10, (%%rdi,%%r11,8)\n"                           \
+    "adc %%rax, %%r9\n"                                          \
+    "adc %%r8, %%rdx\n"                                          \
+    ADDSUB " %%r9, 8(%%rdi,%%r11,8)\n"                           \
+    "11:\n" /* ret */                                            \
+    "adc $0, %%rdx\n"                                            \
+    "movq %%rdx, %0\n"                                           \
+    : "=m" (cy)                                                  \
+    : "D" (rp), "S" (up), "d" (n), "c" (vl)                      \
+    : "rax", "rbx", "ebx",                                       \
+      "r8", "r9", "r10", "r11",                                  \
+      "cc", "memory"                                             \
+  );                                                             \
 
 mp_limb_t
 mpn_addmul_1(mp_ptr rp, mp_srcptr up, mp_size_t n, mp_limb_t vl) {
+#ifdef TORSION_USE_ASM
+  mp_limb_t cy;
+  AORSMUL_1("add")
+  return cy;
+#else
   mp_limb_t ul, cl, hpl, lpl, rl;
 
   assert(n >= 1);
@@ -560,10 +1026,16 @@ mpn_addmul_1(mp_ptr rp, mp_srcptr up, mp_size_t n, mp_limb_t vl) {
   } while (--n != 0);
 
   return cl;
+#endif
 }
 
 mp_limb_t
 mpn_submul_1(mp_ptr rp, mp_srcptr up, mp_size_t n, mp_limb_t vl) {
+#ifdef TORSION_USE_ASM
+  mp_limb_t cy;
+  AORSMUL_1("sub")
+  return cy;
+#else
   mp_limb_t ul, cl, hpl, lpl, rl;
 
   assert(n >= 1);
@@ -584,6 +1056,7 @@ mpn_submul_1(mp_ptr rp, mp_srcptr up, mp_size_t n, mp_limb_t vl) {
   } while (--n != 0);
 
   return cl;
+#endif
 }
 
 mp_limb_t
@@ -618,7 +1091,7 @@ mpn_mul_n(mp_ptr rp, mp_srcptr ap, mp_srcptr bp, mp_size_t n) {
 #ifdef TORSION_USE_ASM
 static void
 mpn_sqr_diag_addlsh1(mp_ptr rp, mp_srcptr tp, mp_srcptr up, mp_size_t n) {
-  /* Borrowed from:
+  /* From:
    * https://gmplib.org/repo/gmp-6.2/file/tip/mpn/x86_64/sqr_diag_addlsh1.asm
    *
    * Registers:
@@ -629,47 +1102,47 @@ mpn_sqr_diag_addlsh1(mp_ptr rp, mp_srcptr tp, mp_srcptr up, mp_size_t n) {
    *   %rcx = n
    */
   __asm__ __volatile__(
-    "decq %%rcx\n"
-    "shlq %%rcx\n"
+    "dec %%rcx\n"
+    "shl %%rcx\n"
 
-    "movq (%%rdx),%%rax\n"
+    "mov (%%rdx),%%rax\n"
 
-    "leaq (%%rdi,%%rcx,8),%%rdi\n"
-    "leaq (%%rsi,%%rcx,8),%%rsi\n"
-    "leaq (%%rdx,%%rcx,4),%%r11\n"
-    "negq %%rcx\n"
+    "lea (%%rdi,%%rcx,8),%%rdi\n"
+    "lea (%%rsi,%%rcx,8),%%rsi\n"
+    "lea (%%rdx,%%rcx,4),%%r11\n"
+    "neg %%rcx\n"
 
-    "mulq %%rax\n"
-    "movq %%rax,(%%rdi,%%rcx,8)\n"
+    "mul %%rax\n"
+    "mov %%rax,(%%rdi,%%rcx,8)\n"
 
-    "xorl %%ebx,%%ebx\n"
-    "jmp 2f\n"
+    "xor %%ebx,%%ebx\n"
+    "jmp 2f\n" /* mid */
 
     ".align 16\n"
     "1:\n" /* top */
-    "addq %%r10,%%r8\n"
-    "adcq %%rax,%%r9\n"
-    "movq %%r8,-8(%%rdi,%%rcx,8)\n"
-    "movq %%r9,(%%rdi,%%rcx,8)\n"
+    "add %%r10,%%r8\n"
+    "adc %%rax,%%r9\n"
+    "mov %%r8,-8(%%rdi,%%rcx,8)\n"
+    "mov %%r9,(%%rdi,%%rcx,8)\n"
     "2:\n" /* mid */
-    "movq 8(%%r11,%%rcx,4),%%rax\n"
-    "movq (%%rsi,%%rcx,8),%%r8\n"
-    "movq 8(%%rsi,%%rcx,8),%%r9\n"
-    "adcq %%r8,%%r8\n"
-    "adcq %%r9,%%r9\n"
-    "leaq (%%rdx,%%rbx,1),%%r10\n"
+    "mov 8(%%r11,%%rcx,4),%%rax\n"
+    "mov (%%rsi,%%rcx,8),%%r8\n"
+    "mov 8(%%rsi,%%rcx,8),%%r9\n"
+    "adc %%r8,%%r8\n"
+    "adc %%r9,%%r9\n"
+    "lea (%%rdx,%%rbx,1),%%r10\n"
     "setc %%bl\n"
-    "mulq %%rax\n"
-    "addq $2,%%rcx\n"
-    "js 1b\n"
+    "mul %%rax\n"
+    "add $2,%%rcx\n"
+    "js 1b\n" /* top */
 
     "3:\n" /* end */
-    "addq %%r10,%%r8\n"
-    "adcq %%rax,%%r9\n"
-    "movq %%r8,-8(%%rdi)\n"
-    "movq %%r9,(%%rdi)\n"
-    "adcq %%rbx,%%rdx\n"
-    "movq %%rdx,8(%%rdi)\n"
+    "add %%r10,%%r8\n"
+    "adc %%rax,%%r9\n"
+    "mov %%r8,-8(%%rdi)\n"
+    "mov %%r9,(%%rdi)\n"
+    "adc %%rbx,%%rdx\n"
+    "mov %%rdx,8(%%rdi)\n"
     :
     : "D" (rp), "S" (tp), "d" (up), "c" (n)
     : "rax", "rbx", "ebx", "bl",
@@ -681,6 +1154,7 @@ mpn_sqr_diag_addlsh1(mp_ptr rp, mp_srcptr tp, mp_srcptr up, mp_size_t n) {
 
 void
 mpn_sqr(mp_ptr rp, mp_srcptr up, mp_size_t n) {
+#ifdef TORSION_USE_ASM
   /* https://gmplib.org/repo/gmp-6.2/file/tip/mpn/generic/sqr_basecase.c */
   assert(n >= 1);
   assert(!GMP_MPN_OVERLAP_P(rp, 2 * n, up, n));
@@ -690,7 +1164,6 @@ mpn_sqr(mp_ptr rp, mp_srcptr up, mp_size_t n) {
     ul = up[0];
     gmp_umul_ppmm(rp[1], lpl, ul, ul);
     rp[0] = lpl;
-#ifdef TORSION_USE_ASM
   } else {
     mp_size_t i;
     mp_ptr xp;
@@ -708,39 +1181,151 @@ mpn_sqr(mp_ptr rp, mp_srcptr up, mp_size_t n) {
     mpn_sqr_diag_addlsh1(xp, xp + 1, up - n + 2, n);
   }
 #else
-#define SQR_TOOM2_THRESHOLD ((521 + GMP_LIMB_BITS - 1) / GMP_LIMB_BITS)
-  } else if ((size_t)n <= SQR_TOOM2_THRESHOLD) {
-    mp_limb_t tarr[2 * SQR_TOOM2_THRESHOLD];
-    mp_limb_t cy, ul, lpl;
-    mp_ptr tp = tarr;
-    mp_size_t i;
-
-    cy = mpn_mul_1(tp, up + 1, n - 1, up[0]);
-    tp[n - 1] = cy;
-
-    for (i = 2; i < n; i++) {
-      cy = mpn_addmul_1(tp + 2 * i - 2, up + i, n - i, up[i - 1]);
-      tp[n + i - 2] = cy;
-    }
-
-    for (i = 0; i < n; i++)  {
-      ul = up[i];
-      gmp_umul_ppmm(rp[2 * i + 1], lpl, ul, ul);
-      rp[2 * i] = lpl;
-    }
-
-    cy = mpn_lshift(tp, tp, 2 * n - 2, 1);
-    cy += mpn_add_n(rp + 1, rp + 1, tp, 2 * n - 2);
-    rp[2 * n - 1] += cy;
-  } else {
-    mpn_mul_n(rp, up, up, n);
-  }
-#undef SQR_TOOM2_THRESHOLD
+  mpn_mul_n(rp, up, up, n);
 #endif
 }
 
 mp_limb_t
 mpn_lshift(mp_ptr rp, mp_srcptr up, mp_size_t n, unsigned int cnt) {
+#ifdef TORSION_USE_ASM
+  /* From:
+   * https://gmplib.org/repo/gmp-6.2/file/tip/mpn/x86_64/lshift.asm
+   *
+   *
+   * Registers:
+   *
+   *   %rdi = rp
+   *   %rsi = up
+   *   %rdx = n
+   *   %rcx = cnt
+   */
+  mp_limb_t cy;
+
+  __asm__ __volatile__(
+    "neg %%ecx\n" /* put rsh count in cl */
+    "mov -8(%%rsi,%%rdx,8), %%rax\n"
+    "shr %%cl, %%rax\n" /* function return value */
+
+    "neg %%ecx\n" /* put lsh count in cl */
+    "lea 1(%%rdx), %%r8d\n"
+    "and $3, %%r8d\n"
+    "je 4f\n" /* (rlx) jump for n = 3, 7, 11, ... */
+
+    "dec %%r8d\n"
+    "jne 1f\n" /* 1 */
+    /* n = 4, 8, 12, ... */
+    "mov -8(%%rsi,%%rdx,8), %%r10\n"
+    "shl %%cl, %%r10\n"
+    "neg %%ecx\n" /* put rsh count in cl */
+    "mov -16(%%rsi,%%rdx,8), %%r8\n"
+    "shr %%cl, %%r8\n"
+    "or %%r8, %%r10\n"
+    "mov %%r10, -8(%%rdi,%%rdx,8)\n"
+    "dec %%rdx\n"
+    "jmp 3f\n" /* rll */
+
+    "1:\n" /* 1 */
+    "dec %%r8d\n"
+    "je 2f\n" /* (1x) jump for n = 1, 5, 9, 13, ... */
+    /* n = 2, 6, 10, 16, ... */
+    "mov -8(%%rsi,%%rdx,8), %%r10\n"
+    "shl %%cl, %%r10\n"
+    "neg %%ecx\n" /* put rsh count in cl */
+    "mov -16(%%rsi,%%rdx,8), %%r8\n"
+    "shr %%cl, %%r8\n"
+    "or %%r8, %%r10\n"
+    "mov %%r10, -8(%%rdi,%%rdx,8)\n"
+    "dec %%rdx\n"
+    "neg %%ecx\n" /* put lsh count in cl */
+    "2:\n" /* 1x */
+    "cmp $1, %%rdx\n"
+    "je 7f\n" /* ast */
+    "mov -8(%%rsi,%%rdx,8), %%r10\n"
+    "shl %%cl, %%r10\n"
+    "mov -16(%%rsi,%%rdx,8), %%r11\n"
+    "shl %%cl, %%r11\n"
+    "neg %%ecx\n" /* put rsh count in cl */
+    "mov -16(%%rsi,%%rdx,8), %%r8\n"
+    "mov -24(%%rsi,%%rdx,8), %%r9\n"
+    "shr %%cl, %%r8\n"
+    "or %%r8, %%r10\n"
+    "shr %%cl, %%r9\n"
+    "or %%r9, %%r11\n"
+    "mov %%r10, -8(%%rdi,%%rdx,8)\n"
+    "mov %%r11, -16(%%rdi,%%rdx,8)\n"
+    "sub $2, %%rdx\n"
+
+    "3:\n" /* rll */
+    "neg %%ecx\n" /* put lsh count in cl */
+    "4:\n" /* rlx */
+    "mov -8(%%rsi,%%rdx,8), %%r10\n"
+    "shl %%cl, %%r10\n"
+    "mov -16(%%rsi,%%rdx,8), %%r11\n"
+    "shl %%cl, %%r11\n"
+
+    "sub $4, %%rdx\n" /* 4 */
+    "jb 6f\n" /* (end) 2 */
+    ".align 16\n"
+    "5:\n" /* top */
+    /* finish stuff from lsh block */
+    "neg %%ecx\n" /* put rsh count in cl */
+    "mov 16(%%rsi,%%rdx,8), %%r8\n"
+    "mov 8(%%rsi,%%rdx,8), %%r9\n"
+    "shr %%cl, %%r8\n"
+    "or %%r8, %%r10\n"
+    "shr %%cl, %%r9\n"
+    "or %%r9, %%r11\n"
+    "mov %%r10, 24(%%rdi,%%rdx,8)\n"
+    "mov %%r11, 16(%%rdi,%%rdx,8)\n"
+    /* start two new rsh */
+    "mov 0(%%rsi,%%rdx,8), %%r8\n"
+    "mov -8(%%rsi,%%rdx,8), %%r9\n"
+    "shr %%cl, %%r8\n"
+    "shr %%cl, %%r9\n"
+
+    /* finish stuff from rsh block */
+    "neg %%ecx\n" /* put lsh count in cl */
+    "mov 8(%%rsi,%%rdx,8), %%r10\n"
+    "mov 0(%%rsi,%%rdx,8), %%r11\n"
+    "shl %%cl, %%r10\n"
+    "or %%r10, %%r8\n"
+    "shl %%cl, %%r11\n"
+    "or %%r11, %%r9\n"
+    "mov %%r8, 8(%%rdi,%%rdx,8)\n"
+    "mov %%r9, 0(%%rdi,%%rdx,8)\n"
+    /* start two new lsh */
+    "mov -8(%%rsi,%%rdx,8), %%r10\n"
+    "mov -16(%%rsi,%%rdx,8), %%r11\n"
+    "shl %%cl, %%r10\n"
+    "shl %%cl, %%r11\n"
+
+    "sub $4, %%rdx\n"
+    "jae 5b\n" /* (top) 2 */
+    "6:\n" /* end */
+    "neg %%ecx\n" /* put rsh count in cl */
+    "mov 8(%%rsi), %%r8\n"
+    "shr %%cl, %%r8\n"
+    "or %%r8, %%r10\n"
+    "mov (%%rsi), %%r9\n"
+    "shr %%cl, %%r9\n"
+    "or %%r9, %%r11\n"
+    "mov %%r10, 16(%%rdi)\n"
+    "mov %%r11, 8(%%rdi)\n"
+
+    "neg %%ecx\n" /* put lsh count in cl */
+    "7:\n" /* ast */
+    "mov (%%rsi), %%r10\n"
+    "shl %%cl, %%r10\n"
+    "mov %%r10, (%%rdi)\n"
+    "movq %%rax, %0\n"
+    : "=m" (cy)
+    : "D" (rp), "S" (up), "d" (n), "c" (cnt)
+    : "rax", "r8", "r9", "r10", "r11",
+      "cc", "memory"
+  );
+
+  return cy;
+#else
   mp_limb_t high_limb, low_limb;
   unsigned int tnc;
   mp_limb_t retval;
@@ -766,10 +1351,154 @@ mpn_lshift(mp_ptr rp, mp_srcptr up, mp_size_t n, unsigned int cnt) {
   *--rp = high_limb;
 
   return retval;
+#endif
 }
 
 mp_limb_t
 mpn_rshift(mp_ptr rp, mp_srcptr up, mp_size_t n, unsigned int cnt) {
+#ifdef TORSION_USE_ASM
+  /* From:
+   * https://gmplib.org/repo/gmp-6.2/file/tip/mpn/x86_64/rshift.asm
+   *
+   * Registers:
+   *
+   *   %rdi = rp
+   *   %rsi = up
+   *   %rdx = n
+   *   %rcx = cnt
+   */
+  mp_limb_t cy;
+
+  __asm__ __volatile__(
+    "neg %%ecx\n" /* put rsh count in cl */
+    "mov (%%rsi), %%rax\n"
+    "shl %%cl, %%rax\n" /* function return value */
+    "neg %%ecx\n" /* put lsh count in cl */
+
+    "lea 1(%%rdx), %%r8d\n"
+
+    "lea -8(%%rsi,%%rdx,8), %%rsi\n"
+    "lea -8(%%rdi,%%rdx,8), %%rdi\n"
+    "neg %%rdx\n"
+
+    "and $3, %%r8d\n"
+    "je 4f\n" /* (rlx) jump for n = 3, 7, 11, ... */
+
+    "dec %%r8d\n"
+    "jne 1f\n" /* 1 */
+    /* n = 4, 8, 12, ... */
+    "mov 8(%%rsi,%%rdx,8), %%r10\n"
+    "shr %%cl, %%r10\n"
+    "neg %%ecx\n" /* put rsh count in cl */
+    "mov 16(%%rsi,%%rdx,8), %%r8\n"
+    "shl %%cl, %%r8\n"
+    "or %%r8, %%r10\n"
+    "mov %%r10, 8(%%rdi,%%rdx,8)\n"
+    "inc %%rdx\n"
+    "jmp 3f\n" /* rll */
+
+    "1:\n" /* 1 */
+    "dec %%r8d\n"
+    "je 2f\n" /* (1x) jump for n = 1, 5, 9, 13, ... */
+    /* n = 2, 6, 10, 16, ... */
+    "mov 8(%%rsi,%%rdx,8), %%r10\n"
+    "shr %%cl, %%r10\n"
+    "neg %%ecx\n" /* put rsh count in cl */
+    "mov 16(%%rsi,%%rdx,8), %%r8\n"
+    "shl %%cl, %%r8\n"
+    "or %%r8, %%r10\n"
+    "mov %%r10, 8(%%rdi,%%rdx,8)\n"
+    "inc %%rdx\n"
+    "neg %%ecx\n" /* put lsh count in cl */
+    "2:\n" /* 1x */
+    "cmp $-1, %%rdx\n"
+    "je 7f\n" /* ast */
+    "mov 8(%%rsi,%%rdx,8), %%r10\n"
+    "shr %%cl, %%r10\n"
+    "mov 16(%%rsi,%%rdx,8), %%r11\n"
+    "shr %%cl, %%r11\n"
+    "neg %%ecx\n" /* put rsh count in cl */
+    "mov 16(%%rsi,%%rdx,8), %%r8\n"
+    "mov 24(%%rsi,%%rdx,8), %%r9\n"
+    "shl %%cl, %%r8\n"
+    "or %%r8, %%r10\n"
+    "shl %%cl, %%r9\n"
+    "or %%r9, %%r11\n"
+    "mov %%r10, 8(%%rdi,%%rdx,8)\n"
+    "mov %%r11, 16(%%rdi,%%rdx,8)\n"
+    "add $2, %%rdx\n"
+
+    "3:\n" /* rll */
+    "neg %%ecx\n" /* put lsh count in cl */
+    "4:\n" /* rlx */
+    "mov 8(%%rsi,%%rdx,8), %%r10\n"
+    "shr %%cl, %%r10\n"
+    "mov 16(%%rsi,%%rdx,8), %%r11\n"
+    "shr %%cl, %%r11\n"
+
+    "add $4, %%rdx\n" /* 4 */
+    "jb 6f\n" /* (end) 2 */
+    ".align 16\n"
+    "5:\n" /* top */
+    /* finish stuff from lsh block */
+    "neg %%ecx\n" /* put rsh count in cl */
+    "mov -16(%%rsi,%%rdx,8), %%r8\n"
+    "mov -8(%%rsi,%%rdx,8), %%r9\n"
+    "shl %%cl, %%r8\n"
+    "or %%r8, %%r10\n"
+    "shl %%cl, %%r9\n"
+    "or %%r9, %%r11\n"
+    "mov %%r10, -24(%%rdi,%%rdx,8)\n"
+    "mov %%r11, -16(%%rdi,%%rdx,8)\n"
+    /* start two new rsh */
+    "mov (%%rsi,%%rdx,8), %%r8\n"
+    "mov 8(%%rsi,%%rdx,8), %%r9\n"
+    "shl %%cl, %%r8\n"
+    "shl %%cl, %%r9\n"
+
+    /* finish stuff from rsh block */
+    "neg %%ecx\n" /* put lsh count in cl */
+    "mov -8(%%rsi,%%rdx,8), %%r10\n"
+    "mov 0(%%rsi,%%rdx,8), %%r11\n"
+    "shr %%cl, %%r10\n"
+    "or %%r10, %%r8\n"
+    "shr %%cl, %%r11\n"
+    "or %%r11, %%r9\n"
+    "mov %%r8, -8(%%rdi,%%rdx,8)\n"
+    "mov %%r9, 0(%%rdi,%%rdx,8)\n"
+    /* start two new lsh */
+    "mov 8(%%rsi,%%rdx,8), %%r10\n"
+    "mov 16(%%rsi,%%rdx,8), %%r11\n"
+    "shr %%cl, %%r10\n"
+    "shr %%cl, %%r11\n"
+
+    "add $4, %%rdx\n"
+    "jae 5b\n" /* (top) 2 */
+    "6:\n" /* end */
+    "neg %%ecx\n" /* put rsh count in cl */
+    "mov -8(%%rsi), %%r8\n"
+    "shl %%cl, %%r8\n"
+    "or %%r8, %%r10\n"
+    "mov (%%rsi), %%r9\n"
+    "shl %%cl, %%r9\n"
+    "or %%r9, %%r11\n"
+    "mov %%r10, -16(%%rdi)\n"
+    "mov %%r11, -8(%%rdi)\n"
+
+    "neg %%ecx\n" /* put lsh count in cl */
+    "7:\n" /* ast */
+    "mov (%%rsi), %%r10\n"
+    "shr %%cl, %%r10\n"
+    "mov %%r10, (%%rdi)\n"
+    "movq %%rax, %0\n"
+    : "=m" (cy)
+    : "D" (rp), "S" (up), "d" (n), "c" (cnt)
+    : "rax", "r8", "r9", "r10", "r11",
+      "cc", "memory"
+  );
+
+  return cy;
+#else
   mp_limb_t high_limb, low_limb;
   unsigned int tnc;
   mp_limb_t retval;
@@ -792,6 +1521,7 @@ mpn_rshift(mp_ptr rp, mp_srcptr up, mp_size_t n, unsigned int cnt) {
   *rp = low_limb;
 
   return retval;
+#endif
 }
 
 static mp_bitcnt_t
@@ -3077,7 +3807,8 @@ mpz_jacobi(const mpz_t x, const mpz_t y) {
   mp_size_t s;
   int j = 1;
 
-  assert(mpz_odd_p(y));
+  if (!mpz_odd_p(y))
+    gmp_die("mpz_jacobi: Even argument.");
 
   mpz_init_set(a, x);
   mpz_init_set(b, y);
@@ -3276,7 +4007,6 @@ mpz_powm_ui(mpz_t r, const mpz_t b, unsigned long elimb, const mpz_t m) {
   mpz_clear(e);
 }
 
-#ifdef MINI_GMP_USE_POWM_SEC
 static void
 mpn_cnd_select(mp_limb_t cnd,
                mp_ptr zp,
@@ -3299,6 +4029,7 @@ mpn_mont(mp_ptr zp,
          mp_srcptr mp,
          mp_limb_t k,
          mp_size_t n) {
+  /* Guarantees zn <= mn, but not necessarily z < m. */
   mp_limb_t c2, c3, cx, cy;
   mp_limb_t c1 = 0;
   mp_size_t i;
@@ -3314,7 +4045,6 @@ mpn_mont(mp_ptr zp,
     c1 = (cx < c2) | (cy < c3);
   }
 
-  /* Guarantees zn <= mn, but not necessarily z < m. */
   mpn_sub_n(zp, zp + n, mp, n);
   mpn_cnd_select(c1 != 0, zp, zp + n, zp, n);
 }
@@ -3377,7 +4107,7 @@ mpn_powm_sec(mp_ptr zp,
 
   mpn_zero(rr, mn * 2);
   rr[mn * 2] = 1;
-  mpn_tdiv_qr(wnds, rr, 0, rr, mn * 2 + 1, mp, mn);
+  mpn_div_qr(NULL, rr, mn * 2 + 1, mp, mn);
 
   one[0] = 1;
   mpn_zero(one + 1, mn - 1);
@@ -3421,46 +4151,44 @@ mpn_powm_sec(mp_ptr zp,
 void
 mpz_powm_sec(mpz_ptr r, mpz_srcptr b, mpz_srcptr e, mpz_srcptr m) {
   mp_ptr rp, scratch;
-  mp_size_t rn;
+  mp_size_t mn;
   mpz_t t;
 
-  assert(e->_mp_size > 0);
-  assert(m->_mp_size > 0);
-  assert((m->_mp_d[0] & 1) != 0);
+  if (e->_mp_size < 0)
+    gmp_die("mpz_powm_sec: Negative exponent.");
 
-  rp = r->_mp_d;
-  rn = m->_mp_size;
+  if (e->_mp_size == 0)
+    gmp_die("mpz_powm_sec: Zero exponent.");
+
+  if (m->_mp_size == 0)
+    gmp_die("mpz_powm_sec: Zero modulus.");
+
+  if ((m->_mp_d[0] & 1) == 0)
+    gmp_die("mpz_powm_sec: Even modulus.");
+
+  mn = GMP_ABS(m->_mp_size);
 
   mpz_init(t);
 
-  if (mpz_sgn(b) < 0 || mpz_cmp(b, m) >= 0)
+  if (mpz_sgn(b) < 0 || mpz_cmpabs(b, m) >= 0)
     mpz_mod(t, b, m);
   else
     mpz_set(t, b);
 
-  scratch = gmp_xalloc_limbs(24 * rn);
+  scratch = gmp_xalloc_limbs(24 * mn);
 
-  rp = MPZ_REALLOC(r, rn);
+  rp = MPZ_REALLOC(r, mn);
 
   mpn_powm_sec(rp, t->_mp_d, t->_mp_size,
                    e->_mp_d, e->_mp_size,
-                   m->_mp_d, m->_mp_size,
+                   m->_mp_d, mn,
                    scratch);
 
-  r->_mp_size = mpn_normalized_size(rp, rn);
+  r->_mp_size = mpn_normalized_size(rp, mn);
 
   gmp_free(scratch);
   mpz_clear(t);
 }
-#else /* MINI_GMP_USE_POWM_SEC */
-void
-mpz_powm_sec(mpz_t r, const mpz_t b, const mpz_t e, const mpz_t m) {
-  assert(mpz_sgn(e) > 0);
-  assert(mpz_odd_p(m));
-
-  mpz_powm(r, b, e, m);
-}
-#endif /* MINI_GMP_USE_POWM_SEC */
 
 /* x=trunc(y^(1/z)), r=y-x^z */
 void
