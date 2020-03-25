@@ -2536,7 +2536,7 @@ mpz_set_d(mpz_t r, double x) {
     rp[i] = f;
   }
 
-  r->_mp_size = sign ? - rn : rn;
+  r->_mp_size = sign ? -rn : rn;
 }
 
 void
@@ -2792,7 +2792,7 @@ mpz_add(mpz_t r, const mpz_t a, const mpz_t b) {
   else
     rn = mpz_abs_sub(r, a, b);
 
-  r->_mp_size = a->_mp_size >= 0 ? rn : - rn;
+  r->_mp_size = a->_mp_size >= 0 ? rn : -rn;
 }
 
 void
@@ -2804,7 +2804,7 @@ mpz_sub(mpz_t r, const mpz_t a, const mpz_t b) {
   else
     rn = mpz_abs_add(r, a, b);
 
-  r->_mp_size = a->_mp_size >= 0 ? rn : - rn;
+  r->_mp_size = a->_mp_size >= 0 ? rn : -rn;
 }
 
 /* MPZ multiplication */
@@ -3017,7 +3017,7 @@ mpz_div_qr(mpz_t q, mpz_t r,
     }
 
     rn = mpn_normalized_size(np, dn);
-    tr->_mp_size = ns < 0 ? - rn : rn;
+    tr->_mp_size = ns < 0 ? -rn : rn;
 
     if (mode == GMP_DIV_FLOOR && qs < 0 && rn != 0) {
       if (q)
@@ -4746,7 +4746,7 @@ mpz_abs_add_bit(mpz_t d, mp_bitcnt_t bit_index) {
     }
   }
 
-  d->_mp_size = (d->_mp_size < 0) ? - dn : dn;
+  d->_mp_size = (d->_mp_size < 0) ? -dn : dn;
 }
 
 static void
@@ -4767,7 +4767,7 @@ mpz_abs_sub_bit(mpz_t d, mp_bitcnt_t bit_index) {
                                dn - limb_index, bit));
 
   dn = mpn_normalized_size(dp, dn);
-  d->_mp_size = (d->_mp_size < 0) ? - dn : dn;
+  d->_mp_size = (d->_mp_size < 0) ? -dn : dn;
 }
 
 void
