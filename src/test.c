@@ -1606,6 +1606,50 @@ bench_eddsa(drbg_t *rng) {
   eddsa_context_destroy(ec);
 }
 
+static void
+bench_hash(drbg_t *rng) {
+  unsigned char chain[32];
+  struct timeval tv;
+  hash_t hash;
+  size_t i;
+
+  random_bytes(rng, chain, sizeof(chain));
+
+  printf("Benchmarking hash...\n");
+
+  bench_start(&tv);
+
+  for (i = 0; i < 10000000; i++) {
+    hash_init(&hash, HASH_SHA256);
+    hash_update(&hash, chain, sizeof(chain));
+    hash_final(&hash, chain, sizeof(chain));
+  }
+
+  bench_end(&tv, i);
+}
+
+static void
+bench_sha256(drbg_t *rng) {
+  unsigned char chain[32];
+  struct timeval tv;
+  sha256_t sha;
+  size_t i;
+
+  random_bytes(rng, chain, sizeof(chain));
+
+  printf("Benchmarking SHA256...\n");
+
+  bench_start(&tv);
+
+  for (i = 0; i < 10000000; i++) {
+    sha256_init(&sha);
+    sha256_update(&sha, chain, sizeof(chain));
+    sha256_final(&sha, chain);
+  }
+
+  bench_end(&tv, i);
+}
+
 int
 main(int argc, char **argv) {
   drbg_t rng;
@@ -1627,6 +1671,12 @@ main(int argc, char **argv) {
 
     if (argc < 3 || strcmp(argv[2], "eddsa") == 0)
       bench_eddsa(&rng);
+
+    if (argc < 3 || strcmp(argv[2], "hash") == 0)
+      bench_hash(&rng);
+
+    if (argc < 3 || strcmp(argv[2], "sha256") == 0)
+      bench_sha256(&rng);
   } else {
     test_wei_mul_g_p256(&rng);
     test_wei_mul_p256();
