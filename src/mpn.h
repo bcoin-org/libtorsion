@@ -32,7 +32,6 @@
 
 /* Avoid collisions with future versions of GMP. */
 #define mpn_bitlen torsion_mpn_bitlen
-#define mpn_cmp_limb torsion_mpn_cmp_limb
 #define mpn_get_bit torsion_mpn_get_bit
 #define mpn_get_bits torsion_mpn_get_bits
 #define mpn_cleanse torsion_mpn_cleanse
@@ -77,27 +76,6 @@ mpn_bitlen(const mp_limb_t *xp, mp_size_t xn) {
   }
 
   return bits;
-}
-
-static int
-mpn_cmp_limb(const mp_limb_t *xp, mp_size_t xn, int32_t num) {
-  mp_limb_t w = 0;
-  mp_limb_t n = num;
-
-#ifdef TORSION_TEST
-  assert(xn == 0 || xp[xn - 1] != 0);
-#endif
-
-  if (num < 0)
-    return 1;
-
-  if (xn > 1)
-    return 1;
-
-  if (xn > 0)
-    w = xp[0];
-
-  return (int)(w > n) - (int)(w < n);
 }
 
 static mp_limb_t
