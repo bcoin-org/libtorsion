@@ -461,11 +461,13 @@ typedef struct _wei_def_s {
 } wei_def_t;
 
 typedef struct _wei_scratch_s {
-  /* 198.5kb */
-  jge_t wnd[64 * 4]; /* 54kb */
-  int32_t naf[64 * (MAX_SCALAR_BITS + 1)]; /* 130.5kb */
-  wge_t points[64]; /* 9.5kb */
-  sc_t coeffs[64]; /* 4.5kb */
+  size_t size;
+  jge_t *wnd;
+  jge_t **wnds;
+  int32_t *naf;
+  int32_t **nafs;
+  wge_t *points;
+  sc_t *coeffs;
 } wei_scratch_t;
 
 /*
@@ -580,11 +582,13 @@ typedef struct _edwards_def_s {
 } edwards_def_t;
 
 typedef struct _edwards_scratch_s {
-  /* 124kb */
-  xge_t wnd[32 * 4]; /* 36kb */
-  int32_t naf[32 * (MAX_SCALAR_BITS + 1)]; /* 65.5kb */
-  xge_t points[64]; /* 18kb */
-  sc_t coeffs[64]; /* 4.5kb */
+  size_t size;
+  xge_t *wnd;
+  xge_t **wnds;
+  int32_t *naf;
+  int32_t **nafs;
+  xge_t *points;
+  sc_t *coeffs;
 } edwards_scratch_t;
 
 /*
@@ -677,6 +681,28 @@ reverse_bytes(unsigned char *raw, size_t size) {
     raw[i++] = raw[j];
     raw[j--] = tmp;
   }
+}
+
+static void *
+safe_malloc(size_t size) {
+  void *ptr;
+
+  if (size == 0)
+    return NULL;
+
+  ptr = malloc(size);
+
+  assert(ptr != NULL);
+
+  memset(ptr, 0, size);
+
+  return ptr;
+}
+
+static void
+safe_free(void *ptr) {
+  if (ptr != NULL)
+    free(ptr);
 }
 
 /*
@@ -2568,11 +2594,9 @@ wge_fixed_points_var(const wei_t *ec, wge_t *out, const wge_t *p) {
   /* NOTE: Only called on initialization. */
   const scalar_field_t *sc = &ec->sc;
   size_t size = FIXED_LENGTH(sc->bits);
-  jge_t *wnds = malloc(size * sizeof(jge_t)); /* 442.2kb */
+  jge_t *wnds = safe_malloc(size * sizeof(jge_t)); /* 442.2kb */
   size_t i, j;
   jge_t g;
-
-  assert(wnds != NULL);
 
   wge_to_jge(ec, &g, p);
 
@@ -2590,7 +2614,7 @@ wge_fixed_points_var(const wei_t *ec, wge_t *out, const wge_t *p) {
 
   jge_to_wge_all_var(ec, out, wnds, size);
 
-  free(wnds);
+  safe_free(wnds);
 }
 
 static void
@@ -2598,11 +2622,9 @@ wge_naf_points_var(const wei_t *ec, wge_t *out,
                    const wge_t *p, size_t width) {
   /* NOTE: Only called on initialization. */
   size_t size = 1 << (width - 1);
-  jge_t *wnd = malloc(size * sizeof(jge_t)); /* 27kb */
+  jge_t *wnd = safe_malloc(size * sizeof(jge_t)); /* 27kb */
   jge_t j, dbl;
   size_t i;
-
-  assert(wnd != NULL);
 
   wge_to_jge(ec, &j, p);
   jge_dbl_var(ec, &dbl, &j);
@@ -2613,7 +2635,7 @@ wge_naf_points_var(const wei_t *ec, wge_t *out,
 
   jge_to_wge_all_var(ec, out, wnd, size);
 
-  free(wnd);
+  safe_free(wnd);
 }
 
 static void
@@ -4365,19 +4387,13 @@ wei_jmul_multi_normal_var(const wei_t *ec,
   const scalar_field_t *sc = &ec->sc;
   const wge_t *wnd0 = ec->wnd_naf;
   int32_t naf0[MAX_SCALAR_BITS + 1]; /* 2088 bytes */
-  jge_t *wnds[32]; /* 256 bytes */
-  int32_t *nafs[32]; /* 256 bytes */
+  jge_t **wnds = scratch->wnds;
+  int32_t **nafs = scratch->nafs;
   size_t max = 0;
   size_t i, j;
 
   assert((len & 1) == 0);
-  assert(len <= 64);
-
-  /* Setup scratch. */
-  for (i = 0; i < 32; i++) {
-    wnds[i] = &scratch->wnd[i * 4];
-    nafs[i] = &scratch->naf[i * (MAX_SCALAR_BITS + 1)];
-  }
+  assert(len <= scratch->size);
 
   /* Compute fixed NAF. */
   ECC_MAX(max, sc_naf_var(sc, naf0, k0, 1, NAF_WIDTH_PRE));
@@ -4441,21 +4457,15 @@ wei_jmul_multi_endo_var(const wei_t *ec,
   const wge_t *wnd1 = ec->wnd_endo;
   int32_t naf0[MAX_SCALAR_BITS + 1]; /* 2088 bytes */
   int32_t naf1[MAX_SCALAR_BITS + 1]; /* 2088 bytes */
-  jge_t *wnds[64]; /* 512 bytes */
-  int32_t *nafs[64]; /* 512 bytes */
+  jge_t **wnds = scratch->wnds;
+  int32_t **nafs = scratch->nafs;
   int32_t s1, s2;
   size_t max = 0;
   size_t i, j;
   sc_t k1, k2;
 
   assert(ec->endo == 1);
-  assert(len <= 64);
-
-  /* Setup scratch. */
-  for (i = 0; i < 64; i++) {
-    wnds[i] = &scratch->wnd[i * 4];
-    nafs[i] = &scratch->naf[i * (MAX_SCALAR_BITS + 1)];
-  }
+  assert(len <= scratch->size);
 
   /* Split scalar. */
   wei_endo_split(ec, k1, &s1, k2, &s2, k0);
@@ -5018,6 +5028,48 @@ wei_point_to_hash(const wei_t *ec,
   wge_cleanse(ec, &p0);
   wge_cleanse(ec, &p1);
   wge_cleanse(ec, &p2);
+}
+
+/*
+ * Short Weierstrass Scratch
+ */
+
+static wei_scratch_t *
+wei_scratch_create(const wei_t *ec, size_t size) {
+  wei_scratch_t *scratch = safe_malloc(sizeof(wei_scratch_t));
+  size_t length = ec->endo ? size : (size >> 1);
+  size_t bits = ec->sc.bits;
+  size_t i;
+
+  assert(size != 0 && (size & 1) == 0);
+
+  scratch->size = size;
+  scratch->wnd = safe_malloc(length * 4 * sizeof(jge_t));
+  scratch->wnds = safe_malloc(length * sizeof(jge_t *));
+  scratch->naf = safe_malloc(length * (bits + 1) * sizeof(int32_t));
+  scratch->nafs = safe_malloc(length * sizeof(int32_t *));
+
+  for (i = 0; i < length; i++) {
+    scratch->wnds[i] = &scratch->wnd[i * 4];
+    scratch->nafs[i] = &scratch->naf[i * (bits + 1)];
+  }
+
+  scratch->points = safe_malloc(size * sizeof(wge_t));
+  scratch->coeffs = safe_malloc(size * sizeof(sc_t));
+
+  return scratch;
+}
+
+static void
+wei_scratch_destroy(const wei_t *ec, wei_scratch_t *scratch) {
+  (void)ec;
+  safe_free(scratch->wnd);
+  safe_free(scratch->wnds);
+  safe_free(scratch->naf);
+  safe_free(scratch->nafs);
+  safe_free(scratch->points);
+  safe_free(scratch->coeffs);
+  safe_free(scratch);
 }
 
 /*
@@ -7020,19 +7072,13 @@ edwards_mul_multi_var(const edwards_t *ec,
   const scalar_field_t *sc = &ec->sc;
   const xge_t *wnd0 = ec->wnd_naf;
   int32_t naf0[MAX_SCALAR_BITS + 1]; /* 2088 bytes */
-  xge_t *wnds[32]; /* 256 bytes */
-  int32_t *nafs[32]; /* 256 bytes */
+  xge_t **wnds = scratch->wnds;
+  int32_t **nafs = scratch->nafs;
   size_t max = 0;
   size_t i, j;
 
   assert((len & 1) == 0);
-  assert(len <= 64);
-
-  /* Setup scratch. */
-  for (i = 0; i < 32; i++) {
-    wnds[i] = &scratch->wnd[i * 4];
-    nafs[i] = &scratch->naf[i * (MAX_SCALAR_BITS + 1)];
-  }
+  assert(len <= scratch->size);
 
   /* Compute fixed NAF. */
   ECC_MAX(max, sc_naf_var(sc, naf0, k0, 1, NAF_WIDTH_PRE));
@@ -7346,6 +7392,48 @@ edwards_point_to_hash(const edwards_t *ec,
   xge_cleanse(ec, &p0);
   xge_cleanse(ec, &p1);
   xge_cleanse(ec, &p2);
+}
+
+/*
+ * Edwards Scratch
+ */
+
+static edwards_scratch_t *
+edwards_scratch_create(const edwards_t *ec, size_t size) {
+  edwards_scratch_t *scratch = safe_malloc(sizeof(edwards_scratch_t));
+  size_t length = size >> 1;
+  size_t bits = ec->sc.bits;
+  size_t i;
+
+  assert(size != 0 && (size & 1) == 0);
+
+  scratch->size = size;
+  scratch->wnd = safe_malloc(length * 4 * sizeof(xge_t));
+  scratch->wnds = safe_malloc(length * sizeof(xge_t *));
+  scratch->naf = safe_malloc(length * (bits + 1) * sizeof(int32_t));
+  scratch->nafs = safe_malloc(length * sizeof(int32_t *));
+
+  for (i = 0; i < length; i++) {
+    scratch->wnds[i] = &scratch->wnd[i * 4];
+    scratch->nafs[i] = &scratch->naf[i * (bits + 1)];
+  }
+
+  scratch->points = safe_malloc(size * sizeof(xge_t));
+  scratch->coeffs = safe_malloc(size * sizeof(sc_t));
+
+  return scratch;
+}
+
+static void
+edwards_scratch_destroy(const edwards_t *ec, edwards_scratch_t *scratch) {
+  (void)ec;
+  safe_free(scratch->wnd);
+  safe_free(scratch->wnds);
+  safe_free(scratch->naf);
+  safe_free(scratch->nafs);
+  safe_free(scratch->points);
+  safe_free(scratch->coeffs);
+  safe_free(scratch);
 }
 
 /*
@@ -8597,10 +8685,7 @@ ecdsa_context_create(int type) {
   if (type < 0 || type > ECDSA_CURVE_MAX)
     return NULL;
 
-  ec = malloc(sizeof(wei_t));
-
-  if (ec == NULL)
-    return NULL;
+  ec = safe_malloc(sizeof(wei_t));
 
   wei_init(ec, wei_curves[type]);
 
@@ -8612,8 +8697,7 @@ ecdsa_context_destroy(wei_t *ec) {
   if (ec != NULL) {
     sc_cleanse(&ec->sc, ec->blind);
     wge_cleanse(ec, &ec->unblind);
-
-    free(ec);
+    safe_free(ec);
   }
 }
 
@@ -8623,16 +8707,14 @@ ecdsa_context_randomize(wei_t *ec, const unsigned char *entropy) {
 }
 
 wei_scratch_t *
-ecdsa_scratch_create(const wei_t *ec) {
-  (void)ec;
-  return malloc(sizeof(wei_scratch_t));
+ecdsa_scratch_create(const wei_t *ec, size_t size) {
+  return wei_scratch_create(ec, size);
 }
 
 void
 ecdsa_scratch_destroy(const wei_t *ec, wei_scratch_t *scratch) {
-  (void)ec;
   if (scratch != NULL)
-    free(scratch);
+    wei_scratch_destroy(ec, scratch);
 }
 
 size_t
@@ -10016,7 +10098,7 @@ ecdsa_schnorr_verify_batch(const wei_t *ec,
 
     j += 2;
 
-    if (j == 64) {
+    if (j == scratch->size) {
       sc_neg(sc, sum, sum);
 
       wei_jmul_multi_var(ec, &r, sum, points, (const sc_t *)coeffs, j, scratch);
@@ -10074,8 +10156,8 @@ schnorr_context_randomize(wei_t *ec, const unsigned char *entropy) {
 }
 
 wei_scratch_t *
-schnorr_scratch_create(const wei_t *ec) {
-  return ecdsa_scratch_create(ec);
+schnorr_scratch_create(const wei_t *ec, size_t size) {
+  return ecdsa_scratch_create(ec, size);
 }
 
 void
@@ -10852,7 +10934,7 @@ schnorr_verify_batch(const wei_t *ec,
 
     j += 2;
 
-    if (j == 64) {
+    if (j == scratch->size) {
       sc_neg(sc, sum, sum);
 
       wei_jmul_multi_var(ec, &r, sum, points, (const sc_t *)coeffs, j, scratch);
@@ -10915,10 +10997,7 @@ ecdh_context_create(int type) {
   if (type < 0 || type > ECDH_CURVE_MAX)
     return NULL;
 
-  ec = malloc(sizeof(mont_t));
-
-  if (ec == NULL)
-    return NULL;
+  ec = safe_malloc(sizeof(mont_t));
 
   mont_init(ec, mont_curves[type]);
 
@@ -10927,8 +11006,7 @@ ecdh_context_create(int type) {
 
 void
 ecdh_context_destroy(mont_t *ec) {
-  if (ec != NULL)
-    free(ec);
+  safe_free(ec);
 }
 
 size_t
@@ -11271,10 +11349,7 @@ eddsa_context_create(int type) {
   if (type < 0 || type > EDDSA_CURVE_MAX)
     return NULL;
 
-  ec = malloc(sizeof(edwards_t));
-
-  if (ec == NULL)
-    return NULL;
+  ec = safe_malloc(sizeof(edwards_t));
 
   edwards_init(ec, edwards_curves[type]);
 
@@ -11286,8 +11361,7 @@ eddsa_context_destroy(edwards_t *ec) {
   if (ec != NULL) {
     sc_cleanse(&ec->sc, ec->blind);
     xge_cleanse(ec, &ec->unblind);
-
-    free(ec);
+    safe_free(ec);
   }
 }
 
@@ -11297,16 +11371,14 @@ eddsa_context_randomize(edwards_t *ec, const unsigned char *entropy) {
 }
 
 edwards_scratch_t *
-eddsa_scratch_create(const edwards_t *ec) {
-  (void)ec;
-  return malloc(sizeof(edwards_scratch_t));
+eddsa_scratch_create(const edwards_t *ec, size_t size) {
+  return edwards_scratch_create(ec, size);
 }
 
 void
 eddsa_scratch_destroy(const edwards_t *ec, edwards_scratch_t *scratch) {
-  (void)ec;
   if (scratch != NULL)
-    free(scratch);
+    edwards_scratch_destroy(ec, scratch);
 }
 
 size_t
@@ -12356,7 +12428,7 @@ eddsa_verify_batch(const edwards_t *ec,
 
     j += 2;
 
-    if (j == 64) {
+    if (j == scratch->size) {
       sc_mul_word(sc, sum, sum, ec->h);
       sc_neg(sc, sum, sum);
 

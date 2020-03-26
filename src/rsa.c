@@ -258,7 +258,7 @@ safe_malloc(size_t size) {
 
   ptr = malloc(size);
 
-  CHECK(ptr != NULL);
+  assert(ptr != NULL);
 
   memset(ptr, 0, size);
 

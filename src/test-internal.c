@@ -1029,7 +1029,7 @@ test_wei_multi_mul_p256(drbg_t *rng) {
   unsigned char q_raw[33];
   size_t q_size;
   scalar_field_t *sc = &ec->sc;
-  wei_scratch_t scratch;
+  wei_scratch_t *scratch;
   wge_t points[2];
   sc_t coeffs[2];
 
@@ -1060,7 +1060,9 @@ test_wei_multi_mul_p256(drbg_t *rng) {
   sc_set(sc, coeffs[0], k1);
   sc_set(sc, coeffs[1], k2);
 
-  wei_mul_multi_var(ec, &q, k0, points, (const sc_t *)coeffs, 2, &scratch);
+  scratch = wei_scratch_create(ec, 2);
+  wei_mul_multi_var(ec, &q, k0, points, (const sc_t *)coeffs, 2, scratch);
+  wei_scratch_destroy(ec, scratch);
 
   assert(wge_equal(ec, &q, &expect));
 
@@ -1306,7 +1308,7 @@ test_wei_multi_mul_secp256k1(drbg_t *rng) {
   unsigned char q_raw[33];
   size_t q_size;
   scalar_field_t *sc = &ec->sc;
-  wei_scratch_t scratch;
+  wei_scratch_t *scratch;
   wge_t points[2];
   sc_t coeffs[2];
 
@@ -1337,7 +1339,9 @@ test_wei_multi_mul_secp256k1(drbg_t *rng) {
   sc_set(sc, coeffs[0], k1);
   sc_set(sc, coeffs[1], k2);
 
-  wei_mul_multi_var(ec, &q, k0, points, (const sc_t *)coeffs, 2, &scratch);
+  scratch = wei_scratch_create(ec, 2);
+  wei_mul_multi_var(ec, &q, k0, points, (const sc_t *)coeffs, 2, scratch);
+  wei_scratch_destroy(ec, scratch);
 
   assert(wge_equal(ec, &q, &expect));
 
@@ -2328,7 +2332,7 @@ test_edwards_multi_mul_ed25519(drbg_t *rng) {
   unsigned char entropy[ENTROPY_SIZE];
   unsigned char q_raw[32];
   scalar_field_t *sc = &ec->sc;
-  edwards_scratch_t scratch;
+  edwards_scratch_t *scratch;
   xge_t points[2];
   sc_t coeffs[2];
 
@@ -2359,7 +2363,9 @@ test_edwards_multi_mul_ed25519(drbg_t *rng) {
   sc_set(sc, coeffs[0], k1);
   sc_set(sc, coeffs[1], k2);
 
-  edwards_mul_multi_var(ec, &q, k0, points, (const sc_t *)coeffs, 2, &scratch);
+  scratch = edwards_scratch_create(ec, 2);
+  edwards_mul_multi_var(ec, &q, k0, points, (const sc_t *)coeffs, 2, scratch);
+  edwards_scratch_destroy(ec, scratch);
 
   assert(xge_equal(ec, &q, &expect));
 
