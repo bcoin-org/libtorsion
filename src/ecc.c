@@ -1143,6 +1143,10 @@ sc_naf_var(const scalar_field_t *sc,
   /* Computing the width-w NAF of a positive integer.
    *
    * [GECC] Algorithm 3.35, Page 100, Section 3.3.
+   *
+   * The above document describes a rather abstract
+   * method of recoding. The more optimal method
+   * below was ported from libsecp256k1.
    */
   size_t max = sc_bitlen_var(sc, k) + 1;
   size_t len = 0;
