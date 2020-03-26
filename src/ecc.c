@@ -213,7 +213,7 @@ typedef uint32_t fe_word_t;
 #define FIXED_SIZE (1 << FIXED_WIDTH) /* 16 */
 #define FIXED_STEPS(bits) (((bits) + FIXED_WIDTH - 1) / FIXED_WIDTH) /* 64 */
 #define FIXED_LENGTH(bits) (FIXED_STEPS(bits) * FIXED_SIZE) /* 1024 */
-#define MAX_FIXED_LENGTH FIXED_LENGTH(MAX_SCALAR_BITS) /* 2096 */
+#define FIXED_MAX_LENGTH FIXED_LENGTH(MAX_SCALAR_BITS) /* 2096 */
 
 #define WND_WIDTH 4
 #define WND_SIZE (1 << WND_WIDTH) /* 16 */
@@ -432,7 +432,7 @@ typedef struct _wei_s {
   wge_t g;
   sc_t blind;
   wge_t unblind;
-  wge_t wnd_fixed[MAX_FIXED_LENGTH]; /* 311.2kb */
+  wge_t wnd_fixed[FIXED_MAX_LENGTH]; /* 311.2kb */
   wge_t wnd_naf[NAF_SIZE_PRE]; /* 19kb */
   wge_t torsion[8];
   int endo;
@@ -461,9 +461,8 @@ typedef struct _wei_def_s {
 } wei_def_t;
 
 typedef struct _wei_scratch_s {
-  /* 209.5kb */
-  jge_t wnd_normal[32 * 4]; /* 27kb */
-  wge_t wnd_endo[64 * 4]; /* 38kb */
+  /* 198.5kb */
+  jge_t wnd[64 * 4]; /* 54kb */
   int32_t naf[64 * (MAX_SCALAR_BITS + 1)]; /* 130.5kb */
   wge_t points[64]; /* 9.5kb */
   sc_t coeffs[64]; /* 4.5kb */
@@ -558,7 +557,7 @@ typedef struct _edwards_s {
   xge_t g;
   sc_t blind;
   xge_t unblind;
-  xge_t wnd_fixed[MAX_FIXED_LENGTH]; /* 589.5kb */
+  xge_t wnd_fixed[FIXED_MAX_LENGTH]; /* 589.5kb */
   xge_t wnd_naf[NAF_SIZE_PRE]; /* 36kb */
   xge_t torsion[8];
 } edwards_t;
@@ -1988,6 +1987,10 @@ static void
 jge_sub_var(const wei_t *ec, jge_t *r, const jge_t *a, const jge_t *b);
 
 static void
+jge_mixed_addsub_var(const wei_t *ec, jge_t *r, const jge_t *a,
+                     const fe_t bx, const fe_t by, int negate);
+
+static void
 jge_mixed_add_var(const wei_t *ec, jge_t *r, const jge_t *a, const wge_t *b);
 
 static void
@@ -2001,6 +2004,9 @@ jge_mixed_add(const wei_t *ec, jge_t *r, const jge_t *a, const wge_t *b);
 
 static void
 jge_to_wge(const wei_t *ec, wge_t *r, const jge_t *p);
+
+static void
+jge_to_wge_var(const wei_t *ec, wge_t *r, const jge_t *p);
 
 static void
 jge_to_wge_all_var(const wei_t *ec, wge_t *out, const jge_t *in, size_t len);
@@ -2626,18 +2632,24 @@ wge_endo_beta(const wei_t *ec, wge_t *r, const wge_t *p) {
 }
 
 static void
-wge_jsf_points_endo(const wei_t *ec, wge_t *out, const wge_t *p1) {
-  /* Runs in constant time despite _var calls. */
-  wge_t p2;
+wge_jsf_points_endo_var(const wei_t *ec, jge_t *out, const wge_t *p1) {
+  wge_t p2, p3;
+  jge_t j1;
+
+  /* P -> J. */
+  wge_to_jge(ec, &j1, p1);
 
   /* Split point. */
   wge_endo_beta(ec, &p2, p1);
 
+  /* No inversion (Y1 = Y2). */
+  wge_add_var(ec, &p3, p1, &p2);
+
   /* Create comb for JSF. */
-  wge_set(ec, &out[0], p1); /* 1 */
-  wge_add_var(ec, &out[1], p1, &p2); /* 3 */
-  wge_sub_var(ec, &out[2], p1, &p2); /* 5 */
-  wge_set(ec, &out[3], &p2); /* 7 */
+  wge_to_jge(ec, &out[0], p1); /* 1 */
+  wge_to_jge(ec, &out[1], &p3); /* 3 */
+  jge_mixed_sub_var(ec, &out[2], &j1, &p2); /* 5 */
+  wge_to_jge(ec, &out[3], &p2); /* 7 */
 }
 
 #ifdef TORSION_TEST
@@ -2721,6 +2733,13 @@ jge_is_zero(const wei_t *ec, const jge_t *a) {
   const prime_field_t *fe = &ec->fe;
 
   return fe_is_zero(fe, a->z);
+}
+
+static int
+jge_is_affine(const wei_t *ec, const jge_t *a) {
+  const prime_field_t *fe = &ec->fe;
+
+  return fe_equal(fe, a->z, fe->one);
 }
 
 static int
@@ -3018,25 +3037,14 @@ jge_dbl_var(const wei_t *ec, jge_t *r, const jge_t *p) {
 }
 
 static void
-jge_add_var(const wei_t *ec, jge_t *r, const jge_t *a, const jge_t *b) {
+jge_addsub_var(const wei_t *ec, jge_t *r,
+               const jge_t *a, const jge_t *b, int negate) {
   /* No assumptions.
    * https://hyperelliptic.org/EFD/g1p/auto-shortw-jacobian.html#addition-add-1998-cmo-2
    * 12M + 4S + 6A + 1*2
    */
   const prime_field_t *fe = &ec->fe;
   fe_t z1z1, z2z2, u1, u2, s1, s2, h, r0, hh, hhh, v;
-
-  /* O + P = P */
-  if (jge_is_zero(ec, a)) {
-    jge_set(ec, r, b);
-    return;
-  }
-
-  /* P + O = P */
-  if (jge_is_zero(ec, b)) {
-    jge_set(ec, r, a);
-    return;
-  }
 
   /* Z1Z1 = Z1^2 */
   fe_sqr(fe, z1z1, a->z);
@@ -3057,6 +3065,10 @@ jge_add_var(const wei_t *ec, jge_t *r, const jge_t *a, const jge_t *b) {
   /* S2 = Y2 * Z1 * Z1Z1 */
   fe_mul(fe, s2, b->y, a->z);
   fe_mul(fe, s2, s2, z1z1);
+
+  /* S2 = -S2 (if subtracting) */
+  if (negate)
+    fe_neg(fe, s2, s2);
 
   /* H = U2 - U1 */
   fe_sub(fe, h, u2, u1);
@@ -3102,14 +3114,54 @@ jge_add_var(const wei_t *ec, jge_t *r, const jge_t *a, const jge_t *b) {
 }
 
 static void
-jge_sub_var(const wei_t *ec, jge_t *r, const jge_t *a, const jge_t *b) {
-  jge_t c;
-  jge_neg(ec, &c, b);
-  jge_add_var(ec, r, a, &c);
+jge_add_var(const wei_t *ec, jge_t *r, const jge_t *a, const jge_t *b) {
+  /* O + P = P */
+  if (jge_is_zero(ec, a)) {
+    jge_set(ec, r, b);
+    return;
+  }
+
+  /* P + O = P */
+  if (jge_is_zero(ec, b)) {
+    jge_set(ec, r, a);
+    return;
+  }
+
+  /* Z2 = 1 */
+  if (jge_is_affine(ec, b)) {
+    jge_mixed_addsub_var(ec, r, a, b->x, b->y, 0);
+    return;
+  }
+
+  jge_addsub_var(ec, r, a, b, 0);
 }
 
 static void
-jge_mixed_add_var(const wei_t *ec, jge_t *r, const jge_t *a, const wge_t *b) {
+jge_sub_var(const wei_t *ec, jge_t *r, const jge_t *a, const jge_t *b) {
+  /* O - P = -P */
+  if (jge_is_zero(ec, a)) {
+    jge_neg(ec, r, b);
+    return;
+  }
+
+  /* P - O = P */
+  if (jge_is_zero(ec, b)) {
+    jge_set(ec, r, a);
+    return;
+  }
+
+  /* Z2 = 1 */
+  if (jge_is_affine(ec, b)) {
+    jge_mixed_addsub_var(ec, r, a, b->x, b->y, 1);
+    return;
+  }
+
+  jge_addsub_var(ec, r, a, b, 1);
+}
+
+static void
+jge_mixed_addsub_var(const wei_t *ec, jge_t *r, const jge_t *a,
+                     const fe_t bx, const fe_t by, int negate) {
   /* Assumes Z2 = 1.
    * https://hyperelliptic.org/EFD/g1p/auto-shortw-jacobian.html#addition-madd
    * 8M + 3S + 6A + 5*2
@@ -3117,27 +3169,19 @@ jge_mixed_add_var(const wei_t *ec, jge_t *r, const jge_t *a, const wge_t *b) {
   const prime_field_t *fe = &ec->fe;
   fe_t z1z1, u2, s2, h, r0, i, j, v;
 
-  /* O + P = P */
-  if (jge_is_zero(ec, a)) {
-    wge_to_jge(ec, r, b);
-    return;
-  }
-
-  /* P + O = P */
-  if (wge_is_zero(ec, b)) {
-    jge_set(ec, r, a);
-    return;
-  }
-
   /* Z1Z1 = Z1^2 */
   fe_sqr(fe, z1z1, a->z);
 
   /* U2 = X2 * Z1Z1 */
-  fe_mul(fe, u2, b->x, z1z1);
+  fe_mul(fe, u2, bx, z1z1);
 
   /* S2 = Y2 * Z1 * Z1Z1 */
-  fe_mul(fe, s2, b->y, a->z);
+  fe_mul(fe, s2, by, a->z);
   fe_mul(fe, s2, s2, z1z1);
+
+  /* S2 = -S2 (if subtracting) */
+  if (negate)
+    fe_neg(fe, s2, s2);
 
   /* H = U2 - X1 */
   fe_sub(fe, h, u2, a->x);
@@ -3186,10 +3230,38 @@ jge_mixed_add_var(const wei_t *ec, jge_t *r, const jge_t *a, const wge_t *b) {
 }
 
 static void
+jge_mixed_add_var(const wei_t *ec, jge_t *r, const jge_t *a, const wge_t *b) {
+  /* O + P = P */
+  if (jge_is_zero(ec, a)) {
+    wge_to_jge(ec, r, b);
+    return;
+  }
+
+  /* P + O = P */
+  if (wge_is_zero(ec, b)) {
+    jge_set(ec, r, a);
+    return;
+  }
+
+  jge_mixed_addsub_var(ec, r, a, b->x, b->y, 0);
+}
+
+static void
 jge_mixed_sub_var(const wei_t *ec, jge_t *r, const jge_t *a, const wge_t *b) {
-  wge_t c;
-  wge_neg(ec, &c, b);
-  jge_mixed_add_var(ec, r, a, &c);
+  /* O - P = -P */
+  if (jge_is_zero(ec, a)) {
+    wge_to_jge(ec, r, b);
+    jge_neg(ec, r, r);
+    return;
+  }
+
+  /* P - O = P */
+  if (wge_is_zero(ec, b)) {
+    jge_set(ec, r, a);
+    return;
+  }
+
+  jge_mixed_addsub_var(ec, r, a, b->x, b->y, 1);
 }
 
 static void
@@ -3564,7 +3636,7 @@ jge_to_wge_var(const wei_t *ec, wge_t *r, const jge_t *p) {
   }
 
   /* Z = 1 */
-  if (fe_equal(fe, p->z, fe->one)) {
+  if (jge_is_affine(ec, p)) {
     fe_set(fe, r->x, p->x);
     fe_set(fe, r->y, p->y);
     r->inf = 0;
@@ -4198,7 +4270,7 @@ wei_jmul_double_endo_var(const wei_t *ec,
   const scalar_field_t *sc = &ec->sc;
   const wge_t *wnd1 = ec->wnd_naf;
   const wge_t *wnd2 = ec->wnd_endo;
-  wge_t wnd3[4]; /* 608 bytes */
+  jge_t wnd3[4]; /* 608 bytes */
   int32_t naf1[MAX_SCALAR_BITS + 1]; /* 2088 bytes */
   int32_t naf2[MAX_SCALAR_BITS + 1]; /* 2088 bytes */
   int32_t naf3[MAX_SCALAR_BITS + 1]; /* 2088 bytes */
@@ -4219,7 +4291,7 @@ wei_jmul_double_endo_var(const wei_t *ec,
   ECC_MAX(max, sc_jsf_var(sc, naf3, c3, s3, c4, s4));
 
   /* Create comb for JSF. */
-  wge_jsf_points_endo(ec, wnd3, p2);
+  wge_jsf_points_endo_var(ec, wnd3, p2);
 
   /* Multiply and add. */
   jge_zero(ec, r);
@@ -4243,9 +4315,9 @@ wei_jmul_double_endo_var(const wei_t *ec,
       jge_mixed_sub_var(ec, r, r, &wnd2[(-z2 - 1) >> 1]);
 
     if (z3 > 0)
-      jge_mixed_add_var(ec, r, r, &wnd3[(z3 - 1) >> 1]);
+      jge_add_var(ec, r, r, &wnd3[(z3 - 1) >> 1]);
     else if (z3 < 0)
-      jge_mixed_sub_var(ec, r, r, &wnd3[(-z3 - 1) >> 1]);
+      jge_sub_var(ec, r, r, &wnd3[(-z3 - 1) >> 1]);
   }
 }
 
@@ -4299,7 +4371,7 @@ wei_jmul_multi_normal_var(const wei_t *ec,
 
   /* Setup scratch. */
   for (i = 0; i < 32; i++) {
-    wnds[i] = &scratch->wnd_normal[i * 4];
+    wnds[i] = &scratch->wnd[i * 4];
     nafs[i] = &scratch->naf[i * (MAX_SCALAR_BITS + 1)];
   }
 
@@ -4365,7 +4437,7 @@ wei_jmul_multi_endo_var(const wei_t *ec,
   const wge_t *wnd1 = ec->wnd_endo;
   int32_t naf0[MAX_SCALAR_BITS + 1]; /* 2088 bytes */
   int32_t naf1[MAX_SCALAR_BITS + 1]; /* 2088 bytes */
-  wge_t *wnds[64]; /* 512 bytes */
+  jge_t *wnds[64]; /* 512 bytes */
   int32_t *nafs[64]; /* 512 bytes */
   int32_t s1, s2;
   size_t max = 0;
@@ -4377,7 +4449,7 @@ wei_jmul_multi_endo_var(const wei_t *ec,
 
   /* Setup scratch. */
   for (i = 0; i < 64; i++) {
-    wnds[i] = &scratch->wnd_endo[i * 4];
+    wnds[i] = &scratch->wnd[i * 4];
     nafs[i] = &scratch->naf[i * (MAX_SCALAR_BITS + 1)];
   }
 
@@ -4396,7 +4468,7 @@ wei_jmul_multi_endo_var(const wei_t *ec,
     ECC_MAX(max, sc_jsf_var(sc, nafs[i], k1, s1, k2, s2));
 
     /* Create comb for JSF. */
-    wge_jsf_points_endo(ec, wnds[i], &points[i]);
+    wge_jsf_points_endo_var(ec, wnds[i], &points[i]);
   }
 
   /* Multiply and add. */
@@ -4423,9 +4495,9 @@ wei_jmul_multi_endo_var(const wei_t *ec,
       int32_t z = nafs[j][i];
 
       if (z > 0)
-        jge_mixed_add_var(ec, r, r, &wnds[j][(z - 1) >> 1]);
+        jge_add_var(ec, r, r, &wnds[j][(z - 1) >> 1]);
       else if (z < 0)
-        jge_mixed_sub_var(ec, r, r, &wnds[j][(-z - 1) >> 1]);
+        jge_sub_var(ec, r, r, &wnds[j][(-z - 1) >> 1]);
     }
   }
 }
