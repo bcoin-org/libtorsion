@@ -101,14 +101,26 @@ mpn_cmp_limb(const mp_limb_t *xp, mp_size_t xn, int32_t num) {
 }
 
 static mp_limb_t
-mpn_get_bit(const mp_limb_t *k, mp_size_t i) {
-  return (k[i / GMP_NUMB_BITS] >> (i % GMP_NUMB_BITS)) & 1;
+mpn_get_bit(const mp_limb_t *xp, mp_size_t i) {
+  return (xp[i / GMP_NUMB_BITS] >> (i % GMP_NUMB_BITS)) & 1;
 }
 
 static mp_limb_t
-mpn_get_bits(const mp_limb_t *k, mp_size_t i, mp_size_t w) {
-  mp_limb_t mask = ((mp_limb_t)1 << w) - 1;
-  return (k[i / GMP_NUMB_BITS] >> (i % GMP_NUMB_BITS)) & mask;
+mpn_get_bits(const mp_limb_t *xp, mp_size_t pos, mp_size_t width) {
+  mp_size_t index = pos / GMP_NUMB_BITS;
+  mp_size_t shift = pos % GMP_NUMB_BITS;
+  mp_limb_t bits;
+
+  bits = (xp[index] >> shift) & (((mp_limb_t)1 << width) - 1);
+
+  if (shift + width > (mp_size_t)GMP_NUMB_BITS) {
+    mp_size_t more = shift + width - GMP_NUMB_BITS;
+    mp_limb_t next = xp[index + 1] & (((mp_limb_t)1 << more) - 1);
+
+    bits |= next << (GMP_NUMB_BITS - shift);
+  }
+
+  return bits;
 }
 
 static void

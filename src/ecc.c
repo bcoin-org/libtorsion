@@ -209,11 +209,15 @@ typedef uint32_t fe_word_t;
 #define MAX_SIG_SIZE (MAX_FIELD_SIZE + MAX_SCALAR_SIZE)
 #define MAX_DER_SIZE (9 + MAX_SIG_SIZE)
 
+#define FIXED_WIDTH 4
+#define FIXED_SIZE (1 << FIXED_WIDTH) /* 16 */
+#define FIXED_STEPS(bits) (((bits) + FIXED_WIDTH - 1) / FIXED_WIDTH) /* 64 */
+#define FIXED_LENGTH(bits) (FIXED_STEPS(bits) * FIXED_SIZE) /* 1024 */
+#define MAX_FIXED_LENGTH FIXED_LENGTH(MAX_SCALAR_BITS) /* 2096 */
+
 #define WND_WIDTH 4
 #define WND_SIZE (1 << WND_WIDTH) /* 16 */
 #define WND_STEPS(bits) (((bits) + WND_WIDTH - 1) / WND_WIDTH) /* 64 */
-#define WNDS_SIZE(bits) (WND_STEPS(bits) * WND_SIZE) /* 1024 */
-#define MAX_WNDS_SIZE WNDS_SIZE(MAX_SCALAR_BITS) /* 2096 */
 
 #define NAF_WIDTH 4
 #define NAF_SIZE (1 << (NAF_WIDTH - 1)) /* 8 */
@@ -422,7 +426,7 @@ typedef struct _wei_s {
   wge_t g;
   sc_t blind;
   wge_t unblind;
-  wge_t wnd_fixed[MAX_WNDS_SIZE]; /* 311.2kb */
+  wge_t wnd_fixed[MAX_FIXED_LENGTH]; /* 311.2kb */
   wge_t wnd_naf[NAF_SIZE_PRE]; /* 19kb */
   wge_t torsion[8];
   int endo;
@@ -548,7 +552,7 @@ typedef struct _edwards_s {
   xge_t g;
   sc_t blind;
   xge_t unblind;
-  xge_t wnd_fixed[MAX_WNDS_SIZE]; /* 589.5kb */
+  xge_t wnd_fixed[MAX_FIXED_LENGTH]; /* 589.5kb */
   xge_t wnd_naf[NAF_SIZE_PRE]; /* 36kb */
   xge_t torsion[8];
 } edwards_t;
@@ -2618,7 +2622,7 @@ static void
 wge_fixed_points_var(const wei_t *ec, wge_t *out, const wge_t *p) {
   /* NOTE: Only called on initialization. */
   const scalar_field_t *sc = &ec->sc;
-  size_t size = WNDS_SIZE(sc->bits);
+  size_t size = FIXED_LENGTH(sc->bits);
   jge_t *wnds = malloc(size * sizeof(jge_t)); /* 442.2kb */
   size_t i, j;
   jge_t g;
@@ -2627,13 +2631,15 @@ wge_fixed_points_var(const wei_t *ec, wge_t *out, const wge_t *p) {
 
   wge_to_jge(ec, &g, p);
 
-  for (i = 0; i < WND_STEPS(sc->bits); i++) {
-    jge_zero(ec, &wnds[i * WND_SIZE]);
+  for (i = 0; i < FIXED_STEPS(sc->bits); i++) {
+    jge_t *wnd = &wnds[i * FIXED_SIZE];
 
-    for (j = 1; j < WND_SIZE; j++)
-      jge_add_var(ec, &wnds[i * WND_SIZE + j], &wnds[i * WND_SIZE + j - 1], &g);
+    jge_zero(ec, &wnd[0]);
 
-    for (j = 0; j < WND_WIDTH; j++)
+    for (j = 1; j < FIXED_SIZE; j++)
+      jge_add_var(ec, &wnd[j], &wnd[j - 1], &g);
+
+    for (j = 0; j < FIXED_WIDTH; j++)
       jge_dbl_var(ec, &g, &g);
   }
 
@@ -4026,11 +4032,11 @@ wei_jmul_g(const wei_t *ec, jge_t *r, const sc_t k) {
   wge_to_jge(ec, r, &ec->unblind);
   wge_zero(ec, &t);
 
-  for (i = 0; i < WND_STEPS(sc->bits); i++) {
-    b = sc_get_bits(sc, k0, i * WND_WIDTH, WND_WIDTH);
+  for (i = 0; i < FIXED_STEPS(sc->bits); i++) {
+    b = sc_get_bits(sc, k0, i * FIXED_WIDTH, FIXED_WIDTH);
 
-    for (j = 0; j < WND_SIZE; j++)
-      wge_select(ec, &t, &t, &wnds[i * WND_SIZE + j], j == b);
+    for (j = 0; j < FIXED_SIZE; j++)
+      wge_select(ec, &t, &t, &wnds[i * FIXED_SIZE + j], j == b);
 
     jge_mixed_add(ec, r, r, &t);
   }
@@ -6609,13 +6615,15 @@ xge_fixed_points(const edwards_t *ec, xge_t *out, const xge_t *p) {
 
   xge_set(ec, &g, p);
 
-  for (i = 0; i < WND_STEPS(sc->bits); i++) {
-    xge_zero(ec, &out[i * WND_SIZE]);
+  for (i = 0; i < FIXED_STEPS(sc->bits); i++) {
+    xge_t *wnd = &out[i * FIXED_SIZE];
 
-    for (j = 1; j < WND_SIZE; j++)
-      xge_add(ec, &out[i * WND_SIZE + j], &out[i * WND_SIZE + j - 1], &g);
+    xge_zero(ec, &wnd[0]);
 
-    for (j = 0; j < WND_WIDTH; j++)
+    for (j = 1; j < FIXED_SIZE; j++)
+      xge_add(ec, &wnd[j], &wnd[j - 1], &g);
+
+    for (j = 0; j < FIXED_WIDTH; j++)
       xge_dbl(ec, &g, &g);
   }
 }
@@ -6878,11 +6886,11 @@ edwards_mul_g(const edwards_t *ec, xge_t *r, const sc_t k) {
   xge_set(ec, r, &ec->unblind);
   xge_zero(ec, &t);
 
-  for (i = 0; i < WND_STEPS(sc->bits); i++) {
-    b = sc_get_bits(sc, k0, i * WND_WIDTH, WND_WIDTH);
+  for (i = 0; i < FIXED_STEPS(sc->bits); i++) {
+    b = sc_get_bits(sc, k0, i * FIXED_WIDTH, FIXED_WIDTH);
 
-    for (j = 0; j < WND_SIZE; j++)
-      xge_select(ec, &t, &t, &wnds[i * WND_SIZE + j], j == b);
+    for (j = 0; j < FIXED_SIZE; j++)
+      xge_select(ec, &t, &t, &wnds[i * FIXED_SIZE + j], j == b);
 
     xge_add(ec, r, r, &t);
   }
