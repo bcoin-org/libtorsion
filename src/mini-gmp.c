@@ -96,6 +96,67 @@
   assert(__cy == 0);               \
 } while (0)
 
+#ifdef TORSION_USE_ASM
+
+#define gmp_clz(count, x) do { \
+  uint64_t __cbtmp;            \
+  assert((x) != 0);            \
+  __asm__ (                    \
+    "bsr %1, %0\n"             \
+    : "=r" (__cbtmp)           \
+    : "rm" ((uint64_t)(x))     \
+  );                           \
+  (count) = __cbtmp ^ 63;      \
+} while (0)
+
+#define gmp_ctz(count, x) do { \
+  uint64_t __cbtmp;            \
+  assert((x) != 0);            \
+  __asm__ (                    \
+    "bsf %1, %q0\n"            \
+    : "=r" (__cbtmp)           \
+    : "rm" ((uint64_t)(x))     \
+  );                           \
+  (count) = __cbtmp;           \
+} while (0)
+
+#define gmp_add_ssaaaa(sh, sl, ah, al, bh, bl)      \
+  __asm__ (                                         \
+    "addq %5, %q1\n"                                \
+    "adcq %3, %q0\n"                                \
+    : "=r" (sh), "=&r" (sl)                         \
+    : "0" ((uint64_t)(ah)), "rme" ((uint64_t)(bh)), \
+      "%1" ((uint64_t)(al)), "rme" ((uint64_t)(bl)) \
+  )
+
+#define gmp_sub_ddmmss(sh, sl, ah, al, bh, bl)      \
+  __asm__ (                                         \
+    "subq %5, %q1\n"                                \
+    "sbbq %3, %q0\n"                                \
+    : "=r" (sh), "=&r" (sl)                         \
+    : "0" ((uint64_t)(ah)), "rme" ((uint64_t)(bh)), \
+      "1" ((uint64_t)(al)), "rme" ((uint64_t)(bl))  \
+  )
+
+#define gmp_umul_ppmm(w1, w0, u, v) \
+  __asm__ (                         \
+    "mulq %3\n"                     \
+    : "=a" (w0), "=d" (w1)          \
+    : "%0" ((uint64_t)(u)),         \
+      "rm" ((uint64_t)(v))          \
+  )
+
+#define gmp_udiv_qrnnd(q, r, n1, n0, dx) \
+  __asm__ (                              \
+    "divq %4\n"                          \
+    : "=a" (q), "=d" (r)                 \
+    : "0" ((uint64_t)(n0)),              \
+      "1" ((uint64_t)(n1)),              \
+      "rm" ((uint64_t)(dx))              \
+  )
+
+#else /* TORSION_USE_ASM */
+
 #define gmp_clz(count, x) do {                                        \
   mp_limb_t __clz_x = (x);                                            \
   unsigned __clz_c = 0;                                               \
@@ -132,15 +193,7 @@
   (sl) = __x;                                       \
 } while (0)
 
-#if defined(TORSION_USE_ASM)
-#define gmp_umul_ppmm(w1, w0, u, v) \
-  __asm__ __volatile__(             \
-    "mulq %3\n"                     \
-    : "=d" (w1), "=a" (w0)          \
-    : "a" (u), "m" (v)              \
-    : "cc"                          \
-  )
-#elif defined(MINI_GMP_FIXED_LIMBS)
+#ifdef MINI_GMP_FIXED_LIMBS
 #define gmp_umul_ppmm(w1, w0, u, v) do {   \
   mp_wide_t __ww = (mp_wide_t)(u) * (v);   \
   w0 = (mp_limb_t)__ww;                    \
@@ -183,6 +236,8 @@
   }                                                                           \
 } while (0)
 #endif
+
+#endif /* TORSION_USE_ASM */
 
 #define gmp_udiv_qrnnd_preinv(q, r, nh, nl, d, di) do {      \
   mp_limb_t _qh, _ql, _r, _mask;                             \
