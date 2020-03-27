@@ -132,7 +132,15 @@
   (sl) = __x;                                       \
 } while (0)
 
-#ifdef MINI_GMP_FIXED_LIMBS
+#if defined(TORSION_USE_ASM)
+#define gmp_umul_ppmm(w1, w0, u, v) \
+  __asm__ __volatile__(             \
+    "mulq %3\n"                     \
+    : "=d" (w1), "=a" (w0)          \
+    : "a" (u), "m" (v)              \
+    : "cc"                          \
+  )
+#elif defined(MINI_GMP_FIXED_LIMBS)
 #define gmp_umul_ppmm(w1, w0, u, v) do {   \
   mp_wide_t __ww = (mp_wide_t)(u) * (v);   \
   w0 = (mp_limb_t)__ww;                    \
@@ -407,7 +415,8 @@ mpn_copyi(mp_ptr d, mp_srcptr s, mp_size_t n) {
     "mov %%rax, 8(%%rdi)\n"
     "lea 8(%%rdi), %%rdi\n"
     "lea 8(%%rsi), %%rsi\n"
-    "3: shr %%edx\n"
+    "3:\n"
+    "shr %%edx\n"
     "jnc 4f\n"
     "mov (%%rsi), %%rax\n"
     "mov 8(%%rsi), %%r9\n"
@@ -520,6 +529,48 @@ mpn_zero(mp_ptr rp, mp_size_t n) {
     rp[n] = 0;
 }
 
+/* Slow, but probably more constant-time
+ * than the C code below. This is only
+ * half necessary as modern versions
+ * of GCC will compile mpn_add_1 as
+ * constant-time, which is not the case
+ * for mpn_sub_1.
+ *
+ * Registers:
+ *
+ *   %rdi = rp
+ *   %rsi = ap
+ *   %rcx = n
+ *   %rdx = b
+ *   %rax = cy
+ */
+#define AORS_1(ADDSUB, ADCSBB) \
+  __asm__ __volatile__(        \
+    "mov (%%rsi), %%rax\n"     \
+    ADDSUB " %%rdx, %%rax\n"   \
+    "mov %%rax, (%%rdi)\n"     \
+    "dec %%rcx\n"              \
+    "jz 2f\n"                  \
+                               \
+    ".align 16\n"              \
+    "1:\n"                     \
+    "lea 8(%%rsi), %%rsi\n"    \
+    "lea 8(%%rdi), %%rdi\n"    \
+    "mov (%%rsi), %%rax\n"     \
+    ADCSBB " $0, %%rax\n"      \
+    "mov %%rax, (%%rdi)\n"     \
+    "dec %%rcx\n"              \
+    "jnz 1b\n"                 \
+                               \
+    "2:\n"                     \
+    "mov $0, %%rax\n"          \
+    "adc $0, %%rax\n"          \
+    : "=a" (b)                 \
+    : "D" (rp), "S" (ap),      \
+      "c" (n), "d" (b)         \
+    : "cc", "memory"           \
+  );
+
 /* From:
  * https://gmplib.org/repo/gmp-6.2/file/tip/mpn/x86_64/aors_n.asm
  *
@@ -628,6 +679,10 @@ mpn_zero(mp_ptr rp, mp_size_t n) {
 
 mp_limb_t
 mpn_add_1(mp_ptr rp, mp_srcptr ap, mp_size_t n, mp_limb_t b) {
+#ifdef TORSION_USE_ASM
+  AORS_1("add", "adc")
+  return b;
+#else
   mp_size_t i;
 
   assert(n > 0);
@@ -642,6 +697,7 @@ mpn_add_1(mp_ptr rp, mp_srcptr ap, mp_size_t n, mp_limb_t b) {
   } while (++i < n);
 
   return b;
+#endif
 }
 
 mp_limb_t
@@ -684,6 +740,10 @@ mpn_add(mp_ptr rp, mp_srcptr ap, mp_size_t an, mp_srcptr bp, mp_size_t bn) {
 
 mp_limb_t
 mpn_sub_1(mp_ptr rp, mp_srcptr ap, mp_size_t n, mp_limb_t b) {
+#ifdef TORSION_USE_ASM
+  AORS_1("sub", "sbb")
+  return b;
+#else
   mp_size_t i;
 
   assert(n > 0);
@@ -699,6 +759,7 @@ mpn_sub_1(mp_ptr rp, mp_srcptr ap, mp_size_t n, mp_limb_t b) {
   } while (++i < n);
 
   return b;
+#endif
 }
 
 mp_limb_t
