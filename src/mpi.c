@@ -2192,81 +2192,39 @@ mpn_sec_eq(mp_srcptr xp, mp_srcptr yp, mp_size_t n) {
 int
 mpn_sec_lt(mp_srcptr xp, mp_srcptr yp, mp_size_t n) {
   /* Compute (x < y) in constant time. */
-#ifdef MINI_GMP_FIXED_LIMBS
-  size_t shift = sizeof(mp_wide_t) * CHAR_BIT - 1;
-  mp_wide_t eq = 1;
-  mp_wide_t lt = 0;
-  mp_wide_t a, b;
+  size_t shift = GMP_LIMB_BITS - 1;
+  mp_size_t i = n * 2;
+  mp_limb_t eq = 1;
+  mp_limb_t lt = 0;
+  mp_limb_t a, b;
 
-  while (n--) {
-    a = xp[n];
-    b = yp[n];
+  while (i--) {
+    a = xp[i / 2] >> ((i % 2) * (GMP_LIMB_BITS / 2));
+    b = yp[i / 2] >> ((i % 2) * (GMP_LIMB_BITS / 2));
     lt = ((eq ^ 1) & lt) | (eq & ((a - b) >> shift));
     eq &= ((a ^ b) - 1) >> shift;
   }
 
   return lt & (eq ^ 1);
-#else
-  size_t shift = GMP_LIMB_BITS - 1;
-  mp_limb_t eq = 1;
-  mp_limb_t lt = 0;
-  mp_limb_t ah, al, bh, bl;
-
-  while (n--) {
-    ah = xp[n] >> (GMP_LIMB_BITS / 2);
-    al = xp[n] & GMP_LLIMB_MASK;
-    bh = yp[n] >> (GMP_LIMB_BITS / 2);
-    bl = yp[n] & GMP_LLIMB_MASK;
-
-    lt = ((eq ^ 1) & lt) | (eq & ((ah - bh) >> shift));
-    eq &= ((ah ^ bh) - 1) >> shift;
-
-    lt = ((eq ^ 1) & lt) | (eq & ((al - bl) >> shift));
-    eq &= ((al ^ bl) - 1) >> shift;
-  }
-
-  return lt & (eq ^ 1);
-#endif
 }
 
 int
 mpn_sec_lte(mp_srcptr xp, mp_srcptr yp, mp_size_t n) {
   /* Compute (x <= y) in constant time. */
-#ifdef MINI_GMP_FIXED_LIMBS
-  size_t shift = sizeof(mp_wide_t) * CHAR_BIT - 1;
-  mp_wide_t eq = 1;
-  mp_wide_t lt = 0;
-  mp_wide_t a, b;
+  size_t shift = GMP_LIMB_BITS - 1;
+  mp_size_t i = n * 2;
+  mp_limb_t eq = 1;
+  mp_limb_t lt = 0;
+  mp_limb_t a, b;
 
-  while (n--) {
-    a = xp[n];
-    b = yp[n];
+  while (i--) {
+    a = xp[i / 2] >> ((i % 2) * (GMP_LIMB_BITS / 2));
+    b = yp[i / 2] >> ((i % 2) * (GMP_LIMB_BITS / 2));
     lt = ((eq ^ 1) & lt) | (eq & ((a - b) >> shift));
     eq &= ((a ^ b) - 1) >> shift;
   }
 
   return lt | eq;
-#else
-  size_t shift = GMP_LIMB_BITS - 1;
-  mp_limb_t eq = 1;
-  mp_limb_t lt = 0;
-  mp_limb_t ah, al, bh, bl;
-
-  while (n--) {
-    ah = xp[n] >> (GMP_LIMB_BITS / 2);
-    al = xp[n] & GMP_LLIMB_MASK;
-    bh = yp[n] >> (GMP_LIMB_BITS / 2);
-    bl = yp[n] & GMP_LLIMB_MASK;
-
-    lt = ((eq ^ 1) & lt) | (eq & ((ah - bh) >> shift));
-    eq &= ((ah ^ bh) - 1) >> shift;
-
-    lt = ((eq ^ 1) & lt) | (eq & ((al - bl) >> shift));
-    eq &= ((al ^ bl) - 1) >> shift;
-  }
-
-  return lt | eq;
-#endif
 }
 
 int
