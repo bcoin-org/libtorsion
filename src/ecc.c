@@ -833,8 +833,8 @@ sc_set_fe(const scalar_field_t *sc,
   if (fe->size > sc->size) {
     fe_export(fe, raw, a);
     sc_import_wide(sc, r, raw, fe->size);
-    sc_export(sc, raw, r);
-    return bytes_lt(raw, sc->raw, sc->size, sc->endian);
+    return bytes_lt(raw + fe->size - sc->size, sc->raw, sc->size, sc->endian)
+         & bytes_zero(raw, fe->size - sc->size);
   }
 
   fe_export(fe, raw, a);
