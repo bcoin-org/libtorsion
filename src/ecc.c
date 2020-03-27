@@ -192,17 +192,16 @@ typedef uint32_t fe_word_t;
 
 #define MAX_FIELD_BITS 521
 #define MAX_FIELD_SIZE 66
-#define MAX_FIELD_LIMBS \
-  ((MAX_FIELD_BITS + GMP_NUMB_BITS - 1) / GMP_NUMB_BITS)
+#define MAX_FIELD_LIMBS ((MAX_FIELD_BITS + GMP_NUMB_BITS - 1) / GMP_NUMB_BITS)
 #define MAX_FIELD_SHIFT \
   ((MAX_FIELD_WORDS * FIELD_WORD_BITS * 2 + GMP_NUMB_BITS - 1) / GMP_NUMB_BITS)
 
 #define MAX_SCALAR_BITS 521
 #define MAX_SCALAR_SIZE 66
-#define MAX_SCALAR_LIMBS \
-  ((MAX_SCALAR_BITS + GMP_NUMB_BITS - 1) / GMP_NUMB_BITS)
+#define MAX_SCALAR_LIMBS ((MAX_SCALAR_BITS + GMP_NUMB_BITS - 1) / GMP_NUMB_BITS)
 #define MAX_REDUCE_LIMBS (MAX_SCALAR_LIMBS * 2 + 2)
 #define MAX_ENDO_BITS ((MAX_SCALAR_BITS + 1) / 2 + 1)
+#define MAX_ENDO_LIMBS ((MAX_ENDO_BITS + GMP_NUMB_BITS - 1) / GMP_NUMB_BITS)
 
 #define MAX_ELEMENT_SIZE MAX_FIELD_SIZE
 
@@ -250,6 +249,7 @@ typedef struct _scalar_field_s {
   mp_limb_t nh[MAX_REDUCE_LIMBS];
   mp_limb_t m[MAX_REDUCE_LIMBS];
   mp_size_t limbs;
+  mp_size_t endo_limbs;
   sc_invert_func *invert;
 } scalar_field_t;
 
@@ -1033,19 +1033,30 @@ static void
 sc_mulshift(const scalar_field_t *sc, sc_t r,
             const sc_t a, const sc_t b,
             size_t shift) {
-  /* Compute r = round((a * b) >> 272). */
-  mp_limb_t scratch[MAX_SCALAR_LIMBS * 2 + 1]; /* 152 bytes */
+  /* Computes `r = round((a * b) >> 272)`.
+   *
+   * Constant time assuming `shift` is constant.
+   *
+   * Note that `b` must be less than or equal
+   * to `(scalar_bits + 1) / 2 + 1 + 16` bits.
+   *
+   * If `shift` is aligned to the limb size,
+   * this function may leak a single bit of
+   * information, however, this is never the
+   * case with secp256k1.
+   */
+  mp_limb_t scratch[MAX_SCALAR_LIMBS + MAX_ENDO_LIMBS + 1 + 1]; /* 128 bytes */
   mp_size_t limbs = shift / GMP_NUMB_BITS;
   mp_size_t left = shift % GMP_NUMB_BITS;
   mp_limb_t *rp = scratch;
-  mp_size_t rn = sc->limbs * 2;
+  mp_size_t rn = sc->limbs + sc->endo_limbs + 1;
   mp_limb_t bit, cy;
 
   assert(shift > sc->bits);
+  assert(rn > limbs);
 
   /* r = a * b */
-  mpn_mul_n(rp, a, b, sc->limbs);
-  rp[rn] = 0;
+  mpn_mul(rp, a, sc->limbs, b, sc->endo_limbs + 1);
 
   /* bit = (r >> 271) & 1 */
   bit = mpn_get_bit(rp, rn, shift - 1);
@@ -1054,26 +1065,25 @@ sc_mulshift(const scalar_field_t *sc, sc_t r,
   rp += limbs;
   rn -= limbs;
 
-  assert(rn > 0);
-
-  /* r >>= 16 */
-  if (left != 0) {
+  if (left == 0) {
+    /* r += bit (leaky) */
+    rp[rn] = mpn_add_1(rp, rp, rn, bit);
+    rn += rp[rn];
+  } else {
+    /* r >>= 16 */
     mpn_rshift(rp, rp, rn, left);
-    rn -= (rp[rn - 1] == 0);
+
+    /* r += bit */
+    cy = mpn_add_1(rp, rp, rn, bit);
+    assert(cy == 0);
   }
 
-  /* r += bit */
-  rn += 1;
-  cy = mpn_add_1(rp, rp, rn, bit);
-  rn -= (rp[rn - 1] == 0);
-
-  assert(cy == 0);
   assert(rn <= sc->limbs);
 
-  mpn_zero(r + rn, sc->limbs - rn);
   mpn_copyi(r, rp, rn);
+  mpn_zero(r + rn, sc->limbs - rn);
 
-  mpn_cleanse(scratch, sc->limbs * 2 + 1);
+  mpn_cleanse(scratch, sc->limbs + sc->endo_limbs + 1 + 1);
 
 #ifdef TORSION_TEST
   assert(mpn_cmp(r, sc->n, sc->limbs) < 0);
@@ -1144,11 +1154,13 @@ sc_bitlen_var(const scalar_field_t *sc, const sc_t a) {
 
 static mp_limb_t
 sc_get_bit(const scalar_field_t *sc, const sc_t k, size_t i) {
+  /* Constant time assuming `i` is constant. */
   return mpn_get_bit(k, sc->limbs, i);
 }
 
 static mp_limb_t
 sc_get_bits(const scalar_field_t *sc, const sc_t k, size_t i, size_t w) {
+  /* Constant time assuming `i` is constant. */
   return mpn_get_bits(k, sc->limbs, i, w);
 }
 
@@ -1903,6 +1915,7 @@ scalar_field_init(scalar_field_t *sc, const scalar_def_t *def, int endian) {
   sc->size = (def->bits + 7) / 8;
   sc->bits = def->bits;
   sc->endo_bits = (def->bits + 1) / 2 + 1;
+  sc->endo_limbs = (sc->endo_bits + GMP_NUMB_BITS - 1) / GMP_NUMB_BITS;
   sc->shift = sc->limbs * 2 + 2;
 
   /* Deserialize order into GMP limbs. */
