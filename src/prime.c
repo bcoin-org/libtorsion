@@ -9,8 +9,8 @@
 void
 mpz_random_bits(mpz_t ret, size_t bits, drbg_t *rng) {
   /* Assumes nails are not enabled. */
-  size_t size = (bits + GMP_NUMB_BITS - 1) / GMP_NUMB_BITS;
-  size_t low = bits % GMP_NUMB_BITS;
+  size_t size = (bits + GMP_LIMB_BITS - 1) / GMP_LIMB_BITS;
+  size_t low = bits % GMP_LIMB_BITS;
   mp_limb_t *limbs = mpz_limbs_write(ret, size);
 
   drbg_generate(rng, limbs, size * sizeof(mp_limb_t));

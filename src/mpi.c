@@ -2166,6 +2166,7 @@ mpn_cnd_zero(mp_limb_t cnd, mp_ptr rp, mp_srcptr ap, mp_size_t n) {
 int
 mpn_sec_zero_p(mp_srcptr xp, mp_size_t xn) {
   /* Compute (x == 0) in constant time. */
+#ifdef MINI_GMP_FIXED_LIMBS
   size_t shift = sizeof(mp_wide_t) * CHAR_BIT - 1;
   mp_wide_t w = 0;
 
@@ -2173,11 +2174,22 @@ mpn_sec_zero_p(mp_srcptr xp, mp_size_t xn) {
     w |= (mp_wide_t)xp[xn];
 
   return (w - 1) >> shift;
+#else
+  mp_limb_t w = 0;
+
+  while (n--)
+    w |= xp[n];
+
+  w = (w & GMP_LLIMB_MASK) | (w >> (GMP_LIMB_BITS / 2));
+
+  return (w - 1) >> (GMP_LIMB_BITS - 1);
+#endif
 }
 
 int
 mpn_sec_eq(mp_srcptr xp, mp_srcptr yp, mp_size_t n) {
   /* Compute (x == y) in constant time. */
+#ifdef MINI_GMP_FIXED_LIMBS
   size_t shift = sizeof(mp_wide_t) * CHAR_BIT - 1;
   mp_wide_t w = 0;
 
@@ -2185,11 +2197,22 @@ mpn_sec_eq(mp_srcptr xp, mp_srcptr yp, mp_size_t n) {
     w |= (mp_wide_t)xp[n] ^ (mp_wide_t)yp[n];
 
   return (w - 1) >> shift;
+#else
+  mp_limb_t w = 0;
+
+  while (n--)
+    w |= xp[n] ^ yp[n];
+
+  w = (w & GMP_LLIMB_MASK) | (w >> (GMP_LIMB_BITS / 2));
+
+  return (w - 1) >> (GMP_LIMB_BITS - 1);
+#endif
 }
 
 int
 mpn_sec_lt(mp_srcptr xp, mp_srcptr yp, mp_size_t n) {
   /* Compute (x < y) in constant time. */
+#ifdef MINI_GMP_FIXED_LIMBS
   size_t shift = sizeof(mp_wide_t) * CHAR_BIT - 1;
   mp_wide_t eq = 1;
   mp_wide_t lt = 0;
@@ -2203,11 +2226,33 @@ mpn_sec_lt(mp_srcptr xp, mp_srcptr yp, mp_size_t n) {
   }
 
   return lt & (eq ^ 1);
+#else
+  size_t shift = GMP_LIMB_BITS - 1;
+  mp_limb_t eq = 1;
+  mp_limb_t lt = 0;
+  mp_limb_t ah, al, bh, bl;
+
+  while (n--) {
+    ah = xp[n] >> (GMP_LIMB_BITS / 2);
+    al = xp[n] & GMP_LLIMB_MASK;
+    bh = yp[n] >> (GMP_LIMB_BITS / 2);
+    bl = yp[n] & GMP_LLIMB_MASK;
+
+    lt = ((eq ^ 1) & lt) | (eq & ((ah - bh) >> shift));
+    eq &= ((ah ^ bh) - 1) >> shift;
+
+    lt = ((eq ^ 1) & lt) | (eq & ((al - bl) >> shift));
+    eq &= ((al ^ bl) - 1) >> shift;
+  }
+
+  return lt & (eq ^ 1);
+#endif
 }
 
 int
 mpn_sec_lte(mp_srcptr xp, mp_srcptr yp, mp_size_t n) {
-  /* Compute (x < y) in constant time. */
+  /* Compute (x <= y) in constant time. */
+#ifdef MINI_GMP_FIXED_LIMBS
   size_t shift = sizeof(mp_wide_t) * CHAR_BIT - 1;
   mp_wide_t eq = 1;
   mp_wide_t lt = 0;
@@ -2221,6 +2266,27 @@ mpn_sec_lte(mp_srcptr xp, mp_srcptr yp, mp_size_t n) {
   }
 
   return lt | eq;
+#else
+  size_t shift = GMP_LIMB_BITS - 1;
+  mp_limb_t eq = 1;
+  mp_limb_t lt = 0;
+  mp_limb_t ah, al, bh, bl;
+
+  while (n--) {
+    ah = xp[n] >> (GMP_LIMB_BITS / 2);
+    al = xp[n] & GMP_LLIMB_MASK;
+    bh = yp[n] >> (GMP_LIMB_BITS / 2);
+    bl = yp[n] & GMP_LLIMB_MASK;
+
+    lt = ((eq ^ 1) & lt) | (eq & ((ah - bh) >> shift));
+    eq &= ((ah ^ bh) - 1) >> shift;
+
+    lt = ((eq ^ 1) & lt) | (eq & ((al - bl) >> shift));
+    eq &= ((al ^ bl) - 1) >> shift;
+  }
+
+  return lt | eq;
+#endif
 }
 
 int
@@ -2252,8 +2318,8 @@ mpn_bitlen(mp_srcptr xp, mp_size_t xn) {
 
 mp_limb_t
 mpn_get_bit(mp_srcptr xp, mp_size_t xn, mp_size_t pos) {
-  mp_size_t index = pos / GMP_NUMB_BITS;
-  mp_size_t shift = pos % GMP_NUMB_BITS;
+  mp_size_t index = pos / GMP_LIMB_BITS;
+  mp_size_t shift = pos % GMP_LIMB_BITS;
 
   if (index >= xn)
     return 0;
@@ -2263,8 +2329,8 @@ mpn_get_bit(mp_srcptr xp, mp_size_t xn, mp_size_t pos) {
 
 mp_limb_t
 mpn_get_bits(mp_srcptr xp, mp_size_t xn, mp_size_t pos, mp_size_t width) {
-  mp_size_t index = pos / GMP_NUMB_BITS;
-  mp_size_t shift = pos % GMP_NUMB_BITS;
+  mp_size_t index = pos / GMP_LIMB_BITS;
+  mp_size_t shift = pos % GMP_LIMB_BITS;
   mp_limb_t bits;
 
   if (index >= xn)
@@ -2272,11 +2338,11 @@ mpn_get_bits(mp_srcptr xp, mp_size_t xn, mp_size_t pos, mp_size_t width) {
 
   bits = (xp[index] >> shift) & (((mp_limb_t)1 << width) - 1);
 
-  if (shift + width > (mp_size_t)GMP_NUMB_BITS && index + 1 < xn) {
-    mp_size_t more = shift + width - GMP_NUMB_BITS;
+  if (shift + width > (mp_size_t)GMP_LIMB_BITS && index + 1 < xn) {
+    mp_size_t more = shift + width - GMP_LIMB_BITS;
     mp_limb_t next = xp[index + 1] & (((mp_limb_t)1 << more) - 1);
 
-    bits |= next << (GMP_NUMB_BITS - shift);
+    bits |= next << (GMP_LIMB_BITS - shift);
   }
 
   return bits;
@@ -2546,14 +2612,14 @@ mpn_import_be(mp_ptr rp, mp_size_t rn, const unsigned char *xp, size_t xn) {
   while (xi > 0 && rn > 0) {
     mp_limb_t in = xp[--xi];
 
-    out |= (in << bits) & GMP_NUMB_MASK;
+    out |= (in << bits) & GMP_LIMB_MAX;
     bits += 8;
 
-    if (bits >= GMP_NUMB_BITS) {
+    if (bits >= GMP_LIMB_BITS) {
       *rp++ = out;
       rn--;
 
-      bits -= GMP_NUMB_BITS;
+      bits -= GMP_LIMB_BITS;
       out = in >> (8 - bits);
     }
   }
@@ -2574,14 +2640,14 @@ mpn_import_le(mp_ptr rp, mp_size_t rn, const unsigned char *xp, size_t xn) {
   while (xi < xn && rn > 0) {
     mp_limb_t in = xp[xi++];
 
-    out |= (in << bits) & GMP_NUMB_MASK;
+    out |= (in << bits) & GMP_LIMB_MAX;
     bits += 8;
 
-    if (bits >= GMP_NUMB_BITS) {
+    if (bits >= GMP_LIMB_BITS) {
       *rp++ = out;
       rn--;
 
-      bits -= GMP_NUMB_BITS;
+      bits -= GMP_LIMB_BITS;
       out = in >> (8 - bits);
     }
   }
@@ -2610,7 +2676,7 @@ mpn_export_be(unsigned char *rp, size_t rn, mp_srcptr xp, mp_size_t xn) {
       xn--;
       rp[--rn] = old | (in << bits);
       in >>= (8 - bits);
-      bits += GMP_NUMB_BITS - 8;
+      bits += GMP_LIMB_BITS - 8;
     }
   }
 
@@ -2639,7 +2705,7 @@ mpn_export_le(unsigned char *rp, size_t rn, mp_srcptr xp, mp_size_t xn) {
       *rp++ = old | (in << bits);
       rn--;
       in >>= (8 - bits);
-      bits += GMP_NUMB_BITS - 8;
+      bits += GMP_LIMB_BITS - 8;
     }
   }
 

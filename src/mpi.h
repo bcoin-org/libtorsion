@@ -257,29 +257,23 @@ void mp_get_memory_functions(void *(**)(size_t),
                              void *(**)(void *, size_t, size_t),
                              void (**)(void *, size_t));
 
-#if defined(MINI_GMP_FIXED_LIMBS) && defined(TORSION_USE_64BIT)
+#ifdef MINI_GMP_FIXED_LIMBS
+#ifdef TORSION_USE_64BIT
 typedef uint64_t mp_limb_t;
 MINI_GMP_EXTENSION typedef unsigned __int128 mp_wide_t;
 #define GMP_LIMB_BITS 64
-#define GMP_NUMB_MASK UINT64_C(0xffffffffffffffff)
-#elif defined(MINI_GMP_FIXED_LIMBS)
+#else
 typedef uint32_t mp_limb_t;
 typedef uint64_t mp_wide_t;
 #define GMP_LIMB_BITS 32
-#define GMP_NUMB_MASK UINT32_C(0xffffffff)
+#endif
 #else
 #ifndef MINI_GMP_LIMB_TYPE
 #define MINI_GMP_LIMB_TYPE long
 #endif
 typedef unsigned MINI_GMP_LIMB_TYPE mp_limb_t;
 #define GMP_LIMB_BITS ((int)(sizeof(mp_limb_t) * CHAR_BIT))
-#define GMP_NUMB_MASK (~((mp_limb_t)0))
 #endif
-
-#define GMP_NUMB_BITS GMP_LIMB_BITS
-#define GMP_NUMB_MAX GMP_NUMB_MASK
-#define GMP_NAIL_BITS 0
-#define GMP_NAIL_MASK 0
 
 typedef long mp_size_t;
 typedef unsigned long mp_bitcnt_t;
