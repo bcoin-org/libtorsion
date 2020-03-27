@@ -170,7 +170,7 @@
 
 #include "asn1.h"
 #include "internal.h"
-#include "mpn.h"
+#include "mini-gmp.h"
 
 #if CHAR_BIT != 8
 #error "sane char widths please"
@@ -810,7 +810,7 @@ sc_select(const scalar_field_t *sc, sc_t r,
 #ifdef TORSION_TEST
 static void
 sc_print(const scalar_field_t *sc, const sc_t a) {
-  mpn_print(a, sc->limbs, 16);
+  mpn_out_str(stdout, 16, a, sc->limbs);
   printf("\n");
 }
 #endif
@@ -1510,7 +1510,7 @@ fe_print(const prime_field_t *fe, const fe_t a) {
 
   fe_get_limbs(fe, xp, a);
 
-  mpn_print(xp, fe->limbs, 16);
+  mpn_out_str(stdout, 16, xp, fe->limbs);
   printf("\n");
 }
 #endif
@@ -1919,7 +1919,7 @@ scalar_field_init(scalar_field_t *sc, const scalar_def_t *def, int endian) {
   sc->shift = sc->limbs * 2 + 2;
 
   /* Deserialize order into GMP limbs. */
-  mpn_import_be(sc->n, MAX_REDUCE_LIMBS, def->n, sc->size);
+  mpn_import(sc->n, MAX_REDUCE_LIMBS, def->n, sc->size, 1);
 
   /* Keep a raw representation for byte comparisons. */
   mpn_export(sc->raw, sc->size, sc->n, sc->limbs, sc->endian);
@@ -1992,7 +1992,7 @@ prime_field_init(prime_field_t *fe, const prime_def_t *def, int endian) {
     fe->mask = (1 << (fe->bits & 7)) - 1;
 
   /* Deserialize prime into GMP limbs. */
-  mpn_import_be(fe->p, MAX_REDUCE_LIMBS, def->p, fe->size);
+  mpn_import(fe->p, MAX_REDUCE_LIMBS, def->p, fe->size, 1);
 
   /* Keep a raw representation for byte comparisons. */
   mpn_export(fe->raw, fe->size, fe->p, fe->limbs, fe->endian);
@@ -2019,7 +2019,7 @@ prime_field_init(prime_field_t *fe, const prime_def_t *def, int endian) {
       CHECK(mpn_lshift(r, r, shift + 1, left) == 0);
 
     mpn_tdiv_qr(q, r, 0, r, shift + 1, fe->p, fe->limbs);
-    mpn_export_le(tmp, fe->size, r, fe->limbs);
+    mpn_export(tmp, fe->size, r, fe->limbs, -1);
 
     /* Import our magic field element. */
     def->from_bytes(fe->r2, tmp);
@@ -2756,16 +2756,10 @@ wge_print(const wei_t *ec, const wge_t *p) {
   if (wge_is_zero(ec, p)) {
     printf("(infinity)\n");
   } else {
-    mp_limb_t xp[MAX_FIELD_LIMBS];
-    mp_limb_t yp[MAX_FIELD_LIMBS];
-
-    fe_get_limbs(fe, xp, p->x);
-    fe_get_limbs(fe, yp, p->y);
-
     printf("(");
-    mpn_print(xp, fe->limbs, 16);
+    fe_print(fe, p->x);
     printf(", ");
-    mpn_print(yp, fe->limbs, 16);
+    fe_print(fe, p->y);
     printf(")\n");
   }
 }
@@ -3840,20 +3834,12 @@ jge_print(const wei_t *ec, const jge_t *p) {
   if (jge_is_zero(ec, p)) {
     printf("(infinity)\n");
   } else {
-    mp_limb_t xp[MAX_FIELD_LIMBS];
-    mp_limb_t yp[MAX_FIELD_LIMBS];
-    mp_limb_t zp[MAX_FIELD_LIMBS];
-
-    fe_get_limbs(fe, xp, p->x);
-    fe_get_limbs(fe, yp, p->y);
-    fe_get_limbs(fe, zp, p->z);
-
     printf("(");
-    mpn_print(xp, fe->limbs, 16);
+    fe_print(fe, p->x);
     printf(", ");
-    mpn_print(yp, fe->limbs, 16);
+    fe_print(fe, p->y);
     printf(", ");
-    mpn_print(zp, fe->limbs, 16);
+    fe_print(fe, p->z);
     printf(")\n");
   }
 }
@@ -5472,16 +5458,10 @@ mge_print(const mont_t *ec, const mge_t *p) {
   if (mge_is_zero(ec, p)) {
     printf("(infinity)\n");
   } else {
-    mp_limb_t xp[MAX_FIELD_LIMBS];
-    mp_limb_t yp[MAX_FIELD_LIMBS];
-
-    fe_get_limbs(fe, xp, p->x);
-    fe_get_limbs(fe, yp, p->y);
-
     printf("(");
-    mpn_print(xp, fe->limbs, 16);
+    fe_print(fe, p->x);
     printf(", ");
-    mpn_print(yp, fe->limbs, 16);
+    fe_print(fe, p->y);
     printf(")\n");
   }
 }
@@ -5770,16 +5750,10 @@ pge_print(const mont_t *ec, const pge_t *p) {
   if (pge_is_zero(ec, p)) {
     printf("(infinity)\n");
   } else {
-    mp_limb_t xp[MAX_FIELD_LIMBS];
-    mp_limb_t zp[MAX_FIELD_LIMBS];
-
-    fe_get_limbs(fe, xp, p->x);
-    fe_get_limbs(fe, zp, p->z);
-
     printf("(");
-    mpn_print(xp, fe->limbs, 16);
+    fe_print(fe, p->x);
     printf(", ");
-    mpn_print(zp, fe->limbs, 16);
+    fe_print(fe, p->z);
     printf(")\n");
   }
 }
@@ -6798,20 +6772,12 @@ xge_print(const edwards_t *ec, const xge_t *p) {
   if (xge_is_zero(ec, p)) {
     printf("(infinity)\n");
   } else {
-    mp_limb_t xp[MAX_FIELD_LIMBS];
-    mp_limb_t yp[MAX_FIELD_LIMBS];
-    mp_limb_t zp[MAX_FIELD_LIMBS];
-
-    fe_get_limbs(fe, xp, p->x);
-    fe_get_limbs(fe, yp, p->y);
-    fe_get_limbs(fe, zp, p->z);
-
     printf("(");
-    mpn_print(xp, fe->limbs, 16);
+    fe_print(fe, p->x);
     printf(", ");
-    mpn_print(yp, fe->limbs, 16);
+    fe_print(fe, p->y);
     printf(", ");
-    mpn_print(zp, fe->limbs, 16);
+    fe_print(fe, p->z);
     printf(")\n");
   }
 }

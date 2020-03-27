@@ -1,125 +1,12 @@
-/*!
- * mpz.h - mpz helpers for libtorsion
- * Copyright (c) 2020, Christopher Jeffrey (MIT License).
- * https://github.com/bcoin-org/libtorsion
- *
- * Parts of this software are based on golang/go:
- *   Copyright (c) 2009, The Go Authors. All rights reserved.
- *   https://github.com/golang/go
- */
-
-#ifndef _TORSION_MPZ_H
-#define _TORSION_MPZ_H
-
 #include <assert.h>
-#include <stddef.h>
-#include <string.h>
+#include <stdlib.h>
+#include <stdint.h>
 #include <torsion/drbg.h>
-#include <torsion/util.h>
 
-#ifdef TORSION_USE_GMP
-#include <gmp.h>
-#else
 #include "mini-gmp.h"
-#endif
+#include "prime.h"
 
-/* Avoid collisions with future versions of GMP. */
-#define mpz_bitlen(n) (mpz_sgn(n) == 0 ? 0 : mpz_sizeinbase(n, 2))
-#define mpz_bytelen(n) ((mpz_bitlen(n) + 7) / 8)
-#define mpz_roset torsion_mpz_roset
-#define mpz_set_u64 torsion_mpz_set_u64
-#define mpz_get_u64 torsion_mpz_get_u64
-#define mpz_export_pad torsion_mpz_export_pad
-#define mpz_cleanse torsion_mpz_cleanse
-#define mpz_random_bits torsion_mpz_random_bits
-#define mpz_random_int torsion_mpz_random_int
-#define mpz_is_prime_mr torsion_mpz_is_prime_mr
-#define mpz_is_prime_lucas torsion_mpz_is_prime_lucas
-#define mpz_is_prime torsion_mpz_is_prime
-#define mpz_random_prime torsion_mpz_random_prime
-
-/*
- * MPZ Extras
- */
-
-static void
-mpz_roset(mpz_t r, const mpz_t x) {
-  mpz_roinit_n(r, mpz_limbs_read(x),
-    (mp_size_t)mpz_sgn(x) * (mp_size_t)mpz_size(x));
-}
-
-static void
-mpz_set_u64(mpz_t r, uint64_t num) {
-  if (GMP_NUMB_BITS == 32) {
-    mp_limb_t *limbs = mpz_limbs_write(r, 2);
-
-    limbs[0] = (mp_limb_t)(num >>  0);
-    limbs[1] = (mp_limb_t)(num >> 32);
-
-    mpz_limbs_finish(r, 2);
-  } else {
-    mp_limb_t *limbs = mpz_limbs_write(r, 1);
-
-    assert(GMP_NUMB_BITS >= 64);
-
-    limbs[0] = (mp_limb_t)num;
-
-    mpz_limbs_finish(r, 1);
-  }
-}
-
-static uint64_t
-mpz_get_u64(const mpz_t x) {
-  if (GMP_NUMB_BITS == 32) {
-    return ((uint64_t)mpz_getlimbn(x, 1) << 32)
-         | ((uint64_t)mpz_getlimbn(x, 0) <<  0);
-  }
-
-  assert(GMP_NUMB_BITS >= 64);
-
-  return mpz_getlimbn(x, 0);
-}
-
-static void
-mpz_export_pad(unsigned char *out, const mpz_t n, size_t size, int endian) {
-  size_t len = mpz_bytelen(n);
-  size_t left = size - len;
-
-  assert(len <= size);
-
-  if (endian == 1) {
-    memset(out, 0x00, left);
-    mpz_export(out + left, NULL, 1, 1, 0, 0, n);
-  } else if (endian == -1) {
-    mpz_export(out, NULL, -1, 1, 0, 0, n);
-    memset(out + len, 0x00, left);
-  } else {
-    assert(0 && "invalid endianness");
-  }
-}
-
-static void
-mpz_cleanse(mpz_t n) {
-#ifdef TORSION_USE_GMP
-  /* Using the public API. */
-  size_t size = mpz_size(n);
-  mp_limb_t *limbs = mpz_limbs_modify(n, size);
-
-  /* Zero the limbs. */
-  cleanse(limbs, size * sizeof(mp_limb_t));
-
-  /* Ensure the integer remains in a valid state. */
-  mpz_limbs_finish(n, 0);
-#else
-  /* Using the internal API. */
-  mpz_ptr x = n;
-  cleanse(x->_mp_d, x->_mp_alloc * sizeof(mp_limb_t));
-  x->_mp_size = 0;
-#endif
-  mpz_clear(n);
-}
-
-static void
+void
 mpz_random_bits(mpz_t ret, size_t bits, drbg_t *rng) {
   /* Assumes nails are not enabled. */
   size_t size = (bits + GMP_NUMB_BITS - 1) / GMP_NUMB_BITS;
@@ -136,7 +23,7 @@ mpz_random_bits(mpz_t ret, size_t bits, drbg_t *rng) {
   assert(mpz_bitlen(ret) <= bits);
 }
 
-static void
+void
 mpz_random_int(mpz_t ret, const mpz_t max, drbg_t *rng) {
   size_t bits = mpz_bitlen(max);
 
@@ -394,7 +281,7 @@ fail:
   return ret;
 }
 
-static int
+int
 mpz_is_prime(const mpz_t p, unsigned long rounds, drbg_t *rng) {
   static const mp_limb_t primes_a =
     3ul * 5ul * 7ul * 11ul * 13ul * 17ul * 19ul * 23ul * 37ul;
@@ -449,6 +336,31 @@ mpz_is_prime(const mpz_t p, unsigned long rounds, drbg_t *rng) {
 }
 
 static void
+mpz_set_u64(mpz_t r, uint64_t num) {
+  mpz_set_ui(r, num >> 32);
+  mpz_mul_2exp(r, r, 32);
+  mpz_add_ui(r, r, num & 0xfffffffful);
+}
+
+static uint64_t
+mpz_get_u64(const mpz_t x) {
+  if (GMP_LIMB_BITS < 64) {
+    size_t LOCAL_GMP_LIMB_BITS = GMP_LIMB_BITS;
+    size_t i = 64 / GMP_LIMB_BITS;
+    uint64_t w = 0;
+
+    while (i--) {
+      w <<= LOCAL_GMP_LIMB_BITS;
+      w |= mpz_getlimbn(x, i);
+    }
+
+    return w;
+  }
+
+  return mpz_getlimbn(x, 0);
+}
+
+void
 mpz_random_prime(mpz_t ret, size_t bits, drbg_t *rng) {
   static const uint64_t primes[15] =
     { 3,  5,  7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53 };
@@ -503,5 +415,3 @@ next:
   mpz_cleanse(prod);
   mpz_cleanse(tmp);
 }
-
-#endif /* _TORSION_MPZ_H */
