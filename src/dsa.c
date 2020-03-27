@@ -33,7 +33,7 @@
 #include <torsion/util.h>
 #include "asn1.h"
 #include "internal.h"
-#include "mini-gmp.h"
+#include "mpi.h"
 #include "prime.h"
 
 /*

@@ -52,7 +52,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "mini-gmp.h"
+#include "mpi.h"
 
 #if !defined(MINI_GMP_DONT_USE_FLOAT_H)
 #include <float.h>

@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <torsion/drbg.h>
 
-#include "mini-gmp.h"
+#include "mpi.h"
 
 #define mpz_random_bits _torsion_mpz_random_bits
 #define mpz_random_int _torsion_mpz_random_int

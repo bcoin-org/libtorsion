@@ -10,7 +10,7 @@
 #include <assert.h>
 #include <limits.h>
 #include <stddef.h>
-#include "mini-gmp.h"
+#include "mpi.h"
 
 /*
  * ASN1

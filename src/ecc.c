@@ -170,7 +170,7 @@
 
 #include "asn1.h"
 #include "internal.h"
-#include "mini-gmp.h"
+#include "mpi.h"
 
 #if CHAR_BIT != 8
 #error "sane char widths please"

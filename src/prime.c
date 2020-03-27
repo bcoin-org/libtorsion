@@ -3,7 +3,7 @@
 #include <stdint.h>
 #include <torsion/drbg.h>
 
-#include "mini-gmp.h"
+#include "mpi.h"
 #include "prime.h"
 
 void

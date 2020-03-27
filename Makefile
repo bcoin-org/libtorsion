@@ -15,8 +15,7 @@ CFLAGS := \
 	-O3 \
 	-DTORSION_TEST \
 	-DTORSION_USE_64BIT \
-	-DTORSION_USE_ASM \
-	-DTORSION_USE_GMP
+	-DTORSION_USE_ASM
 
 SOURCES := \
 	src/aead.c \
@@ -26,13 +25,15 @@ SOURCES := \
 	src/dsa.c \
 	src/hash.c \
 	src/kdf.c \
+	src/mpi.c \
 	src/poly1305.c \
+	src/prime.c \
 	src/rsa.c \
 	src/salsa20.c \
 	src/siphash.c \
 	src/util.c
 
-LDFLAGS := -lgmp
+LDFLAGS :=
 
 OUTPUT = libtorsion.so
 
