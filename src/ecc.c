@@ -856,7 +856,9 @@ sc_equal(const scalar_field_t *sc, const sc_t a, const sc_t b) {
   for (i = 0; i < sc->limbs; i++)
     z |= a[i] ^ b[i];
 
-  return z == 0;
+  z = (z >> 1) | (z & 1);
+
+  return (z - 1) >> (GMP_LIMB_BITS - 1);
 }
 
 static int
@@ -872,7 +874,9 @@ sc_is_zero(const scalar_field_t *sc, const sc_t a) {
   for (i = 0; i < sc->limbs; i++)
     z |= a[i];
 
-  return z == 0;
+  z = (z >> 1) | (z & 1);
+
+  return (z - 1) >> (GMP_LIMB_BITS - 1);
 }
 
 static int
@@ -1576,6 +1580,7 @@ fe_is_zero(const prime_field_t *fe, const fe_t a) {
 
   if (fe->nonzero) {
     fe->nonzero(&z, a);
+    z = (z >> 1) | (z & 1);
   } else {
     unsigned char tmp[MAX_FIELD_SIZE];
     size_t i;
@@ -1586,7 +1591,7 @@ fe_is_zero(const prime_field_t *fe, const fe_t a) {
       z |= (fe_word_t)tmp[i];
   }
 
-  return z == 0;
+  return (z - 1) >> (FIELD_WORD_BITS - 1);
 }
 
 static int
@@ -1597,6 +1602,8 @@ fe_equal(const prime_field_t *fe, const fe_t a, const fe_t b) {
   if (fe->from_montgomery) {
     for (i = 0; i < fe->words; i++)
       z |= a[i] ^ b[i];
+
+    z = (z >> 1) | (z & 1);
   } else {
     unsigned char x[MAX_FIELD_SIZE];
     unsigned char y[MAX_FIELD_SIZE];
@@ -1608,7 +1615,7 @@ fe_equal(const prime_field_t *fe, const fe_t a, const fe_t b) {
       z |= (fe_word_t)x[i] ^ (fe_word_t)y[i];
   }
 
-  return z == 0;
+  return (z - 1) >> (FIELD_WORD_BITS - 1);
 }
 
 static int

@@ -2166,47 +2166,27 @@ mpn_cnd_zero(mp_limb_t cnd, mp_ptr rp, mp_srcptr ap, mp_size_t n) {
 int
 mpn_sec_zero_p(mp_srcptr xp, mp_size_t xn) {
   /* Compute (x == 0) in constant time. */
-#ifdef MINI_GMP_FIXED_LIMBS
-  size_t shift = sizeof(mp_wide_t) * CHAR_BIT - 1;
-  mp_wide_t w = 0;
-
-  while (xn--)
-    w |= (mp_wide_t)xp[xn];
-
-  return (w - 1) >> shift;
-#else
   mp_limb_t w = 0;
 
-  while (n--)
-    w |= xp[n];
+  while (xn--)
+    w |= xp[xn];
 
-  w = (w & GMP_LLIMB_MASK) | (w >> (GMP_LIMB_BITS / 2));
+  w = (w >> 1) | (w & 1);
 
   return (w - 1) >> (GMP_LIMB_BITS - 1);
-#endif
 }
 
 int
 mpn_sec_eq(mp_srcptr xp, mp_srcptr yp, mp_size_t n) {
   /* Compute (x == y) in constant time. */
-#ifdef MINI_GMP_FIXED_LIMBS
-  size_t shift = sizeof(mp_wide_t) * CHAR_BIT - 1;
-  mp_wide_t w = 0;
-
-  while (n--)
-    w |= (mp_wide_t)xp[n] ^ (mp_wide_t)yp[n];
-
-  return (w - 1) >> shift;
-#else
   mp_limb_t w = 0;
 
   while (n--)
     w |= xp[n] ^ yp[n];
 
-  w = (w & GMP_LLIMB_MASK) | (w >> (GMP_LIMB_BITS / 2));
+  w = (w >> 1) | (w & 1);
 
   return (w - 1) >> (GMP_LIMB_BITS - 1);
-#endif
 }
 
 int
