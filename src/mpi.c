@@ -3167,17 +3167,115 @@ mpz_swap(mpz_t u, mpz_t v) {
 /* MPZ addition and subtraction */
 
 void
-mpz_add_ui(mpz_t r, const mpz_t a, unsigned long b) {
-  mpz_t bb;
-  mpz_init_set_ui(bb, b);
-  mpz_add(r, a, bb);
-  mpz_clear(bb);
+mpz_add_ui(mpz_ptr w, mpz_srcptr u, unsigned long vval) {
+  mp_srcptr up;
+  mp_ptr wp;
+  mp_size_t usize, wsize;
+  mp_size_t abs_usize;
+
+  if (GMP_ULONG_BITS > GMP_LIMB_BITS && vval > GMP_LIMB_MAX) {
+    int LOCAL_GMP_LIMB_BITS = GMP_LIMB_BITS;
+    mpz_t v;
+    mp_limb_t vl[2];
+    v->_mp_d = vl;
+    vl[0] = vval & GMP_LIMB_MAX;
+    vl[1] = vval >> LOCAL_GMP_LIMB_BITS;
+    v->_mp_size = 2;
+    mpz_add(w, u, v);
+    return;
+  }
+
+  usize = u->_mp_size;
+
+  if (usize == 0) {
+    MPZ_REALLOC(w, 1)[0] = vval;
+    w->_mp_size = (vval != 0);
+    return;
+  }
+
+  abs_usize = GMP_ABS(usize);
+
+  /* If not space for W (and possible carry), increase space.  */
+  wp = MPZ_REALLOC(w, abs_usize + 1);
+
+  /* These must be after realloc (U may be the same as W).  */
+  up = u->_mp_d;
+
+  if (usize >= 0) {
+    mp_limb_t cy;
+    cy = mpn_add_1(wp, up, abs_usize, (mp_limb_t)vval);
+    wp[abs_usize] = cy;
+    wsize = (abs_usize + cy);
+  } else {
+    /* The signs are different.  Need exact comparison to determine
+       which operand to subtract from which.  */
+    if (abs_usize == 1 && up[0] < vval) {
+      wp[0] = vval - up[0];
+      wsize = 1;
+    } else {
+      mpn_sub_1(wp, up, abs_usize, (mp_limb_t)vval);
+      /* Size can decrease with at most one limb.  */
+      wsize = -(abs_usize - (wp[abs_usize - 1] == 0));
+    }
+  }
+
+  w->_mp_size = wsize;
 }
 
 void
-mpz_sub_ui(mpz_t r, const mpz_t a, unsigned long b) {
-  mpz_ui_sub(r, b, a);
-  mpz_neg(r, r);
+mpz_sub_ui(mpz_ptr w, mpz_srcptr u, unsigned long vval) {
+  mp_srcptr up;
+  mp_ptr wp;
+  mp_size_t usize, wsize;
+  mp_size_t abs_usize;
+
+  if (GMP_ULONG_BITS > GMP_LIMB_BITS && vval > GMP_LIMB_MAX) {
+    int LOCAL_GMP_LIMB_BITS = GMP_LIMB_BITS;
+    mpz_t v;
+    mp_limb_t vl[2];
+    v->_mp_d = vl;
+    vl[0] = vval & GMP_LIMB_MAX;
+    vl[1] = vval >> LOCAL_GMP_LIMB_BITS;
+    v->_mp_size = 2;
+    mpz_sub(w, u, v);
+    return;
+  }
+
+  usize = u->_mp_size;
+
+  if (usize == 0) {
+    MPZ_REALLOC(w, 1)[0] = vval;
+    w->_mp_size = -(vval != 0);
+    return;
+  }
+
+  abs_usize = GMP_ABS(usize);
+
+  /* If not space for W (and possible carry), increase space.  */
+  wp = MPZ_REALLOC(w, abs_usize + 1);
+
+  /* These must be after realloc (U may be the same as W).  */
+  up = u->_mp_d;
+
+  if (usize < 0) {
+    mp_limb_t cy;
+    cy = mpn_add_1(wp, up, abs_usize, (mp_limb_t)vval);
+    wp[abs_usize] = cy;
+    wsize = -(abs_usize + cy);
+  } else {
+    /* The signs are different.  Need exact comparison to determine
+       which operand to subtract from which.  */
+    if (abs_usize == 1 && up[0] < vval) {
+      wp[0] = vval - up[0];
+      wsize = -1;
+    } else {
+      mpn_sub_1(wp, up, abs_usize, (mp_limb_t)vval);
+      /* Size can decrease with at most one limb.  */
+      wsize = (abs_usize - (wp[abs_usize - 1] == 0));
+    }
+  }
+
+  w->_mp_size = wsize;
 }
 
 void
@@ -3264,12 +3362,47 @@ mpz_mul_si(mpz_t r, const mpz_t u, long int v) {
 }
 
 void
-mpz_mul_ui(mpz_t r, const mpz_t u, unsigned long int v) {
-  mpz_t vv;
-  mpz_init_set_ui(vv, v);
-  mpz_mul(r, u, vv);
-  mpz_clear(vv);
-  return;
+mpz_mul_ui(mpz_ptr prod, mpz_srcptr mult, unsigned long int small_mult) {
+  mp_size_t size;
+  mp_size_t sign_product;
+  mp_limb_t cy;
+  mp_ptr pp;
+
+  sign_product = mult->_mp_size;
+
+  if (sign_product == 0 || small_mult == 0) {
+    prod->_mp_size = 0;
+    return;
+  }
+
+  size = GMP_ABS(sign_product);
+
+  if (small_mult <= GMP_LIMB_MAX) {
+    pp = MPZ_REALLOC(prod, size + 1);
+    cy = mpn_mul_1(pp, mult->_mp_d, size, small_mult);
+    pp[size] = cy;
+    size += cy != 0;
+  } else {
+    /* Operand too large for the current nails size.  Use temporary for
+       intermediate products, to allow prod and mult being identical.  */
+    int LOCAL_GMP_LIMB_BITS = GMP_LIMB_BITS;
+    mp_ptr tp;
+
+    tp = gmp_xalloc_limbs(size + 2);
+
+    /* Use, maybe, mpn_mul_2? */
+    cy = mpn_mul_1(tp, mult->_mp_d, size, small_mult & GMP_LIMB_MAX);
+    tp[size] = cy;
+    cy = mpn_addmul_1(tp + 1, mult->_mp_d, size, small_mult >> LOCAL_GMP_LIMB_BITS);
+    tp[size + 1] = cy;
+    size += 2;
+    size = mpn_normalized_size(tp, size); /* too general, need to trim one or two limb */
+    pp = MPZ_REALLOC(prod, size);
+    mpn_copyi(pp, tp, size);
+    gmp_free(tp);
+  }
+
+  prod->_mp_size = (sign_product < 0) ? -size : size;
 }
 
 void
