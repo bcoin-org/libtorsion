@@ -646,10 +646,9 @@ mpn_cleanse(mp_ptr xp, mp_size_t xn) {
 #define AORS_N(ADCSBB)                      \
   __asm__ __volatile__(                     \
     "mov %%ecx, %%eax\n"                    \
-    /* guard for n == 0 */                  \
-    "inc %%eax\n"                           \
-    "dec %%eax\n"                           \
-    "jz 7f\n" /* exit */                    \
+    /* guard for n <= 0 */                  \
+    "test %%eax, %%eax\n"                   \
+    "jle 7f\n" /* exit */                   \
     /* end guard */                         \
     "shr $2, %%rcx\n"                       \
     "and $3, %%eax\n"                       \
