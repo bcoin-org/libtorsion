@@ -4640,6 +4640,14 @@ mpn_mont(mp_ptr zp,
   mpn_cnd_select(c1 != 0, zp, zp + n, zp, n);
 }
 
+#define WND_WIDTH 4
+#define WND_SIZE (1 << WND_WIDTH)
+
+static mp_size_t
+mpn_powm_sec_itch(mp_size_t mn) {
+  return 7 * mn + (WND_SIZE + 1) * mn;
+}
+
 static void
 mpn_powm_sec(mp_ptr zp,
              mp_srcptr xp, mp_size_t xn,
@@ -4671,11 +4679,11 @@ mpn_powm_sec(mp_ptr zp,
   mp_ptr wnds = &scratch[7 * mn];
   mp_ptr rr = &wnds[3 * mn];
   mp_ptr wnd[1 << 4];
-  mp_size_t start = (yn * GMP_LIMB_BITS + 3) / 4 - 1;
+  mp_size_t yb = yn * GMP_LIMB_BITS;
+  mp_size_t start = (yb + WND_WIDTH - 1) / WND_WIDTH - 1;
   mp_limb_t k, t, b, j, cy;
   mp_size_t i;
 
-  assert((GMP_LIMB_BITS & 3) == 0);
   assert(xn >= 0);
   assert(yn >= 0);
   assert(mn > 0);
@@ -4703,34 +4711,39 @@ mpn_powm_sec(mp_ptr zp,
   one[0] = 1;
   mpn_zero(one + 1, mn - 1);
 
-  for (i = 0; i < (1 << 4); i++)
+  for (i = 0; i < WND_SIZE; i++)
     wnd[i] = &wnds[i * mn];
 
   mpn_mont(wnd[0], one, rr, mp, k, mn);
   mpn_mont(wnd[1], up, rr, mp, k, mn);
 
-  for (i = 2; i < (1 << 4); i++)
+  for (i = 2; i < WND_SIZE; i++)
     mpn_mont(wnd[i], wnd[i - 1], wnd[1], mp, k, mn);
 
   mpn_copyi(z1, wnd[0], mn);
 
   for (i = start; i >= 0; i--) {
-    b = (yp[(i * 4) / GMP_LIMB_BITS] >> ((i * 4) % GMP_LIMB_BITS)) & 15;
+    b = mpn_get_bits(yp, yn, i * WND_WIDTH, WND_WIDTH);
 
-    for (j = 0; j < (1 << 4); j++)
+    for (j = 0; j < WND_SIZE; j++)
       mpn_cnd_select(j == b, tmp, tmp, wnd[j], mn);
 
     if (i == start) {
-      mpn_copyi(z2, tmp, mn);
+      mpn_copyi(z1, tmp, mn);
     } else {
-      mpn_mont(z2, z1, z1, mp, k, mn);
-      mpn_mont(z1, z2, z2, mp, k, mn);
-      mpn_mont(z2, z1, z1, mp, k, mn);
-      mpn_mont(z1, z2, z2, mp, k, mn);
-      mpn_mont(z2, z1, tmp, mp, k, mn);
-    }
+      for (j = 0; j < WND_WIDTH; j++) {
+        if (j & 1)
+          mpn_mont(z1, z2, z2, mp, k, mn);
+        else
+          mpn_mont(z2, z1, z1, mp, k, mn);
+      }
 
-    MP_PTR_SWAP(z1, z2);
+#if WND_WIDTH % 2 == 0
+      MP_PTR_SWAP(z1, z2);
+#endif
+
+      mpn_mont(z1, z2, tmp, mp, k, mn);
+    }
   }
 
   mpn_mont(z2, z1, one, mp, k, mn);
@@ -4739,10 +4752,13 @@ mpn_powm_sec(mp_ptr zp,
   mpn_cnd_select(cy == 0, zp, z2, z1, mn);
 }
 
+#undef WND_WIDTH
+#undef WND_SIZE
+
 void
 mpz_powm_sec(mpz_ptr r, mpz_srcptr b, mpz_srcptr e, mpz_srcptr m) {
   mp_ptr rp, scratch;
-  mp_size_t mn;
+  mp_size_t mn, itch;
   mpz_t t;
 
   if (e->_mp_size < 0)
@@ -4766,7 +4782,8 @@ mpz_powm_sec(mpz_ptr r, mpz_srcptr b, mpz_srcptr e, mpz_srcptr m) {
   else
     mpz_set(t, b);
 
-  scratch = gmp_xalloc_limbs(24 * mn);
+  itch = mpn_powm_sec_itch(mn);
+  scratch = gmp_xalloc_limbs(itch);
 
   rp = MPZ_REALLOC(r, mn);
 
