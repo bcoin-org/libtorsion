@@ -6,10 +6,10 @@
 
 #include "mpi.h"
 
-#define mpz_random_bits _torsion_mpz_random_bits
-#define mpz_random_int _torsion_mpz_random_int
-#define mpz_is_prime _torsion_mpz_is_prime
-#define mpz_random_prime _torsion_mpz_random_prime
+#define mpz_random_bits __torsion_mpz_random_bits
+#define mpz_random_int __torsion_mpz_random_int
+#define mpz_is_prime __torsion_mpz_is_prime
+#define mpz_random_prime __torsion_mpz_random_prime
 
 void
 mpz_random_bits(mpz_t ret, size_t bits, drbg_t *rng);
