@@ -98,6 +98,8 @@
 
 #ifdef TORSION_USE_ASM
 
+#include <stdint.h>
+
 #define gmp_clz(count, x) do { \
   uint64_t __cbtmp;            \
   assert((x) != 0);            \
