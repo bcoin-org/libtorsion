@@ -211,7 +211,7 @@ mpz_is_prime_lucas(const mpz_t n, unsigned long limit) {
 
   for (i = mpz_bitlen(s) + 1; i-- > 0;) {
     /* if floor(s / 2^i) mod 2 == 1 */
-    if (mpz_tstbit(s, i)) {
+    if (mpz_get_bit(s, i)) {
       /* vk = (vk * vk1 + n - p) mod n */
       /* vk1 = (vk1^2 + nm2) mod n */
       mpz_mul(t1, vk, vk1);
@@ -379,9 +379,9 @@ mpz_random_prime(mpz_t ret, size_t bits, drbg_t *rng) {
   for (;;) {
     mpz_random_bits(ret, bits, rng);
 
-    mpz_setbit(ret, bits - 1);
-    mpz_setbit(ret, bits - 2);
-    mpz_setbit(ret, 0);
+    mpz_set_bit(ret, bits - 1);
+    mpz_set_bit(ret, bits - 2);
+    mpz_set_bit(ret, 0);
 
     mpz_mod(tmp, ret, prod);
     mod = mpz_get_u64(tmp);
