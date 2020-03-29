@@ -2020,10 +2020,7 @@ prime_field_init(prime_field_t *fe, const prime_def_t *def, int endian) {
 
     mpn_zero(r, shift);
 
-    r[shift] = 1;
-
-    if (left != 0)
-      CHECK(mpn_lshift(r, r, shift + 1, left) == 0);
+    r[shift] = 1 << left;
 
     mpn_tdiv_qr(q, r, 0, r, shift + 1, fe->p, fe->limbs);
     mpn_export(tmp, fe->size, r, fe->limbs, -1);
