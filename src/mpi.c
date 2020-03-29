@@ -907,7 +907,7 @@ mpn_mul_1(mp_ptr rp, mp_srcptr up, mp_size_t n, mp_limb_t vl) {
     "add %%r8, %%rdx\n"
     "12:\n" /* ret */
     "movq %%rdx, %q0\n"
-    : "=g" (cy), "+D" (rp), "+S" (up), "+d" (n)
+    : "=m" (cy), "+D" (rp), "+S" (up), "+d" (n)
     : "c" (vl)
     : "rax", "rbx", "ebx",
       "r8", "r9", "r10", "r11",
@@ -1044,7 +1044,7 @@ mpn_mul_1(mp_ptr rp, mp_srcptr up, mp_size_t n, mp_limb_t vl) {
     "11:\n" /* ret */                                            \
     "adc $0, %%rdx\n"                                            \
     "movq %%rdx, %q0\n"                                          \
-    : "=g" (cy), "+D" (rp), "+S" (up), "+d" (n)                  \
+    : "=m" (cy), "+D" (rp), "+S" (up), "+d" (n)                  \
     : "c" (vl)                                                   \
     : "rax", "rbx", "ebx",                                       \
       "r8", "r9", "r10", "r11",                                  \
@@ -1371,7 +1371,7 @@ mpn_lshift(mp_ptr rp, mp_srcptr up, mp_size_t n, unsigned int cnt) {
     "shl %%cl, %%r10\n"
     "mov %%r10, (%%rdi)\n"
     "movq %%rax, %q0\n"
-    : "=g" (cy), "+d" (n), "+c" (cnt)
+    : "=m" (cy), "+d" (n), "+c" (cnt)
     : "D" (rp), "S" (up)
     : "rax", "r8", "r9", "r10", "r11",
       "cc", "memory"
@@ -1544,7 +1544,7 @@ mpn_rshift(mp_ptr rp, mp_srcptr up, mp_size_t n, unsigned int cnt) {
     "shr %%cl, %%r10\n"
     "mov %%r10, (%%rdi)\n"
     "movq %%rax, %q0\n"
-    : "=g" (cy),
+    : "=m" (cy),
       "+D" (rp), "+S" (up),
       "+d" (n), "+c" (cnt)
     :
