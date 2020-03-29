@@ -3142,7 +3142,21 @@ mpz_tdiv_r(mpz_t r, const mpz_t n, const mpz_t d) {
 
 void
 mpz_mod(mpz_t r, const mpz_t n, const mpz_t d) {
-  mpz_div_qr(NULL, r, n, d, d->_mp_size >= 0 ? GMP_DIV_FLOOR : GMP_DIV_CEIL);
+  if (mpz_cmpabs(n, d) < 0) {
+    if (n->_mp_size < 0) {
+      mp_size_t nn = GMP_ABS(n->_mp_size);
+      mp_size_t dn = GMP_ABS(d->_mp_size);
+      mp_ptr rp = MPZ_REALLOC(r, dn);
+
+      gmp_assert_nocarry(mpn_sub(rp, d->_mp_d, dn, n->_mp_d, nn));
+
+      r->_mp_size = mpn_normalized_size(rp, dn);
+    } else {
+      mpz_set(r, n);
+    }
+  } else {
+    mpz_div_qr(NULL, r, n, d, d->_mp_size >= 0 ? GMP_DIV_FLOOR : GMP_DIV_CEIL);
+  }
 }
 
 static void
