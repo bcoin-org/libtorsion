@@ -659,7 +659,7 @@ mpn_cleanse(mp_ptr xp, mp_size_t xn) {
     "7:\n" /* exit */                       \
     "movq $0, %q0\n"                        \
     "movb %%al, %q0\n"                      \
-    : "=g" (cy),                            \
+    : "=m" (cy),                            \
       "+D" (rp), "+S" (ap),                 \
       "+d" (bp), "+c" (n)                   \
     :                                       \
