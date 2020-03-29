@@ -1219,7 +1219,10 @@ sha256_transform(sha256_t *ctx, const unsigned char *chunk) {
    *
    * For reference, our full range of clobbered registers:
    *
-   *   %rdi, %rsi, %rdx, %edi, %eax, %ebx, %ecx, %r[8-14]
+   *   %rdi, %rsi, %rdx, %edi, %eax, %ebx, %ecx, %r[8-15]
+   *
+   * Note that %rdi is clobbered when it is read-only.
+   * We save it on the stack and restore it at the end.
    */
   __asm__ __volatile__(
     "sub $72, %%rsp\n"
@@ -2674,8 +2677,10 @@ sha512_transform(sha512_t *ctx, const unsigned char *chunk) {
    *
    * For reference, our full range of clobbered registers:
    *
-   *   %rdi, %rsi, %rax, %rbx, %rcx, %rdx,
-   *   %r8, %r9, %r10, %r11, %r12, %r13, %r14, %r15
+   *   %rdi, %rsi, %rax, %rbx, %rcx, %rdx, %r[8-15]
+   *
+   * Note that %rdi is clobbered when it is read-only.
+   * We save it on the stack and restore it at the end.
    */
   __asm__ __volatile__(
     "sub $136, %%rsp\n"

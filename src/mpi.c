@@ -83,6 +83,8 @@
 
 #ifdef TORSION_USE_ASM
 
+/* From: https://gmplib.org/repo/gmp-6.2/file/tip/longlong.h#l1044 */
+
 #define gmp_clz(count, x) do { \
   uint64_t __cbtmp;            \
   assert((x) != 0);            \
@@ -405,8 +407,8 @@ mpn_copyi(mp_ptr d, mp_srcptr s, mp_size_t n) {
     "mov %%rax, 8(%%rdi)\n"
     "mov %%r9, 16(%%rdi)\n"
     "4:\n"
+    : "+D" (d), "+S" (s), "+d" (n)
     :
-    : "D" (d), "S" (s), "d" (n)
     : "rax", "r9", "r10", "r11",
       "cc", "memory"
   );
@@ -465,8 +467,8 @@ mpn_copyd(mp_ptr d, mp_srcptr s, mp_size_t n) {
     "mov %%rax, -8(%%rdi)\n"
     "mov %%r9, -16(%%rdi)\n"
     "4:\n"
+    : "+D" (d), "+S" (s), "+d" (n)
     :
-    : "D" (d), "S" (s), "d" (n)
     : "rax", "r9", "r10", "r11",
       "cc", "memory"
   );
@@ -554,9 +556,9 @@ mpn_cleanse(mp_ptr xp, mp_size_t xn) {
     "2:\n"                     \
     "mov $0, %%rax\n"          \
     "adc $0, %%rax\n"          \
-    : "=a" (b)                 \
-    : "D" (rp), "S" (ap),      \
-      "c" (n), "d" (b)         \
+    : "=a" (b), "+D" (rp),     \
+      "+S" (ap), "+c" (n)      \
+    : "d" (b)                  \
     : "cc", "memory"           \
   );
 
@@ -656,10 +658,12 @@ mpn_cleanse(mp_ptr xp, mp_size_t xn) {
     "jnz 1b\n" /* lt4 */                    \
     "adc %%eax, %%eax\n"                    \
     "7:\n" /* exit */                       \
-    "movq $0, %0\n"                         \
-    "movb %%al, %0\n"                       \
-    : "=m" (cy)                             \
-    : "D" (rp), "S" (ap), "d" (bp), "c" (n) \
+    "movq $0, %q0\n"                        \
+    "movb %%al, %q0\n"                      \
+    : "=g" (cy),                            \
+      "+D" (rp), "+S" (ap),                 \
+      "+d" (bp), "+c" (n)                   \
+    :                                       \
     : "al", "eax", "ebx",                   \
       "rax", "rbx", "r8", "r9",             \
       "r10", "r11", "cc", "memory"          \
@@ -903,9 +907,9 @@ mpn_mul_1(mp_ptr rp, mp_srcptr up, mp_size_t n, mp_limb_t vl) {
     "mov %%r9, 8(%%rdi,%%r11,8)\n"
     "add %%r8, %%rdx\n"
     "12:\n" /* ret */
-    "movq %%rdx, %0\n"
-    : "=m" (cy)
-    : "D" (rp), "S" (up), "d" (n), "c" (vl)
+    "movq %%rdx, %q0\n"
+    : "=g" (cy), "+D" (rp), "+S" (up), "+d" (n)
+    : "c" (vl)
     : "rax", "rbx", "ebx",
       "r8", "r9", "r10", "r11",
       "cc", "memory"
@@ -1040,9 +1044,9 @@ mpn_mul_1(mp_ptr rp, mp_srcptr up, mp_size_t n, mp_limb_t vl) {
     ADDSUB " %%r9, 8(%%rdi,%%r11,8)\n"                           \
     "11:\n" /* ret */                                            \
     "adc $0, %%rdx\n"                                            \
-    "movq %%rdx, %0\n"                                           \
-    : "=m" (cy)                                                  \
-    : "D" (rp), "S" (up), "d" (n), "c" (vl)                      \
+    "movq %%rdx, %q0\n"                                          \
+    : "=g" (cy), "+D" (rp), "+S" (up), "+d" (n)                  \
+    : "c" (vl)                                                   \
     : "rax", "rbx", "ebx",                                       \
       "r8", "r9", "r10", "r11",                                  \
       "cc", "memory"                                             \
@@ -1192,8 +1196,9 @@ mpn_sqr_diag_addlsh1(mp_ptr rp, mp_srcptr tp, mp_srcptr up, mp_size_t n) {
     "mov %%r9,(%%rdi)\n"
     "adc %%rbx,%%rdx\n"
     "mov %%rdx,8(%%rdi)\n"
+    : "+D" (rp), "+S" (tp),
+      "+d" (up), "+c" (n)
     :
-    : "D" (rp), "S" (tp), "d" (up), "c" (n)
     : "rax", "rbx", "ebx", "bl",
       "r8", "r9", "r10", "r11",
       "cc", "memory"
@@ -1366,9 +1371,9 @@ mpn_lshift(mp_ptr rp, mp_srcptr up, mp_size_t n, unsigned int cnt) {
     "mov (%%rsi), %%r10\n"
     "shl %%cl, %%r10\n"
     "mov %%r10, (%%rdi)\n"
-    "movq %%rax, %0\n"
-    : "=m" (cy)
-    : "D" (rp), "S" (up), "d" (n), "c" (cnt)
+    "movq %%rax, %q0\n"
+    : "=g" (cy), "+d" (n), "+c" (cnt)
+    : "D" (rp), "S" (up)
     : "rax", "r8", "r9", "r10", "r11",
       "cc", "memory"
   );
@@ -1539,9 +1544,11 @@ mpn_rshift(mp_ptr rp, mp_srcptr up, mp_size_t n, unsigned int cnt) {
     "mov (%%rsi), %%r10\n"
     "shr %%cl, %%r10\n"
     "mov %%r10, (%%rdi)\n"
-    "movq %%rax, %0\n"
-    : "=m" (cy)
-    : "D" (rp), "S" (up), "d" (n), "c" (cnt)
+    "movq %%rax, %q0\n"
+    : "=g" (cy),
+      "+D" (rp), "+S" (up),
+      "+d" (n), "+c" (cnt)
+    :
     : "rax", "r8", "r9", "r10", "r11",
       "cc", "memory"
   );
