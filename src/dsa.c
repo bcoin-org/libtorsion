@@ -34,7 +34,6 @@
 #include "asn1.h"
 #include "internal.h"
 #include "mpi.h"
-#include "prime.h"
 
 /*
  * Structs
@@ -198,15 +197,15 @@ dsa_group_generate(dsa_group_t *group,
   drbg_init(&rng, HASH_SHA256, entropy, ENTROPY_SIZE);
 
   for (;;) {
-    mpz_random_bits(q, N, &rng);
+    mpz_random_bits(q, N, drbg_rng, &rng);
     mpz_set_bit(q, 0);
     mpz_set_bit(q, N - 1);
 
-    if (!mpz_is_prime(q, 64, &rng))
+    if (!mpz_is_prime(q, 64, drbg_rng, &rng))
       continue;
 
     for (i = 0; i < 4 * L; i++) {
-      mpz_random_bits(p, L, &rng);
+      mpz_random_bits(p, L, drbg_rng, &rng);
       mpz_set_bit(p, 0);
       mpz_set_bit(p, L - 1);
 
@@ -219,7 +218,7 @@ dsa_group_generate(dsa_group_t *group,
       if (bits < L || bits > DSA_MAX_BITS)
         continue;
 
-      if (!mpz_is_prime(p, 64, &rng))
+      if (!mpz_is_prime(p, 64, drbg_rng, &rng))
         continue;
 
       goto out;
@@ -619,7 +618,7 @@ dsa_priv_create(dsa_priv_t *k,
   drbg_init(&rng, HASH_SHA256, entropy, ENTROPY_SIZE);
 
   while (mpz_sgn(k->x) == 0)
-    mpz_random_int(k->x, k->q, &rng);
+    mpz_random_int(k->x, k->q, drbg_rng, &rng);
 
   mpz_powm_sec(k->y, k->g, k->x, k->p);
 
@@ -1340,7 +1339,7 @@ dsa_sign(unsigned char *out, size_t *out_len,
   drbg_init(&rng, HASH_SHA256, entropy, ENTROPY_SIZE);
 
   for (;;) {
-    mpz_random_int(b, priv.q, &rng);
+    mpz_random_int(b, priv.q, drbg_rng, &rng);
 
     if (mpz_sgn(b) == 0)
       continue;

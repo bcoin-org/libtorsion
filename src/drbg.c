@@ -111,3 +111,8 @@ drbg_generate(drbg_t *drbg, void *out, size_t len) {
 
   drbg_update(drbg, NULL, 0);
 }
+
+void
+drbg_rng(void *out, size_t size, void *arg) {
+  drbg_generate((drbg_t *)arg, out, size);
+}

@@ -34,7 +34,6 @@ gcc -g \
   src/kdf.c \
   src/mpi.c \
   src/poly1305.c \
-  src/prime.c \
   src/rsa.c \
   src/salsa20.c \
   src/siphash.c \

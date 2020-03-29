@@ -88,8 +88,7 @@ extern "C" {
 #define mpn_sqr __torsion_mpn_sqr
 #define mpn_lshift __torsion_mpn_lshift
 #define mpn_rshift __torsion_mpn_rshift
-#define mpn_scan0 __torsion_mpn_scan0
-#define mpn_scan1 __torsion_mpn_scan1
+#define mpn_ctz __torsion_mpn_ctz
 #define mpn_com __torsion_mpn_com
 #define mpn_neg __torsion_mpn_neg
 #define mpn_invert_3by2 __torsion_mpn_invert_3by2
@@ -106,6 +105,8 @@ extern "C" {
 #define mpn_bitlen __torsion_mpn_bitlen
 #define mpn_get_bit __torsion_mpn_get_bit
 #define mpn_get_bits __torsion_mpn_get_bits
+#define mpn_set_bit __torsion_mpn_set_bit
+#define mpn_clr_bit __torsion_mpn_clr_bit
 #define mpn_import __torsion_mpn_import
 #define mpn_export __torsion_mpn_export
 #define mpn_out_str __torsion_mpn_out_str
@@ -184,8 +185,7 @@ extern "C" {
 #define mpz_get_bits __torsion_mpz_get_bits
 #define mpz_set_bit __torsion_mpz_set_bit
 #define mpz_clr_bit __torsion_mpz_clr_bit
-#define mpz_scan0 __torsion_mpz_scan0
-#define mpz_scan1 __torsion_mpz_scan1
+#define mpz_ctz __torsion_mpz_ctz
 #define mpz_fits_slong_p __torsion_mpz_fits_slong_p
 #define mpz_fits_ulong_p __torsion_mpz_fits_ulong_p
 #define mpz_get_si __torsion_mpz_get_si
@@ -212,6 +212,12 @@ extern "C" {
 #define mpz_export __torsion_mpz_export
 #define mpz_decode __torsion_mpz_decode
 #define mpz_encode __torsion_mpz_encode
+#define mpz_random_bits __torsion_mpz_random_bits
+#define mpz_random_int __torsion_mpz_random_int
+#define mpz_is_prime_mr __torsion_mpz_is_prime_mr
+#define mpz_is_prime_lucas __torsion_mpz_is_prime_lucas
+#define mpz_is_prime __torsion_mpz_is_prime
+#define mpz_random_prime __torsion_mpz_random_prime
 
 #ifdef MINI_GMP_FIXED_LIMBS
 #ifdef TORSION_USE_64BIT
@@ -278,8 +284,7 @@ void mpn_sqr(mp_ptr, mp_srcptr, mp_size_t);
 mp_limb_t mpn_lshift(mp_ptr, mp_srcptr, mp_size_t, unsigned int);
 mp_limb_t mpn_rshift(mp_ptr, mp_srcptr, mp_size_t, unsigned int);
 
-mp_bitcnt_t mpn_scan0(mp_srcptr, mp_bitcnt_t);
-mp_bitcnt_t mpn_scan1(mp_srcptr, mp_bitcnt_t);
+mp_bitcnt_t mpn_ctz(mp_srcptr, mp_size_t);
 
 void mpn_com(mp_ptr, mp_srcptr, mp_size_t);
 mp_limb_t mpn_neg(mp_ptr, mp_srcptr, mp_size_t);
@@ -301,9 +306,11 @@ int mpn_sec_lte(mp_srcptr, mp_srcptr, mp_size_t);
 int mpn_sec_gt(mp_srcptr, mp_srcptr, mp_size_t);
 int mpn_sec_gte(mp_srcptr, mp_srcptr, mp_size_t);
 
-size_t mpn_bitlen(mp_srcptr, mp_size_t);
-mp_limb_t mpn_get_bit(mp_srcptr, mp_size_t, mp_size_t);
-mp_limb_t mpn_get_bits(mp_srcptr, mp_size_t, mp_size_t, mp_size_t);
+mp_bitcnt_t mpn_bitlen(mp_srcptr, mp_size_t);
+int mpn_get_bit(mp_srcptr, mp_size_t, mp_bitcnt_t);
+mp_limb_t mpn_get_bits(mp_srcptr, mp_size_t, mp_bitcnt_t, mp_bitcnt_t);
+void mpn_set_bit(mp_ptr, mp_size_t, mp_bitcnt_t);
+void mpn_clr_bit(mp_ptr, mp_size_t, mp_bitcnt_t);
 
 void mpn_import(mp_ptr, mp_size_t, const unsigned char *, size_t, int);
 void mpn_export(unsigned char *, size_t, mp_srcptr, mp_size_t, int);
@@ -406,8 +413,7 @@ int mpz_get_bit(const mpz_t, mp_bitcnt_t);
 mp_limb_t mpz_get_bits(const mpz_t, mp_bitcnt_t, mp_bitcnt_t);
 void mpz_set_bit(mpz_t, mp_bitcnt_t);
 void mpz_clr_bit(mpz_t, mp_bitcnt_t);
-mp_bitcnt_t mpz_scan0(const mpz_t, mp_bitcnt_t);
-mp_bitcnt_t mpz_scan1(const mpz_t, mp_bitcnt_t);
+mp_bitcnt_t mpz_ctz(const mpz_t);
 
 int mpz_fits_slong_p(const mpz_t);
 int mpz_fits_ulong_p(const mpz_t);
@@ -434,7 +440,7 @@ void mpz_init_set_si(mpz_t, signed long int);
 void mpz_init_set_ui(mpz_t, unsigned long int);
 void mpz_init_set(mpz_t, const mpz_t);
 
-size_t mpz_bitlen(const mpz_t);
+mp_bitcnt_t mpz_bitlen(const mpz_t);
 size_t mpz_bytelen(const mpz_t);
 
 /* This long list taken from gmp.h. */
@@ -461,6 +467,21 @@ size_t mpz_out_str(FILE *, int, const mpz_t);
 
 void mpz_decode(mpz_t, const unsigned char *, size_t, int);
 void mpz_encode(unsigned char *, const mpz_t, size_t, int);
+
+typedef void (*mp_rng_t)(void *out, size_t size, void *arg);
+
+void mpz_random_bits(mpz_t r, mp_bitcnt_t bits, mp_rng_t rng, void *arg);
+
+void mpz_random_int(mpz_t ret, const mpz_t max, mp_rng_t rng, void *arg);
+
+int mpz_is_prime_mr(const mpz_t n, unsigned long reps,
+                    int force2, mp_rng_t rng, void *arg);
+
+int mpz_is_prime_lucas(const mpz_t n, unsigned long limit);
+
+int mpz_is_prime(const mpz_t p, unsigned long rounds, mp_rng_t rng, void *arg);
+
+void mpz_random_prime(mpz_t ret, mp_bitcnt_t bits, mp_rng_t rng, void *arg);
 
 #if defined(__cplusplus)
 }

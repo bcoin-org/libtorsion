@@ -51,6 +51,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdint.h>
 
 #include "mpi.h"
 
@@ -87,8 +88,6 @@
 } while (0)
 
 #ifdef TORSION_USE_ASM
-
-#include <stdint.h>
 
 #define gmp_clz(count, x) do { \
   uint64_t __cbtmp;            \
@@ -1594,46 +1593,23 @@ mpn_rshift(mp_ptr rp, mp_srcptr up, mp_size_t n, unsigned int cnt) {
 #endif
 }
 
-static mp_bitcnt_t
-mpn_common_scan(mp_limb_t limb, mp_size_t i, mp_srcptr up, mp_size_t un,
-                mp_limb_t ux) {
-  unsigned cnt;
+mp_bitcnt_t
+mpn_ctz(const mp_limb_t *xp, mp_size_t xn) {
+  mp_size_t i, cnt;
 
-  assert(ux == 0 || ux == GMP_LIMB_MAX);
-  assert(0 <= i && i <= un);
+  assert(xn >= 0);
 
-  while (limb == 0) {
-    i++;
-
-    if (i == un)
-      return (ux == 0 ? ~(mp_bitcnt_t)0 : un * GMP_LIMB_BITS);
-
-    limb = ux ^ up[i];
+  for (i = 0; i < xn; i++) {
+    if (xp[i] != 0)
+      break;
   }
 
-  gmp_ctz(cnt, limb);
+  if (i == xn)
+    return 0;
 
-  return (mp_bitcnt_t)i * GMP_LIMB_BITS + cnt;
-}
+  gmp_ctz(cnt, xp[i]);
 
-mp_bitcnt_t
-mpn_scan1(mp_srcptr ptr, mp_bitcnt_t bit) {
-  mp_size_t i;
-
-  i = bit / GMP_LIMB_BITS;
-
-  return mpn_common_scan(ptr[i] & (GMP_LIMB_MAX << (bit % GMP_LIMB_BITS)),
-                         i, ptr, i, 0);
-}
-
-mp_bitcnt_t
-mpn_scan0(mp_srcptr ptr, mp_bitcnt_t bit) {
-  mp_size_t i;
-
-  i = bit / GMP_LIMB_BITS;
-
-  return mpn_common_scan(~ptr[i] & (GMP_LIMB_MAX << (bit % GMP_LIMB_BITS)),
-                         i, ptr, i, GMP_LIMB_MAX);
+  return cnt + i * GMP_LIMB_BITS;
 }
 
 void
@@ -2187,7 +2163,7 @@ mpn_sec_gte(mp_srcptr xp, mp_srcptr yp, mp_size_t n) {
 }
 
 /* MPN bit functions. */
-size_t
+mp_bitcnt_t
 mpn_bitlen(mp_srcptr xp, mp_size_t xn) {
   mp_size_t bits;
 
@@ -2201,26 +2177,26 @@ mpn_bitlen(mp_srcptr xp, mp_size_t xn) {
   return xn * GMP_LIMB_BITS - bits;
 }
 
-mp_limb_t
-mpn_get_bit(mp_srcptr xp, mp_size_t xn, mp_size_t pos) {
+int
+mpn_get_bit(mp_srcptr xp, mp_size_t xn, mp_bitcnt_t pos) {
   mp_size_t index = pos / GMP_LIMB_BITS;
-  mp_size_t shift = pos % GMP_LIMB_BITS;
 
   if (index >= xn)
     return 0;
 
-  return (xp[index] >> shift) & 1;
+  return (xp[index] >> (pos % GMP_LIMB_BITS)) & 1;
 }
 
 mp_limb_t
-mpn_get_bits(mp_srcptr xp, mp_size_t xn, mp_size_t pos, mp_size_t width) {
+mpn_get_bits(mp_srcptr xp, mp_size_t xn, mp_bitcnt_t pos, mp_bitcnt_t width) {
   mp_size_t index = pos / GMP_LIMB_BITS;
-  mp_size_t shift = pos % GMP_LIMB_BITS;
+  mp_size_t shift;
   mp_limb_t bits;
 
   if (index >= xn)
     return 0;
 
+  shift = pos % GMP_LIMB_BITS;
   bits = (xp[index] >> shift) & (((mp_limb_t)1 << width) - 1);
 
   if (shift + width > (mp_size_t)GMP_LIMB_BITS && index + 1 < xn) {
@@ -2231,6 +2207,26 @@ mpn_get_bits(mp_srcptr xp, mp_size_t xn, mp_size_t pos, mp_size_t width) {
   }
 
   return bits;
+}
+
+void
+mpn_set_bit(mp_ptr xp, mp_size_t xn, mp_bitcnt_t pos) {
+  mp_size_t index = pos / GMP_LIMB_BITS;
+  mp_size_t shift = pos % GMP_LIMB_BITS;
+
+  assert(index < xn);
+
+  xp[index] |= ((mp_limb_t)1 << shift);
+}
+
+void
+mpn_clr_bit(mp_ptr xp, mp_size_t xn, mp_bitcnt_t pos) {
+  mp_size_t index = pos / GMP_LIMB_BITS;
+  mp_size_t shift = pos % GMP_LIMB_BITS;
+
+  assert(index < xn);
+
+  xp[index] &= ~((mp_limb_t)1 << shift);
 }
 
 /* MPN Import/Export. */
@@ -2513,6 +2509,13 @@ mpz_set_ui(mpz_t r, unsigned long int x) {
   }
 }
 
+static void
+mpz_set_u64(mpz_t r, uint64_t x) {
+  mpz_set_ui(r, x >> 32);
+  mpz_mul_2exp(r, r, 32);
+  mpz_add_ui(r, r, x & 0xfffffffful);
+}
+
 void
 mpz_set(mpz_t r, const mpz_t x) {
   /* Allow the NOP r == x */
@@ -2606,6 +2609,24 @@ mpz_get_ui(const mpz_t u) {
   }
 
   return u->_mp_size == 0 ? 0 : u->_mp_d[0];
+}
+
+static uint64_t
+mpz_get_u64(const mpz_t x) {
+  if (GMP_LIMB_BITS < 64) {
+    size_t LOCAL_GMP_LIMB_BITS = GMP_LIMB_BITS;
+    size_t i = 64 / GMP_LIMB_BITS;
+    uint64_t w = 0;
+
+    while (i--) {
+      w <<= LOCAL_GMP_LIMB_BITS;
+      w |= mpz_getlimbn(x, i);
+    }
+
+    return w;
+  }
+
+  return mpz_getlimbn(x, 0);
 }
 
 size_t
@@ -3528,7 +3549,7 @@ mpz_make_odd(mpz_t r) {
   assert(r->_mp_size > 0);
 
   /* Count trailing zeros, equivalent to mpn_scan1, because we know that there is a 1 */
-  shift = mpn_common_scan(r->_mp_d[0], 0, r->_mp_d, 0, 0);
+  shift = mpn_ctz(r->_mp_d, r->_mp_size);
 
   mpz_tdiv_q_2exp(r, r, shift);
 
@@ -3913,8 +3934,8 @@ mpn_invert_n(mp_ptr rp, mp_srcptr xp, mp_srcptr yp, mp_size_t n) {
 int
 mpz_jacobi(const mpz_t x, const mpz_t y) {
   mp_limb_t bmod8;
-  mpz_t a, b, c;
-  mp_size_t s;
+  mp_bitcnt_t az;
+  mpz_t a, b;
   int j = 1;
 
   if (!mpz_odd_p(y))
@@ -3922,7 +3943,6 @@ mpz_jacobi(const mpz_t x, const mpz_t y) {
 
   mpz_init_set(a, x);
   mpz_init_set(b, y);
-  mpz_init(c);
 
   if (mpz_sgn(b) < 0) {
     if (mpz_sgn(a) < 0)
@@ -3947,27 +3967,23 @@ mpz_jacobi(const mpz_t x, const mpz_t y) {
       break;
     }
 
-    s = mpz_scan1(a, 0);
+    az = mpz_make_odd(a);
 
-    if (s & 1) {
+    if (az & 1) {
       bmod8 = mpz_getlimbn(b, 0) & 7;
 
       if (bmod8 == 3 || bmod8 == 5)
         j = -j;
     }
 
-    mpz_tdiv_q_2exp(c, a, s);
-
-    if ((mpz_getlimbn(b, 0) & 3) == 3 && (mpz_getlimbn(c, 0) & 3) == 3)
+    if ((mpz_getlimbn(a, 0) & 3) == 3 && (mpz_getlimbn(b, 0) & 3) == 3)
       j = -j;
 
     mpz_swap(a, b);
-    mpz_swap(b, c);
   }
 
   mpz_clear(a);
   mpz_clear(b);
-  mpz_clear(c);
 
   return j;
 }
@@ -4433,67 +4449,11 @@ mpz_clr_bit(mpz_t d, mp_bitcnt_t pos) {
 }
 
 mp_bitcnt_t
-mpz_scan1(const mpz_t u, mp_bitcnt_t starting_bit) {
-  mp_ptr up;
-  mp_size_t us, un, i;
-  mp_limb_t limb, ux;
-
-  us = u->_mp_size;
-  un = GMP_ABS(us);
-  i = starting_bit / GMP_LIMB_BITS;
-
-  /* Past the end there's no 1 bits for u>=0, or an immediate 1 bit
-     for u<0. Notice this test picks up any u==0 too. */
-  if (i >= un)
-    return (us >= 0 ? ~(mp_bitcnt_t)0 : starting_bit);
-
-  up = u->_mp_d;
-  ux = 0;
-  limb = up[i];
-
-  if (starting_bit != 0) {
-    if (us < 0) {
-      ux = mpn_zero_p(up, i);
-      limb = ~limb + ux;
-      ux = -(mp_limb_t)(limb >= ux);
-    }
-
-    /* Mask to 0 all bits before starting_bit, thus ignoring them. */
-    limb &= GMP_LIMB_MAX << (starting_bit % GMP_LIMB_BITS);
-  }
-
-  return mpn_common_scan(limb, i, up, un, ux);
+mpz_ctz(const mpz_t u) {
+  return mpn_ctz(u->_mp_d, GMP_ABS(u->_mp_size));
 }
 
 mp_bitcnt_t
-mpz_scan0(const mpz_t u, mp_bitcnt_t starting_bit) {
-  mp_ptr up;
-  mp_size_t us, un, i;
-  mp_limb_t limb, ux;
-
-  us = u->_mp_size;
-  ux = -(mp_limb_t)(us >= 0);
-  un = GMP_ABS(us);
-  i = starting_bit / GMP_LIMB_BITS;
-
-  /* When past end, there's an immediate 0 bit for u>=0, or no 0 bits for
-     u<0.  Notice this test picks up all cases of u==0 too. */
-  if (i >= un)
-    return (ux ? starting_bit : ~(mp_bitcnt_t)0);
-
-  up = u->_mp_d;
-  limb = up[i] ^ ux;
-
-  if (ux == 0)
-    limb -= mpn_zero_p(up, i); /* limb = ~(~limb + zero_p) */
-
-  /* Mask all bits before starting_bit, thus ignoring them. */
-  limb &= GMP_LIMB_MAX << (starting_bit % GMP_LIMB_BITS);
-
-  return mpn_common_scan(limb, i, up, un, ux);
-}
-
-size_t
 mpz_bitlen(const mpz_t u) {
   return mpn_bitlen(u->_mp_d, GMP_ABS(u->_mp_size));
 }
@@ -4529,4 +4489,389 @@ mpz_decode(mpz_t r, const unsigned char *u, size_t size, int endian) {
 void
 mpz_encode(unsigned char *r, const mpz_t u, size_t size, int endian) {
   mpn_export(r, size, u->_mp_d, GMP_ABS(u->_mp_size), endian);
+}
+
+void
+mpz_random_bits(mpz_t r, mp_bitcnt_t bits, mp_rng_t rng, void *arg) {
+  mp_size_t size = (bits + GMP_LIMB_BITS - 1) / GMP_LIMB_BITS;
+  mp_size_t low = bits % GMP_LIMB_BITS;
+  mp_ptr rp = MPZ_REALLOC(r, size);
+
+  (*rng)(rp, size * sizeof(mp_limb_t), arg);
+
+  if (low != 0)
+    rp[size - 1] &= ((mp_limb_t)1 << low) - 1;
+
+  r->_mp_size = mpn_normalized_size(rp, size);
+
+  assert(mpz_bitlen(r) <= bits);
+}
+
+void
+mpz_random_int(mpz_t ret, const mpz_t max, mp_rng_t rng, void *arg) {
+  mp_bitcnt_t bits = mpz_bitlen(max);
+
+  mpz_set(ret, max);
+
+  if (bits > 0) {
+    while (mpz_cmpabs(ret, max) >= 0)
+      mpz_random_bits(ret, bits, rng, arg);
+
+    if (mpz_sgn(max) < 0)
+      mpz_neg(ret, ret);
+  }
+}
+
+int
+mpz_is_prime_mr(const mpz_t n, unsigned long reps,
+                int force2, mp_rng_t rng, void *arg) {
+  mpz_t nm1, nm3, q, x, y;
+  unsigned long k, i, j;
+  int ret = 0;
+
+  /* if n < 7 */
+  if (mpz_cmp_ui(n, 7) < 0) {
+    /* n == 2 or n == 3 or n == 5 */
+    return mpz_cmp_ui(n, 2) == 0
+        || mpz_cmp_ui(n, 3) == 0
+        || mpz_cmp_ui(n, 5) == 0;
+  }
+
+  /* if n mod 2 == 0 */
+  if (mpz_even_p(n))
+    return 0;
+
+  mpz_init(nm1);
+  mpz_init(nm3);
+  mpz_init(q);
+  mpz_init(x);
+  mpz_init(y);
+
+  /* nm1 = n - 1 */
+  mpz_sub_ui(nm1, n, 1);
+
+  /* nm3 = nm1 - 2 */
+  mpz_sub_ui(nm3, nm1, 2);
+
+  /* k = nm1 factors of 2 */
+  k = mpz_ctz(nm1);
+
+  /* q = nm1 >> k */
+  mpz_tdiv_q_2exp(q, nm1, k);
+
+  for (i = 0; i < reps; i++) {
+    if (i == reps - 1 && force2) {
+      /* x = 2 */
+      mpz_set_ui(x, 2);
+    } else {
+      /* x = random integer in [2,n-1] */
+      mpz_random_int(x, nm3, rng, arg);
+      mpz_add_ui(x, x, 2);
+    }
+
+    /* y = x^q mod n */
+    mpz_powm(y, x, q, n);
+
+    /* if y == 1 or y == -1 mod n */
+    if (mpz_cmp_ui(y, 1) == 0 || mpz_cmp(y, nm1) == 0)
+      continue;
+
+    for (j = 1; j < k; j++) {
+      /* y = y^2 mod n */
+      mpz_mul(y, y, y);
+      mpz_mod(y, y, n);
+
+      /* if y == -1 mod n */
+      if (mpz_cmp(y, nm1) == 0)
+        goto next;
+
+      /* if y == 1 mod n */
+      if (mpz_cmp_ui(y, 1) == 0)
+        goto fail;
+    }
+
+    goto fail;
+next:
+    ;
+  }
+
+  ret = 1;
+fail:
+  mpz_clear(nm1);
+  mpz_clear(nm3);
+  mpz_clear(q);
+  mpz_clear(x);
+  mpz_clear(y);
+  return ret;
+}
+
+int
+mpz_is_prime_lucas(const mpz_t n, unsigned long limit) {
+  mpz_t d, s, nm2, vk, vk1, t1, t2, t3;
+  unsigned long i, p, r, t;
+  int ret = 0;
+  int j;
+
+  mpz_init(d);
+  mpz_init(s);
+  mpz_init(nm2);
+  mpz_init(vk);
+  mpz_init(vk1);
+  mpz_init(t1);
+  mpz_init(t2);
+  mpz_init(t3);
+
+  /* if n <= 1 */
+  if (mpz_cmp_ui(n, 1) <= 0)
+    goto fail;
+
+  /* if n mod 2 == 0 */
+  if (mpz_even_p(n)) {
+    /* if n == 2 */
+    if (mpz_cmp_ui(n, 2) == 0)
+      goto succeed;
+    goto fail;
+  }
+
+  /* p = 3 */
+  p = 3;
+
+  /* d = 1 */
+  mpz_set_ui(d, 1);
+
+  for (;;) {
+    if (p > 10000) {
+      /* Thought to be impossible. */
+      goto fail;
+    }
+
+    if (limit != 0 && p > limit) {
+      /* Enforce a limit to prevent DoS'ing. */
+      goto fail;
+    }
+
+    /* d = p * p - 4 */
+    mpz_set_ui(d, p * p - 4);
+
+    j = mpz_jacobi(d, n);
+
+    /* if d is not square mod n */
+    if (j == -1)
+      break;
+
+    /* if d == 0 mod n */
+    if (j == 0) {
+      /* if n == p + 2 */
+      if (mpz_cmp_ui(n, p + 2) == 0)
+        goto succeed;
+      goto fail;
+    }
+
+    if (p == 40) {
+      /* if floor(n^(1 / 2))^2 == n */
+      if (mpz_perfect_square_p(n))
+        goto fail;
+    }
+
+    p += 1;
+  }
+
+  /* s = n + 1 */
+  mpz_add_ui(s, n, 1);
+
+  /* r = s factors of 2 */
+  r = mpz_ctz(s);
+
+  /* nm2 = n - 2 */
+  mpz_sub_ui(nm2, n, 2);
+
+  /* vk = 2 */
+  mpz_set_ui(vk, 2);
+
+  /* vk1 = p */
+  mpz_set_ui(vk1, p);
+
+  /* s >>= r */
+  mpz_tdiv_q_2exp(s, s, r);
+
+  for (i = mpz_bitlen(s) + 1; i-- > 0;) {
+    /* if floor(s / 2^i) mod 2 == 1 */
+    if (mpz_get_bit(s, i)) {
+      /* vk = (vk * vk1 + n - p) mod n */
+      /* vk1 = (vk1^2 + nm2) mod n */
+      mpz_mul(t1, vk, vk1);
+      mpz_add(t1, t1, n);
+      mpz_sub_ui(t1, t1, p);
+      mpz_mod(vk, t1, n);
+      mpz_mul(t1, vk1, vk1);
+      mpz_add(t1, t1, nm2);
+      mpz_mod(vk1, t1, n);
+    } else {
+      /* vk1 = (vk * vk1 + n - p) mod n */
+      /* vk = (vk^2 + nm2) mod n */
+      mpz_mul(t1, vk, vk1);
+      mpz_add(t1, t1, n);
+      mpz_sub_ui(t1, t1, p);
+      mpz_mod(vk1, t1, n);
+      mpz_mul(t1, vk, vk);
+      mpz_add(t1, t1, nm2);
+      mpz_mod(vk, t1, n);
+    }
+  }
+
+  /* if vk == 2 or vk == nm2 */
+  if (mpz_cmp_ui(vk, 2) == 0 || mpz_cmp(vk, nm2) == 0) {
+    /* t3 = abs(vk * p - vk1 * 2) mod n */
+    mpz_mul_ui(t1, vk, p);
+    mpz_mul_2exp(t2, vk1, 1);
+
+    if (mpz_cmp(t1, t2) < 0)
+      mpz_swap(t1, t2);
+
+    mpz_sub(t1, t1, t2);
+    mpz_mod(t3, t1, n);
+
+    /* if t3 == 0 */
+    if (mpz_sgn(t3) == 0)
+      goto succeed;
+  }
+
+  for (t = 1; t < r; t++) {
+    /* if vk == 0 */
+    if (mpz_sgn(vk) == 0)
+      goto succeed;
+
+    /* if vk == 2 */
+    if (mpz_cmp_ui(vk, 2) == 0)
+      goto fail;
+
+    /* vk = (vk^2 - 2) mod n */
+    mpz_mul(t1, vk, vk);
+    mpz_sub_ui(t1, t1, 2);
+    mpz_mod(vk, t1, n);
+  }
+
+  goto fail;
+succeed:
+  ret = 1;
+fail:
+  mpz_clear(d);
+  mpz_clear(s);
+  mpz_clear(nm2);
+  mpz_clear(vk);
+  mpz_clear(vk1);
+  mpz_clear(t1);
+  mpz_clear(t2);
+  mpz_clear(t3);
+  return ret;
+}
+
+int
+mpz_is_prime(const mpz_t p, unsigned long rounds, mp_rng_t rng, void *arg) {
+  static const mp_limb_t primes_a =
+    3ul * 5ul * 7ul * 11ul * 13ul * 17ul * 19ul * 23ul * 37ul;
+  static const mp_limb_t primes_b = 29ul * 31ul * 41ul * 43ul * 47ul * 53ul;
+  mp_limb_t ra, rb;
+
+  if (mpz_sgn(p) <= 0)
+    return 0;
+
+  if (mpz_cmp_ui(p, 64) < 0) {
+    static const uint64_t prime_mask = 0ull
+      | 1ull <<  2 | 1ull <<  3 | 1ull <<  5 | 1ull << 7
+      | 1ull << 11 | 1ull << 13 | 1ull << 17 | 1ull << 19
+      | 1ull << 23 | 1ull << 29 | 1ull << 31 | 1ull << 37
+      | 1ull << 41 | 1ull << 43 | 1ull << 47 | 1ull << 53
+      | 1ull << 59 | 1ull << 61;
+
+    return (prime_mask >> mpz_get_ui(p)) & 1;
+  }
+
+  if (mpz_even_p(p))
+    return 0;
+
+  ra = mpz_fdiv_ui(p, primes_a);
+  rb = mpz_fdiv_ui(p, primes_b);
+
+  if (ra % 3 == 0
+      || ra % 5 == 0
+      || ra % 7 == 0
+      || ra % 11 == 0
+      || ra % 13 == 0
+      || ra % 17 == 0
+      || ra % 19 == 0
+      || ra % 23 == 0
+      || ra % 37 == 0
+      || rb % 29 == 0
+      || rb % 31 == 0
+      || rb % 41 == 0
+      || rb % 43 == 0
+      || rb % 47 == 0
+      || rb % 53 == 0) {
+    return 0;
+  }
+
+  if (!mpz_is_prime_mr(p, rounds + 1, 1, rng, arg))
+    return 0;
+
+  if (!mpz_is_prime_lucas(p, 0))
+    return 0;
+
+  return 1;
+}
+
+void
+mpz_random_prime(mpz_t ret, mp_bitcnt_t bits, mp_rng_t rng, void *arg) {
+  static const uint64_t primes[15] =
+    { 3,  5,  7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53 };
+  static const uint64_t product = 16294579238595022365ull;
+  uint64_t mod, delta, m, p;
+  mpz_t prod, tmp;
+  size_t i;
+
+  assert(bits > 1);
+
+  mpz_init(prod);
+  mpz_init(tmp);
+
+  mpz_set_u64(prod, product);
+
+  for (;;) {
+    mpz_random_bits(ret, bits, rng, arg);
+
+    mpz_set_bit(ret, bits - 1);
+    mpz_set_bit(ret, bits - 2);
+    mpz_set_bit(ret, 0);
+
+    mpz_mod(tmp, ret, prod);
+    mod = mpz_get_u64(tmp);
+
+    for (delta = 0; delta < (1ull << 20); delta += 2) {
+      m = mod + delta;
+
+      for (i = 0; i < sizeof(primes) / sizeof(primes[0]); i++) {
+        p = primes[i];
+
+        if ((m % p) == 0 && (bits > 6 || m != p))
+          goto next;
+      }
+
+      mpz_add_ui(ret, ret, (mp_limb_t)delta);
+
+      break;
+next:
+      ;
+    }
+
+    if (mpz_bitlen(ret) != bits)
+      continue;
+
+    if (!mpz_is_prime(ret, 20, rng, arg))
+      continue;
+
+    break;
+  }
+
+  mpz_cleanse(prod);
+  mpz_cleanse(tmp);
 }
