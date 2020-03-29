@@ -533,7 +533,6 @@ mpn_cleanse(mp_ptr xp, mp_size_t xn) {
  *   %rsi = ap
  *   %rcx = n
  *   %rdx = b
- *   %rax = cy
  */
 #define AORS_1(ADDSUB, ADCSBB) \
   __asm__ __volatile__(        \
@@ -554,12 +553,12 @@ mpn_cleanse(mp_ptr xp, mp_size_t xn) {
     "jnz 1b\n"                 \
                                \
     "2:\n"                     \
-    "mov $0, %%rax\n"          \
-    "adc $0, %%rax\n"          \
-    : "=a" (b), "+D" (rp),     \
-      "+S" (ap), "+c" (n)      \
-    : "d" (b)                  \
-    : "cc", "memory"           \
+    "mov $0, %%rdx\n"          \
+    "adc $0, %%rdx\n"          \
+    : "+D" (rp), "+S" (ap),    \
+      "+c" (n), "+d" (b)       \
+    :                          \
+    : "rax", "cc", "memory"    \
   );
 
 /* From:
