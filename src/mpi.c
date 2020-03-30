@@ -2356,9 +2356,8 @@ mpn_export(unsigned char *rp, size_t rn,
 /* MPN I/O */
 size_t
 mpn_out_str(FILE *stream, int base, mp_srcptr xp, mp_size_t xn) {
-  mp_size_t size = GMP_LIMB_BITS / 8;
   mp_size_t bytes = 0;
-  mp_limb_t w, ch, hi, lo;
+  mp_limb_t ch, hi, lo;
   mp_size_t i;
 
   assert(base == 16);
@@ -2371,10 +2370,10 @@ mpn_out_str(FILE *stream, int base, mp_srcptr xp, mp_size_t xn) {
   xn = mpn_normalized_size(xp, xn);
 
   while (xn--) {
-    w = xp[xn];
+    i = GMP_LIMB_BITS / 8;
 
-    for (i = 0; i < size; i++) {
-      ch = (w >> ((size - 1 - i) * 8)) & 0xff;
+    while (i--) {
+      ch = (xp[xn] >> (i * 8)) & 0xff;
 
       if (bytes == 0 && ch == 0)
         continue;
@@ -2559,14 +2558,12 @@ mpz_fits_slong_p(const mpz_t u) {
 
 int
 mpz_fits_ulong_p(const mpz_t u) {
-  mp_size_t us = u->_mp_size;
-  return us == 0 || us == 1;
+  return u->_mp_size == 0 || u->_mp_size == 1;
 }
 
 mp_long_t
 mpz_get_si(const mpz_t u) {
   mp_long_t r = mpz_get_ui(u) & (GMP_LIMB_HIGHBIT - 1);
-
   return u->_mp_size < 0 ? -r : r;
 }
 
@@ -2763,7 +2760,7 @@ mpz_add_ui(mpz_ptr w, mpz_srcptr u, mp_limb_t vval) {
       wp[0] = vval - up[0];
       wsize = 1;
     } else {
-      mpn_sub_1(wp, up, abs_usize, (mp_limb_t)vval);
+      mpn_sub_1(wp, up, abs_usize, vval);
       /* Size can decrease with at most one limb.  */
       wsize = -(abs_usize - (wp[abs_usize - 1] == 0));
     }
@@ -2807,7 +2804,7 @@ mpz_sub_ui(mpz_ptr w, mpz_srcptr u, mp_limb_t vval) {
       wp[0] = vval - up[0];
       wsize = -1;
     } else {
-      mpn_sub_1(wp, up, abs_usize, (mp_limb_t)vval);
+      mpn_sub_1(wp, up, abs_usize, vval);
       /* Size can decrease with at most one limb.  */
       wsize = (abs_usize - (wp[abs_usize - 1] == 0));
     }
@@ -3867,7 +3864,7 @@ mpn_invert_n(mp_ptr rp, mp_srcptr xp, mp_srcptr yp, mp_size_t n) {
 int
 mpz_jacobi(const mpz_t x, const mpz_t y) {
   mp_limb_t bmod8;
-  mp_bitcnt_t az;
+  mp_bitcnt_t s;
   mpz_t a, b;
   int j = 1;
 
@@ -3900,9 +3897,9 @@ mpz_jacobi(const mpz_t x, const mpz_t y) {
       break;
     }
 
-    az = mpz_make_odd(a);
+    s = mpz_make_odd(a);
 
-    if (az & 1) {
+    if (s & 1) {
       bmod8 = mpz_getlimbn(b, 0) & 7;
 
       if (bmod8 == 3 || bmod8 == 5)
@@ -4141,7 +4138,7 @@ mpn_powm_sec(mp_ptr zp,
   k = 2 - mp[0];
   t = mp[0] - 1;
 
-  for (i = 1; (size_t)i < GMP_LIMB_BITS; i <<= 1) {
+  for (i = 1; i < GMP_LIMB_BITS; i <<= 1) {
     t *= t;
     k *= (t + 1);
   }
