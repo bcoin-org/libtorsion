@@ -174,15 +174,6 @@ enum mpz_div_round_mode { MPI_DIV_FLOOR, MPI_DIV_CEIL, MPI_DIV_TRUNC };
       "rm" ((uint64_t)(v))          \
   )
 
-#define mpi_udiv_qrnnd(q, r, n1, n0, dx) \
-  __asm__ (                              \
-    "divq %4\n"                          \
-    : "=a" (q), "=d" (r)                 \
-    : "0" ((uint64_t)(n0)),              \
-      "1" ((uint64_t)(n1)),              \
-      "rm" ((uint64_t)(dx))              \
-  )
-
 #else /* TORSION_USE_ASM */
 
 #define mpi_clz(count, x) do {                                      \
@@ -397,13 +388,13 @@ mpi_free(void *p) {
 
 static mp_ptr
 mpi_xalloc_limbs(mp_size_t size) {
-  return (mp_ptr)mpi_xalloc(size * sizeof(mp_limb_t));
+  return mpi_xalloc(size * sizeof(mp_limb_t));
 }
 
 static mp_ptr
 mpi_xrealloc_limbs(mp_ptr old, mp_size_t size) {
   assert(size > 0);
-  return (mp_ptr)mpi_xrealloc(old, size * sizeof(mp_limb_t));
+  return mpi_xrealloc(old, size * sizeof(mp_limb_t));
 }
 
 /*
@@ -1747,50 +1738,6 @@ mpn_tdiv_qr(mp_ptr qp,
     mpi_free(tp);
   }
 }
-
-/*
- * NOT
- */
-
-void
-mpn_com(mp_ptr rp, mp_srcptr up, mp_size_t n) {
-  while (--n >= 0)
-    *rp++ = ~*up++;
-}
-
-mp_limb_t
-mpn_neg(mp_ptr rp, mp_srcptr up, mp_size_t n) {
-  while (*up == 0) {
-    *rp = 0;
-
-    if (!--n)
-      return 0;
-
-    ++up; ++rp;
-  }
-
-  *rp = -*up;
-
-  mpn_com(++rp, ++up, --n);
-
-  return 1;
-}
-
-/*
- * AND
- */
-
-/*
- * OR
- */
-
-/*
- * XOR
- */
-
-/*
- * NOT
- */
 
 /*
  * Left Shift
@@ -3210,7 +3157,7 @@ mpz_sub_ui(mpz_ptr w, mpz_srcptr u, mp_limb_t vval) {
     wp[abs_usize] = cy;
     wsize = -(abs_usize + cy);
   } else {
-    /* The signs are different.  Need exact comparison to
+    /* The signs are different. Need exact comparison to
        determine which operand to subtract from which. */
     if (abs_usize == 1 && up[0] < vval) {
       wp[0] = vval - up[0];
@@ -3597,185 +3544,6 @@ mpz_divexact_ui(mpz_t q, const mpz_t n, mp_limb_t d) {
 }
 
 /*
- * Division Helpers
- */
-
-int
-mpz_divisible_p(const mpz_t n, const mpz_t d) {
-  return mpz_div_qr(NULL, NULL, n, d, MPI_DIV_TRUNC) == 0;
-}
-
-int
-mpz_divisible_ui_p(const mpz_t n, mp_limb_t d) {
-  return mpz_div_qr_ui(NULL, NULL, n, d, MPI_DIV_TRUNC) == 0;
-}
-
-int
-mpz_congruent_p(const mpz_t a, const mpz_t b, const mpz_t m) {
-  mpz_t t;
-  int res;
-
-  /* a == b (mod 0) iff a == b */
-  if (mpz_sgn(m) == 0)
-    return (mpz_cmp(a, b) == 0);
-
-  mpz_init(t);
-  mpz_sub(t, a, b);
-  res = mpz_divisible_p(t, m);
-  mpz_clear(t);
-
-  return res;
-}
-
-/*
- * Exponentiation
- */
-
-void
-mpz_pow_ui(mpz_t r, const mpz_t b, mp_limb_t e) {
-  mp_limb_t bit;
-  mpz_t tr;
-
-  mpz_init_set_ui(tr, 1);
-
-  bit = MPI_LIMB_HIGHBIT;
-
-  do {
-    mpz_mul(tr, tr, tr);
-
-    if (e & bit)
-      mpz_mul(tr, tr, b);
-
-    bit >>= 1;
-  } while (bit > 0);
-
-  mpz_swap(r, tr);
-  mpz_clear(tr);
-}
-
-/*
- * Roots
- */
-
-void
-mpz_rootrem(mpz_t x, mpz_t r, const mpz_t y, unsigned long z) {
-  /* x=trunc(y^(1/z)), r=y-x^z */
-  int sgn;
-  mpz_t t, u;
-
-  sgn = y->_mp_size < 0;
-
-  if ((~z & sgn) != 0)
-    mpi_die("mpz_rootrem: Negative argument, with even root.");
-
-  if (z == 0)
-    mpi_die("mpz_rootrem: Zeroth root.");
-
-  if (mpz_cmpabs_ui(y, 1) <= 0) {
-    if (x)
-      mpz_set(x, y);
-
-    if (r)
-      r->_mp_size = 0;
-
-    return;
-  }
-
-  mpz_init(u);
-  mpz_init(t);
-  mpz_set_bit(t, mpz_bitlen(y) / z + 1);
-
-  if (z == 2) { /* simplify sqrt loop: z-1 == 1 */
-    do {
-      mpz_swap(u, t);               /* u = x */
-      mpz_tdiv_q(t, y, u);          /* t = y/x */
-      mpz_add(t, t, u);             /* t = y/x + x */
-      mpz_tdiv_q_2exp(t, t, 1);     /* x'= (y/x + x)/2 */
-    } while (mpz_cmpabs(t, u) < 0); /* |x'| < |x| */
-  } else /* z != 2 */ {
-    mpz_t v;
-
-    mpz_init(v);
-
-    if (sgn)
-      mpz_neg(t, t);
-
-    do {
-      mpz_swap(u, t);               /* u = x */
-      mpz_pow_ui(t, u, z - 1);      /* t = x^(z-1) */
-      mpz_tdiv_q(t, y, t);          /* t = y/x^(z-1) */
-      mpz_mul_ui(v, u, z - 1);      /* v = x*(z-1) */
-      mpz_add(t, t, v);             /* t = y/x^(z-1) + x*(z-1) */
-      mpz_tdiv_q_ui(t, t, z);       /* x'=(y/x^(z-1) + x*(z-1))/z */
-    } while (mpz_cmpabs(t, u) < 0); /* |x'| < |x| */
-
-    mpz_clear(v);
-  }
-
-  if (r) {
-    mpz_pow_ui(t, u, z);
-    mpz_sub(r, y, t);
-  }
-
-  if (x)
-    mpz_swap(x, u);
-
-  mpz_clear(u);
-  mpz_clear(t);
-}
-
-int
-mpz_root(mpz_t x, const mpz_t y, unsigned long z) {
-  int res;
-  mpz_t r;
-
-  mpz_init(r);
-  mpz_rootrem(x, r, y, z);
-
-  res = r->_mp_size == 0;
-
-  mpz_clear(r);
-
-  return res;
-}
-
-void
-mpz_sqrtrem(mpz_t s, mpz_t r, const mpz_t u) {
-  /* Compute s = floor(sqrt(u)) and r = u - s^2. */
-  /* Allows r == NULL. */
-  mpz_rootrem(s, r, u, 2);
-}
-
-void
-mpz_sqrt(mpz_t s, const mpz_t u) {
-  mpz_rootrem(s, NULL, u, 2);
-}
-
-int
-mpz_perfect_square_p(const mpz_t u) {
-  if (u->_mp_size <= 0)
-    return (u->_mp_size == 0);
-  else
-    return mpz_root(NULL, u, 2);
-}
-
-/*
- * AND
- */
-
-/*
- * OR
- */
-
-/*
- * XOR
- */
-
-/*
- * NOT
- */
-
-/*
  * Left Shift
  */
 
@@ -3813,158 +3581,39 @@ mpz_mul_2exp(mpz_t r, const mpz_t u, mp_bitcnt_t bits) {
 }
 
 /*
- * Right Shift Engine
- */
-
-static void
-mpz_div_q_2exp(mpz_t q, const mpz_t u, mp_bitcnt_t bit_index,
-               enum mpz_div_round_mode mode) {
-  mp_size_t un, qn;
-  mp_size_t limb_cnt;
-  mp_ptr qp;
-  int adjust;
-
-  un = u->_mp_size;
-
-  if (un == 0) {
-    q->_mp_size = 0;
-    return;
-  }
-
-  limb_cnt = bit_index / MPI_LIMB_BITS;
-  qn = MPI_ABS(un) - limb_cnt;
-  bit_index %= MPI_LIMB_BITS;
-
-  if (mode == ((un > 0) ? MPI_DIV_CEIL : MPI_DIV_FLOOR)) { /* un != 0 here. */
-    /* Note: Below, the final indexing at limb_cnt is
-       valid because at that point we have qn > 0. */
-    adjust = (qn <= 0
-              || !mpn_zero_p(u->_mp_d, limb_cnt)
-              || (u->_mp_d[limb_cnt]
-                  & (((mp_limb_t)1 << bit_index) - 1)));
-  } else {
-    adjust = 0;
-  }
-
-  if (qn <= 0) {
-    qn = 0;
-  } else {
-    qp = MPZ_REALLOC(q, qn);
-
-    if (bit_index != 0) {
-      mpn_rshift(qp, u->_mp_d + limb_cnt, qn, bit_index);
-      qn -= qp[qn - 1] == 0;
-    } else {
-      mpn_copyi(qp, u->_mp_d + limb_cnt, qn);
-    }
-  }
-
-  q->_mp_size = qn;
-
-  if (adjust)
-    mpz_add_ui(q, q, 1);
-
-  if (un < 0)
-    mpz_neg(q, q);
-}
-
-static void
-mpz_div_r_2exp(mpz_t r, const mpz_t u, mp_bitcnt_t bit_index,
-               enum mpz_div_round_mode mode) {
-  mp_size_t us, un, rn;
-  mp_ptr rp;
-  mp_limb_t mask;
-
-  us = u->_mp_size;
-
-  if (us == 0 || bit_index == 0) {
-    r->_mp_size = 0;
-    return;
-  }
-
-  rn = (bit_index + MPI_LIMB_BITS - 1) / MPI_LIMB_BITS;
-  assert(rn > 0);
-
-  rp = MPZ_REALLOC(r, rn);
-  un = MPI_ABS(us);
-
-  mask = MPI_LIMB_MAX >> (rn * MPI_LIMB_BITS - bit_index);
-
-  if (rn > un) {
-    /* Quotient (with truncation) is zero, and remainder is non-zero. */
-    if (mode == ((us > 0) ? MPI_DIV_CEIL : MPI_DIV_FLOOR)) { /* us != 0 here. */
-      /* Have to negate and sign extend. */
-      mp_size_t i;
-
-      mpi_assert_nocarry(!mpn_neg(rp, u->_mp_d, un));
-
-      for (i = un; i < rn - 1; i++)
-        rp[i] = MPI_LIMB_MAX;
-
-      rp[rn - 1] = mask;
-      us = -us;
-    } else {
-      /* Just copy */
-      if (r != u)
-        mpn_copyi(rp, u->_mp_d, un);
-
-      rn = un;
-    }
-  } else {
-    if (r != u)
-      mpn_copyi(rp, u->_mp_d, rn - 1);
-
-    rp[rn - 1] = u->_mp_d[rn - 1] & mask;
-
-    if (mode == ((us > 0) ? MPI_DIV_CEIL : MPI_DIV_FLOOR)) { /* us != 0 here. */
-      /* If r != 0, compute 2^{bit_count} - r. */
-      mpn_neg(rp, rp, rn);
-
-      rp[rn - 1] &= mask;
-
-      /* us is not used for anything else,
-         so we can modify it here to indicate
-         flipped sign. */
-      us = -us;
-    }
-  }
-
-  rn = mpn_normalized_size(rp, rn);
-  r->_mp_size = us < 0 ? -rn : rn;
-}
-
-/*
  * Right Shift
  */
 
 void
-mpz_cdiv_q_2exp(mpz_t r, const mpz_t u, mp_bitcnt_t cnt) {
-  mpz_div_q_2exp(r, u, cnt, MPI_DIV_CEIL);
-}
+mpz_tdiv_q_2exp(mpz_t r, const mpz_t u, mp_bitcnt_t bits) {
+  mp_size_t un, rn, limbs, shift;
+  mp_ptr rp;
 
-void
-mpz_fdiv_q_2exp(mpz_t r, const mpz_t u, mp_bitcnt_t cnt) {
-  mpz_div_q_2exp(r, u, cnt, MPI_DIV_FLOOR);
-}
+  un = MPI_ABS(u->_mp_size);
 
-void
-mpz_tdiv_q_2exp(mpz_t r, const mpz_t u, mp_bitcnt_t cnt) {
-  mpz_div_q_2exp(r, u, cnt, MPI_DIV_TRUNC);
-}
+  if (un == 0) {
+    r->_mp_size = 0;
+    return;
+  }
 
-void
-mpz_cdiv_r_2exp(mpz_t r, const mpz_t u, mp_bitcnt_t cnt) {
-  mpz_div_r_2exp(r, u, cnt, MPI_DIV_CEIL);
-}
+  limbs = bits / MPI_LIMB_BITS;
+  shift = bits % MPI_LIMB_BITS;
+  rn = un - limbs;
 
-void
-mpz_fdiv_r_2exp(mpz_t r, const mpz_t u, mp_bitcnt_t cnt) {
-  mpz_div_r_2exp(r, u, cnt, MPI_DIV_FLOOR);
-}
+  if (rn <= 0) {
+    rn = 0;
+  } else {
+    rp = MPZ_REALLOC(r, rn);
 
-void
-mpz_tdiv_r_2exp(mpz_t r, const mpz_t u, mp_bitcnt_t cnt) {
-  mpz_div_r_2exp(r, u, cnt, MPI_DIV_TRUNC);
+    if (shift != 0) {
+      mpn_rshift(rp, u->_mp_d + limbs, rn, shift);
+      rn -= rp[rn - 1] == 0;
+    } else {
+      mpn_copyi(rp, u->_mp_d + limbs, rn);
+    }
+  }
+
+  r->_mp_size = (u->_mp_size < 0) ? -rn : rn;
 }
 
 /*
@@ -4103,6 +3752,25 @@ mpz_gcd(mpz_t g, const mpz_t u, const mpz_t v) {
   mpz_clear(tu);
   mpz_clear(tv);
   mpz_mul_2exp(g, g, gz);
+}
+
+void
+mpz_lcm(mpz_t r, const mpz_t u, const mpz_t v) {
+  mpz_t g;
+
+  if (u->_mp_size == 0 || v->_mp_size == 0) {
+    r->_mp_size = 0;
+    return;
+  }
+
+  mpz_init(g);
+
+  mpz_gcd(g, u, v);
+  mpz_divexact(g, u, g);
+  mpz_mul(r, g, v);
+
+  mpz_clear(g);
+  mpz_abs(r, r);
 }
 
 void
@@ -4303,25 +3971,6 @@ mpz_gcdext(mpz_t g, mpz_t s, mpz_t t, const mpz_t u, const mpz_t v) {
   mpz_clear(t1);
 }
 
-void
-mpz_lcm(mpz_t r, const mpz_t u, const mpz_t v) {
-  mpz_t g;
-
-  if (u->_mp_size == 0 || v->_mp_size == 0) {
-    r->_mp_size = 0;
-    return;
-  }
-
-  mpz_init(g);
-
-  mpz_gcd(g, u, v);
-  mpz_divexact(g, u, g);
-  mpz_mul(r, g, v);
-
-  mpz_clear(g);
-  mpz_abs(r, r);
-}
-
 int
 mpz_invert(mpz_t r, const mpz_t u, const mpz_t m) {
   mpz_t g, tr;
@@ -4366,8 +4015,8 @@ mpz_jacobi(const mpz_t x, const mpz_t y) {
   mpz_init_set(a, x);
   mpz_init_set(b, y);
 
-  if (mpz_sgn(b) < 0) {
-    if (mpz_sgn(a) < 0)
+  if (b->_mp_size < 0) {
+    if (a->_mp_size < 0)
       j = -1;
 
     mpz_neg(b, b);
@@ -4377,14 +4026,14 @@ mpz_jacobi(const mpz_t x, const mpz_t y) {
     if (mpz_cmp_ui(b, 1) == 0)
       break;
 
-    if (mpz_sgn(a) == 0) {
+    if (a->_mp_size == 0) {
       j = 0;
       break;
     }
 
     mpz_mod(a, a, b);
 
-    if (mpz_sgn(a) == 0) {
+    if (a->_mp_size == 0) {
       j = 0;
       break;
     }
@@ -4392,13 +4041,13 @@ mpz_jacobi(const mpz_t x, const mpz_t y) {
     s = mpz_make_odd(a);
 
     if (s & 1) {
-      bmod8 = mpz_getlimbn(b, 0) & 7;
+      bmod8 = b->_mp_d[0] & 7;
 
       if (bmod8 == 3 || bmod8 == 5)
         j = -j;
     }
 
-    if ((mpz_getlimbn(a, 0) & 3) == 3 && (mpz_getlimbn(b, 0) & 3) == 3)
+    if ((a->_mp_d[0] & 3) == 3 && (b->_mp_d[0] & 3) == 3)
       j = -j;
 
     mpz_swap(a, b);
@@ -4511,15 +4160,6 @@ mpz_powm(mpz_t r, const mpz_t b, const mpz_t e, const mpz_t m) {
   mpz_swap(r, tr);
   mpz_clear(tr);
   mpz_clear(base);
-}
-
-void
-mpz_powm_ui(mpz_t r, const mpz_t b, mp_limb_t elimb, const mpz_t m) {
-  mpz_t e;
-
-  mpz_init_set_ui(e, elimb);
-  mpz_powm(r, b, e, m);
-  mpz_clear(e);
 }
 
 void
@@ -4716,7 +4356,18 @@ mpz_is_prime_lucas(const mpz_t n, unsigned long limit) {
 
     if (p == 40) {
       /* if floor(n^(1 / 2))^2 == n */
-      if (mpz_perfect_square_p(n))
+      mpz_set_bit(t2, mpz_bitlen(n) / 2 + 1);
+
+      do {
+        mpz_swap(t1, t2);
+        mpz_tdiv_q(t2, n, t1);
+        mpz_add(t2, t2, t1);
+        mpz_tdiv_q_2exp(t2, t2, 1);
+      } while (mpz_cmpabs(t2, t1) < 0);
+
+      mpz_mul(t2, t1, t1);
+
+      if (mpz_cmp(t2, n) == 0)
         goto fail;
     }
 
@@ -4878,10 +4529,8 @@ mpz_random_prime(mpz_t ret, mp_bitcnt_t bits, mp_rng_t rng, void *arg) {
 
   assert(bits > 1);
 
-  mpz_init(prod);
+  mpz_init_set_u64(prod, product);
   mpz_init(tmp);
-
-  mpz_set_u64(prod, product);
 
   for (;;) {
     mpz_random_bits(ret, bits, rng, arg);
@@ -4891,6 +4540,7 @@ mpz_random_prime(mpz_t ret, mp_bitcnt_t bits, mp_rng_t rng, void *arg) {
     mpz_set_bit(ret, 0);
 
     mpz_mod(tmp, ret, prod);
+
     mod = mpz_get_u64(tmp);
 
     for (delta = 0; delta < (1ull << 20); delta += 2) {

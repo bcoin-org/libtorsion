@@ -76,8 +76,6 @@ extern "C" {
 #define mpn_sqr __torsion_mpn_sqr
 #define mpn_mont __torsion_mpn_mont
 #define mpn_tdiv_qr __torsion_mpn_tdiv_qr
-#define mpn_com __torsion_mpn_com
-#define mpn_neg __torsion_mpn_neg
 #define mpn_lshift __torsion_mpn_lshift
 #define mpn_rshift __torsion_mpn_rshift
 #define mpn_get_bit __torsion_mpn_get_bit
@@ -160,22 +158,8 @@ extern "C" {
 #define mpz_mod_ui __torsion_mpz_mod_ui
 #define mpz_divexact __torsion_mpz_divexact
 #define mpz_divexact_ui __torsion_mpz_divexact_ui
-#define mpz_divisible_p __torsion_mpz_divisible_p
-#define mpz_divisible_ui_p __torsion_mpz_divisible_ui_p
-#define mpz_congruent_p __torsion_mpz_congruent_p
-#define mpz_pow_ui __torsion_mpz_pow_ui
-#define mpz_rootrem __torsion_mpz_rootrem
-#define mpz_root __torsion_mpz_root
-#define mpz_sqrtrem __torsion_mpz_sqrtrem
-#define mpz_sqrt __torsion_mpz_sqrt
-#define mpz_perfect_square_p __torsion_mpz_perfect_square_p
 #define mpz_mul_2exp __torsion_mpz_mul_2exp
-#define mpz_cdiv_q_2exp __torsion_mpz_cdiv_q_2exp
-#define mpz_fdiv_q_2exp __torsion_mpz_fdiv_q_2exp
 #define mpz_tdiv_q_2exp __torsion_mpz_tdiv_q_2exp
-#define mpz_cdiv_r_2exp __torsion_mpz_cdiv_r_2exp
-#define mpz_fdiv_r_2exp __torsion_mpz_fdiv_r_2exp
-#define mpz_tdiv_r_2exp __torsion_mpz_tdiv_r_2exp
 #define mpz_get_bit __torsion_mpz_get_bit
 #define mpz_get_bits __torsion_mpz_get_bits
 #define mpz_set_bit __torsion_mpz_set_bit
@@ -183,8 +167,8 @@ extern "C" {
 #define mpz_abs __torsion_mpz_abs
 #define mpz_neg __torsion_mpz_neg
 #define mpz_gcd __torsion_mpz_gcd
-#define mpz_gcdext __torsion_mpz_gcdext
 #define mpz_lcm __torsion_mpz_lcm
+#define mpz_gcdext __torsion_mpz_gcdext
 #define mpz_invert __torsion_mpz_invert
 #define mpz_jacobi __torsion_mpz_jacobi
 #define mpz_powm __torsion_mpz_powm
@@ -327,13 +311,6 @@ void mpn_mont(mp_ptr, mp_srcptr, mp_srcptr,
 
 void mpn_tdiv_qr(mp_ptr, mp_ptr, mp_size_t,
                  mp_srcptr, mp_size_t, mp_srcptr, mp_size_t);
-
-/*
- * NOT
- */
-
-void mpn_com(mp_ptr, mp_srcptr, mp_size_t);
-mp_limb_t mpn_neg(mp_ptr, mp_srcptr, mp_size_t);
 
 /*
  * Left Shift
@@ -547,30 +524,6 @@ void mpz_divexact(mpz_t, const mpz_t, const mpz_t);
 void mpz_divexact_ui(mpz_t, const mpz_t, mp_limb_t);
 
 /*
- * Division Helpers
- */
-
-int mpz_divisible_p(const mpz_t, const mpz_t);
-int mpz_divisible_ui_p(const mpz_t, mp_limb_t);
-int mpz_congruent_p(const mpz_t, const mpz_t, const mpz_t);
-
-/*
- * Exponentiation
- */
-
-void mpz_pow_ui(mpz_t, const mpz_t, mp_limb_t);
-
-/*
- * Roots
- */
-
-void mpz_rootrem(mpz_t, mpz_t, const mpz_t, unsigned long);
-int mpz_root(mpz_t, const mpz_t, unsigned long);
-void mpz_sqrtrem(mpz_t, mpz_t, const mpz_t);
-void mpz_sqrt(mpz_t, const mpz_t);
-int mpz_perfect_square_p(const mpz_t);
-
-/*
  * Left Shift
  */
 
@@ -580,12 +533,7 @@ void mpz_mul_2exp(mpz_t, const mpz_t, mp_bitcnt_t);
  * Right Shift
  */
 
-void mpz_cdiv_q_2exp(mpz_t, const mpz_t, mp_bitcnt_t);
-void mpz_fdiv_q_2exp(mpz_t, const mpz_t, mp_bitcnt_t);
 void mpz_tdiv_q_2exp(mpz_t, const mpz_t, mp_bitcnt_t);
-void mpz_cdiv_r_2exp(mpz_t, const mpz_t, mp_bitcnt_t);
-void mpz_fdiv_r_2exp(mpz_t, const mpz_t, mp_bitcnt_t);
-void mpz_tdiv_r_2exp(mpz_t, const mpz_t, mp_bitcnt_t);
 
 /*
  * Bit Manipulation
@@ -608,8 +556,8 @@ void mpz_neg(mpz_t, const mpz_t);
  */
 
 void mpz_gcd(mpz_t, const mpz_t, const mpz_t);
-void mpz_gcdext(mpz_t, mpz_t, mpz_t, const mpz_t, const mpz_t);
 void mpz_lcm(mpz_t, const mpz_t, const mpz_t);
+void mpz_gcdext(mpz_t, mpz_t, mpz_t, const mpz_t, const mpz_t);
 int mpz_invert(mpz_t, const mpz_t, const mpz_t);
 int mpz_jacobi(const mpz_t, const mpz_t);
 void mpz_powm(mpz_t, const mpz_t, const mpz_t, const mpz_t);
