@@ -1,7 +1,17 @@
 /*!
+ * mpi.h - multi-precision integers for libtorsion
+ * Copyright (c) 2020, Christopher Jeffrey (MIT License).
+ * https://github.com/bcoin-org/libtorsion
+ *
+ * Parts of this software are based on GMP:
+ *   https://gmplib.org/
+ *   Copyright (C) 1989, 1991 Free Software Foundation, Inc.
+ *
  * mini-gmp, a minimalistic implementation of a GNU GMP subset.
  *
- * Copyright 2011-2015, 2017, 2019 Free Software Foundation, Inc.
+ * Contributed to the GNU project by Niels Möller
+ *
+ * Copyright 1991-1997, 1999-2019 Free Software Foundation, Inc.
  *
  * This file is part of the GNU MP Library.
  *
@@ -27,14 +37,7 @@
  *
  * You should have received copies of the GNU General Public License and the
  * GNU Lesser General Public License along with the GNU MP Library.  If not,
- * see https://www.gnu.org/licenses/.  */
-
-/* About mini-gmp: This is a minimal implementation of a subset of the
- * GMP interface. It is intended for inclusion into applications which
- * have modest bignums needs, as a fallback when the real GMP library
- * is not installed.
- *
- * This file defines the public interface.
+ * see https://www.gnu.org/licenses/.
  */
 
 #ifndef _TORSION_GMP_H
@@ -48,13 +51,17 @@
 extern "C" {
 #endif
 
-/* Alias */
-#define mpn_copyi __torsion_mpn_copyi
-#define mpn_copyd __torsion_mpn_copyd
+/*
+ * Alias
+ */
+
 #define mpn_zero __torsion_mpn_zero
 #define mpn_cleanse __torsion_mpn_cleanse
-#define mpn_cmp __torsion_mpn_cmp
+#define mpn_copyi __torsion_mpn_copyi
+#define mpn_copyd __torsion_mpn_copyd
 #define mpn_zero_p __torsion_mpn_zero_p
+#define mpn_cmp __torsion_mpn_cmp
+#define mpn_cmp4 __torsion_mpn_cmp4
 #define mpn_add_1 __torsion_mpn_add_1
 #define mpn_add_n __torsion_mpn_add_n
 #define mpn_add __torsion_mpn_add
@@ -67,12 +74,23 @@ extern "C" {
 #define mpn_mul __torsion_mpn_mul
 #define mpn_mul_n __torsion_mpn_mul_n
 #define mpn_sqr __torsion_mpn_sqr
-#define mpn_lshift __torsion_mpn_lshift
-#define mpn_rshift __torsion_mpn_rshift
-#define mpn_ctz __torsion_mpn_ctz
+#define mpn_mont __torsion_mpn_mont
+#define mpn_tdiv_qr __torsion_mpn_tdiv_qr
 #define mpn_com __torsion_mpn_com
 #define mpn_neg __torsion_mpn_neg
-#define mpn_tdiv_qr __torsion_mpn_tdiv_qr
+#define mpn_lshift __torsion_mpn_lshift
+#define mpn_rshift __torsion_mpn_rshift
+#define mpn_get_bit __torsion_mpn_get_bit
+#define mpn_get_bits __torsion_mpn_get_bits
+#define mpn_set_bit __torsion_mpn_set_bit
+#define mpn_clr_bit __torsion_mpn_clr_bit
+#define mpn_gcdext __torsion_mpn_gcdext
+#define mpn_invert_n __torsion_mpn_invert_n
+#define mpn_powm_sec_itch __torsion_mpn_powm_sec_itch
+#define mpn_powm_sec __torsion_mpn_powm_sec
+#define mpn_normalized_size __torsion_mpn_normalized_size
+#define mpn_bitlen __torsion_mpn_bitlen
+#define mpn_ctz __torsion_mpn_ctz
 #define mpn_cnd_select __torsion_mpn_cnd_select
 #define mpn_cnd_swap __torsion_mpn_cnd_swap
 #define mpn_cnd_zero __torsion_mpn_cnd_zero
@@ -82,124 +100,122 @@ extern "C" {
 #define mpn_sec_lte __torsion_mpn_sec_lte
 #define mpn_sec_gt __torsion_mpn_sec_gt
 #define mpn_sec_gte __torsion_mpn_sec_gte
-#define mpn_bitlen __torsion_mpn_bitlen
-#define mpn_get_bit __torsion_mpn_get_bit
-#define mpn_get_bits __torsion_mpn_get_bits
-#define mpn_set_bit __torsion_mpn_set_bit
-#define mpn_clr_bit __torsion_mpn_clr_bit
 #define mpn_import __torsion_mpn_import
 #define mpn_export __torsion_mpn_export
 #define mpn_out_str __torsion_mpn_out_str
 #define mpz_init __torsion_mpz_init
 #define mpz_init2 __torsion_mpz_init2
+#define mpz_init_set __torsion_mpz_init_set
+#define mpz_init_set_ui __torsion_mpz_init_set_ui
+#define mpz_init_set_si __torsion_mpz_init_set_si
+#define mpz_init_set_u64 __torsion_mpz_init_set_u64
 #define mpz_clear __torsion_mpz_clear
 #define mpz_cleanse __torsion_mpz_cleanse
-#define mpz_odd_p __torsion_mpz_odd_p
-#define mpz_even_p __torsion_mpz_even_p
+#define mpz_set __torsion_mpz_set
+#define mpz_roset __torsion_mpz_roset
+#define mpz_set_ui __torsion_mpz_set_ui
+#define mpz_set_si __torsion_mpz_set_si
+#define mpz_set_u64 __torsion_mpz_set_u64
+#define mpz_get_ui __torsion_mpz_get_ui
+#define mpz_get_si __torsion_mpz_get_si
+#define mpz_get_u64 __torsion_mpz_get_u64
+#define mpz_fits_ulong_p __torsion_mpz_fits_ulong_p
+#define mpz_fits_slong_p __torsion_mpz_fits_slong_p
+#define mpz_fits_u64_p __torsion_mpz_fits_u64_p
 #define mpz_sgn __torsion_mpz_sgn
-#define mpz_cmp_si __torsion_mpz_cmp_si
-#define mpz_cmp_ui __torsion_mpz_cmp_ui
 #define mpz_cmp __torsion_mpz_cmp
-#define mpz_cmpabs_ui __torsion_mpz_cmpabs_ui
+#define mpz_cmp_ui __torsion_mpz_cmp_ui
+#define mpz_cmp_si __torsion_mpz_cmp_si
 #define mpz_cmpabs __torsion_mpz_cmpabs
-#define mpz_abs __torsion_mpz_abs
-#define mpz_neg __torsion_mpz_neg
-#define mpz_swap __torsion_mpz_swap
-#define mpz_add_ui __torsion_mpz_add_ui
+#define mpz_cmpabs_ui __torsion_mpz_cmpabs_ui
 #define mpz_add __torsion_mpz_add
-#define mpz_sub_ui __torsion_mpz_sub_ui
+#define mpz_add_ui __torsion_mpz_add_ui
 #define mpz_sub __torsion_mpz_sub
-#define mpz_mul_si __torsion_mpz_mul_si
-#define mpz_mul_ui __torsion_mpz_mul_ui
+#define mpz_sub_ui __torsion_mpz_sub_ui
 #define mpz_mul __torsion_mpz_mul
-#define mpz_mul_2exp __torsion_mpz_mul_2exp
-#define mpz_cdiv_qr __torsion_mpz_cdiv_qr
-#define mpz_fdiv_qr __torsion_mpz_fdiv_qr
+#define mpz_mul_ui __torsion_mpz_mul_ui
+#define mpz_mul_si __torsion_mpz_mul_si
 #define mpz_tdiv_qr __torsion_mpz_tdiv_qr
-#define mpz_cdiv_q __torsion_mpz_cdiv_q
-#define mpz_fdiv_q __torsion_mpz_fdiv_q
 #define mpz_tdiv_q __torsion_mpz_tdiv_q
-#define mpz_cdiv_r __torsion_mpz_cdiv_r
-#define mpz_fdiv_r __torsion_mpz_fdiv_r
 #define mpz_tdiv_r __torsion_mpz_tdiv_r
+#define mpz_tdiv_qr_ui __torsion_mpz_tdiv_qr_ui
+#define mpz_tdiv_q_ui __torsion_mpz_tdiv_q_ui
+#define mpz_tdiv_r_ui __torsion_mpz_tdiv_r_ui
+#define mpz_tdiv_ui __torsion_mpz_tdiv_ui
+#define mpz_fdiv_qr __torsion_mpz_fdiv_qr
+#define mpz_fdiv_q __torsion_mpz_fdiv_q
+#define mpz_fdiv_r __torsion_mpz_fdiv_r
+#define mpz_fdiv_qr_ui __torsion_mpz_fdiv_qr_ui
+#define mpz_fdiv_q_ui __torsion_mpz_fdiv_q_ui
+#define mpz_fdiv_r_ui __torsion_mpz_fdiv_r_ui
+#define mpz_fdiv_ui __torsion_mpz_fdiv_ui
+#define mpz_cdiv_qr __torsion_mpz_cdiv_qr
+#define mpz_cdiv_q __torsion_mpz_cdiv_q
+#define mpz_cdiv_r __torsion_mpz_cdiv_r
+#define mpz_cdiv_qr_ui __torsion_mpz_cdiv_qr_ui
+#define mpz_cdiv_q_ui __torsion_mpz_cdiv_q_ui
+#define mpz_cdiv_r_ui __torsion_mpz_cdiv_r_ui
+#define mpz_cdiv_ui __torsion_mpz_cdiv_ui
+#define mpz_mod __torsion_mpz_mod
+#define mpz_mod_ui __torsion_mpz_mod_ui
+#define mpz_divexact __torsion_mpz_divexact
+#define mpz_divexact_ui __torsion_mpz_divexact_ui
+#define mpz_divisible_p __torsion_mpz_divisible_p
+#define mpz_divisible_ui_p __torsion_mpz_divisible_ui_p
+#define mpz_congruent_p __torsion_mpz_congruent_p
+#define mpz_pow_ui __torsion_mpz_pow_ui
+#define mpz_rootrem __torsion_mpz_rootrem
+#define mpz_root __torsion_mpz_root
+#define mpz_sqrtrem __torsion_mpz_sqrtrem
+#define mpz_sqrt __torsion_mpz_sqrt
+#define mpz_perfect_square_p __torsion_mpz_perfect_square_p
+#define mpz_mul_2exp __torsion_mpz_mul_2exp
 #define mpz_cdiv_q_2exp __torsion_mpz_cdiv_q_2exp
 #define mpz_fdiv_q_2exp __torsion_mpz_fdiv_q_2exp
 #define mpz_tdiv_q_2exp __torsion_mpz_tdiv_q_2exp
 #define mpz_cdiv_r_2exp __torsion_mpz_cdiv_r_2exp
 #define mpz_fdiv_r_2exp __torsion_mpz_fdiv_r_2exp
 #define mpz_tdiv_r_2exp __torsion_mpz_tdiv_r_2exp
-#define mpz_mod __torsion_mpz_mod
-#define mpz_divexact __torsion_mpz_divexact
-#define mpz_divisible_p __torsion_mpz_divisible_p
-#define mpz_congruent_p __torsion_mpz_congruent_p
-#define mpz_cdiv_qr_ui __torsion_mpz_cdiv_qr_ui
-#define mpz_fdiv_qr_ui __torsion_mpz_fdiv_qr_ui
-#define mpz_tdiv_qr_ui __torsion_mpz_tdiv_qr_ui
-#define mpz_cdiv_q_ui __torsion_mpz_cdiv_q_ui
-#define mpz_fdiv_q_ui __torsion_mpz_fdiv_q_ui
-#define mpz_tdiv_q_ui __torsion_mpz_tdiv_q_ui
-#define mpz_cdiv_r_ui __torsion_mpz_cdiv_r_ui
-#define mpz_fdiv_r_ui __torsion_mpz_fdiv_r_ui
-#define mpz_tdiv_r_ui __torsion_mpz_tdiv_r_ui
-#define mpz_cdiv_ui __torsion_mpz_cdiv_ui
-#define mpz_fdiv_ui __torsion_mpz_fdiv_ui
-#define mpz_tdiv_ui __torsion_mpz_tdiv_ui
-#define mpz_mod_ui __torsion_mpz_mod_ui
-#define mpz_divexact_ui __torsion_mpz_divexact_ui
-#define mpz_divisible_ui_p __torsion_mpz_divisible_ui_p
-#define mpz_gcd __torsion_mpz_gcd
-#define mpz_gcdext __torsion_mpz_gcdext
-#define mpn_gcdext __torsion_mpn_gcdext
-#define mpz_lcm __torsion_mpz_lcm
-#define mpz_invert __torsion_mpz_invert
-#define mpn_invert_n __torsion_mpn_invert_n
-#define mpz_jacobi __torsion_mpz_jacobi
-#define mpz_sqrtrem __torsion_mpz_sqrtrem
-#define mpz_sqrt __torsion_mpz_sqrt
-#define mpz_perfect_square_p __torsion_mpz_perfect_square_p
-#define mpz_pow_ui __torsion_mpz_pow_ui
-#define mpz_powm __torsion_mpz_powm
-#define mpz_powm_ui __torsion_mpz_powm_ui
-#define mpz_powm_sec __torsion_mpz_powm_sec
-#define mpz_rootrem __torsion_mpz_rootrem
-#define mpz_root __torsion_mpz_root
 #define mpz_get_bit __torsion_mpz_get_bit
 #define mpz_get_bits __torsion_mpz_get_bits
 #define mpz_set_bit __torsion_mpz_set_bit
 #define mpz_clr_bit __torsion_mpz_clr_bit
+#define mpz_abs __torsion_mpz_abs
+#define mpz_neg __torsion_mpz_neg
+#define mpz_gcd __torsion_mpz_gcd
+#define mpz_gcdext __torsion_mpz_gcdext
+#define mpz_lcm __torsion_mpz_lcm
+#define mpz_invert __torsion_mpz_invert
+#define mpz_jacobi __torsion_mpz_jacobi
+#define mpz_powm __torsion_mpz_powm
+#define mpz_powm_ui __torsion_mpz_powm_ui
+#define mpz_powm_sec __torsion_mpz_powm_sec
+#define mpz_is_prime_mr __torsion_mpz_is_prime_mr
+#define mpz_is_prime_lucas __torsion_mpz_is_prime_lucas
+#define mpz_is_prime __torsion_mpz_is_prime
+#define mpz_random_prime __torsion_mpz_random_prime
+#define mpz_odd_p __torsion_mpz_odd_p
+#define mpz_even_p __torsion_mpz_even_p
+#define mpz_bitlen __torsion_mpz_bitlen
 #define mpz_ctz __torsion_mpz_ctz
-#define mpz_fits_slong_p __torsion_mpz_fits_slong_p
-#define mpz_fits_ulong_p __torsion_mpz_fits_ulong_p
-#define mpz_get_si __torsion_mpz_get_si
-#define mpz_get_ui __torsion_mpz_get_ui
+#define mpz_bytelen __torsion_mpz_bytelen
+#define mpz_swap __torsion_mpz_swap
 #define mpz_size __torsion_mpz_size
 #define mpz_getlimbn __torsion_mpz_getlimbn
-#define mpz_realloc2 __torsion_mpz_realloc2
 #define mpz_limbs_read __torsion_mpz_limbs_read
 #define mpz_limbs_modify __torsion_mpz_limbs_modify
 #define mpz_limbs_write __torsion_mpz_limbs_write
 #define mpz_limbs_finish __torsion_mpz_limbs_finish
 #define mpz_roinit_n __torsion_mpz_roinit_n
-#define mpz_set_si __torsion_mpz_set_si
-#define mpz_set_ui __torsion_mpz_set_ui
-#define mpz_set __torsion_mpz_set
-#define mpz_roset __torsion_mpz_roset
-#define mpz_init_set_si __torsion_mpz_init_set_si
-#define mpz_init_set_ui __torsion_mpz_init_set_ui
-#define mpz_init_set __torsion_mpz_init_set
-#define mpz_bitlen __torsion_mpz_bitlen
-#define mpz_bytelen __torsion_mpz_bytelen
-#define mpz_out_str __torsion_mpz_out_str
-#define mpz_import __torsion_mpz_import
-#define mpz_export __torsion_mpz_export
 #define mpz_decode __torsion_mpz_decode
 #define mpz_encode __torsion_mpz_encode
+#define mpz_out_str __torsion_mpz_out_str
 #define mpz_random_bits __torsion_mpz_random_bits
 #define mpz_random_int __torsion_mpz_random_int
-#define mpz_is_prime_mr __torsion_mpz_is_prime_mr
-#define mpz_is_prime_lucas __torsion_mpz_is_prime_lucas
-#define mpz_is_prime __torsion_mpz_is_prime
-#define mpz_random_prime __torsion_mpz_random_prime
+
+/*
+ * Types
+ */
 
 #ifdef __GNUC__
 #define GMP_EXTENSION __extension__
@@ -243,41 +259,128 @@ typedef __mpz_struct mpz_t[1];
 typedef __mpz_struct *mpz_ptr;
 typedef const __mpz_struct *mpz_srcptr;
 
-void mpn_copyi(mp_ptr, mp_srcptr, mp_size_t);
-void mpn_copyd(mp_ptr, mp_srcptr, mp_size_t);
+typedef void (*mp_rng_t)(void *out, size_t size, void *arg);
+
+/*
+ * MPN Interface
+ */
+
+/*
+ * Initialization
+ */
+
 void mpn_zero(mp_ptr, mp_size_t);
+
+/*
+ * Uninitialization
+ */
+
 void mpn_cleanse(mp_ptr, mp_size_t);
 
-int mpn_cmp(mp_srcptr, mp_srcptr, mp_size_t);
+/*
+ * Assignemnt
+ */
+
+void mpn_copyi(mp_ptr, mp_srcptr, mp_size_t);
+void mpn_copyd(mp_ptr, mp_srcptr, mp_size_t);
+
+/*
+ * Comparison
+ */
+
 int mpn_zero_p(mp_srcptr, mp_size_t);
+int mpn_cmp(mp_srcptr, mp_srcptr, mp_size_t);
+int mpn_cmp4(mp_srcptr, mp_size_t, mp_srcptr, mp_size_t);
+
+/*
+ * Addition
+ */
 
 mp_limb_t mpn_add_1(mp_ptr, mp_srcptr, mp_size_t, mp_limb_t);
 mp_limb_t mpn_add_n(mp_ptr, mp_srcptr, mp_srcptr, mp_size_t);
 mp_limb_t mpn_add(mp_ptr, mp_srcptr, mp_size_t, mp_srcptr, mp_size_t);
 
+/*
+ * Subtraction
+ */
+
 mp_limb_t mpn_sub_1(mp_ptr, mp_srcptr, mp_size_t, mp_limb_t);
 mp_limb_t mpn_sub_n(mp_ptr, mp_srcptr, mp_srcptr, mp_size_t);
 mp_limb_t mpn_sub(mp_ptr, mp_srcptr, mp_size_t, mp_srcptr, mp_size_t);
 
+/*
+ * Multiplication
+ */
+
 mp_limb_t mpn_mul_1(mp_ptr, mp_srcptr, mp_size_t, mp_limb_t);
 mp_limb_t mpn_addmul_1(mp_ptr, mp_srcptr, mp_size_t, mp_limb_t);
 mp_limb_t mpn_submul_1(mp_ptr, mp_srcptr, mp_size_t, mp_limb_t);
-
 mp_limb_t mpn_mul(mp_ptr, mp_srcptr, mp_size_t, mp_srcptr, mp_size_t);
 void mpn_mul_n(mp_ptr, mp_srcptr, mp_srcptr, mp_size_t);
 void mpn_sqr(mp_ptr, mp_srcptr, mp_size_t);
+void mpn_mont(mp_ptr, mp_srcptr, mp_srcptr,
+              mp_srcptr, mp_limb_t, mp_size_t);
 
-mp_limb_t mpn_lshift(mp_ptr, mp_srcptr, mp_size_t, unsigned int);
-mp_limb_t mpn_rshift(mp_ptr, mp_srcptr, mp_size_t, unsigned int);
+/*
+ * Truncation Division
+ */
 
-mp_bitcnt_t mpn_ctz(mp_srcptr, mp_size_t);
+void mpn_tdiv_qr(mp_ptr, mp_ptr, mp_size_t,
+                 mp_srcptr, mp_size_t, mp_srcptr, mp_size_t);
+
+/*
+ * NOT
+ */
 
 void mpn_com(mp_ptr, mp_srcptr, mp_size_t);
 mp_limb_t mpn_neg(mp_ptr, mp_srcptr, mp_size_t);
 
-void mpn_tdiv_qr(mp_ptr, mp_ptr, mp_size_t,
-                 mp_srcptr, mp_size_t,
-                 mp_srcptr, mp_size_t);
+/*
+ * Left Shift
+ */
+
+mp_limb_t mpn_lshift(mp_ptr, mp_srcptr, mp_size_t, unsigned int);
+
+/*
+ * Right Shift
+ */
+
+mp_limb_t mpn_rshift(mp_ptr, mp_srcptr, mp_size_t, unsigned int);
+
+/*
+ * Bit Manipulation
+ */
+
+mp_limb_t mpn_get_bit(mp_srcptr, mp_size_t, mp_bitcnt_t);
+mp_limb_t mpn_get_bits(mp_srcptr, mp_size_t, mp_bitcnt_t, mp_bitcnt_t);
+void mpn_set_bit(mp_ptr, mp_size_t, mp_bitcnt_t);
+void mpn_clr_bit(mp_ptr, mp_size_t, mp_bitcnt_t);
+
+/*
+ * Number Theoretic Functions
+ */
+
+mp_size_t mpn_gcdext(mp_ptr, mp_ptr, mp_size_t *,
+                     mp_ptr, mp_size_t, mp_ptr, mp_size_t);
+int mpn_invert_n(mp_ptr, mp_srcptr, mp_srcptr, mp_size_t);
+mp_size_t mpn_powm_sec_itch(mp_size_t);
+void mpn_powm_sec(mp_ptr,
+                  mp_srcptr, mp_size_t,
+                  mp_srcptr, mp_size_t,
+                  mp_srcptr, mp_size_t,
+                  mp_ptr);
+
+/*
+ * Helpers
+ */
+
+mp_size_t mpn_normalized_size(mp_srcptr, mp_size_t);
+mp_bitcnt_t mpn_bitlen(mp_srcptr, mp_size_t);
+mp_bitcnt_t mpn_ctz(mp_srcptr, mp_size_t);
+
+/*
+ * Constant Time
+ */
 
 void mpn_cnd_select(mp_limb_t, mp_ptr, mp_srcptr, mp_srcptr, mp_size_t);
 void mpn_cnd_swap(mp_limb_t, mp_ptr, mp_ptr, mp_size_t);
@@ -289,53 +392,193 @@ int mpn_sec_lte(mp_srcptr, mp_srcptr, mp_size_t);
 int mpn_sec_gt(mp_srcptr, mp_srcptr, mp_size_t);
 int mpn_sec_gte(mp_srcptr, mp_srcptr, mp_size_t);
 
-mp_bitcnt_t mpn_bitlen(mp_srcptr, mp_size_t);
-int mpn_get_bit(mp_srcptr, mp_size_t, mp_bitcnt_t);
-mp_limb_t mpn_get_bits(mp_srcptr, mp_size_t, mp_bitcnt_t, mp_bitcnt_t);
-void mpn_set_bit(mp_ptr, mp_size_t, mp_bitcnt_t);
-void mpn_clr_bit(mp_ptr, mp_size_t, mp_bitcnt_t);
+/*
+ * Import
+ */
 
 void mpn_import(mp_ptr, mp_size_t, const unsigned char *, size_t, int);
+
+/*
+ * Export
+ */
+
 void mpn_export(unsigned char *, size_t, mp_srcptr, mp_size_t, int);
+
+/*
+ * Stringification
+ */
+
+size_t mpn_out_str(FILE *, int, mp_srcptr, mp_size_t);
+
+/*
+ * MPZ Interface
+ */
+
+/*
+ * Initialization
+ */
 
 void mpz_init(mpz_t);
 void mpz_init2(mpz_t, mp_bitcnt_t);
+void mpz_init_set(mpz_t, const mpz_t);
+void mpz_init_set_ui(mpz_t, mp_limb_t);
+void mpz_init_set_si(mpz_t, mp_long_t);
+void mpz_init_set_u64(mpz_t, uint64_t);
+
+/*
+ * Uninitialization
+ */
+
 void mpz_clear(mpz_t);
 void mpz_cleanse(mpz_t);
 
-int mpz_odd_p(const mpz_t);
-int mpz_even_p(const mpz_t);
+/*
+ * Assignment
+ */
+
+void mpz_set(mpz_t, const mpz_t);
+void mpz_roset(mpz_t, const mpz_t);
+void mpz_set_ui(mpz_t, mp_limb_t);
+void mpz_set_si(mpz_t, mp_long_t);
+void mpz_set_u64(mpz_t, uint64_t);
+
+/*
+ * Conversion
+ */
+
+mp_limb_t mpz_get_ui(const mpz_t);
+mp_long_t mpz_get_si(const mpz_t);
+uint64_t mpz_get_u64(const mpz_t);
+
+/*
+ * Conversion Testing
+ */
+
+int mpz_fits_ulong_p(const mpz_t);
+int mpz_fits_slong_p(const mpz_t);
+int mpz_fits_u64_p(const mpz_t);
+
+/*
+ * Comparison
+ */
 
 int mpz_sgn(const mpz_t);
-int mpz_cmp_si(const mpz_t, mp_long_t);
-int mpz_cmp_ui(const mpz_t, mp_limb_t);
 int mpz_cmp(const mpz_t, const mpz_t);
-int mpz_cmpabs_ui(const mpz_t, mp_limb_t);
+int mpz_cmp_ui(const mpz_t, mp_limb_t);
+int mpz_cmp_si(const mpz_t, mp_long_t);
+
+/*
+ * Unsigned Comparison
+ */
+
 int mpz_cmpabs(const mpz_t, const mpz_t);
+int mpz_cmpabs_ui(const mpz_t, mp_limb_t);
 
-void mpz_abs(mpz_t, const mpz_t);
-void mpz_neg(mpz_t, const mpz_t);
-void mpz_swap(mpz_t, mpz_t);
+/*
+ * Addition
+ */
 
-void mpz_add_ui(mpz_t, const mpz_t, mp_limb_t);
 void mpz_add(mpz_t, const mpz_t, const mpz_t);
-void mpz_sub_ui(mpz_t, const mpz_t, mp_limb_t);
-void mpz_sub(mpz_t, const mpz_t, const mpz_t);
+void mpz_add_ui(mpz_ptr, mpz_srcptr, mp_limb_t);
 
-void mpz_mul_si(mpz_t, const mpz_t, mp_long_t);
-void mpz_mul_ui(mpz_t, const mpz_t, mp_limb_t);
+/*
+ * Subtraction
+ */
+
+void mpz_sub(mpz_t, const mpz_t, const mpz_t);
+void mpz_sub_ui(mpz_ptr, mpz_srcptr, mp_limb_t);
+
+/*
+ * Multiplication
+ */
+
 void mpz_mul(mpz_t, const mpz_t, const mpz_t);
-void mpz_mul_2exp(mpz_t, const mpz_t, mp_bitcnt_t);
+void mpz_mul_ui(mpz_ptr, mpz_srcptr, mp_limb_t);
+void mpz_mul_si(mpz_t, const mpz_t, mp_long_t);
+
+/*
+ * Truncation Division
+ */
+
+void mpz_tdiv_qr(mpz_t, mpz_t, const mpz_t, const mpz_t);
+void mpz_tdiv_q(mpz_t, const mpz_t, const mpz_t);
+void mpz_tdiv_r(mpz_t, const mpz_t, const mpz_t);
+mp_limb_t mpz_tdiv_qr_ui(mpz_t, mpz_t, const mpz_t, mp_limb_t);
+mp_limb_t mpz_tdiv_q_ui(mpz_t, const mpz_t, mp_limb_t);
+mp_limb_t mpz_tdiv_r_ui(mpz_t, const mpz_t, mp_limb_t);
+mp_limb_t mpz_tdiv_ui(const mpz_t, mp_limb_t);
+
+/*
+ * Floor Division
+ */
+
+void mpz_fdiv_qr(mpz_t, mpz_t, const mpz_t, const mpz_t);
+void mpz_fdiv_q(mpz_t, const mpz_t, const mpz_t);
+void mpz_fdiv_r(mpz_t, const mpz_t, const mpz_t);
+mp_limb_t mpz_fdiv_qr_ui(mpz_t, mpz_t, const mpz_t, mp_limb_t);
+mp_limb_t mpz_fdiv_q_ui(mpz_t, const mpz_t, mp_limb_t);
+mp_limb_t mpz_fdiv_r_ui(mpz_t, const mpz_t, mp_limb_t);
+mp_limb_t mpz_fdiv_ui(const mpz_t, mp_limb_t);
+
+/*
+ * Ceiling Division
+ */
 
 void mpz_cdiv_qr(mpz_t, mpz_t, const mpz_t, const mpz_t);
-void mpz_fdiv_qr(mpz_t, mpz_t, const mpz_t, const mpz_t);
-void mpz_tdiv_qr(mpz_t, mpz_t, const mpz_t, const mpz_t);
 void mpz_cdiv_q(mpz_t, const mpz_t, const mpz_t);
-void mpz_fdiv_q(mpz_t, const mpz_t, const mpz_t);
-void mpz_tdiv_q(mpz_t, const mpz_t, const mpz_t);
 void mpz_cdiv_r(mpz_t, const mpz_t, const mpz_t);
-void mpz_fdiv_r(mpz_t, const mpz_t, const mpz_t);
-void mpz_tdiv_r(mpz_t, const mpz_t, const mpz_t);
+mp_limb_t mpz_cdiv_qr_ui(mpz_t, mpz_t, const mpz_t, mp_limb_t);
+mp_limb_t mpz_cdiv_q_ui(mpz_t, const mpz_t, mp_limb_t);
+mp_limb_t mpz_cdiv_r_ui(mpz_t, const mpz_t, mp_limb_t);
+mp_limb_t mpz_cdiv_ui(const mpz_t, mp_limb_t);
+
+/*
+ * Euclidean Division
+ */
+
+void mpz_mod(mpz_t, const mpz_t, const mpz_t);
+mp_limb_t mpz_mod_ui(mpz_t, const mpz_t, mp_limb_t);
+
+/*
+ * Exact Division
+ */
+
+void mpz_divexact(mpz_t, const mpz_t, const mpz_t);
+void mpz_divexact_ui(mpz_t, const mpz_t, mp_limb_t);
+
+/*
+ * Division Helpers
+ */
+
+int mpz_divisible_p(const mpz_t, const mpz_t);
+int mpz_divisible_ui_p(const mpz_t, mp_limb_t);
+int mpz_congruent_p(const mpz_t, const mpz_t, const mpz_t);
+
+/*
+ * Exponentiation
+ */
+
+void mpz_pow_ui(mpz_t, const mpz_t, mp_limb_t);
+
+/*
+ * Roots
+ */
+
+void mpz_rootrem(mpz_t, mpz_t, const mpz_t, unsigned long);
+int mpz_root(mpz_t, const mpz_t, unsigned long);
+void mpz_sqrtrem(mpz_t, mpz_t, const mpz_t);
+void mpz_sqrt(mpz_t, const mpz_t);
+int mpz_perfect_square_p(const mpz_t);
+
+/*
+ * Left Shift
+ */
+
+void mpz_mul_2exp(mpz_t, const mpz_t, mp_bitcnt_t);
+
+/*
+ * Right Shift
+ */
 
 void mpz_cdiv_q_2exp(mpz_t, const mpz_t, mp_bitcnt_t);
 void mpz_fdiv_q_2exp(mpz_t, const mpz_t, mp_bitcnt_t);
@@ -344,108 +587,92 @@ void mpz_cdiv_r_2exp(mpz_t, const mpz_t, mp_bitcnt_t);
 void mpz_fdiv_r_2exp(mpz_t, const mpz_t, mp_bitcnt_t);
 void mpz_tdiv_r_2exp(mpz_t, const mpz_t, mp_bitcnt_t);
 
-void mpz_mod(mpz_t, const mpz_t, const mpz_t);
+/*
+ * Bit Manipulation
+ */
 
-void mpz_divexact(mpz_t, const mpz_t, const mpz_t);
-
-int mpz_divisible_p(const mpz_t, const mpz_t);
-int mpz_congruent_p(const mpz_t, const mpz_t, const mpz_t);
-
-mp_limb_t mpz_cdiv_qr_ui(mpz_t, mpz_t, const mpz_t, mp_limb_t);
-mp_limb_t mpz_fdiv_qr_ui(mpz_t, mpz_t, const mpz_t, mp_limb_t);
-mp_limb_t mpz_tdiv_qr_ui(mpz_t, mpz_t, const mpz_t, mp_limb_t);
-mp_limb_t mpz_cdiv_q_ui(mpz_t, const mpz_t, mp_limb_t);
-mp_limb_t mpz_fdiv_q_ui(mpz_t, const mpz_t, mp_limb_t);
-mp_limb_t mpz_tdiv_q_ui(mpz_t, const mpz_t, mp_limb_t);
-mp_limb_t mpz_cdiv_r_ui(mpz_t, const mpz_t, mp_limb_t);
-mp_limb_t mpz_fdiv_r_ui(mpz_t, const mpz_t, mp_limb_t);
-mp_limb_t mpz_tdiv_r_ui(mpz_t, const mpz_t, mp_limb_t);
-mp_limb_t mpz_cdiv_ui(const mpz_t, mp_limb_t);
-mp_limb_t mpz_fdiv_ui(const mpz_t, mp_limb_t);
-mp_limb_t mpz_tdiv_ui(const mpz_t, mp_limb_t);
-
-mp_limb_t mpz_mod_ui(mpz_t, const mpz_t, mp_limb_t);
-
-void mpz_divexact_ui(mpz_t, const mpz_t, mp_limb_t);
-
-int mpz_divisible_ui_p(const mpz_t, mp_limb_t);
-
-void mpz_gcd(mpz_t, const mpz_t, const mpz_t);
-void mpz_gcdext(mpz_t, mpz_t, mpz_t, const mpz_t, const mpz_t);
-mp_size_t mpn_gcdext(mp_ptr, mp_ptr, mp_size_t *,
-                     mp_ptr, mp_size_t, mp_ptr, mp_size_t);
-
-void mpz_lcm(mpz_t, const mpz_t, const mpz_t);
-int mpz_invert(mpz_t, const mpz_t, const mpz_t);
-int mpn_invert_n(mp_ptr, mp_srcptr, mp_srcptr, mp_size_t);
-int mpz_jacobi(const mpz_t, const mpz_t);
-
-void mpz_sqrtrem(mpz_t, mpz_t, const mpz_t);
-void mpz_sqrt(mpz_t, const mpz_t);
-int mpz_perfect_square_p(const mpz_t);
-
-void mpz_pow_ui(mpz_t, const mpz_t, mp_limb_t);
-void mpz_powm(mpz_t, const mpz_t, const mpz_t, const mpz_t);
-void mpz_powm_ui(mpz_t, const mpz_t, mp_limb_t, const mpz_t);
-void mpz_powm_sec(mpz_t, const mpz_t, const mpz_t, const mpz_t);
-
-void mpz_rootrem(mpz_t, mpz_t, const mpz_t, unsigned long);
-int mpz_root(mpz_t, const mpz_t, unsigned long);
-
-int mpz_get_bit(const mpz_t, mp_bitcnt_t);
+mp_limb_t mpz_get_bit(const mpz_t, mp_bitcnt_t);
 mp_limb_t mpz_get_bits(const mpz_t, mp_bitcnt_t, mp_bitcnt_t);
 void mpz_set_bit(mpz_t, mp_bitcnt_t);
 void mpz_clr_bit(mpz_t, mp_bitcnt_t);
+
+/*
+ * Negation
+ */
+
+void mpz_abs(mpz_t, const mpz_t);
+void mpz_neg(mpz_t, const mpz_t);
+
+/*
+ * Number Theoretic Functions
+ */
+
+void mpz_gcd(mpz_t, const mpz_t, const mpz_t);
+void mpz_gcdext(mpz_t, mpz_t, mpz_t, const mpz_t, const mpz_t);
+void mpz_lcm(mpz_t, const mpz_t, const mpz_t);
+int mpz_invert(mpz_t, const mpz_t, const mpz_t);
+int mpz_jacobi(const mpz_t, const mpz_t);
+void mpz_powm(mpz_t, const mpz_t, const mpz_t, const mpz_t);
+void mpz_powm_ui(mpz_t, const mpz_t, mp_limb_t, const mpz_t);
+void mpz_powm_sec(mpz_ptr, mpz_srcptr, mpz_srcptr, mpz_srcptr);
+
+/*
+ * Primality Testing
+ */
+
+int mpz_is_prime_mr(const mpz_t, unsigned long,
+                    int, mp_rng_t, void *);
+int mpz_is_prime_lucas(const mpz_t, unsigned long);
+int mpz_is_prime(const mpz_t, unsigned long, mp_rng_t, void *);
+void mpz_random_prime(mpz_t, mp_bitcnt_t, mp_rng_t, void *);
+
+/*
+ * Helpers
+ */
+
+int mpz_odd_p(const mpz_t);
+int mpz_even_p(const mpz_t);
+mp_bitcnt_t mpz_bitlen(const mpz_t);
 mp_bitcnt_t mpz_ctz(const mpz_t);
+size_t mpz_bytelen(const mpz_t);
+void mpz_swap(mpz_t, mpz_t);
 
-int mpz_fits_slong_p(const mpz_t);
-int mpz_fits_ulong_p(const mpz_t);
-mp_long_t mpz_get_si(const mpz_t);
-mp_limb_t mpz_get_ui(const mpz_t);
-size_t mpz_size(const mpz_t);
+/*
+ * Limb Manipulation
+ */
+
+mp_size_t mpz_size(const mpz_t);
 mp_limb_t mpz_getlimbn(const mpz_t, mp_size_t);
-
-void mpz_realloc2(mpz_t, mp_bitcnt_t);
 mp_srcptr mpz_limbs_read(mpz_srcptr);
 mp_ptr mpz_limbs_modify(mpz_t, mp_size_t);
 mp_ptr mpz_limbs_write(mpz_t, mp_size_t);
 void mpz_limbs_finish(mpz_t, mp_size_t);
 mpz_srcptr mpz_roinit_n(mpz_t, mp_srcptr, mp_size_t);
 
-#define MPZ_ROINIT_N(xp, xs) {{0, (xs), (xp)}}
-
-void mpz_set_si(mpz_t, mp_long_t);
-void mpz_set_ui(mpz_t, mp_limb_t);
-void mpz_set(mpz_t, const mpz_t);
-void mpz_roset(mpz_t, const mpz_t);
-
-void mpz_init_set_si(mpz_t, mp_long_t);
-void mpz_init_set_ui(mpz_t, mp_limb_t);
-void mpz_init_set(mpz_t, const mpz_t);
-
-mp_bitcnt_t mpz_bitlen(const mpz_t);
-size_t mpz_bytelen(const mpz_t);
-
-size_t mpn_out_str(FILE *, int, mp_srcptr, mp_size_t);
-size_t mpz_out_str(FILE *, int, const mpz_t);
+/*
+ * Import
+ */
 
 void mpz_decode(mpz_t, const unsigned char *, size_t, int);
+
+/*
+ * Export
+ */
+
 void mpz_encode(unsigned char *, const mpz_t, size_t, int);
 
-typedef void (*mp_rng_t)(void *out, size_t size, void *arg);
+/*
+ * Stringification
+ */
 
-void mpz_random_bits(mpz_t r, mp_bitcnt_t bits, mp_rng_t rng, void *arg);
+size_t mpz_out_str(FILE *, int, const mpz_t);
 
-void mpz_random_int(mpz_t ret, const mpz_t max, mp_rng_t rng, void *arg);
+/*
+ * RNG
+ */
 
-int mpz_is_prime_mr(const mpz_t n, unsigned long reps,
-                    int force2, mp_rng_t rng, void *arg);
-
-int mpz_is_prime_lucas(const mpz_t n, unsigned long limit);
-
-int mpz_is_prime(const mpz_t p, unsigned long rounds, mp_rng_t rng, void *arg);
-
-void mpz_random_prime(mpz_t ret, mp_bitcnt_t bits, mp_rng_t rng, void *arg);
+void mpz_random_bits(mpz_t, mp_bitcnt_t, mp_rng_t, void *);
+void mpz_random_int(mpz_t, const mpz_t, mp_rng_t, void *);
 
 #ifdef __cplusplus
 }
