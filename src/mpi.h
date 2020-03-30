@@ -40,8 +40,8 @@
  * see https://www.gnu.org/licenses/.
  */
 
-#ifndef _TORSION_GMP_H
-#define _TORSION_GMP_H
+#ifndef _TORSION_MPI_H
+#define _TORSION_MPI_H
 
 #include <stddef.h>
 #include <stdint.h>
@@ -218,25 +218,25 @@ extern "C" {
  */
 
 #ifdef __GNUC__
-#define GMP_EXTENSION __extension__
+#define MPI_EXTENSION __extension__
 #else
-#define GMP_EXTENSION
+#define MPI_EXTENSION
 #endif
 
 #ifdef TORSION_USE_64BIT
 typedef uint64_t mp_limb_t;
 typedef int64_t mp_long_t;
-#define GMP_LIMB_BITS 64
+#define MPI_LIMB_BITS 64
 #ifdef __SIZEOF_INT128__
-GMP_EXTENSION typedef unsigned __int128 mp_wide_t;
-#define GMP_HAS_WIDE
+MPI_EXTENSION typedef unsigned __int128 mp_wide_t;
+#define MPI_HAS_WIDE
 #endif
 #else
 typedef uint32_t mp_limb_t;
 typedef int32_t mp_long_t;
 typedef uint64_t mp_wide_t;
-#define GMP_LIMB_BITS 32
-#define GMP_HAS_WIDE
+#define MPI_LIMB_BITS 32
+#define MPI_HAS_WIDE
 #endif
 
 typedef long mp_size_t;
@@ -677,4 +677,4 @@ void mpz_random_int(mpz_t, const mpz_t, mp_rng_t, void *);
 #ifdef __cplusplus
 }
 #endif
-#endif /* _TORSION_GMP_H */
+#endif /* _TORSION_MPI_H */
