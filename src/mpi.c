@@ -348,6 +348,71 @@ enum mpz_div_round_mode { MPI_DIV_FLOOR, MPI_DIV_CEIL, MPI_DIV_TRUNC };
 } while (0)
 
 /*
+ * MPN Arithmetic Macros
+ */
+
+#define MPN_MAKE_ODD(bits, rp, rn) do {                        \
+  mp_size_t __bits = mpn_ctz(rp, rn);                          \
+  mp_size_t __limbs = __bits / MPI_LIMB_BITS;                  \
+  mp_size_t __shift = __bits % MPI_LIMB_BITS;                  \
+                                                               \
+  if (__shift != 0) {                                          \
+    mpn_rshift((rp), (rp) + __limbs, (rn) - __limbs, __shift); \
+    (rn) -= __limbs;                                           \
+    (rn) -= ((rp)[(rn) - 1] == 0);                             \
+  } else if (__limbs != 0) {                                   \
+    mpn_copyi((rp), (rp) + __limbs, (rn) - __limbs);           \
+    (rn) -= __limbs;                                           \
+  }                                                            \
+                                                               \
+  (bits) = __bits;                                             \
+} while (0)
+
+#define MPN_ADD(ap, as, bp, bs) do {        \
+  mp_size_t __an;                           \
+                                            \
+  if (((as) ^ (bs)) >= 0)                   \
+    __an = mpn_abs_add(ap, ap, as, bp, bs); \
+  else                                      \
+    __an = mpn_abs_sub(ap, ap, as, bp, bs); \
+                                            \
+  (as) = (as) >= 0 ? __an : -__an;          \
+} while (0)
+
+#define MPN_SUB(ap, as, bp, bs) do {        \
+  mp_size_t __an;                           \
+                                            \
+  if (((as) ^ (bs)) >= 0)                   \
+    __an = mpn_abs_sub(ap, ap, as, bp, bs); \
+  else                                      \
+    __an = mpn_abs_add(ap, ap, as, bp, bs); \
+                                            \
+  (as) = (as) >= 0 ? __an : -__an;          \
+} while (0)
+
+#define MPN_ODD_P(ap, as) \
+  (MPI_ABS(as) > 0 && ((ap)[0] & 1) == 1)
+
+#define MPN_RSHIFT(ap, as, bits) do { \
+  mp_size_t __an = MPI_ABS(as);       \
+                                      \
+  if (__an > 0 && (bits) != 0) {      \
+    mpn_rshift(ap, ap, __an, bits);   \
+    __an -= ((ap)[__an - 1] == 0);    \
+  }                                   \
+                                      \
+  (as) = (as) >= 0 ? __an : -__an;    \
+} while (0)
+
+/* itch = (nn - dn + 1) + dn */
+#define MPN_MOD(np, nn, dp, dn, sp) do {                      \
+  if (mpn_cmp4(np, nn, dp, dn) >= 0) {                        \
+    mpn_div_tp(sp, np, nn, dp, dn, (sp) + ((nn) - (dn) + 1)); \
+    (nn) = mpn_normalized_size(np, dn);                       \
+  }                                                           \
+} while (0)
+
+/*
  * Allocation
  */
 
@@ -567,6 +632,21 @@ mpn_cmp4(mp_srcptr ap, mp_size_t an, mp_srcptr bp, mp_size_t bn) {
     return an < bn ? -1 : 1;
   else
     return mpn_cmp(ap, bp, an);
+}
+
+static int
+mpn_cmp_1(mp_srcptr ap, mp_size_t an, mp_limb_t b) {
+  mp_limb_t a;
+
+  if (an > 1)
+    return 1;
+
+  if (an > 0)
+    a = ap[0];
+  else
+    a = 0;
+
+  return MPI_CMP(a, b);
 }
 
 /*
@@ -848,6 +928,45 @@ mpn_sub(mp_ptr rp, mp_srcptr ap, mp_size_t an, mp_srcptr bp, mp_size_t bn) {
     cy = mpn_sub_1(rp + bn, ap + bn, an - bn, cy);
 
   return cy;
+}
+
+/*
+ * High-level Addition/Subtraction
+ */
+
+static mp_size_t
+mpn_abs_add(mp_ptr rp, mp_srcptr ap, mp_size_t as, mp_srcptr bp, mp_size_t bs) {
+  mp_size_t an = MPI_ABS(as);
+  mp_size_t bn = MPI_ABS(bs);
+  mp_limb_t cy;
+
+  if (an < bn)
+    MPN_SRCPTR_SWAP(ap, an, bp, bn);
+
+  cy = mpn_add(rp, ap, an, bp, bn);
+
+  rp[an] = cy;
+
+  return an + cy;
+}
+
+static mp_size_t
+mpn_abs_sub(mp_ptr rp, mp_srcptr ap, mp_size_t as, mp_srcptr bp, mp_size_t bs) {
+  mp_size_t an = MPI_ABS(as);
+  mp_size_t bn = MPI_ABS(bs);
+  int cmp;
+
+  cmp = mpn_cmp4(ap, an, bp, bn);
+
+  if (cmp > 0) {
+    mpi_assert_nocarry(mpn_sub(rp, ap, an, bp, bn));
+    return mpn_normalized_size(rp, an);
+  } else if (cmp < 0) {
+    mpi_assert_nocarry(mpn_sub(rp, bp, bn, ap, an));
+    return -mpn_normalized_size(rp, bn);
+  } else {
+    return 0;
+  }
 }
 
 /*
@@ -2208,70 +2327,86 @@ mpn_gcd_11(mp_limb_t u, mp_limb_t v) {
   return u << shift;
 }
 
-mp_size_t
-mpn_gcdext(mp_ptr gp,
-           mp_ptr sp,
-           mp_size_t *sn,
-           mp_ptr up,
-           mp_size_t un,
-           mp_ptr vp,
-           mp_size_t vn) {
-  mp_size_t gn;
-  mpz_t g, s, u, v;
-
-  assert(un >= vn);
-  assert(vn > 0);
-
-  mpz_init(g);
-  mpz_init(s);
-  mpz_roinit_n(u, up, un);
-  mpz_roinit_n(v, vp, vn);
-
-  mpz_gcdext(g, s, NULL, u, v);
-
-  mpn_zero(gp, vn);
-  mpn_zero(sp, vn + 1);
-  mpn_zero(up, un);
-  mpn_zero(vp, vn);
-
-  gn = g->_mp_size;
-  *sn = s->_mp_size;
-
-  mpn_copyi(gp, g->_mp_d, MPI_ABS(gn));
-  mpn_copyi(sp, s->_mp_d, MPI_ABS(*sn));
-
-  mpz_clear(g);
-  mpz_clear(s);
-
-  return gn;
-}
-
 int
-mpn_invert_n(mp_ptr rp, mp_srcptr xp, mp_srcptr yp, mp_size_t n) {
-  mpz_t r, u, m;
-  int invertible;
+mpn_invert_n(mp_ptr rp, mp_srcptr xp, mp_srcptr mp, mp_size_t n) {
+  /* Fast binary EGCD to invert over a prime field. */
+  mp_limb_t scratch[4 * (MPI_SCRATCH_LIMBS + 2)];
+  mp_ptr ap = &scratch[0 * (MPI_SCRATCH_LIMBS + 2)];
+  mp_ptr bp = &scratch[1 * (MPI_SCRATCH_LIMBS + 2)];
+  mp_ptr up = &scratch[2 * (MPI_SCRATCH_LIMBS + 2)];
+  mp_ptr vp = &scratch[3 * (MPI_SCRATCH_LIMBS + 2)];
+  mp_size_t an, bn, us, vs;
+  mp_bitcnt_t shift;
 
   assert(n > 0);
+  assert(n <= MPI_SCRATCH_LIMBS);
+  assert(mp[n - 1] != 0);
 
-  mpz_init(r);
-  mpz_roinit_n(u, xp, n);
-  mpz_roinit_n(m, yp, n);
-
-  invertible = mpz_invert(r, u, m);
-
-  if (invertible) {
-    assert(r->_mp_size >= 0);
-    assert(r->_mp_size <= n);
-
-    mpn_copyi(rp, r->_mp_d, r->_mp_size);
-    mpn_zero(rp + r->_mp_size, n - r->_mp_size);
-  } else {
+  if (mpn_zero_p(xp, n)) {
     mpn_zero(rp, n);
+    return 0;
   }
 
-  mpz_clear(r);
+  mpn_zero(ap + n, 2);
+  mpn_zero(bp + n, 2);
+  mpn_zero(up + 1, n + 1);
+  mpn_zero(vp, n + 2);
 
-  return invertible;
+  mpn_copyi(ap, xp, n);
+  mpn_copyi(bp, mp, n);
+
+  up[0] = 1;
+
+  an = mpn_normalized_size(ap, n);
+  bn = n;
+  us = 1;
+  vs = 0;
+
+  while (mpn_cmp_1(ap, an, 1) > 0 && mpn_cmp_1(bp, bn, 1) > 0) {
+    MPN_MAKE_ODD(shift, ap, an);
+
+    while (shift--) {
+      if (MPN_ODD_P(up, us))
+        MPN_ADD(up, us, mp, n);
+
+      MPN_RSHIFT(up, us, 1);
+    }
+
+    MPN_MAKE_ODD(shift, bp, bn);
+
+    while (shift--) {
+      if (MPN_ODD_P(vp, vs))
+        MPN_ADD(vp, vs, mp, n);
+
+      MPN_RSHIFT(vp, vs, 1);
+    }
+
+    if (mpn_cmp4(ap, an, bp, bn) >= 0) {
+      MPN_SUB(ap, an, bp, bn);
+      MPN_SUB(up, us, vp, vs);
+    } else {
+      MPN_SUB(bp, bn, ap, an);
+      MPN_SUB(vp, vs, up, us);
+    }
+  }
+
+  if (mpn_cmp_1(ap, an, 1) != 0) {
+    up = vp;
+    us = vs;
+  }
+
+  while (us < 0)
+    MPN_ADD(up, us, mp, n);
+
+  while (mpn_cmp4(up, us, mp, n) >= 0)
+    MPN_SUB(up, us, mp, n);
+
+  assert(us <= n);
+
+  mpn_copyi(rp, up, us);
+  mpn_zero(rp + us, n - us);
+
+  return 1;
 }
 
 int
@@ -2279,23 +2414,23 @@ mpn_jacobi_n(mp_srcptr xp, mp_srcptr yp, mp_size_t n) {
   mp_limb_t scratch[4 * MPI_SCRATCH_LIMBS];
   mp_ptr ap = &scratch[0 * MPI_SCRATCH_LIMBS];
   mp_ptr bp = &scratch[1 * MPI_SCRATCH_LIMBS];
-  mp_ptr qp = &scratch[2 * MPI_SCRATCH_LIMBS];
-  mp_ptr tp = &scratch[3 * MPI_SCRATCH_LIMBS];
-  mp_size_t an, bn, bits, limbs, shift;
+  mp_ptr sp = &scratch[2 * MPI_SCRATCH_LIMBS];
+  mp_size_t an, bn, bits;
   mp_limb_t bmod8;
   int j = 1;
 
   assert(n > 0);
   assert(n <= MPI_SCRATCH_LIMBS);
+  assert(yp[n - 1] != 0);
+
+  if ((yp[0] & 1) == 0)
+    mpi_die("mpn_jacobi: Even argument.");
 
   mpn_copyi(ap, xp, n);
   mpn_copyi(bp, yp, n);
 
   an = mpn_normalized_size(ap, n);
-  bn = mpn_normalized_size(bp, n);
-
-  if (bn == 0 || (bp[0] & 1) == 0)
-    mpi_die("mpn_jacobi: Even argument.");
+  bn = n;
 
   for (;;) {
     if (bn == 1 && bp[0] == 1)
@@ -2306,30 +2441,14 @@ mpn_jacobi_n(mp_srcptr xp, mp_srcptr yp, mp_size_t n) {
       break;
     }
 
-    if (mpn_cmp4(ap, an, bp, bn) >= 0) {
-      mpn_div_tp(qp, ap, an, bp, bn, tp);
-      an = mpn_normalized_size(ap, bn);
-    }
+    MPN_MOD(ap, an, bp, bn, sp);
 
     if (an == 0) {
       j = 0;
       break;
     }
 
-    bits = mpn_ctz(ap, an);
-    limbs = bits / MPI_LIMB_BITS;
-    shift = bits % MPI_LIMB_BITS;
-
-    if (shift != 0) {
-      mpn_rshift(ap, ap + limbs, an - limbs, shift);
-      an -= limbs;
-      an -= (ap[an - 1] == 0);
-    } else if (limbs != 0) {
-      mpn_copyi(ap, ap + limbs, an - limbs);
-      an -= limbs;
-    }
-
-    assert(an > 0);
+    MPN_MAKE_ODD(bits, ap, an);
 
     if (bits & 1) {
       bmod8 = bp[0] & 7;
