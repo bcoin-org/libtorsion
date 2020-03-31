@@ -4004,8 +4004,8 @@ mpz_invert(mpz_t r, const mpz_t u, const mpz_t m) {
 
 int
 mpz_jacobi(const mpz_t x, const mpz_t y) {
+  mp_bitcnt_t bits;
   mp_limb_t bmod8;
-  mp_bitcnt_t s;
   mpz_t a, b;
   int j = 1;
 
@@ -4038,9 +4038,9 @@ mpz_jacobi(const mpz_t x, const mpz_t y) {
       break;
     }
 
-    s = mpz_make_odd(a);
+    bits = mpz_make_odd(a);
 
-    if (s & 1) {
+    if (bits & 1) {
       bmod8 = b->_mp_d[0] & 7;
 
       if (bmod8 == 3 || bmod8 == 5)
