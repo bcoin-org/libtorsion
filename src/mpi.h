@@ -158,8 +158,8 @@ extern "C" {
 #define mpz_mod_ui __torsion_mpz_mod_ui
 #define mpz_divexact __torsion_mpz_divexact
 #define mpz_divexact_ui __torsion_mpz_divexact_ui
-#define mpz_mul_2exp __torsion_mpz_mul_2exp
-#define mpz_tdiv_q_2exp __torsion_mpz_tdiv_q_2exp
+#define mpz_lshift __torsion_mpz_lshift
+#define mpz_rshift __torsion_mpz_rshift
 #define mpz_get_bit __torsion_mpz_get_bit
 #define mpz_get_bits __torsion_mpz_get_bits
 #define mpz_set_bit __torsion_mpz_set_bit
@@ -191,8 +191,8 @@ extern "C" {
 #define mpz_limbs_write __torsion_mpz_limbs_write
 #define mpz_limbs_finish __torsion_mpz_limbs_finish
 #define mpz_roinit_n __torsion_mpz_roinit_n
-#define mpz_decode __torsion_mpz_decode
-#define mpz_encode __torsion_mpz_encode
+#define mpz_import __torsion_mpz_import
+#define mpz_export __torsion_mpz_export
 #define mpz_out_str __torsion_mpz_out_str
 #define mpz_random_bits __torsion_mpz_random_bits
 #define mpz_random_int __torsion_mpz_random_int
@@ -527,13 +527,13 @@ void mpz_divexact_ui(mpz_t, const mpz_t, mp_limb_t);
  * Left Shift
  */
 
-void mpz_mul_2exp(mpz_t, const mpz_t, mp_bitcnt_t);
+void mpz_lshift(mpz_t, const mpz_t, mp_bitcnt_t);
 
 /*
  * Right Shift
  */
 
-void mpz_tdiv_q_2exp(mpz_t, const mpz_t, mp_bitcnt_t);
+void mpz_rshift(mpz_t, const mpz_t, mp_bitcnt_t);
 
 /*
  * Bit Manipulation
@@ -601,13 +601,13 @@ mpz_srcptr mpz_roinit_n(mpz_t, mp_srcptr, mp_size_t);
  * Import
  */
 
-void mpz_decode(mpz_t, const unsigned char *, size_t, int);
+void mpz_import(mpz_t, const unsigned char *, size_t, int);
 
 /*
  * Export
  */
 
-void mpz_encode(unsigned char *, const mpz_t, size_t, int);
+void mpz_export(unsigned char *, const mpz_t, size_t, int);
 
 /*
  * Stringification

@@ -3548,7 +3548,7 @@ mpz_divexact_ui(mpz_t q, const mpz_t n, mp_limb_t d) {
  */
 
 void
-mpz_mul_2exp(mpz_t r, const mpz_t u, mp_bitcnt_t bits) {
+mpz_lshift(mpz_t r, const mpz_t u, mp_bitcnt_t bits) {
   mp_size_t un, rn;
   mp_size_t limbs;
   unsigned shift;
@@ -3585,7 +3585,7 @@ mpz_mul_2exp(mpz_t r, const mpz_t u, mp_bitcnt_t bits) {
  */
 
 void
-mpz_tdiv_q_2exp(mpz_t r, const mpz_t u, mp_bitcnt_t bits) {
+mpz_rshift(mpz_t r, const mpz_t u, mp_bitcnt_t bits) {
   mp_size_t un, rn, limbs, shift;
   mp_ptr rp;
 
@@ -3686,7 +3686,7 @@ mpz_make_odd(mpz_t r) {
      because we know that there is a 1. */
   shift = mpn_ctz(r->_mp_d, r->_mp_size);
 
-  mpz_tdiv_q_2exp(r, r, shift);
+  mpz_rshift(r, r, shift);
 
   return shift;
 }
@@ -3751,7 +3751,7 @@ mpz_gcd(mpz_t g, const mpz_t u, const mpz_t v) {
 
   mpz_clear(tu);
   mpz_clear(tv);
-  mpz_mul_2exp(g, g, gz);
+  mpz_lshift(g, g, gz);
 }
 
 void
@@ -3860,7 +3860,7 @@ mpz_gcdext(mpz_t g, mpz_t s, mpz_t t, const mpz_t u, const mpz_t v) {
 
   mpz_set_bit(t0, uz);
   mpz_tdiv_qr(t1, tu, tu, tv);
-  mpz_mul_2exp(t1, t1, uz);
+  mpz_lshift(t1, t1, uz);
 
   mpz_set_bit(s1, vz);
   power = uz + vz;
@@ -3870,8 +3870,8 @@ mpz_gcdext(mpz_t g, mpz_t s, mpz_t t, const mpz_t u, const mpz_t v) {
 
     shift = mpz_make_odd(tu);
 
-    mpz_mul_2exp(t0, t0, shift);
-    mpz_mul_2exp(s0, s0, shift);
+    mpz_lshift(t0, t0, shift);
+    mpz_lshift(s0, s0, shift);
 
     power += shift;
 
@@ -3896,8 +3896,8 @@ mpz_gcdext(mpz_t g, mpz_t s, mpz_t t, const mpz_t u, const mpz_t v) {
 
         shift = mpz_make_odd(tv);
 
-        mpz_mul_2exp(t1, t1, shift);
-        mpz_mul_2exp(s1, s1, shift);
+        mpz_lshift(t1, t1, shift);
+        mpz_lshift(s1, s1, shift);
       } else {
         mpz_sub(tu, tu, tv);
         mpz_add(t1, t0, t1);
@@ -3905,8 +3905,8 @@ mpz_gcdext(mpz_t g, mpz_t s, mpz_t t, const mpz_t u, const mpz_t v) {
 
         shift = mpz_make_odd(tu);
 
-        mpz_mul_2exp(t0, t0, shift);
-        mpz_mul_2exp(s0, s0, shift);
+        mpz_lshift(t0, t0, shift);
+        mpz_lshift(s0, s0, shift);
       }
 
       power += shift;
@@ -3916,7 +3916,7 @@ mpz_gcdext(mpz_t g, mpz_t s, mpz_t t, const mpz_t u, const mpz_t v) {
   /* Now tv = odd part of gcd, and -s0 and t0
      are corresponding cofactors. */
 
-  mpz_mul_2exp(tv, tv, gz);
+  mpz_lshift(tv, tv, gz);
   mpz_neg(s0, s0);
 
   /* 2^p g = s0 u + t0 v. Eliminate one factor
@@ -3937,8 +3937,8 @@ mpz_gcdext(mpz_t g, mpz_t s, mpz_t t, const mpz_t u, const mpz_t v) {
 
     assert(mpz_even_p(t0) && mpz_even_p(s0));
 
-    mpz_tdiv_q_2exp(s0, s0, 1);
-    mpz_tdiv_q_2exp(t0, t0, 1);
+    mpz_rshift(s0, s0, 1);
+    mpz_rshift(t0, t0, 1);
   }
 
   /* Arrange so that |s| < |u| / 2g */
@@ -4244,7 +4244,7 @@ mpz_is_prime_mr(const mpz_t n, unsigned long reps,
   k = mpz_ctz(nm1);
 
   /* q = nm1 >> k */
-  mpz_tdiv_q_2exp(q, nm1, k);
+  mpz_rshift(q, nm1, k);
 
   for (i = 0; i < reps; i++) {
     if (i == reps - 1 && force2) {
@@ -4362,7 +4362,7 @@ mpz_is_prime_lucas(const mpz_t n, unsigned long limit) {
         mpz_swap(t1, t2);
         mpz_tdiv_q(t2, n, t1);
         mpz_add(t2, t2, t1);
-        mpz_tdiv_q_2exp(t2, t2, 1);
+        mpz_rshift(t2, t2, 1);
       } while (mpz_cmpabs(t2, t1) < 0);
 
       mpz_mul(t2, t1, t1);
@@ -4390,7 +4390,7 @@ mpz_is_prime_lucas(const mpz_t n, unsigned long limit) {
   mpz_set_ui(vk1, p);
 
   /* s >>= r */
-  mpz_tdiv_q_2exp(s, s, r);
+  mpz_rshift(s, s, r);
 
   for (i = mpz_bitlen(s) + 1; i-- > 0;) {
     /* if floor(s / 2^i) mod 2 == 1 */
@@ -4421,7 +4421,7 @@ mpz_is_prime_lucas(const mpz_t n, unsigned long limit) {
   if (mpz_cmp_ui(vk, 2) == 0 || mpz_cmp(vk, nm2) == 0) {
     /* t3 = abs(vk * p - vk1 * 2) mod n */
     mpz_mul_ui(t1, vk, p);
-    mpz_mul_2exp(t2, vk1, 1);
+    mpz_lshift(t2, vk1, 1);
 
     if (mpz_cmp(t1, t2) < 0)
       mpz_swap(t1, t2);
@@ -4664,7 +4664,7 @@ mpz_roinit_n(mpz_t x, mp_srcptr xp, mp_size_t xs) {
  */
 
 void
-mpz_decode(mpz_t r, const unsigned char *u, size_t size, int endian) {
+mpz_import(mpz_t r, const unsigned char *u, size_t size, int endian) {
   mp_size_t rn;
   mp_ptr rp;
 
@@ -4686,7 +4686,7 @@ mpz_decode(mpz_t r, const unsigned char *u, size_t size, int endian) {
  */
 
 void
-mpz_encode(unsigned char *r, const mpz_t u, size_t size, int endian) {
+mpz_export(unsigned char *r, const mpz_t u, size_t size, int endian) {
   mpn_export(r, size, u->_mp_d, MPI_ABS(u->_mp_size), endian);
 }
 
