@@ -228,7 +228,7 @@ dsa_group_generate(dsa_group_t *group,
 out:
   mpz_set_ui(h, 2);
   mpz_sub_ui(pm1, p, 1);
-  mpz_fdiv_q(e, pm1, q);
+  mpz_quo(e, pm1, q);
 
   for (;;) {
     mpz_powm(g, h, e, p);

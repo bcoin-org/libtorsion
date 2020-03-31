@@ -1178,7 +1178,7 @@ rsa_pub_veil(const rsa_pub_t *k,
   mpz_sub(rmax, vmax, c);
   mpz_add(rmax, rmax, k->n);
   mpz_sub_ui(rmax, rmax, 1);
-  mpz_tdiv_q(rmax, rmax, k->n);
+  mpz_quo(rmax, rmax, k->n);
 
   assert(mpz_sgn(rmax) > 0);
 

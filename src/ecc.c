@@ -1967,7 +1967,7 @@ scalar_field_init(scalar_field_t *sc, const scalar_def_t *def, int endian) {
 
     x[sc->shift] = 1;
 
-    mpn_tdiv_qr(sc->m, x, 0, x, sc->shift + 1, sc->n, sc->limbs);
+    mpn_quorem(sc->m, x, x, sc->shift + 1, sc->n, sc->limbs);
 
     assert(sc->m[sc->limbs + 3] == 0);
   }
@@ -2022,7 +2022,7 @@ prime_field_init(prime_field_t *fe, const prime_def_t *def, int endian) {
 
     r[shift] = 1 << left;
 
-    mpn_tdiv_qr(q, r, 0, r, shift + 1, fe->p, fe->limbs);
+    mpn_quorem(q, r, r, shift + 1, fe->p, fe->limbs);
     mpn_export(tmp, fe->size, r, fe->limbs, -1);
 
     /* Import our magic field element. */
@@ -3962,7 +3962,7 @@ wei_has_small_gap(const wei_t *ec) {
   if (mpn_cmp(sc->n, fe->p, sc->limbs) >= 0)
     return 1;
 
-  mpn_tdiv_qr(&q, r, 0, fe->p, fe->limbs, sc->n, sc->limbs);
+  mpn_quorem(&q, r, fe->p, fe->limbs, sc->n, sc->limbs);
 
   return q == 1;
 }

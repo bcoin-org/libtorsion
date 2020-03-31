@@ -75,7 +75,7 @@ extern "C" {
 #define mpn_mul_n __torsion_mpn_mul_n
 #define mpn_sqr __torsion_mpn_sqr
 #define mpn_mont __torsion_mpn_mont
-#define mpn_tdiv_qr __torsion_mpn_tdiv_qr
+#define mpn_quorem __torsion_mpn_quorem
 #define mpn_lshift __torsion_mpn_lshift
 #define mpn_rshift __torsion_mpn_rshift
 #define mpn_get_bit __torsion_mpn_get_bit
@@ -133,28 +133,15 @@ extern "C" {
 #define mpz_mul __torsion_mpz_mul
 #define mpz_mul_ui __torsion_mpz_mul_ui
 #define mpz_mul_si __torsion_mpz_mul_si
-#define mpz_tdiv_qr __torsion_mpz_tdiv_qr
-#define mpz_tdiv_q __torsion_mpz_tdiv_q
-#define mpz_tdiv_r __torsion_mpz_tdiv_r
-#define mpz_tdiv_qr_ui __torsion_mpz_tdiv_qr_ui
-#define mpz_tdiv_q_ui __torsion_mpz_tdiv_q_ui
-#define mpz_tdiv_r_ui __torsion_mpz_tdiv_r_ui
-#define mpz_tdiv_ui __torsion_mpz_tdiv_ui
-#define mpz_fdiv_qr __torsion_mpz_fdiv_qr
-#define mpz_fdiv_q __torsion_mpz_fdiv_q
-#define mpz_fdiv_r __torsion_mpz_fdiv_r
-#define mpz_fdiv_qr_ui __torsion_mpz_fdiv_qr_ui
-#define mpz_fdiv_q_ui __torsion_mpz_fdiv_q_ui
-#define mpz_fdiv_r_ui __torsion_mpz_fdiv_r_ui
-#define mpz_fdiv_ui __torsion_mpz_fdiv_ui
-#define mpz_cdiv_qr __torsion_mpz_cdiv_qr
-#define mpz_cdiv_q __torsion_mpz_cdiv_q
-#define mpz_cdiv_r __torsion_mpz_cdiv_r
-#define mpz_cdiv_qr_ui __torsion_mpz_cdiv_qr_ui
-#define mpz_cdiv_q_ui __torsion_mpz_cdiv_q_ui
-#define mpz_cdiv_r_ui __torsion_mpz_cdiv_r_ui
-#define mpz_cdiv_ui __torsion_mpz_cdiv_ui
+#define mpz_quorem __torsion_mpz_quorem
+#define mpz_quo __torsion_mpz_quo
+#define mpz_rem __torsion_mpz_rem
+#define mpz_quo_ui __torsion_mpz_quo_ui
+#define mpz_rem_ui __torsion_mpz_rem_ui
+#define mpz_divmod __torsion_mpz_divmod
+#define mpz_div __torsion_mpz_div
 #define mpz_mod __torsion_mpz_mod
+#define mpz_div_ui __torsion_mpz_div_ui
 #define mpz_mod_ui __torsion_mpz_mod_ui
 #define mpz_divexact __torsion_mpz_divexact
 #define mpz_divexact_ui __torsion_mpz_divexact_ui
@@ -309,8 +296,7 @@ void mpn_mont(mp_ptr, mp_srcptr, mp_srcptr,
  * Truncation Division
  */
 
-void mpn_tdiv_qr(mp_ptr, mp_ptr, mp_size_t,
-                 mp_srcptr, mp_size_t, mp_srcptr, mp_size_t);
+void mpn_quorem(mp_ptr, mp_ptr, mp_srcptr, mp_size_t, mp_srcptr, mp_size_t);
 
 /*
  * Left Shift
@@ -477,44 +463,21 @@ void mpz_mul_si(mpz_t, const mpz_t, mp_long_t);
  * Truncation Division
  */
 
-void mpz_tdiv_qr(mpz_t, mpz_t, const mpz_t, const mpz_t);
-void mpz_tdiv_q(mpz_t, const mpz_t, const mpz_t);
-void mpz_tdiv_r(mpz_t, const mpz_t, const mpz_t);
-mp_limb_t mpz_tdiv_qr_ui(mpz_t, mpz_t, const mpz_t, mp_limb_t);
-mp_limb_t mpz_tdiv_q_ui(mpz_t, const mpz_t, mp_limb_t);
-mp_limb_t mpz_tdiv_r_ui(mpz_t, const mpz_t, mp_limb_t);
-mp_limb_t mpz_tdiv_ui(const mpz_t, mp_limb_t);
-
-/*
- * Floor Division
- */
-
-void mpz_fdiv_qr(mpz_t, mpz_t, const mpz_t, const mpz_t);
-void mpz_fdiv_q(mpz_t, const mpz_t, const mpz_t);
-void mpz_fdiv_r(mpz_t, const mpz_t, const mpz_t);
-mp_limb_t mpz_fdiv_qr_ui(mpz_t, mpz_t, const mpz_t, mp_limb_t);
-mp_limb_t mpz_fdiv_q_ui(mpz_t, const mpz_t, mp_limb_t);
-mp_limb_t mpz_fdiv_r_ui(mpz_t, const mpz_t, mp_limb_t);
-mp_limb_t mpz_fdiv_ui(const mpz_t, mp_limb_t);
-
-/*
- * Ceiling Division
- */
-
-void mpz_cdiv_qr(mpz_t, mpz_t, const mpz_t, const mpz_t);
-void mpz_cdiv_q(mpz_t, const mpz_t, const mpz_t);
-void mpz_cdiv_r(mpz_t, const mpz_t, const mpz_t);
-mp_limb_t mpz_cdiv_qr_ui(mpz_t, mpz_t, const mpz_t, mp_limb_t);
-mp_limb_t mpz_cdiv_q_ui(mpz_t, const mpz_t, mp_limb_t);
-mp_limb_t mpz_cdiv_r_ui(mpz_t, const mpz_t, mp_limb_t);
-mp_limb_t mpz_cdiv_ui(const mpz_t, mp_limb_t);
+void mpz_quorem(mpz_t, mpz_t, const mpz_t, const mpz_t);
+void mpz_quo(mpz_t, const mpz_t, const mpz_t);
+void mpz_rem(mpz_t, const mpz_t, const mpz_t);
+mp_limb_t mpz_quo_ui(mpz_t, const mpz_t, mp_limb_t);
+mp_limb_t mpz_rem_ui(const mpz_t, mp_limb_t);
 
 /*
  * Euclidean Division
  */
 
+void mpz_divmod(mpz_t, mpz_t, const mpz_t, const mpz_t);
+void mpz_div(mpz_t, const mpz_t, const mpz_t);
 void mpz_mod(mpz_t, const mpz_t, const mpz_t);
-mp_limb_t mpz_mod_ui(mpz_t, const mpz_t, mp_limb_t);
+mp_limb_t mpz_div_ui(mpz_t, const mpz_t, mp_limb_t);
+mp_limb_t mpz_mod_ui(const mpz_t, mp_limb_t);
 
 /*
  * Exact Division

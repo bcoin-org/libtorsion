@@ -1714,16 +1714,11 @@ mpn_div_qr(mp_ptr qp, mp_ptr np, mp_size_t nn, mp_srcptr dp, mp_size_t dn) {
  */
 
 void
-mpn_tdiv_qr(mp_ptr qp,
-            mp_ptr rp,
-            mp_size_t qxn,
-            mp_srcptr np,
-            mp_size_t nn,
-            mp_srcptr dp,
-            mp_size_t dn) {
+mpn_quorem(mp_ptr qp, mp_ptr rp,
+           mp_srcptr np, mp_size_t nn,
+           mp_srcptr dp, mp_size_t dn) {
   assert(nn >= dn);
   assert(dn > 0);
-  assert(qxn == 0);
   assert(dp[dn - 1] != 0);
 
   if (rp == np) {
@@ -1733,7 +1728,9 @@ mpn_tdiv_qr(mp_ptr qp,
 
     mpn_copyi(tp, np, nn);
     mpn_div_qr(qp, tp, nn, dp, dn);
-    mpn_copyi(rp, tp, dn);
+
+    if (rp)
+      mpn_copyi(rp, tp, dn);
 
     mpi_free(tp);
   }
@@ -3389,121 +3386,43 @@ mpz_div_qr_ui(mpz_t q, mpz_t r, const mpz_t n, mp_limb_t d,
  */
 
 void
-mpz_tdiv_qr(mpz_t q, mpz_t r, const mpz_t n, const mpz_t d) {
+mpz_quorem(mpz_t q, mpz_t r, const mpz_t n, const mpz_t d) {
   mpz_div_qr(q, r, n, d, MPI_DIV_TRUNC);
 }
 
 void
-mpz_tdiv_q(mpz_t q, const mpz_t n, const mpz_t d) {
+mpz_quo(mpz_t q, const mpz_t n, const mpz_t d) {
   mpz_div_qr(q, NULL, n, d, MPI_DIV_TRUNC);
 }
 
 void
-mpz_tdiv_r(mpz_t r, const mpz_t n, const mpz_t d) {
+mpz_rem(mpz_t r, const mpz_t n, const mpz_t d) {
   mpz_div_qr(NULL, r, n, d, MPI_DIV_TRUNC);
 }
 
 mp_limb_t
-mpz_tdiv_qr_ui(mpz_t q, mpz_t r, const mpz_t n, mp_limb_t d) {
-  return mpz_div_qr_ui(q, r, n, d, MPI_DIV_TRUNC);
-}
-
-mp_limb_t
-mpz_tdiv_q_ui(mpz_t q, const mpz_t n, mp_limb_t d) {
+mpz_quo_ui(mpz_t q, const mpz_t n, mp_limb_t d) {
   return mpz_div_qr_ui(q, NULL, n, d, MPI_DIV_TRUNC);
 }
 
 mp_limb_t
-mpz_tdiv_r_ui(mpz_t r, const mpz_t n, mp_limb_t d) {
-  return mpz_div_qr_ui(NULL, r, n, d, MPI_DIV_TRUNC);
-}
-
-mp_limb_t
-mpz_tdiv_ui(const mpz_t n, mp_limb_t d) {
+mpz_rem_ui(const mpz_t n, mp_limb_t d) {
   return mpz_div_qr_ui(NULL, NULL, n, d, MPI_DIV_TRUNC);
-}
-
-/*
- * Floor Division
- */
-
-void
-mpz_fdiv_qr(mpz_t q, mpz_t r, const mpz_t n, const mpz_t d) {
-  mpz_div_qr(q, r, n, d, MPI_DIV_FLOOR);
-}
-
-void
-mpz_fdiv_q(mpz_t q, const mpz_t n, const mpz_t d) {
-  mpz_div_qr(q, NULL, n, d, MPI_DIV_FLOOR);
-}
-
-void
-mpz_fdiv_r(mpz_t r, const mpz_t n, const mpz_t d) {
-  mpz_div_qr(NULL, r, n, d, MPI_DIV_FLOOR);
-}
-
-mp_limb_t
-mpz_fdiv_qr_ui(mpz_t q, mpz_t r, const mpz_t n, mp_limb_t d) {
-  return mpz_div_qr_ui(q, r, n, d, MPI_DIV_FLOOR);
-}
-
-mp_limb_t
-mpz_fdiv_q_ui(mpz_t q, const mpz_t n, mp_limb_t d) {
-  return mpz_div_qr_ui(q, NULL, n, d, MPI_DIV_FLOOR);
-}
-
-mp_limb_t
-mpz_fdiv_r_ui(mpz_t r, const mpz_t n, mp_limb_t d) {
-  return mpz_div_qr_ui(NULL, r, n, d, MPI_DIV_FLOOR);
-}
-
-mp_limb_t
-mpz_fdiv_ui(const mpz_t n, mp_limb_t d) {
-  return mpz_div_qr_ui(NULL, NULL, n, d, MPI_DIV_FLOOR);
-}
-
-/*
- * Ceiling Division
- */
-
-void
-mpz_cdiv_qr(mpz_t q, mpz_t r, const mpz_t n, const mpz_t d) {
-  mpz_div_qr(q, r, n, d, MPI_DIV_CEIL);
-}
-
-void
-mpz_cdiv_q(mpz_t q, const mpz_t n, const mpz_t d) {
-  mpz_div_qr(q, NULL, n, d, MPI_DIV_CEIL);
-}
-
-void
-mpz_cdiv_r(mpz_t r, const mpz_t n, const mpz_t d) {
-  mpz_div_qr(NULL, r, n, d, MPI_DIV_CEIL);
-}
-
-mp_limb_t
-mpz_cdiv_qr_ui(mpz_t q, mpz_t r, const mpz_t n, mp_limb_t d) {
-  return mpz_div_qr_ui(q, r, n, d, MPI_DIV_CEIL);
-}
-
-mp_limb_t
-mpz_cdiv_q_ui(mpz_t q, const mpz_t n, mp_limb_t d) {
-  return mpz_div_qr_ui(q, NULL, n, d, MPI_DIV_CEIL);
-}
-
-mp_limb_t
-mpz_cdiv_r_ui(mpz_t r, const mpz_t n, mp_limb_t d) {
-  return mpz_div_qr_ui(NULL, r, n, d, MPI_DIV_CEIL);
-}
-
-mp_limb_t
-mpz_cdiv_ui(const mpz_t n, mp_limb_t d) {
-  return mpz_div_qr_ui(NULL, NULL, n, d, MPI_DIV_CEIL);
 }
 
 /*
  * Euclidean Division
  */
+
+void
+mpz_divmod(mpz_t q, mpz_t r, const mpz_t n, const mpz_t d) {
+  mpz_div_qr(q, r, n, d, d->_mp_size >= 0 ? MPI_DIV_FLOOR : MPI_DIV_CEIL);
+}
+
+void
+mpz_div(mpz_t q, const mpz_t n, const mpz_t d) {
+  mpz_div_qr(q, NULL, n, d, d->_mp_size >= 0 ? MPI_DIV_FLOOR : MPI_DIV_CEIL);
+}
 
 void
 mpz_mod(mpz_t r, const mpz_t n, const mpz_t d) {
@@ -3525,8 +3444,13 @@ mpz_mod(mpz_t r, const mpz_t n, const mpz_t d) {
 }
 
 mp_limb_t
-mpz_mod_ui(mpz_t r, const mpz_t n, mp_limb_t d) {
-  return mpz_div_qr_ui(NULL, r, n, d, MPI_DIV_FLOOR);
+mpz_div_ui(mpz_t q, const mpz_t n, mp_limb_t d) {
+  return mpz_div_qr_ui(q, NULL, n, d, MPI_DIV_FLOOR);
+}
+
+mp_limb_t
+mpz_mod_ui(const mpz_t n, mp_limb_t d) {
+  return mpz_div_qr_ui(NULL, NULL, n, d, MPI_DIV_FLOOR);
 }
 
 /*
@@ -3719,7 +3643,7 @@ mpz_gcd(mpz_t g, const mpz_t u, const mpz_t v) {
   if (tu->_mp_size < tv->_mp_size)
     mpz_swap(tu, tv);
 
-  mpz_tdiv_r(tu, tu, tv);
+  mpz_rem(tu, tu, tv);
 
   if (tu->_mp_size == 0) {
     mpz_swap(g, tv);
@@ -3740,7 +3664,7 @@ mpz_gcd(mpz_t g, const mpz_t u, const mpz_t v) {
 
       if (tv->_mp_size == 1) {
         mp_limb_t vl = tv->_mp_d[0];
-        mp_limb_t ul = mpz_tdiv_ui(tu, vl);
+        mp_limb_t ul = mpz_rem_ui(tu, vl);
         mpz_set_ui(g, mpn_gcd_11(ul, vl));
         break;
       }
@@ -3859,7 +3783,7 @@ mpz_gcdext(mpz_t g, mpz_t s, mpz_t t, const mpz_t u, const mpz_t v) {
    */
 
   mpz_set_bit(t0, uz);
-  mpz_tdiv_qr(t1, tu, tu, tv);
+  mpz_quorem(t1, tu, tu, tv);
   mpz_lshift(t1, t1, uz);
 
   mpz_set_bit(s1, vz);
@@ -4360,7 +4284,7 @@ mpz_is_prime_lucas(const mpz_t n, unsigned long limit) {
 
       do {
         mpz_swap(t1, t2);
-        mpz_tdiv_q(t2, n, t1);
+        mpz_quo(t2, n, t1);
         mpz_add(t2, t2, t1);
         mpz_rshift(t2, t2, 1);
       } while (mpz_cmpabs(t2, t1) < 0);
@@ -4488,8 +4412,8 @@ mpz_is_prime(const mpz_t p, unsigned long rounds, mp_rng_t rng, void *arg) {
   if (mpz_even_p(p))
     return 0;
 
-  ra = mpz_fdiv_ui(p, primes_a);
-  rb = mpz_fdiv_ui(p, primes_b);
+  ra = mpz_rem_ui(p, primes_a);
+  rb = mpz_rem_ui(p, primes_b);
 
   if (ra % 3 == 0
       || ra % 5 == 0
