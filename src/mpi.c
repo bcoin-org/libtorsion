@@ -359,40 +359,34 @@ enum mpz_div_round_mode { MPI_DIV_FLOOR, MPI_DIV_CEIL, MPI_DIV_TRUNC };
   (bits) = __bits;                                             \
 } while (0)
 
-#define MPN_ADD(ap, as, bp, bs) do {        \
-  mp_size_t __an;                           \
-                                            \
-  if (((as) ^ (bs)) >= 0)                   \
-    __an = mpn_abs_add(ap, ap, as, bp, bs); \
-  else                                      \
-    __an = mpn_abs_sub(ap, ap, as, bp, bs); \
-                                            \
-  (as) = (as) >= 0 ? __an : -__an;          \
+#define MPN_ADD(ap, an, bp, bn) do {    \
+  mp_limb_t __cy;                       \
+                                        \
+  if (an < bn) {                        \
+    __cy = mpn_add(ap, bp, bn, ap, an); \
+    (an) = (bn) + __cy;                 \
+  } else {                              \
+    __cy = mpn_add(ap, ap, an, bp, bn); \
+    (an) = (an) + __cy;                 \
+  }                                     \
+                                        \
+  if (__cy != 0)                        \
+    (ap)[(an) - 1] = __cy;              \
 } while (0)
 
-#define MPN_SUB(ap, as, bp, bs) do {        \
-  mp_size_t __an;                           \
-                                            \
-  if (((as) ^ (bs)) >= 0)                   \
-    __an = mpn_abs_sub(ap, ap, as, bp, bs); \
-  else                                      \
-    __an = mpn_abs_add(ap, ap, as, bp, bs); \
-                                            \
-  (as) = (as) >= 0 ? __an : -__an;          \
+#define MPN_SUB(ap, an, bp, bn) do {               \
+  mpi_assert_nocarry(mpn_sub(ap, ap, an, bp, bn)); \
+  (an) = mpn_normalized_size(ap, an);              \
 } while (0)
 
-#define MPN_ODD_P(ap, as) \
-  (MPI_ABS(as) > 0 && ((ap)[0] & 1) == 1)
+#define MPN_ODD_P(ap, an) \
+  ((an) > 0 && ((ap)[0] & 1) == 1)
 
-#define MPN_RSHIFT(ap, as, bits) do { \
-  mp_size_t __an = MPI_ABS(as);       \
-                                      \
-  if (__an > 0 && (bits) != 0) {      \
-    mpn_rshift(ap, ap, __an, bits);   \
-    __an -= ((ap)[__an - 1] == 0);    \
+#define MPN_RSHIFT(ap, an, bits) do { \
+  if ((an) > 0 && (bits) != 0) {      \
+    mpn_rshift(ap, ap, an, bits);     \
+    (an) -= ((ap)[(an) - 1] == 0);    \
   }                                   \
-                                      \
-  (as) = (as) >= 0 ? __an : -__an;    \
 } while (0)
 
 /* itch = (nn - dn + 1) + dn */
@@ -623,21 +617,6 @@ mpn_cmp4(mp_srcptr ap, mp_size_t an, mp_srcptr bp, mp_size_t bn) {
     return an < bn ? -1 : 1;
   else
     return mpn_cmp(ap, bp, an);
-}
-
-static int
-mpn_cmp_1(mp_srcptr ap, mp_size_t an, mp_limb_t b) {
-  mp_limb_t a;
-
-  if (an > 1)
-    return 1;
-
-  if (an > 0)
-    a = ap[0];
-  else
-    a = 0;
-
-  return MPI_CMP(a, b);
 }
 
 /*
@@ -919,45 +898,6 @@ mpn_sub(mp_ptr rp, mp_srcptr ap, mp_size_t an, mp_srcptr bp, mp_size_t bn) {
     cy = mpn_sub_1(rp + bn, ap + bn, an - bn, cy);
 
   return cy;
-}
-
-/*
- * High-level Addition/Subtraction
- */
-
-static mp_size_t
-mpn_abs_add(mp_ptr rp, mp_srcptr ap, mp_size_t as, mp_srcptr bp, mp_size_t bs) {
-  mp_size_t an = MPI_ABS(as);
-  mp_size_t bn = MPI_ABS(bs);
-  mp_limb_t cy;
-
-  if (an < bn)
-    MPN_SRCPTR_SWAP(ap, an, bp, bn);
-
-  cy = mpn_add(rp, ap, an, bp, bn);
-
-  rp[an] = cy;
-
-  return an + cy;
-}
-
-static mp_size_t
-mpn_abs_sub(mp_ptr rp, mp_srcptr ap, mp_size_t as, mp_srcptr bp, mp_size_t bs) {
-  mp_size_t an = MPI_ABS(as);
-  mp_size_t bn = MPI_ABS(bs);
-  int cmp;
-
-  cmp = mpn_cmp4(ap, an, bp, bn);
-
-  if (cmp > 0) {
-    mpi_assert_nocarry(mpn_sub(rp, ap, an, bp, bn));
-    return mpn_normalized_size(rp, an);
-  } else if (cmp < 0) {
-    mpi_assert_nocarry(mpn_sub(rp, bp, bn, ap, an));
-    return -mpn_normalized_size(rp, bn);
-  } else {
-    return 0;
-  }
 }
 
 /*
@@ -2320,12 +2260,12 @@ mpn_gcd_11(mp_limb_t u, mp_limb_t v) {
 
 int
 mpn_invert_n(mp_ptr rp, mp_srcptr xp, mp_srcptr mp, mp_size_t n, mp_ptr scratch) {
-  /* Fast binary EGCD to invert over a prime field. */
-  mp_ptr ap = &scratch[0 * (n + 2)];
-  mp_ptr bp = &scratch[1 * (n + 2)];
-  mp_ptr up = &scratch[2 * (n + 2)];
-  mp_ptr vp = &scratch[3 * (n + 2)];
-  mp_size_t an, bn, us, vs;
+  /* Fast binary EGCD for inversion over a prime field. */
+  mp_ptr ap = &scratch[0 * (n + 1)];
+  mp_ptr bp = &scratch[1 * (n + 1)];
+  mp_ptr up = &scratch[2 * (n + 1)];
+  mp_ptr vp = &scratch[3 * (n + 1)];
+  mp_size_t i, an, bn, un, vn;
   mp_bitcnt_t shift;
 
   assert(n > 0);
@@ -2336,10 +2276,10 @@ mpn_invert_n(mp_ptr rp, mp_srcptr xp, mp_srcptr mp, mp_size_t n, mp_ptr scratch)
     return 0;
   }
 
-  mpn_zero(ap + n, 2);
-  mpn_zero(bp + n, 2);
-  mpn_zero(up + 1, n + 1);
-  mpn_zero(vp, n + 2);
+  mpn_zero(ap + n, 1);
+  mpn_zero(bp + n, 1);
+  mpn_zero(up + 1, n);
+  mpn_zero(vp, n + 1);
 
   mpn_copyi(ap, xp, n);
   mpn_copyi(bp, mp, n);
@@ -2348,52 +2288,49 @@ mpn_invert_n(mp_ptr rp, mp_srcptr xp, mp_srcptr mp, mp_size_t n, mp_ptr scratch)
 
   an = mpn_normalized_size(ap, n);
   bn = n;
-  us = 1;
-  vs = 0;
+  un = 1;
+  vn = 0;
 
-  while (mpn_cmp_1(ap, an, 1) > 0 && mpn_cmp_1(bp, bn, 1) > 0) {
+  while (an != 0) {
     MPN_MAKE_ODD(shift, ap, an);
 
     while (shift--) {
-      if (MPN_ODD_P(up, us))
-        MPN_ADD(up, us, mp, n);
+      if (MPN_ODD_P(up, un))
+        MPN_ADD(up, un, mp, n);
 
-      MPN_RSHIFT(up, us, 1);
+      MPN_RSHIFT(up, un, 1);
     }
 
     MPN_MAKE_ODD(shift, bp, bn);
 
     while (shift--) {
-      if (MPN_ODD_P(vp, vs))
-        MPN_ADD(vp, vs, mp, n);
+      if (MPN_ODD_P(vp, vn))
+        MPN_ADD(vp, vn, mp, n);
 
-      MPN_RSHIFT(vp, vs, 1);
+      MPN_RSHIFT(vp, vn, 1);
     }
 
     if (mpn_cmp4(ap, an, bp, bn) >= 0) {
       MPN_SUB(ap, an, bp, bn);
-      MPN_SUB(up, us, vp, vs);
+      MPN_ADD(up, un, vp, vn);
     } else {
       MPN_SUB(bp, bn, ap, an);
-      MPN_SUB(vp, vs, up, us);
+      MPN_ADD(vp, vn, up, un);
     }
   }
 
-  if (mpn_cmp_1(ap, an, 1) != 0) {
-    up = vp;
-    us = vs;
+  if (bn != 1 || bp[0] != 1)
+    return 0;
+
+  for (i = 0; mpn_cmp4(vp, vn, mp, n) >= 0; i++) {
+    if (i == 3) {
+      MPN_MOD(vp, vn, mp, n, scratch);
+      break;
+    }
+    MPN_SUB(vp, vn, mp, n);
   }
 
-  while (us < 0)
-    MPN_ADD(up, us, mp, n);
-
-  while (mpn_cmp4(up, us, mp, n) >= 0)
-    MPN_SUB(up, us, mp, n);
-
-  assert(us <= n);
-
-  mpn_copyi(rp, up, us);
-  mpn_zero(rp + us, n - us);
+  mpi_assert_nocarry(mpn_sub(rp, mp, n, vp, vn));
 
   return 1;
 }

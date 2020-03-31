@@ -243,7 +243,7 @@ typedef void (*mp_rng_t)(void *out, size_t size, void *arg);
  * Itches
  */
 
-#define MPN_INVERT_N_ITCH(n) (4 * ((n) + 2))
+#define MPN_INVERT_N_ITCH(n) (4 * ((n) + 1))
 #define MPN_JACOBI_N_ITCH(n) (4 * (n))
 #define MPN_POWM_SEC_ITCH(n) (7 * (n) + (MPI_WND_SIZE + 1) * (n))
 
