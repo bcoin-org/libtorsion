@@ -109,6 +109,8 @@ enum mpz_div_round_mode { MPI_DIV_FLOOR, MPI_DIV_CEIL, MPI_DIV_TRUNC };
 #define MPI_MPN_OVERLAP_P(xp, xsize, yp, ysize) \
   ((xp) + (xsize) > (yp) && (yp) + (ysize) > (xp))
 
+#define MPI_SCRATCH_LIMBS ((521 + MPI_LIMB_BITS - 1) / MPI_LIMB_BITS)
+
 #define mpi_assert_nocarry(x) do { \
   mp_limb_t __cy = (x);            \
   assert(__cy == 0);               \
@@ -1709,6 +1711,28 @@ mpn_div_qr(mp_ptr qp, mp_ptr np, mp_size_t nn, mp_srcptr dp, mp_size_t dn) {
     mpi_free(tp);
 }
 
+static void
+mpn_div_tp(mp_ptr qp,
+           mp_ptr np,
+           mp_size_t nn,
+           mp_srcptr dp,
+           mp_size_t dn,
+           mp_ptr tp) {
+  struct mpi_div_inverse inv;
+
+  assert(dn > 0);
+  assert(nn >= dn);
+
+  mpn_div_qr_invert(&inv, dp, dn);
+
+  if (dn > 2 && inv.shift > 0) {
+    mpi_assert_nocarry(mpn_lshift(tp, dp, dn, inv.shift));
+    dp = tp;
+  }
+
+  mpn_div_qr_preinv(qp, np, nn, dp, dn, &inv);
+}
+
 /*
  * Truncation Division
  */
@@ -2248,6 +2272,79 @@ mpn_invert_n(mp_ptr rp, mp_srcptr xp, mp_srcptr yp, mp_size_t n) {
   mpz_clear(r);
 
   return invertible;
+}
+
+int
+mpn_jacobi_n(mp_srcptr xp, mp_srcptr yp, mp_size_t n) {
+  mp_limb_t scratch[4 * MPI_SCRATCH_LIMBS];
+  mp_ptr ap = &scratch[0 * MPI_SCRATCH_LIMBS];
+  mp_ptr bp = &scratch[1 * MPI_SCRATCH_LIMBS];
+  mp_ptr qp = &scratch[2 * MPI_SCRATCH_LIMBS];
+  mp_ptr tp = &scratch[3 * MPI_SCRATCH_LIMBS];
+  mp_size_t an, bn, bits, limbs, shift;
+  mp_limb_t bmod8;
+  int j = 1;
+
+  assert(n > 0);
+  assert(n <= MPI_SCRATCH_LIMBS);
+
+  mpn_copyi(ap, xp, n);
+  mpn_copyi(bp, yp, n);
+
+  an = mpn_normalized_size(ap, n);
+  bn = mpn_normalized_size(bp, n);
+
+  if (bn == 0 || (bp[0] & 1) == 0)
+    mpi_die("mpn_jacobi: Even argument.");
+
+  for (;;) {
+    if (bn == 1 && bp[0] == 1)
+      break;
+
+    if (an == 0) {
+      j = 0;
+      break;
+    }
+
+    if (mpn_cmp4(ap, an, bp, bn) >= 0) {
+      mpn_div_tp(qp, ap, an, bp, bn, tp);
+      an = mpn_normalized_size(ap, bn);
+    }
+
+    if (an == 0) {
+      j = 0;
+      break;
+    }
+
+    bits = mpn_ctz(ap, an);
+    limbs = bits / MPI_LIMB_BITS;
+    shift = bits % MPI_LIMB_BITS;
+
+    if (shift != 0) {
+      mpn_rshift(ap, ap + limbs, an - limbs, shift);
+      an -= limbs;
+      an -= (ap[an - 1] == 0);
+    } else if (limbs != 0) {
+      mpn_copyi(ap, ap + limbs, an - limbs);
+      an -= limbs;
+    }
+
+    assert(an > 0);
+
+    if (bits & 1) {
+      bmod8 = bp[0] & 7;
+
+      if (bmod8 == 3 || bmod8 == 5)
+        j = -j;
+    }
+
+    if ((ap[0] & 3) == 3 && (bp[0] & 3) == 3)
+      j = -j;
+
+    MPN_PTR_SWAP(ap, an, bp, bn);
+  }
+
+  return j;
 }
 
 mp_size_t

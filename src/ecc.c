@@ -1826,14 +1826,10 @@ fe_sqrt(const prime_field_t *fe, fe_t r, const fe_t a) {
 static int
 fe_is_square_var(const prime_field_t *fe, const fe_t a) {
   mp_limb_t ap[MAX_FIELD_LIMBS];
-  mpz_t an, pn;
 
   fe_get_limbs(fe, ap, a);
 
-  mpz_roinit_n(an, ap, fe->limbs);
-  mpz_roinit_n(pn, fe->p, fe->limbs);
-
-  return mpz_jacobi(an, pn) >= 0;
+  return mpn_jacobi_n(ap, fe->p, fe->limbs) >= 0;
 }
 
 static int

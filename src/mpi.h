@@ -84,6 +84,7 @@ extern "C" {
 #define mpn_clr_bit __torsion_mpn_clr_bit
 #define mpn_gcdext __torsion_mpn_gcdext
 #define mpn_invert_n __torsion_mpn_invert_n
+#define mpn_jacobi_n __torsion_mpn_jacobi_n
 #define mpn_powm_sec_itch __torsion_mpn_powm_sec_itch
 #define mpn_powm_sec __torsion_mpn_powm_sec
 #define mpn_normalized_size __torsion_mpn_normalized_size
@@ -326,6 +327,7 @@ void mpn_clr_bit(mp_ptr, mp_size_t, mp_bitcnt_t);
 mp_size_t mpn_gcdext(mp_ptr, mp_ptr, mp_size_t *,
                      mp_ptr, mp_size_t, mp_ptr, mp_size_t);
 int mpn_invert_n(mp_ptr, mp_srcptr, mp_srcptr, mp_size_t);
+int mpn_jacobi_n(mp_srcptr, mp_srcptr, mp_size_t);
 mp_size_t mpn_powm_sec_itch(mp_size_t);
 void mpn_powm_sec(mp_ptr,
                   mp_srcptr, mp_size_t,
