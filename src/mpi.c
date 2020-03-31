@@ -82,13 +82,6 @@ struct mpi_div_inverse {
 enum mpz_div_round_mode { MPI_DIV_FLOOR, MPI_DIV_CEIL, MPI_DIV_TRUNC };
 
 /*
- * Definitions
- */
-
-#define MPI_WND_WIDTH 4
-#define MPI_WND_SIZE (1 << MPI_WND_WIDTH)
-
-/*
  * Macros
  */
 
@@ -108,8 +101,6 @@ enum mpz_div_round_mode { MPI_DIV_FLOOR, MPI_DIV_CEIL, MPI_DIV_TRUNC };
 
 #define MPI_MPN_OVERLAP_P(xp, xsize, yp, ysize) \
   ((xp) + (xsize) > (yp) && (yp) + (ysize) > (xp))
-
-#define MPI_SCRATCH_LIMBS ((521 + MPI_LIMB_BITS - 1) / MPI_LIMB_BITS)
 
 #define mpi_assert_nocarry(x) do { \
   mp_limb_t __cy = (x);            \
@@ -2328,18 +2319,16 @@ mpn_gcd_11(mp_limb_t u, mp_limb_t v) {
 }
 
 int
-mpn_invert_n(mp_ptr rp, mp_srcptr xp, mp_srcptr mp, mp_size_t n) {
+mpn_invert_n(mp_ptr rp, mp_srcptr xp, mp_srcptr mp, mp_size_t n, mp_ptr scratch) {
   /* Fast binary EGCD to invert over a prime field. */
-  mp_limb_t scratch[4 * (MPI_SCRATCH_LIMBS + 2)];
-  mp_ptr ap = &scratch[0 * (MPI_SCRATCH_LIMBS + 2)];
-  mp_ptr bp = &scratch[1 * (MPI_SCRATCH_LIMBS + 2)];
-  mp_ptr up = &scratch[2 * (MPI_SCRATCH_LIMBS + 2)];
-  mp_ptr vp = &scratch[3 * (MPI_SCRATCH_LIMBS + 2)];
+  mp_ptr ap = &scratch[0 * (n + 2)];
+  mp_ptr bp = &scratch[1 * (n + 2)];
+  mp_ptr up = &scratch[2 * (n + 2)];
+  mp_ptr vp = &scratch[3 * (n + 2)];
   mp_size_t an, bn, us, vs;
   mp_bitcnt_t shift;
 
   assert(n > 0);
-  assert(n <= MPI_SCRATCH_LIMBS);
   assert(mp[n - 1] != 0);
 
   if (mpn_zero_p(xp, n)) {
@@ -2410,17 +2399,15 @@ mpn_invert_n(mp_ptr rp, mp_srcptr xp, mp_srcptr mp, mp_size_t n) {
 }
 
 int
-mpn_jacobi_n(mp_srcptr xp, mp_srcptr yp, mp_size_t n) {
-  mp_limb_t scratch[4 * MPI_SCRATCH_LIMBS];
-  mp_ptr ap = &scratch[0 * MPI_SCRATCH_LIMBS];
-  mp_ptr bp = &scratch[1 * MPI_SCRATCH_LIMBS];
-  mp_ptr sp = &scratch[2 * MPI_SCRATCH_LIMBS];
+mpn_jacobi_n(mp_srcptr xp, mp_srcptr yp, mp_size_t n, mp_ptr scratch) {
+  mp_ptr ap = &scratch[0 * n];
+  mp_ptr bp = &scratch[1 * n];
+  mp_ptr sp = &scratch[2 * n];
   mp_size_t an, bn, bits;
   mp_limb_t bmod8;
   int j = 1;
 
   assert(n > 0);
-  assert(n <= MPI_SCRATCH_LIMBS);
   assert(yp[n - 1] != 0);
 
   if ((yp[0] & 1) == 0)
@@ -2464,11 +2451,6 @@ mpn_jacobi_n(mp_srcptr xp, mp_srcptr yp, mp_size_t n) {
   }
 
   return j;
-}
-
-mp_size_t
-mpn_powm_sec_itch(mp_size_t mn) {
-  return 7 * mn + (MPI_WND_SIZE + 1) * mn;
 }
 
 void
@@ -4329,7 +4311,7 @@ mpz_powm_sec(mpz_ptr r, mpz_srcptr b, mpz_srcptr e, mpz_srcptr m) {
   else
     mpz_set(t, b);
 
-  itch = mpn_powm_sec_itch(mn);
+  itch = MPN_POWM_SEC_ITCH(mn);
   scratch = mpi_xalloc_limbs(itch);
 
   rp = MPZ_REALLOC(r, mn);

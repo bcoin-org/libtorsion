@@ -85,7 +85,6 @@ extern "C" {
 #define mpn_gcdext __torsion_mpn_gcdext
 #define mpn_invert_n __torsion_mpn_invert_n
 #define mpn_jacobi_n __torsion_mpn_jacobi_n
-#define mpn_powm_sec_itch __torsion_mpn_powm_sec_itch
 #define mpn_powm_sec __torsion_mpn_powm_sec
 #define mpn_normalized_size __torsion_mpn_normalized_size
 #define mpn_bitlen __torsion_mpn_bitlen
@@ -234,6 +233,21 @@ typedef const __mpz_struct *mpz_srcptr;
 typedef void (*mp_rng_t)(void *out, size_t size, void *arg);
 
 /*
+ * Definitions
+ */
+
+#define MPI_WND_WIDTH 4
+#define MPI_WND_SIZE (1 << MPI_WND_WIDTH)
+
+/*
+ * Itches
+ */
+
+#define MPN_INVERT_N_ITCH(n) (4 * ((n) + 2))
+#define MPN_JACOBI_N_ITCH(n) (4 * (n))
+#define MPN_POWM_SEC_ITCH(n) (7 * (n) + (MPI_WND_SIZE + 1) * (n))
+
+/*
  * MPN Interface
  */
 
@@ -326,9 +340,8 @@ void mpn_clr_bit(mp_ptr, mp_size_t, mp_bitcnt_t);
 
 mp_size_t mpn_gcdext(mp_ptr, mp_ptr, mp_size_t *,
                      mp_ptr, mp_size_t, mp_ptr, mp_size_t);
-int mpn_invert_n(mp_ptr, mp_srcptr, mp_srcptr, mp_size_t);
-int mpn_jacobi_n(mp_srcptr, mp_srcptr, mp_size_t);
-mp_size_t mpn_powm_sec_itch(mp_size_t);
+int mpn_invert_n(mp_ptr, mp_srcptr, mp_srcptr, mp_size_t, mp_ptr);
+int mpn_jacobi_n(mp_srcptr, mp_srcptr, mp_size_t, mp_ptr);
 void mpn_powm_sec(mp_ptr,
                   mp_srcptr, mp_size_t,
                   mp_srcptr, mp_size_t,
