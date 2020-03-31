@@ -850,15 +850,7 @@ sc_set_word(const scalar_field_t *sc, sc_t r, uint32_t word) {
 
 static int
 sc_equal(const scalar_field_t *sc, const sc_t a, const sc_t b) {
-  mp_limb_t z = 0;
-  mp_size_t i;
-
-  for (i = 0; i < sc->limbs; i++)
-    z |= a[i] ^ b[i];
-
-  z = (z >> 1) | (z & 1);
-
-  return (z - 1) >> (MPI_LIMB_BITS - 1);
+  return mpn_sec_eq(a, b, sc->limbs);
 }
 
 static int
@@ -868,25 +860,12 @@ sc_cmp_var(const scalar_field_t *sc, const sc_t a, const sc_t b) {
 
 static int
 sc_is_zero(const scalar_field_t *sc, const sc_t a) {
-  mp_limb_t z = 0;
-  mp_size_t i;
-
-  for (i = 0; i < sc->limbs; i++)
-    z |= a[i];
-
-  z = (z >> 1) | (z & 1);
-
-  return (z - 1) >> (MPI_LIMB_BITS - 1);
+  return mpn_sec_zero_p(a, sc->limbs);
 }
 
 static int
 sc_is_high(const scalar_field_t *sc, const sc_t a) {
-  mp_limb_t tmp[MAX_SCALAR_LIMBS];
-  mp_limb_t cy = mpn_sub_n(tmp, a, sc->nh, sc->limbs);
-
-  mpn_cleanse(tmp, sc->limbs);
-
-  return (cy == 0) & (sc_equal(sc, a, sc->nh) ^ 1);
+  return mpn_sec_gt(a, sc->nh, sc->limbs);
 }
 
 static int
