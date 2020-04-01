@@ -379,6 +379,17 @@ enum mpz_div_round_mode { MPI_DIV_FLOOR, MPI_DIV_CEIL, MPI_DIV_TRUNC };
   (an) = mpn_normalized_size(ap, an);              \
 } while (0)
 
+#define MPN_MOD_SUB(ap, an, bp, bn, mp, mn) do {     \
+  if (mpn_cmp4(ap, an, bp, bn) < 0) {                \
+    mpi_assert_nocarry(mpn_sub(ap, bp, bn, ap, an)); \
+    mpi_assert_nocarry(mpn_sub(ap, mp, mn, ap, bn)); \
+    (an) = mpn_normalized_size(ap, mn);              \
+  } else {                                           \
+    mpi_assert_nocarry(mpn_sub(ap, ap, an, bp, bn)); \
+    (an) = mpn_normalized_size(ap, an);              \
+  }                                                  \
+} while (0)
+
 #define MPN_ODD_P(ap, an) \
   ((an) > 0 && ((ap)[0] & 1) == 1)
 
@@ -389,12 +400,34 @@ enum mpz_div_round_mode { MPI_DIV_FLOOR, MPI_DIV_CEIL, MPI_DIV_TRUNC };
   }                                   \
 } while (0)
 
-/* itch = (nn - dn + 1) + dn */
-#define MPN_MOD(np, nn, dp, dn, sp) do {                      \
-  if (mpn_cmp4(np, nn, dp, dn) >= 0) {                        \
-    mpn_div_tp(sp, np, nn, dp, dn, (sp) + ((nn) - (dn) + 1)); \
-    (nn) = mpn_normalized_size(np, dn);                       \
-  }                                                           \
+#define MPN_SET_1(up, un, v) do { \
+  (up)[0] = (v);                  \
+  (un) = ((v) != 0);              \
+} while (0)
+
+#define MPN_COPY(rp, rn, ap, an) do {       \
+  assert((an) == 0 || (ap)[(an) - 1] != 0); \
+  mpn_copyi(rp, ap, an);                    \
+  (rn) = (an);                              \
+} while (0)
+
+#define MPN_COPY_MOD(rp, rn, np, nn, dp, dn, ns) do { \
+  assert((nn) == 0 || (np)[(nn) - 1] != 0);           \
+  assert((dn) == 0 || (dp)[(dn) - 1] != 0);           \
+                                                      \
+  if (mpn_cmp4(np, nn, dp, dn) >= 0) {                \
+    mpn_quorem(NULL, rp, np, nn, dp, dn);             \
+    (rn) = mpn_normalized_size(rp, dn);               \
+  } else {                                            \
+    assert((nn) <= (dn));                             \
+    mpn_copyi(rp, np, nn);                            \
+    (rn) = (nn);                                      \
+  }                                                   \
+                                                      \
+  if ((ns) < 0 && (rn) != 0) {                        \
+    mpi_assert_nocarry(mpn_sub(rp, dp, dn, rp, rn));  \
+    (rn) = mpn_normalized_size(rp, dn);               \
+  }                                                   \
 } while (0)
 
 /*
@@ -1761,28 +1794,6 @@ mpn_div_qr(mp_ptr qp, mp_ptr np, mp_size_t nn, mp_srcptr dp, mp_size_t dn) {
     mpi_free(tp);
 }
 
-static void
-mpn_div_tp(mp_ptr qp,
-           mp_ptr np,
-           mp_size_t nn,
-           mp_srcptr dp,
-           mp_size_t dn,
-           mp_ptr tp) {
-  struct mpi_div_inverse inv;
-
-  assert(dn > 0);
-  assert(nn >= dn);
-
-  mpn_div_qr_invert(&inv, dp, dn);
-
-  if (dn > 2 && inv.shift > 0) {
-    mpi_assert_nocarry(mpn_lshift(tp, dp, dn, inv.shift));
-    dp = tp;
-  }
-
-  mpn_div_qr_preinv(qp, np, nn, dp, dn, &inv);
-}
-
 /*
  * Truncation Division
  */
@@ -2259,44 +2270,43 @@ mpn_gcd_11(mp_limb_t u, mp_limb_t v) {
 }
 
 int
-mpn_invert_n(mp_ptr rp, mp_srcptr xp, mp_srcptr mp, mp_size_t n, mp_ptr scratch) {
-  /* Fast binary EGCD for inversion over a prime field. */
-  mp_ptr ap = &scratch[0 * (n + 1)];
-  mp_ptr bp = &scratch[1 * (n + 1)];
-  mp_ptr up = &scratch[2 * (n + 1)];
-  mp_ptr vp = &scratch[3 * (n + 1)];
-  mp_size_t i, an, bn, un, vn;
+mpn_invert(mp_ptr rp, mp_srcptr xp, mp_size_t xs,
+           mp_srcptr yp, mp_size_t ys, mp_ptr scratch) {
+  /* Penk's right shift binary EGCD.
+   *
+   * See: The Art of Computer Programming,
+   *      Volume 2, Seminumerical Algorithms
+   *   Donald E. Knuth
+   *   Exercise 4.5.2.39
+   */
+  mp_size_t xn = MPI_ABS(xs);
+  mp_size_t yn = MPI_ABS(ys);
+  mp_ptr ap = &scratch[0 * (yn + 1)];
+  mp_ptr bp = &scratch[1 * (yn + 1)];
+  mp_ptr up = &scratch[2 * (yn + 1)];
+  mp_ptr vp = &scratch[3 * (yn + 1)];
+  mp_size_t an, bn, un, vn;
   mp_bitcnt_t shift;
 
-  assert(n > 0);
-  assert(mp[n - 1] != 0);
+  if (yn == 0 || (yp[0] & 1) == 0)
+    mpi_die("mpn_invert: Even modulus.");
 
-  if (mpn_zero_p(xp, n)) {
-    mpn_zero(rp, n);
+  if (yn == 1 && yp[0] == 1) {
+    mpn_zero(rp, yn);
     return 0;
   }
 
-  mpn_zero(ap + n, 1);
-  mpn_zero(bp + n, 1);
-  mpn_zero(up + 1, n);
-  mpn_zero(vp, n + 1);
-
-  mpn_copyi(ap, xp, n);
-  mpn_copyi(bp, mp, n);
-
-  up[0] = 1;
-
-  an = mpn_normalized_size(ap, n);
-  bn = n;
-  un = 1;
-  vn = 0;
+  MPN_COPY_MOD(ap, an, xp, xn, yp, yn, xs);
+  MPN_COPY(bp, bn, yp, yn);
+  MPN_SET_1(up, un, 1);
+  MPN_SET_1(vp, vn, 0);
 
   while (an != 0) {
     MPN_MAKE_ODD(shift, ap, an);
 
     while (shift--) {
       if (MPN_ODD_P(up, un))
-        MPN_ADD(up, un, mp, n);
+        MPN_ADD(up, un, yp, yn);
 
       MPN_RSHIFT(up, un, 1);
     }
@@ -2305,74 +2315,78 @@ mpn_invert_n(mp_ptr rp, mp_srcptr xp, mp_srcptr mp, mp_size_t n, mp_ptr scratch)
 
     while (shift--) {
       if (MPN_ODD_P(vp, vn))
-        MPN_ADD(vp, vn, mp, n);
+        MPN_ADD(vp, vn, yp, yn);
 
       MPN_RSHIFT(vp, vn, 1);
     }
 
     if (mpn_cmp4(ap, an, bp, bn) >= 0) {
       MPN_SUB(ap, an, bp, bn);
-      MPN_ADD(up, un, vp, vn);
+      MPN_MOD_SUB(up, un, vp, vn, yp, yn);
     } else {
       MPN_SUB(bp, bn, ap, an);
-      MPN_ADD(vp, vn, up, un);
+      MPN_MOD_SUB(vp, vn, up, un, yp, yn);
     }
+
+    assert(un <= yn);
+    assert(vn <= yn);
   }
 
-  if (bn != 1 || bp[0] != 1)
+  if (bn != 1 || bp[0] != 1) {
+    mpn_zero(rp, yn);
     return 0;
-
-  for (i = 0; mpn_cmp4(vp, vn, mp, n) >= 0; i++) {
-    if (i == 3) {
-      MPN_MOD(vp, vn, mp, n, scratch);
-      break;
-    }
-    MPN_SUB(vp, vn, mp, n);
   }
 
-  mpi_assert_nocarry(mpn_sub(rp, mp, n, vp, vn));
+  assert(mpn_cmp4(vp, vn, yp, yn) < 0);
+
+  mpn_copyi(rp, vp, vn);
+  mpn_zero(rp + vn, yn - vn);
 
   return 1;
 }
 
 int
-mpn_jacobi_n(mp_srcptr xp, mp_srcptr yp, mp_size_t n, mp_ptr scratch) {
-  mp_ptr ap = &scratch[0 * n];
-  mp_ptr bp = &scratch[1 * n];
-  mp_ptr sp = &scratch[2 * n];
+mpn_invert_n(mp_ptr rp, mp_srcptr xp,
+             mp_srcptr yp, mp_size_t n, mp_ptr scratch) {
+  mp_size_t xn;
+
+  assert(n > 0);
+
+  xn = mpn_normalized_size(xp, n);
+
+  return mpn_invert(rp, xp, xn, yp, n, scratch);
+}
+
+int
+mpn_jacobi(mp_srcptr xp, mp_size_t xs,
+           mp_srcptr yp, mp_size_t ys, mp_ptr scratch) {
+  /* See: A Binary Algorithm for the Jacobi Symbol
+   *   J. Shallit, J. Sorenson
+   *   Page 3, Section 3
+   */
+  mp_size_t xn = MPI_ABS(xs);
+  mp_size_t yn = MPI_ABS(ys);
+  mp_ptr ap = &scratch[0 * yn];
+  mp_ptr bp = &scratch[1 * yn];
   mp_size_t an, bn, bits;
   mp_limb_t bmod8;
   int j = 1;
 
-  assert(n > 0);
-  assert(yp[n - 1] != 0);
+  if (yn == 0 || (yp[0] & 1) == 0)
+    mpi_die("mpn_jacobi: Even modulus.");
 
-  if ((yp[0] & 1) == 0)
-    mpi_die("mpn_jacobi: Even argument.");
+  MPN_COPY_MOD(ap, an, xp, xn, yp, yn, xs);
+  MPN_COPY(bp, bn, yp, yn);
 
-  mpn_copyi(ap, xp, n);
-  mpn_copyi(bp, yp, n);
+  if (ys < 0) {
+    if (xs < 0)
+      j = -1;
+  }
 
-  an = mpn_normalized_size(ap, n);
-  bn = n;
-
-  for (;;) {
-    if (bn == 1 && bp[0] == 1)
-      break;
-
-    if (an == 0) {
-      j = 0;
-      break;
-    }
-
-    MPN_MOD(ap, an, bp, bn, sp);
-
-    if (an == 0) {
-      j = 0;
-      break;
-    }
-
+  while (an != 0) {
     MPN_MAKE_ODD(bits, ap, an);
+
+    assert(bn > 0);
 
     if (bits & 1) {
       bmod8 = bp[0] & 7;
@@ -2381,20 +2395,44 @@ mpn_jacobi_n(mp_srcptr xp, mp_srcptr yp, mp_size_t n, mp_ptr scratch) {
         j = -j;
     }
 
-    if ((ap[0] & 3) == 3 && (bp[0] & 3) == 3)
-      j = -j;
+    if (mpn_cmp4(ap, an, bp, bn) < 0) {
+      MPN_PTR_SWAP(ap, an, bp, bn);
 
-    MPN_PTR_SWAP(ap, an, bp, bn);
+      if ((ap[0] & 3) == 3 && (bp[0] & 3) == 3)
+        j = -j;
+    }
+
+    MPN_SUB(ap, an, bp, bn);
+    MPN_RSHIFT(ap, an, 1);
+
+    bmod8 = bp[0] & 7;
+
+    if (bmod8 == 3 || bmod8 == 5)
+      j = -j;
   }
+
+  if (bn != 1 || bp[0] != 1)
+    return 0;
 
   return j;
 }
 
+int
+mpn_jacobi_n(mp_srcptr xp, mp_srcptr yp, mp_size_t n, mp_ptr scratch) {
+  mp_size_t xn;
+
+  assert(n > 0);
+
+  xn = mpn_normalized_size(xp, n);
+
+  return mpn_jacobi(xp, xn, yp, n, scratch);
+}
+
 void
 mpn_powm_sec(mp_ptr zp,
-             mp_srcptr xp, mp_size_t xn,
-             mp_srcptr yp, mp_size_t yn,
-             mp_srcptr mp, mp_size_t mn,
+             mp_srcptr xp, mp_size_t xs,
+             mp_srcptr yp, mp_size_t ys,
+             mp_srcptr mp, mp_size_t ms,
              mp_ptr scratch) {
   /* Scratch Layout:
    *
@@ -2413,6 +2451,9 @@ mpn_powm_sec(mp_ptr zp,
    *
    * We assume the modulus is not secret.
    */
+  mp_size_t xn = MPI_ABS(xs);
+  mp_size_t yn = MPI_ABS(ys);
+  mp_size_t mn = MPI_ABS(ms);
   mp_ptr up = &scratch[0];
   mp_ptr z1 = &scratch[mn];
   mp_ptr z2 = &scratch[3 * mn];
@@ -2424,17 +2465,13 @@ mpn_powm_sec(mp_ptr zp,
   mp_size_t yb = yn * MPI_LIMB_BITS;
   mp_size_t start = (yb + MPI_WND_WIDTH - 1) / MPI_WND_WIDTH - 1;
   mp_limb_t k, t, b, j, cy;
-  mp_size_t i;
+  mp_size_t i, un;
 
-  assert(xn >= 0);
-  assert(yn >= 0);
-  assert(mn > 0);
-  assert(xn <= mn);
-  assert(mp[mn - 1] != 0);
-  assert((mp[0] & 1) != 0);
+  if (mn == 0 || (mp[0] & 1) == 0)
+    mpi_die("mpn_powm_sec: Even modulus.");
 
-  mpn_copyi(up, xp, xn);
-  mpn_zero(up + xn, mn - xn);
+  MPN_COPY_MOD(up, un, xp, xn, mp, mn, xs);
+  mpn_zero(up + un, mn - un);
 
   k = 2 - mp[0];
   t = mp[0] - 1;
@@ -4038,6 +4075,22 @@ mpz_invert(mpz_t r, const mpz_t u, const mpz_t m) {
   if (u->_mp_size == 0 || mpz_cmpabs_ui(m, 1) <= 0)
     return 0;
 
+  if (mpz_odd_p(m)) {
+    mp_size_t mn = MPI_ABS(m->_mp_size);
+    mp_ptr rp = MPZ_REALLOC(r, mn);
+    mp_ptr scratch = mpi_xalloc_limbs(MPN_INVERT_ITCH(mn));
+
+    invertible = mpn_invert(rp, u->_mp_d, u->_mp_size,
+                                m->_mp_d, m->_mp_size,
+                                scratch);
+
+    r->_mp_size = mpn_normalized_size(rp, mn);
+
+    mpi_free(scratch);
+
+    return invertible;
+  }
+
   mpz_init(g);
   mpz_init(tr);
 
@@ -4063,57 +4116,11 @@ mpz_invert(mpz_t r, const mpz_t u, const mpz_t m) {
 
 int
 mpz_jacobi(const mpz_t x, const mpz_t y) {
-  mp_bitcnt_t bits;
-  mp_limb_t bmod8;
-  mpz_t a, b;
-  int j = 1;
+  mp_size_t yn = MPI_ABS(y->_mp_size);
+  mp_ptr scratch = mpi_xalloc_limbs(MPN_JACOBI_ITCH(yn));
+  int j = mpn_jacobi(x->_mp_d, x->_mp_size, y->_mp_d, y->_mp_size, scratch);
 
-  if (!mpz_odd_p(y))
-    mpi_die("mpz_jacobi: Even argument.");
-
-  mpz_init_set(a, x);
-  mpz_init_set(b, y);
-
-  if (b->_mp_size < 0) {
-    if (a->_mp_size < 0)
-      j = -1;
-
-    mpz_neg(b, b);
-  }
-
-  for (;;) {
-    if (mpz_cmp_ui(b, 1) == 0)
-      break;
-
-    if (a->_mp_size == 0) {
-      j = 0;
-      break;
-    }
-
-    mpz_mod(a, a, b);
-
-    if (a->_mp_size == 0) {
-      j = 0;
-      break;
-    }
-
-    bits = mpz_make_odd(a);
-
-    if (bits & 1) {
-      bmod8 = b->_mp_d[0] & 7;
-
-      if (bmod8 == 3 || bmod8 == 5)
-        j = -j;
-    }
-
-    if ((a->_mp_d[0] & 3) == 3 && (b->_mp_d[0] & 3) == 3)
-      j = -j;
-
-    mpz_swap(a, b);
-  }
-
-  mpz_clear(a);
-  mpz_clear(b);
+  mpi_free(scratch);
 
   return j;
 }
@@ -4225,7 +4232,6 @@ void
 mpz_powm_sec(mpz_ptr r, mpz_srcptr b, mpz_srcptr e, mpz_srcptr m) {
   mp_ptr rp, scratch;
   mp_size_t mn, itch;
-  mpz_t t;
 
   if (e->_mp_size < 0)
     mpi_die("mpz_powm_sec: Negative exponent.");
@@ -4240,28 +4246,18 @@ mpz_powm_sec(mpz_ptr r, mpz_srcptr b, mpz_srcptr e, mpz_srcptr m) {
     mpi_die("mpz_powm_sec: Even modulus.");
 
   mn = MPI_ABS(m->_mp_size);
-
-  mpz_init(t);
-
-  if (mpz_sgn(b) < 0 || mpz_cmpabs(b, m) >= 0)
-    mpz_mod(t, b, m);
-  else
-    mpz_set(t, b);
-
   itch = MPN_POWM_SEC_ITCH(mn);
   scratch = mpi_xalloc_limbs(itch);
-
   rp = MPZ_REALLOC(r, mn);
 
-  mpn_powm_sec(rp, t->_mp_d, t->_mp_size,
+  mpn_powm_sec(rp, b->_mp_d, b->_mp_size,
                    e->_mp_d, e->_mp_size,
-                   m->_mp_d, mn,
+                   m->_mp_d, m->_mp_size,
                    scratch);
 
   r->_mp_size = mpn_normalized_size(rp, mn);
 
   mpi_free(scratch);
-  mpz_clear(t);
 }
 
 /*
