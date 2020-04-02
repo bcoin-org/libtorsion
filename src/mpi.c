@@ -3447,27 +3447,27 @@ mpz_div_qr(mpz_t q, mpz_t r, const mpz_t n, const mpz_t d,
   qs = ds ^ ns;
 
   if (nn < dn) {
-    if (mode == MP_DIV_CEIL && qs >= 0) {
-      /* q = 1, r = n - d */
-      if (r)
-        mpz_sub(r, n, d);
-
-      if (q)
-        mpz_set_ui(q, 1);
-    } else if (mode == MP_DIV_FLOOR && qs < 0) {
+    if (mode == MP_DIV_FLOOR && qs < 0) {
       /* q = -1, r = n + d */
-      if (r)
-        mpz_add(r, n, d);
-
       if (q)
         mpz_set_si(q, -1);
-    } else {
-      /* q = 0, r = d */
-      if (r)
-        mpz_set(r, n);
 
+      if (r)
+        mpz_add(r, n, d);
+    } else if (mode == MP_DIV_CEIL && qs >= 0) {
+      /* q = 1, r = n - d */
+      if (q)
+        mpz_set_ui(q, 1);
+
+      if (r)
+        mpz_sub(r, n, d);
+    } else {
+      /* q = 0, r = n */
       if (q)
         q->_mp_size = 0;
+
+      if (r)
+        mpz_set(r, n);
     }
 
     return 1;
@@ -3500,12 +3500,14 @@ mpz_div_qr(mpz_t q, mpz_t r, const mpz_t n, const mpz_t d,
     tr->_mp_size = ns < 0 ? -rn : rn;
 
     if (mode == MP_DIV_FLOOR && qs < 0 && rn != 0) {
+      /* q -= 1, r += d */
       if (q)
         mpz_sub_ui(tq, tq, 1);
 
       if (r)
         mpz_add(tr, tr, d);
     } else if (mode == MP_DIV_CEIL && qs >= 0 && rn != 0) {
+      /* q += 1, r -= d */
       if (q)
         mpz_add_ui(tq, tq, 1);
 
