@@ -23,6 +23,9 @@
 #if TORSION_GNUC_PREREQ(3, 0) || __has_builtin(__builtin_expect)
 #define LIKELY(x) __builtin_expect(!!(x), 1)
 #define UNLIKELY(x) __builtin_expect(!!(x), 0)
+#else
+#define LIKELY(x) (x)
+#define UNLIKELY(x) (x)
 #endif
 
 #define ASSERT_FAIL(expr) __torsion_assert_fail(__FILE__, __LINE__, #expr)
