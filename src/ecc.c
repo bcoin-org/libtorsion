@@ -175,16 +175,16 @@ typedef uint32_t fe_word_t;
 
 #define MAX_FIELD_BITS 521
 #define MAX_FIELD_SIZE 66
-#define MAX_FIELD_LIMBS ((MAX_FIELD_BITS + MPI_LIMB_BITS - 1) / MPI_LIMB_BITS)
+#define MAX_FIELD_LIMBS ((MAX_FIELD_BITS + MP_LIMB_BITS - 1) / MP_LIMB_BITS)
 #define MAX_FIELD_SHIFT \
-  ((MAX_FIELD_WORDS * FIELD_WORD_BITS * 2 + MPI_LIMB_BITS - 1) / MPI_LIMB_BITS)
+  ((MAX_FIELD_WORDS * FIELD_WORD_BITS * 2 + MP_LIMB_BITS - 1) / MP_LIMB_BITS)
 
 #define MAX_SCALAR_BITS 521
 #define MAX_SCALAR_SIZE 66
-#define MAX_SCALAR_LIMBS ((MAX_SCALAR_BITS + MPI_LIMB_BITS - 1) / MPI_LIMB_BITS)
+#define MAX_SCALAR_LIMBS ((MAX_SCALAR_BITS + MP_LIMB_BITS - 1) / MP_LIMB_BITS)
 #define MAX_REDUCE_LIMBS (MAX_SCALAR_LIMBS * 2 + 2)
 #define MAX_ENDO_BITS ((MAX_SCALAR_BITS + 1) / 2 + 1)
-#define MAX_ENDO_LIMBS ((MAX_ENDO_BITS + MPI_LIMB_BITS - 1) / MPI_LIMB_BITS)
+#define MAX_ENDO_LIMBS ((MAX_ENDO_BITS + MP_LIMB_BITS - 1) / MP_LIMB_BITS)
 
 #define MAX_ELEMENT_SIZE MAX_FIELD_SIZE
 
@@ -719,7 +719,7 @@ sc_import_wide(const scalar_field_t *sc, sc_t r,
                const unsigned char *raw, size_t size) {
   mp_limb_t rp[MAX_REDUCE_LIMBS];
 
-  ASSERT(size * 8 <= (size_t)sc->shift * MPI_LIMB_BITS);
+  ASSERT(size * 8 <= (size_t)sc->shift * MP_LIMB_BITS);
 
   mpn_import(rp, sc->shift, raw, size, sc->endian);
 
@@ -985,8 +985,8 @@ sc_mulshift(const scalar_field_t *sc, sc_t r,
    * case with secp256k1.
    */
   mp_limb_t scratch[MAX_SCALAR_LIMBS + MAX_ENDO_LIMBS + 1 + 1]; /* 128 bytes */
-  mp_size_t limbs = shift / MPI_LIMB_BITS;
-  mp_size_t left = shift % MPI_LIMB_BITS;
+  mp_size_t limbs = shift / MP_LIMB_BITS;
+  mp_size_t left = shift % MP_LIMB_BITS;
   mp_limb_t *rp = scratch;
   mp_size_t rn = sc->limbs + sc->endo_limbs + 1;
   mp_limb_t bit, cy;
@@ -1852,11 +1852,11 @@ scalar_field_init(scalar_field_t *sc, const scalar_def_t *def, int endian) {
 
   /* Field constants. */
   sc->endian = endian;
-  sc->limbs = (def->bits + MPI_LIMB_BITS - 1) / MPI_LIMB_BITS;
+  sc->limbs = (def->bits + MP_LIMB_BITS - 1) / MP_LIMB_BITS;
   sc->size = (def->bits + 7) / 8;
   sc->bits = def->bits;
   sc->endo_bits = (def->bits + 1) / 2 + 1;
-  sc->endo_limbs = (sc->endo_bits + MPI_LIMB_BITS - 1) / MPI_LIMB_BITS;
+  sc->endo_limbs = (sc->endo_bits + MP_LIMB_BITS - 1) / MP_LIMB_BITS;
   sc->shift = sc->limbs * 2 + 2;
 
   /* Deserialize order into GMP limbs. */
@@ -1921,7 +1921,7 @@ prime_field_init(prime_field_t *fe, const prime_def_t *def, int endian) {
 
   /* Field constants. */
   fe->endian = endian;
-  fe->limbs = (def->bits + MPI_LIMB_BITS - 1) / MPI_LIMB_BITS;
+  fe->limbs = (def->bits + MP_LIMB_BITS - 1) / MP_LIMB_BITS;
   fe->size = (def->bits + 7) / 8;
   fe->bits = def->bits;
   fe->words = def->words;
@@ -1948,8 +1948,8 @@ prime_field_init(prime_field_t *fe, const prime_def_t *def, int endian) {
     mp_limb_t q[MAX_FIELD_SHIFT + 1 - MAX_FIELD_LIMBS + 1];
     mp_limb_t r[MAX_FIELD_SHIFT + 1];
     mp_size_t bits = fe->words * FIELD_WORD_BITS;
-    mp_size_t shift = (bits * 2) / MPI_LIMB_BITS;
-    mp_size_t left = (bits * 2) % MPI_LIMB_BITS;
+    mp_size_t shift = (bits * 2) / MP_LIMB_BITS;
+    mp_size_t left = (bits * 2) % MP_LIMB_BITS;
     unsigned char tmp[MAX_FIELD_SIZE];
 
     mpn_zero(r, shift);

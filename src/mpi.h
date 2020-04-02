@@ -191,25 +191,25 @@ extern "C" {
  */
 
 #ifdef __GNUC__
-#define MPI_EXTENSION __extension__
+#define MP_EXTENSION __extension__
 #else
-#define MPI_EXTENSION
+#define MP_EXTENSION
 #endif
 
 #ifdef TORSION_USE_64BIT
 typedef uint64_t mp_limb_t;
 typedef int64_t mp_long_t;
-#define MPI_LIMB_BITS 64
+#define MP_LIMB_BITS 64
 #ifdef __SIZEOF_INT128__
-MPI_EXTENSION typedef unsigned __int128 mp_wide_t;
-#define MPI_HAS_WIDE
+MP_EXTENSION typedef unsigned __int128 mp_wide_t;
+#define MP_HAS_WIDE
 #endif
 #else
 typedef uint32_t mp_limb_t;
 typedef int32_t mp_long_t;
 typedef uint64_t mp_wide_t;
-#define MPI_LIMB_BITS 32
-#define MPI_HAS_WIDE
+#define MP_LIMB_BITS 32
+#define MP_HAS_WIDE
 #endif
 
 typedef long mp_size_t;
@@ -238,8 +238,8 @@ typedef void (*mp_rng_t)(void *out, size_t size, void *arg);
  * Definitions
  */
 
-#define MPI_WND_WIDTH 4
-#define MPI_WND_SIZE (1 << MPI_WND_WIDTH)
+#define MP_WND_WIDTH 4
+#define MP_WND_SIZE (1 << MP_WND_WIDTH)
 
 /*
  * Itches
@@ -247,7 +247,7 @@ typedef void (*mp_rng_t)(void *out, size_t size, void *arg);
 
 #define MPN_INVERT_ITCH(n) (4 * ((n) + 1))
 #define MPN_JACOBI_ITCH(n) (2 * (n))
-#define MPN_POWM_SEC_ITCH(n) (7 * (n) + (MPI_WND_SIZE + 1) * (n))
+#define MPN_POWM_SEC_ITCH(n) (7 * (n) + (MP_WND_SIZE + 1) * (n))
 
 /*
  * MPN Interface
