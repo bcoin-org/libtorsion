@@ -14,6 +14,7 @@
 #include <torsion/chacha20.h>
 #include <torsion/poly1305.h>
 #include <torsion/aead.h>
+#include "bio.h"
 #include "internal.h"
 
 /*
@@ -124,27 +125,8 @@ void
 aead_final(aead_t *aead, unsigned char *tag) {
   uint8_t len[16];
 
-#ifdef WORDS_BIGENDIAN
-  len[0] = aead->aad_len & 0xff;
-  len[1] = (aead->aad_len >> 8) & 0xff;
-  len[2] = (aead->aad_len >> 16) & 0xff;
-  len[3] = (aead->aad_len >> 24) & 0xff;
-  len[4] = (aead->aad_len >> 32) & 0xff;
-  len[5] = (aead->aad_len >> 40) & 0xff;
-  len[6] = (aead->aad_len >> 48) & 0xff;
-  len[7] = (aead->aad_len >> 56) & 0xff;
-  len[8] = aead->cipher_len & 0xff;
-  len[9] = (aead->cipher_len >> 8) & 0xff;
-  len[10] = (aead->cipher_len >> 16) & 0xff;
-  len[11] = (aead->cipher_len >> 24) & 0xff;
-  len[12] = (aead->cipher_len >> 32) & 0xff;
-  len[13] = (aead->cipher_len >> 40) & 0xff;
-  len[14] = (aead->cipher_len >> 48) & 0xff;
-  len[15] = (aead->cipher_len >> 56) & 0xff;
-#else
-  memcpy(&len[0], &aead->aad_len, sizeof(aead->aad_len));
-  memcpy(&len[8], &aead->cipher_len, sizeof(aead->cipher_len));
-#endif
+  write64le(len, aead->aad_len);
+  write64le(len + 8, aead->cipher_len);
 
   if (aead->mode == 0)
     aead_pad16(aead, aead->aad_len);

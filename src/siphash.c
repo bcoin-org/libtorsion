@@ -19,11 +19,16 @@
 #include <stdlib.h>
 #include <string.h>
 #include <torsion/siphash.h>
+#include "bio.h"
 #include "internal.h"
 
 #ifdef _MSC_VER
 #include <intrin.h>
 #endif
+
+/*
+ * Macros
+ */
 
 #define ROTL64(x, b) (uint64_t)(((x) << (b)) | ((x) >> (64 - (b))))
 
@@ -36,24 +41,9 @@
   v2 = ROTL64(v2, 32);                     \
 } while (0)
 
-static uint64_t
-read64le(const void *src) {
-#ifndef WORDS_BIGENDIAN
-  uint64_t w;
-  memcpy(&w, src, sizeof(w));
-  return w;
-#else
-  const uint8_t *p = (const uint8_t *)src;
-  return ((uint64_t)p[0] << 0)
-       | ((uint64_t)p[1] << 8)
-       | ((uint64_t)p[2] << 16)
-       | ((uint64_t)p[3] << 24)
-       | ((uint64_t)p[4] << 32)
-       | ((uint64_t)p[5] << 40)
-       | ((uint64_t)p[6] << 48)
-       | ((uint64_t)p[7] << 56);
-#endif
-}
+/*
+ * Helpers
+ */
 
 static uint64_t
 reduce64(uint64_t a, uint64_t b) {
@@ -76,6 +66,10 @@ reduce64(uint64_t a, uint64_t b) {
   return axbhi + (axbmid >> 32) + (bxamid >> 32) + (c >> 32);
 #endif
 }
+
+/*
+ * Siphash
+ */
 
 static uint64_t
 _siphash(const unsigned char *data, size_t len, const unsigned char *key) {

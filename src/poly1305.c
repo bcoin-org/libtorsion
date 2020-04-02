@@ -12,85 +12,10 @@
 #include <stdint.h>
 #include <string.h>
 #include <torsion/poly1305.h>
+#include "bio.h"
 #include "internal.h"
 
 #define POLY1305_BLOCK_SIZE 16
-
-/*
- * Helpers
- */
-
-#ifdef TORSION_HAS_INT128
-
-typedef torsion_uint128_t uint128_t;
-
-static uint64_t
-read64le(const void *src) {
-#ifndef WORDS_BIGENDIAN
-  uint64_t w;
-  memcpy(&w, src, sizeof(w));
-  return w;
-#else
-  const uint8_t *p = (const uint8_t *)src;
-  return ((uint64_t)p[7] << 56)
-       | ((uint64_t)p[6] << 48)
-       | ((uint64_t)p[5] << 40)
-       | ((uint64_t)p[4] << 32)
-       | ((uint64_t)p[3] << 24)
-       | ((uint64_t)p[2] << 16)
-       | ((uint64_t)p[1] << 8)
-       | ((uint64_t)p[0] << 0);
-#endif
-}
-
-static void
-write64le(void *dst, uint64_t w) {
-#ifndef WORDS_BIGENDIAN
-  memcpy(dst, &w, sizeof(w));
-#else
-  uint8_t *p = (uint8_t *)dst;
-  p[7] = w >> 56;
-  p[6] = w >> 48;
-  p[5] = w >> 40;
-  p[4] = w >> 32;
-  p[3] = w >> 24;
-  p[2] = w >> 16;
-  p[1] = w >> 8;
-  p[0] = w >> 0;
-#endif
-}
-
-#else /* TORSION_HAS_INT128 */
-
-static uint32_t
-read32le(const void *src) {
-#ifndef WORDS_BIGENDIAN
-  uint32_t w;
-  memcpy(&w, src, sizeof(w));
-  return w;
-#else
-  const uint8_t *p = (const uint8_t *)src;
-  return ((uint32_t)p[3] << 24)
-       | ((uint32_t)p[2] << 16)
-       | ((uint32_t)p[1] << 8)
-       | ((uint32_t)p[0] << 0);
-#endif
-}
-
-static void
-write32le(void *dst, uint32_t w) {
-#ifndef WORDS_BIGENDIAN
-  memcpy(dst, &w, sizeof(w));
-#else
-  uint8_t *p = (uint8_t *)dst;
-  p[3] = w >> 24;
-  p[2] = w >> 16;
-  p[1] = w >> 8;
-  p[0] = w >> 0;
-#endif
-}
-
-#endif /* TORSION_HAS_INT128 */
 
 /*
  * State
@@ -174,7 +99,7 @@ poly1305_blocks(poly1305_internal_t *st, const unsigned char *m, size_t bytes) {
   uint64_t s1, s2;
   uint64_t h0, h1, h2;
   uint64_t c;
-  uint128_t d0, d1, d2, d;
+  torsion_uint128_t d0, d1, d2, d;
 
   r0 = st->r[0];
   r1 = st->r[1];
@@ -199,22 +124,22 @@ poly1305_blocks(poly1305_internal_t *st, const unsigned char *m, size_t bytes) {
     h2 += (((t1 >> 24)) & 0x3ffffffffff) | hibit;
 
     /* h *= r */
-    d0 = (uint128_t)h0 * r0;
-    d = (uint128_t)h1 * s2;
+    d0 = (torsion_uint128_t)h0 * r0;
+    d = (torsion_uint128_t)h1 * s2;
     d0 += d;
-    d = (uint128_t)h2 * s1;
+    d = (torsion_uint128_t)h2 * s1;
     d0 += d;
 
-    d1 = (uint128_t)h0 * r1;
-    d = (uint128_t)h1 * r0;
+    d1 = (torsion_uint128_t)h0 * r1;
+    d = (torsion_uint128_t)h1 * r0;
     d1 += d;
-    d = (uint128_t)h2 * s2;
+    d = (torsion_uint128_t)h2 * s2;
     d1 += d;
 
-    d2 = (uint128_t)h0 * r2;
-    d = (uint128_t)h1 * r1;
+    d2 = (torsion_uint128_t)h0 * r2;
+    d = (torsion_uint128_t)h1 * r1;
     d2 += d;
-    d = (uint128_t)h2 * r0;
+    d = (torsion_uint128_t)h2 * r0;
     d2 += d;
 
     /* (partial) h %= p */
