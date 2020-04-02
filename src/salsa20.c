@@ -11,12 +11,12 @@
  *   http://www.ecrypt.eu.org/stream/salsa20pf.html
  */
 
-#include <assert.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
 #include <torsion/salsa20.h>
 #include <torsion/util.h>
+#include "internal.h"
 
 /*
  * Helpers
@@ -71,7 +71,7 @@ salsa20_init(salsa20_t *ctx,
              uint64_t counter) {
   uint8_t tmp[32];
 
-  assert(key_len == 16 || key_len == 32);
+  ASSERT(key_len == 16 || key_len == 32);
 
   if (nonce_len >= 24) {
     salsa20_derive(tmp, key, key_len, nonce);
@@ -104,7 +104,7 @@ salsa20_init(salsa20_t *ctx,
     ctx->state[8] = read32le(nonce + 8);
     ctx->state[9] = read32le(nonce + 12);
   } else {
-    assert(0 && "invalid nonce size");
+    ASSERT(0 && "invalid nonce size");
   }
 
   ctx->state[10] = key_len < 32 ? 0x79622d36 : 0x79622d32;
@@ -357,7 +357,7 @@ salsa20_derive(unsigned char *out,
   uint32_t state[16];
   size_t i;
 
-  assert(key_len == 16 || key_len == 32);
+  ASSERT(key_len == 16 || key_len == 32);
 
   state[0] = 0x61707865;
   state[1] = read32le(key + 0);

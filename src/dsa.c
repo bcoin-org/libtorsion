@@ -23,7 +23,6 @@
  *     https://tools.ietf.org/html/rfc6979
  */
 
-#include <assert.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
@@ -1238,7 +1237,7 @@ dsa_truncate(mpz_t m, const unsigned char *msg, size_t msg_len, const mpz_t q) {
   size_t bits = mpz_bitlen(q);
   size_t bytes = bits >> 3;
 
-  assert((bits & 7) == 0);
+  ASSERT((bits & 7) == 0);
 
   if (msg_len > bytes)
     msg_len = bytes;

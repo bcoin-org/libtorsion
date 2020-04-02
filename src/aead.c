@@ -8,13 +8,13 @@
  *   https://github.com/openssh/openssh-portable
  */
 
-#include <assert.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 #include <torsion/chacha20.h>
 #include <torsion/poly1305.h>
 #include <torsion/aead.h>
+#include "internal.h"
 
 /*
  * Constants
@@ -55,7 +55,7 @@ aead_setup(aead_t *aead,
 
 void
 aead_aad(aead_t *aead, const unsigned char *aad, size_t len) {
-  assert(aead->mode == 0);
+  ASSERT(aead->mode == 0);
 
   poly1305_update(&aead->poly, aad, len);
 
@@ -80,7 +80,7 @@ aead_encrypt(aead_t *aead,
     aead->mode = 1;
   }
 
-  assert(aead->mode == 1);
+  ASSERT(aead->mode == 1);
 
   chacha20_encrypt(&aead->chacha, out, in, len);
   poly1305_update(&aead->poly, out, len);
@@ -98,7 +98,7 @@ aead_decrypt(aead_t *aead,
     aead->mode = 2;
   }
 
-  assert(aead->mode == 2);
+  ASSERT(aead->mode == 2);
 
   aead->cipher_len += len;
 
@@ -113,7 +113,7 @@ aead_auth(aead_t *aead, const unsigned char *in, size_t len) {
     aead->mode = 3;
   }
 
-  assert(aead->mode == 3);
+  ASSERT(aead->mode == 3);
 
   aead->cipher_len += len;
 

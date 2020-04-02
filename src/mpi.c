@@ -49,7 +49,6 @@
  * see https://www.gnu.org/licenses/.
  */
 
-#include <assert.h>
 #include <ctype.h>
 #include <limits.h>
 #include <stdio.h>
@@ -62,6 +61,15 @@
 /*
  * Prototypes
  */
+
+void *
+torsion_malloc(size_t);
+
+void *
+torsion_realloc(void *, size_t);
+
+void
+torsion_free(void *);
 
 void
 torsion_cleanse(void *, size_t);
@@ -82,6 +90,18 @@ struct mpi_div_inverse {
 enum mpz_div_round_mode { MPI_DIV_FLOOR, MPI_DIV_CEIL, MPI_DIV_TRUNC };
 
 /*
+ * Assertions
+ */
+
+#define ASSERT(expr) do {                       \
+  if (!(expr))                                  \
+    mpi_assert_fail(__FILE__, __LINE__, #expr); \
+} while (0)
+
+#define ASSERT_NOCARRY(cy) ASSERT((cy) == 0)
+#define ASSERT_CARRY(cy) ASSERT((cy) != 0)
+
+/*
  * Macros
  */
 
@@ -99,15 +119,8 @@ enum mpz_div_round_mode { MPI_DIV_FLOOR, MPI_DIV_CEIL, MPI_DIV_TRUNC };
 
 #define MPI_CMP(a, b) (((a) > (b)) - ((a) < (b)))
 
-#define MPI_MPN_OVERLAP_P(xp, xsize, yp, ysize) \
-  ((xp) + (xsize) > (yp) && (yp) + (ysize) > (xp))
-
-#define mpi_assert_nocarry(x) do { \
-  mp_limb_t __cy = (x);            \
-  assert(__cy == 0);               \
-} while (0)
-
-#define mpn_invert_limb(x) mpn_invert_3by2((x), 0)
+#define MPN_OVERLAP_P(xp, xn, yp, yn) \
+  ((xp) + (xn) > (yp) && (yp) + (yn) > (xp))
 
 #define MPZ_REALLOC(z, n) \
   ((n) > (z)->_mp_alloc ? mpz_realloc(z, n) : (z)->_mp_d)
@@ -121,7 +134,7 @@ enum mpz_div_round_mode { MPI_DIV_FLOOR, MPI_DIV_CEIL, MPI_DIV_TRUNC };
 
 #define mpi_clz(count, x) do { \
   uint64_t __cbtmp;            \
-  assert((x) != 0);            \
+  ASSERT((x) != 0);            \
   __asm__ (                    \
     "bsr %1, %0\n"             \
     : "=r" (__cbtmp)           \
@@ -132,7 +145,7 @@ enum mpz_div_round_mode { MPI_DIV_FLOOR, MPI_DIV_CEIL, MPI_DIV_TRUNC };
 
 #define mpi_ctz(count, x) do { \
   uint64_t __cbtmp;            \
-  assert((x) != 0);            \
+  ASSERT((x) != 0);            \
   __asm__ (                    \
     "bsf %1, %q0\n"            \
     : "=r" (__cbtmp)           \
@@ -374,20 +387,20 @@ enum mpz_div_round_mode { MPI_DIV_FLOOR, MPI_DIV_CEIL, MPI_DIV_TRUNC };
     (ap)[(an) - 1] = __cy;              \
 } while (0)
 
-#define MPN_SUB(ap, an, bp, bn) do {               \
-  mpi_assert_nocarry(mpn_sub(ap, ap, an, bp, bn)); \
-  (an) = mpn_normalized_size(ap, an);              \
+#define MPN_SUB(ap, an, bp, bn) do {           \
+  ASSERT_NOCARRY(mpn_sub(ap, ap, an, bp, bn)); \
+  (an) = mpn_normalized_size(ap, an);          \
 } while (0)
 
-#define MPN_MOD_SUB(ap, an, bp, bn, mp, mn) do {     \
-  if (mpn_cmp4(ap, an, bp, bn) < 0) {                \
-    mpi_assert_nocarry(mpn_sub(ap, bp, bn, ap, an)); \
-    mpi_assert_nocarry(mpn_sub(ap, mp, mn, ap, bn)); \
-    (an) = mpn_normalized_size(ap, mn);              \
-  } else {                                           \
-    mpi_assert_nocarry(mpn_sub(ap, ap, an, bp, bn)); \
-    (an) = mpn_normalized_size(ap, an);              \
-  }                                                  \
+#define MPN_MOD_SUB(ap, an, bp, bn, mp, mn) do { \
+  if (mpn_cmp4(ap, an, bp, bn) < 0) {            \
+    ASSERT_NOCARRY(mpn_sub(ap, bp, bn, ap, an)); \
+    ASSERT_NOCARRY(mpn_sub(ap, mp, mn, ap, bn)); \
+    (an) = mpn_normalized_size(ap, mn);          \
+  } else {                                       \
+    ASSERT_NOCARRY(mpn_sub(ap, ap, an, bp, bn)); \
+    (an) = mpn_normalized_size(ap, an);          \
+  }                                              \
 } while (0)
 
 #define MPN_ODD_P(ap, an) \
@@ -406,80 +419,67 @@ enum mpz_div_round_mode { MPI_DIV_FLOOR, MPI_DIV_CEIL, MPI_DIV_TRUNC };
 } while (0)
 
 #define MPN_COPY(rp, rn, ap, an) do {       \
-  assert((an) == 0 || (ap)[(an) - 1] != 0); \
+  ASSERT((an) == 0 || (ap)[(an) - 1] != 0); \
   mpn_copyi(rp, ap, an);                    \
   (rn) = (an);                              \
 } while (0)
 
 #define MPN_COPY_MOD(rp, rn, np, nn, dp, dn, ns) do { \
-  assert((nn) == 0 || (np)[(nn) - 1] != 0);           \
-  assert((dn) == 0 || (dp)[(dn) - 1] != 0);           \
+  ASSERT((nn) == 0 || (np)[(nn) - 1] != 0);           \
+  ASSERT((dn) == 0 || (dp)[(dn) - 1] != 0);           \
                                                       \
   if (mpn_cmp4(np, nn, dp, dn) >= 0) {                \
     mpn_quorem(NULL, rp, np, nn, dp, dn);             \
     (rn) = mpn_normalized_size(rp, dn);               \
   } else {                                            \
-    assert((nn) <= (dn));                             \
+    ASSERT((nn) <= (dn));                             \
     mpn_copyi(rp, np, nn);                            \
     (rn) = (nn);                                      \
   }                                                   \
                                                       \
   if ((ns) < 0 && (rn) != 0) {                        \
-    mpi_assert_nocarry(mpn_sub(rp, dp, dn, rp, rn));  \
+    ASSERT_NOCARRY(mpn_sub(rp, dp, dn, rp, rn));      \
     (rn) = mpn_normalized_size(rp, dn);               \
   }                                                   \
 } while (0)
 
 /*
- * Allocation
+ * Assertions
  */
+
+static void
+mpi_assert_fail(const char *file, int line, const char *expr) {
+  fprintf(stderr, "%s:%d: Assertion `%s' failed.\n", file, line, expr);
+  fflush(stderr);
+  abort();
+}
 
 static void
 mpi_die(const char *msg) {
   fprintf(stderr, "%s\n", msg);
+  fflush(stderr);
   abort();
 }
 
-static void *
-mpi_xalloc(size_t size) {
-  void *p;
+/*
+ * Allocation
+ */
 
-  assert(size > 0);
-
-  p = malloc(size);
-
-  if (!p)
-    mpi_die("mpi_xalloc: Virtual memory exhausted.");
-
-  return p;
+static mp_ptr
+mpi_alloc_limbs(mp_size_t size) {
+  ASSERT(size > 0);
+  return torsion_malloc(size * sizeof(mp_limb_t));
 }
 
-static void *
-mpi_xrealloc(void *old, size_t size) {
-  void *p;
-
-  p = realloc(old, size);
-
-  if (!p)
-    mpi_die("mpi_xrealloc: Virtual memory exhausted.");
-
-  return p;
+static mp_ptr
+mpi_realloc_limbs(mp_ptr old, mp_size_t size) {
+  ASSERT(size > 0);
+  return torsion_realloc(old, size * sizeof(mp_limb_t));
 }
 
 static void
-mpi_free(void *p) {
-  free(p);
-}
-
-static mp_ptr
-mpi_xalloc_limbs(mp_size_t size) {
-  return mpi_xalloc(size * sizeof(mp_limb_t));
-}
-
-static mp_ptr
-mpi_xrealloc_limbs(mp_ptr old, mp_size_t size) {
-  assert(size > 0);
-  return mpi_xrealloc(old, size * sizeof(mp_limb_t));
+mpi_free_limbs(mp_ptr p) {
+  torsion_free(p);
 }
 
 /*
@@ -815,7 +815,7 @@ mpn_add_1(mp_ptr rp, mp_srcptr ap, mp_size_t n, mp_limb_t b) {
 #else
   mp_size_t i;
 
-  assert(n > 0);
+  ASSERT(n > 0);
 
   i = 0;
 
@@ -858,7 +858,7 @@ mp_limb_t
 mpn_add(mp_ptr rp, mp_srcptr ap, mp_size_t an, mp_srcptr bp, mp_size_t bn) {
   mp_limb_t cy;
 
-  assert(an >= bn);
+  ASSERT(an >= bn);
 
   cy = mpn_add_n(rp, ap, bp, bn);
 
@@ -880,7 +880,7 @@ mpn_sub_1(mp_ptr rp, mp_srcptr ap, mp_size_t n, mp_limb_t b) {
 #else
   mp_size_t i;
 
-  assert(n > 0);
+  ASSERT(n > 0);
 
   i = 0;
 
@@ -923,7 +923,7 @@ mp_limb_t
 mpn_sub(mp_ptr rp, mp_srcptr ap, mp_size_t an, mp_srcptr bp, mp_size_t bn) {
   mp_limb_t cy;
 
-  assert(an >= bn);
+  ASSERT(an >= bn);
 
   cy = mpn_sub_n(rp, ap, bp, bn);
 
@@ -1065,7 +1065,7 @@ mpn_mul_1(mp_ptr rp, mp_srcptr up, mp_size_t n, mp_limb_t vl) {
 #else
   mp_limb_t ul, cl, hpl, lpl;
 
-  assert(n >= 1);
+  ASSERT(n >= 1);
 
   cl = 0;
 
@@ -1207,7 +1207,7 @@ mpn_addmul_1(mp_ptr rp, mp_srcptr up, mp_size_t n, mp_limb_t vl) {
 #else
   mp_limb_t ul, cl, hpl, lpl, rl;
 
-  assert(n >= 1);
+  ASSERT(n >= 1);
 
   cl = 0;
 
@@ -1237,7 +1237,7 @@ mpn_submul_1(mp_ptr rp, mp_srcptr up, mp_size_t n, mp_limb_t vl) {
 #else
   mp_limb_t ul, cl, hpl, lpl, rl;
 
-  assert(n >= 1);
+  ASSERT(n >= 1);
 
   cl = 0;
 
@@ -1260,10 +1260,10 @@ mpn_submul_1(mp_ptr rp, mp_srcptr up, mp_size_t n, mp_limb_t vl) {
 
 mp_limb_t
 mpn_mul(mp_ptr rp, mp_srcptr up, mp_size_t un, mp_srcptr vp, mp_size_t vn) {
-  assert(un >= vn);
-  assert(vn >= 1);
-  assert(!MPI_MPN_OVERLAP_P(rp, un + vn, up, un));
-  assert(!MPI_MPN_OVERLAP_P(rp, un + vn, vp, vn));
+  ASSERT(un >= vn);
+  ASSERT(vn >= 1);
+  ASSERT(!MPN_OVERLAP_P(rp, un + vn, up, un));
+  ASSERT(!MPN_OVERLAP_P(rp, un + vn, vp, vn));
 
   /* We first multiply by the low order limb.
      This result can be stored, not added, to
@@ -1357,8 +1357,8 @@ void
 mpn_sqr(mp_ptr rp, mp_srcptr up, mp_size_t n) {
 #ifdef TORSION_USE_ASM
   /* https://gmplib.org/repo/gmp-6.2/file/tip/mpn/generic/sqr_basecase.c */
-  assert(n >= 1);
-  assert(!MPI_MPN_OVERLAP_P(rp, 2 * n, up, n));
+  ASSERT(n >= 1);
+  ASSERT(!MPN_OVERLAP_P(rp, 2 * n, up, n));
 
   if (n == 1) {
     mp_limb_t ul, lpl;
@@ -1542,13 +1542,13 @@ static void
 mpn_div_qr_1_invert(struct mpi_div_inverse *inv, mp_limb_t d) {
   unsigned shift;
 
-  assert(d > 0);
+  ASSERT(d > 0);
 
   mpi_clz(shift, d);
 
   inv->shift = shift;
   inv->d1 = d << shift;
-  inv->di = mpn_invert_limb(inv->d1);
+  inv->di = mpn_invert_3by2(inv->d1, 0);
 }
 
 static void
@@ -1556,7 +1556,7 @@ mpn_div_qr_2_invert(struct mpi_div_inverse *inv,
                     mp_limb_t d1, mp_limb_t d0) {
   unsigned shift;
 
-  assert(d1 > 0);
+  ASSERT(d1 > 0);
 
   mpi_clz(shift, d1);
 
@@ -1575,7 +1575,7 @@ mpn_div_qr_2_invert(struct mpi_div_inverse *inv,
 static void
 mpn_div_qr_invert(struct mpi_div_inverse *inv,
                   mp_srcptr dp, mp_size_t dn) {
-  assert(dn > 0);
+  ASSERT(dn > 0);
 
   if (dn == 1) {
     mpn_div_qr_1_invert(inv, dp[0]);
@@ -1588,7 +1588,7 @@ mpn_div_qr_invert(struct mpi_div_inverse *inv,
     d1 = dp[dn - 1];
     d0 = dp[dn - 2];
 
-    assert(d1 > 0);
+    ASSERT(d1 > 0);
 
     mpi_clz(shift, d1);
 
@@ -1615,7 +1615,7 @@ mpn_div_qr_1_preinv(mp_ptr qp, mp_srcptr np, mp_size_t nn,
   if (inv->shift > 0) {
     /* Shift, reusing qp area if possible. */
     /* In-place shift if qp == np. */
-    tp = qp ? qp : mpi_xalloc_limbs(nn);
+    tp = qp ? qp : mpi_alloc_limbs(nn);
     r = mpn_lshift(tp, np, nn, inv->shift);
     np = tp;
   } else {
@@ -1635,7 +1635,7 @@ mpn_div_qr_1_preinv(mp_ptr qp, mp_srcptr np, mp_size_t nn,
   }
 
   if ((inv->shift > 0) && (tp != qp))
-    mpi_free(tp);
+    mpi_free_limbs(tp);
 
   return r >> inv->shift;
 }
@@ -1647,7 +1647,7 @@ mpn_div_qr_2_preinv(mp_ptr qp, mp_ptr np, mp_size_t nn,
   mp_size_t i;
   mp_limb_t d1, d0, di, r1, r0;
 
-  assert(nn >= 2);
+  ASSERT(nn >= 2);
 
   shift = inv->shift;
   d1 = inv->d1;
@@ -1673,7 +1673,7 @@ mpn_div_qr_2_preinv(mp_ptr qp, mp_ptr np, mp_size_t nn,
   } while (--i >= 0);
 
   if (shift > 0) {
-    assert((r0 & (MPI_LIMB_MAX >> (MPI_LIMB_BITS - shift))) == 0);
+    ASSERT((r0 & (MPI_LIMB_MAX >> (MPI_LIMB_BITS - shift))) == 0);
     r0 = (r0 >> shift) | (r1 << (MPI_LIMB_BITS - shift));
     r1 >>= shift;
   }
@@ -1693,13 +1693,13 @@ mpn_div_qr_pi1(mp_ptr qp,
   mp_limb_t cy, cy1;
   mp_limb_t q;
 
-  assert(dn > 2);
-  assert(nn >= dn);
+  ASSERT(dn > 2);
+  ASSERT(nn >= dn);
 
   d1 = dp[dn - 1];
   d0 = dp[dn - 2];
 
-  assert((d1 & MPI_LIMB_HIGHBIT) != 0);
+  ASSERT((d1 & MPI_LIMB_HIGHBIT) != 0);
 
   /* Iteration variable is the index of the q limb.
    *
@@ -1743,8 +1743,8 @@ static void
 mpn_div_qr_preinv(mp_ptr qp, mp_ptr np, mp_size_t nn,
                   mp_srcptr dp, mp_size_t dn,
                   const struct mpi_div_inverse *inv) {
-  assert(dn > 0);
-  assert(nn >= dn);
+  ASSERT(dn > 0);
+  ASSERT(nn >= dn);
 
   if (dn == 1) {
     np[0] = mpn_div_qr_1_preinv(qp, np, nn, inv);
@@ -1754,9 +1754,9 @@ mpn_div_qr_preinv(mp_ptr qp, mp_ptr np, mp_size_t nn,
     mp_limb_t nh;
     unsigned shift;
 
-    assert(inv->d1 == dp[dn - 1]);
-    assert(inv->d0 == dp[dn - 2]);
-    assert((inv->d1 & MPI_LIMB_HIGHBIT) != 0);
+    ASSERT(inv->d1 == dp[dn - 1]);
+    ASSERT(inv->d0 == dp[dn - 2]);
+    ASSERT((inv->d1 & MPI_LIMB_HIGHBIT) != 0);
 
     shift = inv->shift;
 
@@ -1768,7 +1768,7 @@ mpn_div_qr_preinv(mp_ptr qp, mp_ptr np, mp_size_t nn,
     mpn_div_qr_pi1(qp, np, nn, nh, dp, dn, inv->di);
 
     if (shift > 0)
-      mpi_assert_nocarry(mpn_rshift(np, np, dn, shift));
+      ASSERT_NOCARRY(mpn_rshift(np, np, dn, shift));
   }
 }
 
@@ -1777,21 +1777,21 @@ mpn_div_qr(mp_ptr qp, mp_ptr np, mp_size_t nn, mp_srcptr dp, mp_size_t dn) {
   struct mpi_div_inverse inv;
   mp_ptr tp = NULL;
 
-  assert(dn > 0);
-  assert(nn >= dn);
+  ASSERT(dn > 0);
+  ASSERT(nn >= dn);
 
   mpn_div_qr_invert(&inv, dp, dn);
 
   if (dn > 2 && inv.shift > 0) {
-    tp = mpi_xalloc_limbs(dn);
-    mpi_assert_nocarry(mpn_lshift(tp, dp, dn, inv.shift));
+    tp = mpi_alloc_limbs(dn);
+    ASSERT_NOCARRY(mpn_lshift(tp, dp, dn, inv.shift));
     dp = tp;
   }
 
   mpn_div_qr_preinv(qp, np, nn, dp, dn, &inv);
 
   if (tp)
-    mpi_free(tp);
+    mpi_free_limbs(tp);
 }
 
 /*
@@ -1802,14 +1802,14 @@ void
 mpn_quorem(mp_ptr qp, mp_ptr rp,
            mp_srcptr np, mp_size_t nn,
            mp_srcptr dp, mp_size_t dn) {
-  assert(nn >= dn);
-  assert(dn > 0);
-  assert(dp[dn - 1] != 0);
+  ASSERT(nn >= dn);
+  ASSERT(dn > 0);
+  ASSERT(dp[dn - 1] != 0);
 
   if (rp == np) {
     mpn_div_qr(qp, rp, nn, dp, dn);
   } else {
-    mp_ptr tp = mpi_xalloc_limbs(nn);
+    mp_ptr tp = mpi_alloc_limbs(nn);
 
     mpn_copyi(tp, np, nn);
     mpn_div_qr(qp, tp, nn, dp, dn);
@@ -1817,7 +1817,7 @@ mpn_quorem(mp_ptr qp, mp_ptr rp,
     if (rp)
       mpn_copyi(rp, tp, dn);
 
-    mpi_free(tp);
+    mpi_free_limbs(tp);
   }
 }
 
@@ -1970,9 +1970,9 @@ mpn_lshift(mp_ptr rp, mp_srcptr up, mp_size_t n, unsigned int cnt) {
   unsigned int tnc;
   mp_limb_t retval;
 
-  assert(n >= 1);
-  assert(cnt >= 1);
-  assert(cnt < MPI_LIMB_BITS);
+  ASSERT(n >= 1);
+  ASSERT(cnt >= 1);
+  ASSERT(cnt < MPI_LIMB_BITS);
 
   up += n;
   rp += n;
@@ -2149,9 +2149,9 @@ mpn_rshift(mp_ptr rp, mp_srcptr up, mp_size_t n, unsigned int cnt) {
   unsigned int tnc;
   mp_limb_t retval;
 
-  assert(n >= 1);
-  assert(cnt >= 1);
-  assert(cnt < MPI_LIMB_BITS);
+  ASSERT(n >= 1);
+  ASSERT(cnt >= 1);
+  ASSERT(cnt < MPI_LIMB_BITS);
 
   tnc = MPI_LIMB_BITS - cnt;
   high_limb = *up++;
@@ -2211,7 +2211,7 @@ mpn_set_bit(mp_ptr xp, mp_size_t xn, mp_bitcnt_t pos) {
   mp_size_t index = pos / MPI_LIMB_BITS;
   mp_size_t shift = pos % MPI_LIMB_BITS;
 
-  assert(index < xn);
+  ASSERT(index < xn);
 
   xp[index] |= ((mp_limb_t)1 << shift);
 }
@@ -2221,7 +2221,7 @@ mpn_clr_bit(mp_ptr xp, mp_size_t xn, mp_bitcnt_t pos) {
   mp_size_t index = pos / MPI_LIMB_BITS;
   mp_size_t shift = pos % MPI_LIMB_BITS;
 
-  assert(index < xn);
+  ASSERT(index < xn);
 
   xp[index] &= ~((mp_limb_t)1 << shift);
 }
@@ -2234,7 +2234,7 @@ static mp_limb_t
 mpn_gcd_11(mp_limb_t u, mp_limb_t v) {
   unsigned shift;
 
-  assert((u | v) > 0);
+  ASSERT((u | v) > 0);
 
   if (u == 0)
     return v;
@@ -2328,8 +2328,8 @@ mpn_invert(mp_ptr rp, mp_srcptr xp, mp_size_t xs,
       MPN_MOD_SUB(vp, vn, up, un, yp, yn);
     }
 
-    assert(un <= yn);
-    assert(vn <= yn);
+    ASSERT(un <= yn);
+    ASSERT(vn <= yn);
   }
 
   if (bn != 1 || bp[0] != 1) {
@@ -2337,7 +2337,7 @@ mpn_invert(mp_ptr rp, mp_srcptr xp, mp_size_t xs,
     return 0;
   }
 
-  assert(mpn_cmp4(vp, vn, yp, yn) < 0);
+  ASSERT(mpn_cmp4(vp, vn, yp, yn) < 0);
 
   mpn_copyi(rp, vp, vn);
   mpn_zero(rp + vn, yn - vn);
@@ -2350,7 +2350,7 @@ mpn_invert_n(mp_ptr rp, mp_srcptr xp,
              mp_srcptr yp, mp_size_t n, mp_ptr scratch) {
   mp_size_t xn;
 
-  assert(n > 0);
+  ASSERT(n > 0);
 
   xn = mpn_normalized_size(xp, n);
 
@@ -2386,7 +2386,7 @@ mpn_jacobi(mp_srcptr xp, mp_size_t xs,
   while (an != 0) {
     MPN_MAKE_ODD(bits, ap, an);
 
-    assert(bn > 0);
+    ASSERT(bn > 0);
 
     if (bits & 1) {
       bmod8 = bp[0] & 7;
@@ -2421,7 +2421,7 @@ int
 mpn_jacobi_n(mp_srcptr xp, mp_srcptr yp, mp_size_t n, mp_ptr scratch) {
   mp_size_t xn;
 
-  assert(n > 0);
+  ASSERT(n > 0);
 
   xn = mpn_normalized_size(xp, n);
 
@@ -2560,7 +2560,7 @@ mp_bitcnt_t
 mpn_ctz(mp_srcptr xp, mp_size_t xn) {
   mp_size_t i, cnt;
 
-  assert(xn >= 0);
+  ASSERT(xn >= 0);
 
   for (i = 0; i < xn; i++) {
     if (xp[i] != 0)
@@ -2848,7 +2848,7 @@ mpn_out_str(FILE *stream, int base, mp_srcptr xp, mp_size_t xn) {
   mp_limb_t ch, hi, lo;
   mp_size_t i;
 
-  assert(base == 16);
+  ASSERT(base == 16);
 
   if (xn < 0) {
     fputc('-', stream);
@@ -2918,7 +2918,7 @@ mpz_init2(mpz_t r, mp_bitcnt_t bits) {
 
   r->_mp_alloc = rn;
   r->_mp_size = 0;
-  r->_mp_d = mpi_xalloc_limbs(rn);
+  r->_mp_d = mpi_alloc_limbs(rn);
 }
 
 void
@@ -2952,14 +2952,14 @@ mpz_init_set_u64(mpz_t r, uint64_t x) {
 void
 mpz_clear(mpz_t r) {
   if (r->_mp_alloc)
-    mpi_free(r->_mp_d);
+    mpi_free_limbs(r->_mp_d);
 }
 
 void
 mpz_cleanse(mpz_t r) {
   if (r->_mp_alloc) {
     mpn_cleanse(r->_mp_d, r->_mp_alloc);
-    mpi_free(r->_mp_d);
+    mpi_free_limbs(r->_mp_d);
   }
 }
 
@@ -2972,9 +2972,9 @@ mpz_realloc(mpz_t r, mp_size_t size) {
   size = MPI_MAX(size, 1);
 
   if (r->_mp_alloc)
-    r->_mp_d = mpi_xrealloc_limbs(r->_mp_d, size);
+    r->_mp_d = mpi_realloc_limbs(r->_mp_d, size);
   else
-    r->_mp_d = mpi_xalloc_limbs(size);
+    r->_mp_d = mpi_alloc_limbs(size);
 
   r->_mp_alloc = size;
 
@@ -3210,11 +3210,11 @@ mpz_abs_sub(mpz_t r, const mpz_t a, const mpz_t b) {
 
   if (cmp > 0) {
     rp = MPZ_REALLOC(r, an);
-    mpi_assert_nocarry(mpn_sub(rp, a->_mp_d, an, b->_mp_d, bn));
+    ASSERT_NOCARRY(mpn_sub(rp, a->_mp_d, an, b->_mp_d, bn));
     return mpn_normalized_size(rp, an);
   } else if (cmp < 0) {
     rp = MPZ_REALLOC(r, bn);
-    mpi_assert_nocarry(mpn_sub(rp, b->_mp_d, bn, a->_mp_d, an));
+    ASSERT_NOCARRY(mpn_sub(rp, b->_mp_d, bn, a->_mp_d, an));
     return -mpn_normalized_size(rp, bn);
   } else {
     return 0;
@@ -3604,7 +3604,7 @@ mpz_mod(mpz_t r, const mpz_t n, const mpz_t d) {
       mp_size_t dn = MPI_ABS(d->_mp_size);
       mp_ptr rp = MPZ_REALLOC(r, dn);
 
-      mpi_assert_nocarry(mpn_sub(rp, d->_mp_d, dn, n->_mp_d, nn));
+      ASSERT_NOCARRY(mpn_sub(rp, d->_mp_d, dn, n->_mp_d, nn));
 
       r->_mp_size = mpn_normalized_size(rp, dn);
     } else {
@@ -3631,12 +3631,12 @@ mpz_mod_ui(const mpz_t n, mp_limb_t d) {
 
 void
 mpz_divexact(mpz_t q, const mpz_t n, const mpz_t d) {
-  mpi_assert_nocarry(mpz_div_qr(q, NULL, n, d, MPI_DIV_TRUNC));
+  ASSERT_NOCARRY(mpz_div_qr(q, NULL, n, d, MPI_DIV_TRUNC));
 }
 
 void
 mpz_divexact_ui(mpz_t q, const mpz_t n, mp_limb_t d) {
-  mpi_assert_nocarry(mpz_div_qr_ui(q, NULL, n, d, MPI_DIV_TRUNC));
+  ASSERT_NOCARRY(mpz_div_qr_ui(q, NULL, n, d, MPI_DIV_TRUNC));
 }
 
 /*
@@ -3776,7 +3776,7 @@ static mp_bitcnt_t
 mpz_make_odd(mpz_t r) {
   mp_bitcnt_t shift;
 
-  assert(r->_mp_size > 0);
+  ASSERT(r->_mp_size > 0);
 
   /* Count trailing zeros, equivalent to mpn_scan1,
      because we know that there is a 1. */
@@ -4031,7 +4031,7 @@ mpz_gcdext(mpz_t g, mpz_t s, mpz_t t, const mpz_t u, const mpz_t v) {
       mpz_add(t0, t0, t1);
     }
 
-    assert(mpz_even_p(t0) && mpz_even_p(s0));
+    ASSERT(mpz_even_p(t0) && mpz_even_p(s0));
 
     mpz_rshift(s0, s0, 1);
     mpz_rshift(t0, t0, 1);
@@ -4078,7 +4078,7 @@ mpz_invert(mpz_t r, const mpz_t u, const mpz_t m) {
   if (mpz_odd_p(m)) {
     mp_size_t mn = MPI_ABS(m->_mp_size);
     mp_ptr rp = MPZ_REALLOC(r, mn);
-    mp_ptr scratch = mpi_xalloc_limbs(MPN_INVERT_ITCH(mn));
+    mp_ptr scratch = mpi_alloc_limbs(MPN_INVERT_ITCH(mn));
 
     invertible = mpn_invert(rp, u->_mp_d, u->_mp_size,
                                 m->_mp_d, m->_mp_size,
@@ -4086,7 +4086,7 @@ mpz_invert(mpz_t r, const mpz_t u, const mpz_t m) {
 
     r->_mp_size = mpn_normalized_size(rp, mn);
 
-    mpi_free(scratch);
+    mpi_free_limbs(scratch);
 
     return invertible;
   }
@@ -4117,10 +4117,10 @@ mpz_invert(mpz_t r, const mpz_t u, const mpz_t m) {
 int
 mpz_jacobi(const mpz_t x, const mpz_t y) {
   mp_size_t yn = MPI_ABS(y->_mp_size);
-  mp_ptr scratch = mpi_xalloc_limbs(MPN_JACOBI_ITCH(yn));
+  mp_ptr scratch = mpi_alloc_limbs(MPN_JACOBI_ITCH(yn));
   int j = mpn_jacobi(x->_mp_d, x->_mp_size, y->_mp_d, y->_mp_size, scratch);
 
-  mpi_free(scratch);
+  mpi_free_limbs(scratch);
 
   return j;
 }
@@ -4156,8 +4156,8 @@ mpz_powm(mpz_t r, const mpz_t b, const mpz_t e, const mpz_t m) {
        the final one, using a *normalized* m. */
     minv.shift = 0;
 
-    tp = mpi_xalloc_limbs(mn);
-    mpi_assert_nocarry(mpn_lshift(tp, mp, mn, shift));
+    tp = mpi_alloc_limbs(mn);
+    ASSERT_NOCARRY(mpn_lshift(tp, mp, mn, shift));
     mp = tp;
   }
 
@@ -4183,7 +4183,7 @@ mpz_powm(mpz_t r, const mpz_t b, const mpz_t e, const mpz_t m) {
        non-canonically as m. */
     if (b->_mp_size < 0) {
       mp_ptr bp = MPZ_REALLOC(base, mn);
-      mpi_assert_nocarry(mpn_sub(bp, mp, mn, bp, bn));
+      ASSERT_NOCARRY(mpn_sub(bp, mp, mn, bp, bn));
       bn = mn;
     }
 
@@ -4221,7 +4221,7 @@ mpz_powm(mpz_t r, const mpz_t b, const mpz_t e, const mpz_t m) {
   }
 
   if (tp)
-    mpi_free(tp);
+    mpi_free_limbs(tp);
 
   mpz_swap(r, tr);
   mpz_clear(tr);
@@ -4247,7 +4247,7 @@ mpz_powm_sec(mpz_ptr r, mpz_srcptr b, mpz_srcptr e, mpz_srcptr m) {
 
   mn = MPI_ABS(m->_mp_size);
   itch = MPN_POWM_SEC_ITCH(mn);
-  scratch = mpi_xalloc_limbs(itch);
+  scratch = mpi_alloc_limbs(itch);
   rp = MPZ_REALLOC(r, mn);
 
   mpn_powm_sec(rp, b->_mp_d, b->_mp_size,
@@ -4257,7 +4257,7 @@ mpz_powm_sec(mpz_ptr r, mpz_srcptr b, mpz_srcptr e, mpz_srcptr m) {
 
   r->_mp_size = mpn_normalized_size(rp, mn);
 
-  mpi_free(scratch);
+  mpi_free_limbs(scratch);
 }
 
 /*
@@ -4582,7 +4582,7 @@ mpz_random_prime(mpz_t ret, mp_bitcnt_t bits, mp_rng_t rng, void *arg) {
   mpz_t prod, tmp;
   size_t i;
 
-  assert(bits > 1);
+  ASSERT(bits > 1);
 
   mpz_init_set_u64(prod, product);
   mpz_init(tmp);
@@ -4691,7 +4691,7 @@ mpz_limbs_read(mpz_srcptr x) {
 
 mp_ptr
 mpz_limbs_modify(mpz_t x, mp_size_t n) {
-  assert(n > 0);
+  ASSERT(n > 0);
   return MPZ_REALLOC(x, n);
 }
 
@@ -4771,7 +4771,7 @@ mpz_random_bits(mpz_t r, mp_bitcnt_t bits, mp_rng_t rng, void *arg) {
 
   r->_mp_size = mpn_normalized_size(rp, size);
 
-  assert(mpz_bitlen(r) <= bits);
+  ASSERT(mpz_bitlen(r) <= bits);
 }
 
 void

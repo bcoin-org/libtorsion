@@ -19,21 +19,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <torsion/siphash.h>
+#include "internal.h"
 
-#ifdef TORSION_USE_64BIT
 #ifdef _MSC_VER
 #include <intrin.h>
-#else
-#ifdef __SIZEOF_INT128___
-#ifdef __GNUC__
-__extension__ typedef unsigned __int128 uint128_t;
-#else
-typedef unsigned __int128 uint128_t;
-#endif
-#else /* __SIZEOF_INT128__ */
-typedef unsigned uint128_t __attribute__((mode(TI)));
-#endif
-#endif
 #endif
 
 #define ROTL64(x, b) (uint64_t)(((x) << (b)) | ((x) >> (64 - (b))))
@@ -68,13 +57,11 @@ read64le(const void *src) {
 
 static uint64_t
 reduce64(uint64_t a, uint64_t b) {
-#ifdef TORSION_USE_64BIT
-#ifdef _MSC_VER
+#if defined(TORSION_HAS_INT128)
+  return ((torsion_uint128_t)a * b) >> 64;
+#elif defined(TORSION_USE_64BIT) && defined(_MSC_VER)
   return __umulh(a, b);
 #else
-  return ((uint128_t)a * b) >> 64;
-#endif
-#else /* TORSION_USE_64BIT */
   /* https://stackoverflow.com/questions/28868367 */
   uint64_t ahi = a >> 32;
   uint64_t alo = a & 0xffffffff;

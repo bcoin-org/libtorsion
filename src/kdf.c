@@ -134,8 +134,8 @@ pbkdf2_derive(unsigned char *out,
   if (len == 0)
     return 1;
 
-  buffer = malloc(buffer_len);
-  state = malloc(state_len);
+  buffer = torsion_alloc(buffer_len);
+  state = torsion_alloc(state_len);
 
   if (buffer == NULL || state == NULL)
     goto fail;
@@ -188,12 +188,12 @@ fail:
 
   if (buffer != NULL) {
     cleanse(buffer, buffer_len);
-    free(buffer);
+    torsion_free(buffer);
   }
 
   if (state != NULL) {
     cleanse(state, state_len);
-    free(state);
+    torsion_free(state);
   }
 
   return r;
@@ -235,9 +235,9 @@ scrypt_derive(unsigned char *out,
   if (N == 0 || (N & (N - 1)) != 0)
     return 0;
 
-  B = malloc(128 * r * p);
-  XY = malloc(256 * r);
-  V = malloc(128 * r * N);
+  B = torsion_alloc(128 * r * p);
+  XY = torsion_alloc(256 * r);
+  V = torsion_alloc(128 * r * N);
 
   if (B == NULL || XY == NULL || V == NULL)
     goto fail;
@@ -255,17 +255,17 @@ scrypt_derive(unsigned char *out,
 fail:
   if (B != NULL) {
     cleanse(B, 128 * r * p);
-    free(B);
+    torsion_free(B);
   }
 
   if (XY != NULL) {
     cleanse(XY, 256 * r);
-    free(XY);
+    torsion_free(XY);
   }
 
   if (V != NULL) {
     cleanse(V, 128 * r * N);
-    free(V);
+    torsion_free(V);
   }
 
   return ret;

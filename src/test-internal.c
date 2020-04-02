@@ -2798,11 +2798,11 @@ test_eddsa_random(drbg_t *rng) {
 
 static void
 test_rsa(drbg_t *rng) {
-  unsigned char *priv = malloc(RSA_MAX_PRIV_SIZE);
-  unsigned char *pub = malloc(RSA_MAX_PUB_SIZE);
-  unsigned char *sig = malloc(RSA_MAX_MOD_SIZE);
-  unsigned char *ct = malloc(RSA_MAX_MOD_SIZE);
-  unsigned char *pt = malloc(RSA_MAX_MOD_SIZE);
+  unsigned char *priv = torsion_malloc(RSA_MAX_PRIV_SIZE);
+  unsigned char *pub = torsion_malloc(RSA_MAX_PUB_SIZE);
+  unsigned char *sig = torsion_malloc(RSA_MAX_MOD_SIZE);
+  unsigned char *ct = torsion_malloc(RSA_MAX_MOD_SIZE);
+  unsigned char *pt = torsion_malloc(RSA_MAX_MOD_SIZE);
   size_t priv_len = RSA_MAX_PRIV_SIZE;
   size_t pub_len = RSA_MAX_PUB_SIZE;
   size_t sig_len = RSA_MAX_MOD_SIZE;
@@ -2873,11 +2873,11 @@ test_rsa(drbg_t *rng) {
     assert(!rsa_decrypt_oaep(pt, &pt_len, HASH_SHA256, ct, ct_len, priv, priv_len, NULL, 0, entropy));
   }
 
-  free(priv);
-  free(pub);
-  free(sig);
-  free(ct);
-  free(pt);
+  torsion_free(priv);
+  torsion_free(pub);
+  torsion_free(sig);
+  torsion_free(ct);
+  torsion_free(pt);
 }
 
 static void

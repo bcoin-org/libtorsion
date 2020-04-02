@@ -12,12 +12,12 @@
  *   https://github.com/BLAKE2/BLAKE2
  */
 
-#include <assert.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
 #include <torsion/hash.h>
 #include <torsion/util.h>
+#include "internal.h"
 
 #define ROTL32(n, x) (((x) << (n)) | ((x) >> ((-(n) & 31))))
 #define ROTL64(n, x) (((x) << (n)) | ((x) >> ((-(n)) & 63)))
@@ -4101,9 +4101,9 @@ void
 keccak_init(keccak_t *ctx, size_t bits) {
   size_t rate = 1600 - bits * 2;
 
-  assert(bits >= 128);
-  assert(bits <= 512);
-  assert((rate & 63) == 0);
+  ASSERT(bits >= 128);
+  ASSERT(bits <= 512);
+  ASSERT((rate & 63) == 0);
 
   ctx->bs = rate >> 3;
   ctx->pos = 0;
@@ -4688,7 +4688,7 @@ keccak_final(keccak_t *ctx, unsigned char *out, unsigned char pad, size_t len) {
   if (len == 0)
     len = 100 - (ctx->bs >> 1);
 
-  assert(len < ctx->bs);
+  ASSERT(len < ctx->bs);
 
   memset(ctx->block + ctx->pos, 0x00, ctx->bs - ctx->pos);
 
@@ -4730,8 +4730,8 @@ blake2s_init(blake2s_t *ctx,
              size_t keylen) {
   size_t i;
 
-  assert(outlen >= 1 && outlen <= 32);
-  assert(keylen <= 32);
+  ASSERT(outlen >= 1 && outlen <= 32);
+  ASSERT(keylen <= 32);
 
   memset(ctx, 0, sizeof(blake2s_t));
 
@@ -4906,8 +4906,8 @@ blake2b_init(blake2b_t *ctx,
              size_t keylen) {
   size_t i;
 
-  assert(outlen >= 1 && outlen <= 64);
-  assert(keylen <= 64);
+  ASSERT(outlen >= 1 && outlen <= 64);
+  ASSERT(keylen <= 64);
 
   memset(ctx, 0, sizeof(blake2b_t));
 
@@ -6239,7 +6239,7 @@ hash_init(hash_t *hash, int type) {
       whirlpool_init(&hash->ctx.whirlpool);
       break;
     default:
-      assert(0);
+      ASSERT(0);
       break;
   }
 }
@@ -6306,7 +6306,7 @@ hash_update(hash_t *hash, const void *data, size_t len) {
       whirlpool_update(&hash->ctx.whirlpool, data, len);
       break;
     default:
-      assert(0);
+      ASSERT(0);
       break;
   }
 }
@@ -6385,7 +6385,7 @@ hash_final(hash_t *hash, unsigned char *out, size_t len) {
       whirlpool_final(&hash->ctx.whirlpool, out);
       break;
     default:
-      assert(0);
+      ASSERT(0);
       break;
   }
 }
@@ -6596,7 +6596,7 @@ hmac_init(hmac_t *hmac, int type, const unsigned char *key, size_t len) {
     len = hash_size;
   }
 
-  assert(len <= block_size);
+  ASSERT(len <= block_size);
 
   for (i = 0; i < len; i++)
     pad[i] = key[i] ^ 0x36;

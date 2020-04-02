@@ -137,7 +137,6 @@
  *     https://en.wikipedia.org/wiki/Elliptic_curve_point_multiplication
  */
 
-#include <assert.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
@@ -594,10 +593,6 @@ typedef struct _edwards_scratch_s {
  * Helpers
  */
 
-#ifndef __has_builtin
-#define __has_builtin(x) 0
-#endif
-
 static int
 bytes_zero(const unsigned char *a, size_t size) {
   /* Compute (a == 0) in constant time. */
@@ -621,7 +616,7 @@ bytes_lt(const unsigned char *a,
   uint32_t lt = 0;
   uint32_t x, y;
 
-  assert(endian == -1 || endian == 1);
+  ASSERT(endian == -1 || endian == 1);
 
   while (size--) {
     x = a[i];
@@ -636,8 +631,7 @@ bytes_lt(const unsigned char *a,
 
 static size_t
 bit_length(uint32_t x) {
-#if (defined(__GNUC__) && (__GNUC__ > 3 || (__GNUC__ == 3 && __GNUC_MINOR__ >= 4))) \
-    || (defined(__clang__) && __has_builtin(__builtin_clz))
+#if TORSION_GNUC_PREREQ(3, 4) || __has_builtin(__builtin_clz)
   if (x == 0) /* Undefined behavior. */
     return 0;
 
@@ -680,28 +674,6 @@ reverse_bytes(unsigned char *raw, size_t size) {
     raw[i++] = raw[j];
     raw[j--] = tmp;
   }
-}
-
-static void *
-safe_malloc(size_t size) {
-  void *ptr;
-
-  if (size == 0)
-    return NULL;
-
-  ptr = malloc(size);
-
-  assert(ptr != NULL);
-
-  memset(ptr, 0, size);
-
-  return ptr;
-}
-
-static void
-safe_free(void *ptr) {
-  if (ptr != NULL)
-    free(ptr);
 }
 
 /*
@@ -752,7 +724,7 @@ sc_import_weak(const scalar_field_t *sc, sc_t r, const unsigned char *raw) {
   cleanse(sp, sc->limbs);
 
 #ifdef TORSION_TEST
-  assert(mpn_cmp(r, sc->n, sc->limbs) < 0);
+  ASSERT(mpn_cmp(r, sc->n, sc->limbs) < 0);
 #endif
 
   return cy != 0;
@@ -763,7 +735,7 @@ sc_import_wide(const scalar_field_t *sc, sc_t r,
                const unsigned char *raw, size_t size) {
   mp_limb_t rp[MAX_REDUCE_LIMBS];
 
-  assert(size * 8 <= (size_t)sc->shift * MPI_LIMB_BITS);
+  ASSERT(size * 8 <= (size_t)sc->shift * MPI_LIMB_BITS);
 
   mpn_import(rp, sc->shift, raw, size, sc->endian);
 
@@ -821,8 +793,8 @@ sc_set_fe(const scalar_field_t *sc,
           sc_t r, const fe_t a) {
   unsigned char raw[MAX_ELEMENT_SIZE];
 
-  assert(sc->endian == 1);
-  assert(fe->endian == 1);
+  ASSERT(sc->endian == 1);
+  ASSERT(fe->endian == 1);
 
   if (fe->size < sc->size) {
     memset(raw, 0x00, sc->size - fe->size);
@@ -880,13 +852,13 @@ sc_neg(const scalar_field_t *sc, sc_t r, const sc_t a) {
 
   /* r = n - a */
   cy = mpn_sub_n(r, sc->n, a, sc->limbs);
-  assert(cy == 0);
+  ASSERT(cy == 0);
 
   /* r = 0 if a = 0 */
   mpn_cnd_zero(zero, r, r, sc->limbs);
 
 #ifdef TORSION_TEST
-  assert(mpn_cmp(r, sc->n, sc->limbs) < 0);
+  ASSERT(mpn_cmp(r, sc->n, sc->limbs) < 0);
 #endif
 }
 
@@ -904,7 +876,7 @@ sc_add(const scalar_field_t *sc, sc_t r, const sc_t a, const sc_t b) {
   mp_limb_t bp[MAX_SCALAR_LIMBS + 1];
   mp_limb_t cy;
 
-  assert(sc->n[sc->limbs] == 0);
+  ASSERT(sc->n[sc->limbs] == 0);
 
   mpn_copyi(ap, a, sc->limbs);
   mpn_copyi(bp, b, sc->limbs);
@@ -914,14 +886,14 @@ sc_add(const scalar_field_t *sc, sc_t r, const sc_t a, const sc_t b) {
 
   /* r = a + b */
   cy = mpn_add_n(ap, ap, bp, sc->limbs + 1);
-  assert(cy == 0);
+  ASSERT(cy == 0);
 
   /* r = r - n if r >= n */
   cy = mpn_sub_n(bp, ap, sc->n, sc->limbs + 1);
   mpn_cnd_select(cy == 0, r, ap, bp, sc->limbs);
 
 #ifdef TORSION_TEST
-  assert(mpn_cmp(r, sc->n, sc->limbs) < 0);
+  ASSERT(mpn_cmp(r, sc->n, sc->limbs) < 0);
 #endif
 }
 
@@ -977,14 +949,14 @@ sc_reduce(const scalar_field_t *sc, sc_t r, const mp_limb_t *ap) {
   /* q = a - h * n */
   mpn_mul(qp, hp, sc->limbs + 3, sc->n, sc->limbs);
   cy = mpn_sub_n(qp, ap, qp, sc->shift);
-  assert(cy == 0);
+  ASSERT(cy == 0);
 
   /* q = q - n if q >= n */
   cy = mpn_sub_n(hp, qp, sc->n, sc->limbs + 1);
   mpn_cnd_select(cy == 0, r, qp, hp, sc->limbs);
 
 #ifdef TORSION_TEST
-  assert(mpn_cmp(r, sc->n, sc->limbs) < 0);
+  ASSERT(mpn_cmp(r, sc->n, sc->limbs) < 0);
 #endif
 }
 
@@ -1035,8 +1007,8 @@ sc_mulshift(const scalar_field_t *sc, sc_t r,
   mp_size_t rn = sc->limbs + sc->endo_limbs + 1;
   mp_limb_t bit, cy;
 
-  assert(shift > sc->bits);
-  assert(rn > limbs);
+  ASSERT(shift > sc->bits);
+  ASSERT(rn > limbs);
 
   /* r = a * b */
   mpn_mul(rp, a, sc->limbs, b, sc->endo_limbs + 1);
@@ -1058,10 +1030,10 @@ sc_mulshift(const scalar_field_t *sc, sc_t r,
 
     /* r += bit */
     cy = mpn_add_1(rp, rp, rn, bit);
-    assert(cy == 0);
+    ASSERT(cy == 0);
   }
 
-  assert(rn <= sc->limbs);
+  ASSERT(rn <= sc->limbs);
 
   mpn_copyi(r, rp, rn);
   mpn_zero(r + rn, sc->limbs - rn);
@@ -1069,7 +1041,7 @@ sc_mulshift(const scalar_field_t *sc, sc_t r,
   mpn_cleanse(scratch, sc->limbs + sc->endo_limbs + 1 + 1);
 
 #ifdef TORSION_TEST
-  assert(mpn_cmp(r, sc->n, sc->limbs) < 0);
+  ASSERT(mpn_cmp(r, sc->n, sc->limbs) < 0);
 #endif
 }
 
@@ -1185,7 +1157,7 @@ sc_naf_var0(const scalar_field_t *sc, int *naf,
   int carry = 0;
   int word;
 
-  assert(bits <= max);
+  ASSERT(bits <= max);
 
   memset(naf, 0, max * sizeof(int));
 
@@ -1206,7 +1178,7 @@ sc_naf_var0(const scalar_field_t *sc, int *naf,
     i += width;
   }
 
-  assert(carry == 0);
+  ASSERT(carry == 0);
 
   return len;
 }
@@ -1265,7 +1237,7 @@ sc_jsf_var0(const scalar_field_t *sc, int *naf,
     3  /* 1 1 */
   };
 
-  assert(bits <= max);
+  ASSERT(bits <= max);
 
   for (i = 0; i < bits; i++) {
     int b1 = sc_get_bits(sc, k1, i, 3);
@@ -1471,7 +1443,7 @@ static int
 fe_set_limbs(const prime_field_t *fe, fe_t r, const mp_limb_t *p, mp_size_t n) {
   unsigned char tmp[MAX_FIELD_SIZE];
 
-  assert(n <= fe->limbs);
+  ASSERT(n <= fe->limbs);
 
   mpn_export(tmp, fe->size, p, n, fe->endian);
 
@@ -1505,8 +1477,8 @@ fe_set_sc(const prime_field_t *fe,
           fe_t r, const sc_t a) {
   unsigned char raw[MAX_ELEMENT_SIZE];
 
-  assert(fe->endian == 1);
-  assert(sc->endian == 1);
+  ASSERT(fe->endian == 1);
+  ASSERT(sc->endian == 1);
 
   if (sc->size < fe->size) {
     memset(raw, 0x00, fe->size - sc->size);
@@ -1544,7 +1516,7 @@ fe_set_word(const prime_field_t *fe, fe_t r, uint32_t word) {
       tmp[3] = (word >> 24) & 0xff;
     }
 
-    CHECK(fe_import(fe, r, tmp));
+    ASSERT(fe_import(fe, r, tmp));
   } else {
     /* Note: the limit of the word size here depends
      * on how saturated the field implementation is.
@@ -1730,7 +1702,7 @@ fe_invert_var(const prime_field_t *fe, fe_t r, const fe_t a) {
 
   ret = mpn_invert_n(rp, rp, fe->p, fe->limbs, scratch);
 
-  CHECK(fe_set_limbs(fe, r, rp, fe->limbs));
+  ASSERT(fe_set_limbs(fe, r, rp, fe->limbs));
 
   return ret;
 }
@@ -1790,7 +1762,7 @@ fe_sqrt(const prime_field_t *fe, fe_t r, const fe_t a) {
       fe_mul(fe, b, b, a);
       fe_mul(fe, b, b, c);
     } else {
-      assert(0 && "no sqrt implementation");
+      ASSERT(0 && "no sqrt implementation");
     }
 
     /* b2 = b^2 mod p */
@@ -1838,7 +1810,7 @@ fe_is_square(const prime_field_t *fe, const fe_t a) {
     y = fe_equal(fe, b, fe->one);
     z = fe_equal(fe, b, fe->mone);
 
-    assert(x + y + z == 1);
+    ASSERT(x + y + z == 1);
 
     ret = x | y;
   }
@@ -1947,7 +1919,7 @@ scalar_field_init(scalar_field_t *sc, const scalar_def_t *def, int endian) {
 
     mpn_quorem(sc->m, x, x, sc->shift + 1, sc->n, sc->limbs);
 
-    assert(sc->m[sc->limbs + 3] == 0);
+    ASSERT(sc->m[sc->limbs + 3] == 0);
   }
 
   /* Optimized scalar inverse (optional). */
@@ -2402,7 +2374,7 @@ wge_dbl_var(const wei_t *ec, wge_t *r, const wge_t *p) {
   fe_add(fe, l, l, t);
   fe_add(fe, l, l, ec->a);
   fe_add(fe, t, p->y, p->y);
-  CHECK(fe_invert_var(fe, t, t));
+  ASSERT(fe_invert_var(fe, t, t));
   fe_mul(fe, l, l, t);
 
   /* X3 = L^2 - 2 * X1 */
@@ -2480,7 +2452,7 @@ wge_add_var(const wei_t *ec, wge_t *r, const wge_t *a, const wge_t *b) {
   /* L = (Y1 - Y2) / (X1 - X2) */
   fe_sub(fe, l, a->y, b->y);
   fe_sub(fe, t, a->x, b->x);
-  CHECK(fe_invert_var(fe, t, t));
+  ASSERT(fe_invert_var(fe, t, t));
   fe_mul(fe, l, l, t);
 
   /* X3 = L^2 - X1 - X2 */
@@ -2646,7 +2618,7 @@ wge_fixed_points_var(const wei_t *ec, wge_t *out, const wge_t *p) {
   /* NOTE: Only called on initialization. */
   const scalar_field_t *sc = &ec->sc;
   size_t size = FIXED_LENGTH(sc->bits);
-  jge_t *wnds = safe_malloc(size * sizeof(jge_t)); /* 442.2kb */
+  jge_t *wnds = torsion_alloc(size * sizeof(jge_t)); /* 442.2kb */
   size_t i, j;
   jge_t g;
 
@@ -2666,7 +2638,7 @@ wge_fixed_points_var(const wei_t *ec, wge_t *out, const wge_t *p) {
 
   jge_to_wge_all_var(ec, out, wnds, size);
 
-  safe_free(wnds);
+  torsion_free(wnds);
 }
 
 static void
@@ -2674,7 +2646,7 @@ wge_naf_points_var(const wei_t *ec, wge_t *out,
                    const wge_t *p, size_t width) {
   /* NOTE: Only called on initialization. */
   size_t size = 1 << (width - 2);
-  jge_t *wnd = safe_malloc(size * sizeof(jge_t)); /* 216kb */
+  jge_t *wnd = torsion_alloc(size * sizeof(jge_t)); /* 216kb */
   jge_t j, dbl;
   size_t i;
 
@@ -2687,7 +2659,7 @@ wge_naf_points_var(const wei_t *ec, wge_t *out,
 
   jge_to_wge_all_var(ec, out, wnd, size);
 
-  safe_free(wnd);
+  torsion_free(wnd);
 }
 
 static void
@@ -3716,7 +3688,7 @@ jge_to_wge_var(const wei_t *ec, wge_t *r, const jge_t *p) {
   }
 
   /* A = 1 / Z1 */
-  CHECK(fe_invert_var(fe, a, p->z));
+  ASSERT(fe_invert_var(fe, a, p->z));
 
   /* AA = A^2 */
   fe_sqr(fe, aa, a);
@@ -3747,7 +3719,7 @@ jge_to_wge_all_var(const wei_t *ec, wge_t *out, const jge_t *in, size_t len) {
     fe_mul(fe, acc, acc, in[i].z);
   }
 
-  CHECK(fe_invert_var(fe, acc, acc));
+  ASSERT(fe_invert_var(fe, acc, acc));
 
   for (i = len; i-- > 0;) {
     if (fe_is_zero(fe, in[i].z))
@@ -4175,7 +4147,7 @@ wei_jmul_endo(const wei_t *ec, jge_t *r, const wge_t *p, const sc_t k) {
   sc_t k1, k2;
   int s1, s2;
 
-  assert(ec->endo == 1);
+  ASSERT(ec->endo == 1);
 
   /* Split point. */
   wge_set(ec, &p1, p);
@@ -4193,8 +4165,8 @@ wei_jmul_endo(const wei_t *ec, jge_t *r, const wge_t *p, const sc_t k) {
   wge_neg_cond(ec, &p2, &p2, s2);
 
 #ifdef TORSION_TEST
-  assert(sc_bitlen_var(sc, k1) <= sc->endo_bits);
-  assert(sc_bitlen_var(sc, k2) <= sc->endo_bits);
+  ASSERT(sc_bitlen_var(sc, k1) <= sc->endo_bits);
+  ASSERT(sc_bitlen_var(sc, k2) <= sc->endo_bits);
 #endif
 
   /* Create windows. */
@@ -4331,7 +4303,7 @@ wei_jmul_double_endo_var(const wei_t *ec,
   sc_t c1, c2, c3, c4; /* 288 bytes */
   size_t i, max, max1, max2;
 
-  assert(ec->endo == 1);
+  ASSERT(ec->endo == 1);
 
   /* Split scalars. */
   wei_endo_split(ec, c1, c2, k1);
@@ -4419,7 +4391,7 @@ wei_jmul_multi_normal_var(const wei_t *ec,
   int **nafs = scratch->nafs;
   size_t i, j, max, size;
 
-  assert(len <= scratch->size);
+  ASSERT(len <= scratch->size);
 
   /* Compute fixed NAF. */
   max = sc_naf_var(sc, naf0, k0, NAF_WIDTH_PRE);
@@ -4506,8 +4478,8 @@ wei_jmul_multi_endo_var(const wei_t *ec,
   size_t i, j, max, size;
   sc_t k1, k2;
 
-  assert(ec->endo == 1);
-  assert(len <= scratch->size);
+  ASSERT(ec->endo == 1);
+  ASSERT(len <= scratch->size);
 
   /* Split scalar. */
   wei_endo_split(ec, k1, k2, k0);
@@ -4671,7 +4643,7 @@ wei_sswu(const wei_t *ec, wge_t *p, const fe_t u) {
 
   fe_select(fe, x1, x1, x2, alpha ^ 1);
   fe_select(fe, y1, y1, y2, alpha ^ 1);
-  CHECK(fe_sqrt(fe, y1, y1));
+  ASSERT(fe_sqrt(fe, y1, y1));
 
   fe_set_odd(fe, y1, y1, fe_is_odd(fe, u));
 
@@ -4849,7 +4821,7 @@ wei_svdw(const wei_t *ec, wge_t *p, const fe_t u) {
 
   wei_svdwf(ec, x, y, u);
 
-  CHECK(fe_sqrt(fe, y, y));
+  ASSERT(fe_sqrt(fe, y, y));
 
   fe_set_odd(fe, y, y, fe_is_odd(fe, u));
 
@@ -5080,24 +5052,24 @@ wei_point_to_hash(const wei_t *ec,
 
 static wei_scratch_t *
 wei_scratch_create(const wei_t *ec, size_t size) {
-  wei_scratch_t *scratch = safe_malloc(sizeof(wei_scratch_t));
+  wei_scratch_t *scratch = torsion_alloc(sizeof(wei_scratch_t));
   size_t length = ec->endo ? size : size / 2;
   size_t bits = ec->endo ? ec->sc.endo_bits : ec->sc.bits;
   size_t i;
 
   scratch->size = size;
-  scratch->wnd = safe_malloc(length * 4 * sizeof(jge_t));
-  scratch->wnds = safe_malloc(length * sizeof(jge_t *));
-  scratch->naf = safe_malloc(length * (bits + 1) * sizeof(int));
-  scratch->nafs = safe_malloc(length * sizeof(int *));
+  scratch->wnd = torsion_alloc(length * 4 * sizeof(jge_t));
+  scratch->wnds = torsion_alloc(length * sizeof(jge_t *));
+  scratch->naf = torsion_alloc(length * (bits + 1) * sizeof(int));
+  scratch->nafs = torsion_alloc(length * sizeof(int *));
 
   for (i = 0; i < length; i++) {
     scratch->wnds[i] = &scratch->wnd[i * 4];
     scratch->nafs[i] = &scratch->naf[i * (bits + 1)];
   }
 
-  scratch->points = safe_malloc(size * sizeof(wge_t));
-  scratch->coeffs = safe_malloc(size * sizeof(sc_t));
+  scratch->points = torsion_alloc(size * sizeof(wge_t));
+  scratch->coeffs = torsion_alloc(size * sizeof(sc_t));
 
   return scratch;
 }
@@ -5105,13 +5077,13 @@ wei_scratch_create(const wei_t *ec, size_t size) {
 static void
 wei_scratch_destroy(const wei_t *ec, wei_scratch_t *scratch) {
   (void)ec;
-  safe_free(scratch->wnd);
-  safe_free(scratch->wnds);
-  safe_free(scratch->naf);
-  safe_free(scratch->nafs);
-  safe_free(scratch->points);
-  safe_free(scratch->coeffs);
-  safe_free(scratch);
+  torsion_free(scratch->wnd);
+  torsion_free(scratch->wnds);
+  torsion_free(scratch->naf);
+  torsion_free(scratch->nafs);
+  torsion_free(scratch->points);
+  torsion_free(scratch->coeffs);
+  torsion_free(scratch);
 }
 
 /*
@@ -5628,8 +5600,8 @@ pge_ladder(const mont_t *ec,
   const prime_field_t *fe = &ec->fe;
   fe_t a, aa, b, bb, e, c, d, da, cb;
 
-  assert(p1 != p5);
-  assert(p4 != p5);
+  ASSERT(p1 != p5);
+  ASSERT(p4 != p5);
 
   /* A = X2 + Z2 */
   fe_add(fe, a, p2->x, p2->z);
@@ -5761,7 +5733,7 @@ mont_init(mont_t *ec, const mont_def_t *def) {
   prime_field_init(fe, def->fe, -1);
   scalar_field_init(sc, def->sc, -1);
 
-  assert(sc->limbs >= fe->limbs);
+  ASSERT(sc->limbs >= fe->limbs);
 
   fe_import_be(fe, ec->a, def->a);
   fe_import_be(fe, ec->b, def->b);
@@ -5793,7 +5765,7 @@ mont_init(mont_t *ec, const mont_def_t *def) {
   /* i16 = 1 / 16 (mod n) */
   if (fe->bits == 448) {
     sc_set_word(sc, ec->i16, 16);
-    CHECK(sc_invert_var(sc, ec->i16, ec->i16));
+    ASSERT(sc_invert_var(sc, ec->i16, ec->i16));
   }
 
   fe_import_be(fe, ec->g.x, def->x);
@@ -6085,7 +6057,7 @@ mont_elligator2(const mont_t *ec, mge_t *r, const fe_t u) {
 
   fe_select(fe, x1, x1, x2, alpha ^ 1);
   fe_select(fe, y1, y1, y2, alpha ^ 1);
-  CHECK(fe_sqrt(fe, y1, y1));
+  ASSERT(fe_sqrt(fe, y1, y1));
 
   fe_set_odd(fe, y1, y1, fe_is_odd(fe, u));
 
@@ -6410,7 +6382,7 @@ xge_export(const edwards_t *ec,
   const prime_field_t *fe = &ec->fe;
   fe_t x, y, z;
 
-  CHECK(fe_invert(fe, z, p->z));
+  ASSERT(fe_invert(fe, z, p->z));
 
   fe_mul(fe, x, p->x, z);
   fe_mul(fe, y, p->y, z);
@@ -6788,7 +6760,7 @@ edwards_init(edwards_t *ec, const edwards_def_t *def) {
   prime_field_init(fe, def->fe, -1);
   scalar_field_init(sc, def->sc, -1);
 
-  assert(sc->limbs >= fe->limbs);
+  ASSERT(sc->limbs >= fe->limbs);
 
   fe_import_be(fe, ec->a, def->a);
   fe_import_be(fe, ec->d, def->d);
@@ -6860,7 +6832,7 @@ edwards_init_isomorphism(edwards_t *ec, const edwards_def_t *def) {
   }
 
   fe_add(fe, u, u, u);
-  CHECK(fe_invert_var(fe, v, v));
+  ASSERT(fe_invert_var(fe, v, v));
   fe_mul(fe, ec->A, u, v);
 
   if (!ec->invert)
@@ -6870,9 +6842,9 @@ edwards_init_isomorphism(edwards_t *ec, const edwards_def_t *def) {
 
   fe_sqr(fe, v, ec->c);
   fe_mul(fe, v, v, ec->a);
-  CHECK(fe_invert_var(fe, v, v));
+  ASSERT(fe_invert_var(fe, v, v));
   fe_mul(fe, ec->B, u, v);
-  CHECK(fe_invert_var(fe, ec->Bi, ec->B));
+  ASSERT(fe_invert_var(fe, ec->Bi, ec->B));
 
   /* A0 = A / B */
   fe_mul(fe, ec->A0, ec->A, ec->Bi);
@@ -7100,7 +7072,7 @@ edwards_mul_multi_var(const edwards_t *ec,
   int **nafs = scratch->nafs;
   size_t i, j, max, size;
 
-  assert(len <= scratch->size);
+  ASSERT(len <= scratch->size);
 
   /* Compute fixed NAF. */
   max = sc_naf_var(sc, naf0, k0, NAF_WIDTH_PRE);
@@ -7276,7 +7248,7 @@ edwards_elligator2(const edwards_t *ec, xge_t *r, const fe_t u) {
 
   fe_select(fe, x1, x1, x2, alpha ^ 1);
   fe_select(fe, y1, y1, y2, alpha ^ 1);
-  CHECK(fe_sqrt(fe, y1, y1));
+  ASSERT(fe_sqrt(fe, y1, y1));
 
   fe_set_odd(fe, y1, y1, fe_is_odd(fe, u));
 
@@ -7440,24 +7412,24 @@ edwards_point_to_hash(const edwards_t *ec,
 
 static edwards_scratch_t *
 edwards_scratch_create(const edwards_t *ec, size_t size) {
-  edwards_scratch_t *scratch = safe_malloc(sizeof(edwards_scratch_t));
+  edwards_scratch_t *scratch = torsion_alloc(sizeof(edwards_scratch_t));
   size_t length = size / 2;
   size_t bits = ec->sc.bits;
   size_t i;
 
   scratch->size = size;
-  scratch->wnd = safe_malloc(length * 4 * sizeof(xge_t));
-  scratch->wnds = safe_malloc(length * sizeof(xge_t *));
-  scratch->naf = safe_malloc(length * (bits + 1) * sizeof(int));
-  scratch->nafs = safe_malloc(length * sizeof(int *));
+  scratch->wnd = torsion_alloc(length * 4 * sizeof(xge_t));
+  scratch->wnds = torsion_alloc(length * sizeof(xge_t *));
+  scratch->naf = torsion_alloc(length * (bits + 1) * sizeof(int));
+  scratch->nafs = torsion_alloc(length * sizeof(int *));
 
   for (i = 0; i < length; i++) {
     scratch->wnds[i] = &scratch->wnd[i * 4];
     scratch->nafs[i] = &scratch->naf[i * (bits + 1)];
   }
 
-  scratch->points = safe_malloc(size * sizeof(xge_t));
-  scratch->coeffs = safe_malloc(size * sizeof(sc_t));
+  scratch->points = torsion_alloc(size * sizeof(xge_t));
+  scratch->coeffs = torsion_alloc(size * sizeof(sc_t));
 
   return scratch;
 }
@@ -7465,13 +7437,13 @@ edwards_scratch_create(const edwards_t *ec, size_t size) {
 static void
 edwards_scratch_destroy(const edwards_t *ec, edwards_scratch_t *scratch) {
   (void)ec;
-  safe_free(scratch->wnd);
-  safe_free(scratch->wnds);
-  safe_free(scratch->naf);
-  safe_free(scratch->nafs);
-  safe_free(scratch->points);
-  safe_free(scratch->coeffs);
-  safe_free(scratch);
+  torsion_free(scratch->wnd);
+  torsion_free(scratch->wnds);
+  torsion_free(scratch->naf);
+  torsion_free(scratch->nafs);
+  torsion_free(scratch->points);
+  torsion_free(scratch->coeffs);
+  torsion_free(scratch);
 }
 
 /*
@@ -8723,7 +8695,7 @@ ecdsa_context_create(int type) {
   if (type < 0 || type > ECDSA_CURVE_MAX)
     return NULL;
 
-  ec = safe_malloc(sizeof(wei_t));
+  ec = torsion_alloc(sizeof(wei_t));
 
   wei_init(ec, wei_curves[type]);
 
@@ -8735,7 +8707,7 @@ ecdsa_context_destroy(wei_t *ec) {
   if (ec != NULL) {
     sc_cleanse(&ec->sc, ec->blind);
     wge_cleanse(ec, &ec->unblind);
-    safe_free(ec);
+    torsion_free(ec);
   }
 }
 
@@ -9027,7 +8999,7 @@ ecdsa_pubkey_from_uniform(const wei_t *ec,
 
   wei_point_from_uniform(ec, &A, bytes);
 
-  CHECK(wge_export(ec, out, out_len, &A, compact));
+  ASSERT(wge_export(ec, out, out_len, &A, compact));
 }
 
 int
@@ -9358,8 +9330,8 @@ ecdsa_reduce(const wei_t *ec, sc_t r,
     unsigned char cy = 0;
     size_t i;
 
-    assert(shift > 0);
-    assert(shift < 8);
+    ASSERT(shift > 0);
+    ASSERT(shift < 8);
 
     for (i = 0; i < sc->size; i++) {
       unsigned char ch = tmp[i];
@@ -9550,7 +9522,7 @@ ecdsa_sign(const wei_t *ec,
     ok &= sc_is_zero(sc, r) ^ 1;
   } while (!ok);
 
-  CHECK(sc_invert(sc, k, k));
+  ASSERT(sc_invert(sc, k, k));
   sc_mul(sc, s, r, a);
   sc_add(sc, s, s, m);
   sc_mul(sc, s, s, k);
@@ -9639,7 +9611,7 @@ ecdsa_verify(const wei_t *ec,
 
   ecdsa_reduce(ec, m, msg, msg_len);
 
-  CHECK(sc_invert_var(sc, s, s));
+  ASSERT(sc_invert_var(sc, s, s));
   sc_mul(sc, u1, m, s);
   sc_mul(sc, u2, r, s);
 
@@ -9737,7 +9709,7 @@ ecdsa_recover(const wei_t *ec,
 
   ecdsa_reduce(ec, m, msg, msg_len);
 
-  CHECK(sc_invert_var(sc, r, r));
+  ASSERT(sc_invert_var(sc, r, r));
   sc_mul(sc, s1, m, r);
   sc_mul(sc, s2, s, r);
   sc_neg(sc, s1, s1);
@@ -9788,7 +9760,7 @@ ecdsa_schnorr_hash_nonce(const wei_t *ec, sc_t k,
   size_t off = 0;
   hash_t hash;
 
-  assert(MAX_SCALAR_SIZE >= HASH_MAX_OUTPUT_SIZE);
+  ASSERT(MAX_SCALAR_SIZE >= HASH_MAX_OUTPUT_SIZE);
 
   if (sc->size > hash_size) {
     off = sc->size - hash_size;
@@ -9819,7 +9791,7 @@ ecdsa_schnorr_hash_challenge(const wei_t *ec, sc_t e,
   size_t off = 0;
   hash_t hash;
 
-  assert(MAX_SCALAR_SIZE >= HASH_MAX_OUTPUT_SIZE);
+  ASSERT(MAX_SCALAR_SIZE >= HASH_MAX_OUTPUT_SIZE);
 
   if (sc->size > hash_size) {
     off = sc->size - hash_size;
@@ -9888,7 +9860,7 @@ ecdsa_schnorr_sign(const wei_t *ec,
   wge_t A, R;
   int ret = 1;
 
-  assert(ecdsa_schnorr_support(ec));
+  ASSERT(ecdsa_schnorr_support(ec));
 
   ret &= sc_import(sc, a, priv);
   ret &= sc_is_zero(sc, a) ^ 1;
@@ -9980,7 +9952,7 @@ ecdsa_schnorr_verify(const wei_t *ec,
   wge_t A;
   jge_t R;
 
-  assert(ecdsa_schnorr_support(ec));
+  ASSERT(ecdsa_schnorr_support(ec));
 
   if (!fe_import(fe, r, Rraw))
     return 0;
@@ -9991,7 +9963,7 @@ ecdsa_schnorr_verify(const wei_t *ec,
   if (!wge_import(ec, &A, pub, pub_len))
     return 0;
 
-  CHECK(wge_export(ec, Araw, NULL, &A, 1));
+  ASSERT(wge_export(ec, Araw, NULL, &A, 1));
 
   ecdsa_schnorr_hash_challenge(ec, e, Rraw, Araw, msg, msg_len);
 
@@ -10053,8 +10025,8 @@ ecdsa_schnorr_verify_batch(const wei_t *ec,
   size_t j = 0;
   size_t i;
 
-  assert(ecdsa_schnorr_support(ec));
-  assert(scratch->size >= 2);
+  ASSERT(ecdsa_schnorr_support(ec));
+  ASSERT(scratch->size >= 2);
 
   /* Seed RNG. */
   {
@@ -10116,7 +10088,7 @@ ecdsa_schnorr_verify_batch(const wei_t *ec,
     if (!wge_import(ec, &A, pub, pub_len))
       return 0;
 
-    CHECK(wge_export(ec, Araw, NULL, &A, 1));
+    ASSERT(wge_export(ec, Araw, NULL, &A, 1));
 
     ecdsa_schnorr_hash_challenge(ec, e, Rraw, Araw, msg, msg_len);
 
@@ -10375,7 +10347,7 @@ schnorr_pubkey_from_uniform(const wei_t *ec,
 
   wei_point_from_uniform(ec, &A, bytes);
 
-  CHECK(wge_export_x(ec, out, &A));
+  ASSERT(wge_export_x(ec, out, &A));
 }
 
 int
@@ -10638,7 +10610,7 @@ schnorr_hash_nonce(const wei_t *ec, sc_t k,
   size_t off = 0;
   hash_t hash;
 
-  assert(MAX_SCALAR_SIZE >= HASH_MAX_OUTPUT_SIZE);
+  ASSERT(MAX_SCALAR_SIZE >= HASH_MAX_OUTPUT_SIZE);
 
   schnorr_hash_aux(ec, secret, scalar, aux);
 
@@ -10674,7 +10646,7 @@ schnorr_hash_challenge(const wei_t *ec, sc_t e,
   size_t off = 0;
   hash_t hash;
 
-  assert(MAX_SCALAR_SIZE >= HASH_MAX_OUTPUT_SIZE);
+  ASSERT(MAX_SCALAR_SIZE >= HASH_MAX_OUTPUT_SIZE);
 
   if (sc->size > hash_size) {
     off = sc->size - hash_size;
@@ -10906,7 +10878,7 @@ schnorr_verify_batch(const wei_t *ec,
   size_t j = 0;
   size_t i;
 
-  assert(scratch->size >= 2);
+  ASSERT(scratch->size >= 2);
 
   /* Seed RNG. */
   {
@@ -11038,7 +11010,7 @@ ecdh_context_create(int type) {
   if (type < 0 || type > ECDH_CURVE_MAX)
     return NULL;
 
-  ec = safe_malloc(sizeof(mont_t));
+  ec = torsion_alloc(sizeof(mont_t));
 
   mont_init(ec, mont_curves[type]);
 
@@ -11047,7 +11019,7 @@ ecdh_context_create(int type) {
 
 void
 ecdh_context_destroy(mont_t *ec) {
-  safe_free(ec);
+  torsion_free(ec);
 }
 
 size_t
@@ -11151,7 +11123,7 @@ ecdh_pubkey_create(const mont_t *ec,
 
   mont_mul_g(ec, &A, a);
 
-  CHECK(pge_export(ec, pub, &A));
+  ASSERT(pge_export(ec, pub, &A));
 
   sc_cleanse(sc, a);
 
@@ -11179,7 +11151,7 @@ ecdh_pubkey_convert(const mont_t *ec,
     pge_mulh(ec, &P, &P);
     mont_mul(ec, &P, &P, ec->i16, 0);
 
-    CHECK(pge_to_mge(ec, &A, &P, -1));
+    ASSERT(pge_to_mge(ec, &A, &P, -1));
   } else {
     ret &= mge_import(ec, &A, pub, -1);
   }
@@ -11188,7 +11160,7 @@ ecdh_pubkey_convert(const mont_t *ec,
   mge_to_xge(ec, &e, &A);
 
   /* Affinize. */
-  CHECK(fe_invert(fe, e.z, e.z));
+  ASSERT(fe_invert(fe, e.z, e.z));
   fe_mul(fe, e.x, e.x, e.z);
   fe_mul(fe, e.y, e.y, e.z);
 
@@ -11215,7 +11187,7 @@ ecdh_pubkey_from_uniform(const mont_t *ec,
 
   mont_point_from_uniform(ec, &A, bytes);
 
-  CHECK(mge_export(ec, out, &A));
+  ASSERT(mge_export(ec, out, &A));
 }
 
 int
@@ -11390,7 +11362,7 @@ eddsa_context_create(int type) {
   if (type < 0 || type > EDDSA_CURVE_MAX)
     return NULL;
 
-  ec = safe_malloc(sizeof(edwards_t));
+  ec = torsion_alloc(sizeof(edwards_t));
 
   edwards_init(ec, edwards_curves[type]);
 
@@ -11402,7 +11374,7 @@ eddsa_context_destroy(edwards_t *ec) {
   if (ec != NULL) {
     sc_cleanse(&ec->sc, ec->blind);
     xge_cleanse(ec, &ec->unblind);
-    safe_free(ec);
+    torsion_free(ec);
   }
 }
 
@@ -12172,7 +12144,7 @@ eddsa_sign_tweak_add(const edwards_t *ec,
   eddsa_privkey_expand(ec, scalar, prefix, priv);
   eddsa_scalar_tweak_add(ec, scalar, scalar, tweak);
 
-  assert(MAX_FIELD_SIZE + 1 >= HASH_MAX_OUTPUT_SIZE);
+  ASSERT(MAX_FIELD_SIZE + 1 >= HASH_MAX_OUTPUT_SIZE);
 
   hash_init(&hash, ec->hash);
   hash_update(&hash, prefix, ec->fe.adj_size);
@@ -12205,7 +12177,7 @@ eddsa_sign_tweak_mul(const edwards_t *ec,
   eddsa_privkey_expand(ec, scalar, prefix, priv);
   eddsa_scalar_tweak_mul(ec, scalar, scalar, tweak);
 
-  assert(MAX_FIELD_SIZE + 1 >= HASH_MAX_OUTPUT_SIZE);
+  ASSERT(MAX_FIELD_SIZE + 1 >= HASH_MAX_OUTPUT_SIZE);
 
   hash_init(&hash, ec->hash);
   hash_update(&hash, prefix, ec->fe.adj_size);
@@ -12394,7 +12366,7 @@ eddsa_verify_batch(const edwards_t *ec,
   size_t j = 0;
   size_t i;
 
-  assert(scratch->size >= 2);
+  ASSERT(scratch->size >= 2);
 
   /* Seed RNG. */
   {

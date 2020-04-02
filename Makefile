@@ -24,6 +24,7 @@ SOURCES := \
 	src/drbg.c \
 	src/dsa.c \
 	src/hash.c \
+	src/internal.c \
 	src/kdf.c \
 	src/mpi.c \
 	src/poly1305.c \

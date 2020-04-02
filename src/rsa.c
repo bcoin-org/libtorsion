@@ -18,7 +18,6 @@
  *     https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.186-4.pdf
  */
 
-#include <assert.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
@@ -249,27 +248,11 @@ safe_cmp(const unsigned char *x, const unsigned char *y, size_t len) {
   return (v - 1) >> 31;
 }
 
-static void *
-safe_malloc(size_t size) {
-  void *ptr;
-
-  if (size == 0)
-    return NULL;
-
-  ptr = malloc(size);
-
-  assert(ptr != NULL);
-
-  memset(ptr, 0, size);
-
-  return ptr;
-}
-
 static void
 safe_free(void *ptr, size_t size) {
   if (ptr != NULL) {
     cleanse(ptr, size);
-    free(ptr);
+    torsion_free(ptr);
   }
 }
 
@@ -512,7 +495,7 @@ rsa_priv_generate(rsa_priv_t *k,
     mpz_mod(k->dp, k->d, pm1);
     mpz_mod(k->dq, k->d, qm1);
 
-    CHECK(mpz_invert(k->qi, k->q, k->p));
+    ASSERT(mpz_invert(k->qi, k->q, k->p));
 
     break;
   }
@@ -691,7 +674,7 @@ rsa_priv_from_pqe(rsa_priv_t *out,
 
   mpz_mul(k.n, p, q);
 
-  assert(mpz_odd_p(k.n));
+  ASSERT(mpz_odd_p(k.n));
 
   if (mpz_bitlen(k.n) < RSA_MIN_MOD_BITS || mpz_bitlen(k.n) > RSA_MAX_MOD_BITS)
     goto fail;
@@ -713,7 +696,7 @@ rsa_priv_from_pqe(rsa_priv_t *out,
   if (!mpz_invert(k.qi, q, p))
     goto fail;
 
-  CHECK(rsa_priv_verify(&k));
+  ASSERT(rsa_priv_verify(&k));
 
   rsa_priv_set(out, &k);
   r = 1;
@@ -1180,7 +1163,7 @@ rsa_pub_veil(const rsa_pub_t *k,
   mpz_sub_ui(rmax, rmax, 1);
   mpz_quo(rmax, rmax, k->n);
 
-  assert(mpz_sgn(rmax) > 0);
+  ASSERT(mpz_sgn(rmax) > 0);
 
   mpz_set(v, vmax);
 
@@ -1196,8 +1179,8 @@ rsa_pub_veil(const rsa_pub_t *k,
 
   mpz_mod(r, v, k->n);
 
-  assert(mpz_cmp(r, c) == 0);
-  assert(mpz_bitlen(v) <= bits);
+  ASSERT(mpz_cmp(r, c) == 0);
+  ASSERT(mpz_bitlen(v) <= bits);
 
   mpz_export(out, v, (bits + 7) / 8, 1);
   ret = 1;
@@ -1782,7 +1765,7 @@ rsa_verify(int type,
   if (klen < tlen + 11)
     goto fail;
 
-  em = safe_malloc(klen);
+  em = torsion_alloc(klen);
 
   if (!rsa_pub_encrypt(&k, em, sig, sig_len))
     goto fail;
@@ -1985,7 +1968,7 @@ rsa_sign_pss(unsigned char *out,
   if (salt_len < 0 || (size_t)salt_len > klen)
     goto fail;
 
-  salt = safe_malloc(salt_len);
+  salt = torsion_alloc(salt_len);
 
   drbg_init(&rng, HASH_SHA512, entropy, ENTROPY_SIZE);
   drbg_generate(&rng, salt, salt_len);
@@ -2055,7 +2038,7 @@ rsa_verify_pss(int type,
   if (salt_len < 0 || (size_t)salt_len > klen)
     goto fail;
 
-  em = safe_malloc(klen);
+  em = torsion_alloc(klen);
 
   if (!rsa_pub_encrypt(&k, em, sig, sig_len))
     goto fail;

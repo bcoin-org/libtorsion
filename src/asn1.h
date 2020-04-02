@@ -7,9 +7,9 @@
 #ifndef _TORSION_ASN1_H
 #define _TORSION_ASN1_H
 
-#include <assert.h>
 #include <limits.h>
 #include <stddef.h>
+#include "internal.h"
 #include "mpi.h"
 
 /*
@@ -22,7 +22,7 @@ asn1_read_size(size_t *size,
                size_t *len, int strict) {
   unsigned char ch;
 
-  assert(sizeof(size_t) * CHAR_BIT >= 32);
+  ASSERT(sizeof(size_t) * CHAR_BIT >= 32);
 
   if (*len == 0)
     goto fail;
@@ -326,7 +326,7 @@ asn1_write_size(unsigned char *data, size_t pos, size_t size) {
     data[pos++] = size;
   } else {
     /* 0x82 [size-hi] [size-lo] */
-    assert(size <= 0xffff);
+    ASSERT(size <= 0xffff);
     data[pos++] = 0x82;
     data[pos++] = size >> 8;
     data[pos++] = size & 0xff;

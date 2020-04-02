@@ -9,12 +9,12 @@
  *   https://cr.yp.to/chacha.html
  */
 
-#include <assert.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
 #include <torsion/chacha20.h>
 #include <torsion/util.h>
+#include "internal.h"
 
 /*
  * Helpers
@@ -69,7 +69,7 @@ chacha20_init(chacha20_t *ctx,
               uint64_t counter) {
   uint8_t tmp[32];
 
-  assert(key_len == 16 || key_len == 32);
+  ASSERT(key_len == 16 || key_len == 32);
 
   if (nonce_len >= 24) {
     chacha20_derive(tmp, key, key_len, nonce);
@@ -107,7 +107,7 @@ chacha20_init(chacha20_t *ctx,
     ctx->state[14] = read32le(nonce + 8);
     ctx->state[15] = read32le(nonce + 12);
   } else {
-    assert(0 && "invalid nonce size");
+    ASSERT(0 && "invalid nonce size");
   }
 
   ctx->pos = 0;
@@ -290,7 +290,7 @@ chacha20_derive(unsigned char *out,
   uint32_t state[16];
   size_t i;
 
-  assert(key_len == 16 || key_len == 32);
+  ASSERT(key_len == 16 || key_len == 32);
 
   state[0] = 0x61707865;
   state[1] = key_len < 32 ? 0x3120646e : 0x3320646e;
