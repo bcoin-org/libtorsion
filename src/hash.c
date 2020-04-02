@@ -228,6 +228,9 @@ md2_update(md2_t *ctx, const void *data, size_t len) {
   size_t pos = ctx->size & 15;
   size_t off = 0;
 
+  if (len == 0)
+    return;
+
   ctx->size += len;
 
   if (pos > 0) {
@@ -236,7 +239,7 @@ md2_update(md2_t *ctx, const void *data, size_t len) {
     if (want > len)
       want = len;
 
-    memcpy(ctx->block + pos, bytes + off, want);
+    memcpy(ctx->block + pos, bytes, want);
 
     pos += want;
     len -= want;
@@ -386,6 +389,9 @@ md4_update(md4_t *ctx, const void *data, size_t len) {
   size_t pos = ctx->size & 63;
   size_t off = 0;
 
+  if (len == 0)
+    return;
+
   ctx->size += len;
 
   if (pos > 0) {
@@ -394,7 +400,7 @@ md4_update(md4_t *ctx, const void *data, size_t len) {
     if (want > len)
       want = len;
 
-    memcpy(ctx->block + pos, bytes + off, want);
+    memcpy(ctx->block + pos, bytes, want);
 
     pos += want;
     len -= want;
@@ -563,6 +569,9 @@ md5_update(md5_t *ctx, const void *data, size_t len) {
   size_t pos = ctx->size & 63;
   size_t off = 0;
 
+  if (len == 0)
+    return;
+
   ctx->size += len;
 
   if (pos > 0) {
@@ -571,7 +580,7 @@ md5_update(md5_t *ctx, const void *data, size_t len) {
     if (want > len)
       want = len;
 
-    memcpy(ctx->block + pos, bytes + off, want);
+    memcpy(ctx->block + pos, bytes, want);
 
     pos += want;
     len -= want;
@@ -904,6 +913,9 @@ ripemd160_update(ripemd160_t *ctx, const void *data, size_t len) {
   size_t pos = ctx->size & 63;
   size_t off = 0;
 
+  if (len == 0)
+    return;
+
   ctx->size += len;
 
   if (pos > 0) {
@@ -912,7 +924,7 @@ ripemd160_update(ripemd160_t *ctx, const void *data, size_t len) {
     if (want > len)
       want = len;
 
-    memcpy(ctx->block + pos, bytes + off, want);
+    memcpy(ctx->block + pos, bytes, want);
 
     pos += want;
     len -= want;
@@ -1112,6 +1124,9 @@ sha1_update(sha1_t *ctx, const void *data, size_t len) {
   size_t pos = ctx->size & 63;
   size_t off = 0;
 
+  if (len == 0)
+    return;
+
   ctx->size += len;
 
   if (pos > 0) {
@@ -1120,7 +1135,7 @@ sha1_update(sha1_t *ctx, const void *data, size_t len) {
     if (want > len)
       want = len;
 
-    memcpy(ctx->block + pos, bytes + off, want);
+    memcpy(ctx->block + pos, bytes, want);
 
     pos += want;
     len -= want;
@@ -2506,6 +2521,9 @@ sha256_update(sha256_t *ctx, const void *data, size_t len) {
   size_t pos = ctx->size & 63;
   size_t off = 0;
 
+  if (len == 0)
+    return;
+
   ctx->size += len;
 
   if (pos > 0) {
@@ -2514,7 +2532,7 @@ sha256_update(sha256_t *ctx, const void *data, size_t len) {
     if (want > len)
       want = len;
 
-    memcpy(ctx->block + pos, bytes + off, want);
+    memcpy(ctx->block + pos, bytes, want);
 
     pos += want;
     len -= want;
@@ -3964,6 +3982,9 @@ sha512_update(sha512_t *ctx, const void *data, size_t len) {
   size_t pos = ctx->size & 127;
   size_t off = 0;
 
+  if (len == 0)
+    return;
+
   ctx->size += len;
 
   if (pos > 0) {
@@ -3972,7 +3993,7 @@ sha512_update(sha512_t *ctx, const void *data, size_t len) {
     if (want > len)
       want = len;
 
-    memcpy(ctx->block + pos, bytes + off, want);
+    memcpy(ctx->block + pos, bytes, want);
 
     pos += want;
     len -= want;
@@ -4648,6 +4669,9 @@ keccak_update(keccak_t *ctx, const void *data, size_t len) {
   size_t pos = ctx->pos;
   size_t off = 0;
 
+  if (len == 0)
+    return;
+
   ctx->pos = (ctx->pos + len) % ctx->bs;
 
   if (pos > 0) {
@@ -4656,7 +4680,7 @@ keccak_update(keccak_t *ctx, const void *data, size_t len) {
     if (want > len)
       want = len;
 
-    memcpy(ctx->block + pos, bytes + off, want);
+    memcpy(ctx->block + pos, bytes, want);
 
     pos += want;
     len -= want;
@@ -5252,6 +5276,9 @@ gost94_update(gost94_t *ctx, const void *data, size_t len) {
   size_t pos = ctx->size & 31;
   size_t off = 0;
 
+  if (len == 0)
+    return;
+
   ctx->size += len;
 
   if (pos > 0) {
@@ -5260,7 +5287,7 @@ gost94_update(gost94_t *ctx, const void *data, size_t len) {
     if (want > len)
       want = len;
 
-    memcpy(ctx->block + pos, bytes + off, want);
+    memcpy(ctx->block + pos, bytes, want);
 
     pos += want;
     len -= want;
@@ -6100,6 +6127,9 @@ whirlpool_update(whirlpool_t *ctx, const void *data, size_t len) {
   size_t pos = ctx->size & 63;
   size_t off = 0;
 
+  if (len == 0)
+    return;
+
   ctx->size += len;
 
   if (pos > 0) {
@@ -6108,7 +6138,7 @@ whirlpool_update(whirlpool_t *ctx, const void *data, size_t len) {
     if (want > len)
       want = len;
 
-    memcpy(ctx->block + pos, bytes + off, want);
+    memcpy(ctx->block + pos, bytes, want);
 
     pos += want;
     len -= want;
