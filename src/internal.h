@@ -96,6 +96,10 @@ typedef signed torsion_int128_t __attribute__((mode(TI)));
 #error "Cannot define TORSION_USE_ASM without TORSION_USE_64BIT."
 #endif
 
+#if (-1 & 3) != 3
+#error "Two's complement is required."
+#endif
+
 #define ENTROPY_SIZE 32
 
 void

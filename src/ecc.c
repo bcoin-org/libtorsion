@@ -141,21 +141,17 @@
 #include <string.h>
 #include <stdint.h>
 #include <limits.h>
-
 #ifdef TORSION_TEST
 #include <stdio.h>
 #endif
-
 #include <torsion/drbg.h>
 #include <torsion/ecc.h>
 #include <torsion/hash.h>
 #include <torsion/util.h>
 
-#if defined(TORSION_USE_64BIT) && defined(__GNUC__)
-#define FIAT_EXTENSION __extension__
-#else
-#define FIAT_EXTENSION
-#endif
+#include "asn1.h"
+#include "internal.h"
+#include "mpi.h"
 
 #include "fields/p192.h"
 #include "fields/p224.h"
@@ -166,18 +162,6 @@
 #include "fields/p25519.h"
 #include "fields/p448.h"
 #include "fields/p251.h"
-
-#include "asn1.h"
-#include "internal.h"
-#include "mpi.h"
-
-#if CHAR_BIT != 8
-#error "sane char widths please"
-#endif
-
-#if (-1 & 3) != 3
-#error "twos complement please"
-#endif
 
 #ifdef TORSION_USE_64BIT
 typedef uint64_t fe_word_t;
@@ -767,7 +751,7 @@ sc_set(const scalar_field_t *sc, sc_t r, const sc_t a) {
   mpn_copyi(r, a, sc->limbs);
 }
 
-static void
+TORSION_UNUSED static void
 sc_swap(const scalar_field_t *sc, sc_t a, sc_t b, unsigned int flag) {
   mpn_cnd_swap(flag != 0, a, b, sc->limbs);
 }
@@ -780,7 +764,7 @@ sc_select(const scalar_field_t *sc, sc_t r,
 }
 
 #ifdef TORSION_TEST
-static void
+TORSION_UNUSED static void
 sc_print(const scalar_field_t *sc, const sc_t a) {
   mpn_out_str(stdout, 16, a, sc->limbs);
   printf("\n");
@@ -897,7 +881,7 @@ sc_add(const scalar_field_t *sc, sc_t r, const sc_t a, const sc_t b) {
 #endif
 }
 
-static void
+TORSION_UNUSED static void
 sc_sub(const scalar_field_t *sc, sc_t r, const sc_t a, const sc_t b) {
   sc_t c;
   sc_neg(sc, c, b);
@@ -1838,7 +1822,7 @@ fe_isqrt(const prime_field_t *fe, fe_t r, const fe_t u, const fe_t v) {
   return ret;
 }
 
-static void
+TORSION_UNUSED static void
 fe_random(const prime_field_t *fe, fe_t x, drbg_t *rng) {
   unsigned char bytes[MAX_FIELD_SIZE];
 
@@ -2087,7 +2071,7 @@ wge_cleanse(const wei_t *ec, wge_t *r) {
   r->inf = 1;
 }
 
-static int
+TORSION_UNUSED static int
 wge_validate(const wei_t *ec, const wge_t *p) {
   return wei_validate_xy(ec, p->x, p->y) | p->inf;
 }
@@ -2236,7 +2220,7 @@ wge_export_x(const wei_t *ec, unsigned char *raw, const wge_t *p) {
   return p->inf ^ 1;
 }
 
-static void
+TORSION_UNUSED static void
 wge_swap(const wei_t *ec, wge_t *a, wge_t *b, unsigned int flag) {
   const prime_field_t *fe = &ec->fe;
   int cond = (flag != 0);
@@ -2276,7 +2260,7 @@ wge_set(const wei_t *ec, wge_t *r, const wge_t *a) {
   r->inf = a->inf;
 }
 
-static int
+TORSION_UNUSED static int
 wge_equal(const wei_t *ec, const wge_t *a, const wge_t *b) {
   const prime_field_t *fe = &ec->fe;
   int both = a->inf & b->inf;
@@ -2305,7 +2289,7 @@ wge_is_square(const wei_t *ec, const wge_t *p) {
   return fe_is_square(&ec->fe, p->y) & (p->inf ^ 1);
 }
 
-static int
+TORSION_UNUSED static int
 wge_is_square_var(const wei_t *ec, const wge_t *p) {
   if (p->inf)
     return 0;
@@ -2318,7 +2302,7 @@ wge_is_even(const wei_t *ec, const wge_t *p) {
   return (fe_is_odd(&ec->fe, p->y) ^ 1) & (p->inf ^ 1);
 }
 
-static int
+TORSION_UNUSED static int
 wge_equal_x(const wei_t *ec, const wge_t *p, const fe_t x) {
   return fe_equal(&ec->fe, p->x, x) & (p->inf ^ 1);
 }
@@ -2470,14 +2454,14 @@ wge_add_var(const wei_t *ec, wge_t *r, const wge_t *a, const wge_t *b) {
   r->inf = 0;
 }
 
-static void
+TORSION_UNUSED static void
 wge_sub_var(const wei_t *ec, wge_t *r, const wge_t *a, const wge_t *b) {
   wge_t c;
   wge_neg(ec, &c, b);
   wge_add_var(ec, r, a, &c);
 }
 
-static void
+TORSION_UNUSED static void
 wge_dbl(const wei_t *ec, wge_t *r, const wge_t *p) {
   /* [GECC] Page 80, Section 3.1.2.
    *
@@ -2703,7 +2687,7 @@ wge_jsf_points_endo_var(const wei_t *ec, jge_t *out, const wge_t *p1) {
 }
 
 #ifdef TORSION_TEST
-static void
+TORSION_UNUSED static void
 wge_print(const wei_t *ec, const wge_t *p) {
   const prime_field_t *fe = &ec->fe;
 
@@ -2732,7 +2716,7 @@ jge_zero(const wei_t *ec, jge_t *r) {
   fe_zero(fe, r->z);
 }
 
-static void
+TORSION_UNUSED static void
 jge_cleanse(const wei_t *ec, jge_t *r) {
   const prime_field_t *fe = &ec->fe;
 
@@ -2741,7 +2725,7 @@ jge_cleanse(const wei_t *ec, jge_t *r) {
   fe_cleanse(fe, r->z);
 }
 
-static void
+TORSION_UNUSED static void
 jge_swap(const wei_t *ec, jge_t *a, jge_t *b, unsigned int flag) {
   const prime_field_t *fe = &ec->fe;
 
@@ -2817,7 +2801,7 @@ jge_equal(const wei_t *ec, const jge_t *a, const jge_t *b) {
   return ret;
 }
 
-static int
+TORSION_UNUSED static int
 jge_is_square(const wei_t *ec, const jge_t *p) {
   /* [SCHNORR] "Optimizations". */
   /* [BIP340] "Optimizations". */
@@ -3488,7 +3472,7 @@ jge_add(const wei_t *ec, jge_t *r, const jge_t *a, const jge_t *b) {
 #undef z3
 }
 
-static void
+TORSION_UNUSED static void
 jge_sub(const wei_t *ec, jge_t *r, const jge_t *a, const jge_t *b) {
   jge_t c;
   jge_neg(ec, &c, b);
@@ -3636,7 +3620,7 @@ jge_mixed_add(const wei_t *ec, jge_t *r, const jge_t *a, const wge_t *b) {
 #undef z3
 }
 
-static void
+TORSION_UNUSED static void
 jge_mixed_sub(const wei_t *ec, jge_t *r, const jge_t *a, const wge_t *b) {
   wge_t c;
   wge_neg(ec, &c, b);
@@ -3743,7 +3727,7 @@ jge_to_wge_all_var(const wei_t *ec, wge_t *out, const jge_t *in, size_t len) {
   }
 }
 
-static int
+TORSION_UNUSED static int
 jge_validate(const wei_t *ec, const jge_t *p) {
   /* [GECC] Example 3.20, Page 88, Section 3. */
   const prime_field_t *fe = &ec->fe;
@@ -3781,7 +3765,7 @@ jge_naf_points_var(const wei_t *ec, jge_t *out,
 }
 
 #ifdef TORSION_TEST
-static void
+TORSION_UNUSED static void
 jge_print(const wei_t *ec, const jge_t *p) {
   const prime_field_t *fe = &ec->fe;
 
@@ -4546,7 +4530,7 @@ wei_jmul_multi_var(const wei_t *ec,
     wei_jmul_multi_normal_var(ec, r, k0, points, coeffs, len, scratch);
 }
 
-static void
+TORSION_UNUSED static void
 wei_mul_multi_var(const wei_t *ec,
                   wge_t *r,
                   const sc_t k0,
@@ -5117,7 +5101,7 @@ _mont_to_edwards(const prime_field_t *fe, xge_t *r,
  * Montgomery Affine Point
  */
 
-static void
+TORSION_UNUSED static void
 mge_zero(const mont_t *ec, mge_t *r) {
   const prime_field_t *fe = &ec->fe;
 
@@ -5135,7 +5119,7 @@ mge_cleanse(const mont_t *ec, mge_t *r) {
   r->inf = 1;
 }
 
-static int
+TORSION_UNUSED static int
 mge_validate(const mont_t *ec, const mge_t *p) {
   return mont_validate_xy(ec, p->x, p->y) | p->inf;
 }
@@ -5162,7 +5146,7 @@ mge_set_x(const mont_t *ec, mge_t *r, const fe_t x, int sign) {
   return ret;
 }
 
-static int
+TORSION_UNUSED static int
 mge_set_xy(const mont_t *ec, mge_t *r, const fe_t x, const fe_t y) {
   const prime_field_t *fe = &ec->fe;
   int ret = mont_validate_xy(ec, x, y);
@@ -5194,7 +5178,7 @@ mge_export(const mont_t *ec, unsigned char *raw, const mge_t *p) {
   return p->inf ^ 1;
 }
 
-static void
+TORSION_UNUSED static void
 mge_swap(const mont_t *ec, mge_t *a, mge_t *b, unsigned int flag) {
   const prime_field_t *fe = &ec->fe;
   int cond = (flag != 0);
@@ -5208,7 +5192,7 @@ mge_swap(const mont_t *ec, mge_t *a, mge_t *b, unsigned int flag) {
   b->inf = (inf2 & (cond ^ 1)) | (inf1 & cond);
 }
 
-static void
+TORSION_UNUSED static void
 mge_set(const mont_t *ec, mge_t *r, const mge_t *a) {
   const prime_field_t *fe = &ec->fe;
 
@@ -5217,7 +5201,7 @@ mge_set(const mont_t *ec, mge_t *r, const mge_t *a) {
   r->inf = a->inf;
 }
 
-static int
+TORSION_UNUSED static int
 mge_equal(const mont_t *ec, const mge_t *a, const mge_t *b) {
   const prime_field_t *fe = &ec->fe;
   int both = a->inf & b->inf;
@@ -5250,7 +5234,7 @@ mge_neg(const mont_t *ec, mge_t *r, const mge_t *a) {
   r->inf = a->inf;
 }
 
-static void
+TORSION_UNUSED static void
 mge_dbl(const mont_t *ec, mge_t *r, const mge_t *p) {
   /* [MONT1] Page 8, Section 4.3.2.
    *
@@ -5405,7 +5389,7 @@ mge_to_xge(const mont_t *ec, xge_t *r, const mge_t *p) {
 }
 
 #ifdef TORSION_TEST
-static void
+TORSION_UNUSED static void
 mge_print(const mont_t *ec, const mge_t *p) {
   const prime_field_t *fe = &ec->fe;
 
@@ -5441,7 +5425,7 @@ pge_cleanse(const mont_t *ec, pge_t *r) {
   fe_cleanse(fe, r->z);
 }
 
-static int
+TORSION_UNUSED static int
 pge_validate(const mont_t *ec, const pge_t *p) {
   const prime_field_t *fe = &ec->fe;
   fe_t x2, x3, z2, ax2, xz2, y2;
@@ -5533,7 +5517,7 @@ pge_is_zero(const mont_t *ec, const pge_t *a) {
   return fe_is_zero(fe, a->z);
 }
 
-static int
+TORSION_UNUSED static int
 pge_equal(const mont_t *ec, const pge_t *a, const pge_t *b) {
   const prime_field_t *fe = &ec->fe;
   int inf1 = pge_is_zero(ec, a);
@@ -5697,7 +5681,7 @@ pge_is_small(const mont_t *ec, const pge_t *p) {
 }
 
 #ifdef TORSION_TEST
-static void
+TORSION_UNUSED static void
 pge_print(const mont_t *ec, const pge_t *p) {
   const prime_field_t *fe = &ec->fe;
 
@@ -6247,7 +6231,7 @@ xge_cleanse(const edwards_t *ec, xge_t *r) {
   fe_cleanse(fe, r->t);
 }
 
-static int
+TORSION_UNUSED static int
 xge_validate(const edwards_t *ec, const xge_t *p) {
   /* [TWISTED] Definition 2.1, Page 3, Section 2. */
   /*           Page 11, Section 6. */
@@ -6396,7 +6380,7 @@ xge_export(const edwards_t *ec,
     raw[fe->size - 1] |= fe_is_odd(fe, x) << 7;
 }
 
-static void
+TORSION_UNUSED static void
 xge_swap(const edwards_t *ec, xge_t *a, xge_t *b, unsigned int flag) {
   const prime_field_t *fe = &ec->fe;
 
@@ -6469,7 +6453,7 @@ xge_neg(const edwards_t *ec, xge_t *r, const xge_t *a) {
   fe_neg(fe, r->t, a->t);
 }
 
-static void
+TORSION_UNUSED static void
 xge_neg_cond(const edwards_t *ec, xge_t *r, const xge_t *a, unsigned int flag) {
   const prime_field_t *fe = &ec->fe;
 
@@ -6719,7 +6703,7 @@ xge_to_mge(const edwards_t *ec, mge_t *r, const xge_t *p) {
 }
 
 #ifdef TORSION_TEST
-static void
+TORSION_UNUSED static void
 xge_print(const edwards_t *ec, const xge_t *p) {
   const prime_field_t *fe = &ec->fe;
 

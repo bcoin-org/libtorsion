@@ -5,7 +5,6 @@ CFLAGS := \
 	-Wall \
 	-Wextra \
 	-Wshadow \
-	-Wno-unused-function \
 	-Wno-implicit-fallthrough \
 	-Wno-declaration-after-statement \
 	-Wno-long-long \
@@ -19,6 +18,7 @@ CFLAGS := \
 
 SOURCES := \
 	src/aead.c \
+	src/asn1.c \
 	src/chacha20.c \
 	src/ecc.c \
 	src/drbg.c \

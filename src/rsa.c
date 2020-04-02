@@ -1012,7 +1012,7 @@ rsa_pub_clear(rsa_pub_t *k) {
   mpz_cleanse(k->e);
 }
 
-static void
+TORSION_UNUSED static void
 rsa_pub_set(rsa_pub_t *r, const rsa_pub_t *k) {
   mpz_set(r->n, k->n);
   mpz_set(r->e, k->e);

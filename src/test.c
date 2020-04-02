@@ -123,7 +123,7 @@ random_int(drbg_t *rng, unsigned int mod) {
   return x % mod;
 }
 
-static void
+TORSION_UNUSED static void
 print_hex(const unsigned char *data, size_t len) {
   char str[512 + 1];
   size_t i;

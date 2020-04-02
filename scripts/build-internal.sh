@@ -10,13 +10,16 @@ if test x"$1" = x'32'; then
   def2='-DTORSION_NO_ASM'
 fi
 
+if test x"$1" = x'64'; then
+  def2='-DTORSION_NO_ASM'
+fi
+
 gcc -g \
   -std=c89 \
   -pedantic \
   -Wall \
   -Wextra \
   -Wshadow \
-  -Wno-unused-function \
   -Wno-implicit-fallthrough \
   -Wno-declaration-after-statement \
   -Wno-long-long \
@@ -27,6 +30,7 @@ gcc -g \
   -I./include \
   -o test-internal \
   src/aead.c \
+  src/asn1.c \
   src/chacha20.c \
   src/drbg.c \
   src/dsa.c \

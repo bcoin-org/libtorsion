@@ -102,9 +102,9 @@ function preprocess(file) {
   }
 
   // Get GCC to stop complaining about __int128.
-  if (!text.includes('FIAT_EXTENSION')) {
+  if (!text.includes('TORSION_EXTENSION')) {
     text = text.replace(/(typedef (?:un)?signed __int128)/g,
-                        'FIAT_EXTENSION $1');
+                        'TORSION_EXTENSION $1');
   }
 
   fs.writeFileSync(file, text, 'utf8');
