@@ -49,30 +49,12 @@
  * see https://www.gnu.org/licenses/.
  */
 
-#include <ctype.h>
 #include <limits.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
-#include <stdint.h>
 
 #include "mpi.h"
-
-/*
- * Prototypes
- */
-
-void *
-torsion_malloc(size_t);
-
-void *
-torsion_realloc(void *, size_t);
-
-void
-torsion_free(void *);
-
-void
-torsion_cleanse(void *, size_t);
 
 /*
  * Types
@@ -216,10 +198,10 @@ enum mpz_div_round_mode { MPI_DIV_FLOOR, MPI_DIV_CEIL, MPI_DIV_TRUNC };
 } while (0)
 
 #ifdef MPI_HAS_WIDE
-#define mpi_umul_ppmm(w1, w0, u, v) do {   \
-  mp_wide_t __ww = (mp_wide_t)(u) * (v);   \
-  w0 = (mp_limb_t)__ww;                    \
-  w1 = (mp_limb_t)(__ww >> MPI_LIMB_BITS); \
+#define mpi_umul_ppmm(w1, w0, u, v) do {     \
+  mp_wide_t __ww = (mp_wide_t)(u) * (v);     \
+  (w0) = (mp_limb_t)__ww;                    \
+  (w1) = (mp_limb_t)(__ww >> MPI_LIMB_BITS); \
 } while (0)
 #else
 #define mpi_umul_ppmm(w1, w0, u, v) do {                                    \
@@ -465,6 +447,15 @@ mpi_die(const char *msg) {
  * Allocation
  */
 
+void *
+torsion_malloc(size_t);
+
+void *
+torsion_realloc(void *, size_t);
+
+void
+torsion_free(void *);
+
 static mp_ptr
 mpi_alloc_limbs(mp_size_t size) {
   ASSERT(size > 0);
@@ -499,6 +490,9 @@ mpn_zero(mp_ptr rp, mp_size_t n) {
 /*
  * Uninitialization
  */
+
+void
+torsion_cleanse(void *, size_t);
 
 void
 mpn_cleanse(mp_ptr xp, mp_size_t xn) {
