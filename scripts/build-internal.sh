@@ -28,7 +28,7 @@ gcc -g \
   "$def1" \
   "$def2" \
   -I./include \
-  -o test-internal \
+  -o test/test-ecc-internal \
   src/aead.c \
   src/asn1.c \
   src/chacha20.c \
@@ -42,5 +42,5 @@ gcc -g \
   src/rsa.c \
   src/salsa20.c \
   src/siphash.c \
-  src/test-internal.c \
+  test/test-ecc-internal.c \
   src/util.c

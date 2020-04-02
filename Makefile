@@ -44,13 +44,13 @@ all: $(OUTPUT)
 $(OUTPUT): $(subst .c,.o,$(SOURCES))
 	$(CC) -shared -fPIC $(LDFLAGS) -o $@ $^
 
-test: $(OUTPUT) src/test.c
-	$(CC) $(CFLAGS) -L./ $(LDFLAGS) -ltorsion -o test src/test.c
+test: $(OUTPUT) test/test-ecc.c
+	$(CC) $(CFLAGS) -L./ $(LDFLAGS) -ltorsion -o test/test-ecc test/test-ecc.c
 
 clean:
 	for ext in $(CLEANEXTS); do rm -f src/*.$$ext; done
 	for ext in $(CLEANEXTS); do rm -f *.$$ext; done
-	rm -f test-internal
-	rm -f test
+	rm -f test/test-ecc
+	rm -f test/test-ecc-internal
 
 .PHONY: all clean

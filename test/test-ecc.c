@@ -28,7 +28,7 @@
 #include <torsion/salsa20.h>
 #include <torsion/siphash.h>
 #include <torsion/util.h>
-#include "internal.h"
+#include "../src/internal.h"
 
 #ifndef ARRAY_SIZE
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
