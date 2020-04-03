@@ -340,8 +340,8 @@ enum mpz_div_round_mode { MP_DIV_FLOOR, MP_DIV_CEIL, MP_DIV_TRUNC };
 
 #define MPN_MAKE_ODD(bits, rp, rn) do {                        \
   mp_size_t __bits = mpn_ctz(rp, rn);                          \
-  mp_size_t __limbs = __bits / MP_LIMB_BITS;                  \
-  mp_size_t __shift = __bits % MP_LIMB_BITS;                  \
+  mp_size_t __limbs = __bits / MP_LIMB_BITS;                   \
+  mp_size_t __shift = __bits % MP_LIMB_BITS;                   \
                                                                \
   if (__shift != 0) {                                          \
     mpn_rshift((rp), (rp) + __limbs, (rn) - __limbs, __shift); \

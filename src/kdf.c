@@ -259,7 +259,7 @@ pbkdf2_derive(unsigned char *out,
   cleanse(block, sizeof(block));
   cleanse(mac, sizeof(mac));
   cleanse(&pmac, sizeof(pmac));
-  cleanse(&smac, sizeof(pmac));
+  cleanse(&smac, sizeof(smac));
   cleanse(&hmac, sizeof(hmac));
 
   return 1;
