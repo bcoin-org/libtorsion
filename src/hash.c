@@ -5021,19 +5021,19 @@ blake2b_final(blake2b_t *ctx, unsigned char *out) {
 
 #define DEFINE_BLAKE2(name, bits)                                         \
 void                                                                      \
-torsion_##name##_##bits##_init(name##_t *ctx,                             \
+torsion_##name####bits##_init(name##_t *ctx,                              \
                                const unsigned char *key, size_t keylen) { \
   name##_init(ctx, (bits) / 8, key, keylen);                              \
 }                                                                         \
                                                                           \
 void                                                                      \
-torsion_##name##_##bits##_update(name##_t *ctx,                           \
+torsion_##name####bits##_update(name##_t *ctx,                            \
                                  const void *data, size_t len) {          \
   name##_update(ctx, data, len);                                          \
 }                                                                         \
                                                                           \
 void                                                                      \
-torsion_##name##_##bits##_final(name##_t *ctx, unsigned char *out) {      \
+torsion_##name####bits##_final(name##_t *ctx, unsigned char *out) {       \
   name##_final(ctx, out);                                                 \
 }
 
