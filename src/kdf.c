@@ -59,14 +59,13 @@ pbkdf2_derive(unsigned char *out,
   size_t blocks = (len + hash_size - 1) / hash_size;
   size_t buffer_len = blocks * hash_size;
   size_t state_len = salt_len + 4;
-  unsigned char tmp[HASH_MAX_OUTPUT_SIZE];
   unsigned char block[HASH_MAX_OUTPUT_SIZE];
   unsigned char mac[HASH_MAX_OUTPUT_SIZE];
   unsigned char *buffer = NULL;
   unsigned char *state = NULL;
   size_t i, k;
   uint32_t j;
-  hmac_t hmac;
+  hmac_t pmac, hmac;
   int r = 0;
 
   if (!hash_has_backend(type))
@@ -84,34 +83,27 @@ pbkdf2_derive(unsigned char *out,
   if (len == 0)
     return 1;
 
-  buffer = torsion_alloc(buffer_len);
-  state = torsion_alloc(state_len);
+  buffer = torsion_malloc_unsafe(buffer_len);
+  state = torsion_malloc_unsafe(state_len);
 
   if (buffer == NULL || state == NULL)
     goto fail;
 
-  /* Preemptively shorten key. */
-  if (pass_len > hash_block_size(type)) {
-    hash_init(&hmac.inner, type);
-    hash_update(&hmac.inner, pass, pass_len);
-    hash_final(&hmac.inner, tmp, hash_size);
-    pass = tmp;
-    pass_len = hash_size;
-  }
+  hmac_init(&pmac, type, pass, pass_len);
 
   memcpy(state, salt, salt_len);
 
   for (i = 0; i < blocks; i++) {
     write32be(state + salt_len, i + 1);
 
-    hmac_init(&hmac, type, pass, pass_len);
+    memcpy(&hmac, &pmac, sizeof(pmac));
     hmac_update(&hmac, state, state_len);
     hmac_final(&hmac, block);
 
     memcpy(mac, block, hash_size);
 
     for (j = 1; j < iter; j++) {
-      hmac_init(&hmac, type, pass, pass_len);
+      memcpy(&hmac, &pmac, sizeof(pmac));
       hmac_update(&hmac, mac, hash_size);
       hmac_final(&hmac, mac);
 
@@ -126,9 +118,9 @@ pbkdf2_derive(unsigned char *out,
 
   r = 1;
 fail:
-  cleanse(tmp, sizeof(tmp));
   cleanse(block, sizeof(block));
   cleanse(mac, sizeof(mac));
+  cleanse(&pmac, sizeof(pmac));
   cleanse(&hmac, sizeof(hmac));
 
   if (buffer != NULL) {
@@ -180,9 +172,9 @@ scrypt_derive(unsigned char *out,
   if (N == 0 || (N & (N - 1)) != 0)
     return 0;
 
-  B = torsion_alloc(128 * r * p);
-  XY = torsion_alloc(256 * r);
-  V = torsion_alloc(128 * r * N);
+  B = torsion_malloc_unsafe(128 * r * p);
+  XY = torsion_malloc_unsafe(256 * r);
+  V = torsion_malloc_unsafe(128 * r * N);
 
   if (B == NULL || XY == NULL || V == NULL)
     goto fail;
