@@ -75,8 +75,8 @@ enum mpz_div_round_mode { MP_DIV_FLOOR, MP_DIV_CEIL, MP_DIV_TRUNC };
  * Assertions
  */
 
-#define ASSERT(expr) do {                       \
-  if (!(expr))                                  \
+#define ASSERT(expr) do {                      \
+  if (!(expr))                                 \
     mp_assert_fail(__FILE__, __LINE__, #expr); \
 } while (0)
 
