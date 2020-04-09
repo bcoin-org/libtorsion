@@ -703,11 +703,11 @@ mpn_cmp4(mp_srcptr ap, mp_size_t an, mp_srcptr bp, mp_size_t bn) {
  */
 #define AORS_N(ADCSBB)                      \
   __asm__ __volatile__(                     \
-    "mov %%ecx, %%eax\n"                    \
-    /* guard for n <= 0 */                  \
-    "test %%eax, %%eax\n"                   \
+    "mov $0, %%eax\n"                       \
+    "test %%ecx, %%ecx\n"                   \
     "jle 7f\n" /* exit */                   \
-    /* end guard */                         \
+                                            \
+    "mov %%ecx, %%eax\n"                    \
     "shr $2, %%rcx\n"                       \
     "and $3, %%eax\n"                       \
     "jrcxz 1f\n" /* lt4 */                  \
