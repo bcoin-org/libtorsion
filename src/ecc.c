@@ -1958,9 +1958,6 @@ static int
 wei_validate_xy(const wei_t *ec, const fe_t x, const fe_t y);
 
 static void
-wge_to_jge(const wei_t *ec, jge_t *r, const wge_t *a);
-
-static void
 jge_zero(const wei_t *ec, jge_t *r);
 
 static void
@@ -1973,9 +1970,6 @@ static void
 jge_add_var(const wei_t *ec, jge_t *r, const jge_t *a, const jge_t *b);
 
 static void
-jge_sub_var(const wei_t *ec, jge_t *r, const jge_t *a, const jge_t *b);
-
-static void
 jge_mixed_addsub_var(const wei_t *ec, jge_t *r, const jge_t *a,
                      const fe_t bx, const fe_t by, int negate);
 
@@ -1984,18 +1978,6 @@ jge_mixed_add_var(const wei_t *ec, jge_t *r, const jge_t *a, const wge_t *b);
 
 static void
 jge_mixed_sub_var(const wei_t *ec, jge_t *r, const jge_t *a, const wge_t *b);
-
-static void
-jge_dbl(const wei_t *ec, jge_t *r, const jge_t *p);
-
-static void
-jge_mixed_add(const wei_t *ec, jge_t *r, const jge_t *a, const wge_t *b);
-
-static void
-jge_to_wge(const wei_t *ec, wge_t *r, const jge_t *p);
-
-static void
-jge_to_wge_var(const wei_t *ec, wge_t *r, const jge_t *p);
 
 static void
 jge_to_wge_all_var(const wei_t *ec, wge_t *out, const jge_t *in, size_t len);
