@@ -3770,7 +3770,7 @@ wei_init(wei_t *ec, const wei_def_t *def) {
 
   sc_reduce(sc, ec->sc_p, fe->p);
 
-  fe_set_limbs(fe, ec->fe_n, sc->n, sc->limbs);
+  fe_set_limbs(fe, ec->fe_n, sc->n, fe->limbs);
   fe_import(fe, ec->a, def->a);
   fe_import(fe, ec->b, def->b);
   fe_import(fe, ec->c, def->c);
