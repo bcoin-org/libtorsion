@@ -184,7 +184,6 @@ typedef uint32_t fe_word_t;
 #define MAX_SCALAR_LIMBS ((MAX_SCALAR_BITS + MP_LIMB_BITS - 1) / MP_LIMB_BITS)
 #define MAX_REDUCE_LIMBS (MAX_SCALAR_LIMBS * 2 + 2)
 #define MAX_ENDO_BITS ((MAX_SCALAR_BITS + 1) / 2 + 1)
-#define MAX_ENDO_LIMBS ((MAX_ENDO_BITS + MP_LIMB_BITS - 1) / MP_LIMB_BITS)
 
 #define MAX_ELEMENT_SIZE MAX_FIELD_SIZE
 
@@ -232,7 +231,6 @@ typedef struct _scalar_field_s {
   mp_limb_t nh[MAX_REDUCE_LIMBS];
   mp_limb_t m[MAX_REDUCE_LIMBS];
   mp_size_t limbs;
-  mp_size_t endo_limbs;
   sc_invert_func *invert;
 } scalar_field_t;
 
@@ -695,7 +693,6 @@ sc_import(const scalar_field_t *sc, sc_t r, const unsigned char *raw) {
 
 static int
 sc_import_weak(const scalar_field_t *sc, sc_t r, const unsigned char *raw) {
-  /* Weak reduction if we're aligned to 8 bits. */
   mp_limb_t sp[MAX_SCALAR_LIMBS];
   mp_limb_t cy;
 
@@ -831,7 +828,7 @@ sc_is_high_var(const scalar_field_t *sc, const sc_t a) {
 
 static void
 sc_neg(const scalar_field_t *sc, sc_t r, const sc_t a) {
-  mp_limb_t zero = sc_is_zero(sc, a);
+  mp_limb_t zero = mpn_sec_zero_p(a, sc->limbs);
   mp_limb_t cy;
 
   /* r = n - a */
@@ -851,7 +848,6 @@ sc_neg_cond(const scalar_field_t *sc, sc_t r, const sc_t a, unsigned int flag) {
   sc_t b;
   sc_neg(sc, b, a);
   sc_select(sc, r, a, b, flag);
-  sc_cleanse(sc, b);
 }
 
 static void
@@ -862,15 +858,8 @@ sc_add(const scalar_field_t *sc, sc_t r, const sc_t a, const sc_t b) {
 
   ASSERT(sc->n[sc->limbs] == 0);
 
-  mpn_copyi(ap, a, sc->limbs);
-  mpn_copyi(bp, b, sc->limbs);
-
-  ap[sc->limbs] = 0;
-  bp[sc->limbs] = 0;
-
   /* r = a + b */
-  cy = mpn_add_n(ap, ap, bp, sc->limbs + 1);
-  ASSERT(cy == 0);
+  ap[sc->limbs] = mpn_add_n(ap, a, b, sc->limbs);
 
   /* r = r - n if r >= n */
   cy = mpn_sub_n(bp, ap, sc->n, sc->limbs + 1);
@@ -886,7 +875,6 @@ sc_sub(const scalar_field_t *sc, sc_t r, const sc_t a, const sc_t b) {
   sc_t c;
   sc_neg(sc, c, b);
   sc_add(sc, r, a, c);
-  sc_cleanse(sc, c);
 }
 
 static void
@@ -972,30 +960,21 @@ static void
 sc_mulshift(const scalar_field_t *sc, sc_t r,
             const sc_t a, const sc_t b,
             size_t shift) {
-  /* Computes `r = round((a * b) >> 272)`.
+  /* Computes `r = round((a * b) >> shift)`.
    *
    * Constant time assuming `shift` is constant.
-   *
-   * Note that `b` must be less than or equal
-   * to `(scalar_bits + 1) / 2 + 1 + 16` bits.
-   *
-   * If `shift` is aligned to the limb size,
-   * this function may leak a single bit of
-   * information, however, this is never the
-   * case with secp256k1.
    */
-  mp_limb_t scratch[MAX_SCALAR_LIMBS + MAX_ENDO_LIMBS + 1 + 1]; /* 128 bytes */
+  mp_limb_t scratch[MAX_SCALAR_LIMBS * 2]; /* 144 bytes */
   mp_size_t limbs = shift / MP_LIMB_BITS;
   mp_size_t left = shift % MP_LIMB_BITS;
   mp_limb_t *rp = scratch;
-  mp_size_t rn = sc->limbs + sc->endo_limbs + 1;
+  mp_size_t rn = sc->limbs * 2;
   mp_limb_t bit, cy;
 
   ASSERT(shift > sc->bits);
-  ASSERT(rn > limbs);
 
   /* r = a * b */
-  mpn_mul(rp, a, sc->limbs, b, sc->endo_limbs + 1);
+  mpn_mul_n(rp, a, b, sc->limbs);
 
   /* bit = (r >> 271) & 1 */
   bit = mpn_get_bit(rp, rn, shift - 1);
@@ -1004,25 +983,22 @@ sc_mulshift(const scalar_field_t *sc, sc_t r,
   rp += limbs;
   rn -= limbs;
 
-  if (left == 0) {
-    /* r += bit (leaky) */
-    rp[rn] = mpn_add_1(rp, rp, rn, bit);
-    rn += rp[rn];
-  } else {
-    /* r >>= 16 */
+  ASSERT(rn >= 0);
+
+  /* r >>= 16 */
+  if (left > 0)
     mpn_rshift(rp, rp, rn, left);
 
-    /* r += bit */
-    cy = mpn_add_1(rp, rp, rn, bit);
-    ASSERT(cy == 0);
-  }
+  /* r += bit */
+  cy = mpn_add_1(rp, rp, rn, bit);
 
+  ASSERT(cy == 0);
   ASSERT(rn <= sc->limbs);
 
   mpn_copyi(r, rp, rn);
   mpn_zero(r + rn, sc->limbs - rn);
 
-  mpn_cleanse(scratch, sc->limbs + sc->endo_limbs + 1 + 1);
+  mpn_cleanse(scratch, sc->limbs * 2);
 
 #ifdef TORSION_TEST
   ASSERT(mpn_cmp(r, sc->n, sc->limbs) < 0);
@@ -1861,7 +1837,6 @@ scalar_field_init(scalar_field_t *sc, const scalar_def_t *def, int endian) {
   sc->size = (def->bits + 7) / 8;
   sc->bits = def->bits;
   sc->endo_bits = (def->bits + 1) / 2 + 1;
-  sc->endo_limbs = (sc->endo_bits + MP_LIMB_BITS - 1) / MP_LIMB_BITS;
   sc->shift = sc->limbs * 2 + 2;
 
   /* Deserialize order into GMP limbs. */
