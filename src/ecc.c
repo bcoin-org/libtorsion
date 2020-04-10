@@ -214,11 +214,11 @@ typedef uint32_t fe_word_t;
  * Scalar Field
  */
 
-typedef mp_limb_t sc_t[MAX_SCALAR_LIMBS]; /* 72 bytes */
 struct _scalar_field_s;
 
-typedef void
-sc_invert_func(const struct _scalar_field_s *sc, sc_t r, const sc_t x);
+typedef mp_limb_t sc_t[MAX_SCALAR_LIMBS]; /* 72 bytes */
+
+typedef void sc_invert_func(const struct _scalar_field_s *, sc_t, const sc_t);
 
 typedef struct _scalar_field_s {
   int endian;
@@ -244,53 +244,24 @@ typedef struct _scalar_def_s {
  * Prime Field
  */
 
-typedef void
-fe_add_func(fe_word_t *out1, const fe_word_t *arg1, const fe_word_t *arg2);
-
-typedef void
-fe_sub_func(fe_word_t *out1, const fe_word_t *arg1, const fe_word_t *arg2);
-
-typedef void
-fe_opp_func(fe_word_t *out1, const fe_word_t *arg1);
-
-typedef void
-fe_mul_func(fe_word_t *out1, const fe_word_t *arg1, const fe_word_t *arg2);
-
-typedef void
-fe_sqr_func(fe_word_t *out1, const fe_word_t *arg1);
-
-typedef void
-fe_from_montgomery_func(fe_word_t *out1, const fe_word_t *arg1);
-
-typedef void
-fe_nonzero_func(fe_word_t *out1, const fe_word_t *arg1);
-
-typedef void
-fe_selectznz_func(fe_word_t *out1, unsigned char arg1,
-                  const fe_word_t *arg2, const fe_word_t *arg3);
-
-typedef void
-fe_to_bytes_func(uint8_t *out1, const fe_word_t *arg1);
-
-typedef void
-fe_from_bytes_func(fe_word_t *out1, const uint8_t *arg1);
-
-typedef void
-fe_carry_func(fe_word_t *out1, const fe_word_t *arg1);
-
-typedef void
-fe_invert_func(fe_word_t *out, const fe_word_t *in);
-
-typedef int
-fe_sqrt_func(fe_word_t *out, const fe_word_t *in);
-
-typedef int
-fe_isqrt_func(fe_word_t *out, const fe_word_t *u, const fe_word_t *v);
-
-typedef void
-fe_scmul_121666(fe_word_t *out1, const fe_word_t *arg1);
-
 typedef fe_word_t fe_t[MAX_FIELD_WORDS]; /* 72 bytes */
+
+typedef void fe_add_func(fe_word_t *, const fe_word_t *, const fe_word_t *);
+typedef void fe_sub_func(fe_word_t *, const fe_word_t *, const fe_word_t *);
+typedef void fe_opp_func(fe_word_t *, const fe_word_t *);
+typedef void fe_mul_func(fe_word_t *, const fe_word_t *, const fe_word_t *);
+typedef void fe_sqr_func(fe_word_t *, const fe_word_t *);
+typedef void fe_from_montgomery_func(fe_word_t *, const fe_word_t *);
+typedef void fe_nonzero_func(fe_word_t *, const fe_word_t *);
+typedef void fe_selectznz_func(fe_word_t *, unsigned char,
+                               const fe_word_t *, const fe_word_t *);
+typedef void fe_to_bytes_func(uint8_t *, const fe_word_t *);
+typedef void fe_from_bytes_func(fe_word_t *, const uint8_t *);
+typedef void fe_carry_func(fe_word_t *, const fe_word_t *);
+typedef void fe_invert_func(fe_word_t *, const fe_word_t *);
+typedef int fe_sqrt_func(fe_word_t *, const fe_word_t *);
+typedef int fe_isqrt_func(fe_word_t *, const fe_word_t *, const fe_word_t *);
+typedef void fe_scmul_121666_func(fe_word_t *, const fe_word_t *);
 
 typedef struct _prime_field_s {
   int endian;
@@ -314,7 +285,7 @@ typedef struct _prime_field_s {
   fe_to_bytes_func *to_bytes;
   fe_from_bytes_func *from_bytes;
   fe_carry_func *carry;
-  fe_scmul_121666 *scmul_121666;
+  fe_scmul_121666_func *scmul_121666;
   fe_invert_func *invert;
   fe_sqrt_func *sqrt;
   fe_isqrt_func *isqrt;
@@ -341,7 +312,7 @@ typedef struct _prime_def_s {
   fe_to_bytes_func *to_bytes;
   fe_from_bytes_func *from_bytes;
   fe_carry_func *carry;
-  fe_scmul_121666 *scmul_121666;
+  fe_scmul_121666_func *scmul_121666;
   fe_invert_func *invert;
   fe_sqrt_func *sqrt;
   fe_isqrt_func *isqrt;
