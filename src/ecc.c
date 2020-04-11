@@ -5732,32 +5732,32 @@ mont_init_isomorphism(mont_t *ec, const mont_def_t *def) {
 }
 
 static void
-mont_clamp(const mont_t *ec, unsigned char *out, const unsigned char *in) {
-  size_t size = ec->sc.size;
+mont_clamp(const mont_t *ec, unsigned char *out, const unsigned char *scalar) {
+  /* [RFC7748] Page 8, Section 5. */
+  const prime_field_t *fe = &ec->fe;
+  const scalar_field_t *sc = &ec->sc;
   size_t top = ec->fe.bits & 7;
+
+  ASSERT(sc->size <= fe->size);
 
   if (top == 0)
     top = 8;
 
   /* Copy. */
-  memcpy(out, in, size);
+  memcpy(out, scalar, sc->size);
 
   /* Adjust for low order. */
-  if (size < ec->fe.size)
+  if (sc->size < fe->size)
     top = 8;
-
-  /* Adjust for high order. */
-  if (size > ec->fe.size)
-    out[--size] = 0;
 
   /* Ensure a multiple of the cofactor. */
   out[0] &= -ec->h;
 
   /* Clamp to the prime. */
-  out[size - 1] &= (1 << top) - 1;
+  out[sc->size - 1] &= (1 << top) - 1;
 
   /* Set the high bit. */
-  out[size - 1] |= 1 << (top - 1);
+  out[sc->size - 1] |= 1 << (top - 1);
 }
 
 static void
@@ -6782,32 +6782,32 @@ edwards_init_isomorphism(edwards_t *ec, const edwards_def_t *def) {
 static void
 edwards_clamp(const edwards_t *ec,
               unsigned char *out,
-              const unsigned char *in) {
-  size_t size = ec->sc.size;
+              const unsigned char *scalar) {
+  /* [RFC8032] Section 5.1.5 & 5.2.5. */
+  const prime_field_t *fe = &ec->fe;
+  const scalar_field_t *sc = &ec->sc;
   size_t top = ec->fe.bits & 7;
+
+  ASSERT(sc->size <= fe->size);
 
   if (top == 0)
     top = 8;
 
   /* Copy. */
-  memcpy(out, in, size);
+  memcpy(out, scalar, sc->size);
 
   /* Adjust for low order. */
-  if (size < ec->fe.size)
+  if (sc->size < fe->size)
     top = 8;
-
-  /* Adjust for high order. */
-  if (size > ec->fe.size)
-    out[--size] = 0;
 
   /* Ensure a multiple of the cofactor. */
   out[0] &= -ec->h;
 
   /* Clamp to the prime. */
-  out[size - 1] &= (1 << top) - 1;
+  out[sc->size - 1] &= (1 << top) - 1;
 
   /* Set the high bit. */
-  out[size - 1] |= 1 << (top - 1);
+  out[sc->size - 1] |= 1 << (top - 1);
 }
 
 static void
@@ -11404,9 +11404,12 @@ eddsa_privkey_expand(const edwards_t *ec,
                      unsigned char *scalar,
                      unsigned char *prefix,
                      const unsigned char *priv) {
+  /* [RFC8032] Section 5.1.6 & 5.2.6. */
   unsigned char bytes[(MAX_FIELD_SIZE + 1) * 2];
   const prime_field_t *fe = &ec->fe;
   const scalar_field_t *sc = &ec->sc;
+
+  ASSERT(sc->size <= fe->adj_size);
 
   eddsa_privkey_hash(ec, bytes, priv);
 
