@@ -382,7 +382,7 @@ typedef struct _wei_s {
   int small_gap;
   wge_t g;
   sc_t blind;
-  wge_t unblind;
+  jge_t unblind;
   wge_t wnd_fixed[FIXED_MAX_LENGTH]; /* 311.2kb */
   wge_t wnd_naf[NAF_SIZE_PRE]; /* 152kb */
   wge_t torsion[8];
@@ -3783,7 +3783,7 @@ wei_init(wei_t *ec, const wei_def_t *def) {
   ec->g.inf = 0;
 
   sc_zero(sc, ec->blind);
-  wge_zero(ec, &ec->unblind);
+  jge_zero(ec, &ec->unblind);
 
   wge_fixed_points_var(ec, ec->wnd_fixed, &ec->g);
   wge_naf_points_var(ec, ec->wnd_naf, &ec->g, NAF_WIDTH_PRE);
@@ -3985,7 +3985,7 @@ wei_jmul_g(const wei_t *ec, jge_t *r, const sc_t k) {
   sc_add(sc, k0, k, ec->blind);
 
   /* Multiply in constant time. */
-  wge_to_jge(ec, r, &ec->unblind);
+  jge_set(ec, r, &ec->unblind);
   wge_zero(ec, &t);
 
   for (i = 0; i < FIXED_STEPS(sc->bits); i++) {
@@ -4486,20 +4486,20 @@ static void
 wei_randomize(wei_t *ec, const unsigned char *entropy) {
   const scalar_field_t *sc = &ec->sc;
   sc_t blind;
-  wge_t unblind;
+  jge_t unblind;
   drbg_t rng;
 
   drbg_init(&rng, HASH_SHA256, entropy, ENTROPY_SIZE);
 
   sc_random(sc, blind, &rng);
 
-  wei_mul_g(ec, &unblind, blind);
+  wei_jmul_g(ec, &unblind, blind);
 
   sc_neg(sc, ec->blind, blind);
-  wge_set(ec, &ec->unblind, &unblind);
+  jge_set(ec, &ec->unblind, &unblind);
 
   sc_cleanse(sc, blind);
-  wge_cleanse(ec, &unblind);
+  jge_cleanse(ec, &unblind);
   cleanse(&rng, sizeof(rng));
 }
 
@@ -8620,7 +8620,7 @@ void
 ecdsa_context_destroy(wei_t *ec) {
   if (ec != NULL) {
     sc_cleanse(&ec->sc, ec->blind);
-    wge_cleanse(ec, &ec->unblind);
+    jge_cleanse(ec, &ec->unblind);
     torsion_free(ec);
   }
 }
