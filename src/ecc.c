@@ -2011,18 +2011,20 @@ wge_validate(const wei_t *ec, const wge_t *p) {
 
 static int
 wge_set_x(const wei_t *ec, wge_t *r, const fe_t x, int sign) {
-  /* [GECC] Page 89, Section 3.2.2. */
   const prime_field_t *fe = &ec->fe;
   fe_t y;
   int ret;
 
-  /* y^2 = x^3 + a * x + b */
   wei_solve_y2(ec, y, x);
 
   ret = fe_sqrt(fe, y, y);
 
-  if (sign != -1)
+  if (sign != -1) {
     fe_set_odd(fe, y, y, sign);
+
+    if (ec->h > 1)
+      ret &= (fe_is_zero(fe, y) & (sign != 0)) ^ 1;
+  }
 
   fe_select(fe, r->x, x, fe->zero, ret ^ 1);
   fe_select(fe, r->y, y, fe->zero, ret ^ 1);
@@ -3862,10 +3864,10 @@ wei_mul_a(const wei_t *ec, fe_t r, const fe_t x) {
 static void
 wei_solve_y2(const wei_t *ec, fe_t r, const fe_t x) {
   /* [GECC] Page 89, Section 3.2.2. */
+  /* y^2 = x^3 + a * x + b */
   const prime_field_t *fe = &ec->fe;
   fe_t x3, ax;
 
-  /* y^2 = x^3 + a * x + b */
   fe_sqr(fe, x3, x);
   fe_mul(fe, x3, x3, x);
   wei_mul_a(ec, ax, x);
@@ -3875,11 +3877,9 @@ wei_solve_y2(const wei_t *ec, fe_t r, const fe_t x) {
 
 static int
 wei_validate_xy(const wei_t *ec, const fe_t x, const fe_t y) {
-  /* [GECC] Page 89, Section 3.2.2. */
   const prime_field_t *fe = &ec->fe;
   fe_t lhs, rhs;
 
-  /* y^2 = x^3 + a * x + b */
   fe_sqr(fe, lhs, y);
   wei_solve_y2(ec, rhs, x);
 
@@ -5065,8 +5065,6 @@ mge_validate(const mont_t *ec, const mge_t *p) {
 
 static int
 mge_set_x(const mont_t *ec, mge_t *r, const fe_t x, int sign) {
-  /* [MONT3] Page 3, Section 2. */
-  /* B * y^2 = x^3 + A * x^2 + x */
   const prime_field_t *fe = &ec->fe;
   fe_t y;
   int ret;
@@ -5075,8 +5073,10 @@ mge_set_x(const mont_t *ec, mge_t *r, const fe_t x, int sign) {
 
   ret = fe_sqrt(fe, y, y);
 
-  if (sign != -1)
+  if (sign != -1) {
     fe_set_odd(fe, y, y, sign);
+    ret &= (fe_is_zero(fe, y) & (sign != 0)) ^ 1;
+  }
 
   fe_select(fe, r->x, x, fe->zero, ret ^ 1);
   fe_select(fe, r->y, y, fe->zero, ret ^ 1);
@@ -5790,6 +5790,7 @@ mont_mul_a24(const mont_t *ec, fe_t r, const fe_t a) {
 static void
 mont_solve_y2(const mont_t *ec, fe_t r, const fe_t x) {
   /* [MONT3] Page 3, Section 2. */
+  /* https://hyperelliptic.org/EFD/g1p/auto-montgom.html */
   /* B * y^2 = x^3 + A * x^2 + x */
   const prime_field_t *fe = &ec->fe;
   fe_t by2, x2, x3;
@@ -5804,8 +5805,6 @@ mont_solve_y2(const mont_t *ec, fe_t r, const fe_t x) {
 
 static int
 mont_validate_xy(const mont_t *ec, const fe_t x, const fe_t y) {
-  /* [MONT3] Page 3, Section 2. */
-  /* y^2 = (x^3 + A * x^2 + x) / B */
   const prime_field_t *fe = &ec->fe;
   fe_t lhs, rhs;
 
@@ -5817,12 +5816,9 @@ mont_validate_xy(const mont_t *ec, const fe_t x, const fe_t y) {
 
 static int
 mont_validate_x(const mont_t *ec, const fe_t x) {
-  /* [MONT3] Page 3, Section 2. */
-  /* https://hyperelliptic.org/EFD/g1p/auto-montgom.html */
   const prime_field_t *fe = &ec->fe;
   fe_t y2;
 
-  /* B * y^2 = x^3 + A * x^2 + x */
   mont_solve_y2(ec, y2, x);
 
   return fe_is_square(fe, y2);
