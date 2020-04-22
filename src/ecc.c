@@ -3789,8 +3789,8 @@ wei_init(wei_t *ec, const wei_def_t *def) {
   wge_naf_points_var(ec, ec->wnd_naf, &ec->g, NAF_WIDTH_PRE);
 
   for (i = 0; i < ec->h; i++) {
-    fe_import_be(fe, ec->torsion[i].x, def->torsion[i].x);
-    fe_import_be(fe, ec->torsion[i].y, def->torsion[i].y);
+    fe_import(fe, ec->torsion[i].x, def->torsion[i].x);
+    fe_import(fe, ec->torsion[i].y, def->torsion[i].y);
 
     ec->torsion[i].inf = def->torsion[i].inf;
   }
