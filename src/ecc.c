@@ -5820,15 +5820,10 @@ mont_validate_x(const mont_t *ec, const fe_t x) {
   /* [MONT3] Page 3, Section 2. */
   /* https://hyperelliptic.org/EFD/g1p/auto-montgom.html */
   const prime_field_t *fe = &ec->fe;
-  fe_t x2, x3, ax2, y2;
+  fe_t y2;
 
   /* B * y^2 = x^3 + A * x^2 + x */
-  fe_sqr(fe, x2, x);
-  fe_mul(fe, x3, x2, x);
-  fe_mul(fe, ax2, ec->a, x2);
-  fe_add(fe, y2, x3, ax2);
-  fe_add(fe, y2, y2, x);
-  mont_div_b(ec, y2, y2);
+  mont_solve_y2(ec, y2, x);
 
   return fe_is_square(fe, y2);
 }
