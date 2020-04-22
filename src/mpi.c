@@ -220,9 +220,9 @@ enum mpz_div_round_mode { MP_DIV_FLOOR, MP_DIV_CEIL, MP_DIV_TRUNC };
   __x3 = (mp_limb_t)__uh * __vh;                                           \
                                                                            \
   __x1 += __x0 >> (MP_LIMB_BITS / 2); /* this can't give carry */          \
-  __x1 += __x2;                        /* but this indeed can */           \
+  __x1 += __x2;                       /* but this indeed can */            \
                                                                            \
-  if (__x1 < __x2)                     /* did we get it? */                \
+  if (__x1 < __x2)                    /* did we get it? */                 \
     __x3 += MP_HLIMB_BIT;             /* yes, add it in the proper pos. */ \
                                                                            \
   (w1) = __x3 + (__x1 >> (MP_LIMB_BITS / 2));                              \
