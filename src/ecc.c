@@ -230,6 +230,8 @@ typedef struct _scalar_field_s {
   unsigned char raw[MAX_SCALAR_SIZE];
   mp_limb_t nh[MAX_REDUCE_LIMBS];
   mp_limb_t m[MAX_REDUCE_LIMBS];
+  mp_limb_t k;
+  mp_limb_t r2[MAX_SCALAR_LIMBS * 2 + 1];
   mp_size_t limbs;
   sc_invert_func *invert;
 } scalar_field_t;
@@ -239,6 +241,8 @@ typedef struct _scalar_def_s {
   const unsigned char n[MAX_FIELD_SIZE];
   sc_invert_func *invert;
 } scalar_def_t;
+
+static const sc_t sc_one = {1, 0};
 
 /*
  * Prime Field
@@ -915,7 +919,7 @@ sc_mul(const scalar_field_t *sc, sc_t r, const sc_t a, const sc_t b) {
   sc_reduce(sc, r, rp);
 }
 
-static void
+TORSION_UNUSED static void
 sc_sqr(const scalar_field_t *sc, sc_t r, const sc_t a) {
   mp_limb_t rp[MAX_REDUCE_LIMBS]; /* 160 bytes */
 
@@ -976,6 +980,30 @@ sc_mulshift(const scalar_field_t *sc, sc_t r,
 #endif
 }
 
+static void
+sc_montmul(const scalar_field_t *sc, sc_t r, const sc_t a, const sc_t b) {
+  mp_limb_t tmp[MAX_SCALAR_LIMBS * 2]; /* 144 bytes */
+
+  mpn_montmul(tmp, a, b, sc->n, sc->k, sc->limbs);
+
+  mpn_copyi(r, tmp, sc->limbs);
+}
+
+static void
+sc_montsqr(const scalar_field_t *sc, sc_t r, const sc_t a) {
+  sc_montmul(sc, r, a, a);
+}
+
+static void
+sc_mont(const scalar_field_t *sc, sc_t r, const sc_t a) {
+  sc_montmul(sc, r, a, sc->r2);
+}
+
+static void
+sc_normal(const scalar_field_t *sc, sc_t r, const sc_t a) {
+  sc_montmul(sc, r, a, sc_one);
+}
+
 static int
 sc_invert_var(const scalar_field_t *sc, sc_t r, const sc_t a) {
   mp_limb_t scratch[MPN_INVERT_ITCH(MAX_SCALAR_LIMBS)];
@@ -985,20 +1013,21 @@ sc_invert_var(const scalar_field_t *sc, sc_t r, const sc_t a) {
 static void
 sc_pow(const scalar_field_t *sc, sc_t r, const sc_t a, const mp_limb_t *e) {
   /* Used for inversion if not available otherwise. */
+  /* Note that our exponent is not secret. */
   mp_size_t start = WND_STEPS(sc->bits) - 1;
   sc_t wnd[WND_SIZE]; /* 1152 bytes */
   mp_size_t i, j;
   mp_limb_t b;
 
-  sc_set_word(sc, wnd[0], 1);
-  sc_set(sc, wnd[1], a);
+  sc_mont(sc, wnd[0], sc_one);
+  sc_mont(sc, wnd[1], a);
 
   for (i = 2; i < WND_SIZE; i += 2) {
-    sc_sqr(sc, wnd[i], wnd[i / 2]);
-    sc_mul(sc, wnd[i + 1], wnd[i], a);
+    sc_montsqr(sc, wnd[i], wnd[i / 2]);
+    sc_montmul(sc, wnd[i + 1], wnd[i], wnd[1]);
   }
 
-  sc_set_word(sc, r, 1);
+  sc_set(sc, r, wnd[0]);
 
   for (i = start; i >= 0; i--) {
     b = mpn_get_bits(e, sc->limbs, i * WND_WIDTH, WND_WIDTH);
@@ -1007,11 +1036,13 @@ sc_pow(const scalar_field_t *sc, sc_t r, const sc_t a, const mp_limb_t *e) {
       sc_set(sc, r, wnd[b]);
     } else {
       for (j = 0; j < WND_WIDTH; j++)
-        sc_sqr(sc, r, r);
+        sc_montsqr(sc, r, r);
 
-      sc_mul(sc, r, r, wnd[b]);
+      sc_montmul(sc, r, r, wnd[b]);
     }
   }
+
+  sc_normal(sc, r, r);
 }
 
 static int
@@ -1856,6 +1887,9 @@ scalar_field_init(scalar_field_t *sc, const scalar_def_t *def, int endian) {
 
     ASSERT(sc->m[sc->limbs + 3] == 0);
   }
+
+  /* Montgomery precomputation. */
+  mpn_mont(&sc->k, sc->r2, sc->n, sc->limbs);
 
   /* Optimized scalar inverse (optional). */
   sc->invert = def->invert;
