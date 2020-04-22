@@ -1539,10 +1539,21 @@ bench_ecdsa(drbg_t *rng) {
   assert(ecdsa_sign(ec, sig, NULL, msg, 32, priv));
   assert(ecdsa_pubkey_create(ec, pub, NULL, priv, 1));
 
+  printf("Benchmarking verify...\n");
+
   bench_start(&tv);
 
   for (i = 0; i < 10000; i++)
     assert(ecdsa_verify(ec, msg, 32, sig, pub, 33));
+
+  bench_end(&tv, i);
+
+  printf("Benchmarking sign...\n");
+
+  bench_start(&tv);
+
+  for (i = 0; i < 10000; i++)
+    assert(ecdsa_sign(ec, sig, NULL, msg, 32, priv));
 
   bench_end(&tv, i);
 
