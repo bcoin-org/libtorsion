@@ -2878,6 +2878,11 @@ mpn_out_str(FILE *stream, int base, mp_srcptr xp, mp_size_t xn) {
 
   xn = mpn_normalized_size(xp, xn);
 
+  if (xn == 0) {
+    fputc('0', stream);
+    return 1;
+  }
+
   while (xn--) {
     i = MP_LIMB_BITS / 4;
 
