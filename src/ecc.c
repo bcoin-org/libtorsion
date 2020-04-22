@@ -5679,10 +5679,10 @@ mont_init(mont_t *ec, const mont_def_t *def) {
   fe_add(fe, ec->a24, ec->a, fe->two);
   fe_mul(fe, ec->a24, ec->a24, ec->i4);
 
-  /* a0 = a / b */
+  /* a' = a / b */
   fe_mul(fe, ec->a0, ec->a, ec->bi);
 
-  /* b0 = 1 / b^2 */
+  /* b' = 1 / b^2 */
   fe_sqr(fe, ec->b0, ec->bi);
 
   /* i16 = 1 / 16 (mod n) */
@@ -6760,10 +6760,10 @@ edwards_init_isomorphism(edwards_t *ec, const edwards_def_t *def) {
   fe_mul(fe, ec->B, u, v);
   ASSERT(fe_invert_var(fe, ec->Bi, ec->B));
 
-  /* A0 = A / B */
+  /* A' = A / B */
   fe_mul(fe, ec->A0, ec->A, ec->Bi);
 
-  /* B0 = 1 / B^2 */
+  /* B' = 1 / B^2 */
   fe_sqr(fe, ec->B0, ec->Bi);
 }
 
