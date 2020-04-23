@@ -2211,13 +2211,11 @@ wge_select(const wei_t *ec,
            unsigned int flag) {
   const prime_field_t *fe = &ec->fe;
   int cond = (flag != 0);
-  int mask0 = cond - 1;
-  int mask1 = ~mask0;
 
   fe_select(fe, r->x, a->x, b->x, flag);
   fe_select(fe, r->y, a->y, b->y, flag);
 
-  r->inf = (a->inf & mask0) | (b->inf & mask1);
+  r->inf = (a->inf & (cond ^ 1)) | (b->inf & cond);
 }
 
 static void
@@ -2232,19 +2230,18 @@ wge_set(const wei_t *ec, wge_t *r, const wge_t *a) {
 TORSION_UNUSED static int
 wge_equal(const wei_t *ec, const wge_t *a, const wge_t *b) {
   const prime_field_t *fe = &ec->fe;
-  int both = a->inf & b->inf;
   int ret = 1;
 
-  /* P = O, Q = O */
-  ret &= (a->inf ^ b->inf) ^ 1;
+  /* P != O, Q != O */
+  ret &= (a->inf | b->inf) ^ 1;
 
   /* X1 = X2 */
-  ret &= fe_equal(fe, a->x, b->x) | both;
+  ret &= fe_equal(fe, a->x, b->x);
 
   /* Y1 = Y2 */
-  ret &= fe_equal(fe, a->y, b->y) | both;
+  ret &= fe_equal(fe, a->y, b->y);
 
-  return ret;
+  return ret | (a->inf & b->inf);
 }
 
 static int
@@ -2744,12 +2741,11 @@ jge_equal(const wei_t *ec, const jge_t *a, const jge_t *b) {
   const prime_field_t *fe = &ec->fe;
   int inf1 = jge_is_zero(ec, a);
   int inf2 = jge_is_zero(ec, b);
-  int both = inf1 & inf2;
   fe_t z1, z2, e1, e2;
   int ret = 1;
 
-  /* P = O, Q = O */
-  ret &= (inf1 ^ inf2) ^ 1;
+  /* P != O, Q != O */
+  ret &= (inf1 | inf2) ^ 1;
 
   /* X1 * Z2^2 == X2 * Z1^2 */
   fe_sqr(fe, z1, a->z);
@@ -2757,7 +2753,7 @@ jge_equal(const wei_t *ec, const jge_t *a, const jge_t *b) {
   fe_mul(fe, e1, a->x, z2);
   fe_mul(fe, e2, b->x, z1);
 
-  ret &= fe_equal(fe, e1, e2) | both;
+  ret &= fe_equal(fe, e1, e2);
 
   /* Y1 * Z2^3 == Y2 * Z1^3 */
   fe_mul(fe, z1, z1, a->z);
@@ -2765,9 +2761,9 @@ jge_equal(const wei_t *ec, const jge_t *a, const jge_t *b) {
   fe_mul(fe, e1, a->y, z2);
   fe_mul(fe, e2, b->y, z1);
 
-  ret &= fe_equal(fe, e1, e2) | both;
+  ret &= fe_equal(fe, e1, e2);
 
-  return ret;
+  return ret | (inf1 & inf2);
 }
 
 TORSION_UNUSED static int
@@ -5177,19 +5173,18 @@ mge_set(const mont_t *ec, mge_t *r, const mge_t *a) {
 TORSION_UNUSED static int
 mge_equal(const mont_t *ec, const mge_t *a, const mge_t *b) {
   const prime_field_t *fe = &ec->fe;
-  int both = a->inf & b->inf;
   int ret = 1;
 
-  /* P = O, Q = O */
-  ret &= (a->inf ^ b->inf) ^ 1;
+  /* P != O, Q != O */
+  ret &= (a->inf | b->inf) ^ 1;
 
   /* X1 = X2 */
-  ret &= fe_equal(fe, a->x, b->x) | both;
+  ret &= fe_equal(fe, a->x, b->x);
 
   /* Y1 = Y2 */
-  ret &= fe_equal(fe, a->y, b->y) | both;
+  ret &= fe_equal(fe, a->y, b->y);
 
-  return ret;
+  return ret | (a->inf & b->inf);
 }
 
 static int
@@ -5495,20 +5490,19 @@ pge_equal(const mont_t *ec, const pge_t *a, const pge_t *b) {
   const prime_field_t *fe = &ec->fe;
   int inf1 = pge_is_zero(ec, a);
   int inf2 = pge_is_zero(ec, b);
-  int both = inf1 & inf2;
   fe_t e1, e2;
   int ret = 1;
 
-  /* P = O, Q = O */
-  ret &= (inf1 ^ inf2) ^ 1;
+  /* P != O, Q != O */
+  ret &= (inf1 | inf2) ^ 1;
 
   /* X1 * Z2 == X2 * Z1 */
   fe_mul(fe, e1, a->x, b->z);
   fe_mul(fe, e2, b->x, a->z);
 
-  ret &= fe_equal(fe, e1, e2) | both;
+  ret &= fe_equal(fe, e1, e2);
 
-  return ret;
+  return ret | (inf1 & inf2);
 }
 
 static void
