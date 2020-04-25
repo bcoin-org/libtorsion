@@ -19,6 +19,7 @@ SOURCES := \
 	src/aead.c \
 	src/asn1.c \
 	src/chacha20.c \
+	src/cipher.c \
 	src/ecc.c \
 	src/drbg.c \
 	src/dsa.c \

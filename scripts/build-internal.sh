@@ -31,6 +31,7 @@ gcc -g \
   src/aead.c \
   src/asn1.c \
   src/chacha20.c \
+  src/cipher.c \
   src/drbg.c \
   src/dsa.c \
   src/hash.c \
