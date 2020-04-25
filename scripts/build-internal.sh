@@ -22,7 +22,6 @@ gcc -g \
   -Wshadow \
   -Wno-implicit-fallthrough \
   -Wno-declaration-after-statement \
-  -Wno-long-long \
   -Wno-overlength-strings \
   -O3 \
   "$def1" \

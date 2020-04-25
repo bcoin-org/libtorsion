@@ -7,7 +7,6 @@ CFLAGS := \
 	-Wshadow \
 	-Wno-implicit-fallthrough \
 	-Wno-declaration-after-statement \
-	-Wno-long-long \
 	-Wno-overlength-strings \
 	-I./include \
 	-fPIC \
