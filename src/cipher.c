@@ -628,10 +628,15 @@ static const uint32_t RCON[10] = {
   0x1b000000, 0x36000000
 };
 
-#define K (ctx->key)
+void
+aes_init(aes_t *ctx, unsigned int bits, const unsigned char *key) {
+  aes_init_encrypt(ctx, bits, key);
+  aes_init_decrypt(ctx);
+}
 
 void
 aes_init_encrypt(aes_t *ctx, unsigned int bits, const unsigned char *key) {
+  uint32_t *K = ctx->enckey;
   size_t p = 0;
   size_t i = 0;
   uint32_t tmp;
@@ -754,12 +759,13 @@ aes_init_encrypt(aes_t *ctx, unsigned int bits, const unsigned char *key) {
 }
 
 void
-aes_init_decrypt(aes_t *ctx, unsigned int bits, const unsigned char *key) {
+aes_init_decrypt(aes_t *ctx) {
+  uint32_t *K = ctx->deckey;
   size_t p = 0;
   size_t i, j;
   uint32_t tmp;
 
-  aes_init_encrypt(ctx, bits, key);
+  memcpy(K, ctx->enckey, sizeof(ctx->enckey));
 
   for (i = 0, j = 4 * ctx->rounds; i < j; i += 4, j -= 4) {
     tmp = K[i + 0];
@@ -806,6 +812,7 @@ aes_init_decrypt(aes_t *ctx, unsigned int bits, const unsigned char *key) {
 
 void
 aes_encrypt(const aes_t *ctx, unsigned char *dst, const unsigned char *src) {
+  const uint32_t *K = ctx->enckey;
   uint32_t s0 = read32be(src +  0) ^ K[0];
   uint32_t s1 = read32be(src +  4) ^ K[1];
   uint32_t s2 = read32be(src +  8) ^ K[2];
@@ -902,6 +909,7 @@ aes_encrypt(const aes_t *ctx, unsigned char *dst, const unsigned char *src) {
 
 void
 aes_decrypt(const aes_t *ctx, unsigned char *dst, const unsigned char *src) {
+  const uint32_t *K = ctx->deckey;
   uint32_t s0 = read32be(src +  0) ^ K[0];
   uint32_t s1 = read32be(src +  4) ^ K[1];
   uint32_t s2 = read32be(src +  8) ^ K[2];
@@ -995,8 +1003,6 @@ aes_decrypt(const aes_t *ctx, unsigned char *dst, const unsigned char *src) {
   write32be(dst +  8, s2);
   write32be(dst + 12, s3);
 }
-
-#undef K
 
 #undef TE0
 #undef TE1
@@ -3615,8 +3621,14 @@ mul16(uint16_t x, uint16_t y) {
 }
 
 void
+idea_init(idea_t *ctx, const unsigned char *key) {
+  idea_init_encrypt(ctx, key);
+  idea_init_decrypt(ctx);
+}
+
+void
 idea_init_encrypt(idea_t *ctx, const unsigned char *key) {
-  uint16_t *K = ctx->key;
+  uint16_t *K = ctx->enckey;
   size_t p = 0;
   size_t j = 0;
   size_t i = 0;
@@ -3638,15 +3650,13 @@ idea_init_encrypt(idea_t *ctx, const unsigned char *key) {
 }
 
 void
-idea_init_decrypt(idea_t *ctx, const unsigned char *key) {
-  uint16_t *K = ctx->key;
+idea_init_decrypt(idea_t *ctx) {
+  uint16_t *K = ctx->enckey;
+  uint16_t *D = ctx->deckey;
   uint16_t t1, t2, t3;
-  uint16_t D[52];
   size_t di = 52 - 1;
   size_t ki = 0;
   int i;
-
-  idea_init_encrypt(ctx, key);
 
   t1 = inv16(K[ki++]);
   t2 = -K[ki++];
@@ -3686,14 +3696,10 @@ idea_init_decrypt(idea_t *ctx, const unsigned char *key) {
   D[di--] = t3;
   D[di--] = t2;
   D[di--] = t1;
-
-  for (i = 0; i < 52; i++)
-    K[i] = D[i];
 }
 
 static void
-idea_crypt(const idea_t *ctx, unsigned char *dst, const unsigned char *src) {
-  const uint16_t *K = ctx->key;
+idea_crypt(unsigned char *dst, const unsigned char *src, const uint16_t *K) {
   uint16_t x1 = read16be(src + 0);
   uint16_t x2 = read16be(src + 2);
   uint16_t x3 = read16be(src + 4);
@@ -3738,12 +3744,12 @@ idea_crypt(const idea_t *ctx, unsigned char *dst, const unsigned char *src) {
 
 void
 idea_encrypt(const idea_t *ctx, unsigned char *dst, const unsigned char *src) {
-  idea_crypt(ctx, dst, src);
+  idea_crypt(dst, src, ctx->enckey);
 }
 
 void
 idea_decrypt(const idea_t *ctx, unsigned char *dst, const unsigned char *src) {
-  idea_crypt(ctx, dst, src);
+  idea_crypt(dst, src, ctx->deckey);
 }
 
 #undef inv16
@@ -4674,10 +4680,10 @@ cipher_ctx_init(cipher_t *ctx, const unsigned char *key, size_t key_len) {
 
       ctx->block_size = 16;
 
-      if (encrypt)
-        aes_init_encrypt(&ctx->ctx.aes, 128, key);
-      else
-        aes_init_decrypt(&ctx->ctx.aes, 128, key);
+      aes_init_encrypt(&ctx->ctx.aes, 128, key);
+
+      if (!encrypt)
+        aes_init_decrypt(&ctx->ctx.aes);
 
       break;
     }
@@ -4688,10 +4694,10 @@ cipher_ctx_init(cipher_t *ctx, const unsigned char *key, size_t key_len) {
 
       ctx->block_size = 16;
 
-      if (encrypt)
-        aes_init_encrypt(&ctx->ctx.aes, 192, key);
-      else
-        aes_init_decrypt(&ctx->ctx.aes, 192, key);
+      aes_init_encrypt(&ctx->ctx.aes, 192, key);
+
+      if (!encrypt)
+        aes_init_decrypt(&ctx->ctx.aes);
 
       break;
     }
@@ -4702,10 +4708,10 @@ cipher_ctx_init(cipher_t *ctx, const unsigned char *key, size_t key_len) {
 
       ctx->block_size = 16;
 
-      if (encrypt)
-        aes_init_encrypt(&ctx->ctx.aes, 256, key);
-      else
-        aes_init_decrypt(&ctx->ctx.aes, 256, key);
+      aes_init_encrypt(&ctx->ctx.aes, 256, key);
+
+      if (!encrypt)
+        aes_init_decrypt(&ctx->ctx.aes);
 
       break;
     }
@@ -4804,10 +4810,10 @@ cipher_ctx_init(cipher_t *ctx, const unsigned char *key, size_t key_len) {
 
       ctx->block_size = 8;
 
-      if (encrypt)
-        idea_init_encrypt(&ctx->ctx.idea, key);
-      else
-        idea_init_decrypt(&ctx->ctx.idea, key);
+      idea_init_encrypt(&ctx->ctx.idea, key);
+
+      if (!encrypt)
+        idea_init_decrypt(&ctx->ctx.idea);
 
       break;
     }
