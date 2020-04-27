@@ -18,12 +18,21 @@
  * Parts of this software are based on aead/camellia:
  *   Copyright (c) 2016, Andreas Auernhammer (MIT License).
  *   https://github.com/aead/camellia
+ *
+ * Parts of this software are based on indutny/des.js:
+ *   Copyright (c) 2015, Fedor Indutny (MIT License).
+ *   https://github.com/indutny/des.js
+ *
+ * Parts of this software are based on dgryski/go-idea:
+ *   Copyright (c) 2013-2017, Damian Gryski. All rights reserved.
+ *   https://github.com/dgryski/go-idea
  */
 
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 #include <torsion/cipher.h>
+#include <torsion/util.h>
 #include "bio.h"
 
 /*
@@ -35,7 +44,18 @@
  *   https://github.com/openssl/openssl/blob/master/crypto/aes/aes_core.c
  */
 
-static const uint32_t aes_TE0[256] = {
+#define TE0 aes_TE0
+#define TE1 aes_TE1
+#define TE2 aes_TE2
+#define TE3 aes_TE3
+#define TD0 aes_TD0
+#define TD1 aes_TD1
+#define TD2 aes_TD2
+#define TD3 aes_TD3
+#define TD4 aes_TD4
+#define RCON aes_RCON
+
+static const uint32_t TE0[256] = {
   0xc66363a5, 0xf87c7c84, 0xee777799, 0xf67b7b8d,
   0xfff2f20d, 0xd66b6bbd, 0xde6f6fb1, 0x91c5c554,
   0x60303050, 0x02010103, 0xce6767a9, 0x562b2b7d,
@@ -102,7 +122,7 @@ static const uint32_t aes_TE0[256] = {
   0x7bb0b0cb, 0xa85454fc, 0x6dbbbbd6, 0x2c16163a
 };
 
-static const uint32_t aes_TE1[256] = {
+static const uint32_t TE1[256] = {
   0xa5c66363, 0x84f87c7c, 0x99ee7777, 0x8df67b7b,
   0x0dfff2f2, 0xbdd66b6b, 0xb1de6f6f, 0x5491c5c5,
   0x50603030, 0x03020101, 0xa9ce6767, 0x7d562b2b,
@@ -169,7 +189,7 @@ static const uint32_t aes_TE1[256] = {
   0xcb7bb0b0, 0xfca85454, 0xd66dbbbb, 0x3a2c1616
 };
 
-static const uint32_t aes_TE2[256] = {
+static const uint32_t TE2[256] = {
   0x63a5c663, 0x7c84f87c, 0x7799ee77, 0x7b8df67b,
   0xf20dfff2, 0x6bbdd66b, 0x6fb1de6f, 0xc55491c5,
   0x30506030, 0x01030201, 0x67a9ce67, 0x2b7d562b,
@@ -236,7 +256,7 @@ static const uint32_t aes_TE2[256] = {
   0xb0cb7bb0, 0x54fca854, 0xbbd66dbb, 0x163a2c16
 };
 
-static const uint32_t aes_TE3[256] = {
+static const uint32_t TE3[256] = {
   0x6363a5c6, 0x7c7c84f8, 0x777799ee, 0x7b7b8df6,
   0xf2f20dff, 0x6b6bbdd6, 0x6f6fb1de, 0xc5c55491,
   0x30305060, 0x01010302, 0x6767a9ce, 0x2b2b7d56,
@@ -303,7 +323,7 @@ static const uint32_t aes_TE3[256] = {
   0xb0b0cb7b, 0x5454fca8, 0xbbbbd66d, 0x16163a2c
 };
 
-static const uint32_t aes_TD0[256] = {
+static const uint32_t TD0[256] = {
   0x51f4a750, 0x7e416553, 0x1a17a4c3, 0x3a275e96,
   0x3bab6bcb, 0x1f9d45f1, 0xacfa58ab, 0x4be30393,
   0x2030fa55, 0xad766df6, 0x88cc7691, 0xf5024c25,
@@ -370,7 +390,7 @@ static const uint32_t aes_TD0[256] = {
   0x7bcb8461, 0xd532b670, 0x486c5c74, 0xd0b85742
 };
 
-static const uint32_t aes_TD1[256] = {
+static const uint32_t TD1[256] = {
   0x5051f4a7, 0x537e4165, 0xc31a17a4, 0x963a275e,
   0xcb3bab6b, 0xf11f9d45, 0xabacfa58, 0x934be303,
   0x552030fa, 0xf6ad766d, 0x9188cc76, 0x25f5024c,
@@ -437,7 +457,7 @@ static const uint32_t aes_TD1[256] = {
   0x617bcb84, 0x70d532b6, 0x74486c5c, 0x42d0b857
 };
 
-static const uint32_t aes_TD2[256] = {
+static const uint32_t TD2[256] = {
   0xa75051f4, 0x65537e41, 0xa4c31a17, 0x5e963a27,
   0x6bcb3bab, 0x45f11f9d, 0x58abacfa, 0x03934be3,
   0xfa552030, 0x6df6ad76, 0x769188cc, 0x4c25f502,
@@ -504,7 +524,7 @@ static const uint32_t aes_TD2[256] = {
   0x84617bcb, 0xb670d532, 0x5c74486c, 0x5742d0b8
 };
 
-static const uint32_t aes_TD3[256] = {
+static const uint32_t TD3[256] = {
   0xf4a75051, 0x4165537e, 0x17a4c31a, 0x275e963a,
   0xab6bcb3b, 0x9d45f11f, 0xfa58abac, 0xe303934b,
   0x30fa5520, 0x766df6ad, 0xcc769188, 0x024c25f5,
@@ -571,7 +591,7 @@ static const uint32_t aes_TD3[256] = {
   0xcb84617b, 0x32b670d5, 0x6c5c7448, 0xb85742d0
 };
 
-static const uint8_t aes_TD4[256] = {
+static const uint8_t TD4[256] = {
   0x52, 0x09, 0x6a, 0xd5, 0x30, 0x36, 0xa5, 0x38,
   0xbf, 0x40, 0xa3, 0x9e, 0x81, 0xf3, 0xd7, 0xfb,
   0x7c, 0xe3, 0x39, 0x82, 0x9b, 0x2f, 0xff, 0x87,
@@ -606,22 +626,12 @@ static const uint8_t aes_TD4[256] = {
   0xe1, 0x69, 0x14, 0x63, 0x55, 0x21, 0x0c, 0x7d
 };
 
-static const uint32_t aes_RCON[10] = {
+static const uint32_t RCON[10] = {
   0x01000000, 0x02000000, 0x04000000, 0x08000000,
   0x10000000, 0x20000000, 0x40000000, 0x80000000,
   0x1b000000, 0x36000000
 };
 
-#define TE0 aes_TE0
-#define TE1 aes_TE1
-#define TE2 aes_TE2
-#define TE3 aes_TE3
-#define TD0 aes_TD0
-#define TD1 aes_TD1
-#define TD2 aes_TD2
-#define TD3 aes_TD3
-#define TD4 aes_TD4
-#define RCON aes_RCON
 #define K (ctx->key)
 
 void
@@ -629,6 +639,8 @@ aes_init_encrypt(aes_t *ctx, unsigned int bits, const unsigned char *key) {
   size_t p = 0;
   size_t i = 0;
   uint32_t tmp;
+
+  memset(ctx, 0, sizeof(*ctx));
 
   if (bits == 128)
     ctx->rounds = 10;
@@ -638,8 +650,6 @@ aes_init_encrypt(aes_t *ctx, unsigned int bits, const unsigned char *key) {
     ctx->rounds = 14;
   else
     ASSERT(0);
-
-  memset(K, 0, sizeof(K));
 
   K[0] = read32be(key + 0);
   K[1] = read32be(key + 4);
@@ -1012,6 +1022,8 @@ aes_decrypt(const aes_t *ctx, unsigned char *dst, const unsigned char *src) {
   write32be(dst + 12, s3);
 }
 
+#undef K
+
 #undef TE0
 #undef TE1
 #undef TE2
@@ -1022,7 +1034,6 @@ aes_decrypt(const aes_t *ctx, unsigned char *dst, const unsigned char *src) {
 #undef TD3
 #undef TD4
 #undef RCON
-#undef K
 
 /**
  * Blowfish
@@ -1544,13 +1555,19 @@ blowfish_decrypt(blowfish_t *ctx,
  *   https://github.com/aead/camellia/blob/master/camellia.go
  */
 
-static const uint32_t camellia_SIGMA[12] = {
+#define SIGMA camellia_SIGMA
+#define S1 camellia_S1
+#define S2 camellia_S2
+#define S3 camellia_S3
+#define S4 camellia_S4
+
+static const uint32_t SIGMA[12] = {
   0xa09e667f, 0x3bcc908b, 0xb67ae858, 0x4caa73b2,
   0xc6ef372f, 0xe94f82be, 0x54ff53a5, 0xf1d36f1c,
   0x10e527fa, 0xde682d1d, 0xb05688c2, 0xb3e6c1fd
 };
 
-static const uint32_t camellia_S1[256] = {
+static const uint32_t S1[256] = {
   0x70707000, 0x82828200, 0x2c2c2c00, 0xececec00,
   0xb3b3b300, 0x27272700, 0xc0c0c000, 0xe5e5e500,
   0xe4e4e400, 0x85858500, 0x57575700, 0x35353500,
@@ -1617,7 +1634,7 @@ static const uint32_t camellia_S1[256] = {
   0x77777700, 0xc7c7c700, 0x80808000, 0x9e9e9e00
 };
 
-static const uint32_t camellia_S2[256] = {
+static const uint32_t S2[256] = {
   0x00e0e0e0, 0x00050505, 0x00585858, 0x00d9d9d9,
   0x00676767, 0x004e4e4e, 0x00818181, 0x00cbcbcb,
   0x00c9c9c9, 0x000b0b0b, 0x00aeaeae, 0x006a6a6a,
@@ -1684,7 +1701,7 @@ static const uint32_t camellia_S2[256] = {
   0x00eeeeee, 0x008f8f8f, 0x00010101, 0x003d3d3d
 };
 
-static const uint32_t camellia_S3[256] = {
+static const uint32_t S3[256] = {
   0x38003838, 0x41004141, 0x16001616, 0x76007676,
   0xd900d9d9, 0x93009393, 0x60006060, 0xf200f2f2,
   0x72007272, 0xc200c2c2, 0xab00abab, 0x9a009a9a,
@@ -1751,7 +1768,7 @@ static const uint32_t camellia_S3[256] = {
   0xbb00bbbb, 0xe300e3e3, 0x40004040, 0x4f004f4f
 };
 
-static const uint32_t camellia_S4[256] = {
+static const uint32_t S4[256] = {
   0x70700070, 0x2c2c002c, 0xb3b300b3, 0xc0c000c0,
   0xe4e400e4, 0x57570057, 0xeaea00ea, 0xaeae00ae,
   0x23230023, 0x6b6b006b, 0x45450045, 0xa5a500a5,
@@ -1817,12 +1834,6 @@ static const uint32_t camellia_S4[256] = {
   0x28280028, 0x7b7b007b, 0xc9c900c9, 0xc1c100c1,
   0xe3e300e3, 0xf4f400f4, 0xc7c700c7, 0x9e9e009e
 };
-
-#define SIGMA camellia_SIGMA
-#define S1 camellia_S1
-#define S2 camellia_S2
-#define S3 camellia_S3
-#define S4 camellia_S4
 
 #define FEIS(r, i0, i1, i2, i3, k0, k1) do { \
   uint32_t t0, t1, z;                        \
@@ -1936,10 +1947,10 @@ camellia128_init(camellia_t *ctx, const unsigned char *key) {
 }
 
 static void
-camellia128_encrypt(camellia_t *ctx,
+camellia128_encrypt(const camellia_t *ctx,
                     unsigned char *dst,
                     const unsigned char *src) {
-  uint32_t *k = ctx->key;
+  const uint32_t *k = ctx->key;
   uint32_t r[4];
   uint32_t t;
 
@@ -1994,10 +2005,10 @@ camellia128_encrypt(camellia_t *ctx,
 }
 
 static void
-camellia128_decrypt(camellia_t *ctx,
+camellia128_decrypt(const camellia_t *ctx,
                     unsigned char *dst,
                     const unsigned char *src) {
-  uint32_t *k = ctx->key;
+  const uint32_t *k = ctx->key;
   uint32_t r[4];
   uint32_t t;
 
@@ -2132,10 +2143,10 @@ camellia256_init(camellia_t *ctx, const unsigned char *key, size_t key_len) {
 }
 
 static void
-camellia256_encrypt(camellia_t *ctx,
+camellia256_encrypt(const camellia_t *ctx,
                     unsigned char *dst,
                     const unsigned char *src) {
-  uint32_t *k = ctx->key;
+  const uint32_t *k = ctx->key;
   uint32_t r[4];
   uint32_t t;
 
@@ -2204,10 +2215,10 @@ camellia256_encrypt(camellia_t *ctx,
 }
 
 static void
-camellia256_decrypt(camellia_t *ctx,
+camellia256_decrypt(const camellia_t *ctx,
                     unsigned char *dst,
                     const unsigned char *src) {
-  uint32_t *k = ctx->key;
+  const uint32_t *k = ctx->key;
   uint32_t r[4];
   uint32_t t;
 
@@ -2275,11 +2286,15 @@ camellia256_decrypt(camellia_t *ctx,
   write32be(dst + 12, r[1]);
 }
 
+#undef FEIS
+#undef ROTL
+#undef SET2
+#undef SET4
+#undef XOR4
+
 void
 camellia_init(camellia_t *ctx, unsigned int bits, const unsigned char *key) {
-  ctx->bits = bits;
-
-  switch (ctx->bits) {
+  switch (bits) {
     case 128:
       camellia128_init(ctx, key);
       break;
@@ -2293,10 +2308,12 @@ camellia_init(camellia_t *ctx, unsigned int bits, const unsigned char *key) {
       ASSERT(0);
       break;
   }
+
+  ctx->bits = bits;
 }
 
 void
-camellia_encrypt(camellia_t *ctx,
+camellia_encrypt(const camellia_t *ctx,
                  unsigned char *dst,
                  const unsigned char *src) {
   if (ctx->bits == 128)
@@ -2306,7 +2323,7 @@ camellia_encrypt(camellia_t *ctx,
 }
 
 void
-camellia_decrypt(camellia_t *ctx,
+camellia_decrypt(const camellia_t *ctx,
                  unsigned char *dst,
                  const unsigned char *src) {
   if (ctx->bits == 128)
@@ -2320,11 +2337,2398 @@ camellia_decrypt(camellia_t *ctx,
 #undef S2
 #undef S3
 #undef S4
-#undef FEIS
-#undef ROTL
-#undef SET2
-#undef SET4
-#undef XOR4
+
+/*
+ * CAST5
+ *
+ * Resources:
+ *   https://en.wikipedia.org/wiki/CAST-128
+ *   https://tools.ietf.org/html/rfc2144
+ *   https://github.com/golang/crypto/blob/master/cast5/cast5.go
+ */
+
+#define S cast5_S
+#define schedule cast5_schedule
+#define X cast5_X
+#define f1 cast5_f1
+#define f2 cast5_f2
+#define f3 cast5_f3
+
+static const uint32_t S[8][256] = {
+  {
+    0x30fb40d4, 0x9fa0ff0b, 0x6beccd2f, 0x3f258c7a,
+    0x1e213f2f, 0x9c004dd3, 0x6003e540, 0xcf9fc949,
+    0xbfd4af27, 0x88bbbdb5, 0xe2034090, 0x98d09675,
+    0x6e63a0e0, 0x15c361d2, 0xc2e7661d, 0x22d4ff8e,
+    0x28683b6f, 0xc07fd059, 0xff2379c8, 0x775f50e2,
+    0x43c340d3, 0xdf2f8656, 0x887ca41a, 0xa2d2bd2d,
+    0xa1c9e0d6, 0x346c4819, 0x61b76d87, 0x22540f2f,
+    0x2abe32e1, 0xaa54166b, 0x22568e3a, 0xa2d341d0,
+    0x66db40c8, 0xa784392f, 0x004dff2f, 0x2db9d2de,
+    0x97943fac, 0x4a97c1d8, 0x527644b7, 0xb5f437a7,
+    0xb82cbaef, 0xd751d159, 0x6ff7f0ed, 0x5a097a1f,
+    0x827b68d0, 0x90ecf52e, 0x22b0c054, 0xbc8e5935,
+    0x4b6d2f7f, 0x50bb64a2, 0xd2664910, 0xbee5812d,
+    0xb7332290, 0xe93b159f, 0xb48ee411, 0x4bff345d,
+    0xfd45c240, 0xad31973f, 0xc4f6d02e, 0x55fc8165,
+    0xd5b1caad, 0xa1ac2dae, 0xa2d4b76d, 0xc19b0c50,
+    0x882240f2, 0x0c6e4f38, 0xa4e4bfd7, 0x4f5ba272,
+    0x564c1d2f, 0xc59c5319, 0xb949e354, 0xb04669fe,
+    0xb1b6ab8a, 0xc71358dd, 0x6385c545, 0x110f935d,
+    0x57538ad5, 0x6a390493, 0xe63d37e0, 0x2a54f6b3,
+    0x3a787d5f, 0x6276a0b5, 0x19a6fcdf, 0x7a42206a,
+    0x29f9d4d5, 0xf61b1891, 0xbb72275e, 0xaa508167,
+    0x38901091, 0xc6b505eb, 0x84c7cb8c, 0x2ad75a0f,
+    0x874a1427, 0xa2d1936b, 0x2ad286af, 0xaa56d291,
+    0xd7894360, 0x425c750d, 0x93b39e26, 0x187184c9,
+    0x6c00b32d, 0x73e2bb14, 0xa0bebc3c, 0x54623779,
+    0x64459eab, 0x3f328b82, 0x7718cf82, 0x59a2cea6,
+    0x04ee002e, 0x89fe78e6, 0x3fab0950, 0x325ff6c2,
+    0x81383f05, 0x6963c5c8, 0x76cb5ad6, 0xd49974c9,
+    0xca180dcf, 0x380782d5, 0xc7fa5cf6, 0x8ac31511,
+    0x35e79e13, 0x47da91d0, 0xf40f9086, 0xa7e2419e,
+    0x31366241, 0x051ef495, 0xaa573b04, 0x4a805d8d,
+    0x548300d0, 0x00322a3c, 0xbf64cddf, 0xba57a68e,
+    0x75c6372b, 0x50afd341, 0xa7c13275, 0x915a0bf5,
+    0x6b54bfab, 0x2b0b1426, 0xab4cc9d7, 0x449ccd82,
+    0xf7fbf265, 0xab85c5f3, 0x1b55db94, 0xaad4e324,
+    0xcfa4bd3f, 0x2deaa3e2, 0x9e204d02, 0xc8bd25ac,
+    0xeadf55b3, 0xd5bd9e98, 0xe31231b2, 0x2ad5ad6c,
+    0x954329de, 0xadbe4528, 0xd8710f69, 0xaa51c90f,
+    0xaa786bf6, 0x22513f1e, 0xaa51a79b, 0x2ad344cc,
+    0x7b5a41f0, 0xd37cfbad, 0x1b069505, 0x41ece491,
+    0xb4c332e6, 0x032268d4, 0xc9600acc, 0xce387e6d,
+    0xbf6bb16c, 0x6a70fb78, 0x0d03d9c9, 0xd4df39de,
+    0xe01063da, 0x4736f464, 0x5ad328d8, 0xb347cc96,
+    0x75bb0fc3, 0x98511bfb, 0x4ffbcc35, 0xb58bcf6a,
+    0xe11f0abc, 0xbfc5fe4a, 0xa70aec10, 0xac39570a,
+    0x3f04442f, 0x6188b153, 0xe0397a2e, 0x5727cb79,
+    0x9ceb418f, 0x1cacd68d, 0x2ad37c96, 0x0175cb9d,
+    0xc69dff09, 0xc75b65f0, 0xd9db40d8, 0xec0e7779,
+    0x4744ead4, 0xb11c3274, 0xdd24cb9e, 0x7e1c54bd,
+    0xf01144f9, 0xd2240eb1, 0x9675b3fd, 0xa3ac3755,
+    0xd47c27af, 0x51c85f4d, 0x56907596, 0xa5bb15e6,
+    0x580304f0, 0xca042cf1, 0x011a37ea, 0x8dbfaadb,
+    0x35ba3e4a, 0x3526ffa0, 0xc37b4d09, 0xbc306ed9,
+    0x98a52666, 0x5648f725, 0xff5e569d, 0x0ced63d0,
+    0x7c63b2cf, 0x700b45e1, 0xd5ea50f1, 0x85a92872,
+    0xaf1fbda7, 0xd4234870, 0xa7870bf3, 0x2d3b4d79,
+    0x42e04198, 0x0cd0ede7, 0x26470db8, 0xf881814c,
+    0x474d6ad7, 0x7c0c5e5c, 0xd1231959, 0x381b7298,
+    0xf5d2f4db, 0xab838653, 0x6e2f1e23, 0x83719c9e,
+    0xbd91e046, 0x9a56456e, 0xdc39200c, 0x20c8c571,
+    0x962bda1c, 0xe1e696ff, 0xb141ab08, 0x7cca89b9,
+    0x1a69e783, 0x02cc4843, 0xa2f7c579, 0x429ef47d,
+    0x427b169c, 0x5ac9f049, 0xdd8f0f00, 0x5c8165bf
+  },
+  {
+    0x1f201094, 0xef0ba75b, 0x69e3cf7e, 0x393f4380,
+    0xfe61cf7a, 0xeec5207a, 0x55889c94, 0x72fc0651,
+    0xada7ef79, 0x4e1d7235, 0xd55a63ce, 0xde0436ba,
+    0x99c430ef, 0x5f0c0794, 0x18dcdb7d, 0xa1d6eff3,
+    0xa0b52f7b, 0x59e83605, 0xee15b094, 0xe9ffd909,
+    0xdc440086, 0xef944459, 0xba83ccb3, 0xe0c3cdfb,
+    0xd1da4181, 0x3b092ab1, 0xf997f1c1, 0xa5e6cf7b,
+    0x01420ddb, 0xe4e7ef5b, 0x25a1ff41, 0xe180f806,
+    0x1fc41080, 0x179bee7a, 0xd37ac6a9, 0xfe5830a4,
+    0x98de8b7f, 0x77e83f4e, 0x79929269, 0x24fa9f7b,
+    0xe113c85b, 0xacc40083, 0xd7503525, 0xf7ea615f,
+    0x62143154, 0x0d554b63, 0x5d681121, 0xc866c359,
+    0x3d63cf73, 0xcee234c0, 0xd4d87e87, 0x5c672b21,
+    0x071f6181, 0x39f7627f, 0x361e3084, 0xe4eb573b,
+    0x602f64a4, 0xd63acd9c, 0x1bbc4635, 0x9e81032d,
+    0x2701f50c, 0x99847ab4, 0xa0e3df79, 0xba6cf38c,
+    0x10843094, 0x2537a95e, 0xf46f6ffe, 0xa1ff3b1f,
+    0x208cfb6a, 0x8f458c74, 0xd9e0a227, 0x4ec73a34,
+    0xfc884f69, 0x3e4de8df, 0xef0e0088, 0x3559648d,
+    0x8a45388c, 0x1d804366, 0x721d9bfd, 0xa58684bb,
+    0xe8256333, 0x844e8212, 0x128d8098, 0xfed33fb4,
+    0xce280ae1, 0x27e19ba5, 0xd5a6c252, 0xe49754bd,
+    0xc5d655dd, 0xeb667064, 0x77840b4d, 0xa1b6a801,
+    0x84db26a9, 0xe0b56714, 0x21f043b7, 0xe5d05860,
+    0x54f03084, 0x066ff472, 0xa31aa153, 0xdadc4755,
+    0xb5625dbf, 0x68561be6, 0x83ca6b94, 0x2d6ed23b,
+    0xeccf01db, 0xa6d3d0ba, 0xb6803d5c, 0xaf77a709,
+    0x33b4a34c, 0x397bc8d6, 0x5ee22b95, 0x5f0e5304,
+    0x81ed6f61, 0x20e74364, 0xb45e1378, 0xde18639b,
+    0x881ca122, 0xb96726d1, 0x8049a7e8, 0x22b7da7b,
+    0x5e552d25, 0x5272d237, 0x79d2951c, 0xc60d894c,
+    0x488cb402, 0x1ba4fe5b, 0xa4b09f6b, 0x1ca815cf,
+    0xa20c3005, 0x8871df63, 0xb9de2fcb, 0x0cc6c9e9,
+    0x0beeff53, 0xe3214517, 0xb4542835, 0x9f63293c,
+    0xee41e729, 0x6e1d2d7c, 0x50045286, 0x1e6685f3,
+    0xf33401c6, 0x30a22c95, 0x31a70850, 0x60930f13,
+    0x73f98417, 0xa1269859, 0xec645c44, 0x52c877a9,
+    0xcdff33a6, 0xa02b1741, 0x7cbad9a2, 0x2180036f,
+    0x50d99c08, 0xcb3f4861, 0xc26bd765, 0x64a3f6ab,
+    0x80342676, 0x25a75e7b, 0xe4e6d1fc, 0x20c710e6,
+    0xcdf0b680, 0x17844d3b, 0x31eef84d, 0x7e0824e4,
+    0x2ccb49eb, 0x846a3bae, 0x8ff77888, 0xee5d60f6,
+    0x7af75673, 0x2fdd5cdb, 0xa11631c1, 0x30f66f43,
+    0xb3faec54, 0x157fd7fa, 0xef8579cc, 0xd152de58,
+    0xdb2ffd5e, 0x8f32ce19, 0x306af97a, 0x02f03ef8,
+    0x99319ad5, 0xc242fa0f, 0xa7e3ebb0, 0xc68e4906,
+    0xb8da230c, 0x80823028, 0xdcdef3c8, 0xd35fb171,
+    0x088a1bc8, 0xbec0c560, 0x61a3c9e8, 0xbca8f54d,
+    0xc72feffa, 0x22822e99, 0x82c570b4, 0xd8d94e89,
+    0x8b1c34bc, 0x301e16e6, 0x273be979, 0xb0ffeaa6,
+    0x61d9b8c6, 0x00b24869, 0xb7ffce3f, 0x08dc283b,
+    0x43daf65a, 0xf7e19798, 0x7619b72f, 0x8f1c9ba4,
+    0xdc8637a0, 0x16a7d3b1, 0x9fc393b7, 0xa7136eeb,
+    0xc6bcc63e, 0x1a513742, 0xef6828bc, 0x520365d6,
+    0x2d6a77ab, 0x3527ed4b, 0x821fd216, 0x095c6e2e,
+    0xdb92f2fb, 0x5eea29cb, 0x145892f5, 0x91584f7f,
+    0x5483697b, 0x2667a8cc, 0x85196048, 0x8c4bacea,
+    0x833860d4, 0x0d23e0f9, 0x6c387e8a, 0x0ae6d249,
+    0xb284600c, 0xd835731d, 0xdcb1c647, 0xac4c56ea,
+    0x3ebd81b3, 0x230eabb0, 0x6438bc87, 0xf0b5b1fa,
+    0x8f5ea2b3, 0xfc184642, 0x0a036b7a, 0x4fb089bd,
+    0x649da589, 0xa345415e, 0x5c038323, 0x3e5d3bb9,
+    0x43d79572, 0x7e6dd07c, 0x06dfdf1e, 0x6c6cc4ef,
+    0x7160a539, 0x73bfbe70, 0x83877605, 0x4523ecf1
+  },
+  {
+    0x8defc240, 0x25fa5d9f, 0xeb903dbf, 0xe810c907,
+    0x47607fff, 0x369fe44b, 0x8c1fc644, 0xaececa90,
+    0xbeb1f9bf, 0xeefbcaea, 0xe8cf1950, 0x51df07ae,
+    0x920e8806, 0xf0ad0548, 0xe13c8d83, 0x927010d5,
+    0x11107d9f, 0x07647db9, 0xb2e3e4d4, 0x3d4f285e,
+    0xb9afa820, 0xfade82e0, 0xa067268b, 0x8272792e,
+    0x553fb2c0, 0x489ae22b, 0xd4ef9794, 0x125e3fbc,
+    0x21fffcee, 0x825b1bfd, 0x9255c5ed, 0x1257a240,
+    0x4e1a8302, 0xbae07fff, 0x528246e7, 0x8e57140e,
+    0x3373f7bf, 0x8c9f8188, 0xa6fc4ee8, 0xc982b5a5,
+    0xa8c01db7, 0x579fc264, 0x67094f31, 0xf2bd3f5f,
+    0x40fff7c1, 0x1fb78dfc, 0x8e6bd2c1, 0x437be59b,
+    0x99b03dbf, 0xb5dbc64b, 0x638dc0e6, 0x55819d99,
+    0xa197c81c, 0x4a012d6e, 0xc5884a28, 0xccc36f71,
+    0xb843c213, 0x6c0743f1, 0x8309893c, 0x0feddd5f,
+    0x2f7fe850, 0xd7c07f7e, 0x02507fbf, 0x5afb9a04,
+    0xa747d2d0, 0x1651192e, 0xaf70bf3e, 0x58c31380,
+    0x5f98302e, 0x727cc3c4, 0x0a0fb402, 0x0f7fef82,
+    0x8c96fdad, 0x5d2c2aae, 0x8ee99a49, 0x50da88b8,
+    0x8427f4a0, 0x1eac5790, 0x796fb449, 0x8252dc15,
+    0xefbd7d9b, 0xa672597d, 0xada840d8, 0x45f54504,
+    0xfa5d7403, 0xe83ec305, 0x4f91751a, 0x925669c2,
+    0x23efe941, 0xa903f12e, 0x60270df2, 0x0276e4b6,
+    0x94fd6574, 0x927985b2, 0x8276dbcb, 0x02778176,
+    0xf8af918d, 0x4e48f79e, 0x8f616ddf, 0xe29d840e,
+    0x842f7d83, 0x340ce5c8, 0x96bbb682, 0x93b4b148,
+    0xef303cab, 0x984faf28, 0x779faf9b, 0x92dc560d,
+    0x224d1e20, 0x8437aa88, 0x7d29dc96, 0x2756d3dc,
+    0x8b907cee, 0xb51fd240, 0xe7c07ce3, 0xe566b4a1,
+    0xc3e9615e, 0x3cf8209d, 0x6094d1e3, 0xcd9ca341,
+    0x5c76460e, 0x00ea983b, 0xd4d67881, 0xfd47572c,
+    0xf76cedd9, 0xbda8229c, 0x127dadaa, 0x438a074e,
+    0x1f97c090, 0x081bdb8a, 0x93a07ebe, 0xb938ca15,
+    0x97b03cff, 0x3dc2c0f8, 0x8d1ab2ec, 0x64380e51,
+    0x68cc7bfb, 0xd90f2788, 0x12490181, 0x5de5ffd4,
+    0xdd7ef86a, 0x76a2e214, 0xb9a40368, 0x925d958f,
+    0x4b39fffa, 0xba39aee9, 0xa4ffd30b, 0xfaf7933b,
+    0x6d498623, 0x193cbcfa, 0x27627545, 0x825cf47a,
+    0x61bd8ba0, 0xd11e42d1, 0xcead04f4, 0x127ea392,
+    0x10428db7, 0x8272a972, 0x9270c4a8, 0x127de50b,
+    0x285ba1c8, 0x3c62f44f, 0x35c0eaa5, 0xe805d231,
+    0x428929fb, 0xb4fcdf82, 0x4fb66a53, 0x0e7dc15b,
+    0x1f081fab, 0x108618ae, 0xfcfd086d, 0xf9ff2889,
+    0x694bcc11, 0x236a5cae, 0x12deca4d, 0x2c3f8cc5,
+    0xd2d02dfe, 0xf8ef5896, 0xe4cf52da, 0x95155b67,
+    0x494a488c, 0xb9b6a80c, 0x5c8f82bc, 0x89d36b45,
+    0x3a609437, 0xec00c9a9, 0x44715253, 0x0a874b49,
+    0xd773bc40, 0x7c34671c, 0x02717ef6, 0x4feb5536,
+    0xa2d02fff, 0xd2bf60c4, 0xd43f03c0, 0x50b4ef6d,
+    0x07478cd1, 0x006e1888, 0xa2e53f55, 0xb9e6d4bc,
+    0xa2048016, 0x97573833, 0xd7207d67, 0xde0f8f3d,
+    0x72f87b33, 0xabcc4f33, 0x7688c55d, 0x7b00a6b0,
+    0x947b0001, 0x570075d2, 0xf9bb88f8, 0x8942019e,
+    0x4264a5ff, 0x856302e0, 0x72dbd92b, 0xee971b69,
+    0x6ea22fde, 0x5f08ae2b, 0xaf7a616d, 0xe5c98767,
+    0xcf1febd2, 0x61efc8c2, 0xf1ac2571, 0xcc8239c2,
+    0x67214cb8, 0xb1e583d1, 0xb7dc3e62, 0x7f10bdce,
+    0xf90a5c38, 0x0ff0443d, 0x606e6dc6, 0x60543a49,
+    0x5727c148, 0x2be98a1d, 0x8ab41738, 0x20e1be24,
+    0xaf96da0f, 0x68458425, 0x99833be5, 0x600d457d,
+    0x282f9350, 0x8334b362, 0xd91d1120, 0x2b6d8da0,
+    0x642b1e31, 0x9c305a00, 0x52bce688, 0x1b03588a,
+    0xf7baefd5, 0x4142ed9c, 0xa4315c11, 0x83323ec5,
+    0xdfef4636, 0xa133c501, 0xe9d3531c, 0xee353783
+  },
+  {
+    0x9db30420, 0x1fb6e9de, 0xa7be7bef, 0xd273a298,
+    0x4a4f7bdb, 0x64ad8c57, 0x85510443, 0xfa020ed1,
+    0x7e287aff, 0xe60fb663, 0x095f35a1, 0x79ebf120,
+    0xfd059d43, 0x6497b7b1, 0xf3641f63, 0x241e4adf,
+    0x28147f5f, 0x4fa2b8cd, 0xc9430040, 0x0cc32220,
+    0xfdd30b30, 0xc0a5374f, 0x1d2d00d9, 0x24147b15,
+    0xee4d111a, 0x0fca5167, 0x71ff904c, 0x2d195ffe,
+    0x1a05645f, 0x0c13fefe, 0x081b08ca, 0x05170121,
+    0x80530100, 0xe83e5efe, 0xac9af4f8, 0x7fe72701,
+    0xd2b8ee5f, 0x06df4261, 0xbb9e9b8a, 0x7293ea25,
+    0xce84ffdf, 0xf5718801, 0x3dd64b04, 0xa26f263b,
+    0x7ed48400, 0x547eebe6, 0x446d4ca0, 0x6cf3d6f5,
+    0x2649abdf, 0xaea0c7f5, 0x36338cc1, 0x503f7e93,
+    0xd3772061, 0x11b638e1, 0x72500e03, 0xf80eb2bb,
+    0xabe0502e, 0xec8d77de, 0x57971e81, 0xe14f6746,
+    0xc9335400, 0x6920318f, 0x081dbb99, 0xffc304a5,
+    0x4d351805, 0x7f3d5ce3, 0xa6c866c6, 0x5d5bcca9,
+    0xdaec6fea, 0x9f926f91, 0x9f46222f, 0x3991467d,
+    0xa5bf6d8e, 0x1143c44f, 0x43958302, 0xd0214eeb,
+    0x022083b8, 0x3fb6180c, 0x18f8931e, 0x281658e6,
+    0x26486e3e, 0x8bd78a70, 0x7477e4c1, 0xb506e07c,
+    0xf32d0a25, 0x79098b02, 0xe4eabb81, 0x28123b23,
+    0x69dead38, 0x1574ca16, 0xdf871b62, 0x211c40b7,
+    0xa51a9ef9, 0x0014377b, 0x041e8ac8, 0x09114003,
+    0xbd59e4d2, 0xe3d156d5, 0x4fe876d5, 0x2f91a340,
+    0x557be8de, 0x00eae4a7, 0x0ce5c2ec, 0x4db4bba6,
+    0xe756bdff, 0xdd3369ac, 0xec17b035, 0x06572327,
+    0x99afc8b0, 0x56c8c391, 0x6b65811c, 0x5e146119,
+    0x6e85cb75, 0xbe07c002, 0xc2325577, 0x893ff4ec,
+    0x5bbfc92d, 0xd0ec3b25, 0xb7801ab7, 0x8d6d3b24,
+    0x20c763ef, 0xc366a5fc, 0x9c382880, 0x0ace3205,
+    0xaac9548a, 0xeca1d7c7, 0x041afa32, 0x1d16625a,
+    0x6701902c, 0x9b757a54, 0x31d477f7, 0x9126b031,
+    0x36cc6fdb, 0xc70b8b46, 0xd9e66a48, 0x56e55a79,
+    0x026a4ceb, 0x52437eff, 0x2f8f76b4, 0x0df980a5,
+    0x8674cde3, 0xedda04eb, 0x17a9be04, 0x2c18f4df,
+    0xb7747f9d, 0xab2af7b4, 0xefc34d20, 0x2e096b7c,
+    0x1741a254, 0xe5b6a035, 0x213d42f6, 0x2c1c7c26,
+    0x61c2f50f, 0x6552daf9, 0xd2c231f8, 0x25130f69,
+    0xd8167fa2, 0x0418f2c8, 0x001a96a6, 0x0d1526ab,
+    0x63315c21, 0x5e0a72ec, 0x49bafefd, 0x187908d9,
+    0x8d0dbd86, 0x311170a7, 0x3e9b640c, 0xcc3e10d7,
+    0xd5cad3b6, 0x0caec388, 0xf73001e1, 0x6c728aff,
+    0x71eae2a1, 0x1f9af36e, 0xcfcbd12f, 0xc1de8417,
+    0xac07be6b, 0xcb44a1d8, 0x8b9b0f56, 0x013988c3,
+    0xb1c52fca, 0xb4be31cd, 0xd8782806, 0x12a3a4e2,
+    0x6f7de532, 0x58fd7eb6, 0xd01ee900, 0x24adffc2,
+    0xf4990fc5, 0x9711aac5, 0x001d7b95, 0x82e5e7d2,
+    0x109873f6, 0x00613096, 0xc32d9521, 0xada121ff,
+    0x29908415, 0x7fbb977f, 0xaf9eb3db, 0x29c9ed2a,
+    0x5ce2a465, 0xa730f32c, 0xd0aa3fe8, 0x8a5cc091,
+    0xd49e2ce7, 0x0ce454a9, 0xd60acd86, 0x015f1919,
+    0x77079103, 0xdea03af6, 0x78a8565e, 0xdee356df,
+    0x21f05cbe, 0x8b75e387, 0xb3c50651, 0xb8a5c3ef,
+    0xd8eeb6d2, 0xe523be77, 0xc2154529, 0x2f69efdf,
+    0xafe67afb, 0xf470c4b2, 0xf3e0eb5b, 0xd6cc9876,
+    0x39e4460c, 0x1fda8538, 0x1987832f, 0xca007367,
+    0xa99144f8, 0x296b299e, 0x492fc295, 0x9266beab,
+    0xb5676e69, 0x9bd3ddda, 0xdf7e052f, 0xdb25701c,
+    0x1b5e51ee, 0xf65324e6, 0x6afce36c, 0x0316cc04,
+    0x8644213e, 0xb7dc59d0, 0x7965291f, 0xccd6fd43,
+    0x41823979, 0x932bcdf6, 0xb657c34d, 0x4edfd282,
+    0x7ae5290c, 0x3cb9536b, 0x851e20fe, 0x9833557e,
+    0x13ecf0b0, 0xd3ffb372, 0x3f85c5c1, 0x0aef7ed2
+  },
+  {
+    0x7ec90c04, 0x2c6e74b9, 0x9b0e66df, 0xa6337911,
+    0xb86a7fff, 0x1dd358f5, 0x44dd9d44, 0x1731167f,
+    0x08fbf1fa, 0xe7f511cc, 0xd2051b00, 0x735aba00,
+    0x2ab722d8, 0x386381cb, 0xacf6243a, 0x69befd7a,
+    0xe6a2e77f, 0xf0c720cd, 0xc4494816, 0xccf5c180,
+    0x38851640, 0x15b0a848, 0xe68b18cb, 0x4caadeff,
+    0x5f480a01, 0x0412b2aa, 0x259814fc, 0x41d0efe2,
+    0x4e40b48d, 0x248eb6fb, 0x8dba1cfe, 0x41a99b02,
+    0x1a550a04, 0xba8f65cb, 0x7251f4e7, 0x95a51725,
+    0xc106ecd7, 0x97a5980a, 0xc539b9aa, 0x4d79fe6a,
+    0xf2f3f763, 0x68af8040, 0xed0c9e56, 0x11b4958b,
+    0xe1eb5a88, 0x8709e6b0, 0xd7e07156, 0x4e29fea7,
+    0x6366e52d, 0x02d1c000, 0xc4ac8e05, 0x9377f571,
+    0x0c05372a, 0x578535f2, 0x2261be02, 0xd642a0c9,
+    0xdf13a280, 0x74b55bd2, 0x682199c0, 0xd421e5ec,
+    0x53fb3ce8, 0xc8adedb3, 0x28a87fc9, 0x3d959981,
+    0x5c1ff900, 0xfe38d399, 0x0c4eff0b, 0x062407ea,
+    0xaa2f4fb1, 0x4fb96976, 0x90c79505, 0xb0a8a774,
+    0xef55a1ff, 0xe59ca2c2, 0xa6b62d27, 0xe66a4263,
+    0xdf65001f, 0x0ec50966, 0xdfdd55bc, 0x29de0655,
+    0x911e739a, 0x17af8975, 0x32c7911c, 0x89f89468,
+    0x0d01e980, 0x524755f4, 0x03b63cc9, 0x0cc844b2,
+    0xbcf3f0aa, 0x87ac36e9, 0xe53a7426, 0x01b3d82b,
+    0x1a9e7449, 0x64ee2d7e, 0xcddbb1da, 0x01c94910,
+    0xb868bf80, 0x0d26f3fd, 0x9342ede7, 0x04a5c284,
+    0x636737b6, 0x50f5b616, 0xf24766e3, 0x8eca36c1,
+    0x136e05db, 0xfef18391, 0xfb887a37, 0xd6e7f7d4,
+    0xc7fb7dc9, 0x3063fcdf, 0xb6f589de, 0xec2941da,
+    0x26e46695, 0xb7566419, 0xf654efc5, 0xd08d58b7,
+    0x48925401, 0xc1bacb7f, 0xe5ff550f, 0xb6083049,
+    0x5bb5d0e8, 0x87d72e5a, 0xab6a6ee1, 0x223a66ce,
+    0xc62bf3cd, 0x9e0885f9, 0x68cb3e47, 0x086c010f,
+    0xa21de820, 0xd18b69de, 0xf3f65777, 0xfa02c3f6,
+    0x407edac3, 0xcbb3d550, 0x1793084d, 0xb0d70eba,
+    0x0ab378d5, 0xd951fb0c, 0xded7da56, 0x4124bbe4,
+    0x94ca0b56, 0x0f5755d1, 0xe0e1e56e, 0x6184b5be,
+    0x580a249f, 0x94f74bc0, 0xe327888e, 0x9f7b5561,
+    0xc3dc0280, 0x05687715, 0x646c6bd7, 0x44904db3,
+    0x66b4f0a3, 0xc0f1648a, 0x697ed5af, 0x49e92ff6,
+    0x309e374f, 0x2cb6356a, 0x85808573, 0x4991f840,
+    0x76f0ae02, 0x083be84d, 0x28421c9a, 0x44489406,
+    0x736e4cb8, 0xc1092910, 0x8bc95fc6, 0x7d869cf4,
+    0x134f616f, 0x2e77118d, 0xb31b2be1, 0xaa90b472,
+    0x3ca5d717, 0x7d161bba, 0x9cad9010, 0xaf462ba2,
+    0x9fe459d2, 0x45d34559, 0xd9f2da13, 0xdbc65487,
+    0xf3e4f94e, 0x176d486f, 0x097c13ea, 0x631da5c7,
+    0x445f7382, 0x175683f4, 0xcdc66a97, 0x70be0288,
+    0xb3cdcf72, 0x6e5dd2f3, 0x20936079, 0x459b80a5,
+    0xbe60e2db, 0xa9c23101, 0xeba5315c, 0x224e42f2,
+    0x1c5c1572, 0xf6721b2c, 0x1ad2fff3, 0x8c25404e,
+    0x324ed72f, 0x4067b7fd, 0x0523138e, 0x5ca3bc78,
+    0xdc0fd66e, 0x75922283, 0x784d6b17, 0x58ebb16e,
+    0x44094f85, 0x3f481d87, 0xfcfeae7b, 0x77b5ff76,
+    0x8c2302bf, 0xaaf47556, 0x5f46b02a, 0x2b092801,
+    0x3d38f5f7, 0x0ca81f36, 0x52af4a8a, 0x66d5e7c0,
+    0xdf3b0874, 0x95055110, 0x1b5ad7a8, 0xf61ed5ad,
+    0x6cf6e479, 0x20758184, 0xd0cefa65, 0x88f7be58,
+    0x4a046826, 0x0ff6f8f3, 0xa09c7f70, 0x5346aba0,
+    0x5ce96c28, 0xe176eda3, 0x6bac307f, 0x376829d2,
+    0x85360fa9, 0x17e3fe2a, 0x24b79767, 0xf5a96b20,
+    0xd6cd2595, 0x68ff1ebf, 0x7555442c, 0xf19f06be,
+    0xf9e0659a, 0xeeb9491d, 0x34010718, 0xbb30cab8,
+    0xe822fe15, 0x88570983, 0x750e6249, 0xda627e55,
+    0x5e76ffa8, 0xb1534546, 0x6d47de08, 0xefe9e7d4
+  },
+  {
+    0xf6fa8f9d, 0x2cac6ce1, 0x4ca34867, 0xe2337f7c,
+    0x95db08e7, 0x016843b4, 0xeced5cbc, 0x325553ac,
+    0xbf9f0960, 0xdfa1e2ed, 0x83f0579d, 0x63ed86b9,
+    0x1ab6a6b8, 0xde5ebe39, 0xf38ff732, 0x8989b138,
+    0x33f14961, 0xc01937bd, 0xf506c6da, 0xe4625e7e,
+    0xa308ea99, 0x4e23e33c, 0x79cbd7cc, 0x48a14367,
+    0xa3149619, 0xfec94bd5, 0xa114174a, 0xeaa01866,
+    0xa084db2d, 0x09a8486f, 0xa888614a, 0x2900af98,
+    0x01665991, 0xe1992863, 0xc8f30c60, 0x2e78ef3c,
+    0xd0d51932, 0xcf0fec14, 0xf7ca07d2, 0xd0a82072,
+    0xfd41197e, 0x9305a6b0, 0xe86be3da, 0x74bed3cd,
+    0x372da53c, 0x4c7f4448, 0xdab5d440, 0x6dba0ec3,
+    0x083919a7, 0x9fbaeed9, 0x49dbcfb0, 0x4e670c53,
+    0x5c3d9c01, 0x64bdb941, 0x2c0e636a, 0xba7dd9cd,
+    0xea6f7388, 0xe70bc762, 0x35f29adb, 0x5c4cdd8d,
+    0xf0d48d8c, 0xb88153e2, 0x08a19866, 0x1ae2eac8,
+    0x284caf89, 0xaa928223, 0x9334be53, 0x3b3a21bf,
+    0x16434be3, 0x9aea3906, 0xefe8c36e, 0xf890cdd9,
+    0x80226dae, 0xc340a4a3, 0xdf7e9c09, 0xa694a807,
+    0x5b7c5ecc, 0x221db3a6, 0x9a69a02f, 0x68818a54,
+    0xceb2296f, 0x53c0843a, 0xfe893655, 0x25bfe68a,
+    0xb4628abc, 0xcf222ebf, 0x25ac6f48, 0xa9a99387,
+    0x53bddb65, 0xe76ffbe7, 0xe967fd78, 0x0ba93563,
+    0x8e342bc1, 0xe8a11be9, 0x4980740d, 0xc8087dfc,
+    0x8de4bf99, 0xa11101a0, 0x7fd37975, 0xda5a26c0,
+    0xe81f994f, 0x9528cd89, 0xfd339fed, 0xb87834bf,
+    0x5f04456d, 0x22258698, 0xc9c4c83b, 0x2dc156be,
+    0x4f628daa, 0x57f55ec5, 0xe2220abe, 0xd2916ebf,
+    0x4ec75b95, 0x24f2c3c0, 0x42d15d99, 0xcd0d7fa0,
+    0x7b6e27ff, 0xa8dc8af0, 0x7345c106, 0xf41e232f,
+    0x35162386, 0xe6ea8926, 0x3333b094, 0x157ec6f2,
+    0x372b74af, 0x692573e4, 0xe9a9d848, 0xf3160289,
+    0x3a62ef1d, 0xa787e238, 0xf3a5f676, 0x74364853,
+    0x20951063, 0x4576698d, 0xb6fad407, 0x592af950,
+    0x36f73523, 0x4cfb6e87, 0x7da4cec0, 0x6c152daa,
+    0xcb0396a8, 0xc50dfe5d, 0xfcd707ab, 0x0921c42f,
+    0x89dff0bb, 0x5fe2be78, 0x448f4f33, 0x754613c9,
+    0x2b05d08d, 0x48b9d585, 0xdc049441, 0xc8098f9b,
+    0x7dede786, 0xc39a3373, 0x42410005, 0x6a091751,
+    0x0ef3c8a6, 0x890072d6, 0x28207682, 0xa9a9f7be,
+    0xbf32679d, 0xd45b5b75, 0xb353fd00, 0xcbb0e358,
+    0x830f220a, 0x1f8fb214, 0xd372cf08, 0xcc3c4a13,
+    0x8cf63166, 0x061c87be, 0x88c98f88, 0x6062e397,
+    0x47cf8e7a, 0xb6c85283, 0x3cc2acfb, 0x3fc06976,
+    0x4e8f0252, 0x64d8314d, 0xda3870e3, 0x1e665459,
+    0xc10908f0, 0x513021a5, 0x6c5b68b7, 0x822f8aa0,
+    0x3007cd3e, 0x74719eef, 0xdc872681, 0x073340d4,
+    0x7e432fd9, 0x0c5ec241, 0x8809286c, 0xf592d891,
+    0x08a930f6, 0x957ef305, 0xb7fbffbd, 0xc266e96f,
+    0x6fe4ac98, 0xb173ecc0, 0xbc60b42a, 0x953498da,
+    0xfba1ae12, 0x2d4bd736, 0x0f25faab, 0xa4f3fceb,
+    0xe2969123, 0x257f0c3d, 0x9348af49, 0x361400bc,
+    0xe8816f4a, 0x3814f200, 0xa3f94043, 0x9c7a54c2,
+    0xbc704f57, 0xda41e7f9, 0xc25ad33a, 0x54f4a084,
+    0xb17f5505, 0x59357cbe, 0xedbd15c8, 0x7f97c5ab,
+    0xba5ac7b5, 0xb6f6deaf, 0x3a479c3a, 0x5302da25,
+    0x653d7e6a, 0x54268d49, 0x51a477ea, 0x5017d55b,
+    0xd7d25d88, 0x44136c76, 0x0404a8c8, 0xb8e5a121,
+    0xb81a928a, 0x60ed5869, 0x97c55b96, 0xeaec991b,
+    0x29935913, 0x01fdb7f1, 0x088e8dfa, 0x9ab6f6f5,
+    0x3b4cbf9f, 0x4a5de3ab, 0xe6051d35, 0xa0e1d855,
+    0xd36b4cf1, 0xf544edeb, 0xb0e93524, 0xbebb8fbd,
+    0xa2d762cf, 0x49c92f54, 0x38b5f331, 0x7128a454,
+    0x48392905, 0xa65b1db8, 0x851c97bd, 0xd675cf2f
+  },
+  {
+    0x85e04019, 0x332bf567, 0x662dbfff, 0xcfc65693,
+    0x2a8d7f6f, 0xab9bc912, 0xde6008a1, 0x2028da1f,
+    0x0227bce7, 0x4d642916, 0x18fac300, 0x50f18b82,
+    0x2cb2cb11, 0xb232e75c, 0x4b3695f2, 0xb28707de,
+    0xa05fbcf6, 0xcd4181e9, 0xe150210c, 0xe24ef1bd,
+    0xb168c381, 0xfde4e789, 0x5c79b0d8, 0x1e8bfd43,
+    0x4d495001, 0x38be4341, 0x913cee1d, 0x92a79c3f,
+    0x089766be, 0xbaeeadf4, 0x1286becf, 0xb6eacb19,
+    0x2660c200, 0x7565bde4, 0x64241f7a, 0x8248dca9,
+    0xc3b3ad66, 0x28136086, 0x0bd8dfa8, 0x356d1cf2,
+    0x107789be, 0xb3b2e9ce, 0x0502aa8f, 0x0bc0351e,
+    0x166bf52a, 0xeb12ff82, 0xe3486911, 0xd34d7516,
+    0x4e7b3aff, 0x5f43671b, 0x9cf6e037, 0x4981ac83,
+    0x334266ce, 0x8c9341b7, 0xd0d854c0, 0xcb3a6c88,
+    0x47bc2829, 0x4725ba37, 0xa66ad22b, 0x7ad61f1e,
+    0x0c5cbafa, 0x4437f107, 0xb6e79962, 0x42d2d816,
+    0x0a961288, 0xe1a5c06e, 0x13749e67, 0x72fc081a,
+    0xb1d139f7, 0xf9583745, 0xcf19df58, 0xbec3f756,
+    0xc06eba30, 0x07211b24, 0x45c28829, 0xc95e317f,
+    0xbc8ec511, 0x38bc46e9, 0xc6e6fa14, 0xbae8584a,
+    0xad4ebc46, 0x468f508b, 0x7829435f, 0xf124183b,
+    0x821dba9f, 0xaff60ff4, 0xea2c4e6d, 0x16e39264,
+    0x92544a8b, 0x009b4fc3, 0xaba68ced, 0x9ac96f78,
+    0x06a5b79a, 0xb2856e6e, 0x1aec3ca9, 0xbe838688,
+    0x0e0804e9, 0x55f1be56, 0xe7e5363b, 0xb3a1f25d,
+    0xf7debb85, 0x61fe033c, 0x16746233, 0x3c034c28,
+    0xda6d0c74, 0x79aac56c, 0x3ce4e1ad, 0x51f0c802,
+    0x98f8f35a, 0x1626a49f, 0xeed82b29, 0x1d382fe3,
+    0x0c4fb99a, 0xbb325778, 0x3ec6d97b, 0x6e77a6a9,
+    0xcb658b5c, 0xd45230c7, 0x2bd1408b, 0x60c03eb7,
+    0xb9068d78, 0xa33754f4, 0xf430c87d, 0xc8a71302,
+    0xb96d8c32, 0xebd4e7be, 0xbe8b9d2d, 0x7979fb06,
+    0xe7225308, 0x8b75cf77, 0x11ef8da4, 0xe083c858,
+    0x8d6b786f, 0x5a6317a6, 0xfa5cf7a0, 0x5dda0033,
+    0xf28ebfb0, 0xf5b9c310, 0xa0eac280, 0x08b9767a,
+    0xa3d9d2b0, 0x79d34217, 0x021a718d, 0x9ac6336a,
+    0x2711fd60, 0x438050e3, 0x069908a8, 0x3d7fedc4,
+    0x826d2bef, 0x4eeb8476, 0x488dcf25, 0x36c9d566,
+    0x28e74e41, 0xc2610aca, 0x3d49a9cf, 0xbae3b9df,
+    0xb65f8de6, 0x92aeaf64, 0x3ac7d5e6, 0x9ea80509,
+    0xf22b017d, 0xa4173f70, 0xdd1e16c3, 0x15e0d7f9,
+    0x50b1b887, 0x2b9f4fd5, 0x625aba82, 0x6a017962,
+    0x2ec01b9c, 0x15488aa9, 0xd716e740, 0x40055a2c,
+    0x93d29a22, 0xe32dbf9a, 0x058745b9, 0x3453dc1e,
+    0xd699296e, 0x496cff6f, 0x1c9f4986, 0xdfe2ed07,
+    0xb87242d1, 0x19de7eae, 0x053e561a, 0x15ad6f8c,
+    0x66626c1c, 0x7154c24c, 0xea082b2a, 0x93eb2939,
+    0x17dcb0f0, 0x58d4f2ae, 0x9ea294fb, 0x52cf564c,
+    0x9883fe66, 0x2ec40581, 0x763953c3, 0x01d6692e,
+    0xd3a0c108, 0xa1e7160e, 0xe4f2dfa6, 0x693ed285,
+    0x74904698, 0x4c2b0edd, 0x4f757656, 0x5d393378,
+    0xa132234f, 0x3d321c5d, 0xc3f5e194, 0x4b269301,
+    0xc79f022f, 0x3c997e7e, 0x5e4f9504, 0x3ffafbbd,
+    0x76f7ad0e, 0x296693f4, 0x3d1fce6f, 0xc61e45be,
+    0xd3b5ab34, 0xf72bf9b7, 0x1b0434c0, 0x4e72b567,
+    0x5592a33d, 0xb5229301, 0xcfd2a87f, 0x60aeb767,
+    0x1814386b, 0x30bcc33d, 0x38a0c07d, 0xfd1606f2,
+    0xc363519b, 0x589dd390, 0x5479f8e6, 0x1cb8d647,
+    0x97fd61a9, 0xea7759f4, 0x2d57539d, 0x569a58cf,
+    0xe84e63ad, 0x462e1b78, 0x6580f87e, 0xf3817914,
+    0x91da55f4, 0x40a230f3, 0xd1988f35, 0xb6e318d2,
+    0x3ffa50bc, 0x3d40f021, 0xc3c0bdae, 0x4958c24c,
+    0x518f36b2, 0x84b1d370, 0x0fedce83, 0x878ddada,
+    0xf2a279c7, 0x94e01be8, 0x90716f4b, 0x954b8aa3
+  },
+  {
+    0xe216300d, 0xbbddfffc, 0xa7ebdabd, 0x35648095,
+    0x7789f8b7, 0xe6c1121b, 0x0e241600, 0x052ce8b5,
+    0x11a9cfb0, 0xe5952f11, 0xece7990a, 0x9386d174,
+    0x2a42931c, 0x76e38111, 0xb12def3a, 0x37ddddfc,
+    0xde9adeb1, 0x0a0cc32c, 0xbe197029, 0x84a00940,
+    0xbb243a0f, 0xb4d137cf, 0xb44e79f0, 0x049eedfd,
+    0x0b15a15d, 0x480d3168, 0x8bbbde5a, 0x669ded42,
+    0xc7ece831, 0x3f8f95e7, 0x72df191b, 0x7580330d,
+    0x94074251, 0x5c7dcdfa, 0xabbe6d63, 0xaa402164,
+    0xb301d40a, 0x02e7d1ca, 0x53571dae, 0x7a3182a2,
+    0x12a8ddec, 0xfdaa335d, 0x176f43e8, 0x71fb46d4,
+    0x38129022, 0xce949ad4, 0xb84769ad, 0x965bd862,
+    0x82f3d055, 0x66fb9767, 0x15b80b4e, 0x1d5b47a0,
+    0x4cfde06f, 0xc28ec4b8, 0x57e8726e, 0x647a78fc,
+    0x99865d44, 0x608bd593, 0x6c200e03, 0x39dc5ff6,
+    0x5d0b00a3, 0xae63aff2, 0x7e8bd632, 0x70108c0c,
+    0xbbd35049, 0x2998df04, 0x980cf42a, 0x9b6df491,
+    0x9e7edd53, 0x06918548, 0x58cb7e07, 0x3b74ef2e,
+    0x522fffb1, 0xd24708cc, 0x1c7e27cd, 0xa4eb215b,
+    0x3cf1d2e2, 0x19b47a38, 0x424f7618, 0x35856039,
+    0x9d17dee7, 0x27eb35e6, 0xc9aff67b, 0x36baf5b8,
+    0x09c467cd, 0xc18910b1, 0xe11dbf7b, 0x06cd1af8,
+    0x7170c608, 0x2d5e3354, 0xd4de495a, 0x64c6d006,
+    0xbcc0c62c, 0x3dd00db3, 0x708f8f34, 0x77d51b42,
+    0x264f620f, 0x24b8d2bf, 0x15c1b79e, 0x46a52564,
+    0xf8d7e54e, 0x3e378160, 0x7895cda5, 0x859c15a5,
+    0xe6459788, 0xc37bc75f, 0xdb07ba0c, 0x0676a3ab,
+    0x7f229b1e, 0x31842e7b, 0x24259fd7, 0xf8bef472,
+    0x835ffcb8, 0x6df4c1f2, 0x96f5b195, 0xfd0af0fc,
+    0xb0fe134c, 0xe2506d3d, 0x4f9b12ea, 0xf215f225,
+    0xa223736f, 0x9fb4c428, 0x25d04979, 0x34c713f8,
+    0xc4618187, 0xea7a6e98, 0x7cd16efc, 0x1436876c,
+    0xf1544107, 0xbedeee14, 0x56e9af27, 0xa04aa441,
+    0x3cf7c899, 0x92ecbae6, 0xdd67016d, 0x151682eb,
+    0xa842eedf, 0xfdba60b4, 0xf1907b75, 0x20e3030f,
+    0x24d8c29e, 0xe139673b, 0xefa63fb8, 0x71873054,
+    0xb6f2cf3b, 0x9f326442, 0xcb15a4cc, 0xb01a4504,
+    0xf1e47d8d, 0x844a1be5, 0xbae7dfdc, 0x42cbda70,
+    0xcd7dae0a, 0x57e85b7a, 0xd53f5af6, 0x20cf4d8c,
+    0xcea4d428, 0x79d130a4, 0x3486ebfb, 0x33d3cddc,
+    0x77853b53, 0x37effcb5, 0xc5068778, 0xe580b3e6,
+    0x4e68b8f4, 0xc5c8b37e, 0x0d809ea2, 0x398feb7c,
+    0x132a4f94, 0x43b7950e, 0x2fee7d1c, 0x223613bd,
+    0xdd06caa2, 0x37df932b, 0xc4248289, 0xacf3ebc3,
+    0x5715f6b7, 0xef3478dd, 0xf267616f, 0xc148cbe4,
+    0x9052815e, 0x5e410fab, 0xb48a2465, 0x2eda7fa4,
+    0xe87b40e4, 0xe98ea084, 0x5889e9e1, 0xefd390fc,
+    0xdd07d35b, 0xdb485694, 0x38d7e5b2, 0x57720101,
+    0x730edebc, 0x5b643113, 0x94917e4f, 0x503c2fba,
+    0x646f1282, 0x7523d24a, 0xe0779695, 0xf9c17a8f,
+    0x7a5b2121, 0xd187b896, 0x29263a4d, 0xba510cdf,
+    0x81f47c9f, 0xad1163ed, 0xea7b5965, 0x1a00726e,
+    0x11403092, 0x00da6d77, 0x4a0cdd61, 0xad1f4603,
+    0x605bdfb0, 0x9eedc364, 0x22ebe6a8, 0xcee7d28a,
+    0xa0e736a0, 0x5564a6b9, 0x10853209, 0xc7eb8f37,
+    0x2de705ca, 0x8951570f, 0xdf09822b, 0xbd691a6c,
+    0xaa12e4f2, 0x87451c0f, 0xe0f6a27a, 0x3ada4819,
+    0x4cf1764f, 0x0d771c2b, 0x67cdb156, 0x350d8384,
+    0x5938fa0f, 0x42399ef3, 0x36997b07, 0x0e84093d,
+    0x4aa93e61, 0x8360d87b, 0x1fa98b0c, 0x1149382c,
+    0xe97625a5, 0x0614d1b7, 0x0e25244b, 0x0c768347,
+    0x589e8d82, 0x0d2059d1, 0xa466bb1e, 0xf8da0a82,
+    0x04f19130, 0xba6e4ec0, 0x99265164, 0x1ee7230d,
+    0x50b2ad80, 0xeaee6801, 0x8db2a283, 0xea8bf59e
+  }
+};
+
+static const struct {
+  uint8_t a[4][7];
+  uint8_t b[4][5];
+} schedule[4] = {
+  {
+    {
+      {4, 0, 0xd, 0xf, 0xc, 0xe, 0x8},
+      {5, 2, 16 + 0, 16 + 2, 16 + 1, 16 + 3, 0xa},
+      {6, 3, 16 + 7, 16 + 6, 16 + 5, 16 + 4, 9},
+      {7, 1, 16 + 0xa, 16 + 9, 16 + 0xb, 16 + 8, 0xb}
+    },
+    {
+      {16 + 8, 16 + 9, 16 + 7, 16 + 6, 16 + 2},
+      {16 + 0xa, 16 + 0xb, 16 + 5, 16 + 4, 16 + 6},
+      {16 + 0xc, 16 + 0xd, 16 + 3, 16 + 2, 16 + 9},
+      {16 + 0xe, 16 + 0xf, 16 + 1, 16 + 0, 16 + 0xc}
+    }
+  },
+  {
+    {
+      {0, 6, 16 + 5, 16 + 7, 16 + 4, 16 + 6, 16 + 0},
+      {1, 4, 0, 2, 1, 3, 16 + 2},
+      {2, 5, 7, 6, 5, 4, 16 + 1},
+      {3, 7, 0xa, 9, 0xb, 8, 16 + 3}
+    },
+    {
+      {3, 2, 0xc, 0xd, 8},
+      {1, 0, 0xe, 0xf, 0xd},
+      {7, 6, 8, 9, 3},
+      {5, 4, 0xa, 0xb, 7}
+    }
+  },
+  {
+    {
+      {4, 0, 0xd, 0xf, 0xc, 0xe, 8},
+      {5, 2, 16 + 0, 16 + 2, 16 + 1, 16 + 3, 0xa},
+      {6, 3, 16 + 7, 16 + 6, 16 + 5, 16 + 4, 9},
+      {7, 1, 16 + 0xa, 16 + 9, 16 + 0xb, 16 + 8, 0xb}
+    },
+    {
+      {16 + 3, 16 + 2, 16 + 0xc, 16 + 0xd, 16 + 9},
+      {16 + 1, 16 + 0, 16 + 0xe, 16 + 0xf, 16 + 0xc},
+      {16 + 7, 16 + 6, 16 + 8, 16 + 9, 16 + 2},
+      {16 + 5, 16 + 4, 16 + 0xa, 16 + 0xb, 16 + 6}
+    }
+  },
+  {
+    {
+      {0, 6, 16 + 5, 16 + 7, 16 + 4, 16 + 6, 16 + 0},
+      {1, 4, 0, 2, 1, 3, 16 + 2},
+      {2, 5, 7, 6, 5, 4, 16 + 1},
+      {3, 7, 0xa, 9, 0xb, 8, 16 + 3}
+    },
+    {
+      {8, 9, 7, 6, 3},
+      {0xa, 0xb, 5, 4, 7},
+      {0xc, 0xd, 3, 2, 8},
+      {0xe, 0xf, 1, 0, 0xd}
+    }
+  }
+};
+
+static const uint8_t X[4] = {6, 7, 4, 5};
+
+static TORSION_INLINE
+uint32_t f1(uint32_t d, uint32_t m, uint32_t r) {
+  uint32_t t = m + d;
+  uint32_t I = (t << r) | (t >> (32 - r));;
+  return (((S[0][(I >> 24) & 0xff]
+          ^ S[1][(I >> 16) & 0xff])
+          - S[2][(I >>  8) & 0xff])
+          + S[3][(I >>  0) & 0xff]);
+}
+
+static TORSION_INLINE
+uint32_t f2(uint32_t d, uint32_t m, uint32_t r) {
+  uint32_t t = m ^ d;
+  uint32_t I = (t << r) | (t >> (32 - r));
+  return (((S[0][(I >> 24) & 0xff]
+          - S[1][(I >> 16) & 0xff])
+          + S[2][(I >>  8) & 0xff])
+          ^ S[3][(I >>  0) & 0xff]);
+}
+
+static TORSION_INLINE
+uint32_t f3(uint32_t d, uint32_t m, uint32_t r) {
+  uint32_t t = m - d;
+  uint32_t I = (t << r) | (t >> (32 - r));
+  return (((S[0][(I >> 24) & 0xff]
+          + S[1][(I >> 16) & 0xff])
+          ^ S[2][(I >>  8) & 0xff])
+          - S[3][(I >>  0) & 0xff]);
+}
+
+void
+cast5_init(cast5_t *ctx, const unsigned char *key) {
+  uint32_t t[8];
+  uint32_t k[32];
+  size_t i, half, r, j;
+  size_t ki = 0;
+  uint32_t w;
+
+  for (i = 0; i < 4; i++)
+    t[i] = read32be(key + i * 4);
+
+  for (half = 0; half < 2; half++) {
+    for (r = 0; r < 4; r++) {
+      for (j = 0; j < 4; j++) {
+        const uint8_t *a = schedule[r].a[j];
+
+        w = t[a[1]]
+          ^ S[4][(t[a[2] >> 2] >> (24 - 8 * (a[2] & 3))) & 0xff]
+          ^ S[5][(t[a[3] >> 2] >> (24 - 8 * (a[3] & 3))) & 0xff]
+          ^ S[6][(t[a[4] >> 2] >> (24 - 8 * (a[4] & 3))) & 0xff]
+          ^ S[7][(t[a[5] >> 2] >> (24 - 8 * (a[5] & 3))) & 0xff];
+
+        w ^= S[X[j]][(t[a[6] >> 2] >> (24 - 8 * (a[6] & 3))) & 0xff];
+
+        t[a[0]] = w;
+      }
+
+      for (j = 0; j < 4; j++) {
+        const uint8_t *b = schedule[r].b[j];
+
+        w = S[4][(t[b[0] >> 2] >> (24 - 8 * (b[0] & 3))) & 0xff]
+          ^ S[5][(t[b[1] >> 2] >> (24 - 8 * (b[1] & 3))) & 0xff]
+          ^ S[6][(t[b[2] >> 2] >> (24 - 8 * (b[2] & 3))) & 0xff]
+          ^ S[7][(t[b[3] >> 2] >> (24 - 8 * (b[3] & 3))) & 0xff];
+
+        w ^= S[4 + j][(t[b[4] >> 2] >> (24 - 8 * (b[4] & 3))) & 0xff];
+
+        k[ki] = w;
+        ki += 1;
+      }
+    }
+  }
+
+  for (i = 0; i < 16; i++) {
+    ctx->masking[i] = k[i];
+    ctx->rotate[i] = k[16 + i] & 0x1f;
+  }
+}
+
+#define R(ctx, l, r, f, i) do {                  \
+  uint32_t t = l;                                \
+  l = r;                                         \
+  r = t ^ f(r, ctx->masking[i], ctx->rotate[i]); \
+} while (0)
+
+void
+cast5_encrypt(const cast5_t *ctx,
+              unsigned char *dst,
+              const unsigned char *src) {
+  uint32_t l = read32be(src + 0);
+  uint32_t r = read32be(src + 4);
+
+  R(ctx, l, r, f1, 0);
+  R(ctx, l, r, f2, 1);
+  R(ctx, l, r, f3, 2);
+  R(ctx, l, r, f1, 3);
+
+  R(ctx, l, r, f2, 4);
+  R(ctx, l, r, f3, 5);
+  R(ctx, l, r, f1, 6);
+  R(ctx, l, r, f2, 7);
+
+  R(ctx, l, r, f3, 8);
+  R(ctx, l, r, f1, 9);
+  R(ctx, l, r, f2, 10);
+  R(ctx, l, r, f3, 11);
+
+  R(ctx, l, r, f1, 12);
+  R(ctx, l, r, f2, 13);
+  R(ctx, l, r, f3, 14);
+  R(ctx, l, r, f1, 15);
+
+  write32be(dst + 0, r);
+  write32be(dst + 4, l);
+}
+
+void
+cast5_decrypt(const cast5_t *ctx,
+              unsigned char *dst,
+              const unsigned char *src) {
+  uint32_t l = read32be(src + 0);
+  uint32_t r = read32be(src + 4);
+
+  R(ctx, l, r, f1, 15);
+  R(ctx, l, r, f3, 14);
+  R(ctx, l, r, f2, 13);
+  R(ctx, l, r, f1, 12);
+
+  R(ctx, l, r, f3, 11);
+  R(ctx, l, r, f2, 10);
+  R(ctx, l, r, f1, 9);
+  R(ctx, l, r, f3, 8);
+
+  R(ctx, l, r, f2, 7);
+  R(ctx, l, r, f1, 6);
+  R(ctx, l, r, f3, 5);
+  R(ctx, l, r, f2, 4);
+
+  R(ctx, l, r, f1, 3);
+  R(ctx, l, r, f3, 2);
+  R(ctx, l, r, f2, 1);
+  R(ctx, l, r, f1, 0);
+
+  write32be(dst + 0, r);
+  write32be(dst + 4, l);
+}
+
+#undef R
+
+#undef S
+#undef schedule
+#undef X
+#undef f1
+#undef f2
+#undef f3
+
+/*
+ * DES
+ *
+ * Resources:
+ *   https://en.wikipedia.org/wiki/Data_Encryption_Standard
+ *   https://github.com/indutny/des.js/tree/master/lib/des
+ */
+
+static const uint8_t des_pc2_table[48] = {
+  /* inL => outL */
+  0x0e, 0x0b, 0x11, 0x04, 0x1b, 0x17, 0x19, 0x00,
+  0x0d, 0x16, 0x07, 0x12, 0x05, 0x09, 0x10, 0x18,
+  0x02, 0x14, 0x0c, 0x15, 0x01, 0x08, 0x0f, 0x1a,
+
+  /* inR => outR */
+  0x0f, 0x04, 0x19, 0x13, 0x09, 0x01, 0x1a, 0x10,
+  0x05, 0x0b, 0x17, 0x08, 0x0c, 0x07, 0x11, 0x00,
+  0x16, 0x03, 0x0a, 0x0e, 0x06, 0x14, 0x1b, 0x18
+};
+
+static const uint8_t des_s_table[512] = {
+  0x0e, 0x00, 0x04, 0x0f, 0x0d, 0x07, 0x01, 0x04,
+  0x02, 0x0e, 0x0f, 0x02, 0x0b, 0x0d, 0x08, 0x01,
+  0x03, 0x0a, 0x0a, 0x06, 0x06, 0x0c, 0x0c, 0x0b,
+  0x05, 0x09, 0x09, 0x05, 0x00, 0x03, 0x07, 0x08,
+  0x04, 0x0f, 0x01, 0x0c, 0x0e, 0x08, 0x08, 0x02,
+  0x0d, 0x04, 0x06, 0x09, 0x02, 0x01, 0x0b, 0x07,
+  0x0f, 0x05, 0x0c, 0x0b, 0x09, 0x03, 0x07, 0x0e,
+  0x03, 0x0a, 0x0a, 0x00, 0x05, 0x06, 0x00, 0x0d,
+
+  0x0f, 0x03, 0x01, 0x0d, 0x08, 0x04, 0x0e, 0x07,
+  0x06, 0x0f, 0x0b, 0x02, 0x03, 0x08, 0x04, 0x0e,
+  0x09, 0x0c, 0x07, 0x00, 0x02, 0x01, 0x0d, 0x0a,
+  0x0c, 0x06, 0x00, 0x09, 0x05, 0x0b, 0x0a, 0x05,
+  0x00, 0x0d, 0x0e, 0x08, 0x07, 0x0a, 0x0b, 0x01,
+  0x0a, 0x03, 0x04, 0x0f, 0x0d, 0x04, 0x01, 0x02,
+  0x05, 0x0b, 0x08, 0x06, 0x0c, 0x07, 0x06, 0x0c,
+  0x09, 0x00, 0x03, 0x05, 0x02, 0x0e, 0x0f, 0x09,
+
+  0x0a, 0x0d, 0x00, 0x07, 0x09, 0x00, 0x0e, 0x09,
+  0x06, 0x03, 0x03, 0x04, 0x0f, 0x06, 0x05, 0x0a,
+  0x01, 0x02, 0x0d, 0x08, 0x0c, 0x05, 0x07, 0x0e,
+  0x0b, 0x0c, 0x04, 0x0b, 0x02, 0x0f, 0x08, 0x01,
+  0x0d, 0x01, 0x06, 0x0a, 0x04, 0x0d, 0x09, 0x00,
+  0x08, 0x06, 0x0f, 0x09, 0x03, 0x08, 0x00, 0x07,
+  0x0b, 0x04, 0x01, 0x0f, 0x02, 0x0e, 0x0c, 0x03,
+  0x05, 0x0b, 0x0a, 0x05, 0x0e, 0x02, 0x07, 0x0c,
+
+  0x07, 0x0d, 0x0d, 0x08, 0x0e, 0x0b, 0x03, 0x05,
+  0x00, 0x06, 0x06, 0x0f, 0x09, 0x00, 0x0a, 0x03,
+  0x01, 0x04, 0x02, 0x07, 0x08, 0x02, 0x05, 0x0c,
+  0x0b, 0x01, 0x0c, 0x0a, 0x04, 0x0e, 0x0f, 0x09,
+  0x0a, 0x03, 0x06, 0x0f, 0x09, 0x00, 0x00, 0x06,
+  0x0c, 0x0a, 0x0b, 0x01, 0x07, 0x0d, 0x0d, 0x08,
+  0x0f, 0x09, 0x01, 0x04, 0x03, 0x05, 0x0e, 0x0b,
+  0x05, 0x0c, 0x02, 0x07, 0x08, 0x02, 0x04, 0x0e,
+
+  0x02, 0x0e, 0x0c, 0x0b, 0x04, 0x02, 0x01, 0x0c,
+  0x07, 0x04, 0x0a, 0x07, 0x0b, 0x0d, 0x06, 0x01,
+  0x08, 0x05, 0x05, 0x00, 0x03, 0x0f, 0x0f, 0x0a,
+  0x0d, 0x03, 0x00, 0x09, 0x0e, 0x08, 0x09, 0x06,
+  0x04, 0x0b, 0x02, 0x08, 0x01, 0x0c, 0x0b, 0x07,
+  0x0a, 0x01, 0x0d, 0x0e, 0x07, 0x02, 0x08, 0x0d,
+  0x0f, 0x06, 0x09, 0x0f, 0x0c, 0x00, 0x05, 0x09,
+  0x06, 0x0a, 0x03, 0x04, 0x00, 0x05, 0x0e, 0x03,
+
+  0x0c, 0x0a, 0x01, 0x0f, 0x0a, 0x04, 0x0f, 0x02,
+  0x09, 0x07, 0x02, 0x0c, 0x06, 0x09, 0x08, 0x05,
+  0x00, 0x06, 0x0d, 0x01, 0x03, 0x0d, 0x04, 0x0e,
+  0x0e, 0x00, 0x07, 0x0b, 0x05, 0x03, 0x0b, 0x08,
+  0x09, 0x04, 0x0e, 0x03, 0x0f, 0x02, 0x05, 0x0c,
+  0x02, 0x09, 0x08, 0x05, 0x0c, 0x0f, 0x03, 0x0a,
+  0x07, 0x0b, 0x00, 0x0e, 0x04, 0x01, 0x0a, 0x07,
+  0x01, 0x06, 0x0d, 0x00, 0x0b, 0x08, 0x06, 0x0d,
+
+  0x04, 0x0d, 0x0b, 0x00, 0x02, 0x0b, 0x0e, 0x07,
+  0x0f, 0x04, 0x00, 0x09, 0x08, 0x01, 0x0d, 0x0a,
+  0x03, 0x0e, 0x0c, 0x03, 0x09, 0x05, 0x07, 0x0c,
+  0x05, 0x02, 0x0a, 0x0f, 0x06, 0x08, 0x01, 0x06,
+  0x01, 0x06, 0x04, 0x0b, 0x0b, 0x0d, 0x0d, 0x08,
+  0x0c, 0x01, 0x03, 0x04, 0x07, 0x0a, 0x0e, 0x07,
+  0x0a, 0x09, 0x0f, 0x05, 0x06, 0x00, 0x08, 0x0f,
+  0x00, 0x0e, 0x05, 0x02, 0x09, 0x03, 0x02, 0x0c,
+
+  0x0d, 0x01, 0x02, 0x0f, 0x08, 0x0d, 0x04, 0x08,
+  0x06, 0x0a, 0x0f, 0x03, 0x0b, 0x07, 0x01, 0x04,
+  0x0a, 0x0c, 0x09, 0x05, 0x03, 0x06, 0x0e, 0x0b,
+  0x05, 0x00, 0x00, 0x0e, 0x0c, 0x09, 0x07, 0x02,
+  0x07, 0x02, 0x0b, 0x01, 0x04, 0x0e, 0x01, 0x07,
+  0x09, 0x04, 0x0c, 0x0a, 0x0e, 0x08, 0x02, 0x0d,
+  0x00, 0x0f, 0x06, 0x0c, 0x0a, 0x09, 0x0d, 0x00,
+  0x0f, 0x03, 0x03, 0x05, 0x05, 0x06, 0x08, 0x0b
+};
+
+static const uint8_t des_permute_table[32] = {
+  0x10, 0x19, 0x0c, 0x0b, 0x03, 0x14, 0x04, 0x0f,
+  0x1f, 0x11, 0x09, 0x06, 0x1b, 0x0e, 0x01, 0x16,
+  0x1e, 0x18, 0x08, 0x12, 0x00, 0x05, 0x1d, 0x17,
+  0x0d, 0x13, 0x02, 0x1a, 0x0a, 0x15, 0x1c, 0x07
+};
+
+static const uint8_t des_shift_table[16] = {
+  0x01, 0x01, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02,
+  0x01, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x01
+};
+
+static TORSION_INLINE void
+des_ip(uint32_t *ol, uint32_t *or, uint32_t inl, uint32_t inr) {
+  uint32_t outl = 0;
+  uint32_t outr = 0;
+  int i, j;
+
+  for (i = 6; i >= 0; i -= 2) {
+    for (j = 0; j <= 24; j += 8) {
+      outl <<= 1;
+      outl |= (inr >> (j + i)) & 1;
+    }
+
+    for (j = 0; j <= 24; j += 8) {
+      outl <<= 1;
+      outl |= (inl >> (j + i)) & 1;
+    }
+  }
+
+  for (i = 6; i >= 0; i -= 2) {
+    for (j = 1; j <= 25; j += 8) {
+      outr <<= 1;
+      outr |= (inr >> (j + i)) & 1;
+    }
+
+    for (j = 1; j <= 25; j += 8) {
+      outr <<= 1;
+      outr |= (inl >> (j + i)) & 1;
+    }
+  }
+
+  *ol = outl;
+  *or = outr;
+}
+
+static TORSION_INLINE void
+des_rip(uint32_t *ol, uint32_t *or, uint32_t inl, uint32_t inr) {
+  uint32_t outl = 0;
+  uint32_t outr = 0;
+  int i, j;
+
+  for (i = 0; i < 4; i++) {
+    for (j = 24; j >= 0; j -= 8) {
+      outl <<= 1;
+      outl |= (inr >> (j + i)) & 1;
+      outl <<= 1;
+      outl |= (inl >> (j + i)) & 1;
+    }
+  }
+
+  for (i = 4; i < 8; i++) {
+    for (j = 24; j >= 0; j -= 8) {
+      outr <<= 1;
+      outr |= (inr >> (j + i)) & 1;
+      outr <<= 1;
+      outr |= (inl >> (j + i)) & 1;
+    }
+  }
+
+  *ol = outl;
+  *or = outr;
+}
+
+static TORSION_INLINE void
+des_pc1(uint32_t *ol, uint32_t *or, uint32_t inl, uint32_t inr) {
+  uint32_t outl = 0;
+  uint32_t outr = 0;
+  int i, j;
+
+  /* 7, 15, 23, 31, 39, 47, 55, 63
+     6, 14, 22, 30, 39, 47, 55, 63
+     5, 13, 21, 29, 39, 47, 55, 63
+     4, 12, 20, 28 */
+  for (i = 7; i >= 5; i--) {
+    for (j = 0; j <= 24; j += 8) {
+      outl <<= 1;
+      outl |= (inr >> (j + i)) & 1;
+    }
+
+    for (j = 0; j <= 24; j += 8) {
+      outl <<= 1;
+      outl |= (inl >> (j + i)) & 1;
+    }
+  }
+
+  for (j = 0; j <= 24; j += 8) {
+    outl <<= 1;
+    outl |= (inr >> (j + 4)) & 1;
+  }
+
+  /* 1, 9, 17, 25, 33, 41, 49, 57
+     2, 10, 18, 26, 34, 42, 50, 58
+     3, 11, 19, 27, 35, 43, 51, 59
+     36, 44, 52, 60 */
+  for (i = 1; i <= 3; i++) {
+    for (j = 0; j <= 24; j += 8) {
+      outr <<= 1;
+      outr |= (inr >> (j + i)) & 1;
+    }
+
+    for (j = 0; j <= 24; j += 8) {
+      outr <<= 1;
+      outr |= (inl >> (j + i)) & 1;
+    }
+  }
+
+  for (j = 0; j <= 24; j += 8) {
+    outr <<= 1;
+    outr |= (inl >> (j + 4)) & 1;
+  }
+
+  *ol = outl;
+  *or = outr;
+}
+
+static TORSION_INLINE uint32_t
+des_r28shl(uint32_t num, size_t shift) {
+  return ((num << shift) & 0xfffffff) | (num >> (28 - shift));
+}
+
+static TORSION_INLINE void
+des_pc2(uint32_t *ol, uint32_t *or, uint32_t inl, uint32_t inr) {
+  uint32_t outl = 0;
+  uint32_t outr = 0;
+  size_t i = 0;
+
+  for (; i < 24; i++) {
+    outl <<= 1;
+    outl |= (inl >> des_pc2_table[i]) & 1;
+  }
+
+  for (; i < 48; i++) {
+    outr <<= 1;
+    outr |= (inr >> des_pc2_table[i]) & 1;
+  }
+
+  *ol = outl;
+  *or = outr;
+}
+
+static TORSION_INLINE void
+des_expand(uint32_t *ol, uint32_t *or, uint32_t r) {
+  uint32_t outl = 0;
+  uint32_t outr = 0;
+  int i;
+
+  outl = ((r & 1) << 5) | (r >> 27);
+
+  for (i = 23; i >= 15; i -= 4) {
+    outl <<= 6;
+    outl |= (r >> i) & 0x3f;
+  }
+
+  for (i = 11; i >= 3; i -= 4) {
+    outr |= (r >> i) & 0x3f;
+    outr <<= 6;
+  }
+
+  outr |= ((r & 0x1f) << 1) | (r >> 31);
+
+  *ol = outl;
+  *or = outr;
+}
+
+static TORSION_INLINE uint32_t
+des_substitute(uint32_t inl, uint32_t inr) {
+  uint32_t out = 0;
+  uint32_t b, sb;
+  size_t i;
+
+  for (i = 0; i < 4; i++) {
+    b = (inl >> (18 - i * 6)) & 0x3f;
+    sb = des_s_table[i * 0x40 + b];
+
+    out <<= 4;
+    out |= sb;
+  }
+
+  for (i = 0; i < 4; i++) {
+    b = (inr >> (18 - i * 6)) & 0x3f;
+    sb = des_s_table[4 * 0x40 + i * 0x40 + b];
+
+    out <<= 4;
+    out |= sb;
+  }
+
+  return out;
+}
+
+static TORSION_INLINE uint32_t
+des_permute(uint32_t num) {
+  uint32_t out = 0;
+  size_t i;
+
+  for (i = 0; i < 32; i++) {
+    out <<= 1;
+    out |= (num >> des_permute_table[i]) & 1;
+  }
+
+  return out;
+}
+
+static TORSION_INLINE void
+des_encipher(const des_t *ctx,
+             uint32_t *ol, uint32_t *or,
+             uint32_t lstart, uint32_t rstart) {
+  uint32_t l = lstart;
+  uint32_t r = rstart;
+  uint32_t kl, kr, b1, b2, s, f, t;
+  size_t i;
+
+  /* Apply f() x16 times */
+  for (i = 0; i < 32; i += 2) {
+    kl = ctx->keys[i + 0];
+    kr = ctx->keys[i + 1];
+
+    /* f(r, k) */
+    des_expand(&b1, &b2, r);
+
+    kl ^= b1;
+    kr ^= b2;
+
+    s = des_substitute(kl, kr);
+    f = des_permute(s);
+    t = r;
+
+    r = l ^ f;
+    l = t;
+  }
+
+  /* Reverse Initial Permutation */
+  des_rip(ol, or, r, l);
+}
+
+static TORSION_INLINE void
+des_decipher(const des_t *ctx,
+             uint32_t *ol, uint32_t *or,
+             uint32_t lstart, uint32_t rstart) {
+  uint32_t l = rstart;
+  uint32_t r = lstart;
+  uint32_t kl, kr, b1, b2, s, f, t;
+  int i;
+
+  /* Apply f() x16 times */
+  for (i = 32 - 2; i >= 0; i -= 2) {
+    kl = ctx->keys[i + 0];
+    kr = ctx->keys[i + 1];
+
+    /* f(r, k) */
+    des_expand(&b1, &b2, l);
+
+    kl ^= b1;
+    kr ^= b2;
+
+    s = des_substitute(kl, kr);
+    f = des_permute(s);
+    t = l;
+
+    l = r ^ f;
+    r = t;
+  }
+
+  /* Reverse Initial Permutation */
+  des_rip(ol, or, l, r);
+}
+
+void
+des_init(des_t *ctx, const unsigned char *key) {
+  uint32_t kl = read32be(key + 0);
+  uint32_t kr = read32be(key + 4);
+  size_t i, shift;
+
+  des_pc1(&kl, &kr, kl, kr);
+
+  for (i = 0; i < 32; i += 2) {
+    shift = des_shift_table[i >> 1];
+
+    kl = des_r28shl(kl, shift);
+    kr = des_r28shl(kr, shift);
+
+    des_pc2(ctx->keys + i + 0, ctx->keys + i + 1, kl, kr);
+  }
+}
+
+void
+des_encrypt(const des_t *ctx, unsigned char *dst, const unsigned char *src) {
+  uint32_t l = read32be(src + 0);
+  uint32_t r = read32be(src + 4);
+
+  /* Initial Permutation */
+  des_ip(&l, &r, l, r);
+
+  des_encipher(ctx, &l, &r, l, r);
+
+  write32be(dst + 0, l);
+  write32be(dst + 4, r);
+}
+
+void
+des_decrypt(const des_t *ctx, unsigned char *dst, const unsigned char *src) {
+  uint32_t l = read32be(src + 0);
+  uint32_t r = read32be(src + 4);
+
+  /* Initial Permutation */
+  des_ip(&l, &r, l, r);
+
+  des_decipher(ctx, &l, &r, l, r);
+
+  write32be(dst + 0, l);
+  write32be(dst + 4, r);
+}
+
+/*
+ * DES-EDE
+ */
+
+void
+des_ede_init(des_ede_t *ctx, const unsigned char *key) {
+  des_init(&ctx->x, key + 0);
+  des_init(&ctx->y, key + 8);
+}
+
+void
+des_ede_encrypt(const des_ede_t *ctx,
+                unsigned char *dst,
+                const unsigned char *src) {
+  des_encrypt(&ctx->x, dst, src);
+  des_decrypt(&ctx->y, dst, dst);
+  des_encrypt(&ctx->x, dst, dst);
+}
+
+void
+des_ede_decrypt(const des_ede_t *ctx,
+                unsigned char *dst,
+                const unsigned char *src) {
+  des_decrypt(&ctx->x, dst, src);
+  des_encrypt(&ctx->y, dst, dst);
+  des_decrypt(&ctx->x, dst, dst);
+}
+
+/*
+ * DES-EDE3
+ */
+
+void
+des_ede3_init(des_ede3_t *ctx, const unsigned char *key) {
+  des_init(&ctx->x, key + 0);
+  des_init(&ctx->y, key + 8);
+  des_init(&ctx->z, key + 16);
+}
+
+void
+des_ede3_encrypt(const des_ede3_t *ctx,
+                 unsigned char *dst,
+                 const unsigned char *src) {
+  des_encrypt(&ctx->x, dst, src);
+  des_decrypt(&ctx->y, dst, dst);
+  des_encrypt(&ctx->z, dst, dst);
+}
+
+void
+des_ede3_decrypt(const des_ede3_t *ctx,
+                 unsigned char *dst,
+                 const unsigned char *src) {
+  des_decrypt(&ctx->z, dst, src);
+  des_encrypt(&ctx->y, dst, dst);
+  des_decrypt(&ctx->x, dst, dst);
+}
+
+/*
+ * IDEA
+ *
+ * Resources:
+ *   https://en.wikipedia.org/wiki/International_Data_Encryption_Algorithm
+ *   https://github.com/dgryski/go-idea/blob/master/idea.go
+ */
+
+#define inv16 idea_invm16
+#define mul16 idea_mul16
+
+static uint16_t
+inv16(uint16_t x) {
+  uint16_t y, q, t0, t1;
+
+  if (x <= 1)
+    return x;
+
+  t1 = UINT32_C(0x10001) / (uint32_t)x;
+  y = UINT32_C(0x10001) % (uint32_t)x;
+
+  if (y == 1)
+    return 1 - t1;
+
+  t0 = 1;
+
+  while (y != 1) {
+    q = x / y;
+    x = x % y;
+    t0 += q * t1;
+
+    if (x == 1)
+      return t0;
+
+    q = y / x;
+    y = y % x;
+    t1 += q * t0;
+  }
+
+  return 1 - t1;
+}
+
+static uint16_t
+mul16(uint16_t x, uint16_t y) {
+  uint32_t t32;
+
+  if (y == 0)
+    return 1 - x;
+
+  if (x == 0)
+    return 1 - y;
+
+  t32 = (uint32_t)x * (uint32_t)y;
+  x = t32;
+  y = t32 >> 16;
+
+  if (x < y)
+    return x - y + 1;
+
+  return x - y;
+}
+
+void
+idea_init_encrypt(idea_t *ctx, const unsigned char *key) {
+  uint16_t *ek = ctx->ek;
+  size_t p = 0;
+  size_t j = 0;
+  size_t i = 0;
+
+  for (; j < 8; j++) {
+    ek[j] = read16be(key + p);
+    p += 2;
+  }
+
+  p = 0;
+
+  for (; j < 52; j++) {
+    i += 1;
+
+    ek[p + (i + 7)] = (ek[p + (i & 7)] << 9)
+                    | (ek[p + ((i + 1) & 7)] >> 7);
+
+    p += i & 8;
+    i &= 7;
+  }
+}
+
+void
+idea_init_decrypt(idea_t *ctx, const unsigned char *key) {
+  uint16_t *ek = ctx->ek;
+  uint16_t *dk = ctx->dk;
+  uint16_t t1, t2, t3;
+  size_t dki = 52;
+  size_t eki = 0;
+  size_t i;
+
+  idea_init_encrypt(ctx, key);
+
+  t1 = inv16(ek[eki]);
+  eki += 1;
+  t2 = -ek[eki];
+  eki += 1;
+  t3 = -ek[eki];
+  eki += 1;
+  dki -= 1;
+  dk[dki] = inv16(ek[eki]);
+  eki += 1;
+  dki -= 1;
+  dk[dki] = t3;
+  dki -= 1;
+  dk[dki] = t2;
+  dki -= 1;
+  dk[dki] = t1;
+
+  for (i = 0; i < 8 - 1; i++) {
+    t1 = ek[eki];
+    eki += 1;
+    dki -= 1;
+    dk[dki] = ek[eki];
+    eki += 1;
+    dki -= 1;
+    dk[dki] = t1;
+
+    t1 = inv16(ek[eki]);
+    eki += 1;
+    t2 = -ek[eki];
+    eki += 1;
+    t3 = -ek[eki];
+    eki += 1;
+    dki -= 1;
+    dk[dki] = inv16(ek[eki]);
+    eki += 1;
+    dki -= 1;
+    dk[dki] = t2;
+    dki -= 1;
+    dk[dki] = t3;
+    dki -= 1;
+    dk[dki] = t1;
+  }
+
+  t1 = ek[eki];
+  eki += 1;
+  dki -= 1;
+  dk[dki] = ek[eki];
+  eki += 1;
+  dki -= 1;
+  dk[dki] = t1;
+
+  t1 = inv16(ek[eki]);
+  eki += 1;
+  t2 = -ek[eki];
+  eki += 1;
+  t3 = -ek[eki];
+  eki += 1;
+  dki -= 1;
+  dk[dki] = inv16(ek[eki]);
+  dki -= 1;
+  dk[dki] = t3;
+  dki -= 1;
+  dk[dki] = t2;
+  dki -= 1;
+  dk[dki] = t1;
+}
+
+static void
+idea_crypt(const uint16_t *key, unsigned char *dst, const unsigned char *src) {
+  uint16_t x1 = read16be(src + 0);
+  uint16_t x2 = read16be(src + 2);
+  uint16_t x3 = read16be(src + 4);
+  uint16_t x4 = read16be(src + 6);
+  uint16_t s2 = 0;
+  uint16_t s3 = 0;
+  size_t p = 0;
+  int r;
+
+  for (r = 8; r > 0; r--) {
+    x1 = mul16(x1, key[p]);
+    p += 1;
+    x2 += key[p];
+    p += 1;
+    x3 += key[p];
+    p += 1;
+
+    x4 = mul16(x4, key[p]);
+    p += 1;
+
+    s3 = x3;
+    x3 ^= x1;
+    x3 = mul16(x3, key[p]);
+    p += 1;
+    s2 = x2;
+
+    x2 ^= x4;
+    x2 += x3;
+    x2 = mul16(x2, key[p]);
+    p += 1;
+    x3 += x2;
+
+    x1 ^= x2;
+    x4 ^= x3;
+
+    x2 ^= s3;
+    x3 ^= s2;
+  }
+
+  x1 = mul16(x1, key[p]);
+  p += 1;
+
+  x3 += key[p];
+  p += 1;
+  x2 += key[p];
+  p += 1;
+  x4 = mul16(x4, key[p]);
+
+  write16be(dst + 0, x1);
+  write16be(dst + 2, x3);
+  write16be(dst + 4, x2);
+  write16be(dst + 6, x4);
+}
+
+void
+idea_encrypt(const idea_t *ctx, unsigned char *dst, const unsigned char *src) {
+  idea_crypt(ctx->ek, dst, src);
+}
+
+void
+idea_decrypt(const idea_t *ctx, unsigned char *dst, const unsigned char *src) {
+  idea_crypt(ctx->dk, dst, src);
+}
+
+#undef inv16
+#undef mul16
+
+/*
+ * RC2
+ *
+ * Resources:
+ *   https://en.wikipedia.org/wiki/RC2
+ *   https://github.com/golang/crypto/blob/master/pkcs12/internal/rc2/rc2.go
+ *   https://en.wikipedia.org/wiki/RC2
+ *   https://www.ietf.org/rfc/rfc2268.txt
+ *   http://people.csail.mit.edu/rivest/pubs/KRRR98.pdf
+ */
+
+#define PI rc2_PI
+#define ROTL16(x, b) (((x) >> (16 - (b))) | ((x) << (b)))
+
+static const uint8_t PI[256] = {
+  0xd9, 0x78, 0xf9, 0xc4, 0x19, 0xdd, 0xb5, 0xed,
+  0x28, 0xe9, 0xfd, 0x79, 0x4a, 0xa0, 0xd8, 0x9d,
+  0xc6, 0x7e, 0x37, 0x83, 0x2b, 0x76, 0x53, 0x8e,
+  0x62, 0x4c, 0x64, 0x88, 0x44, 0x8b, 0xfb, 0xa2,
+  0x17, 0x9a, 0x59, 0xf5, 0x87, 0xb3, 0x4f, 0x13,
+  0x61, 0x45, 0x6d, 0x8d, 0x09, 0x81, 0x7d, 0x32,
+  0xbd, 0x8f, 0x40, 0xeb, 0x86, 0xb7, 0x7b, 0x0b,
+  0xf0, 0x95, 0x21, 0x22, 0x5c, 0x6b, 0x4e, 0x82,
+  0x54, 0xd6, 0x65, 0x93, 0xce, 0x60, 0xb2, 0x1c,
+  0x73, 0x56, 0xc0, 0x14, 0xa7, 0x8c, 0xf1, 0xdc,
+  0x12, 0x75, 0xca, 0x1f, 0x3b, 0xbe, 0xe4, 0xd1,
+  0x42, 0x3d, 0xd4, 0x30, 0xa3, 0x3c, 0xb6, 0x26,
+  0x6f, 0xbf, 0x0e, 0xda, 0x46, 0x69, 0x07, 0x57,
+  0x27, 0xf2, 0x1d, 0x9b, 0xbc, 0x94, 0x43, 0x03,
+  0xf8, 0x11, 0xc7, 0xf6, 0x90, 0xef, 0x3e, 0xe7,
+  0x06, 0xc3, 0xd5, 0x2f, 0xc8, 0x66, 0x1e, 0xd7,
+  0x08, 0xe8, 0xea, 0xde, 0x80, 0x52, 0xee, 0xf7,
+  0x84, 0xaa, 0x72, 0xac, 0x35, 0x4d, 0x6a, 0x2a,
+  0x96, 0x1a, 0xd2, 0x71, 0x5a, 0x15, 0x49, 0x74,
+  0x4b, 0x9f, 0xd0, 0x5e, 0x04, 0x18, 0xa4, 0xec,
+  0xc2, 0xe0, 0x41, 0x6e, 0x0f, 0x51, 0xcb, 0xcc,
+  0x24, 0x91, 0xaf, 0x50, 0xa1, 0xf4, 0x70, 0x39,
+  0x99, 0x7c, 0x3a, 0x85, 0x23, 0xb8, 0xb4, 0x7a,
+  0xfc, 0x02, 0x36, 0x5b, 0x25, 0x55, 0x97, 0x31,
+  0x2d, 0x5d, 0xfa, 0x98, 0xe3, 0x8a, 0x92, 0xae,
+  0x05, 0xdf, 0x29, 0x10, 0x67, 0x6c, 0xba, 0xc9,
+  0xd3, 0x00, 0xe6, 0xcf, 0xe1, 0x9e, 0xa8, 0x2c,
+  0x63, 0x16, 0x01, 0x3f, 0x58, 0xe2, 0x89, 0xa9,
+  0x0d, 0x38, 0x34, 0x1b, 0xab, 0x33, 0xff, 0xb0,
+  0xbb, 0x48, 0x0c, 0x5f, 0xb9, 0xb1, 0xcd, 0x2e,
+  0xc5, 0xf3, 0xdb, 0x47, 0xe5, 0xa5, 0x9c, 0x77,
+  0x0a, 0xa6, 0x20, 0x68, 0xfe, 0x7f, 0xc1, 0xad
+};
+
+void
+rc2_init(rc2_t *ctx, const unsigned char *key, size_t key_len) {
+  uint8_t L[128];
+  size_t i;
+
+  ASSERT(key_len >= 1 && key_len <= 128);
+
+  memcpy(L, key, key_len);
+  memset(L + key_len, 0x00, 128 - key_len);
+
+  for (i = key_len; i < 128; i++)
+    L[i] = PI[(L[i - 1] + L[i - key_len]) & 0xff];
+
+  L[128 - key_len] = PI[L[128 - key_len]];
+
+  for (i = 128 - key_len; i-- > 0;)
+    L[i] = PI[L[i + 1] ^ L[i + key_len]];
+
+  for (i = 0; i < 64; i++)
+    ctx->k[i] = read16le(L + 2 * i);
+}
+
+void
+rc2_encrypt(const rc2_t *ctx, unsigned char *dst, const unsigned char *src) {
+  uint16_t r0 = read16le(src + 0);
+  uint16_t r1 = read16le(src + 2);
+  uint16_t r2 = read16le(src + 4);
+  uint16_t r3 = read16le(src + 6);
+  int j = 0;
+
+  while (j <= 16) {
+    /* mix r0 */
+    r0 += ctx->k[j];
+    r0 += r3 & r2;
+    r0 += ~r3 & r1;
+    r0 = ROTL16(r0, 1);
+    j += 1;
+
+    /* mix r1 */
+    r1 += ctx->k[j];
+    r1 += r0 & r3;
+    r1 += ~r0 & r2;
+    r1 = ROTL16(r1, 2);
+    j += 1;
+
+    /* mix r2 */
+    r2 += ctx->k[j];
+    r2 += r1 & r0;
+    r2 += ~r1 & r3;
+    r2 = ROTL16(r2, 3);
+    j += 1;
+
+    /* mix r3 */
+    r3 += ctx->k[j];
+    r3 += r2 & r1;
+    r3 += ~r2 & r0;
+    r3 = ROTL16(r3, 5);
+    j += 1;
+  };
+
+  r0 += ctx->k[r3 & 63];
+  r1 += ctx->k[r0 & 63];
+  r2 += ctx->k[r1 & 63];
+  r3 += ctx->k[r2 & 63];
+
+  while (j <= 40) {
+    /* mix r0 */
+    r0 += ctx->k[j];
+    r0 += r3 & r2;
+    r0 += ~r3 & r1;
+    r0 = ROTL16(r0, 1);
+    j += 1;
+
+    /* mix r1 */
+    r1 += ctx->k[j];
+    r1 += r0 & r3;
+    r1 += ~r0 & r2;
+    r1 = ROTL16(r1, 2);
+    j += 1;
+
+    /* mix r2 */
+    r2 += ctx->k[j];
+    r2 += r1 & r0;
+    r2 += ~r1 & r3;
+    r2 = ROTL16(r2, 3);
+    j += 1;
+
+    /* mix r3 */
+    r3 += ctx->k[j];
+    r3 += r2 & r1;
+    r3 += ~r2 & r0;
+    r3 = ROTL16(r3, 5);
+    j += 1;
+  }
+
+  r0 += ctx->k[r3 & 63];
+  r1 += ctx->k[r0 & 63];
+  r2 += ctx->k[r1 & 63];
+  r3 += ctx->k[r2 & 63];
+
+  while (j <= 60) {
+    /* mix r0 */
+    r0 += ctx->k[j];
+    r0 += r3 & r2;
+    r0 += ~r3 & r1;
+    r0 = ROTL16(r0, 1);
+    j += 1;
+
+    /* mix r1 */
+    r1 += ctx->k[j];
+    r1 += r0 & r3;
+    r1 += ~r0 & r2;
+    r1 = ROTL16(r1, 2);
+    j += 1;
+
+    /* mix r2 */
+    r2 += ctx->k[j];
+    r2 += r1 & r0;
+    r2 += ~r1 & r3;
+    r2 = ROTL16(r2, 3);
+    j += 1;
+
+    /* mix r3 */
+    r3 += ctx->k[j];
+    r3 += r2 & r1;
+    r3 += ~r2 & r0;
+    r3 = ROTL16(r3, 5);
+    j += 1;
+  }
+
+  write16le(dst + 0, r0);
+  write16le(dst + 2, r1);
+  write16le(dst + 4, r2);
+  write16le(dst + 6, r3);
+}
+
+void
+rc2_decrypt(const rc2_t *ctx, unsigned char *dst, const unsigned char *src) {
+  uint16_t r0 = read16le(src + 0);
+  uint16_t r1 = read16le(src + 2);
+  uint16_t r2 = read16le(src + 4);
+  uint16_t r3 = read16le(src + 6);
+  int j = 63;
+
+  while (j >= 44) {
+    /* unmix r3 */
+    r3 = ROTL16(r3, 16 - 5);
+    r3 -= ctx->k[j];
+    r3 -= r2 & r1;
+    r3 -= ~r2 & r0;
+    j -= 1;
+
+    /* unmix r2 */
+    r2 = ROTL16(r2, 16 - 3);
+    r2 -= ctx->k[j];
+    r2 -= r1 & r0;
+    r2 -= ~r1 & r3;
+    j -= 1;
+
+    /* unmix r1 */
+    r1 = ROTL16(r1, 16 - 2);
+    r1 -= ctx->k[j];
+    r1 -= r0 & r3;
+    r1 -= ~r0 & r2;
+    j -= 1;
+
+    /* unmix r0 */
+    r0 = ROTL16(r0, 16 - 1);
+    r0 -= ctx->k[j];
+    r0 -= r3 & r2;
+    r0 -= ~r3 & r1;
+    j -= 1;
+  }
+
+  r3 -= ctx->k[r2 & 63];
+  r2 -= ctx->k[r1 & 63];
+  r1 -= ctx->k[r0 & 63];
+  r0 -= ctx->k[r3 & 63];
+
+  while (j >= 20) {
+    /* unmix r3 */
+    r3 = ROTL16(r3, 16 - 5);
+    r3 -= ctx->k[j];
+    r3 -= r2 & r1;
+    r3 -= ~r2 & r0;
+    j -= 1;
+
+    /* unmix r2 */
+    r2 = ROTL16(r2, 16 - 3);
+    r2 -= ctx->k[j];
+    r2 -= r1 & r0;
+    r2 -= ~r1 & r3;
+    j -= 1;
+
+    /* unmix r1 */
+    r1 = ROTL16(r1, 16 - 2);
+    r1 -= ctx->k[j];
+    r1 -= r0 & r3;
+    r1 -= ~r0 & r2;
+    j -= 1;
+
+    /* unmix r0 */
+    r0 = ROTL16(r0, 16 - 1);
+    r0 -= ctx->k[j];
+    r0 -= r3 & r2;
+    r0 -= ~r3 & r1;
+    j -= 1;
+  }
+
+  r3 -= ctx->k[r2 & 63];
+  r2 -= ctx->k[r1 & 63];
+  r1 -= ctx->k[r0 & 63];
+  r0 -= ctx->k[r3 & 63];
+
+  while (j >= 0) {
+    /* unmix r3 */
+    r3 = ROTL16(r3, 16 - 5);
+    r3 -= ctx->k[j];
+    r3 -= r2 & r1;
+    r3 -= ~r2 & r0;
+    j -= 1;
+
+    /* unmix r2 */
+    r2 = ROTL16(r2, 16 - 3);
+    r2 -= ctx->k[j];
+    r2 -= r1 & r0;
+    r2 -= ~r1 & r3;
+    j -= 1;
+
+    /* unmix r1 */
+    r1 = ROTL16(r1, 16 - 2);
+    r1 -= ctx->k[j];
+    r1 -= r0 & r3;
+    r1 -= ~r0 & r2;
+    j -= 1;
+
+    /* unmix r0 */
+    r0 = ROTL16(r0, 16 - 1);
+    r0 -= ctx->k[j];
+    r0 -= r3 & r2;
+    r0 -= ~r3 & r1;
+    j -= 1;
+  }
+
+  write16le(dst + 0, r0);
+  write16le(dst + 2, r1);
+  write16le(dst + 4, r2);
+  write16le(dst + 6, r3);
+}
+
+#undef PI
+#undef ROTL16
+
+/*
+ * Twofish
+ *
+ * Resources:
+ *   https://en.wikipedia.org/wiki/Twofish
+ *   https://www.schneier.com/academic/twofish/
+ *   https://github.com/golang/crypto/blob/master/twofish/twofish.go
+ */
+
+#define RS twofish_RS
+#define S0 twofish_S0
+#define S1 twofish_S1
+#define gf_mul twofish_gf_mul
+#define mds_mul twofish_mds_mul
+#define h_gen twofish_h_gen
+#define rol32 twofish_rol32
+#define ror32 twofish_ror32
+
+static const uint8_t RS[4][8] = {
+  {0x01, 0xa4, 0x55, 0x87, 0x5a, 0x58, 0xdb, 0x9e},
+  {0xa4, 0x56, 0x82, 0xf3, 0x1e, 0xc6, 0x68, 0xe5},
+  {0x02, 0xa1, 0xfc, 0xc1, 0x47, 0xae, 0x3d, 0x19},
+  {0xa4, 0x55, 0x87, 0x5a, 0x58, 0xdb, 0x9e, 0x03}
+};
+
+static const uint8_t S0[256] = {
+  0xa9, 0x67, 0xb3, 0xe8, 0x04, 0xfd, 0xa3, 0x76,
+  0x9a, 0x92, 0x80, 0x78, 0xe4, 0xdd, 0xd1, 0x38,
+  0x0d, 0xc6, 0x35, 0x98, 0x18, 0xf7, 0xec, 0x6c,
+  0x43, 0x75, 0x37, 0x26, 0xfa, 0x13, 0x94, 0x48,
+  0xf2, 0xd0, 0x8b, 0x30, 0x84, 0x54, 0xdf, 0x23,
+  0x19, 0x5b, 0x3d, 0x59, 0xf3, 0xae, 0xa2, 0x82,
+  0x63, 0x01, 0x83, 0x2e, 0xd9, 0x51, 0x9b, 0x7c,
+  0xa6, 0xeb, 0xa5, 0xbe, 0x16, 0x0c, 0xe3, 0x61,
+  0xc0, 0x8c, 0x3a, 0xf5, 0x73, 0x2c, 0x25, 0x0b,
+  0xbb, 0x4e, 0x89, 0x6b, 0x53, 0x6a, 0xb4, 0xf1,
+  0xe1, 0xe6, 0xbd, 0x45, 0xe2, 0xf4, 0xb6, 0x66,
+  0xcc, 0x95, 0x03, 0x56, 0xd4, 0x1c, 0x1e, 0xd7,
+  0xfb, 0xc3, 0x8e, 0xb5, 0xe9, 0xcf, 0xbf, 0xba,
+  0xea, 0x77, 0x39, 0xaf, 0x33, 0xc9, 0x62, 0x71,
+  0x81, 0x79, 0x09, 0xad, 0x24, 0xcd, 0xf9, 0xd8,
+  0xe5, 0xc5, 0xb9, 0x4d, 0x44, 0x08, 0x86, 0xe7,
+  0xa1, 0x1d, 0xaa, 0xed, 0x06, 0x70, 0xb2, 0xd2,
+  0x41, 0x7b, 0xa0, 0x11, 0x31, 0xc2, 0x27, 0x90,
+  0x20, 0xf6, 0x60, 0xff, 0x96, 0x5c, 0xb1, 0xab,
+  0x9e, 0x9c, 0x52, 0x1b, 0x5f, 0x93, 0x0a, 0xef,
+  0x91, 0x85, 0x49, 0xee, 0x2d, 0x4f, 0x8f, 0x3b,
+  0x47, 0x87, 0x6d, 0x46, 0xd6, 0x3e, 0x69, 0x64,
+  0x2a, 0xce, 0xcb, 0x2f, 0xfc, 0x97, 0x05, 0x7a,
+  0xac, 0x7f, 0xd5, 0x1a, 0x4b, 0x0e, 0xa7, 0x5a,
+  0x28, 0x14, 0x3f, 0x29, 0x88, 0x3c, 0x4c, 0x02,
+  0xb8, 0xda, 0xb0, 0x17, 0x55, 0x1f, 0x8a, 0x7d,
+  0x57, 0xc7, 0x8d, 0x74, 0xb7, 0xc4, 0x9f, 0x72,
+  0x7e, 0x15, 0x22, 0x12, 0x58, 0x07, 0x99, 0x34,
+  0x6e, 0x50, 0xde, 0x68, 0x65, 0xbc, 0xdb, 0xf8,
+  0xc8, 0xa8, 0x2b, 0x40, 0xdc, 0xfe, 0x32, 0xa4,
+  0xca, 0x10, 0x21, 0xf0, 0xd3, 0x5d, 0x0f, 0x00,
+  0x6f, 0x9d, 0x36, 0x42, 0x4a, 0x5e, 0xc1, 0xe0
+};
+
+static const uint8_t S1[256] = {
+  0x75, 0xf3, 0xc6, 0xf4, 0xdb, 0x7b, 0xfb, 0xc8,
+  0x4a, 0xd3, 0xe6, 0x6b, 0x45, 0x7d, 0xe8, 0x4b,
+  0xd6, 0x32, 0xd8, 0xfd, 0x37, 0x71, 0xf1, 0xe1,
+  0x30, 0x0f, 0xf8, 0x1b, 0x87, 0xfa, 0x06, 0x3f,
+  0x5e, 0xba, 0xae, 0x5b, 0x8a, 0x00, 0xbc, 0x9d,
+  0x6d, 0xc1, 0xb1, 0x0e, 0x80, 0x5d, 0xd2, 0xd5,
+  0xa0, 0x84, 0x07, 0x14, 0xb5, 0x90, 0x2c, 0xa3,
+  0xb2, 0x73, 0x4c, 0x54, 0x92, 0x74, 0x36, 0x51,
+  0x38, 0xb0, 0xbd, 0x5a, 0xfc, 0x60, 0x62, 0x96,
+  0x6c, 0x42, 0xf7, 0x10, 0x7c, 0x28, 0x27, 0x8c,
+  0x13, 0x95, 0x9c, 0xc7, 0x24, 0x46, 0x3b, 0x70,
+  0xca, 0xe3, 0x85, 0xcb, 0x11, 0xd0, 0x93, 0xb8,
+  0xa6, 0x83, 0x20, 0xff, 0x9f, 0x77, 0xc3, 0xcc,
+  0x03, 0x6f, 0x08, 0xbf, 0x40, 0xe7, 0x2b, 0xe2,
+  0x79, 0x0c, 0xaa, 0x82, 0x41, 0x3a, 0xea, 0xb9,
+  0xe4, 0x9a, 0xa4, 0x97, 0x7e, 0xda, 0x7a, 0x17,
+  0x66, 0x94, 0xa1, 0x1d, 0x3d, 0xf0, 0xde, 0xb3,
+  0x0b, 0x72, 0xa7, 0x1c, 0xef, 0xd1, 0x53, 0x3e,
+  0x8f, 0x33, 0x26, 0x5f, 0xec, 0x76, 0x2a, 0x49,
+  0x81, 0x88, 0xee, 0x21, 0xc4, 0x1a, 0xeb, 0xd9,
+  0xc5, 0x39, 0x99, 0xcd, 0xad, 0x31, 0x8b, 0x01,
+  0x18, 0x23, 0xdd, 0x1f, 0x4e, 0x2d, 0xf9, 0x48,
+  0x4f, 0xf2, 0x65, 0x8e, 0x78, 0x5c, 0x58, 0x19,
+  0x8d, 0xe5, 0x98, 0x57, 0x67, 0x7f, 0x05, 0x64,
+  0xaf, 0x63, 0xb6, 0xfe, 0xf5, 0xb7, 0x3c, 0xa5,
+  0xce, 0xe9, 0x68, 0x44, 0xe0, 0x4d, 0x43, 0x69,
+  0x29, 0x2e, 0xac, 0x15, 0x59, 0xa8, 0x0a, 0x9e,
+  0x6e, 0x47, 0xdf, 0x34, 0x35, 0x6a, 0xcf, 0xdc,
+  0x22, 0xc9, 0xc0, 0x9b, 0x89, 0xd4, 0xed, 0xab,
+  0x12, 0xa2, 0x0d, 0x52, 0xbb, 0x02, 0x2f, 0xa9,
+  0xd7, 0x61, 0x1e, 0xb4, 0x50, 0x04, 0xf6, 0xc2,
+  0x16, 0x25, 0x86, 0x56, 0x55, 0x09, 0xbe, 0x91
+};
+
+static uint8_t
+gf_mul(uint8_t a, uint8_t b, uint32_t p) {
+  /* gfMult = a*b in GF(2^8)/p */
+  uint32_t B[2];
+  uint32_t P[2];
+  uint32_t res = 0;
+  size_t i;
+
+  B[0] = 0;
+  B[1] = b;
+
+  P[0] = 0;
+  P[1] = p;
+
+  /* Branchless GF multiplier. */
+  for (i = 0; i < 7; i++) {
+    res ^= B[a & 1];
+    a >>= 1;
+    B[1] = P[B[1] >> 7] ^ (B[1] << 1);
+  }
+
+  res ^= B[a & 1];
+
+  return (uint8_t)res;
+}
+
+static uint32_t
+mds_mul(uint8_t v, size_t col) {
+  /* mdsColumnMult = y{col} where [y0 y1 y2 y3] = MDS * [x0] */
+  static const uint32_t MDS_POLY = 0x169; /* x^8 + x^6 + x^5 + x^3 + 1 */
+  uint32_t x = v;
+  uint32_t y = gf_mul(v, 0x5b, MDS_POLY);
+  uint32_t z = gf_mul(v, 0xef, MDS_POLY);
+
+  switch (col) {
+    case 0:
+      return x | (y << 8) | (z << 16) | (z << 24);
+    case 1:
+      return z | (z << 8) | (y << 16) | (x << 24);
+    case 2:
+      return y | (z << 8) | (x << 16) | (z << 24);
+    case 3:
+      return y | (x << 8) | (z << 16) | (y << 24);
+  }
+
+  ASSERT(0);
+
+  return 0;
+}
+
+static uint32_t
+h_gen(const uint8_t *v, const uint8_t *key, size_t off, size_t k) {
+  uint32_t mult;
+  uint8_t y[4];
+  size_t i;
+
+  for (i = 0; i < 4; i++)
+    y[i] = v[i];
+
+  switch (k) {
+    case 4:
+      y[0] = S1[y[0]] ^ key[4 * (6 + off) + 0];
+      y[1] = S0[y[1]] ^ key[4 * (6 + off) + 1];
+      y[2] = S0[y[2]] ^ key[4 * (6 + off) + 2];
+      y[3] = S1[y[3]] ^ key[4 * (6 + off) + 3];
+      /* fallthrough */
+    case 3:
+      y[0] = S1[y[0]] ^ key[4 * (4 + off) + 0];
+      y[1] = S1[y[1]] ^ key[4 * (4 + off) + 1];
+      y[2] = S0[y[2]] ^ key[4 * (4 + off) + 2];
+      y[3] = S0[y[3]] ^ key[4 * (4 + off) + 3];
+      /* fallthrough */
+    case 2:
+      y[0] = S1[S0[S0[y[0]]
+           ^ key[4 * (2 + off) + 0]]
+           ^ key[4 * (0 + off) + 0]];
+      y[1] = S0[S0[S1[y[1]]
+           ^ key[4 * (2 + off) + 1]]
+           ^ key[4 * (0 + off) + 1]];
+      y[2] = S1[S1[S0[y[2]]
+           ^ key[4 * (2 + off) + 2]]
+           ^ key[4 * (0 + off) + 2]];
+      y[3] = S0[S1[S1[y[3]]
+           ^ key[4 * (2 + off) + 3]]
+           ^ key[4 * (0 + off) + 3]];
+      break;
+    default:
+      ASSERT(0);
+      break;
+  }
+
+  mult = 0;
+
+  /* [y0 y1 y2 y3] = MDS . [x0 x1 x2 x3] */
+  for (i = 0; i < 4; i++)
+    mult ^= mds_mul(y[i], i);
+
+  return mult;
+}
+
+static TORSION_INLINE uint32_t
+rol32(uint32_t x, size_t y) {
+  return (x << (y & 31)) | (x >> (32 - (y & 31)));
+}
+
+static TORSION_INLINE uint32_t
+ror32(uint32_t x, size_t y) {
+  return (x >> (y & 31)) | (x << (32 - (y & 31)));
+}
+
+void
+twofish_init(twofish_t *ctx, unsigned int bits, const unsigned char *key) {
+  static const uint32_t RS_POLY = 0x14d; /* x^8 + x^6 + x^3 + x^2 + 1 */
+  /* k is the number of 64 bit words in key. */
+  size_t k = bits >> 6;
+  size_t i, j, v;
+  uint8_t W[4 * 4];
+  uint8_t tmp[4];
+  uint32_t A, B;
+
+  ASSERT(bits == 128 || bits == 192 || bits == 256);
+
+  memset(ctx, 0, sizeof(*ctx));
+
+  /* Create the S[..] words. */
+  memset(W, 0, sizeof(W));
+
+  for (i = 0; i < k; i++) {
+    /* Computes [y0 y1 y2 y3] = rs . [x0 x1 x2 x3 x4 x5 x6 x7]. */
+    for (j = 0; j < 4; j++) {
+      for (v = 0; v < 8; v++)
+        W[4 * i + j] ^= gf_mul(key[8 * i + v], RS[j][v], RS_POLY);
+    }
+  }
+
+  /* Calculate subkeys. */
+  for (i = 0; i < 20; i++) {
+    /* A = h(p * 2x, Me) */
+    for (j = 0; j < 4; j++)
+      tmp[j] = 2 * i;
+
+    A = h_gen(tmp, key, 0, k);
+
+    /* B = rolc(h(p * (2x + 1), Mo), 8) */
+    for (j = 0; j < 4; j++)
+      tmp[j] = 2 * i + 1;
+
+    B = rol32(h_gen(tmp, key, 1, k), 8);
+
+    ctx->k[2 * i + 0] = A + B;
+
+    /* K[2i+1] = (A + 2B) <<< 9 */
+    ctx->k[2 * i + 1] = rol32(2 * B + A, 9);
+  }
+
+  /* Calculate sboxes. */
+  switch (k) {
+    case 2:
+      for (i = 0; i < 256; i++) {
+        ctx->S[0][i] = mds_mul(S1[S0[S0[i] ^ W[0]] ^ W[4]], 0);
+        ctx->S[1][i] = mds_mul(S0[S0[S1[i] ^ W[1]] ^ W[5]], 1);
+        ctx->S[2][i] = mds_mul(S1[S1[S0[i] ^ W[2]] ^ W[6]], 2);
+        ctx->S[3][i] = mds_mul(S0[S1[S1[i] ^ W[3]] ^ W[7]], 3);
+      }
+      break;
+    case 3:
+      for (i = 0; i < 256; i++) {
+        ctx->S[0][i] = mds_mul(S1[S0[S0[S1[i] ^ W[0]] ^ W[4]] ^ W[8]], 0);
+        ctx->S[1][i] = mds_mul(S0[S0[S1[S1[i] ^ W[1]] ^ W[5]] ^ W[9]], 1);
+        ctx->S[2][i] = mds_mul(S1[S1[S0[S0[i] ^ W[2]] ^ W[6]] ^ W[10]], 2);
+        ctx->S[3][i] = mds_mul(S0[S1[S1[S0[i] ^ W[3]] ^ W[7]] ^ W[11]], 3);
+      }
+      break;
+    case 4:
+      for (i = 0; i < 256; i++) {
+        ctx->S[0][i] =
+          mds_mul(S1[S0[S0[S1[S1[i] ^ W[0]] ^ W[4]] ^ W[8]] ^ W[12]], 0);
+        ctx->S[1][i] =
+          mds_mul(S0[S0[S1[S1[S0[i] ^ W[1]] ^ W[5]] ^ W[9]] ^ W[13]], 1);
+        ctx->S[2][i] =
+          mds_mul(S1[S1[S0[S0[S0[i] ^ W[2]] ^ W[6]] ^ W[10]] ^ W[14]], 2);
+        ctx->S[3][i] =
+          mds_mul(S0[S1[S1[S0[S1[i] ^ W[3]] ^ W[7]] ^ W[11]] ^ W[15]], 3);
+      }
+      break;
+    default:
+      ASSERT(0);
+      break;
+  }
+}
+
+void
+twofish_encrypt(const twofish_t *ctx,
+                unsigned char *dst,
+                const unsigned char *src) {
+  const uint32_t *Z0 = ctx->S[0];
+  const uint32_t *Z1 = ctx->S[1];
+  const uint32_t *Z2 = ctx->S[2];
+  const uint32_t *Z3 = ctx->S[3];
+  uint32_t ia = read32le(src +  0);
+  uint32_t ib = read32le(src +  4);
+  uint32_t ic = read32le(src +  8);
+  uint32_t id = read32le(src + 12);
+  uint32_t t1, t2, ta, tb, tc, td;
+  const uint32_t *k;
+  size_t i;
+
+  /* Pre-whitening. */
+  ia ^= ctx->k[0];
+  ib ^= ctx->k[1];
+  ic ^= ctx->k[2];
+  id ^= ctx->k[3];
+
+  for (i = 0; i < 8; i++) {
+    k = &ctx->k[8 + i * 4];
+
+    t2 = Z1[(ib >>  0) & 0xff]
+       ^ Z2[(ib >>  8) & 0xff]
+       ^ Z3[(ib >> 16) & 0xff]
+       ^ Z0[(ib >> 24) & 0xff];
+
+    t1 = Z0[(ia >>  0) & 0xff]
+       ^ Z1[(ia >>  8) & 0xff]
+       ^ Z2[(ia >> 16) & 0xff]
+       ^ Z3[(ia >> 24) & 0xff];
+
+    t1 += t2;
+
+    ic = ror32(ic ^ (t1 + k[0]), 1);
+    id = rol32(id, 1) ^ (t2 + t1 + k[1]);
+
+    t2 = Z1[(id >>  0) & 0xff]
+       ^ Z2[(id >>  8) & 0xff]
+       ^ Z3[(id >> 16) & 0xff]
+       ^ Z0[(id >> 24) & 0xff];
+
+    t1 = Z0[(ic >>  0) & 0xff]
+       ^ Z1[(ic >>  8) & 0xff]
+       ^ Z2[(ic >> 16) & 0xff]
+       ^ Z3[(ic >> 24) & 0xff];
+
+    t1 += t2;
+
+    ia = ror32(ia ^ (t1 + k[2]), 1);
+    ib = rol32(ib, 1) ^ (t2 + t1 + k[3]);
+  }
+
+  /* Output with "undo last swap". */
+  ta = ic ^ ctx->k[4];
+  tb = id ^ ctx->k[5];
+  tc = ia ^ ctx->k[6];
+  td = ib ^ ctx->k[7];
+
+  write32le(dst +  0, ta);
+  write32le(dst +  4, tb);
+  write32le(dst +  8, tc);
+  write32le(dst + 12, td);
+}
+
+void
+twofish_decrypt(const twofish_t *ctx,
+                unsigned char *dst,
+                const unsigned char *src) {
+  const uint32_t *Z0 = ctx->S[0];
+  const uint32_t *Z1 = ctx->S[1];
+  const uint32_t *Z2 = ctx->S[2];
+  const uint32_t *Z3 = ctx->S[3];
+  uint32_t ta = read32le(src +  0);
+  uint32_t tb = read32le(src +  4);
+  uint32_t tc = read32le(src +  8);
+  uint32_t td = read32le(src + 12);
+  uint32_t t1, t2, ia, ib, ic, id;
+  const uint32_t *k;
+  int i;
+
+  /* Undo undo final swap. */
+  ia = tc ^ ctx->k[6];
+  ib = td ^ ctx->k[7];
+  ic = ta ^ ctx->k[4];
+  id = tb ^ ctx->k[5];
+
+  for (i = 8; i > 0; i--) {
+    k = &ctx->k[4 + i * 4];
+
+    t2 = Z1[(id >>  0) & 0xff]
+       ^ Z2[(id >>  8) & 0xff]
+       ^ Z3[(id >> 16) & 0xff]
+       ^ Z0[(id >> 24) & 0xff];
+
+    t1 = Z0[(ic >>  0) & 0xff]
+       ^ Z1[(ic >>  8) & 0xff]
+       ^ Z2[(ic >> 16) & 0xff]
+       ^ Z3[(ic >> 24) & 0xff];
+
+    t1 += t2;
+
+    ia = rol32(ia, 1) ^ (t1 + k[2]);
+    ib = ror32(ib ^ (t2 + t1 + k[3]), 1);
+
+    t2 = Z1[(ib >>  0) & 0xff]
+       ^ Z2[(ib >>  8) & 0xff]
+       ^ Z3[(ib >> 16) & 0xff]
+       ^ Z0[(ib >> 24) & 0xff];
+
+    t1 = Z0[(ia >>  0) & 0xff]
+       ^ Z1[(ia >>  8) & 0xff]
+       ^ Z2[(ia >> 16) & 0xff]
+       ^ Z3[(ia >> 24) & 0xff];
+
+    t1 += t2;
+
+    ic = rol32(ic, 1) ^ (t1 + k[0]);
+    id = ror32(id ^ (t2 + t1 + k[1]), 1);
+  }
+
+  /* Undo pre-whitening. */
+  ia ^= ctx->k[0];
+  ib ^= ctx->k[1];
+  ic ^= ctx->k[2];
+  id ^= ctx->k[3];
+
+  write32le(dst +  0, ia);
+  write32le(dst +  4, ib);
+  write32le(dst +  8, ic);
+  write32le(dst + 12, id);
+}
+
+#undef RS
+#undef S0
+#undef S1
+#undef gf_mul
+#undef mds_mul
+#undef h_gen
+#undef rol32
+#undef ror32
+
+/*
+ * GHASH
+ *
+ * Resources:
+ *   https://en.wikipedia.org/wiki/Galois/Counter_Mode
+ *   https://dx.doi.org/10.6028/NIST.SP.800-38D
+ *   https://github.com/golang/go/blob/master/src/crypto/cipher/gcm.go
+ *   https://github.com/golang/go/blob/master/src/crypto/cipher/gcm_test.go
+ *   https://github.com/DaGenix/rust-crypto/blob/master/src/ghash.rs
+ */
+
+typedef struct ghash_fe_s gfe_t;
+
+static const uint16_t ghash_reduction[16] = {
+  0x0000, 0x1c20, 0x3840, 0x2460,
+  0x7080, 0x6ca0, 0x48c0, 0x54e0,
+  0xe100, 0xfd20, 0xd940, 0xc560,
+  0x9180, 0x8da0, 0xa9c0, 0xb5e0
+};
+
+static size_t
+revbits(size_t i) {
+  i = ((i << 2) & 0x0c) | ((i >> 2) & 0x03);
+  i = ((i << 1) & 0x0a) | ((i >> 1) & 0x05);
+  return i;
+}
+
+static void
+gfe_add(gfe_t *z, const gfe_t *x, const gfe_t *y) {
+  z->lo = x->lo ^ y->lo;
+  z->hi = x->hi ^ y->hi;
+}
+
+static void
+gfe_dbl(gfe_t *z, const gfe_t *x) {
+  int msb = (x->hi & 1) == 1;
+
+  z->hi = x->hi >> 1;
+  z->hi |= x->lo << 63;
+  z->lo = x->lo >> 1;
+
+  if (msb)
+    z->lo ^= UINT64_C(0xe100000000000000);
+}
+
+static void
+gfe_mul(gfe_t *r, const gfe_t *x, const gfe_t *table) {
+  uint64_t word, msw;
+  const gfe_t *t;
+  size_t i, j;
+  gfe_t z;
+
+  z.hi = 0;
+  z.lo = 0;
+
+  for (i = 0; i < 2; i++) {
+    word = x->hi;
+
+    if (i == 1)
+      word = x->lo;
+
+    for (j = 0; j < 64; j += 4) {
+      msw = z.hi & 0x0f;
+
+      z.hi >>= 4;
+      z.hi |= z.lo << 60;
+      z.lo >>= 4;
+      z.lo ^= (uint64_t)ghash_reduction[msw] << 48;
+
+      t = &table[word & 0x0f];
+
+      z.lo ^= t->lo;
+      z.hi ^= t->hi;
+
+      word >>= 4;
+    }
+  }
+
+  *r = z;
+}
+
+static void
+ghash_transform(ghash_t *ctx, const unsigned char *block) {
+  ctx->state.lo ^= read64be(block + 0);
+  ctx->state.hi ^= read64be(block + 8);
+  gfe_mul(&ctx->state, &ctx->state, ctx->table);
+}
+
+static void
+ghash_absorb(ghash_t *ctx, const unsigned char *data, size_t len) {
+  size_t pos = ctx->size & 15;
+  size_t off = 0;
+
+  if (len == 0)
+    return;
+
+  ctx->size += len;
+
+  if (pos > 0) {
+    size_t want = 16 - pos;
+
+    if (want > len)
+      want = len;
+
+    memcpy(ctx->block + pos, data + off, want);
+
+    pos += want;
+    len -= want;
+    off += want;
+
+    if (pos < 16)
+      return;
+
+    ghash_transform(ctx, ctx->block);
+  }
+
+  while (len >= 16) {
+    ghash_transform(ctx, data + off);
+    off += 16;
+    len -= 16;
+  }
+
+  if (len > 0)
+    memcpy(ctx->block, data + off, len);
+}
+
+static void
+ghash_pad(ghash_t *ctx) {
+  static const unsigned char padding[16] = {0};
+  size_t pos = ctx->size & 15;
+
+  if (pos != 0)
+    ghash_absorb(ctx, padding, 16 - pos);
+}
+
+void
+ghash_init(ghash_t *ctx, const unsigned char *key) {
+  gfe_t x;
+  size_t i;
+
+  memset(ctx, 0, sizeof(*ctx));
+
+  x.lo = read64be(key + 0);
+  x.hi = read64be(key + 8);
+
+  ctx->table[revbits(1)] = x;
+
+  for (i = 2; i < 16; i += 2) {
+    gfe_dbl(&ctx->table[revbits(i + 0)], &ctx->table[revbits(i / 2)]);
+    gfe_add(&ctx->table[revbits(i + 1)], &ctx->table[revbits(i)], &x);
+  }
+}
+
+void
+ghash_aad(ghash_t *ctx, const unsigned char *data, size_t len) {
+  ctx->adlen += len;
+  ghash_absorb(ctx, data, len);
+}
+
+void
+ghash_update(ghash_t *ctx, const unsigned char *data, size_t len) {
+  if (len == 0)
+    return;
+
+  if (ctx->ctlen == 0)
+    ghash_pad(ctx);
+
+  ctx->ctlen += len;
+
+  ghash_absorb(ctx, data, len);
+}
+
+void
+ghash_final(ghash_t *ctx, unsigned char *out) {
+  ghash_pad(ctx);
+
+  ctx->state.lo ^= ctx->adlen << 3;
+  ctx->state.hi ^= ctx->ctlen << 3;
+
+  gfe_mul(&ctx->state, &ctx->state, ctx->table);
+
+  write64be(out + 0, ctx->state.lo);
+  write64be(out + 8, ctx->state.hi);
+}
 
 /*
  * Cipher
@@ -2332,6 +4736,8 @@ camellia_decrypt(camellia_t *ctx,
 
 static int
 cipher_ctx_init(cipher_t *ctx, const unsigned char *key, size_t key_len) {
+  int encrypt = ctx->encrypt || ctx->mode > CIPHER_MODE_CBC;
+
   switch (ctx->type) {
     case CIPHER_AES128: {
       if (key_len != 16)
@@ -2339,7 +4745,7 @@ cipher_ctx_init(cipher_t *ctx, const unsigned char *key, size_t key_len) {
 
       ctx->block_size = 16;
 
-      if (ctx->encrypt)
+      if (encrypt)
         aes_init_encrypt(&ctx->ctx.aes, 128, key);
       else
         aes_init_decrypt(&ctx->ctx.aes, 128, key);
@@ -2353,7 +4759,7 @@ cipher_ctx_init(cipher_t *ctx, const unsigned char *key, size_t key_len) {
 
       ctx->block_size = 16;
 
-      if (ctx->encrypt)
+      if (encrypt)
         aes_init_encrypt(&ctx->ctx.aes, 192, key);
       else
         aes_init_decrypt(&ctx->ctx.aes, 192, key);
@@ -2367,7 +4773,7 @@ cipher_ctx_init(cipher_t *ctx, const unsigned char *key, size_t key_len) {
 
       ctx->block_size = 16;
 
-      if (ctx->encrypt)
+      if (encrypt)
         aes_init_encrypt(&ctx->ctx.aes, 256, key);
       else
         aes_init_decrypt(&ctx->ctx.aes, 256, key);
@@ -2419,6 +4825,108 @@ cipher_ctx_init(cipher_t *ctx, const unsigned char *key, size_t key_len) {
       break;
     }
 
+    case CIPHER_CAST5: {
+      if (key_len != 16)
+        return 0;
+
+      ctx->block_size = 8;
+
+      cast5_init(&ctx->ctx.cast5, key);
+
+      break;
+    }
+
+    case CIPHER_DES: {
+      if (key_len != 8)
+        return 0;
+
+      ctx->block_size = 8;
+
+      des_init(&ctx->ctx.des, key);
+
+      break;
+    }
+
+    case CIPHER_DES_EDE: {
+      if (key_len != 16)
+        return 0;
+
+      ctx->block_size = 8;
+
+      des_ede_init(&ctx->ctx.ede, key);
+
+      break;
+    }
+
+    case CIPHER_DES_EDE3: {
+      if (key_len != 24)
+        return 0;
+
+      ctx->block_size = 8;
+
+      des_ede3_init(&ctx->ctx.ede3, key);
+
+      break;
+    }
+
+    case CIPHER_IDEA: {
+      if (key_len != 16)
+        return 0;
+
+      ctx->block_size = 8;
+
+      if (encrypt)
+        idea_init_encrypt(&ctx->ctx.idea, key);
+      else
+        idea_init_decrypt(&ctx->ctx.idea, key);
+
+      break;
+    }
+
+    case CIPHER_RC2: {
+      if (key_len < 1 || key_len > 128)
+        return 0;
+
+      ctx->block_size = 8;
+
+      rc2_init(&ctx->ctx.rc2, key, key_len);
+
+      break;
+    }
+
+    case CIPHER_TWOFISH128: {
+      if (key_len != 16)
+        return 0;
+
+      ctx->block_size = 16;
+
+      twofish_init(&ctx->ctx.twofish, 128, key);
+
+      break;
+    }
+
+    case CIPHER_TWOFISH192: {
+      if (key_len != 24)
+        return 0;
+
+      ctx->block_size = 16;
+
+      twofish_init(&ctx->ctx.twofish, 192, key);
+
+      break;
+    }
+
+    case CIPHER_TWOFISH256: {
+      if (key_len != 32)
+        return 0;
+
+      ctx->block_size = 16;
+
+      twofish_init(&ctx->ctx.twofish, 256, key);
+
+      break;
+    }
+
     default: {
       return 0;
     }
@@ -2445,6 +4953,29 @@ cipher_ctx_encrypt(cipher_t *ctx,
     case CIPHER_CAMELLIA256:
       camellia_encrypt(&ctx->ctx.camellia, dst, src);
       break;
+    case CIPHER_CAST5:
+      cast5_encrypt(&ctx->ctx.cast5, dst, src);
+      break;
+    case CIPHER_DES:
+      des_encrypt(&ctx->ctx.des, dst, src);
+      break;
+    case CIPHER_DES_EDE:
+      des_ede_encrypt(&ctx->ctx.ede, dst, src);
+      break;
+    case CIPHER_DES_EDE3:
+      des_ede3_encrypt(&ctx->ctx.ede3, dst, src);
+      break;
+    case CIPHER_IDEA:
+      idea_encrypt(&ctx->ctx.idea, dst, src);
+      break;
+    case CIPHER_RC2:
+      rc2_encrypt(&ctx->ctx.rc2, dst, src);
+      break;
+    case CIPHER_TWOFISH128:
+    case CIPHER_TWOFISH192:
+    case CIPHER_TWOFISH256:
+      twofish_encrypt(&ctx->ctx.twofish, dst, src);
+      break;
     default:
       ASSERT(0);
       break;
@@ -2469,9 +5000,85 @@ cipher_ctx_decrypt(cipher_t *ctx,
     case CIPHER_CAMELLIA256:
       camellia_decrypt(&ctx->ctx.camellia, dst, src);
       break;
+    case CIPHER_CAST5:
+      cast5_decrypt(&ctx->ctx.cast5, dst, src);
+      break;
+    case CIPHER_DES:
+      des_decrypt(&ctx->ctx.des, dst, src);
+      break;
+    case CIPHER_DES_EDE:
+      des_ede_decrypt(&ctx->ctx.ede, dst, src);
+      break;
+    case CIPHER_DES_EDE3:
+      des_ede3_decrypt(&ctx->ctx.ede3, dst, src);
+      break;
+    case CIPHER_IDEA:
+      idea_decrypt(&ctx->ctx.idea, dst, src);
+      break;
+    case CIPHER_RC2:
+      rc2_decrypt(&ctx->ctx.rc2, dst, src);
+      break;
+    case CIPHER_TWOFISH128:
+    case CIPHER_TWOFISH192:
+    case CIPHER_TWOFISH256:
+      twofish_decrypt(&ctx->ctx.twofish, dst, src);
+      break;
     default:
       ASSERT(0);
       break;
+  }
+}
+
+static void
+cipher_ctr_set(cipher_t *ctx, const unsigned char *nonce, size_t len) {
+  ASSERT(len == 12 || len == 16);
+
+  ctx->ctr[0] = nonce[0];
+  ctx->ctr[1] = nonce[1];
+  ctx->ctr[2] = nonce[2];
+  ctx->ctr[3] = nonce[3];
+  ctx->ctr[4] = nonce[4];
+  ctx->ctr[5] = nonce[5];
+  ctx->ctr[6] = nonce[6];
+  ctx->ctr[7] = nonce[7];
+  ctx->ctr[8] = nonce[8];
+  ctx->ctr[9] = nonce[9];
+  ctx->ctr[10] = nonce[10];
+  ctx->ctr[11] = nonce[11];
+
+  if (len == 16) {
+    ctx->ctr[12] = nonce[12];
+    ctx->ctr[13] = nonce[13];
+    ctx->ctr[14] = nonce[14];
+    ctx->ctr[15] = nonce[15];
+  } else {
+    ctx->ctr[12] = 0x00;
+    ctx->ctr[13] = 0x00;
+    ctx->ctr[14] = 0x00;
+    ctx->ctr[15] = 0x01;
+  }
+}
+
+static void
+cipher_ctr_encrypt(cipher_t *ctx,
+                   unsigned char *dst,
+                   const unsigned char *src,
+                   size_t len) {
+  size_t i, j;
+
+  for (i = 0; i < len; i++) {
+    if ((ctx->ctr_pos & 15) == 0) {
+      cipher_ctx_encrypt(ctx, ctx->state, ctx->ctr);
+
+      for (j = 15; j >= 12; j--) {
+        if (++ctx->ctr[j] != 0)
+          break;
+      }
+
+      ctx->ctr_pos = 0;
+    }
+
+    dst[i] = src[i] ^ ctx->state[ctx->ctr_pos++];
   }
 }
 
@@ -2522,7 +5129,30 @@ cipher_mode_init(cipher_t *ctx, const unsigned char *iv, size_t iv_len) {
     }
 
     case CIPHER_MODE_GCM: {
-      return 0;
+      uint8_t key[16];
+      uint8_t tmp[16];
+
+      if (ctx->block_size != 16)
+        return 0;
+
+      memset(key, 0, sizeof(key));
+
+      cipher_ctr_encrypt(ctx, key, key, 16);
+      ghash_init(&ctx->ghash, key);
+
+      if (iv_len != 12) {
+        ghash_update(&ctx->ghash, iv, iv_len);
+        ghash_final(&ctx->ghash, tmp);
+        ghash_init(&ctx->ghash, key);
+
+        iv = tmp;
+        iv_len = 16;
+      }
+
+      cipher_ctr_set(ctx, iv, iv_len);
+      cipher_ctr_encrypt(ctx, ctx->mask, ctx->mask, 16);
+
+      break;
     }
 
     default: {
@@ -2544,7 +5174,7 @@ cipher_mode_update(cipher_t *ctx,
       if (ctx->encrypt)
         cipher_ctx_encrypt(ctx, dst, src);
       else
-        cipher_ctx_encrypt(ctx, dst, src);
+        cipher_ctx_decrypt(ctx, dst, src);
 
       break;
     }
@@ -2558,6 +5188,8 @@ cipher_mode_update(cipher_t *ctx,
 
         memcpy(ctx->prev, dst, ctx->block_size);
       } else {
+        ASSERT(dst != src);
+
         cipher_ctx_decrypt(ctx, dst, src);
 
         for (i = 0; i < ctx->block_size; i++)
@@ -2586,13 +5218,14 @@ cipher_mode_update(cipher_t *ctx,
     case CIPHER_MODE_CFB: {
       cipher_ctx_encrypt(ctx, ctx->state, ctx->prev);
 
+      if (!ctx->encrypt)
+        memcpy(ctx->prev, src, ctx->block_size);
+
       for (i = 0; i < ctx->block_size; i++)
         dst[i] = src[i] ^ ctx->state[i];
 
       if (ctx->encrypt)
         memcpy(ctx->prev, dst, ctx->block_size);
-      else
-        memcpy(ctx->prev, src, ctx->block_size);
 
       break;
     }
@@ -2607,7 +5240,14 @@ cipher_mode_update(cipher_t *ctx,
     }
 
     case CIPHER_MODE_GCM: {
-      ASSERT(0);
+      if (ctx->encrypt) {
+        cipher_ctr_encrypt(ctx, dst, src, ctx->block_size);
+        ghash_update(&ctx->ghash, dst, ctx->block_size);
+      } else {
+        ghash_update(&ctx->ghash, src, ctx->block_size);
+        cipher_ctr_encrypt(ctx, dst, src, ctx->block_size);
+      }
+
       break;
     }
 
@@ -2701,7 +5341,41 @@ cipher_mode_final(cipher_t *ctx, unsigned char *out, size_t *out_len) {
     }
 
     case CIPHER_MODE_GCM: {
-      return 0;
+      uint8_t mac[16];
+      uint32_t res;
+
+      if (ctx->encrypt) {
+        cipher_ctr_encrypt(ctx, out, ctx->block, ctx->block_pos);
+        ghash_update(&ctx->ghash, out, ctx->block_pos);
+      } else {
+        ghash_update(&ctx->ghash, ctx->block, ctx->block_pos);
+        cipher_ctr_encrypt(ctx, out, ctx->block, ctx->block_pos);
+      }
+
+      *out_len = ctx->block_pos;
+
+      ghash_final(&ctx->ghash, mac);
+
+      for (i = 0; i < 16; i++)
+        mac[i] ^= ctx->mask[i];
+
+      if (ctx->encrypt) {
+        memcpy(ctx->tag, mac, 16);
+        ctx->tag_len = 16;
+        return 1;
+      }
+
+      if (ctx->tag_len == 0)
+        return 0;
+
+      res = 0;
+
+      for (i = 0; i < ctx->tag_len; i++)
+        res |= (uint32_t)mac[i] ^ (uint32_t)ctx->tag[i];
+
+      res = (res - 1) >> 31;
+
+      return res;
     }
 
     default: {
@@ -2731,11 +5405,49 @@ cipher_init(cipher_t *ctx, int type, int mode, int encrypt,
   return 1;
 }
 
+int
+cipher_set_aad(cipher_t *ctx, const unsigned char *aad, size_t len) {
+  if (ctx->mode != CIPHER_MODE_GCM)
+    return 0;
+
+  ghash_aad(&ctx->ghash, aad, len);
+
+  return 1;
+}
+
+int
+cipher_set_tag(cipher_t *ctx, const unsigned char *tag, size_t len) {
+  if (ctx->mode != CIPHER_MODE_GCM || ctx->encrypt)
+    return 0;
+
+  if (len != 4 && len != 8 && !(len >= 12 && len <= 16))
+    return 0;
+
+  memcpy(ctx->tag, tag, len);
+  ctx->tag_len = len;
+
+  return 1;
+}
+
+int
+cipher_get_tag(cipher_t *ctx, unsigned char *tag, size_t *len) {
+  if (ctx->mode != CIPHER_MODE_GCM || !ctx->encrypt)
+    return 0;
+
+  if (ctx->tag_len == 0)
+    return 0;
+
+  memcpy(tag, ctx->tag, ctx->tag_len);
+  *len = ctx->tag_len;
+
+  return 1;
+}
+
 void
 cipher_update(cipher_t *ctx,
               unsigned char *output, size_t *output_len,
               const unsigned char *input, size_t input_len) {
-  int has_padding = ctx->mode <= CIPHER_MODE_CBC;
+  int padding = ctx->mode <= CIPHER_MODE_CBC && !ctx->encrypt;
   size_t bsize = ctx->block_size;
   size_t bpos = ctx->block_pos;
   size_t ilen = input_len;
@@ -2750,7 +5462,7 @@ cipher_update(cipher_t *ctx,
 
   ctx->block_pos = (ctx->block_pos + ilen) % bsize;
 
-  if (has_padding)
+  if (padding)
     olen += ctx->last_size;
 
   if (bpos > 0) {
@@ -2777,7 +5489,7 @@ cipher_update(cipher_t *ctx,
 
   *output_len = olen;
 
-  if (has_padding) {
+  if (padding) {
     memcpy(output + opos, ctx->last, ctx->last_size);
     opos += ctx->last_size;
   }
@@ -2797,7 +5509,7 @@ cipher_update(cipher_t *ctx,
   if (ilen > 0)
     memcpy(ctx->block, input + ipos, ilen);
 
-  if (has_padding && olen > 0) {
+  if (padding && olen > 0) {
     memcpy(ctx->last, output + olen - bsize, bsize);
 
     ctx->last_size = bsize;
@@ -2806,7 +5518,113 @@ cipher_update(cipher_t *ctx,
   }
 }
 
+size_t
+cipher_update_size(const cipher_t *ctx, size_t input_len) {
+  int padding = ctx->mode <= CIPHER_MODE_CBC && !ctx->encrypt;
+  size_t bsize = ctx->block_size;
+  size_t bpos = ctx->block_pos;
+  size_t ilen = input_len;
+  size_t olen = 0;
+
+  if (ilen == 0)
+    return 0;
+
+  if (padding)
+    olen += ctx->last_size;
+
+  if (bpos > 0) {
+    size_t want = bsize - bpos;
+
+    if (want > ilen)
+      want = ilen;
+
+    bpos += want;
+    ilen -= want;
+
+    if (bpos < bsize)
+      return 0;
+
+    olen += bsize;
+  }
+
+  olen += ilen - (ilen % bsize);
+
+  return olen;
+}
+
 int
 cipher_final(cipher_t *ctx, unsigned char *output, size_t *output_len) {
   return cipher_mode_final(ctx, output, output_len);
+}
+
+static int
+cipher_crypt(unsigned char *output,
+             size_t *output_len,
+             int type,
+             int mode,
+             int encrypt,
+             const unsigned char *key,
+             size_t key_len,
+             const unsigned char *iv,
+             size_t iv_len,
+             const unsigned char *input,
+             size_t input_len) {
+  size_t len1, len2;
+  cipher_t ctx; /* ~5kb */
+  int r = 0;
+
+  *output_len = 0;
+
+  if (mode == CIPHER_MODE_GCM)
+    goto fail;
+
+  if (!cipher_init(&ctx, type, mode, encrypt, key, key_len, iv, iv_len))
+    goto fail;
+
+  cipher_update(&ctx, output, &len1, input, input_len);
+
+  if (!cipher_final(&ctx, output + len1, &len2))
+    goto fail;
+
+  *output_len = len1 + len2;
+  r = 1;
+fail:
+  cleanse(&ctx, sizeof(ctx));
+  return r;
+}
+
+int
+cipher_encrypt(unsigned char *ct,
+               size_t *ct_len,
+               int type,
+               int mode,
+               const unsigned char *key,
+               size_t key_len,
+               const unsigned char *iv,
+               size_t iv_len,
+               const unsigned char *pt,
+               size_t pt_len) {
+  return cipher_crypt(ct, ct_len,
+                      type, mode, 1,
+                      key, key_len,
+                      iv, iv_len,
+                      pt, pt_len);
+}
+
+int
+cipher_decrypt(unsigned char *pt,
+               size_t *pt_len,
+               int type,
+               int mode,
+               const unsigned char *key,
+               size_t key_len,
+               const unsigned char *iv,
+               size_t iv_len,
+               const unsigned char *ct,
+               size_t ct_len) {
+  return cipher_crypt(pt, pt_len,
+                      type, mode, 0,
+                      key, key_len,
+                      iv, iv_len,
+                      ct, ct_len);
 }
