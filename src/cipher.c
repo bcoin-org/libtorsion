@@ -3377,7 +3377,7 @@ des_permute(uint32_t s) {
   return f;
 }
 
-static TORSION_INLINE void
+static void
 des_encipher(const des_t *ctx, uint32_t *xl, uint32_t *xr) {
   uint32_t l = *xl;
   uint32_t r = *xr;
@@ -3410,7 +3410,7 @@ des_encipher(const des_t *ctx, uint32_t *xl, uint32_t *xr) {
   *xr = l;
 }
 
-static TORSION_INLINE void
+static void
 des_decipher(const des_t *ctx, uint32_t *xl, uint32_t *xr) {
   uint32_t l = *xr;
   uint32_t r = *xl;
