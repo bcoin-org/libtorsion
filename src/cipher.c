@@ -1388,8 +1388,8 @@ blowfish_stream2word(const unsigned char *data, size_t len, size_t *off) {
 
   word = ((uint32_t)data[(*off + 0) % len] << 24)
        | ((uint32_t)data[(*off + 1) % len] << 16)
-       | ((uint32_t)data[(*off + 2) % len] << 8)
-       | ((uint32_t)data[(*off + 3) % len] << 0);
+       | ((uint32_t)data[(*off + 2) % len] <<  8)
+       | ((uint32_t)data[(*off + 3) % len] <<  0);
 
   *off = (*off + 4) % len;
 
