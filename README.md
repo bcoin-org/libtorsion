@@ -48,7 +48,7 @@ Used as the backend for [bcrypto].
 #include <torsion/hash.h>
 
 int main(void) {
-  ecdsa_t *ec = ecdsa_context_create(ECDSA_CURVE_SECP256K1);
+  wei_curve_t *ec = wei_curve_create(WEI_CURVE_SECP256K1);
   const char str[] = "hello world";
   unsigned char priv[32];
   unsigned char entropy[32];
@@ -81,7 +81,7 @@ int main(void) {
   assert(ecdsa_verify(ec, msg, sizeof(msg), sig, pub, sizeof(pub)));
 
   /* Cleanup. */
-  ecdsa_context_destroy(ec);
+  wei_curve_destroy(ec);
 
   return 0;
 }
