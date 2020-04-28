@@ -382,7 +382,10 @@ idea_decrypt(const idea_t *ctx, unsigned char *dst, const unsigned char *src);
  */
 
 void
-rc2_init(rc2_t *ctx, const unsigned char *key, size_t key_len);
+rc2_init(rc2_t *ctx,
+         const unsigned char *key,
+         size_t key_len,
+         unsigned int bits);
 
 void
 rc2_encrypt(const rc2_t *ctx, unsigned char *dst, const unsigned char *src);
