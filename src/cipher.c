@@ -637,9 +637,9 @@ aes_init(aes_t *ctx, unsigned int bits, const unsigned char *key) {
 void
 aes_init_encrypt(aes_t *ctx, unsigned int bits, const unsigned char *key) {
   uint32_t *K = ctx->enckey;
+  uint32_t tmp;
   size_t p = 0;
   size_t i = 0;
-  uint32_t tmp;
 
   memset(ctx, 0, sizeof(*ctx));
 
@@ -761,9 +761,9 @@ aes_init_encrypt(aes_t *ctx, unsigned int bits, const unsigned char *key) {
 void
 aes_init_decrypt(aes_t *ctx) {
   uint32_t *K = ctx->deckey;
+  uint32_t tmp;
   size_t p = 0;
   size_t i, j;
-  uint32_t tmp;
 
   memcpy(K, ctx->enckey, sizeof(ctx->enckey));
 
@@ -1324,7 +1324,7 @@ blowfish_init(blowfish_t *ctx,
                        + ctx->S[3][((x) >>  0) & 0xff])
 
 static void
-blowfish_encipher(blowfish_t *ctx, uint32_t *xl, uint32_t *xr) {
+blowfish_encipher(const blowfish_t *ctx, uint32_t *xl, uint32_t *xr) {
   uint32_t l = *xl ^ ctx->P[0];
   uint32_t r = *xr;
 
@@ -1350,7 +1350,7 @@ blowfish_encipher(blowfish_t *ctx, uint32_t *xl, uint32_t *xr) {
 }
 
 static void
-blowfish_decipher(blowfish_t *ctx, uint32_t *xl, uint32_t *xr) {
+blowfish_decipher(const blowfish_t *ctx, uint32_t *xl, uint32_t *xr) {
   uint32_t l = *xl ^ ctx->P[17];
   uint32_t r = *xr;
 
@@ -1463,7 +1463,7 @@ blowfish_expandstate(blowfish_t *ctx,
 }
 
 void
-blowfish_enc(blowfish_t *ctx, uint32_t *data, size_t len) {
+blowfish_enc(const blowfish_t *ctx, uint32_t *data, size_t len) {
   size_t blocks = len / 2;
 
   while (blocks--) {
@@ -1473,7 +1473,7 @@ blowfish_enc(blowfish_t *ctx, uint32_t *data, size_t len) {
 }
 
 void
-blowfish_dec(blowfish_t *ctx, uint32_t *data, size_t len) {
+blowfish_dec(const blowfish_t *ctx, uint32_t *data, size_t len) {
   size_t blocks = len / 2;
 
   while (blocks--) {
@@ -1483,7 +1483,7 @@ blowfish_dec(blowfish_t *ctx, uint32_t *data, size_t len) {
 }
 
 void
-blowfish_encrypt(blowfish_t *ctx,
+blowfish_encrypt(const blowfish_t *ctx,
                  unsigned char *dst,
                  const unsigned char *src) {
   uint32_t xl = read32be(src + 0);
@@ -1496,7 +1496,7 @@ blowfish_encrypt(blowfish_t *ctx,
 }
 
 void
-blowfish_decrypt(blowfish_t *ctx,
+blowfish_decrypt(const blowfish_t *ctx,
                  unsigned char *dst,
                  const unsigned char *src) {
   uint32_t xl = read32be(src + 0);
@@ -5308,9 +5308,7 @@ cipher_mode_final(cipher_t *ctx, unsigned char *out, size_t *out_len) {
       for (i = 0; i < ctx->tag_len; i++)
         res |= (uint32_t)mac[i] ^ (uint32_t)ctx->tag[i];
 
-      res = (res - 1) >> 31;
-
-      return res;
+      return (res - 1) >> 31;
     }
 
     default: {
@@ -5359,6 +5357,7 @@ cipher_set_tag(cipher_t *ctx, const unsigned char *tag, size_t len) {
     return 0;
 
   memcpy(ctx->tag, tag, len);
+
   ctx->tag_len = len;
 
   return 1;
@@ -5373,6 +5372,7 @@ cipher_get_tag(cipher_t *ctx, unsigned char *tag, size_t *len) {
     return 0;
 
   memcpy(tag, ctx->tag, ctx->tag_len);
+
   *len = ctx->tag_len;
 
   return 1;
