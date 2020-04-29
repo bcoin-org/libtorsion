@@ -30,6 +30,7 @@ SOURCES := \
 	src/poly1305.c \
 	src/rsa.c \
 	src/salsa20.c \
+	src/secretbox.c \
 	src/siphash.c \
 	src/util.c
 

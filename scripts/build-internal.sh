@@ -41,6 +41,7 @@ gcc -g \
   src/poly1305.c \
   src/rsa.c \
   src/salsa20.c \
+  src/secretbox.c \
   src/siphash.c \
   test/test-ecc-internal.c \
   src/util.c
