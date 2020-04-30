@@ -198,7 +198,7 @@ struct ghash_fe_s {
 
 typedef struct _ghash_s {
   struct ghash_fe_s state;
-  uint8_t block[16];
+  unsigned char block[16];
   size_t size;
   uint64_t adlen;
   uint64_t ctlen;
@@ -230,7 +230,7 @@ typedef struct _cipher_s {
   unsigned char last[CIPHER_MAX_BLOCK_SIZE];
   unsigned char prev[CIPHER_MAX_BLOCK_SIZE];
   unsigned char state[CIPHER_MAX_BLOCK_SIZE];
-  unsigned char ctr[CIPHER_MAX_BLOCK_SIZE];
+  uint8_t ctr[CIPHER_MAX_BLOCK_SIZE];
   ghash_t ghash;
   unsigned char mask[16];
   unsigned char tag[16];

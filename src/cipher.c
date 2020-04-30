@@ -6122,8 +6122,8 @@ cipher_mode_init(cipher_t *ctx, const unsigned char *iv, size_t iv_len) {
 
     case CIPHER_MODE_GCM: {
       static const unsigned char zero16[16] = {0};
-      uint8_t key[16];
-      uint8_t tmp[16];
+      unsigned char key[16];
+      unsigned char tmp[16];
 
       if (ctx->block_size != 16)
         return 0;
@@ -6351,7 +6351,7 @@ cipher_mode_final(cipher_t *ctx, unsigned char *out, size_t *out_len) {
     }
 
     case CIPHER_MODE_GCM: {
-      uint8_t mac[16];
+      unsigned char mac[16];
 
       if (ctx->encrypt) {
         cipher_ctr_encrypt(ctx, out, ctx->block, ctx->block_pos);
