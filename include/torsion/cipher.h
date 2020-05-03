@@ -77,8 +77,8 @@ extern "C" {
 #define xts_init torsion_xts_init
 #define xts_setup torsion_xts_setup
 #define xts_encrypt torsion_xts_encrypt
-#define xts_steal torsion_xts_steal
 #define xts_decrypt torsion_xts_decrypt
+#define xts_steal torsion_xts_steal
 #define xts_unsteal torsion_xts_unsteal
 #define ctr_init torsion_ctr_init
 #define ctr_crypt torsion_ctr_crypt
@@ -102,13 +102,6 @@ extern "C" {
 #define eax_encrypt torsion_eax_encrypt
 #define eax_decrypt torsion_eax_decrypt
 #define eax_digest torsion_eax_digest
-#define cipher_mode_init torsion_cipher_mode_init
-#define cipher_mode_ccm_setup torsion_cipher_mode_ccm_setup
-#define cipher_mode_aad torsion_cipher_mode_aad
-#define cipher_mode_encrypt torsion_cipher_mode_encrypt
-#define cipher_mode_decrypt torsion_cipher_mode_decrypt
-#define cipher_mode_digest torsion_cipher_mode_digest
-#define cipher_mode_verify torsion_cipher_mode_verify
 #define cipher_stream_init torsion_cipher_stream_init
 #define cipher_stream_set_padding torsion_cipher_stream_set_padding
 #define cipher_stream_set_aad torsion_cipher_stream_set_aad
@@ -116,7 +109,7 @@ extern "C" {
 #define cipher_stream_set_tag torsion_cipher_stream_set_tag
 #define cipher_stream_get_tag torsion_cipher_stream_get_tag
 #define cipher_stream_update torsion_cipher_stream_update
-#define cipher_stream_update_in_place torsion_cipher_stream_update_in_place
+#define cipher_stream_crypt torsion_cipher_stream_crypt
 #define cipher_stream_update_size torsion_cipher_stream_update_size
 #define cipher_stream_final torsion_cipher_stream_final
 #define cipher_static_encrypt torsion_cipher_static_encrypt
@@ -331,7 +324,7 @@ typedef struct _eax_s {
   size_t pos;
 } eax_t;
 
-typedef struct _cipher_mode_s {
+struct __cipher_mode_s {
   int type;
   union {
     cbc_t cbc;
@@ -343,7 +336,7 @@ typedef struct _cipher_mode_s {
     ccm_t ccm;
     eax_t eax;
   } mode;
-} cipher_mode_t;
+};
 
 typedef struct _cipher_stream_s {
   int encrypt;
@@ -358,7 +351,7 @@ typedef struct _cipher_stream_s {
   unsigned char last[CIPHER_MAX_BLOCK_SIZE];
   unsigned char tag[CIPHER_MAX_TAG_SIZE];
   cipher_t cipher;
-  cipher_mode_t mode;
+  struct __cipher_mode_s mode;
 } cipher_stream_t;
 
 /*
@@ -636,9 +629,8 @@ ecb_decrypt(const cipher_t *cipher, unsigned char *dst,
  * CBC
  */
 
-int
-cbc_init(cbc_t *mode, const cipher_t *cipher,
-         const unsigned char *iv, size_t iv_len);
+void
+cbc_init(cbc_t *mode, const cipher_t *cipher, const unsigned char *iv);
 
 void
 cbc_encrypt(cbc_t *mode, const cipher_t *cipher,
@@ -652,9 +644,8 @@ cbc_decrypt(cbc_t *mode, const cipher_t *cipher,
  * XTS
  */
 
-int
-xts_init(xts_t *mode, const cipher_t *cipher,
-         const unsigned char *iv, size_t iv_len);
+void
+xts_init(xts_t *mode, const cipher_t *cipher, const unsigned char *iv);
 
 int
 xts_setup(xts_t *mode, const cipher_t *cipher,
@@ -665,15 +656,15 @@ xts_encrypt(xts_t *mode, const cipher_t *cipher,
             unsigned char *dst, const unsigned char *src, size_t len);
 
 void
+xts_decrypt(xts_t *mode, const cipher_t *cipher,
+            unsigned char *dst, const unsigned char *src, size_t len);
+
+void
 xts_steal(xts_t *mode,
           const cipher_t *cipher,
           unsigned char *last, /* last ciphertext */
           unsigned char *block, /* partial block */
           size_t len);
-
-void
-xts_decrypt(xts_t *mode, const cipher_t *cipher,
-            unsigned char *dst, const unsigned char *src, size_t len);
 
 void
 xts_unsteal(xts_t *mode,
@@ -685,9 +676,8 @@ xts_unsteal(xts_t *mode,
  * CTR
  */
 
-int
-ctr_init(ctr_t *mode, const cipher_t *cipher,
-         const unsigned char *iv, size_t iv_len);
+void
+ctr_init(ctr_t *mode, const cipher_t *cipher, const unsigned char *iv);
 
 void
 ctr_crypt(ctr_t *mode, const cipher_t *cipher,
@@ -697,9 +687,8 @@ ctr_crypt(ctr_t *mode, const cipher_t *cipher,
  * CFB
  */
 
-int
-cfb_init(cfb_t *mode, const cipher_t *cipher,
-         const unsigned char *iv, size_t iv_len);
+void
+cfb_init(cfb_t *mode, const cipher_t *cipher, const unsigned char *iv);
 
 void
 cfb_encrypt(cfb_t *mode, const cipher_t *cipher,
@@ -713,9 +702,8 @@ cfb_decrypt(cfb_t *mode, const cipher_t *cipher,
  * OFB
  */
 
-int
-ofb_init(ofb_t *mode, const cipher_t *cipher,
-         const unsigned char *iv, size_t iv_len);
+void
+ofb_init(ofb_t *mode, const cipher_t *cipher, const unsigned char *iv);
 
 void
 ofb_crypt(ofb_t *mode, const cipher_t *cipher,
@@ -791,51 +779,6 @@ void
 eax_digest(eax_t *mode, const cipher_t *cipher, unsigned char *mac);
 
 /*
- * Cipher Mode
- */
-
-int
-cipher_mode_init(cipher_mode_t *ctx, const cipher_t *cipher,
-                 int type, const unsigned char *iv, size_t iv_len);
-
-int
-cipher_mode_ccm_setup(cipher_mode_t *ctx,
-                      const cipher_t *cipher,
-                      size_t msg_len,
-                      size_t tag_len,
-                      const unsigned char *aad,
-                      size_t aad_len);
-
-void
-cipher_mode_aad(cipher_mode_t *ctx, const cipher_t *cipher,
-                const unsigned char *aad, size_t len);
-
-void
-cipher_mode_encrypt(cipher_mode_t *ctx,
-                    const cipher_t *cipher,
-                    unsigned char *dst,
-                    const unsigned char *src,
-                    size_t len);
-
-void
-cipher_mode_decrypt(cipher_mode_t *ctx,
-                    const cipher_t *cipher,
-                    unsigned char *dst,
-                    const unsigned char *src,
-                    size_t len);
-
-void
-cipher_mode_digest(cipher_mode_t *ctx,
-                   const cipher_t *cipher,
-                   unsigned char *mac);
-
-int
-cipher_mode_verify(cipher_mode_t *ctx,
-                   const cipher_t *cipher,
-                   const unsigned char *tag,
-                   size_t tag_len);
-
-/*
  * Cipher Stream
  */
 
@@ -874,10 +817,10 @@ cipher_stream_update(cipher_stream_t *ctx,
                      const unsigned char *input, size_t input_len);
 
 int
-cipher_stream_update_in_place(cipher_stream_t *ctx,
-                              unsigned char *dst,
-                              const unsigned char *src,
-                              size_t len);
+cipher_stream_crypt(cipher_stream_t *ctx,
+                    unsigned char *dst,
+                    const unsigned char *src,
+                    size_t len);
 
 size_t
 cipher_stream_update_size(const cipher_stream_t *ctx, size_t input_len);
