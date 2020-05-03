@@ -329,7 +329,6 @@ typedef struct _ccm_s {
   struct __cmac_s hash;
   unsigned char state[16];
   uint8_t ctr[16];
-  size_t size;
   size_t pos;
 } ccm_t;
 

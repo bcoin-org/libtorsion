@@ -6430,12 +6430,9 @@ gfe_dbl(gfe_t *z, const gfe_t *x) {
 static void
 gfe_mul(gfe_t *r, const gfe_t *x, const gfe_t *table) {
   uint64_t word, msw;
+  gfe_t z = {0, 0};
   const gfe_t *t;
   size_t i, j;
-  gfe_t z;
-
-  z.hi = 0;
-  z.lo = 0;
 
   for (i = 0; i < 2; i++) {
     word = x->hi;
@@ -6608,7 +6605,7 @@ gcm_init(gcm_t *mode, const cipher_t *cipher,
   if (cipher_block_size(cipher->type) != 16)
     return 0;
 
-  memset(mode->ctr, 0, sizeof(mode->ctr));
+  memset(mode->ctr, 0, 16);
 
   mode->pos = 0;
 
@@ -6718,21 +6715,19 @@ cbcmac_final(cbcmac_t *ctx, const cipher_t *cipher, unsigned char *mac) {
 int
 ccm_init(ccm_t *mode, const cipher_t *cipher,
          const unsigned char *iv, size_t iv_len) {
-  memset(mode, 0, sizeof(*mode));
-
   if (cipher_block_size(cipher->type) != 16)
     return 0;
 
-  /* sjcl compat: no upper limit on l(N). */
   if (iv_len < 7)
     return 0;
 
+  /* sjcl compat: no upper limit on l(N). */
   if (iv_len > 13)
     iv_len = 13;
 
   cbcmac_init(&mode->hash, cipher);
 
-  mode->size = cipher_block_size(cipher->type);
+  memset(mode->ctr, 0, 16);
 
   /* Store the IV here for now. */
   memcpy(mode->state, iv, iv_len);
@@ -6742,38 +6737,13 @@ ccm_init(ccm_t *mode, const cipher_t *cipher,
   return 1;
 }
 
-int
-ccm_setup(ccm_t *mode, const cipher_t *cipher,
-          size_t msg_len, size_t tag_len,
-          const unsigned char *aad, size_t aad_len) {
-  size_t block_size = cipher_block_size(cipher->type);
-  const unsigned char *iv = mode->state;
-  size_t iv_len = mode->pos;
-  unsigned char block[16];
-  size_t Adata = (aad_len > 0);
-  size_t lm = msg_len;
-  size_t M = tag_len;
+static size_t
+ccm_log256(size_t lm) {
   size_t L = 0;
-  size_t i, N;
 
-  if (block_size != 16)
-    return 0;
-
-  /* sjcl compat: no upper limit on l(N). */
-  if (iv_len < 7)
-    return 0;
-
-  if (M < 4 || M > 16 || (M & 1) != 0)
-    return 0;
-
-  memset(block, 0, 16);
-
-  /* Compute L and N. */
-  L = 0;
-
-  while (msg_len > 0) {
+  while (lm > 0) {
     L += 1;
-    msg_len >>= 1;
+    lm >>= 1;
   }
 
   L = (L + 7) / 8;
@@ -6781,27 +6751,53 @@ ccm_setup(ccm_t *mode, const cipher_t *cipher,
   if (L < 2)
     L = 2;
 
-  N = 15 - L;
+  return L;
+}
 
-  /* Compute flags. */
-  block[0] = 64 * Adata + 8 * ((M - 2) / 2) + (L - 1);
+int
+ccm_setup(ccm_t *mode, const cipher_t *cipher,
+          size_t msg_len, size_t tag_len,
+          const unsigned char *aad, size_t aad_len) {
+  const unsigned char *iv = mode->state;
+  size_t iv_len = mode->pos;
+  unsigned char block[16];
+  size_t Adata = (aad_len > 0);
+  size_t lm = msg_len;
+  size_t L = ccm_log256(lm);
+  size_t N = 15 - L;
+  size_t M = tag_len;
+  size_t i;
+
+  /* Sanity checks (should already be initialized). */
+  ASSERT(cipher_block_size(cipher->type) == 16);
+  ASSERT(iv_len >= 7 && iv_len <= 13);
+  ASSERT(N >= 7 && N <= 13);
+
+  /* Tag length restrictions. */
+  if (M < 4 || M > 16 || (M & 1) != 0)
+    return 0;
 
   /* sjcl compat: clamp nonces to 15-L. */
-  memcpy(block + 1, iv, iv_len < N ? iv_len : N);
+  if (iv_len > N)
+    iv_len = N;
+
+  /* Serialize flags. */
+  block[0] = 64 * Adata + 8 * ((M - 2) / 2) + (L - 1);
+
+  /* Serialize nonce. */
+  memcpy(block + 1, iv, iv_len);
 
   /* Serialize message length. */
-  for (i = 15; i >= 1 + N; i--) {
+  for (i = 15; i >= 1 + iv_len; i--) {
     block[i] = lm & 0xff;
     lm >>= 8;
   }
 
-  if (lm != 0)
-    return 0;
+  ASSERT(lm == 0);
 
-  cbcmac_init(&mode->hash, cipher);
   cbcmac_update(&mode->hash, cipher, block, 16);
 
-  if (aad_len > 0) {
+  if (Adata) {
     unsigned char buf[10];
 
     if (aad_len < 0xff00) {
@@ -6829,7 +6825,6 @@ ccm_setup(ccm_t *mode, const cipher_t *cipher,
 
   memcpy(mode->ctr, block, 16);
 
-  mode->size = block_size;
   mode->pos = 0;
 
   return 1;
@@ -6838,11 +6833,10 @@ ccm_setup(ccm_t *mode, const cipher_t *cipher,
 static void
 ccm_crypt(ccm_t *mode, const cipher_t *cipher,
           unsigned char *dst, const unsigned char *src, size_t len) {
-  size_t mask = mode->size - 1;
   size_t i, j;
 
   for (i = 0; i < len; i++) {
-    if ((mode->pos & mask) == 0) {
+    if ((mode->pos & 15) == 0) {
       cipher_encrypt(cipher, mode->state, mode->ctr);
 
       for (j = 15; j >= 1; j--) {
@@ -7345,7 +7339,7 @@ cipher_stream_set_tag(cipher_stream_t *ctx,
         return 0;
       break;
     case CIPHER_MODE_CCM:
-      if (len != ctx->ccm_len)
+      if (ctx->ccm_len == 0 || len != ctx->ccm_len)
         return 0;
       break;
     case CIPHER_MODE_EAX:
