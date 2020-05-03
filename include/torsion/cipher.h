@@ -69,7 +69,6 @@ extern "C" {
 #define cipher_init torsion_cipher_init
 #define cipher_encrypt torsion_cipher_encrypt
 #define cipher_decrypt torsion_cipher_decrypt
-#define ecb_init torsion_ecb_init
 #define ecb_encrypt torsion_ecb_encrypt
 #define ecb_decrypt torsion_ecb_decrypt
 #define cbc_init torsion_cbc_init
@@ -247,6 +246,7 @@ typedef struct _twofish_s {
 
 typedef struct _cipher_s {
   int type;
+  size_t size;
   union {
     aes_t aes;
     blowfish_t blowfish;
@@ -262,38 +262,29 @@ typedef struct _cipher_s {
   } ctx;
 } cipher_t;
 
-typedef struct _ecb_s {
-  size_t size;
-} ecb_t;
-
 typedef struct _cbc_s {
   unsigned char prev[CIPHER_MAX_BLOCK_SIZE];
-  size_t size;
 } cbc_t;
 
 typedef struct _xts_s {
   unsigned char tweak[CIPHER_MAX_BLOCK_SIZE];
   unsigned char prev[CIPHER_MAX_BLOCK_SIZE];
-  size_t size;
 } xts_t;
 
 typedef struct _ctr_s {
   uint8_t ctr[CIPHER_MAX_BLOCK_SIZE];
   unsigned char state[CIPHER_MAX_BLOCK_SIZE];
-  size_t size;
   size_t pos;
 } ctr_t;
 
 typedef struct _cfb_s {
   unsigned char state[CIPHER_MAX_BLOCK_SIZE];
   unsigned char prev[CIPHER_MAX_BLOCK_SIZE];
-  size_t size;
   size_t pos;
 } cfb_t;
 
 typedef struct _ofb_s {
   unsigned char state[CIPHER_MAX_BLOCK_SIZE];
-  size_t size;
   size_t pos;
 } ofb_t;
 
@@ -321,7 +312,6 @@ typedef struct _gcm_s {
 
 struct __cmac_s {
   unsigned char mac[CIPHER_MAX_BLOCK_SIZE];
-  size_t size;
   size_t pos;
 };
 
@@ -338,14 +328,12 @@ typedef struct _eax_s {
   unsigned char state[CIPHER_MAX_BLOCK_SIZE];
   unsigned char mask[CIPHER_MAX_BLOCK_SIZE];
   uint8_t ctr[CIPHER_MAX_BLOCK_SIZE];
-  size_t size;
   size_t pos;
 } eax_t;
 
 typedef struct _cipher_mode_s {
   int type;
   union {
-    ecb_t ecb;
     cbc_t cbc;
     xts_t xts;
     ctr_t ctr;
@@ -636,16 +624,13 @@ cipher_decrypt(const cipher_t *ctx,
  * ECB
  */
 
-int
-ecb_init(ecb_t *mode, const cipher_t *cipher);
+void
+ecb_encrypt(const cipher_t *cipher, unsigned char *dst,
+            const unsigned char *src, size_t len);
 
 void
-ecb_encrypt(ecb_t *mode, const cipher_t *cipher,
-            unsigned char *dst, const unsigned char *src, size_t len);
-
-void
-ecb_decrypt(ecb_t *mode, const cipher_t *cipher,
-            unsigned char *dst, const unsigned char *src, size_t len);
+ecb_decrypt(const cipher_t *cipher, unsigned char *dst,
+            const unsigned char *src, size_t len);
 
 /*
  * CBC
