@@ -5555,8 +5555,6 @@ cipher_key_size(int type) {
     default:
       return 0;
   }
-
-  return 1;
 }
 
 size_t
@@ -5613,8 +5611,6 @@ cipher_block_size(int type) {
     default:
       return 0;
   }
-
-  return 1;
 }
 
 int
@@ -5840,7 +5836,7 @@ cipher_init(cipher_t *ctx, int type, const unsigned char *key, size_t key_len) {
     }
 
     default: {
-      return 0;
+      goto fail;
     }
   }
 
@@ -7043,38 +7039,73 @@ typedef struct __cipher_mode_s cipher_mode_t;
 static int
 cipher_mode_init(cipher_mode_t *ctx, const cipher_t *cipher,
                  int type, const unsigned char *iv, size_t iv_len) {
-  if (type >= CIPHER_MODE_CBC && type <= CIPHER_MODE_OFB) {
-    if (iv_len != cipher->size)
-      goto fail;
-  }
-
   ctx->type = type;
 
   switch (ctx->type) {
     case CIPHER_MODE_RAW:
-    case CIPHER_MODE_ECB:
-      return iv_len == 0;
-    case CIPHER_MODE_CBC:
+    case CIPHER_MODE_ECB: {
+      if (iv_len != 0)
+        goto fail;
+
+      return 1;
+    }
+
+    case CIPHER_MODE_CBC: {
+      if (iv_len != cipher->size)
+        goto fail;
+
       cbc_init(&ctx->mode.cbc, cipher, iv);
+
       return 1;
-    case CIPHER_MODE_XTS:
+    }
+
+    case CIPHER_MODE_XTS: {
+      if (iv_len != cipher->size)
+        goto fail;
+
       xts_init(&ctx->mode.xts, cipher, iv);
+
       return 1;
-    case CIPHER_MODE_CTR:
+    }
+
+    case CIPHER_MODE_CTR: {
+      if (iv_len != cipher->size)
+        goto fail;
+
       ctr_init(&ctx->mode.ctr, cipher, iv);
+
       return 1;
-    case CIPHER_MODE_CFB:
+    }
+
+    case CIPHER_MODE_CFB: {
+      if (iv_len != cipher->size)
+        goto fail;
+
       cfb_init(&ctx->mode.cfb, cipher, iv);
+
       return 1;
-    case CIPHER_MODE_OFB:
+    }
+
+    case CIPHER_MODE_OFB: {
+      if (iv_len != cipher->size)
+        goto fail;
+
       ofb_init(&ctx->mode.ofb, cipher, iv);
+
       return 1;
-    case CIPHER_MODE_GCM:
+    }
+
+    case CIPHER_MODE_GCM: {
       return gcm_init(&ctx->mode.gcm, cipher, iv, iv_len);
-    case CIPHER_MODE_CCM:
+    }
+
+    case CIPHER_MODE_CCM: {
       return ccm_init(&ctx->mode.ccm, cipher, iv, iv_len);
-    case CIPHER_MODE_EAX:
+    }
+
+    case CIPHER_MODE_EAX: {
       return eax_init(&ctx->mode.eax, cipher, iv, iv_len);
+    }
   }
 
 fail:
