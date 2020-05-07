@@ -128,12 +128,12 @@ cleanse(void *ptr, size_t len) {
 #if defined(_WIN32)
   /* https://github.com/jedisct1/libsodium/blob/3b26a5c/src/libsodium/sodium/utils.c#L112 */
   SecureZeroMemory(ptr, len);
-#elif defined(__GNUC__)
+#elif defined(__GNUC__) || defined(__clang__)
   /* https://github.com/torvalds/linux/blob/37d4e84/include/linux/string.h#L233 */
   /* https://github.com/torvalds/linux/blob/37d4e84/include/linux/compiler-gcc.h#L21 */
   /* https://github.com/bminor/glibc/blob/master/string/explicit_bzero.c */
   memset(ptr, 0, len);
-  __asm__ __volatile__("": :"r"(ptr) :"memory");
+  __asm__ __volatile__("" : : "r" (ptr) : "memory");
 #else
   /* http://www.daemonology.net/blog/2014-09-04-how-to-zero-a-buffer.html */
   static void *(*const volatile memset_ptr)(void *, int, size_t) = memset;
