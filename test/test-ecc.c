@@ -1362,11 +1362,11 @@ test_eddsa_random(drbg_t *rng) {
 
 static void
 test_rsa(drbg_t *rng) {
-  unsigned char *priv = torsion_malloc(RSA_MAX_PRIV_SIZE);
-  unsigned char *pub = torsion_malloc(RSA_MAX_PUB_SIZE);
-  unsigned char *sig = torsion_malloc(RSA_MAX_MOD_SIZE);
-  unsigned char *ct = torsion_malloc(RSA_MAX_MOD_SIZE);
-  unsigned char *pt = torsion_malloc(RSA_MAX_MOD_SIZE);
+  unsigned char *priv = torsion_xmalloc(RSA_MAX_PRIV_SIZE);
+  unsigned char *pub = torsion_xmalloc(RSA_MAX_PUB_SIZE);
+  unsigned char *sig = torsion_xmalloc(RSA_MAX_MOD_SIZE);
+  unsigned char *ct = torsion_xmalloc(RSA_MAX_MOD_SIZE);
+  unsigned char *pt = torsion_xmalloc(RSA_MAX_MOD_SIZE);
   size_t priv_len = RSA_MAX_PRIV_SIZE;
   size_t pub_len = RSA_MAX_PUB_SIZE;
   size_t sig_len = RSA_MAX_MOD_SIZE;
