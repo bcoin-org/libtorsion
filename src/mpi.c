@@ -75,10 +75,14 @@ enum mpz_div_round_mode { MP_DIV_FLOOR, MP_DIV_CEIL, MP_DIV_TRUNC };
  * Assertions
  */
 
+#ifdef TORSION_NO_ASSERT
+#define ASSERT(expr) (void)(expr)
+#else
 #define ASSERT(expr) do {                      \
   if (!(expr))                                 \
     mp_assert_fail(__FILE__, __LINE__, #expr); \
 } while (0)
+#endif
 
 #define ASSERT_NOCARRY(cy) ASSERT((cy) == 0)
 #define ASSERT_CARRY(cy) ASSERT((cy) != 0)
@@ -429,12 +433,14 @@ enum mpz_div_round_mode { MP_DIV_FLOOR, MP_DIV_CEIL, MP_DIV_TRUNC };
  * Assertions
  */
 
+#ifndef TORSION_NO_ASSERT
 static void
 mp_assert_fail(const char *file, int line, const char *expr) {
   fprintf(stderr, "%s:%d: Assertion `%s' failed.\n", file, line, expr);
   fflush(stderr);
   abort();
 }
+#endif
 
 static void
 mp_die(const char *msg) {
