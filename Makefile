@@ -21,6 +21,7 @@ SOURCES := \
 	src/chacha20.c \
 	src/cipher.c \
 	src/ecc.c \
+	src/encoding.c \
 	src/drbg.c \
 	src/dsa.c \
 	src/hash.c \

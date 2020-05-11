@@ -34,6 +34,7 @@ gcc -g \
   src/cipher.c \
   src/drbg.c \
   src/dsa.c \
+  src/encoding.c \
   src/hash.c \
   src/internal.c \
   src/kdf.c \
