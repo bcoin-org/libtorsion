@@ -1465,19 +1465,11 @@ bech32_decode(char *hrp,
 int
 bech32_test(const char *str, size_t len) {
   char hrp[BECH32_MAX_HRP_SIZE + 1];
-  uint8_t data[BECH32_MAX_DESERIALIZE_SIZE];
-  size_t data_len;
+  unsigned int version;
+  uint8_t hash[BECH32_MAX_DECODE_SIZE];
+  size_t hash_len;
 
-  if (!bech32_deserialize(hrp, NULL, data, &data_len, str, len))
-    return 0;
-
-  if (data_len == 0 || data_len > BECH32_MAX_DATA_SIZE)
-    return 0;
-
-  if (data[0] > BECH32_MAX_VERSION)
-    return 0;
-
-  return 1;
+  return bech32_decode(hrp, NULL, &version, hash, &hash_len, str, len);
 }
 
 /*
@@ -1598,8 +1590,8 @@ cash32_deserialize(uint8_t *dst,
                    size_t srclen,
                    const char *pre,
                    size_t prelen) {
-  uint64_t chk = 1;
   size_t dlen = srclen;
+  uint64_t chk = 1;
   int lower = 0;
   int upper = 0;
   size_t j = 0;
@@ -1617,18 +1609,9 @@ cash32_deserialize(uint8_t *dst,
   if (dlen < 8 || dlen > 112)
     return 0;
 
-  if (dlen < srclen) {
+  if (dlen != srclen) {
     for (i = 0; i < prelen; i++) {
       uint8_t ch = src[i];
-
-      if (ch < 33 || ch > 126)
-        return 0;
-
-      if (ch >= 48 && ch <= 57)
-        return 0;
-
-      if (ch == 58)
-        return 0;
 
       if (ch >= 97 && ch <= 122) {
         lower = 1;
@@ -1637,7 +1620,7 @@ cash32_deserialize(uint8_t *dst,
         ch += 32;
       }
 
-      if (ch != pre[i])
+      if (ch != (uint8_t)pre[i])
         return 0;
     }
   }
