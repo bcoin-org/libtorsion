@@ -5,9 +5,11 @@ CFLAGS := \
 	-Wall \
 	-Wextra \
 	-Wshadow \
+	-Wcast-align \
 	-Wno-implicit-fallthrough \
 	-Wno-declaration-after-statement \
 	-Wno-overlength-strings \
+	-Wno-no-long-long \
 	-I./include \
 	-fPIC \
 	-O3 \

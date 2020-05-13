@@ -20,9 +20,11 @@ gcc -g \
   -Wall \
   -Wextra \
   -Wshadow \
+  -Wcast-align \
   -Wno-implicit-fallthrough \
   -Wno-declaration-after-statement \
   -Wno-overlength-strings \
+  -Wno-long-long \
   -O3 \
   "$def1" \
   "$def2" \
