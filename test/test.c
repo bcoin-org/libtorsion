@@ -155,6 +155,9 @@ print_hex(const unsigned char *data, size_t len) {
   printf("%s\n", str);
 }
 
+void
+test_ecc_internal(drbg_t *rng);
+
 static void
 test_wei_mul_g_p256(drbg_t *rng) {
   const unsigned char k_raw[32] = {
@@ -1689,6 +1692,7 @@ main(int argc, char **argv) {
     if (argc < 3 || strcmp(argv[2], "sha256") == 0)
       bench_sha256(&rng);
   } else {
+    test_ecc_internal(&rng);
     test_wei_mul_g_p256(&rng);
     test_wei_mul_p256();
     test_wei_mul_g_secp256k1(&rng);

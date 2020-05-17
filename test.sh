@@ -2,4 +2,4 @@
 
 set -ex
 export LD_LIBRARY_PATH=./
-exec ./test/test-ecc "$@"
+exec ./test/test "$@"

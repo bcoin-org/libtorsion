@@ -12418,3 +12418,7 @@ eddsa_derive(const edwards_t *ec,
 
   return ret;
 }
+
+#ifdef TORSION_TEST
+#include "../test/ecc-internal.h"
+#endif
