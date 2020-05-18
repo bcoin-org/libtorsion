@@ -155,8 +155,10 @@ print_hex(const unsigned char *data, size_t len) {
   printf("%s\n", str);
 }
 
+#ifdef TORSION_TEST
 void
 test_ecc_internal(drbg_t *rng);
+#endif
 
 static void
 test_wei_mul_g_p256(drbg_t *rng) {
@@ -1692,7 +1694,9 @@ main(int argc, char **argv) {
     if (argc < 3 || strcmp(argv[2], "sha256") == 0)
       bench_sha256(&rng);
   } else {
+#ifdef TORSION_TEST
     test_ecc_internal(&rng);
+#endif
     test_wei_mul_g_p256(&rng);
     test_wei_mul_p256();
     test_wei_mul_g_secp256k1(&rng);
