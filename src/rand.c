@@ -47,6 +47,10 @@
 
 #define HAVE_DEV_RANDOM
 
+#if defined(__GNUC__) || defined(__clang__)
+#  define HAVE_INLINE_ASM
+#endif
+
 #ifdef _WIN32
 /* https://docs.microsoft.com/en-us/windows/win32/api/ntsecapi/nf-ntsecapi-rtlgenrandom */
 #  include <windows.h>
@@ -127,7 +131,7 @@ BOOLEAN NTAPI RtlGenRandom(PVOID RandomBuffer, ULONG RandomBufferLength);
 #  define HAVE_GETRANDOM
 #endif
 
-#if defined(__Fuchsia__)
+#ifdef __Fuchsia__
 /* https://fuchsia.dev/fuchsia-src/zircon/syscalls/cprng_draw */
 #  include <zircon/syscalls.h>
 #  define HAVE_CPRNG_DRAW
@@ -142,7 +146,7 @@ BOOLEAN NTAPI RtlGenRandom(PVOID RandomBuffer, ULONG RandomBufferLength);
 #  undef HAVE_DEV_RANDOM
 #endif
 
-#if defined(__wasm__) && !defined(__wasi__)
+#ifdef __EMSCRIPTEN__
 /* https://developer.mozilla.org/en-US/docs/Web/API/Crypto/getRandomValues */
 /* https://nodejs.org/api/crypto.html#crypto_crypto_randomfillsync_buffer_offset_size */
 /* https://emscripten.org/docs/api_reference/emscripten.h.html */
@@ -183,7 +187,7 @@ EM_JS(int, js_getrandom, (void *ptr, size_t len), {
 #  define HAVE_JS_GETRANDOM
 #endif
 
-#if defined(TORSION_USE_ASM)
+#ifdef HAVE_INLINE_ASM
 /* https://software.intel.com/content/www/us/en/develop/articles/
    intel-digital-random-number-generator-drng-software-implementation-guide.html */
 #  if defined(__x86_64__) || defined(__amd64__) || defined(__i386__)
@@ -320,11 +324,11 @@ torsion_hrtime(void) {
   _ftime(&tb);
 #pragma warning(pop)
   return (uint64_t)tb.time * 1000000 + (uint64_t)tb.millitm * 1000;
-#elif defined(TORSION_USE_ASM) && defined(__i386__)
+#elif defined(HAVE_INLINE_ASM) && defined(__i386__)
   uint64_t r = 0;
   __asm__ __volatile__("rdtsc" : "=A" (r));
   return r;
-#elif defined(TORSION_USE_ASM) && (defined(__x86_64__) || defined(__amd64__))
+#elif defined(HAVE_INLINE_ASM) && (defined(__x86_64__) || defined(__amd64__))
   uint64_t r1 = 0, r2 = 0;
   __asm__ __volatile__("rdtsc" : "=a" (r1), "=d" (r2));
   return (r2 << 32) | r1;
@@ -430,6 +434,8 @@ torsion_syscall_entropy(void *dst, size_t size) {
 #elif defined(HAVE_JS_GETRANDOM)
   return js_getrandom(dst, size);
 #else
+  (void)dst;
+  (void)size;
   return 0;
 #endif
 }
@@ -475,9 +481,13 @@ torsion_device_entropy(void *dst, size_t size) {
 
     return 1;
   }
-#endif /* HAVE_DEV_RANDOM */
 
   return 0;
+#else /* HAVE_DEV_RANDOM */
+  (void)dst;
+  (void)size;
+  return 0;
+#endif /* HAVE_DEV_RANDOM */
 }
 
 /*
@@ -565,7 +575,7 @@ torsion_rdrand(void) {
 
   return r1;
 #else
-#error "Unsupported."
+#error "unreachable"
 #endif
 }
 
@@ -624,10 +634,51 @@ torsion_rdseed(void) {
 
   return r1;
 #else
-#error "Unsupported."
+#error "unreachable"
 #endif
 }
 #endif /* HAVE_CPUID */
+
+/*
+ * Hardware Entropy
+ */
+
+static int
+torsion_hardware_entropy(void *dst, size_t size) {
+#if defined(TORSION_HARDWARE_FALLBACK) && defined(HAVE_CPUID)
+  unsigned char *data = (unsigned char *)dst;
+  int has_rdrand, has_rdseed;
+  uint64_t x;
+
+  torsion_hwrand(&has_rdrand, &has_rdseed);
+
+  if (!has_rdrand && !has_rdseed)
+    return 0;
+
+  while (size > 0) {
+    if (has_rdseed)
+      x = torsion_rdseed();
+    else
+      x = torsion_rdrand();
+
+    if (size < 8) {
+      memcpy(data, &x, size);
+      break;
+    }
+
+    memcpy(data, &x, 8);
+
+    data += 8;
+    size -= 8;
+  }
+
+  return 1;
+#else
+  (void)dst;
+  (void)size;
+  return 0;
+#endif
+}
 
 /*
  * Entropy
@@ -635,8 +686,12 @@ torsion_rdseed(void) {
 
 int
 torsion_getentropy(void *dst, size_t size) {
+  if (size == 0)
+    return 1;
+
   return torsion_syscall_entropy(dst, size)
-      || torsion_device_entropy(dst, size);
+      || torsion_device_entropy(dst, size)
+      || torsion_hardware_entropy(dst, size);
 }
 
 /*
@@ -644,20 +699,25 @@ torsion_getentropy(void *dst, size_t size) {
  */
 
 static uint64_t
-rng_rdrand(const rng_t *rng) {
+rng_rdrand(rng_t *rng) {
 #ifdef HAVE_CPUID
   if (rng->rdseed)
     return torsion_rdseed();
 
   if (rng->rdrand)
     return torsion_rdrand();
-#endif
 
   return 0;
+#else
+  (void)rng;
+  return 0;
+#endif
 }
 
 int
 rng_init(rng_t *rng) {
+  memset(rng->key, 0, 32);
+
   rng->counter = 0;
   rng->rdrand = 0;
   rng->rdseed = 0;
