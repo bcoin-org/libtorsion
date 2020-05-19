@@ -12,6 +12,7 @@ include_HEADERS = include/torsion/aead.h \
                   include/torsion/hash.h \
                   include/torsion/kdf.h \
                   include/torsion/poly1305.h \
+                  include/torsion/rand.h \
                   include/torsion/rsa.h \
                   include/torsion/salsa20.h \
                   include/torsion/secretbox.h \
@@ -72,6 +73,7 @@ libtorsion_la_SOURCES = src/aead.c \
                         src/kdf.c \
                         src/mpi.c \
                         src/poly1305.c \
+                        src/rand.c \
                         src/rsa.c \
                         src/salsa20.c \
                         src/secretbox.c \
