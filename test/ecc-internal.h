@@ -1,20 +1,11 @@
-#include <assert.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdint.h>
 #include <limits.h>
-#include <sys/time.h>
 
-#ifndef _WIN32
-#include <sys/types.h>
-#include <fcntl.h>
-#include <unistd.h>
-
-#ifndef O_CLOEXEC
-#define O_CLOEXEC 0
-#endif
-#endif
+#undef ASSERT
+#define ASSERT(expr) ASSERT_ALWAYS(expr)
 
 static size_t
 stupid_bit_length(uint32_t x) {
@@ -88,31 +79,31 @@ test_scalar(void) {
 
     sc_reduce(sc, r, t);
 
-    assert(sc_is_zero(sc, r));
+    ASSERT(sc_is_zero(sc, r));
 
     raw[sc->size - 1] -= 1;
-    assert(sc_import(sc, r, raw));
+    ASSERT(sc_import(sc, r, raw));
 
     raw[sc->size - 1] += 1;
-    assert(!sc_import(sc, r, raw));
+    ASSERT(!sc_import(sc, r, raw));
 
     raw[sc->size - 1] += 1;
-    assert(!sc_import(sc, r, raw));
+    ASSERT(!sc_import(sc, r, raw));
 
     memcpy(raw, sc->raw, sc->size);
 
-    assert(!sc_import_reduce(sc, r, raw));
+    ASSERT(!sc_import_reduce(sc, r, raw));
     sc_export(sc, raw, r);
 
-    assert(memcmp(raw, expect1, 32) == 0);
+    ASSERT(memcmp(raw, expect1, 32) == 0);
 
     memcpy(raw, sc->raw, sc->size);
 
     raw[sc->size - 1] += 1;
-    assert(!sc_import_reduce(sc, r, raw));
+    ASSERT(!sc_import_reduce(sc, r, raw));
     sc_export(sc, raw, r);
 
-    assert(memcmp(raw, expect2, 32) == 0);
+    ASSERT(memcmp(raw, expect2, 32) == 0);
   }
 
   {
@@ -148,33 +139,33 @@ test_scalar(void) {
 
     sc_reduce(sc, r, t);
 
-    assert(sc_is_zero(sc, r));
+    ASSERT(sc_is_zero(sc, r));
     sc_neg(sc, r, r);
-    assert(sc_is_zero(sc, r));
+    ASSERT(sc_is_zero(sc, r));
 
     raw[0] -= 1;
-    assert(sc_import(sc, r, raw));
+    ASSERT(sc_import(sc, r, raw));
 
     raw[0] += 1;
-    assert(!sc_import(sc, r, raw));
+    ASSERT(!sc_import(sc, r, raw));
 
     raw[0] += 1;
-    assert(!sc_import(sc, r, raw));
+    ASSERT(!sc_import(sc, r, raw));
 
     memcpy(raw, sc->raw, sc->size);
 
-    assert(!sc_import_reduce(sc, r, raw));
+    ASSERT(!sc_import_reduce(sc, r, raw));
     sc_export(sc, raw, r);
 
-    assert(memcmp(raw, expect1, 32) == 0);
+    ASSERT(memcmp(raw, expect1, 32) == 0);
 
     memcpy(raw, sc->raw, sc->size);
 
     raw[0] += 1;
-    assert(!sc_import_reduce(sc, r, raw));
+    ASSERT(!sc_import_reduce(sc, r, raw));
     sc_export(sc, raw, r);
 
-    assert(memcmp(raw, expect2, 32) == 0);
+    ASSERT(memcmp(raw, expect2, 32) == 0);
   }
 
   {
@@ -195,10 +186,10 @@ test_scalar(void) {
 
     memset(max, 0xff, 32);
 
-    assert(!sc_import_reduce(sc, r, max));
+    ASSERT(!sc_import_reduce(sc, r, max));
     sc_export(sc, max, r);
 
-    assert(memcmp(max, expect, 32) == 0);
+    ASSERT(memcmp(max, expect, 32) == 0);
   }
 }
 
@@ -217,13 +208,13 @@ test_field_element(void) {
   memcpy(raw, fe->raw, fe->size);
 
   raw[fe->size - 1] -= 1;
-  assert(fe_import(fe, t, raw));
+  ASSERT(fe_import(fe, t, raw));
 
   raw[fe->size - 1] += 1;
-  assert(!fe_import(fe, t, raw));
+  ASSERT(!fe_import(fe, t, raw));
 
   raw[7] += 1;
-  assert(!fe_import(fe, t, raw));
+  ASSERT(!fe_import(fe, t, raw));
 }
 
 static void
@@ -235,9 +226,9 @@ test_zero(drbg_t *rng) {
     const unsigned char one[4] = {0, 0, 0, 1};
     const unsigned char full[4] = {0xff, 0xff, 0xff, 0xff};
 
-    assert(bytes_zero(zero, 4));
-    assert(!bytes_zero(one, 4));
-    assert(!bytes_zero(full, 4));
+    ASSERT(bytes_zero(zero, 4));
+    ASSERT(!bytes_zero(one, 4));
+    ASSERT(!bytes_zero(full, 4));
   }
 
   {
@@ -251,7 +242,7 @@ test_zero(drbg_t *rng) {
       if (i % 10 == 0)
         memset(a, 0, sizeof(a));
 
-      assert(bytes_zero(a, 32) == stupid_bytes_zero(a, 32));
+      ASSERT(bytes_zero(a, 32) == stupid_bytes_zero(a, 32));
     }
   }
 }
@@ -266,11 +257,11 @@ test_lt(drbg_t *rng) {
     const unsigned char plus1[4] = {1, 2, 3, 5};
     const unsigned char full[4] = {0xff, 0xff, 0xff, 0xff};
 
-    assert(bytes_lt(minus1, mod, 4, 1));
-    assert(!bytes_lt(mod, mod, 4, 1));
-    assert(!bytes_lt(plus1, mod, 4, 1));
-    assert(bytes_lt(mod, full, 4, 1));
-    assert(!bytes_lt(full, mod, 4, 1));
+    ASSERT(bytes_lt(minus1, mod, 4, 1));
+    ASSERT(!bytes_lt(mod, mod, 4, 1));
+    ASSERT(!bytes_lt(plus1, mod, 4, 1));
+    ASSERT(bytes_lt(mod, full, 4, 1));
+    ASSERT(!bytes_lt(full, mod, 4, 1));
   }
 
   {
@@ -279,11 +270,11 @@ test_lt(drbg_t *rng) {
     const unsigned char plus1[4] = {5, 3, 2, 1};
     const unsigned char full[4] = {0xff, 0xff, 0xff, 0xff};
 
-    assert(bytes_lt(minus1, mod, 4, -1));
-    assert(!bytes_lt(mod, mod, 4, -1));
-    assert(!bytes_lt(plus1, mod, 4, -1));
-    assert(bytes_lt(mod, full, 4, -1));
-    assert(!bytes_lt(full, mod, 4, -1));
+    ASSERT(bytes_lt(minus1, mod, 4, -1));
+    ASSERT(!bytes_lt(mod, mod, 4, -1));
+    ASSERT(!bytes_lt(plus1, mod, 4, -1));
+    ASSERT(bytes_lt(mod, full, 4, -1));
+    ASSERT(!bytes_lt(full, mod, 4, -1));
   }
 
   {
@@ -296,15 +287,15 @@ test_lt(drbg_t *rng) {
       drbg_generate(rng, a, sizeof(a));
       drbg_generate(rng, b, sizeof(b));
 
-      assert(bytes_lt(a, a, 32, 1) == 0);
-      assert(bytes_lt(b, b, 32, 1) == 0);
-      assert(bytes_lt(a, b, 32, 1) == (memcmp(a, b, 32) < 0));
-      assert(bytes_lt(b, a, 32, 1) == (memcmp(b, a, 32) < 0));
+      ASSERT(bytes_lt(a, a, 32, 1) == 0);
+      ASSERT(bytes_lt(b, b, 32, 1) == 0);
+      ASSERT(bytes_lt(a, b, 32, 1) == (memcmp(a, b, 32) < 0));
+      ASSERT(bytes_lt(b, a, 32, 1) == (memcmp(b, a, 32) < 0));
 
-      assert(bytes_lt(a, a, 32, -1) == 0);
-      assert(bytes_lt(b, b, 32, -1) == 0);
-      assert(bytes_lt(a, b, 32, -1) == (revcmp(a, b, 32) < 0));
-      assert(bytes_lt(b, a, 32, -1) == (revcmp(b, a, 32) < 0));
+      ASSERT(bytes_lt(a, a, 32, -1) == 0);
+      ASSERT(bytes_lt(b, b, 32, -1) == 0);
+      ASSERT(bytes_lt(a, b, 32, -1) == (revcmp(a, b, 32) < 0));
+      ASSERT(bytes_lt(b, a, 32, -1) == (revcmp(b, a, 32) < 0));
     }
   }
 }
@@ -316,11 +307,11 @@ test_bitlen(void) {
   printf("Bit length sanity check.\n");
 
   for (i = 0; i <= UINT16_MAX; i++)
-    assert(bit_length(i) == stupid_bit_length(i));
+    ASSERT(bit_length(i) == stupid_bit_length(i));
 
-  assert(bit_length((1ul << 24) - 1ul) == 24);
-  assert(bit_length(1ul << 24) == 25);
-  assert(bit_length(UINT32_MAX) == 32);
+  ASSERT(bit_length((1ul << 24) - 1ul) == 24);
+  ASSERT(bit_length(1ul << 24) == 25);
+  ASSERT(bit_length(UINT32_MAX) == 32);
 }
 
 static void
@@ -368,69 +359,69 @@ test_wei_points_p256(drbg_t *rng) {
   wge_set(ec, &g, &ec->g);
   wge_to_jge(ec, &jg, &ec->g);
 
-  assert(wge_import(ec, &p, g_raw, 33));
+  ASSERT(wge_import(ec, &p, g_raw, 33));
 
   wge_to_jge(ec, &jp, &p);
   wge_to_jge(ec, &jq, &ec->g);
 
-  assert(wge_validate(ec, &p));
-  assert(jge_validate(ec, &jp));
-  assert(jge_validate(ec, &jq));
-  assert(wge_equal(ec, &p, &ec->g));
-  assert(jge_equal(ec, &jp, &jq));
+  ASSERT(wge_validate(ec, &p));
+  ASSERT(jge_validate(ec, &jp));
+  ASSERT(jge_validate(ec, &jq));
+  ASSERT(wge_equal(ec, &p, &ec->g));
+  ASSERT(jge_equal(ec, &jp, &jq));
 
-  assert(wge_import(ec, &q, g2_raw, 33));
-  assert(wge_import(ec, &r, g3_raw, 33));
+  ASSERT(wge_import(ec, &q, g2_raw, 33));
+  ASSERT(wge_import(ec, &r, g3_raw, 33));
 
   wge_to_jge(ec, &jq, &q);
   wge_to_jge(ec, &jr, &r);
 
   wge_dbl_var(ec, &p, &ec->g);
 
-  assert(wge_equal(ec, &p, &q));
+  ASSERT(wge_equal(ec, &p, &q));
 
   wge_add_var(ec, &p, &p, &ec->g);
 
-  assert(wge_equal(ec, &p, &r));
+  ASSERT(wge_equal(ec, &p, &r));
 
   jge_dbl_var(ec, &jp, &jg);
 
-  assert(jge_equal(ec, &jp, &jq));
+  ASSERT(jge_equal(ec, &jp, &jq));
 
   jge_add_var(ec, &jp, &jp, &jg);
 
-  assert(jge_equal(ec, &jp, &jr));
+  ASSERT(jge_equal(ec, &jp, &jr));
 
   jge_sub_var(ec, &jp, &jp, &jg);
 
-  assert(jge_equal(ec, &jp, &jq));
+  ASSERT(jge_equal(ec, &jp, &jq));
 
   jge_mixed_add_var(ec, &jp, &jp, &g);
 
-  assert(jge_equal(ec, &jp, &jr));
+  ASSERT(jge_equal(ec, &jp, &jr));
 
   jge_mixed_sub_var(ec, &jp, &jp, &g);
 
-  assert(jge_equal(ec, &jp, &jq));
+  ASSERT(jge_equal(ec, &jp, &jq));
 
-  assert(jge_validate(ec, &jg));
-  assert(jge_validate(ec, &jp));
-  assert(jge_validate(ec, &jq));
-  assert(jge_validate(ec, &jr));
+  ASSERT(jge_validate(ec, &jg));
+  ASSERT(jge_validate(ec, &jp));
+  ASSERT(jge_validate(ec, &jq));
+  ASSERT(jge_validate(ec, &jr));
 
-  assert(!jge_is_zero(ec, &jg));
-  assert(!jge_is_zero(ec, &jp));
-  assert(!jge_is_zero(ec, &jq));
-  assert(!jge_is_zero(ec, &jr));
+  ASSERT(!jge_is_zero(ec, &jg));
+  ASSERT(!jge_is_zero(ec, &jp));
+  ASSERT(!jge_is_zero(ec, &jq));
+  ASSERT(!jge_is_zero(ec, &jr));
 
   jge_to_wge(ec, &p, &jp);
 
-  assert(wge_equal(ec, &p, &q));
+  ASSERT(wge_equal(ec, &p, &q));
 
-  assert(wge_export(ec, p_raw, &p_size, &p, 1));
-  assert(p_size == 33);
+  ASSERT(wge_export(ec, p_raw, &p_size, &p, 1));
+  ASSERT(p_size == 33);
 
-  assert(memcmp(p_raw, g2_raw, 33) == 0);
+  ASSERT(memcmp(p_raw, g2_raw, 33) == 0);
 }
 
 static void
@@ -490,69 +481,69 @@ test_wei_points_p521(drbg_t *rng) {
   wge_set(ec, &g, &ec->g);
   wge_to_jge(ec, &jg, &ec->g);
 
-  assert(wge_import(ec, &p, g_raw, 67));
+  ASSERT(wge_import(ec, &p, g_raw, 67));
 
   wge_to_jge(ec, &jp, &p);
   wge_to_jge(ec, &jq, &ec->g);
 
-  assert(wge_validate(ec, &p));
-  assert(jge_validate(ec, &jp));
-  assert(jge_validate(ec, &jq));
-  assert(wge_equal(ec, &p, &ec->g));
-  assert(jge_equal(ec, &jp, &jq));
+  ASSERT(wge_validate(ec, &p));
+  ASSERT(jge_validate(ec, &jp));
+  ASSERT(jge_validate(ec, &jq));
+  ASSERT(wge_equal(ec, &p, &ec->g));
+  ASSERT(jge_equal(ec, &jp, &jq));
 
-  assert(wge_import(ec, &q, g2_raw, 67));
-  assert(wge_import(ec, &r, g3_raw, 67));
+  ASSERT(wge_import(ec, &q, g2_raw, 67));
+  ASSERT(wge_import(ec, &r, g3_raw, 67));
 
   wge_to_jge(ec, &jq, &q);
   wge_to_jge(ec, &jr, &r);
 
   wge_dbl_var(ec, &p, &ec->g);
 
-  assert(wge_equal(ec, &p, &q));
+  ASSERT(wge_equal(ec, &p, &q));
 
   wge_add_var(ec, &p, &p, &ec->g);
 
-  assert(wge_equal(ec, &p, &r));
+  ASSERT(wge_equal(ec, &p, &r));
 
   jge_dbl_var(ec, &jp, &jg);
 
-  assert(jge_equal(ec, &jp, &jq));
+  ASSERT(jge_equal(ec, &jp, &jq));
 
   jge_add_var(ec, &jp, &jp, &jg);
 
-  assert(jge_equal(ec, &jp, &jr));
+  ASSERT(jge_equal(ec, &jp, &jr));
 
   jge_sub_var(ec, &jp, &jp, &jg);
 
-  assert(jge_equal(ec, &jp, &jq));
+  ASSERT(jge_equal(ec, &jp, &jq));
 
   jge_mixed_add_var(ec, &jp, &jp, &g);
 
-  assert(jge_equal(ec, &jp, &jr));
+  ASSERT(jge_equal(ec, &jp, &jr));
 
   jge_mixed_sub_var(ec, &jp, &jp, &g);
 
-  assert(jge_equal(ec, &jp, &jq));
+  ASSERT(jge_equal(ec, &jp, &jq));
 
-  assert(jge_validate(ec, &jg));
-  assert(jge_validate(ec, &jp));
-  assert(jge_validate(ec, &jq));
-  assert(jge_validate(ec, &jr));
+  ASSERT(jge_validate(ec, &jg));
+  ASSERT(jge_validate(ec, &jp));
+  ASSERT(jge_validate(ec, &jq));
+  ASSERT(jge_validate(ec, &jr));
 
-  assert(!jge_is_zero(ec, &jg));
-  assert(!jge_is_zero(ec, &jp));
-  assert(!jge_is_zero(ec, &jq));
-  assert(!jge_is_zero(ec, &jr));
+  ASSERT(!jge_is_zero(ec, &jg));
+  ASSERT(!jge_is_zero(ec, &jp));
+  ASSERT(!jge_is_zero(ec, &jq));
+  ASSERT(!jge_is_zero(ec, &jr));
 
   jge_to_wge(ec, &p, &jp);
 
-  assert(wge_equal(ec, &p, &q));
+  ASSERT(wge_equal(ec, &p, &q));
 
-  assert(wge_export(ec, p_raw, &p_size, &p, 1));
-  assert(p_size == 67);
+  ASSERT(wge_export(ec, p_raw, &p_size, &p, 1));
+  ASSERT(p_size == 67);
 
-  assert(memcmp(p_raw, g2_raw, 67) == 0);
+  ASSERT(memcmp(p_raw, g2_raw, 67) == 0);
 }
 
 static void
@@ -600,69 +591,69 @@ test_wei_points_secp256k1(drbg_t *rng) {
   wge_set(ec, &g, &ec->g);
   wge_to_jge(ec, &jg, &ec->g);
 
-  assert(wge_import(ec, &p, g_raw, 33));
+  ASSERT(wge_import(ec, &p, g_raw, 33));
 
   wge_to_jge(ec, &jp, &p);
   wge_to_jge(ec, &jq, &ec->g);
 
-  assert(wge_validate(ec, &p));
-  assert(jge_validate(ec, &jp));
-  assert(jge_validate(ec, &jq));
-  assert(wge_equal(ec, &p, &ec->g));
-  assert(jge_equal(ec, &jp, &jq));
+  ASSERT(wge_validate(ec, &p));
+  ASSERT(jge_validate(ec, &jp));
+  ASSERT(jge_validate(ec, &jq));
+  ASSERT(wge_equal(ec, &p, &ec->g));
+  ASSERT(jge_equal(ec, &jp, &jq));
 
-  assert(wge_import(ec, &q, g2_raw, 33));
-  assert(wge_import(ec, &r, g3_raw, 33));
+  ASSERT(wge_import(ec, &q, g2_raw, 33));
+  ASSERT(wge_import(ec, &r, g3_raw, 33));
 
   wge_to_jge(ec, &jq, &q);
   wge_to_jge(ec, &jr, &r);
 
   wge_dbl_var(ec, &p, &ec->g);
 
-  assert(wge_equal(ec, &p, &q));
+  ASSERT(wge_equal(ec, &p, &q));
 
   wge_add_var(ec, &p, &p, &ec->g);
 
-  assert(wge_equal(ec, &p, &r));
+  ASSERT(wge_equal(ec, &p, &r));
 
   jge_dbl_var(ec, &jp, &jg);
 
-  assert(jge_equal(ec, &jp, &jq));
+  ASSERT(jge_equal(ec, &jp, &jq));
 
   jge_add_var(ec, &jp, &jp, &jg);
 
-  assert(jge_equal(ec, &jp, &jr));
+  ASSERT(jge_equal(ec, &jp, &jr));
 
   jge_sub_var(ec, &jp, &jp, &jg);
 
-  assert(jge_equal(ec, &jp, &jq));
+  ASSERT(jge_equal(ec, &jp, &jq));
 
   jge_mixed_add_var(ec, &jp, &jp, &g);
 
-  assert(jge_equal(ec, &jp, &jr));
+  ASSERT(jge_equal(ec, &jp, &jr));
 
   jge_mixed_sub_var(ec, &jp, &jp, &g);
 
-  assert(jge_equal(ec, &jp, &jq));
+  ASSERT(jge_equal(ec, &jp, &jq));
 
-  assert(jge_validate(ec, &jg));
-  assert(jge_validate(ec, &jp));
-  assert(jge_validate(ec, &jq));
-  assert(jge_validate(ec, &jr));
+  ASSERT(jge_validate(ec, &jg));
+  ASSERT(jge_validate(ec, &jp));
+  ASSERT(jge_validate(ec, &jq));
+  ASSERT(jge_validate(ec, &jr));
 
-  assert(!jge_is_zero(ec, &jg));
-  assert(!jge_is_zero(ec, &jp));
-  assert(!jge_is_zero(ec, &jq));
-  assert(!jge_is_zero(ec, &jr));
+  ASSERT(!jge_is_zero(ec, &jg));
+  ASSERT(!jge_is_zero(ec, &jp));
+  ASSERT(!jge_is_zero(ec, &jq));
+  ASSERT(!jge_is_zero(ec, &jr));
 
   jge_to_wge(ec, &p, &jp);
 
-  assert(wge_equal(ec, &p, &q));
+  ASSERT(wge_equal(ec, &p, &q));
 
-  assert(wge_export(ec, p_raw, &p_size, &p, 1));
-  assert(p_size == 33);
+  ASSERT(wge_export(ec, p_raw, &p_size, &p, 1));
+  ASSERT(p_size == 33);
 
-  assert(memcmp(p_raw, g2_raw, 33) == 0);
+  ASSERT(memcmp(p_raw, g2_raw, 33) == 0);
 }
 
 static void
@@ -699,21 +690,21 @@ test_wei_mul_g_p256(drbg_t *rng) {
 
   wei_randomize(ec, entropy);
 
-  assert(sc_import(sc, k, k_raw));
-  assert(wge_import(ec, &expect, expect_raw, 33));
+  ASSERT(sc_import(sc, k, k_raw));
+  ASSERT(wge_import(ec, &expect, expect_raw, 33));
 
-  assert(wge_validate(ec, &expect));
-  assert(wge_equal(ec, &expect, &expect));
-  assert(!wge_equal(ec, &expect, &ec->g));
+  ASSERT(wge_validate(ec, &expect));
+  ASSERT(wge_equal(ec, &expect, &expect));
+  ASSERT(!wge_equal(ec, &expect, &ec->g));
 
   wei_mul_g(ec, &q, k);
 
-  assert(wge_equal(ec, &q, &expect));
+  ASSERT(wge_equal(ec, &q, &expect));
 
-  assert(wge_export(ec, q_raw, &q_size, &q, 1));
-  assert(q_size == 33);
+  ASSERT(wge_export(ec, q_raw, &q_size, &q, 1));
+  ASSERT(q_size == 33);
 
-  assert(memcmp(q_raw, expect_raw, 33) == 0);
+  ASSERT(memcmp(q_raw, expect_raw, 33) == 0);
 }
 
 static void
@@ -758,23 +749,23 @@ test_wei_mul_p256(drbg_t *rng) {
 
   wei_randomize(ec, entropy);
 
-  assert(wge_import(ec, &p, p_raw, 33));
-  assert(sc_import(sc, k, k_raw));
-  assert(wge_import(ec, &expect, expect_raw, 33));
+  ASSERT(wge_import(ec, &p, p_raw, 33));
+  ASSERT(sc_import(sc, k, k_raw));
+  ASSERT(wge_import(ec, &expect, expect_raw, 33));
 
-  assert(wge_validate(ec, &p));
-  assert(wge_validate(ec, &expect));
-  assert(wge_equal(ec, &expect, &expect));
-  assert(!wge_equal(ec, &expect, &ec->g));
+  ASSERT(wge_validate(ec, &p));
+  ASSERT(wge_validate(ec, &expect));
+  ASSERT(wge_equal(ec, &expect, &expect));
+  ASSERT(!wge_equal(ec, &expect, &ec->g));
 
   wei_mul(ec, &q, &p, k);
 
-  assert(wge_equal(ec, &q, &expect));
+  ASSERT(wge_equal(ec, &q, &expect));
 
-  assert(wge_export(ec, q_raw, &q_size, &q, 1));
-  assert(q_size == 33);
+  ASSERT(wge_export(ec, q_raw, &q_size, &q, 1));
+  ASSERT(q_size == 33);
 
-  assert(memcmp(q_raw, expect_raw, 33) == 0);
+  ASSERT(memcmp(q_raw, expect_raw, 33) == 0);
 }
 
 static void
@@ -826,24 +817,24 @@ test_wei_double_mul_p256(drbg_t *rng) {
 
   wei_randomize(ec, entropy);
 
-  assert(wge_import(ec, &p, p_raw, 33));
-  assert(sc_import(sc, k1, k1_raw));
-  assert(sc_import(sc, k2, k2_raw));
-  assert(wge_import(ec, &expect, expect_raw, 33));
+  ASSERT(wge_import(ec, &p, p_raw, 33));
+  ASSERT(sc_import(sc, k1, k1_raw));
+  ASSERT(sc_import(sc, k2, k2_raw));
+  ASSERT(wge_import(ec, &expect, expect_raw, 33));
 
-  assert(wge_validate(ec, &p));
-  assert(wge_validate(ec, &expect));
-  assert(wge_equal(ec, &expect, &expect));
-  assert(!wge_equal(ec, &expect, &ec->g));
+  ASSERT(wge_validate(ec, &p));
+  ASSERT(wge_validate(ec, &expect));
+  ASSERT(wge_equal(ec, &expect, &expect));
+  ASSERT(!wge_equal(ec, &expect, &ec->g));
 
   wei_mul_double_var(ec, &q, k1, &p, k2);
 
-  assert(wge_equal(ec, &q, &expect));
+  ASSERT(wge_equal(ec, &q, &expect));
 
-  assert(wge_export(ec, q_raw, &q_size, &q, 1));
-  assert(q_size == 33);
+  ASSERT(wge_export(ec, q_raw, &q_size, &q, 1));
+  ASSERT(q_size == 33);
 
-  assert(memcmp(q_raw, expect_raw, 33) == 0);
+  ASSERT(memcmp(q_raw, expect_raw, 33) == 0);
 }
 
 static void
@@ -913,18 +904,18 @@ test_wei_multi_mul_p256(drbg_t *rng) {
 
   wei_randomize(ec, entropy);
 
-  assert(wge_import(ec, &p1, p1_raw, 33));
-  assert(wge_import(ec, &p2, p2_raw, 33));
-  assert(sc_import(sc, k0, k0_raw));
-  assert(sc_import(sc, k1, k1_raw));
-  assert(sc_import(sc, k2, k2_raw));
-  assert(wge_import(ec, &expect, expect_raw, 33));
+  ASSERT(wge_import(ec, &p1, p1_raw, 33));
+  ASSERT(wge_import(ec, &p2, p2_raw, 33));
+  ASSERT(sc_import(sc, k0, k0_raw));
+  ASSERT(sc_import(sc, k1, k1_raw));
+  ASSERT(sc_import(sc, k2, k2_raw));
+  ASSERT(wge_import(ec, &expect, expect_raw, 33));
 
-  assert(wge_validate(ec, &p1));
-  assert(wge_validate(ec, &p2));
-  assert(wge_validate(ec, &expect));
-  assert(wge_equal(ec, &expect, &expect));
-  assert(!wge_equal(ec, &expect, &ec->g));
+  ASSERT(wge_validate(ec, &p1));
+  ASSERT(wge_validate(ec, &p2));
+  ASSERT(wge_validate(ec, &expect));
+  ASSERT(wge_equal(ec, &expect, &expect));
+  ASSERT(!wge_equal(ec, &expect, &ec->g));
 
   wge_set(ec, &points[0], &p1);
   wge_set(ec, &points[1], &p2);
@@ -936,12 +927,12 @@ test_wei_multi_mul_p256(drbg_t *rng) {
   wei_mul_multi_var(ec, &q, k0, points, (const sc_t *)coeffs, 2, scratch);
   wei_scratch_destroy(ec, scratch);
 
-  assert(wge_equal(ec, &q, &expect));
+  ASSERT(wge_equal(ec, &q, &expect));
 
-  assert(wge_export(ec, q_raw, &q_size, &q, 1));
-  assert(q_size == 33);
+  ASSERT(wge_export(ec, q_raw, &q_size, &q, 1));
+  ASSERT(q_size == 33);
 
-  assert(memcmp(q_raw, expect_raw, 33) == 0);
+  ASSERT(memcmp(q_raw, expect_raw, 33) == 0);
 }
 
 static void
@@ -978,21 +969,21 @@ test_wei_mul_g_secp256k1(drbg_t *rng) {
 
   wei_randomize(ec, entropy);
 
-  assert(sc_import(sc, k, k_raw));
-  assert(wge_import(ec, &expect, expect_raw, 33));
+  ASSERT(sc_import(sc, k, k_raw));
+  ASSERT(wge_import(ec, &expect, expect_raw, 33));
 
-  assert(wge_validate(ec, &expect));
-  assert(wge_equal(ec, &expect, &expect));
-  assert(!wge_equal(ec, &expect, &ec->g));
+  ASSERT(wge_validate(ec, &expect));
+  ASSERT(wge_equal(ec, &expect, &expect));
+  ASSERT(!wge_equal(ec, &expect, &ec->g));
 
   wei_mul_g(ec, &q, k);
 
-  assert(wge_equal(ec, &q, &expect));
+  ASSERT(wge_equal(ec, &q, &expect));
 
-  assert(wge_export(ec, q_raw, &q_size, &q, 1));
-  assert(q_size == 33);
+  ASSERT(wge_export(ec, q_raw, &q_size, &q, 1));
+  ASSERT(q_size == 33);
 
-  assert(memcmp(q_raw, expect_raw, 33) == 0);
+  ASSERT(memcmp(q_raw, expect_raw, 33) == 0);
 }
 
 static void
@@ -1037,23 +1028,23 @@ test_wei_mul_secp256k1(drbg_t *rng) {
 
   wei_randomize(ec, entropy);
 
-  assert(wge_import(ec, &p, p_raw, 33));
-  assert(sc_import(sc, k, k_raw));
-  assert(wge_import(ec, &expect, expect_raw, 33));
+  ASSERT(wge_import(ec, &p, p_raw, 33));
+  ASSERT(sc_import(sc, k, k_raw));
+  ASSERT(wge_import(ec, &expect, expect_raw, 33));
 
-  assert(wge_validate(ec, &p));
-  assert(wge_validate(ec, &expect));
-  assert(wge_equal(ec, &expect, &expect));
-  assert(!wge_equal(ec, &expect, &ec->g));
+  ASSERT(wge_validate(ec, &p));
+  ASSERT(wge_validate(ec, &expect));
+  ASSERT(wge_equal(ec, &expect, &expect));
+  ASSERT(!wge_equal(ec, &expect, &ec->g));
 
   wei_mul(ec, &q, &p, k);
 
-  assert(wge_equal(ec, &q, &expect));
+  ASSERT(wge_equal(ec, &q, &expect));
 
-  assert(wge_export(ec, q_raw, &q_size, &q, 1));
-  assert(q_size == 33);
+  ASSERT(wge_export(ec, q_raw, &q_size, &q, 1));
+  ASSERT(q_size == 33);
 
-  assert(memcmp(q_raw, expect_raw, 33) == 0);
+  ASSERT(memcmp(q_raw, expect_raw, 33) == 0);
 }
 
 static void
@@ -1105,24 +1096,24 @@ test_wei_double_mul_secp256k1(drbg_t *rng) {
 
   wei_randomize(ec, entropy);
 
-  assert(wge_import(ec, &p, p_raw, 33));
-  assert(sc_import(sc, k1, k1_raw));
-  assert(sc_import(sc, k2, k2_raw));
-  assert(wge_import(ec, &expect, expect_raw, 33));
+  ASSERT(wge_import(ec, &p, p_raw, 33));
+  ASSERT(sc_import(sc, k1, k1_raw));
+  ASSERT(sc_import(sc, k2, k2_raw));
+  ASSERT(wge_import(ec, &expect, expect_raw, 33));
 
-  assert(wge_validate(ec, &p));
-  assert(wge_validate(ec, &expect));
-  assert(wge_equal(ec, &expect, &expect));
-  assert(!wge_equal(ec, &expect, &ec->g));
+  ASSERT(wge_validate(ec, &p));
+  ASSERT(wge_validate(ec, &expect));
+  ASSERT(wge_equal(ec, &expect, &expect));
+  ASSERT(!wge_equal(ec, &expect, &ec->g));
 
   wei_mul_double_var(ec, &q, k1, &p, k2);
 
-  assert(wge_equal(ec, &q, &expect));
+  ASSERT(wge_equal(ec, &q, &expect));
 
-  assert(wge_export(ec, q_raw, &q_size, &q, 1));
-  assert(q_size == 33);
+  ASSERT(wge_export(ec, q_raw, &q_size, &q, 1));
+  ASSERT(q_size == 33);
 
-  assert(memcmp(q_raw, expect_raw, 33) == 0);
+  ASSERT(memcmp(q_raw, expect_raw, 33) == 0);
 }
 
 static void
@@ -1192,18 +1183,18 @@ test_wei_multi_mul_secp256k1(drbg_t *rng) {
 
   wei_randomize(ec, entropy);
 
-  assert(wge_import(ec, &p1, p1_raw, 33));
-  assert(wge_import(ec, &p2, p2_raw, 33));
-  assert(sc_import(sc, k0, k0_raw));
-  assert(sc_import(sc, k1, k1_raw));
-  assert(sc_import(sc, k2, k2_raw));
-  assert(wge_import(ec, &expect, expect_raw, 33));
+  ASSERT(wge_import(ec, &p1, p1_raw, 33));
+  ASSERT(wge_import(ec, &p2, p2_raw, 33));
+  ASSERT(sc_import(sc, k0, k0_raw));
+  ASSERT(sc_import(sc, k1, k1_raw));
+  ASSERT(sc_import(sc, k2, k2_raw));
+  ASSERT(wge_import(ec, &expect, expect_raw, 33));
 
-  assert(wge_validate(ec, &p1));
-  assert(wge_validate(ec, &p2));
-  assert(wge_validate(ec, &expect));
-  assert(wge_equal(ec, &expect, &expect));
-  assert(!wge_equal(ec, &expect, &ec->g));
+  ASSERT(wge_validate(ec, &p1));
+  ASSERT(wge_validate(ec, &p2));
+  ASSERT(wge_validate(ec, &expect));
+  ASSERT(wge_equal(ec, &expect, &expect));
+  ASSERT(!wge_equal(ec, &expect, &ec->g));
 
   wge_set(ec, &points[0], &p1);
   wge_set(ec, &points[1], &p2);
@@ -1215,12 +1206,12 @@ test_wei_multi_mul_secp256k1(drbg_t *rng) {
   wei_mul_multi_var(ec, &q, k0, points, (const sc_t *)coeffs, 2, scratch);
   wei_scratch_destroy(ec, scratch);
 
-  assert(wge_equal(ec, &q, &expect));
+  ASSERT(wge_equal(ec, &q, &expect));
 
-  assert(wge_export(ec, q_raw, &q_size, &q, 1));
-  assert(q_size == 33);
+  ASSERT(wge_export(ec, q_raw, &q_size, &q, 1));
+  ASSERT(q_size == 33);
 
-  assert(memcmp(q_raw, expect_raw, 33) == 0);
+  ASSERT(memcmp(q_raw, expect_raw, 33) == 0);
 }
 
 static void
@@ -1259,52 +1250,52 @@ test_mont_points_x25519(void) {
   mge_set(ec, &g, &ec->g);
   mge_to_pge(ec, &jg, &ec->g);
 
-  assert(mge_import(ec, &p, g_raw, 0));
+  ASSERT(mge_import(ec, &p, g_raw, 0));
 
   mge_to_pge(ec, &jp, &p);
   mge_to_pge(ec, &jq, &ec->g);
 
-  assert(mge_validate(ec, &p));
-  assert(pge_validate(ec, &jp));
-  assert(pge_validate(ec, &jq));
-  assert(mge_equal(ec, &p, &ec->g));
-  assert(pge_equal(ec, &jp, &jq));
+  ASSERT(mge_validate(ec, &p));
+  ASSERT(pge_validate(ec, &jp));
+  ASSERT(pge_validate(ec, &jq));
+  ASSERT(mge_equal(ec, &p, &ec->g));
+  ASSERT(pge_equal(ec, &jp, &jq));
 
-  assert(mge_import(ec, &q, g2_raw, 0));
-  assert(mge_import(ec, &r, g3_raw, 0));
+  ASSERT(mge_import(ec, &q, g2_raw, 0));
+  ASSERT(mge_import(ec, &r, g3_raw, 0));
 
   mge_to_pge(ec, &jq, &q);
   mge_to_pge(ec, &jr, &r);
 
   mge_dbl(ec, &p, &ec->g);
 
-  assert(mge_equal(ec, &p, &q));
+  ASSERT(mge_equal(ec, &p, &q));
 
   mge_add(ec, &p, &p, &ec->g);
 
-  assert(mge_equal(ec, &p, &r));
+  ASSERT(mge_equal(ec, &p, &r));
 
   pge_dbl(ec, &jp, &jg);
 
-  assert(pge_equal(ec, &jp, &jq));
+  ASSERT(pge_equal(ec, &jp, &jq));
 
-  assert(pge_validate(ec, &jg));
-  assert(pge_validate(ec, &jp));
-  assert(pge_validate(ec, &jq));
-  assert(pge_validate(ec, &jr));
+  ASSERT(pge_validate(ec, &jg));
+  ASSERT(pge_validate(ec, &jp));
+  ASSERT(pge_validate(ec, &jq));
+  ASSERT(pge_validate(ec, &jr));
 
-  assert(!pge_is_zero(ec, &jg));
-  assert(!pge_is_zero(ec, &jp));
-  assert(!pge_is_zero(ec, &jq));
-  assert(!pge_is_zero(ec, &jr));
+  ASSERT(!pge_is_zero(ec, &jg));
+  ASSERT(!pge_is_zero(ec, &jp));
+  ASSERT(!pge_is_zero(ec, &jq));
+  ASSERT(!pge_is_zero(ec, &jr));
 
   pge_to_mge(ec, &p, &jp, 0);
 
-  assert(mge_equal(ec, &p, &q));
+  ASSERT(mge_equal(ec, &p, &q));
 
-  assert(mge_export(ec, p_raw, &p));
+  ASSERT(mge_export(ec, p_raw, &p));
 
-  assert(memcmp(p_raw, g2_raw, 32) == 0);
+  ASSERT(memcmp(p_raw, g2_raw, 32) == 0);
 }
 
 static void
@@ -1348,67 +1339,67 @@ test_edwards_points_ed25519(drbg_t *rng) {
   xge_set(ec, &g, &ec->g);
   xge_set(ec, &jg, &ec->g);
 
-  assert(xge_import(ec, &p, g_raw));
+  ASSERT(xge_import(ec, &p, g_raw));
 
   xge_set(ec, &jp, &p);
   xge_set(ec, &jq, &ec->g);
 
-  assert(xge_validate(ec, &p));
-  assert(xge_validate(ec, &jp));
-  assert(xge_validate(ec, &jq));
-  assert(xge_equal(ec, &p, &ec->g));
-  assert(xge_equal(ec, &jp, &jq));
+  ASSERT(xge_validate(ec, &p));
+  ASSERT(xge_validate(ec, &jp));
+  ASSERT(xge_validate(ec, &jq));
+  ASSERT(xge_equal(ec, &p, &ec->g));
+  ASSERT(xge_equal(ec, &jp, &jq));
 
-  assert(xge_import(ec, &q, g2_raw));
-  assert(xge_import(ec, &r, g3_raw));
+  ASSERT(xge_import(ec, &q, g2_raw));
+  ASSERT(xge_import(ec, &r, g3_raw));
 
   xge_set(ec, &jq, &q);
   xge_set(ec, &jr, &r);
 
   xge_dbl(ec, &p, &ec->g);
 
-  assert(xge_equal(ec, &p, &q));
+  ASSERT(xge_equal(ec, &p, &q));
 
   xge_add(ec, &p, &p, &ec->g);
 
-  assert(xge_equal(ec, &p, &r));
+  ASSERT(xge_equal(ec, &p, &r));
 
   xge_dbl(ec, &jp, &jg);
 
-  assert(xge_equal(ec, &jp, &jq));
+  ASSERT(xge_equal(ec, &jp, &jq));
 
   xge_add(ec, &jp, &jp, &jg);
 
-  assert(xge_equal(ec, &jp, &jr));
+  ASSERT(xge_equal(ec, &jp, &jr));
 
   xge_sub(ec, &jp, &jp, &jg);
 
-  assert(xge_equal(ec, &jp, &jq));
+  ASSERT(xge_equal(ec, &jp, &jq));
 
   xge_add(ec, &jp, &jp, &jg);
 
-  assert(xge_equal(ec, &jp, &jr));
+  ASSERT(xge_equal(ec, &jp, &jr));
 
   xge_sub(ec, &jp, &jp, &jg);
 
-  assert(xge_equal(ec, &jp, &jq));
+  ASSERT(xge_equal(ec, &jp, &jq));
 
-  assert(xge_validate(ec, &jg));
-  assert(xge_validate(ec, &jp));
-  assert(xge_validate(ec, &jq));
-  assert(xge_validate(ec, &jr));
+  ASSERT(xge_validate(ec, &jg));
+  ASSERT(xge_validate(ec, &jp));
+  ASSERT(xge_validate(ec, &jq));
+  ASSERT(xge_validate(ec, &jr));
 
-  assert(!xge_is_zero(ec, &jg));
-  assert(!xge_is_zero(ec, &jp));
-  assert(!xge_is_zero(ec, &jq));
-  assert(!xge_is_zero(ec, &jr));
+  ASSERT(!xge_is_zero(ec, &jg));
+  ASSERT(!xge_is_zero(ec, &jp));
+  ASSERT(!xge_is_zero(ec, &jq));
+  ASSERT(!xge_is_zero(ec, &jr));
 
   xge_set(ec, &p, &jp);
 
-  assert(xge_equal(ec, &p, &q));
+  ASSERT(xge_equal(ec, &p, &q));
 
   xge_export(ec, p_raw, &p);
-  assert(memcmp(p_raw, g2_raw, 32) == 0);
+  ASSERT(memcmp(p_raw, g2_raw, 32) == 0);
 }
 
 static void
@@ -1443,20 +1434,20 @@ test_edwards_mul_g_ed25519(drbg_t *rng) {
 
   edwards_randomize(ec, entropy);
 
-  assert(sc_import(sc, k, k_raw));
-  assert(xge_import(ec, &expect, expect_raw));
+  ASSERT(sc_import(sc, k, k_raw));
+  ASSERT(xge_import(ec, &expect, expect_raw));
 
-  assert(xge_validate(ec, &expect));
-  assert(xge_equal(ec, &expect, &expect));
-  assert(!xge_equal(ec, &expect, &ec->g));
+  ASSERT(xge_validate(ec, &expect));
+  ASSERT(xge_equal(ec, &expect, &expect));
+  ASSERT(!xge_equal(ec, &expect, &ec->g));
 
   edwards_mul_g(ec, &q, k);
 
-  assert(xge_equal(ec, &q, &expect));
+  ASSERT(xge_equal(ec, &q, &expect));
 
   xge_export(ec, q_raw, &q);
 
-  assert(memcmp(q_raw, expect_raw, 32) == 0);
+  ASSERT(memcmp(q_raw, expect_raw, 32) == 0);
 }
 
 static void
@@ -1498,22 +1489,22 @@ test_edwards_mul_ed25519(drbg_t *rng) {
 
   edwards_randomize(ec, entropy);
 
-  assert(xge_import(ec, &p, p_raw));
-  assert(sc_import(sc, k, k_raw));
-  assert(xge_import(ec, &expect, expect_raw));
+  ASSERT(xge_import(ec, &p, p_raw));
+  ASSERT(sc_import(sc, k, k_raw));
+  ASSERT(xge_import(ec, &expect, expect_raw));
 
-  assert(xge_validate(ec, &p));
-  assert(xge_validate(ec, &expect));
-  assert(xge_equal(ec, &expect, &expect));
-  assert(!xge_equal(ec, &expect, &ec->g));
+  ASSERT(xge_validate(ec, &p));
+  ASSERT(xge_validate(ec, &expect));
+  ASSERT(xge_equal(ec, &expect, &expect));
+  ASSERT(!xge_equal(ec, &expect, &ec->g));
 
   edwards_mul(ec, &q, &p, k);
 
-  assert(xge_equal(ec, &q, &expect));
+  ASSERT(xge_equal(ec, &q, &expect));
 
   xge_export(ec, q_raw, &q);
 
-  assert(memcmp(q_raw, expect_raw, 32) == 0);
+  ASSERT(memcmp(q_raw, expect_raw, 32) == 0);
 }
 
 static void
@@ -1562,23 +1553,23 @@ test_edwards_double_mul_ed25519(drbg_t *rng) {
 
   edwards_randomize(ec, entropy);
 
-  assert(xge_import(ec, &p, p_raw));
-  assert(sc_import(sc, k1, k1_raw));
-  assert(sc_import(sc, k2, k2_raw));
-  assert(xge_import(ec, &expect, expect_raw));
+  ASSERT(xge_import(ec, &p, p_raw));
+  ASSERT(sc_import(sc, k1, k1_raw));
+  ASSERT(sc_import(sc, k2, k2_raw));
+  ASSERT(xge_import(ec, &expect, expect_raw));
 
-  assert(xge_validate(ec, &p));
-  assert(xge_validate(ec, &expect));
-  assert(xge_equal(ec, &expect, &expect));
-  assert(!xge_equal(ec, &expect, &ec->g));
+  ASSERT(xge_validate(ec, &p));
+  ASSERT(xge_validate(ec, &expect));
+  ASSERT(xge_equal(ec, &expect, &expect));
+  ASSERT(!xge_equal(ec, &expect, &ec->g));
 
   edwards_mul_double_var(ec, &q, k1, &p, k2);
 
-  assert(xge_equal(ec, &q, &expect));
+  ASSERT(xge_equal(ec, &q, &expect));
 
   xge_export(ec, q_raw, &q);
 
-  assert(memcmp(q_raw, expect_raw, 32) == 0);
+  ASSERT(memcmp(q_raw, expect_raw, 32) == 0);
 }
 
 static void
@@ -1644,18 +1635,18 @@ test_edwards_multi_mul_ed25519(drbg_t *rng) {
 
   edwards_randomize(ec, entropy);
 
-  assert(xge_import(ec, &p1, p1_raw));
-  assert(xge_import(ec, &p2, p2_raw));
-  assert(sc_import(sc, k0, k0_raw));
-  assert(sc_import(sc, k1, k1_raw));
-  assert(sc_import(sc, k2, k2_raw));
-  assert(xge_import(ec, &expect, expect_raw));
+  ASSERT(xge_import(ec, &p1, p1_raw));
+  ASSERT(xge_import(ec, &p2, p2_raw));
+  ASSERT(sc_import(sc, k0, k0_raw));
+  ASSERT(sc_import(sc, k1, k1_raw));
+  ASSERT(sc_import(sc, k2, k2_raw));
+  ASSERT(xge_import(ec, &expect, expect_raw));
 
-  assert(xge_validate(ec, &p1));
-  assert(xge_validate(ec, &p2));
-  assert(xge_validate(ec, &expect));
-  assert(xge_equal(ec, &expect, &expect));
-  assert(!xge_equal(ec, &expect, &ec->g));
+  ASSERT(xge_validate(ec, &p1));
+  ASSERT(xge_validate(ec, &p2));
+  ASSERT(xge_validate(ec, &expect));
+  ASSERT(xge_equal(ec, &expect, &expect));
+  ASSERT(!xge_equal(ec, &expect, &ec->g));
 
   xge_set(ec, &points[0], &p1);
   xge_set(ec, &points[1], &p2);
@@ -1667,11 +1658,11 @@ test_edwards_multi_mul_ed25519(drbg_t *rng) {
   edwards_mul_multi_var(ec, &q, k0, points, (const sc_t *)coeffs, 2, scratch);
   edwards_scratch_destroy(ec, scratch);
 
-  assert(xge_equal(ec, &q, &expect));
+  ASSERT(xge_equal(ec, &q, &expect));
 
   xge_export(ec, q_raw, &q);
 
-  assert(memcmp(q_raw, expect_raw, 32) == 0);
+  ASSERT(memcmp(q_raw, expect_raw, 32) == 0);
 }
 
 void

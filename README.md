@@ -1,6 +1,6 @@
 # libtorsion
 
-Crypto library in C89, primarily for EC. Still semi-experimental.
+Crypto library in C, primarily for EC. Still semi-experimental.
 
 Used as the backend for [bcrypto].
 
@@ -15,7 +15,7 @@ Used as the backend for [bcrypto].
 - Constant time, stack-based, and so on.
 - Expose a simple opaque API which accepts all arguments in wire format
   (this eases implementation for language bindings, wasm, and other ffis).
-- Dependency-less (aside from a vendored mini-gmp).
+- Dependency-less (aside from a vendored fork of mini-gmp).
 
 ## Current Features
 
@@ -43,9 +43,10 @@ Used as the backend for [bcrypto].
 
 ``` c
 #include <assert.h>
-#include <stdlib.h>
+#include <stddef.h>
 #include <torsion/ecc.h>
 #include <torsion/hash.h>
+#include <torsion/rand.h>
 
 int main(void) {
   wei_curve_t *ec = wei_curve_create(WEI_CURVE_SECP256K1);
@@ -65,10 +66,8 @@ int main(void) {
   sha256_update(&hash, str, sizeof(str) - 1);
   sha256_final(&hash, msg);
 
-  /* Generate some entropy. */
-  /* Note: use real entropy in practice! */
-  for (i = 0; i < 32; i++)
-    entropy[i] = rand();
+  /* Grab some entropy from the OS. */
+  assert(torsion_getentropy(entropy, 32));
 
   /* Generate a key pair using entropy. */
   ecdsa_privkey_generate(ec, priv, entropy);

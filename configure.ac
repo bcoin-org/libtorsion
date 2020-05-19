@@ -75,6 +75,11 @@ AC_ARG_ENABLE(tests,
   [enable_tests=$enableval],
   [enable_tests=no])
 
+AC_ARG_ENABLE(verify,
+  AS_HELP_STRING([--enable-verify],[enable scalar bounds checks [default=no]]),
+  [enable_verify=$enableval],
+  [enable_verify=no])
+
 if test x"$use_64bit" = x"auto"; then
   if test x"$ac_cv_type___int128" = x"yes"; then
     use_64bit=$has_64bit
@@ -132,6 +137,13 @@ if test x"$enable_tests" = x"yes"; then
   AC_DEFINE(TORSION_TEST, 1, [Define to enable internal tests])
 fi
 
+if test x"$enable_verify" = x"yes"; then
+  if test x"$enable_tests" != x"yes"; then
+    AC_MSG_ERROR([scalar bounds verification for testing only])
+  fi
+  AC_DEFINE(TORSION_VERIFY, 1, [Define to enable scalar bounds checks])
+fi
+
 AM_CONDITIONAL([ENABLE_TESTS], [test x"$enable_tests" = x"yes"])
 
 m4_ifdef([AM_PROG_AR], [AM_PROG_AR])
@@ -144,12 +156,13 @@ AC_OUTPUT
 echo ""
 echo "Build Options:"
 echo ""
-echo "  64-bit       = $use_64bit"
+echo "  64bit        = $use_64bit"
 echo "  asm          = $use_asm"
 echo "  assert       = $enable_assert"
 echo "  libsecp256k1 = $enable_libsecp256k1"
 echo "  crt          = $enable_crt"
 echo "  tests        = $enable_tests"
+echo "  verify       = $enable_verify"
 echo ""
 echo "  CC           = $CC"
 echo "  CFLAGS       = $CFLAGS"

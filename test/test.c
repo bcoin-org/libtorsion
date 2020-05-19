@@ -1,38 +1,27 @@
-#include <assert.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdint.h>
 #include <limits.h>
 #include <sys/time.h>
-
-#ifndef _WIN32
-#include <sys/types.h>
-#include <fcntl.h>
-#include <unistd.h>
-
-#ifndef O_CLOEXEC
-#define O_CLOEXEC 0
-#endif
-#endif
-
 #include <torsion/aead.h>
 #include <torsion/chacha20.h>
 #include <torsion/drbg.h>
 #include <torsion/dsa.h>
 #include <torsion/ecc.h>
+#include <torsion/encoding.h>
 #include <torsion/hash.h>
 #include <torsion/kdf.h>
 #include <torsion/poly1305.h>
+#include <torsion/rand.h>
 #include <torsion/rsa.h>
 #include <torsion/salsa20.h>
 #include <torsion/siphash.h>
 #include <torsion/util.h>
 #include "../src/internal.h"
 
-#ifndef ARRAY_SIZE
-#define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
-#endif
+#undef ASSERT
+#define ASSERT(expr) ASSERT_ALWAYS(expr)
 
 static const char *wei_curves[6] = {
   "P192",
@@ -54,53 +43,17 @@ static const char *edwards_curves[3] = {
   "ED1174"
 };
 
-static int
-get_entropy(void *dst, size_t len) {
-#ifndef _WIN32
-  char *ptr = (char *)dst;
-  size_t left = len;
-  int fd = open("/dev/urandom", O_RDONLY | O_CLOEXEC);
-
-  if (fd == -1) {
-    fd = open("/dev/random", O_RDONLY | O_CLOEXEC);
-    if (fd == -1)
-      return 0;
-  }
-
-  while (left > 0) {
-    int bytes = read(fd, ptr, left);
-
-    if (bytes <= 0) {
-      close(fd);
-      return 0;
-    }
-
-    assert((size_t)bytes <= left);
-
-    left -= bytes;
-    ptr += bytes;
-  }
-
-  assert(left == 0);
-  assert(ptr == (char *)dst + len);
-
-  close(fd);
-
-  return 1;
-#else
-  return 0;
-#endif
-}
-
 static void
 random_init(drbg_t *rng) {
   unsigned char entropy[ENTROPY_SIZE];
 
-  if (!get_entropy(entropy, ENTROPY_SIZE)) {
+  if (!torsion_getentropy(entropy, ENTROPY_SIZE)) {
     size_t i;
 
     for (i = 0; i < ENTROPY_SIZE; i++)
       entropy[i] = (unsigned char)rand();
+
+    printf("Warning: torsion_getentropy failed.\n");
   }
 
   drbg_init(rng, HASH_SHA256, entropy, ENTROPY_SIZE);
@@ -125,34 +78,15 @@ random_int(drbg_t *rng, unsigned int mod) {
 
 TORSION_UNUSED static void
 print_hex(const unsigned char *data, size_t len) {
-  char str[512 + 1];
-  size_t i;
+  char *str = malloc(BASE16_ENCODE_SIZE(len) + 1);
 
-  memset(str, 0, sizeof(str));
+  ASSERT(str != NULL);
 
-  assert(len <= 256);
-
-  for (i = 0; i < len; i++) {
-    char hi = data[i] >> 4;
-    char lo = data[i] & 0x0f;
-
-    if (hi < 10)
-      hi += '0';
-    else
-      hi += 'a' - 10;
-
-    if (lo < 10)
-      lo += '0';
-    else
-      lo += 'a' - 10;
-
-    str[i * 2 + 0] = hi;
-    str[i * 2 + 1] = lo;
-  }
-
-  str[i * 2] = '\0';
+  base16_encode(str, NULL, data, len);
 
   printf("%s\n", str);
+
+  free(str);
 }
 
 #ifdef TORSION_TEST
@@ -188,11 +122,11 @@ test_wei_mul_g_p256(drbg_t *rng) {
 
   wei_curve_randomize(ec, entropy);
 
-  assert(ecdsa_pubkey_create(ec, q_raw, &q_size, k_raw, 1));
-  assert(ecdsa_pubkey_verify(ec, q_raw, q_size));
+  ASSERT(ecdsa_pubkey_create(ec, q_raw, &q_size, k_raw, 1));
+  ASSERT(ecdsa_pubkey_verify(ec, q_raw, q_size));
 
-  assert(q_size == 33);
-  assert(memcmp(q_raw, expect_raw, 33) == 0);
+  ASSERT(q_size == 33);
+  ASSERT(memcmp(q_raw, expect_raw, 33) == 0);
 
   wei_curve_destroy(ec);
 }
@@ -228,11 +162,11 @@ test_wei_mul_p256() {
 
   printf("Testing mul (vector, p256).\n");
 
-  assert(ecdsa_derive(ec, q_raw, &q_size, p_raw, 33, k_raw, 1));
-  assert(ecdsa_pubkey_verify(ec, q_raw, q_size));
+  ASSERT(ecdsa_derive(ec, q_raw, &q_size, p_raw, 33, k_raw, 1));
+  ASSERT(ecdsa_pubkey_verify(ec, q_raw, q_size));
 
-  assert(q_size == 33);
-  assert(memcmp(q_raw, expect_raw, 33) == 0);
+  ASSERT(q_size == 33);
+  ASSERT(memcmp(q_raw, expect_raw, 33) == 0);
 
   wei_curve_destroy(ec);
 }
@@ -265,11 +199,11 @@ test_wei_mul_g_secp256k1(drbg_t *rng) {
 
   wei_curve_randomize(ec, entropy);
 
-  assert(ecdsa_pubkey_create(ec, q_raw, &q_size, k_raw, 1));
-  assert(ecdsa_pubkey_verify(ec, q_raw, q_size));
+  ASSERT(ecdsa_pubkey_create(ec, q_raw, &q_size, k_raw, 1));
+  ASSERT(ecdsa_pubkey_verify(ec, q_raw, q_size));
 
-  assert(q_size == 33);
-  assert(memcmp(q_raw, expect_raw, 33) == 0);
+  ASSERT(q_size == 33);
+  ASSERT(memcmp(q_raw, expect_raw, 33) == 0);
 
   wei_curve_destroy(ec);
 }
@@ -305,11 +239,11 @@ test_wei_mul_secp256k1() {
 
   printf("Testing mul (vector, secp256k1).\n");
 
-  assert(ecdsa_derive(ec, q_raw, &q_size, p_raw, 33, k_raw, 1));
-  assert(ecdsa_pubkey_verify(ec, q_raw, q_size));
+  ASSERT(ecdsa_derive(ec, q_raw, &q_size, p_raw, 33, k_raw, 1));
+  ASSERT(ecdsa_pubkey_verify(ec, q_raw, q_size));
 
-  assert(q_size == 33);
-  assert(memcmp(q_raw, expect_raw, 33) == 0);
+  ASSERT(q_size == 33);
+  ASSERT(memcmp(q_raw, expect_raw, 33) == 0);
 
   wei_curve_destroy(ec);
 }
@@ -359,16 +293,16 @@ test_ecdsa_vector_p192(drbg_t *rng) {
 
   wei_curve_randomize(ec, entropy);
 
-  assert(ecdsa_sign(ec, sig0, &param0, msg, 32, priv));
-  assert(memcmp(sig0, sig, 48) == 0);
-  assert(param0 == param);
-  assert(ecdsa_pubkey_create(ec, rec, &rec_len, priv, 1));
-  assert(rec_len == 25);
-  assert(memcmp(rec, pub, 25) == 0);
-  assert(ecdsa_verify(ec, msg, 32, sig, pub, 25));
-  assert(ecdsa_recover(ec, rec, &rec_len, msg, 32, sig, param, 1));
-  assert(rec_len == 25);
-  assert(memcmp(rec, pub, 25) == 0);
+  ASSERT(ecdsa_sign(ec, sig0, &param0, msg, 32, priv));
+  ASSERT(memcmp(sig0, sig, 48) == 0);
+  ASSERT(param0 == param);
+  ASSERT(ecdsa_pubkey_create(ec, rec, &rec_len, priv, 1));
+  ASSERT(rec_len == 25);
+  ASSERT(memcmp(rec, pub, 25) == 0);
+  ASSERT(ecdsa_verify(ec, msg, 32, sig, pub, 25));
+  ASSERT(ecdsa_recover(ec, rec, &rec_len, msg, 32, sig, param, 1));
+  ASSERT(rec_len == 25);
+  ASSERT(memcmp(rec, pub, 25) == 0);
 
   wei_curve_destroy(ec);
 }
@@ -420,16 +354,16 @@ test_ecdsa_vector_p224(drbg_t *rng) {
 
   wei_curve_randomize(ec, entropy);
 
-  assert(ecdsa_sign(ec, sig0, &param0, msg, 32, priv));
-  assert(memcmp(sig0, sig, 56) == 0);
-  assert(param0 == param);
-  assert(ecdsa_pubkey_create(ec, rec, &rec_len, priv, 1));
-  assert(rec_len == 29);
-  assert(memcmp(rec, pub, 29) == 0);
-  assert(ecdsa_verify(ec, msg, 32, sig, pub, 29));
-  assert(ecdsa_recover(ec, rec, &rec_len, msg, 32, sig, param, 1));
-  assert(rec_len == 29);
-  assert(memcmp(rec, pub, 29) == 0);
+  ASSERT(ecdsa_sign(ec, sig0, &param0, msg, 32, priv));
+  ASSERT(memcmp(sig0, sig, 56) == 0);
+  ASSERT(param0 == param);
+  ASSERT(ecdsa_pubkey_create(ec, rec, &rec_len, priv, 1));
+  ASSERT(rec_len == 29);
+  ASSERT(memcmp(rec, pub, 29) == 0);
+  ASSERT(ecdsa_verify(ec, msg, 32, sig, pub, 29));
+  ASSERT(ecdsa_recover(ec, rec, &rec_len, msg, 32, sig, param, 1));
+  ASSERT(rec_len == 29);
+  ASSERT(memcmp(rec, pub, 29) == 0);
 
   wei_curve_destroy(ec);
 }
@@ -483,16 +417,16 @@ test_ecdsa_vector_p256(drbg_t *rng) {
 
   wei_curve_randomize(ec, entropy);
 
-  assert(ecdsa_sign(ec, sig0, &param0, msg, 32, priv));
-  assert(memcmp(sig0, sig, 64) == 0);
-  assert(param0 == param);
-  assert(ecdsa_pubkey_create(ec, rec, &rec_len, priv, 1));
-  assert(rec_len == 33);
-  assert(memcmp(rec, pub, 33) == 0);
-  assert(ecdsa_verify(ec, msg, 32, sig, pub, 33));
-  assert(ecdsa_recover(ec, rec, &rec_len, msg, 32, sig, param, 1));
-  assert(rec_len == 33);
-  assert(memcmp(rec, pub, 33) == 0);
+  ASSERT(ecdsa_sign(ec, sig0, &param0, msg, 32, priv));
+  ASSERT(memcmp(sig0, sig, 64) == 0);
+  ASSERT(param0 == param);
+  ASSERT(ecdsa_pubkey_create(ec, rec, &rec_len, priv, 1));
+  ASSERT(rec_len == 33);
+  ASSERT(memcmp(rec, pub, 33) == 0);
+  ASSERT(ecdsa_verify(ec, msg, 32, sig, pub, 33));
+  ASSERT(ecdsa_recover(ec, rec, &rec_len, msg, 32, sig, param, 1));
+  ASSERT(rec_len == 33);
+  ASSERT(memcmp(rec, pub, 33) == 0);
 
   wei_curve_destroy(ec);
 }
@@ -556,16 +490,16 @@ test_ecdsa_vector_p384(drbg_t *rng) {
 
   wei_curve_randomize(ec, entropy);
 
-  assert(ecdsa_sign(ec, sig0, &param0, msg, 48, priv));
-  assert(memcmp(sig0, sig, 96) == 0);
-  assert(param0 == param);
-  assert(ecdsa_pubkey_create(ec, rec, &rec_len, priv, 1));
-  assert(rec_len == 49);
-  assert(memcmp(rec, pub, 49) == 0);
-  assert(ecdsa_verify(ec, msg, 48, sig, pub, 49));
-  assert(ecdsa_recover(ec, rec, &rec_len, msg, 48, sig, param, 1));
-  assert(rec_len == 49);
-  assert(memcmp(rec, pub, 49) == 0);
+  ASSERT(ecdsa_sign(ec, sig0, &param0, msg, 48, priv));
+  ASSERT(memcmp(sig0, sig, 96) == 0);
+  ASSERT(param0 == param);
+  ASSERT(ecdsa_pubkey_create(ec, rec, &rec_len, priv, 1));
+  ASSERT(rec_len == 49);
+  ASSERT(memcmp(rec, pub, 49) == 0);
+  ASSERT(ecdsa_verify(ec, msg, 48, sig, pub, 49));
+  ASSERT(ecdsa_recover(ec, rec, &rec_len, msg, 48, sig, param, 1));
+  ASSERT(rec_len == 49);
+  ASSERT(memcmp(rec, pub, 49) == 0);
 
   wei_curve_destroy(ec);
 }
@@ -641,16 +575,16 @@ test_ecdsa_vector_p521(drbg_t *rng) {
 
   wei_curve_randomize(ec, entropy);
 
-  assert(ecdsa_sign(ec, sig0, &param0, msg, 64, priv));
-  assert(memcmp(sig0, sig, 132) == 0);
-  assert(param0 == param);
-  assert(ecdsa_pubkey_create(ec, rec, &rec_len, priv, 1));
-  assert(rec_len == 67);
-  assert(memcmp(rec, pub, 67) == 0);
-  assert(ecdsa_verify(ec, msg, 64, sig, pub, 67));
-  assert(ecdsa_recover(ec, rec, &rec_len, msg, 64, sig, param, 1));
-  assert(rec_len == 67);
-  assert(memcmp(rec, pub, 67) == 0);
+  ASSERT(ecdsa_sign(ec, sig0, &param0, msg, 64, priv));
+  ASSERT(memcmp(sig0, sig, 132) == 0);
+  ASSERT(param0 == param);
+  ASSERT(ecdsa_pubkey_create(ec, rec, &rec_len, priv, 1));
+  ASSERT(rec_len == 67);
+  ASSERT(memcmp(rec, pub, 67) == 0);
+  ASSERT(ecdsa_verify(ec, msg, 64, sig, pub, 67));
+  ASSERT(ecdsa_recover(ec, rec, &rec_len, msg, 64, sig, param, 1));
+  ASSERT(rec_len == 67);
+  ASSERT(memcmp(rec, pub, 67) == 0);
 
   wei_curve_destroy(ec);
 }
@@ -704,16 +638,16 @@ test_ecdsa_vector_secp256k1(drbg_t *rng) {
 
   wei_curve_randomize(ec, entropy);
 
-  assert(ecdsa_sign(ec, sig0, &param0, msg, 32, priv));
-  assert(memcmp(sig0, sig, 64) == 0);
-  assert(param0 == param);
-  assert(ecdsa_pubkey_create(ec, rec, &rec_len, priv, 1));
-  assert(rec_len == 33);
-  assert(memcmp(rec, pub, 33) == 0);
-  assert(ecdsa_verify(ec, msg, 32, sig, pub, 33));
-  assert(ecdsa_recover(ec, rec, &rec_len, msg, 32, sig, param, 1));
-  assert(rec_len == 33);
-  assert(memcmp(rec, pub, 33) == 0);
+  ASSERT(ecdsa_sign(ec, sig0, &param0, msg, 32, priv));
+  ASSERT(memcmp(sig0, sig, 64) == 0);
+  ASSERT(param0 == param);
+  ASSERT(ecdsa_pubkey_create(ec, rec, &rec_len, priv, 1));
+  ASSERT(rec_len == 33);
+  ASSERT(memcmp(rec, pub, 33) == 0);
+  ASSERT(ecdsa_verify(ec, msg, 32, sig, pub, 33));
+  ASSERT(ecdsa_recover(ec, rec, &rec_len, msg, 32, sig, param, 1));
+  ASSERT(rec_len == 33);
+  ASSERT(memcmp(rec, pub, 33) == 0);
 
   wei_curve_destroy(ec);
 }
@@ -758,29 +692,29 @@ test_ecdh_vector_x25519(void) {
   u[0] = 9;
 
   for (; i < 1; i++) {
-    assert(ecdh_derive(ec, t, u, k));
+    ASSERT(ecdh_derive(ec, t, u, k));
     memcpy(u, k, 32);
     memcpy(k, t, 32);
   }
 
-  assert(memcmp(k, intervals[0], 32) == 0);
+  ASSERT(memcmp(k, intervals[0], 32) == 0);
 
   for (; i < 1000; i++) {
-    assert(ecdh_derive(ec, t, u, k));
+    ASSERT(ecdh_derive(ec, t, u, k));
     memcpy(u, k, 32);
     memcpy(k, t, 32);
   }
 
-  assert(memcmp(k, intervals[1], 32) == 0);
+  ASSERT(memcmp(k, intervals[1], 32) == 0);
 
 #if 0
   for (; i < 1000000; i++) {
-    assert(ecdh_derive(ec, t, u, k));
+    ASSERT(ecdh_derive(ec, t, u, k));
     memcpy(u, k, 32);
     memcpy(k, t, 32);
   }
 
-  assert(memcmp(k, intervals[2], 32) == 0);
+  ASSERT(memcmp(k, intervals[2], 32) == 0);
 #endif
 
   mont_curve_destroy(ec);
@@ -844,37 +778,37 @@ test_ecdh_vector_x448(void) {
   u[0] = 5;
 
   for (; i < 1; i++) {
-    assert(ecdh_derive(ec, t, u, k));
+    ASSERT(ecdh_derive(ec, t, u, k));
     memcpy(u, k, 56);
     memcpy(k, t, 56);
   }
 
-  assert(memcmp(k, intervals[0], 56) == 0);
+  ASSERT(memcmp(k, intervals[0], 56) == 0);
 
   for (; i < 100; i++) {
-    assert(ecdh_derive(ec, t, u, k));
+    ASSERT(ecdh_derive(ec, t, u, k));
     memcpy(u, k, 56);
     memcpy(k, t, 56);
   }
 
-  assert(memcmp(k, intervals[1], 56) == 0);
+  ASSERT(memcmp(k, intervals[1], 56) == 0);
 
   for (; i < 1000; i++) {
-    assert(ecdh_derive(ec, t, u, k));
+    ASSERT(ecdh_derive(ec, t, u, k));
     memcpy(u, k, 56);
     memcpy(k, t, 56);
   }
 
-  assert(memcmp(k, intervals[2], 56) == 0);
+  ASSERT(memcmp(k, intervals[2], 56) == 0);
 
 #if 0
   for (; i < 1000000; i++) {
-    assert(ecdh_derive(ec, t, u, k));
+    ASSERT(ecdh_derive(ec, t, u, k));
     memcpy(u, k, 56);
     memcpy(k, t, 56);
   }
 
-  assert(memcmp(k, intervals[3], 56) == 0);
+  ASSERT(memcmp(k, intervals[3], 56) == 0);
 #endif
 
   mont_curve_destroy(ec);
@@ -907,8 +841,8 @@ test_edwards_mul_g_ed25519(drbg_t *rng) {
   edwards_curve_randomize(ec, entropy);
 
   eddsa_pubkey_from_scalar(ec, q_raw, k_raw);
-  assert(eddsa_pubkey_verify(ec, q_raw));
-  assert(memcmp(q_raw, expect_raw, 32) == 0);
+  ASSERT(eddsa_pubkey_verify(ec, q_raw));
+  ASSERT(memcmp(q_raw, expect_raw, 32) == 0);
 
   edwards_curve_destroy(ec);
 }
@@ -941,9 +875,9 @@ test_edwards_mul_ed25519() {
 
   printf("Testing mul (vector, ed25519).\n");
 
-  assert(eddsa_derive(ec, q_raw, p_raw, k_raw));
-  assert(eddsa_pubkey_verify(ec, q_raw));
-  assert(memcmp(q_raw, expect_raw, 32) == 0);
+  ASSERT(eddsa_derive(ec, q_raw, p_raw, k_raw));
+  ASSERT(eddsa_pubkey_verify(ec, q_raw));
+  ASSERT(memcmp(q_raw, expect_raw, 32) == 0);
 
   edwards_curve_destroy(ec);
 }
@@ -995,13 +929,13 @@ test_eddsa_vector_ed25519(drbg_t *rng) {
 
   eddsa_sign(ec, sig0, msg, 32, priv, -1, NULL, 0);
 
-  assert(memcmp(sig0, sig, 64) == 0);
+  ASSERT(memcmp(sig0, sig, 64) == 0);
 
   eddsa_pubkey_create(ec, rec, priv);
 
-  assert(memcmp(rec, pub, 32) == 0);
+  ASSERT(memcmp(rec, pub, 32) == 0);
 
-  assert(eddsa_verify(ec, msg, 32, sig, pub, -1, NULL, 0));
+  ASSERT(eddsa_verify(ec, msg, 32, sig, pub, -1, NULL, 0));
 
   edwards_curve_destroy(ec);
 }
@@ -1068,13 +1002,13 @@ test_eddsa_vector_ed448(drbg_t *rng) {
 
   eddsa_sign(ec, sig0, msg, 32, priv, 0, NULL, 0);
 
-  assert(memcmp(sig0, sig, 114) == 0);
+  ASSERT(memcmp(sig0, sig, 114) == 0);
 
   eddsa_pubkey_create(ec, rec, priv);
 
-  assert(memcmp(rec, pub, 57) == 0);
+  ASSERT(memcmp(rec, pub, 57) == 0);
 
-  assert(eddsa_verify(ec, msg, 32, sig, pub, 0, NULL, 0));
+  ASSERT(eddsa_verify(ec, msg, 32, sig, pub, 0, NULL, 0));
 
   edwards_curve_destroy(ec);
 }
@@ -1103,10 +1037,10 @@ test_sswu(void) {
   printf("Testing SSWU (P256).\n");
 
   ecdsa_pubkey_from_uniform(ec, out, &out_len, bytes, 1);
-  assert(out_len == 33);
-  assert(memcmp(out, expect, 33) == 0);
-  assert(ecdsa_pubkey_to_uniform(ec, out, expect, 33, 3));
-  assert(memcmp(out, bytes, 32) == 0);
+  ASSERT(out_len == 33);
+  ASSERT(memcmp(out, expect, 33) == 0);
+  ASSERT(ecdsa_pubkey_to_uniform(ec, out, expect, 33, 3));
+  ASSERT(memcmp(out, bytes, 32) == 0);
 
   wei_curve_destroy(ec);
 }
@@ -1135,10 +1069,10 @@ test_svdw(void) {
   printf("Testing SVDW (secp256k1).\n");
 
   ecdsa_pubkey_from_uniform(ec, out, &out_len, bytes, 1);
-  assert(out_len == 33);
-  assert(memcmp(out, expect, 33) == 0);
-  assert(ecdsa_pubkey_to_uniform(ec, out, expect, 33, 1));
-  assert(memcmp(out, bytes, 32) == 0);
+  ASSERT(out_len == 33);
+  ASSERT(memcmp(out, expect, 33) == 0);
+  ASSERT(ecdsa_pubkey_to_uniform(ec, out, expect, 33, 1));
+  ASSERT(memcmp(out, bytes, 32) == 0);
 
   wei_curve_destroy(ec);
 }
@@ -1165,9 +1099,9 @@ test_elligator2_mont(void) {
   printf("Testing Elligator 2 (x25519).\n");
 
   ecdh_pubkey_from_uniform(ec, out, bytes);
-  assert(memcmp(out, expect, 32) == 0);
-  assert(ecdh_pubkey_to_uniform(ec, out, expect, 0));
-  assert(memcmp(out, bytes, 32) == 0);
+  ASSERT(memcmp(out, expect, 32) == 0);
+  ASSERT(ecdh_pubkey_to_uniform(ec, out, expect, 0));
+  ASSERT(memcmp(out, bytes, 32) == 0);
 
   mont_curve_destroy(ec);
 }
@@ -1194,9 +1128,9 @@ test_elligator2_edwards(void) {
   printf("Testing Elligator 2 (ed25519).\n");
 
   eddsa_pubkey_from_uniform(ec, out, bytes);
-  assert(memcmp(out, expect, 32) == 0);
-  assert(eddsa_pubkey_to_uniform(ec, out, expect, 0));
-  assert(memcmp(out, bytes, 32) == 0);
+  ASSERT(memcmp(out, expect, 32) == 0);
+  ASSERT(eddsa_pubkey_to_uniform(ec, out, expect, 0));
+  ASSERT(memcmp(out, bytes, 32) == 0);
 
   edwards_curve_destroy(ec);
 }
@@ -1235,35 +1169,35 @@ test_ecdsa_random(drbg_t *rng) {
 
       wei_curve_randomize(ec, entropy);
 
-      assert(ecdsa_sign(ec, sig, &param, msg, sc_size, priv));
-      assert(ecdsa_pubkey_create(ec, pub, &pub_len, priv, 1));
-      assert(pub_len == fe_size + 1);
-      assert(ecdsa_verify(ec, msg, sc_size, sig, pub, fe_size + 1));
-      assert(ecdsa_recover(ec, rec, &rec_len, msg, sc_size, sig, param, 1));
-      assert(rec_len == fe_size + 1);
-      assert(memcmp(pub, rec, fe_size + 1) == 0);
+      ASSERT(ecdsa_sign(ec, sig, &param, msg, sc_size, priv));
+      ASSERT(ecdsa_pubkey_create(ec, pub, &pub_len, priv, 1));
+      ASSERT(pub_len == fe_size + 1);
+      ASSERT(ecdsa_verify(ec, msg, sc_size, sig, pub, fe_size + 1));
+      ASSERT(ecdsa_recover(ec, rec, &rec_len, msg, sc_size, sig, param, 1));
+      ASSERT(rec_len == fe_size + 1);
+      ASSERT(memcmp(pub, rec, fe_size + 1) == 0);
 
       k = random_int(rng, sc_size);
 
       if (fe_bits != 521 || k < 65) {
         msg[k] ^= 1;
-        assert(!ecdsa_verify(ec, msg, sc_size, sig, pub, fe_size + 1));
+        ASSERT(!ecdsa_verify(ec, msg, sc_size, sig, pub, fe_size + 1));
         msg[k] ^= 1;
       }
 
       pub[k] ^= 1;
-      assert(!ecdsa_verify(ec, msg, sc_size, sig, pub, fe_size + 1));
+      ASSERT(!ecdsa_verify(ec, msg, sc_size, sig, pub, fe_size + 1));
       pub[k] ^= 1;
 
       sig[k] ^= 1;
-      assert(!ecdsa_verify(ec, msg, sc_size, sig, pub, fe_size + 1));
+      ASSERT(!ecdsa_verify(ec, msg, sc_size, sig, pub, fe_size + 1));
       sig[k] ^= 1;
 
       sig[sc_size + k] ^= 1;
-      assert(!ecdsa_verify(ec, msg, sc_size, sig, pub, fe_size + 1));
+      ASSERT(!ecdsa_verify(ec, msg, sc_size, sig, pub, fe_size + 1));
       sig[sc_size + k] ^= 1;
 
-      assert(ecdsa_verify(ec, msg, sc_size, sig, pub, fe_size + 1));
+      ASSERT(ecdsa_verify(ec, msg, sc_size, sig, pub, fe_size + 1));
     }
 
     wei_curve_destroy(ec);
@@ -1297,10 +1231,10 @@ test_ecdh_random(drbg_t *rng) {
       ecdh_pubkey_create(ec, alice_pub, alice_priv);
       ecdh_pubkey_create(ec, bob_pub, bob_priv);
 
-      assert(ecdh_derive(ec, alice_secret, bob_pub, alice_priv));
-      assert(ecdh_derive(ec, bob_secret, alice_pub, bob_priv));
+      ASSERT(ecdh_derive(ec, alice_secret, bob_pub, alice_priv));
+      ASSERT(ecdh_derive(ec, bob_secret, alice_pub, bob_priv));
 
-      assert(memcmp(alice_secret, bob_secret, fe_size) == 0);
+      ASSERT(memcmp(alice_secret, bob_secret, fe_size) == 0);
     }
 
     mont_curve_destroy(ec);
@@ -1338,27 +1272,27 @@ test_eddsa_random(drbg_t *rng) {
       eddsa_sign(ec, sig, msg, sc_size, priv, -1, NULL, 0);
       eddsa_pubkey_create(ec, pub, priv);
 
-      assert(eddsa_verify(ec, msg, sc_size, sig, pub, -1, NULL, 0));
+      ASSERT(eddsa_verify(ec, msg, sc_size, sig, pub, -1, NULL, 0));
 
       k = random_int(rng, sc_size);
 
       msg[k] ^= 1;
-      assert(!eddsa_verify(ec, msg, sc_size, sig, pub, -1, NULL, 0));
+      ASSERT(!eddsa_verify(ec, msg, sc_size, sig, pub, -1, NULL, 0));
       msg[k] ^= 1;
 
       pub[k] ^= 1;
-      assert(!eddsa_verify(ec, msg, sc_size, sig, pub, -1, NULL, 0));
+      ASSERT(!eddsa_verify(ec, msg, sc_size, sig, pub, -1, NULL, 0));
       pub[k] ^= 1;
 
       sig[k] ^= 1;
-      assert(!eddsa_verify(ec, msg, sc_size, sig, pub, -1, NULL, 0));
+      ASSERT(!eddsa_verify(ec, msg, sc_size, sig, pub, -1, NULL, 0));
       sig[k] ^= 1;
 
       sig[fe_size + k] ^= 1;
-      assert(!eddsa_verify(ec, msg, sc_size, sig, pub, -1, NULL, 0));
+      ASSERT(!eddsa_verify(ec, msg, sc_size, sig, pub, -1, NULL, 0));
       sig[fe_size + k] ^= 1;
 
-      assert(eddsa_verify(ec, msg, sc_size, sig, pub, -1, NULL, 0));
+      ASSERT(eddsa_verify(ec, msg, sc_size, sig, pub, -1, NULL, 0));
     }
 
     edwards_curve_destroy(ec);
@@ -1381,65 +1315,65 @@ test_rsa(drbg_t *rng) {
   unsigned char entropy[ENTROPY_SIZE];
   size_t i, j;
 
-  assert(priv != NULL);
-  assert(pub != NULL);
-  assert(sig != NULL);
-  assert(ct != NULL);
-  assert(pt != NULL);
+  ASSERT(priv != NULL);
+  ASSERT(pub != NULL);
+  ASSERT(sig != NULL);
+  ASSERT(ct != NULL);
+  ASSERT(pt != NULL);
 
   printf("Testing RSA...\n");
 
   for (i = 0; i < 10; i++) {
     drbg_generate(rng, entropy, sizeof(entropy));
 
-    assert(rsa_privkey_generate(priv, &priv_len, 1024, 65537, entropy));
-    assert(rsa_privkey_verify(priv, priv_len));
+    ASSERT(rsa_privkey_generate(priv, &priv_len, 1024, 65537, entropy));
+    ASSERT(rsa_privkey_verify(priv, priv_len));
 
-    assert(rsa_pubkey_create(pub, &pub_len, priv, priv_len));
-    assert(rsa_pubkey_verify(pub, pub_len));
+    ASSERT(rsa_pubkey_create(pub, &pub_len, priv, priv_len));
+    ASSERT(rsa_pubkey_verify(pub, pub_len));
 
     drbg_generate(rng, msg, 32);
     drbg_generate(rng, entropy, sizeof(entropy));
 
     j = random_int(rng, 128);
 
-    assert(rsa_sign(sig, &sig_len, HASH_SHA256, msg, 32, priv, priv_len, entropy));
-    assert(rsa_verify(HASH_SHA256, msg, 32, sig, sig_len, pub, pub_len));
+    ASSERT(rsa_sign(sig, &sig_len, HASH_SHA256, msg, 32, priv, priv_len, entropy));
+    ASSERT(rsa_verify(HASH_SHA256, msg, 32, sig, sig_len, pub, pub_len));
     sig[j] ^= 1;
-    assert(!rsa_verify(HASH_SHA256, msg, 32, sig, sig_len, pub, pub_len));
+    ASSERT(!rsa_verify(HASH_SHA256, msg, 32, sig, sig_len, pub, pub_len));
 
     drbg_generate(rng, msg, 32);
     drbg_generate(rng, entropy, sizeof(entropy));
 
-    assert(rsa_encrypt(ct, &ct_len, msg, 32, pub, pub_len, entropy));
-    assert(rsa_decrypt(pt, &pt_len, ct, ct_len, priv, priv_len, entropy));
-    assert(pt_len == 32);
-    assert(memcmp(pt, msg, 32) == 0);
+    ASSERT(rsa_encrypt(ct, &ct_len, msg, 32, pub, pub_len, entropy));
+    ASSERT(rsa_decrypt(pt, &pt_len, ct, ct_len, priv, priv_len, entropy));
+    ASSERT(pt_len == 32);
+    ASSERT(memcmp(pt, msg, 32) == 0);
     ct[j] ^= 1;
-    assert(!rsa_decrypt(pt, &pt_len, ct, ct_len, priv, priv_len, entropy));
+    ASSERT(!rsa_decrypt(pt, &pt_len, ct, ct_len, priv, priv_len, entropy));
 
     drbg_generate(rng, msg, 32);
     drbg_generate(rng, entropy, sizeof(entropy));
 
-    assert(rsa_sign_pss(sig, &sig_len, HASH_SHA256, msg, 32, priv, priv_len, 0, entropy));
-    assert(rsa_verify_pss(HASH_SHA256, msg, 32, sig, sig_len, pub, pub_len, 0));
+    ASSERT(rsa_sign_pss(sig, &sig_len, HASH_SHA256, msg, 32, priv, priv_len, 0, entropy));
+    ASSERT(rsa_verify_pss(HASH_SHA256, msg, 32, sig, sig_len, pub, pub_len, 0));
     sig[j] ^= 1;
-    assert(!rsa_verify_pss(HASH_SHA256, msg, 32, sig, sig_len, pub, pub_len, 0));
+    ASSERT(!rsa_verify_pss(HASH_SHA256, msg, 32, sig, sig_len, pub, pub_len, 0));
 
-    assert(rsa_sign_pss(sig, &sig_len, HASH_SHA256, msg, 32, priv, priv_len, -1, entropy));
-    assert(rsa_verify_pss(HASH_SHA256, msg, 32, sig, sig_len, pub, pub_len, -1));
+    ASSERT(rsa_sign_pss(sig, &sig_len, HASH_SHA256, msg, 32, priv, priv_len, -1, entropy));
+    ASSERT(rsa_verify_pss(HASH_SHA256, msg, 32, sig, sig_len, pub, pub_len, -1));
     sig[j] ^= 1;
-    assert(!rsa_verify_pss(HASH_SHA256, msg, 32, sig, sig_len, pub, pub_len, -1));
+    ASSERT(!rsa_verify_pss(HASH_SHA256, msg, 32, sig, sig_len, pub, pub_len, -1));
 
     drbg_generate(rng, msg, 32);
     drbg_generate(rng, entropy, sizeof(entropy));
 
-    assert(rsa_encrypt_oaep(ct, &ct_len, HASH_SHA256, msg, 32, pub, pub_len, NULL, 0, entropy));
-    assert(rsa_decrypt_oaep(pt, &pt_len, HASH_SHA256, ct, ct_len, priv, priv_len, NULL, 0, entropy));
-    assert(pt_len == 32);
-    assert(memcmp(pt, msg, 32) == 0);
+    ASSERT(rsa_encrypt_oaep(ct, &ct_len, HASH_SHA256, msg, 32, pub, pub_len, NULL, 0, entropy));
+    ASSERT(rsa_decrypt_oaep(pt, &pt_len, HASH_SHA256, ct, ct_len, priv, priv_len, NULL, 0, entropy));
+    ASSERT(pt_len == 32);
+    ASSERT(memcmp(pt, msg, 32) == 0);
     ct[j] ^= 1;
-    assert(!rsa_decrypt_oaep(pt, &pt_len, HASH_SHA256, ct, ct_len, priv, priv_len, NULL, 0, entropy));
+    ASSERT(!rsa_decrypt_oaep(pt, &pt_len, HASH_SHA256, ct, ct_len, priv, priv_len, NULL, 0, entropy));
   }
 
   free(priv);
@@ -1485,7 +1419,7 @@ bench_mul_g(drbg_t *rng) {
   bench_start(&tv);
 
   for (i = 0; i < 10000; i++)
-    assert(ecdsa_pubkey_create(ec, pub, &pub_len, bytes, 1));
+    ASSERT(ecdsa_pubkey_create(ec, pub, &pub_len, bytes, 1));
 
   bench_end(&tv, i);
 
@@ -1508,12 +1442,12 @@ bench_mul(drbg_t *rng) {
   random_bytes(rng, k0, 32);
   random_bytes(rng, k1, 32);
 
-  assert(ecdsa_pubkey_create(ec, p0, &p0_len, k0, 0));
+  ASSERT(ecdsa_pubkey_create(ec, p0, &p0_len, k0, 0));
 
   bench_start(&tv);
 
   for (i = 0; i < 10000; i++)
-    assert(ecdsa_derive(ec, p1, &p1_len, p0, p0_len, k1, 1));
+    ASSERT(ecdsa_derive(ec, p1, &p1_len, p0, p0_len, k1, 1));
 
   bench_end(&tv, i);
 
@@ -1541,15 +1475,15 @@ bench_ecdsa(drbg_t *rng) {
 
   wei_curve_randomize(ec, entropy);
 
-  assert(ecdsa_sign(ec, sig, NULL, msg, 32, priv));
-  assert(ecdsa_pubkey_create(ec, pub, NULL, priv, 1));
+  ASSERT(ecdsa_sign(ec, sig, NULL, msg, 32, priv));
+  ASSERT(ecdsa_pubkey_create(ec, pub, NULL, priv, 1));
 
   printf("Benchmarking verify...\n");
 
   bench_start(&tv);
 
   for (i = 0; i < 10000; i++)
-    assert(ecdsa_verify(ec, msg, 32, sig, pub, 33));
+    ASSERT(ecdsa_verify(ec, msg, 32, sig, pub, 33));
 
   bench_end(&tv, i);
 
@@ -1558,7 +1492,7 @@ bench_ecdsa(drbg_t *rng) {
   bench_start(&tv);
 
   for (i = 0; i < 10000; i++)
-    assert(ecdsa_sign(ec, sig, NULL, msg, 32, priv));
+    ASSERT(ecdsa_sign(ec, sig, NULL, msg, 32, priv));
 
   bench_end(&tv, i);
 
@@ -1583,7 +1517,7 @@ bench_ecdh(drbg_t *rng) {
   bench_start(&tv);
 
   for (i = 0; i < 10000; i++)
-    assert(ecdh_derive(ec, secret, pub, priv));
+    ASSERT(ecdh_derive(ec, secret, pub, priv));
 
   bench_end(&tv, i);
 
@@ -1615,7 +1549,7 @@ bench_eddsa(drbg_t *rng) {
   bench_start(&tv);
 
   for (i = 0; i < 10000; i++)
-    assert(eddsa_verify(ec, msg, 32, sig, pub, -1, NULL, 0));
+    ASSERT(eddsa_verify(ec, msg, 32, sig, pub, -1, NULL, 0));
 
   bench_end(&tv, i);
 
