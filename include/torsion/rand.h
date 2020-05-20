@@ -13,7 +13,6 @@ extern "C" {
 
 #include <stddef.h>
 #include <stdint.h>
-#include "chacha20.h"
 
 /*
  * Symbol Aliases
@@ -29,7 +28,9 @@ extern "C" {
  */
 
 typedef struct _rng_s {
-  chacha20_t chacha;
+  uint64_t key[4];
+  uint64_t zero;
+  uint64_t nonce;
   uint32_t pool[16];
   size_t pos;
   int rdrand;
