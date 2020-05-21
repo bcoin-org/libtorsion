@@ -23,6 +23,13 @@
 #  define _GNU_SOURCE
 #endif
 
+#ifdef _WIN32
+/* winsock2.h must be included before windows.h. */
+/* See: https://stackoverflow.com/a/9168850/716248 */
+#  include <winsock2.h> /* gethostname */
+#  pragma comment(lib, "ws2_32.lib")
+#endif
+
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
@@ -31,27 +38,25 @@
 #include <string.h>
 
 #if !defined(_MSC_VER) && !defined(__BORLANDC__)
-#  include <unistd.h>
+#  include <unistd.h> /* stat, read, close */
 #endif
 
 #include <sys/types.h>
 
 #ifdef _WIN32
-#  ifndef WIN32_LEAN_AND_MEAN
-#    define WIN32_LEAN_AND_MEAN 1
-#  endif
 #  include <windows.h>
-#  include <sys/timeb.h> /* _timeb */
+#  include <sys/timeb.h> /* _timeb, _ftime */
 #  ifdef __BORLANDC__
-#    define _ftime ftime
 #    define _timeb timeb
+#    define _ftime ftime
 #  endif
 #else
-#  include <sys/stat.h>
+#  include <sys/stat.h> /* open, stat */
 #  ifdef __vxworks
-#    include <time.h>
+#    include <vxWorks.h> /* OK (= 0) */
+#    include <time.h> /* clock_gettime */
 #  else
-#    include <sys/time.h>
+#    include <sys/time.h> /* gettimeofday */
 #  endif
 #endif
 
@@ -339,11 +344,6 @@ extern char **environ;
 #  define HAVE_GETIFADDRS
 #endif
 
-#ifdef _WIN32
-#  include <winsock2.h> /* gethostname */
-#  pragma comment(lib, "ws2_32.lib") /* gethostname */
-#endif
-
 #include <torsion/chacha20.h>
 #include <torsion/hash.h>
 #include <torsion/rand.h>
@@ -476,6 +476,13 @@ torsion_hrtime(void) {
   _ftime(&tb);
 #pragma warning(pop)
   return (uint64_t)tb.time * 1000000 + (uint64_t)tb.millitm * 1000;
+#elif defined(__vxworks)
+  struct timespec ts;
+
+  if (clock_gettime(CLOCK_REALTIME, &ts) != OK)
+    abort();
+
+  return (uint64_t)ts.tv_sec * 1000000000 + (uint64_t)ts.tv_nsec;
 #else
   struct timeval tv;
 
@@ -1387,7 +1394,9 @@ sha512_write_dynamic_env(sha512_t *hash) {
   /* Various clocks. */
   {
     struct timespec ts;
+#ifndef __vxworks
     struct timeval tv;
+#endif
 
     memset(&ts, 0, sizeof(ts));
     memset(&tv, 0, sizeof(tv));
@@ -1407,8 +1416,10 @@ sha512_write_dynamic_env(sha512_t *hash) {
     sha512_write(hash, &ts, sizeof(ts));
 #endif
 
+#ifndef __vxworks
     gettimeofday(&tv, NULL);
     sha512_write(hash, &tv, sizeof(tv));
+#endif
   }
 
   /* Current resource usage. */
