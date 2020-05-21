@@ -52,12 +52,7 @@
 #  endif
 #else
 #  include <sys/stat.h> /* open, stat */
-#  ifdef __vxworks
-#    include <vxWorks.h> /* OK (= 0) */
-#    include <time.h> /* clock_gettime */
-#  else
-#    include <sys/time.h> /* gettimeofday */
-#  endif
+#  include <sys/time.h> /* gettimeofday */
 #endif
 
 #ifdef __linux__
@@ -192,6 +187,7 @@ BOOLEAN NTAPI RtlGenRandom(PVOID RandomBuffer, ULONG RandomBufferLength);
 #    include <taskLib.h>
 #    define HAVE_RANDBYTES
 #  endif
+#  undef HAVE_MANUAL_ENTROPY
 #endif
 
 #ifdef __fuchsia__
@@ -476,13 +472,6 @@ torsion_hrtime(void) {
   _ftime(&tb);
 #pragma warning(pop)
   return (uint64_t)tb.time * 1000000 + (uint64_t)tb.millitm * 1000;
-#elif defined(__vxworks)
-  struct timespec ts;
-
-  if (clock_gettime(CLOCK_REALTIME, &ts) != OK)
-    abort();
-
-  return (uint64_t)ts.tv_sec * 1000000000 + (uint64_t)ts.tv_nsec;
 #else
   struct timeval tv;
 
@@ -619,7 +608,7 @@ torsion_syscall_entropy(void *dst, size_t size) {
       continue;
     }
 
-    if (randBytes((unsigned char *)dst, (int)size) == OK)
+    if (randBytes((unsigned char *)dst, (int)size) == 0)
       return 1;
   }
 
@@ -1394,9 +1383,7 @@ sha512_write_dynamic_env(sha512_t *hash) {
   /* Various clocks. */
   {
     struct timespec ts;
-#ifndef __vxworks
     struct timeval tv;
-#endif
 
     memset(&ts, 0, sizeof(ts));
     memset(&tv, 0, sizeof(tv));
@@ -1416,10 +1403,8 @@ sha512_write_dynamic_env(sha512_t *hash) {
     sha512_write(hash, &ts, sizeof(ts));
 #endif
 
-#ifndef __vxworks
     gettimeofday(&tv, NULL);
     sha512_write(hash, &tv, sizeof(tv));
-#endif
   }
 
   /* Current resource usage. */
