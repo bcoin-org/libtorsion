@@ -21,9 +21,7 @@ include_HEADERS = include/torsion/aead.h \
 
 noinst_HEADERS = src/asn1.h \
                  src/bio.h \
-                 src/internal.h \
-                 src/mpi.h \
-                 src/subgroups.h \
+                 src/entropy/entropy.h \
                  src/fields/libsecp256k1_32.h \
                  src/fields/libsecp256k1_64.h \
                  src/fields/p192_32.h \
@@ -53,7 +51,10 @@ noinst_HEADERS = src/asn1.h \
                  src/fields/scalar.h \
                  src/fields/secp256k1_32.h \
                  src/fields/secp256k1_64.h \
-                 src/fields/secp256k1.h
+                 src/fields/secp256k1.h \
+                 src/internal.h \
+                 src/mpi.h \
+                 src/subgroups.h
 
 CLEANFILES =
 
@@ -66,6 +67,9 @@ libtorsion_la_SOURCES = src/aead.c \
                         src/cipher.c \
                         src/ecc.c \
                         src/encoding.c \
+                        src/entropy/env.c \
+                        src/entropy/hw.c \
+                        src/entropy/sys.c \
                         src/drbg.c \
                         src/dsa.c \
                         src/hash.c \
