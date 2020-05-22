@@ -40,6 +40,7 @@
 #include <torsion/rand.h>
 #include <torsion/util.h>
 #include "entropy/entropy.h"
+#include "entropy/mtx.h"
 
 /*
  * RNG
@@ -187,11 +188,43 @@ rng_uniform(rng_t *rng, uint32_t max) {
 }
 
 /*
- * Entropy
+ * Global API
  */
+
+static rng_t torsion_rng;
+#ifdef TORSION_MUTEX_INITIALIZER
+static torsion_mutex_t torsion_lock = TORSION_MUTEX_INITIALIZER;
+#else
+static torsion_mutex_t torsion_lock;
+#endif
 
 int
 torsion_getentropy(void *dst, size_t size) {
   return torsion_sysrand(dst, size)
       || torsion_hwrand(dst, size);
+}
+
+int
+torsion_getrandom(void *dst, size_t size) {
+  rng_t *rng = &torsion_rng;
+  uint64_t pid;
+  int ret = 0;
+
+  torsion_mutex_lock(&torsion_lock);
+
+  pid = torsion_getpid();
+
+  if (!rng->started || rng->pid != pid) {
+    if (!rng_init(rng))
+      goto fail;
+
+    rng->started = 1;
+    rng->pid = pid;
+  }
+
+  rng_generate(rng, dst, size);
+  ret = 1;
+fail:
+  torsion_mutex_unlock(&torsion_lock);
+  return ret;
 }

@@ -34,6 +34,8 @@ typedef struct _rng_s {
   uint32_t pool[16];
   size_t pos;
   int rdrand;
+  int started;
+  uint64_t pid;
 } rng_t;
 
 /*
@@ -53,11 +55,14 @@ uint32_t
 rng_uniform(rng_t *rng, uint32_t max);
 
 /*
- * Entropy
+ * Global API
  */
 
 int
 torsion_getentropy(void *dst, size_t size);
+
+int
+torsion_getrandom(void *dst, size_t size);
 
 #ifdef __cplusplus
 }
