@@ -37,14 +37,24 @@ AS_CASE([$host_cpu],
   [*], [has_64bit=no])
 AC_MSG_RESULT([$has_64bit])
 
-AC_MSG_CHECKING(for x86_64 asm)
+AC_MSG_CHECKING(for x86_64 asm with sse)
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <stdint.h>]],[[
   uint64_t u = 2, v = 3, w0, w1;
+  uint32_t stream[8], state[8];
   __asm__ __volatile__(
     "mulq %q3\n"
     : "=a" (w0), "=d" (w1)
-    : "%0" ((uint64_t)(u)),
-      "rm" ((uint64_t)(v))
+    : "%0" (u), "rm" (v)
+  );
+  __asm__ __volatile__(
+    "movups (%%rsi), %%xmm0\n"
+    "movups 16(%%rsi), %%xmm1\n"
+    "pxor %%xmm1, %%xmm0\n"
+    "movups %%xmm0,(%%rdi)\n"
+    "movups %%xmm1,16(%%rdi)\n"
+    :
+    : "D" (stream), "S" (state)
+    : "xmm0", "xmm1", "cc", "memory"
   );
 ]])],[has_asm=yes],[has_asm=no])
 AC_MSG_RESULT([$has_asm])
