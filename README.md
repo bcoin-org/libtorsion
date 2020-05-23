@@ -57,7 +57,6 @@ int main(void) {
   unsigned char pub[33];
   unsigned char sig[64];
   sha256_t hash;
-  size_t i;
 
   assert(ec != NULL);
 
