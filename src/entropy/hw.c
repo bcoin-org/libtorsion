@@ -141,7 +141,7 @@ torsion_rdtsc(void) {
 
   return time;
 #elif defined(__EMSCRIPTEN__)
-  double sec, nsec;
+  uint32_t sec, nsec;
 
   int ret = EM_ASM_INT({
     try {
@@ -149,8 +149,8 @@ torsion_rdtsc(void) {
           && typeof process.hrtime === 'function') {
         var times = process.hrtime();
 
-        HEAPF64[$0 >>> 3] = times[0];
-        HEAPF64[$1 >>> 3] = times[1];
+        HEAPU32[$0 >>> 2] = times[0];
+        HEAPU32[$1 >>> 2] = times[1];
 
         return 1;
       }
@@ -158,8 +158,8 @@ torsion_rdtsc(void) {
       var now = Date.now ? Date.now() : +new Date();
       var ms = now % 1000;
 
-      HEAPF64[$0 >>> 3] = (now - ms) / 1000;
-      HEAPF64[$1 >>> 3] = ms * 1e6;
+      HEAPU32[$0 >>> 2] = (now - ms) / 1000;
+      HEAPU32[$1 >>> 2] = ms * 1e6;
 
       return 1;
     } catch (e) {
