@@ -12,7 +12,6 @@ include_HEADERS = include/torsion/aead.h \
                   include/torsion/hash.h \
                   include/torsion/kdf.h \
                   include/torsion/poly1305.h \
-                  include/torsion/rand.h \
                   include/torsion/rsa.h \
                   include/torsion/salsa20.h \
                   include/torsion/secretbox.h \
@@ -21,7 +20,6 @@ include_HEADERS = include/torsion/aead.h \
 
 noinst_HEADERS = src/asn1.h \
                  src/bio.h \
-                 src/entropy/entropy.h \
                  src/fields/libsecp256k1_32.h \
                  src/fields/libsecp256k1_64.h \
                  src/fields/p192_32.h \
@@ -56,6 +54,11 @@ noinst_HEADERS = src/asn1.h \
                  src/mpi.h \
                  src/subgroups.h
 
+if ENABLE_RNG
+include_HEADERS += include/torsion/rand.h
+noinst_HEADERS += src/entropy/entropy.h
+endif
+
 CLEANFILES =
 
 lib_LTLIBRARIES = libtorsion.la
@@ -67,9 +70,6 @@ libtorsion_la_SOURCES = src/aead.c \
                         src/cipher.c \
                         src/ecc.c \
                         src/encoding.c \
-                        src/entropy/env.c \
-                        src/entropy/hw.c \
-                        src/entropy/sys.c \
                         src/drbg.c \
                         src/dsa.c \
                         src/hash.c \
@@ -77,12 +77,18 @@ libtorsion_la_SOURCES = src/aead.c \
                         src/kdf.c \
                         src/mpi.c \
                         src/poly1305.c \
-                        src/rand.c \
                         src/rsa.c \
                         src/salsa20.c \
                         src/secretbox.c \
                         src/siphash.c \
                         src/util.c
+
+if ENABLE_RNG
+libtorsion_la_SOURCES += src/entropy/env.c
+libtorsion_la_SOURCES += src/entropy/hw.c
+libtorsion_la_SOURCES += src/entropy/sys.c
+libtorsion_la_SOURCES += src/rand.c
+endif
 
 EXTRA_DIST = LICENSE \
              README.md

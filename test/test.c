@@ -13,7 +13,9 @@
 #include <torsion/hash.h>
 #include <torsion/kdf.h>
 #include <torsion/poly1305.h>
+#ifdef TORSION_HAS_RNG
 #include <torsion/rand.h>
+#endif
 #include <torsion/rsa.h>
 #include <torsion/salsa20.h>
 #include <torsion/siphash.h>
@@ -47,14 +49,16 @@ static void
 random_init(drbg_t *rng) {
   unsigned char entropy[ENTROPY_SIZE];
 
-  if (!torsion_getentropy(entropy, ENTROPY_SIZE)) {
+#ifdef TORSION_HAS_RNG
+  ASSERT(torsion_getentropy(entropy, ENTROPY_SIZE));
+#else
+  {
     size_t i;
 
     for (i = 0; i < ENTROPY_SIZE; i++)
       entropy[i] = (unsigned char)rand();
-
-    printf("Warning: torsion_getentropy failed.\n");
   }
+#endif
 
   drbg_init(rng, HASH_SHA256, entropy, ENTROPY_SIZE);
 }

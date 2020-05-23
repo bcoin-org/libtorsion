@@ -70,6 +70,11 @@ AC_ARG_ENABLE(crt,
   [enable_crt=$enableval],
   [enable_crt=no])
 
+AC_ARG_ENABLE(rng,
+  AS_HELP_STRING([--enable-rng],[enable rng [default=no]]),
+  [enable_rng=$enableval],
+  [enable_rng=no])
+
 AC_ARG_ENABLE(tests,
   AS_HELP_STRING([--enable-tests],[enable tests [default=no]]),
   [enable_tests=$enableval],
@@ -133,6 +138,10 @@ if test x"$enable_crt" = x"yes"; then
   AC_DEFINE(TORSION_RSA_USE_CRT, 1, [Define to enable RSA CRT])
 fi
 
+if test x"$enable_rng" = x"yes"; then
+  AC_DEFINE(TORSION_HAS_RNG, 1, [Define to notify tests of RNG support])
+fi
+
 if test x"$enable_tests" = x"yes"; then
   AC_DEFINE(TORSION_TEST, 1, [Define to enable internal tests])
 fi
@@ -144,6 +153,7 @@ if test x"$enable_verify" = x"yes"; then
   AC_DEFINE(TORSION_VERIFY, 1, [Define to enable scalar bounds checks])
 fi
 
+AM_CONDITIONAL([ENABLE_RNG], [test x"$enable_rng" = x"yes"])
 AM_CONDITIONAL([ENABLE_TESTS], [test x"$enable_tests" = x"yes"])
 
 m4_ifdef([AM_PROG_AR], [AM_PROG_AR])
@@ -161,6 +171,7 @@ echo "  asm          = $use_asm"
 echo "  assert       = $enable_assert"
 echo "  libsecp256k1 = $enable_libsecp256k1"
 echo "  crt          = $enable_crt"
+echo "  rng          = $enable_rng"
 echo "  tests        = $enable_tests"
 echo "  verify       = $enable_verify"
 echo ""
