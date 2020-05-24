@@ -130,6 +130,8 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <stdint.h>]],[[
 ]])],[has_sse2=yes],[has_sse2=no])
 AC_MSG_RESULT([$has_sse2])
 
+AC_CHECK_HEADER([valgrind/memcheck.h], [has_valgrind=yes], [has_valgrind=no], [])
+
 AC_ARG_WITH([64bit], [AS_HELP_STRING([--with-64bit=yes|no|auto],
 [enable to use 64 bit backends [default=auto]])],[use_64bit=$withval], [use_64bit=auto])
 
@@ -145,6 +147,11 @@ AC_ARG_ENABLE(crt,
   AS_HELP_STRING([--enable-crt],[enable chinese remainder theorem for RSA [default=no]]),
   [enable_crt=$enableval],
   [enable_crt=no])
+
+AC_ARG_ENABLE(ctime,
+  AS_HELP_STRING([--enable-ctime],[enable valgrind constant-time test [default=no]]),
+  [enable_ctime=$enableval],
+  [enable_ctime=no])
 
 AC_ARG_ENABLE(libsecp256k1,
   AS_HELP_STRING([--enable-libsecp256k1],[enable libsecp256k1 field element backend [default=no]]),
@@ -182,6 +189,12 @@ if test x"$use_asm" = x"auto"; then
   fi
 fi
 
+if test x"$enable_ctime" = x"yes"; then
+  enable_assert=no
+  enable_verify=no
+  enable_tests=yes
+fi
+
 AC_DEFINE(TORSION_HAVE_CONFIG, 1, [Define to pass in config])
 
 if test x"$use_64bit" = x"yes"; then
@@ -214,6 +227,13 @@ fi
 
 if test x"$enable_crt" = x"yes"; then
   AC_DEFINE(TORSION_USE_CRT, 1, [Define to enable RSA CRT])
+fi
+
+if test x"$enable_ctime" = x"yes"; then
+  if test x"$has_valgrind" != x"yes"; then
+    AC_MSG_ERROR([valgrind must be installed for constant time test])
+  fi
+  AC_DEFINE(TORSION_VALGRIND, 1, [Define to make the ECC code valgrind-aware])
 fi
 
 if test x"$has_int128" = x"yes"; then
@@ -249,6 +269,7 @@ fi
 
 AM_CONDITIONAL([ENABLE_RNG], [test x"$enable_rng" = x"yes"])
 AM_CONDITIONAL([ENABLE_TESTS], [test x"$enable_tests" = x"yes"])
+AM_CONDITIONAL([ENABLE_CTIME], [test x"$enable_ctime" = x"yes"])
 
 m4_ifdef([AM_PROG_AR], [AM_PROG_AR])
 AC_PROG_LIBTOOL
@@ -265,6 +286,7 @@ echo "  asm          = $use_asm"
 echo "  assert       = $enable_assert"
 echo "  big endian   = $ac_cv_c_bigendian"
 echo "  crt          = $enable_crt"
+echo "  ctime        = $enable_ctime"
 echo "  int128       = $has_int128"
 echo "  libsecp256k1 = $enable_libsecp256k1"
 echo "  modeti       = $has_modeti"

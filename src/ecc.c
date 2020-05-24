@@ -144,6 +144,9 @@
 #ifdef TORSION_TEST
 #include <stdio.h>
 #endif
+#ifdef TORSION_VALGRIND
+#include <valgrind/memcheck.h>
+#endif
 #include <torsion/drbg.h>
 #include <torsion/ecc.h>
 #include <torsion/hash.h>
@@ -9556,6 +9559,10 @@ ecdsa_sign(const wei_t *ec,
     ok &= sc_is_zero(sc, k) ^ 1;
     ok &= wge_is_zero(ec, &R) ^ 1;
     ok &= sc_is_zero(sc, r) ^ 1;
+
+#ifdef TORSION_VALGRIND
+    VALGRIND_MAKE_MEM_DEFINED(&ok, sizeof(ok));
+#endif
   } while (!ok);
 
   ASSERT(sc_invert(sc, k, k));

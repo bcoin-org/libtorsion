@@ -97,9 +97,14 @@ if ENABLE_TESTS
 TESTS = tests
 noinst_PROGRAMS = tests
 tests_CFLAGS = @CFLAGS@
-tests_LDFLAGS =
+tests_LDFLAGS = -static
 tests_SOURCES = test/test.c
 tests_LDADD = libtorsion.la
+if ENABLE_CTIME
+noinst_PROGRAMS += ctime-test
+ctime_test_SOURCES = test/ctime-test.c
+ctime_test_LDADD = libtorsion.la
+endif
 else
 TESTS =
 endif
