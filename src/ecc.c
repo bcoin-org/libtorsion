@@ -163,7 +163,7 @@
 #include "fields/p448.h"
 #include "fields/p251.h"
 
-#ifdef TORSION_USE_64BIT
+#if defined(TORSION_HAVE_64BIT) && defined(TORSION_HAVE_INT128)
 typedef uint64_t fe_word_t;
 #define FIELD_WORD_BITS 64
 #define MAX_FIELD_WORDS 9
@@ -638,7 +638,7 @@ checked_malloc(size_t size) {
   void *ptr = malloc(size);
 
   if (ptr == NULL)
-    torsion_die("libtorsion: allocation failed.");
+    torsion_die("checked_malloc: allocation failed.");
 
   return ptr;
 }

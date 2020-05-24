@@ -13,7 +13,7 @@
 #include <torsion/hash.h>
 #include <torsion/kdf.h>
 #include <torsion/poly1305.h>
-#ifdef TORSION_HAS_RNG
+#ifdef TORSION_HAVE_RNG
 #include <torsion/rand.h>
 #endif
 #include <torsion/rsa.h>
@@ -49,7 +49,7 @@ static void
 random_init(drbg_t *rng) {
   unsigned char entropy[ENTROPY_SIZE];
 
-#ifdef TORSION_HAS_RNG
+#ifdef TORSION_HAVE_RNG
   ASSERT(torsion_getentropy(entropy, ENTROPY_SIZE));
 #else
   {
