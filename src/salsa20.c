@@ -95,7 +95,7 @@ salsa20_init(salsa20_t *ctx,
 static void
 salsa20_block(salsa20_t *ctx) {
   uint32_t *stream = ctx->stream.ints;
-#if defined(TORSION_HAVE_ASM_X64) && defined(TORSION_HAVE_SSE2)
+#ifdef TORSION_HAVE_ASM_SSE2
   /* Borrowed from:
    * https://github.com/gnutls/nettle/blob/master/x86_64/salsa20-core-internal.asm
    *

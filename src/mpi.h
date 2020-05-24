@@ -192,7 +192,7 @@ extern "C" {
  * Types
  */
 
-#if defined(TORSION_HAVE_64BIT) && defined(TORSION_HAVE_INT128)
+#ifdef TORSION_HAVE_INT128
 typedef uint64_t mp_limb_t;
 typedef int64_t mp_long_t;
 typedef torsion_uint128_t mp_wide_t;

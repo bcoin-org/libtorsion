@@ -211,7 +211,7 @@ __torsion_assert_fail(const char *file, int line, const char *expr);
    SSE2 is fairly well supported, we simply
    assume it is available on x86-64 hardware. */
 #ifdef TORSION_HAVE_ASM_X64
-#  define TORSION_HAVE_SSE2
+#  define TORSION_HAVE_ASM_SSE2
 #endif
 
 /* Allow some overrides (for testing). */
@@ -221,7 +221,7 @@ __torsion_assert_fail(const char *file, int line, const char *expr);
 #  undef TORSION_HAVE_ASM_X86
 #  undef TORSION_HAVE_ASM_X64
 #  undef TORSION_HAVE_INT128
-#  undef TORSION_HAVE_SSE2
+#  undef TORSION_HAVE_ASM_SSE2
 #endif
 
 #ifdef TORSION_NO_ASM

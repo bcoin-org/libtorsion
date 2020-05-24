@@ -253,7 +253,7 @@ if test x"$enable_rng" = x"yes"; then
 fi
 
 if test x"$has_sse2" = x"yes"; then
-  AC_DEFINE(TORSION_HAVE_SSE2, 1, [Define to enable SSE2 instructions])
+  AC_DEFINE(TORSION_HAVE_ASM_SSE2, 1, [Define to enable SSE2 instructions])
 fi
 
 if test x"$enable_tests" = x"yes"; then
