@@ -134,7 +134,6 @@ __torsion_assert_fail(const char *file, int line, const char *expr);
    || defined(_M_IA64) \
    || ((defined(__mips__) \
      || defined(__mips) \
-     || defined(__mips) \
      || defined(__MIPS__)) \
      && defined(_MIPS_SZLONG) \
      && _MIPS_SZLONG == 64) \
@@ -143,7 +142,6 @@ __torsion_assert_fail(const char *file, int line, const char *expr);
      || defined(__POWERPC__) \
      || defined(__ppc__) \
      || defined(__PPC__) \
-     || defined(_ARCH_PPC) \
      || defined(_M_PPC) \
      || defined(_ARCH_PPC)) \
      && defined(__64BIT__)) \
