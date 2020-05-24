@@ -10560,6 +10560,24 @@ schnorr_hash_init(hash_t *hash, int type, const char *tag) {
   size_t hash_size = hash_output_size(type);
   unsigned char bytes[HASH_MAX_OUTPUT_SIZE];
 
+  if (type == HASH_SHA256) {
+    sha256_t *sha = &hash->ctx.sha256;
+
+    if (strcmp(tag, "BIP340/challenge") == 0) {
+      hash->type = HASH_SHA256;
+      sha->state[0] = 0x71985ac9;
+      sha->state[1] = 0x198317a2;
+      sha->state[2] = 0x60b6e581;
+      sha->state[3] = 0x54c109b6;
+      sha->state[4] = 0x64bac2fd;
+      sha->state[5] = 0x91231de2;
+      sha->state[6] = 0x7301ebde;
+      sha->state[7] = 0x87635f83;
+      sha->size = 64;
+      return;
+    }
+  }
+
   hash_init(hash, type);
   hash_update(hash, tag, strlen(tag));
   hash_final(hash, bytes, hash_size);
