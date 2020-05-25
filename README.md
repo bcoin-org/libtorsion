@@ -58,8 +58,6 @@ int main(void) {
   unsigned char sig[64];
   sha256_t hash;
 
-  assert(ec != NULL);
-
   /* Hash our message with sha256. */
   sha256_init(&hash);
   sha256_update(&hash, str, sizeof(str) - 1);

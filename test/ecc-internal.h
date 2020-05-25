@@ -1,3 +1,9 @@
+/*!
+ * ecc-internal.h - ecc internal tests for libtorsion
+ * Copyright (c) 2020, Christopher Jeffrey (MIT License).
+ * https://github.com/bcoin-org/libtorsion
+ */
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -7,16 +13,172 @@
 #undef ASSERT
 #define ASSERT(expr) ASSERT_ALWAYS(expr)
 
+/*
+ * Debug Helpers
+ */
+
+static size_t
+mpn_out_str(FILE *stream, int base, mp_srcptr xp, mp_size_t xn) {
+  mp_size_t bytes = 0;
+  mp_limb_t ch;
+  mp_size_t i;
+
+  ASSERT(base == 16);
+
+  if (xn < 0) {
+    fputc('-', stream);
+    xn = -xn;
+  }
+
+  xn = mpn_normalized_size(xp, xn);
+
+  if (xn == 0) {
+    fputc('0', stream);
+    return 1;
+  }
+
+  while (xn--) {
+    i = MP_LIMB_BITS / 4;
+
+    while (i--) {
+      ch = (xp[xn] >> (i * 4)) & 0x0f;
+
+      if (bytes == 0 && ch == 0)
+        continue;
+
+      if (ch < 0x0a)
+        ch += '0';
+      else
+        ch += 'a' - 0x0a;
+
+      fputc(ch, stream);
+
+      bytes += 1;
+    }
+  }
+
+  return bytes;
+}
+
+TORSION_UNUSED static size_t
+mpz_out_str(FILE *stream, int base, const mpz_t x) {
+  return mpn_out_str(stream, base, x->_mp_d, x->_mp_size);
+}
+
+TORSION_UNUSED static void
+sc_print(const scalar_field_t *sc, const sc_t a) {
+  mpn_out_str(stdout, 16, a, sc->limbs);
+  printf("\n");
+}
+
+static void
+fe_out_str(const prime_field_t *fe, const fe_t a) {
+  mp_limb_t xp[MAX_FIELD_LIMBS];
+
+  fe_get_limbs(fe, xp, a);
+
+  mpn_out_str(stdout, 16, xp, fe->limbs);
+}
+
+TORSION_UNUSED static void
+fe_print(const prime_field_t *fe, const fe_t a) {
+  fe_out_str(fe, a);
+  printf("\n");
+}
+
+TORSION_UNUSED static void
+wge_print(const wei_t *ec, const wge_t *p) {
+  const prime_field_t *fe = &ec->fe;
+
+  if (wge_is_zero(ec, p)) {
+    printf("(infinity)\n");
+  } else {
+    printf("(");
+    fe_out_str(fe, p->x);
+    printf(", ");
+    fe_out_str(fe, p->y);
+    printf(")\n");
+  }
+}
+
+TORSION_UNUSED static void
+jge_print(const wei_t *ec, const jge_t *p) {
+  const prime_field_t *fe = &ec->fe;
+
+  if (jge_is_zero(ec, p)) {
+    printf("(infinity)\n");
+  } else {
+    printf("(");
+    fe_out_str(fe, p->x);
+    printf(", ");
+    fe_out_str(fe, p->y);
+    printf(", ");
+    fe_out_str(fe, p->z);
+    printf(")\n");
+  }
+}
+
+TORSION_UNUSED static void
+mge_print(const mont_t *ec, const mge_t *p) {
+  const prime_field_t *fe = &ec->fe;
+
+  if (mge_is_zero(ec, p)) {
+    printf("(infinity)\n");
+  } else {
+    printf("(");
+    fe_out_str(fe, p->x);
+    printf(", ");
+    fe_out_str(fe, p->y);
+    printf(")\n");
+  }
+}
+
+TORSION_UNUSED static void
+pge_print(const mont_t *ec, const pge_t *p) {
+  const prime_field_t *fe = &ec->fe;
+
+  if (pge_is_zero(ec, p)) {
+    printf("(infinity)\n");
+  } else {
+    printf("(");
+    fe_out_str(fe, p->x);
+    printf(", ");
+    fe_out_str(fe, p->z);
+    printf(")\n");
+  }
+}
+
+TORSION_UNUSED static void
+xge_print(const edwards_t *ec, const xge_t *p) {
+  const prime_field_t *fe = &ec->fe;
+
+  if (xge_is_zero(ec, p)) {
+    printf("(infinity)\n");
+  } else {
+    printf("(");
+    fe_out_str(fe, p->x);
+    printf(", ");
+    fe_out_str(fe, p->y);
+    printf(", ");
+    fe_out_str(fe, p->z);
+    printf(")\n");
+  }
+}
+
+/*
+ * Helpers
+ */
+
 static size_t
 stupid_bit_length(uint32_t x) {
-  size_t bits = 0;
+  size_t b = 0;
 
   while (x != 0) {
-    bits += 1;
+    b += 1;
     x >>= 1;
   }
 
-  return bits;
+  return b;
 }
 
 static int
@@ -42,18 +204,15 @@ revcmp(const unsigned char *a, const unsigned char *b, size_t size) {
   return 0;
 }
 
+/*
+ * Scalar
+ */
+
 static void
 test_scalar(void) {
-  printf("Scalar sanity check.\n");
+  printf("  - Scalar sanity check.\n");
 
   {
-    wei_t curve;
-    wei_t *ec = &curve;
-    scalar_field_t *sc = &ec->sc;
-    mp_limb_t r[MAX_SCALAR_LIMBS];
-    mp_limb_t t[MAX_REDUCE_LIMBS];
-    unsigned char raw[MAX_SCALAR_SIZE];
-
     const unsigned char expect1[32] = {
       0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
       0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -68,7 +227,11 @@ test_scalar(void) {
       0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01
     };
 
-    wei_init(ec, &curve_secp256k1);
+    wei_t *ec = wei_curve_create(WEI_CURVE_SECP256K1);
+    scalar_field_t *sc = &ec->sc;
+    mp_limb_t r[MAX_SCALAR_LIMBS];
+    mp_limb_t t[MAX_REDUCE_LIMBS];
+    unsigned char raw[MAX_SCALAR_SIZE];
 
     memcpy(raw, sc->raw, sc->size);
 
@@ -82,17 +245,21 @@ test_scalar(void) {
     ASSERT(sc_is_zero(sc, r));
 
     raw[sc->size - 1] -= 1;
+
     ASSERT(sc_import(sc, r, raw));
 
     raw[sc->size - 1] += 1;
+
     ASSERT(!sc_import(sc, r, raw));
 
     raw[sc->size - 1] += 1;
+
     ASSERT(!sc_import(sc, r, raw));
 
     memcpy(raw, sc->raw, sc->size);
 
     ASSERT(!sc_import_reduce(sc, r, raw));
+
     sc_export(sc, raw, r);
 
     ASSERT(memcmp(raw, expect1, 32) == 0);
@@ -100,20 +267,17 @@ test_scalar(void) {
     memcpy(raw, sc->raw, sc->size);
 
     raw[sc->size - 1] += 1;
+
     ASSERT(!sc_import_reduce(sc, r, raw));
+
     sc_export(sc, raw, r);
 
     ASSERT(memcmp(raw, expect2, 32) == 0);
+
+    wei_curve_destroy(ec);
   }
 
   {
-    edwards_t curve;
-    edwards_t *ec = &curve;
-    scalar_field_t *sc = &ec->sc;
-    mp_limb_t r[MAX_SCALAR_LIMBS];
-    mp_limb_t t[MAX_REDUCE_LIMBS];
-    unsigned char raw[MAX_SCALAR_SIZE];
-
     const unsigned char expect1[32] = {
       0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
       0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -128,7 +292,11 @@ test_scalar(void) {
       0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
     };
 
-    edwards_init(ec, &curve_ed25519);
+    edwards_t *ec = edwards_curve_create(EDWARDS_CURVE_ED25519);
+    scalar_field_t *sc = &ec->sc;
+    mp_limb_t r[MAX_SCALAR_LIMBS];
+    mp_limb_t t[MAX_REDUCE_LIMBS];
+    unsigned char raw[MAX_SCALAR_SIZE];
 
     memcpy(raw, sc->raw, sc->size);
 
@@ -140,21 +308,27 @@ test_scalar(void) {
     sc_reduce(sc, r, t);
 
     ASSERT(sc_is_zero(sc, r));
+
     sc_neg(sc, r, r);
+
     ASSERT(sc_is_zero(sc, r));
 
     raw[0] -= 1;
+
     ASSERT(sc_import(sc, r, raw));
 
     raw[0] += 1;
+
     ASSERT(!sc_import(sc, r, raw));
 
     raw[0] += 1;
+
     ASSERT(!sc_import(sc, r, raw));
 
     memcpy(raw, sc->raw, sc->size);
 
     ASSERT(!sc_import_reduce(sc, r, raw));
+
     sc_export(sc, raw, r);
 
     ASSERT(memcmp(raw, expect1, 32) == 0);
@@ -162,21 +336,17 @@ test_scalar(void) {
     memcpy(raw, sc->raw, sc->size);
 
     raw[0] += 1;
+
     ASSERT(!sc_import_reduce(sc, r, raw));
+
     sc_export(sc, raw, r);
 
     ASSERT(memcmp(raw, expect2, 32) == 0);
+
+    edwards_curve_destroy(ec);
   }
 
   {
-    wei_t curve;
-    wei_t *ec = &curve;
-    scalar_field_t *sc = &ec->sc;
-    mp_limb_t r[MAX_SCALAR_LIMBS];
-    unsigned char max[32];
-
-    wei_init(ec, &curve_secp256k1);
-
     const unsigned char expect[32] = {
       0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
       0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01,
@@ -184,42 +354,60 @@ test_scalar(void) {
       0x40, 0x2d, 0xa1, 0x73, 0x2f, 0xc9, 0xbe, 0xbe
     };
 
+    wei_t *ec = wei_curve_create(WEI_CURVE_SECP256K1);
+    scalar_field_t *sc = &ec->sc;
+    mp_limb_t r[MAX_SCALAR_LIMBS];
+    unsigned char max[32];
+
     memset(max, 0xff, 32);
 
     ASSERT(!sc_import_reduce(sc, r, max));
+
     sc_export(sc, max, r);
 
     ASSERT(memcmp(max, expect, 32) == 0);
+
+    wei_curve_destroy(ec);
   }
 }
 
+/*
+ * Field Element
+ */
+
 static void
 test_field_element(void) {
-  wei_t curve;
-  wei_t *ec = &curve;
+  wei_t *ec = wei_curve_create(WEI_CURVE_P256);
+  unsigned char raw[MAX_FIELD_SIZE];
   prime_field_t *fe = &ec->fe;
   fe_t t;
-  unsigned char raw[MAX_FIELD_SIZE];
 
-  printf("Field element sanity check.\n");
-
-  wei_init(ec, &curve_p256);
+  printf("  - Field element sanity check.\n");
 
   memcpy(raw, fe->raw, fe->size);
 
   raw[fe->size - 1] -= 1;
+
   ASSERT(fe_import(fe, t, raw));
 
   raw[fe->size - 1] += 1;
+
   ASSERT(!fe_import(fe, t, raw));
 
   raw[7] += 1;
+
   ASSERT(!fe_import(fe, t, raw));
+
+  wei_curve_destroy(ec);
 }
+
+/*
+ * Utils
+ */
 
 static void
 test_zero(drbg_t *rng) {
-  printf("Zero bytes sanity check.\n");
+  printf("  - Zero bytes sanity check.\n");
 
   {
     const unsigned char zero[4] = {0, 0, 0, 0};
@@ -249,7 +437,7 @@ test_zero(drbg_t *rng) {
 
 static void
 test_lt(drbg_t *rng) {
-  printf("LT sanity check.\n");
+  printf("  - LT sanity check.\n");
 
   {
     const unsigned char mod[4] = {1, 2, 3, 4};
@@ -304,7 +492,7 @@ static void
 test_bitlen(void) {
   uint32_t i;
 
-  printf("Bit length sanity check.\n");
+  printf("  - Bit length sanity check.\n");
 
   for (i = 0; i <= UINT16_MAX; i++)
     ASSERT(bit_length(i) == stupid_bit_length(i));
@@ -313,6 +501,10 @@ test_bitlen(void) {
   ASSERT(bit_length(1ul << 24) == 25);
   ASSERT(bit_length(UINT32_MAX) == 32);
 }
+
+/*
+ * ECC
+ */
 
 static void
 test_wei_points_p256(drbg_t *rng) {
@@ -340,17 +532,15 @@ test_wei_points_p256(drbg_t *rng) {
     0x6c
   };
 
-  wei_t curve;
-  wei_t *ec = &curve;
-  wge_t g, p, q, r;
+  wei_t *ec = wei_curve_create(WEI_CURVE_P256);
   jge_t jg, jp, jq, jr;
+  wge_t g, p, q, r;
+
   unsigned char entropy[ENTROPY_SIZE];
   unsigned char p_raw[33];
   size_t p_size;
 
-  printf("Testing Weierstrass group law (P256).\n");
-
-  wei_init(ec, &curve_p256);
+  printf("  - Testing Weierstrass group law (P256).\n");
 
   drbg_generate(rng, entropy, sizeof(entropy));
 
@@ -422,18 +612,12 @@ test_wei_points_p256(drbg_t *rng) {
   ASSERT(p_size == 33);
 
   ASSERT(memcmp(p_raw, g2_raw, 33) == 0);
+
+  wei_curve_destroy(ec);
 }
 
 static void
 test_wei_points_p521(drbg_t *rng) {
-  wei_t curve;
-  wei_t *ec = &curve;
-  wge_t g, p, q, r;
-  jge_t jg, jp, jq, jr;
-  unsigned char entropy[ENTROPY_SIZE];
-  unsigned char p_raw[67];
-  size_t p_size;
-
   const unsigned char g_raw[67] = {
     0x02, 0x00, 0xc6, 0x85, 0x8e, 0x06, 0xb7, 0x04,
     0x04, 0xe9, 0xcd, 0x9e, 0x3e, 0xcb, 0x66, 0x23,
@@ -470,9 +654,15 @@ test_wei_points_p521(drbg_t *rng) {
     0x37, 0xad, 0x7d
   };
 
-  printf("Testing Weierstrass group law (P521).\n");
+  wei_t *ec = wei_curve_create(WEI_CURVE_P521);
+  jge_t jg, jp, jq, jr;
+  wge_t g, p, q, r;
 
-  wei_init(ec, &curve_p521);
+  unsigned char entropy[ENTROPY_SIZE];
+  unsigned char p_raw[67];
+  size_t p_size;
+
+  printf("  - Testing Weierstrass group law (P521).\n");
 
   drbg_generate(rng, entropy, sizeof(entropy));
 
@@ -544,6 +734,8 @@ test_wei_points_p521(drbg_t *rng) {
   ASSERT(p_size == 67);
 
   ASSERT(memcmp(p_raw, g2_raw, 67) == 0);
+
+  wei_curve_destroy(ec);
 }
 
 static void
@@ -572,17 +764,15 @@ test_wei_points_secp256k1(drbg_t *rng) {
     0xf9
   };
 
-  wei_t curve;
-  wei_t *ec = &curve;
-  wge_t g, p, q, r;
+  wei_t *ec = wei_curve_create(WEI_CURVE_SECP256K1);
   jge_t jg, jp, jq, jr;
+  wge_t g, p, q, r;
+
   unsigned char entropy[ENTROPY_SIZE];
   unsigned char p_raw[33];
   size_t p_size;
 
-  printf("Testing Weierstrass group law (SECP256K1).\n");
-
-  wei_init(ec, &curve_secp256k1);
+  printf("  - Testing Weierstrass group law (SECP256K1).\n");
 
   drbg_generate(rng, entropy, sizeof(entropy));
 
@@ -654,6 +844,8 @@ test_wei_points_secp256k1(drbg_t *rng) {
   ASSERT(p_size == 33);
 
   ASSERT(memcmp(p_raw, g2_raw, 33) == 0);
+
+  wei_curve_destroy(ec);
 }
 
 static void
@@ -673,18 +865,16 @@ test_wei_mul_g_p256(drbg_t *rng) {
     0x03
   };
 
-  wei_t curve;
-  wei_t *ec = &curve;
-  sc_t k;
+  wei_t *ec = wei_curve_create(WEI_CURVE_P256);
+  scalar_field_t *sc = &ec->sc;
   wge_t q, expect;
+  sc_t k;
+
   unsigned char entropy[ENTROPY_SIZE];
   unsigned char q_raw[33];
   size_t q_size;
-  scalar_field_t *sc = &ec->sc;
 
-  printf("Testing mul_g (vector, p256).\n");
-
-  wei_init(ec, &curve_p256);
+  printf("  - Testing wei_mul_g (P256).\n");
 
   drbg_generate(rng, entropy, sizeof(entropy));
 
@@ -705,6 +895,8 @@ test_wei_mul_g_p256(drbg_t *rng) {
   ASSERT(q_size == 33);
 
   ASSERT(memcmp(q_raw, expect_raw, 33) == 0);
+
+  wei_curve_destroy(ec);
 }
 
 static void
@@ -732,18 +924,16 @@ test_wei_mul_p256(drbg_t *rng) {
     0x56
   };
 
-  wei_t curve;
-  wei_t *ec = &curve;
-  sc_t k;
+  wei_t *ec = wei_curve_create(WEI_CURVE_P256);
+  scalar_field_t *sc = &ec->sc;
   wge_t p, q, expect;
+  sc_t k;
+
   unsigned char entropy[ENTROPY_SIZE];
   unsigned char q_raw[33];
   size_t q_size;
-  scalar_field_t *sc = &ec->sc;
 
-  printf("Testing mul (vector, p256).\n");
-
-  wei_init(ec, &curve_p256);
+  printf("  - Testing wei_mul (P256).\n");
 
   drbg_generate(rng, entropy, sizeof(entropy));
 
@@ -766,6 +956,8 @@ test_wei_mul_p256(drbg_t *rng) {
   ASSERT(q_size == 33);
 
   ASSERT(memcmp(q_raw, expect_raw, 33) == 0);
+
+  wei_curve_destroy(ec);
 }
 
 static void
@@ -800,18 +992,16 @@ test_wei_double_mul_p256(drbg_t *rng) {
     0x6d
   };
 
-  wei_t curve;
-  wei_t *ec = &curve;
-  sc_t k1, k2;
+  wei_t *ec = wei_curve_create(WEI_CURVE_P256);
+  scalar_field_t *sc = &ec->sc;
   wge_t p, q, expect;
+  sc_t k1, k2;
+
   unsigned char entropy[ENTROPY_SIZE];
   unsigned char q_raw[33];
   size_t q_size;
-  scalar_field_t *sc = &ec->sc;
 
-  printf("Testing double mul (vector, p256).\n");
-
-  wei_init(ec, &curve_p256);
+  printf("  - Testing wei_mul_double_var (P256).\n");
 
   drbg_generate(rng, entropy, sizeof(entropy));
 
@@ -835,6 +1025,8 @@ test_wei_double_mul_p256(drbg_t *rng) {
   ASSERT(q_size == 33);
 
   ASSERT(memcmp(q_raw, expect_raw, 33) == 0);
+
+  wei_curve_destroy(ec);
 }
 
 static void
@@ -884,21 +1076,19 @@ test_wei_multi_mul_p256(drbg_t *rng) {
     0x79
   };
 
-  wei_t curve;
-  wei_t *ec = &curve;
-  sc_t k0, k1, k2;
-  wge_t p1, p2, q, expect;
-  unsigned char entropy[ENTROPY_SIZE];
-  unsigned char q_raw[33];
-  size_t q_size;
+  wei_t *ec = wei_curve_create(WEI_CURVE_P256);
+  wei_scratch_t *scratch = wei_scratch_create(ec, 2);
   scalar_field_t *sc = &ec->sc;
-  wei_scratch_t *scratch;
+  wge_t p1, p2, q, expect;
+  sc_t k0, k1, k2;
   wge_t points[2];
   sc_t coeffs[2];
 
-  printf("Testing multi mul (vector, p256).\n");
+  unsigned char entropy[ENTROPY_SIZE];
+  unsigned char q_raw[33];
+  size_t q_size;
 
-  wei_init(ec, &curve_p256);
+  printf("  - Testing wei_mul_multi_var (P256).\n");
 
   drbg_generate(rng, entropy, sizeof(entropy));
 
@@ -923,9 +1113,7 @@ test_wei_multi_mul_p256(drbg_t *rng) {
   sc_set(sc, coeffs[0], k1);
   sc_set(sc, coeffs[1], k2);
 
-  scratch = wei_scratch_create(ec, 2);
   wei_mul_multi_var(ec, &q, k0, points, (const sc_t *)coeffs, 2, scratch);
-  wei_scratch_destroy(ec, scratch);
 
   ASSERT(wge_equal(ec, &q, &expect));
 
@@ -933,6 +1121,9 @@ test_wei_multi_mul_p256(drbg_t *rng) {
   ASSERT(q_size == 33);
 
   ASSERT(memcmp(q_raw, expect_raw, 33) == 0);
+
+  wei_scratch_destroy(ec, scratch);
+  wei_curve_destroy(ec);
 }
 
 static void
@@ -952,18 +1143,16 @@ test_wei_mul_g_secp256k1(drbg_t *rng) {
     0x82
   };
 
-  wei_t curve;
-  wei_t *ec = &curve;
-  sc_t k;
+  wei_t *ec = wei_curve_create(WEI_CURVE_SECP256K1);
+  scalar_field_t *sc = &ec->sc;
   wge_t q, expect;
+  sc_t k;
+
   unsigned char entropy[ENTROPY_SIZE];
   unsigned char q_raw[33];
   size_t q_size;
-  scalar_field_t *sc = &ec->sc;
 
-  printf("Testing mul_g (vector, secp256k1).\n");
-
-  wei_init(ec, &curve_secp256k1);
+  printf("  - Testing wei_mul_g (SECP256K1).\n");
 
   drbg_generate(rng, entropy, sizeof(entropy));
 
@@ -984,6 +1173,8 @@ test_wei_mul_g_secp256k1(drbg_t *rng) {
   ASSERT(q_size == 33);
 
   ASSERT(memcmp(q_raw, expect_raw, 33) == 0);
+
+  wei_curve_destroy(ec);
 }
 
 static void
@@ -1011,18 +1202,16 @@ test_wei_mul_secp256k1(drbg_t *rng) {
     0xd2
   };
 
-  wei_t curve;
-  wei_t *ec = &curve;
-  sc_t k;
+  wei_t *ec = wei_curve_create(WEI_CURVE_SECP256K1);
+  scalar_field_t *sc = &ec->sc;
   wge_t p, q, expect;
+  sc_t k;
+
   unsigned char entropy[ENTROPY_SIZE];
   unsigned char q_raw[33];
   size_t q_size;
-  scalar_field_t *sc = &ec->sc;
 
-  printf("Testing mul (vector, secp256k1).\n");
-
-  wei_init(ec, &curve_secp256k1);
+  printf("  - Testing wei_mul (SECP256K1).\n");
 
   drbg_generate(rng, entropy, sizeof(entropy));
 
@@ -1045,6 +1234,8 @@ test_wei_mul_secp256k1(drbg_t *rng) {
   ASSERT(q_size == 33);
 
   ASSERT(memcmp(q_raw, expect_raw, 33) == 0);
+
+  wei_curve_destroy(ec);
 }
 
 static void
@@ -1079,18 +1270,16 @@ test_wei_double_mul_secp256k1(drbg_t *rng) {
     0x12
   };
 
-  wei_t curve;
-  wei_t *ec = &curve;
-  sc_t k1, k2;
+  wei_t *ec = wei_curve_create(WEI_CURVE_SECP256K1);
+  scalar_field_t *sc = &ec->sc;
   wge_t p, q, expect;
+  sc_t k1, k2;
+
   unsigned char entropy[ENTROPY_SIZE];
   unsigned char q_raw[33];
   size_t q_size;
-  scalar_field_t *sc = &ec->sc;
 
-  printf("Testing double mul (vector, secp256k1).\n");
-
-  wei_init(ec, &curve_secp256k1);
+  printf("  - Testing wei_mul_double_var (SECP256K1).\n");
 
   drbg_generate(rng, entropy, sizeof(entropy));
 
@@ -1114,6 +1303,8 @@ test_wei_double_mul_secp256k1(drbg_t *rng) {
   ASSERT(q_size == 33);
 
   ASSERT(memcmp(q_raw, expect_raw, 33) == 0);
+
+  wei_curve_destroy(ec);
 }
 
 static void
@@ -1163,21 +1354,19 @@ test_wei_multi_mul_secp256k1(drbg_t *rng) {
     0xd6
   };
 
-  wei_t curve;
-  wei_t *ec = &curve;
-  sc_t k0, k1, k2;
-  wge_t p1, p2, q, expect;
-  unsigned char entropy[ENTROPY_SIZE];
-  unsigned char q_raw[33];
-  size_t q_size;
+  wei_t *ec = wei_curve_create(WEI_CURVE_SECP256K1);
+  wei_scratch_t *scratch = wei_scratch_create(ec, 2);
   scalar_field_t *sc = &ec->sc;
-  wei_scratch_t *scratch;
+  wge_t p1, p2, q, expect;
+  sc_t k0, k1, k2;
   wge_t points[2];
   sc_t coeffs[2];
 
-  printf("Testing multi mul (vector, secp256k1).\n");
+  unsigned char entropy[ENTROPY_SIZE];
+  unsigned char q_raw[33];
+  size_t q_size;
 
-  wei_init(ec, &curve_secp256k1);
+  printf("  - Testing wei_mul_multi_var (SECP256K1).\n");
 
   drbg_generate(rng, entropy, sizeof(entropy));
 
@@ -1202,9 +1391,7 @@ test_wei_multi_mul_secp256k1(drbg_t *rng) {
   sc_set(sc, coeffs[0], k1);
   sc_set(sc, coeffs[1], k2);
 
-  scratch = wei_scratch_create(ec, 2);
   wei_mul_multi_var(ec, &q, k0, points, (const sc_t *)coeffs, 2, scratch);
-  wei_scratch_destroy(ec, scratch);
 
   ASSERT(wge_equal(ec, &q, &expect));
 
@@ -1212,6 +1399,9 @@ test_wei_multi_mul_secp256k1(drbg_t *rng) {
   ASSERT(q_size == 33);
 
   ASSERT(memcmp(q_raw, expect_raw, 33) == 0);
+
+  wei_scratch_destroy(ec, scratch);
+  wei_curve_destroy(ec);
 }
 
 static void
@@ -1237,15 +1427,13 @@ test_mont_points_x25519(void) {
     0xe6, 0xab, 0x57, 0x6d, 0x1a, 0xbc, 0x12, 0x1c
   };
 
-  mont_t curve;
-  mont_t *ec = &curve;
-  mge_t g, p, q, r;
+  mont_t *ec = mont_curve_create(MONT_CURVE_X25519);
   pge_t jg, jp, jq, jr;
+  mge_t g, p, q, r;
+
   unsigned char p_raw[32];
 
-  printf("Testing Montgomery group law (X25519).\n");
-
-  mont_init(ec, &curve_x25519);
+  printf("  - Testing Montgomery group law (X25519).\n");
 
   mge_set(ec, &g, &ec->g);
   mge_to_pge(ec, &jg, &ec->g);
@@ -1296,17 +1484,12 @@ test_mont_points_x25519(void) {
   ASSERT(mge_export(ec, p_raw, &p));
 
   ASSERT(memcmp(p_raw, g2_raw, 32) == 0);
+
+  mont_curve_destroy(ec);
 }
 
 static void
 test_edwards_points_ed25519(drbg_t *rng) {
-  edwards_t curve;
-  edwards_t *ec = &curve;
-  xge_t g, p, q, r;
-  xge_t jg, jp, jq, jr;
-  unsigned char entropy[ENTROPY_SIZE];
-  unsigned char p_raw[32];
-
   const unsigned char g_raw[32] = {
     0x58, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66,
     0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66,
@@ -1328,9 +1511,14 @@ test_edwards_points_ed25519(drbg_t *rng) {
     0xab, 0x69, 0xee, 0x77, 0xd1, 0xb1, 0x67, 0x12
   };
 
-  printf("Testing Edwards group law (ED25519).\n");
+  edwards_t *ec = edwards_curve_create(EDWARDS_CURVE_ED25519);
+  xge_t jg, jp, jq, jr;
+  xge_t g, p, q, r;
 
-  edwards_init(ec, &curve_ed25519);
+  unsigned char entropy[ENTROPY_SIZE];
+  unsigned char p_raw[32];
+
+  printf("  - Testing Edwards group law (ED25519).\n");
 
   drbg_generate(rng, entropy, sizeof(entropy));
 
@@ -1399,7 +1587,10 @@ test_edwards_points_ed25519(drbg_t *rng) {
   ASSERT(xge_equal(ec, &p, &q));
 
   xge_export(ec, p_raw, &p);
+
   ASSERT(memcmp(p_raw, g2_raw, 32) == 0);
+
+  edwards_curve_destroy(ec);
 }
 
 static void
@@ -1418,17 +1609,15 @@ test_edwards_mul_g_ed25519(drbg_t *rng) {
     0xcb, 0xe1, 0x07, 0x8f, 0x01, 0x21, 0xaf, 0x21
   };
 
-  edwards_t curve;
-  edwards_t *ec = &curve;
-  sc_t k;
+  edwards_t *ec = edwards_curve_create(EDWARDS_CURVE_ED25519);
+  scalar_field_t *sc = &ec->sc;
   xge_t q, expect;
+  sc_t k;
+
   unsigned char entropy[ENTROPY_SIZE];
   unsigned char q_raw[32];
-  scalar_field_t *sc = &ec->sc;
 
-  printf("Testing mul_g (vector, ed25519).\n");
-
-  edwards_init(ec, &curve_ed25519);
+  printf("  - Testing edwards_mul_g (ED25519).\n");
 
   drbg_generate(rng, entropy, sizeof(entropy));
 
@@ -1448,6 +1637,8 @@ test_edwards_mul_g_ed25519(drbg_t *rng) {
   xge_export(ec, q_raw, &q);
 
   ASSERT(memcmp(q_raw, expect_raw, 32) == 0);
+
+  edwards_curve_destroy(ec);
 }
 
 static void
@@ -1473,17 +1664,15 @@ test_edwards_mul_ed25519(drbg_t *rng) {
     0x68, 0x2a, 0xee, 0xb0, 0x12, 0xec, 0x90, 0xbe
   };
 
-  edwards_t curve;
-  edwards_t *ec = &curve;
-  sc_t k;
+  edwards_t *ec = edwards_curve_create(EDWARDS_CURVE_ED25519);
+  scalar_field_t *sc = &ec->sc;
   xge_t p, q, expect;
+  sc_t k;
+
   unsigned char entropy[ENTROPY_SIZE];
   unsigned char q_raw[32];
-  scalar_field_t *sc = &ec->sc;
 
-  printf("Testing mul (vector, ed25519).\n");
-
-  edwards_init(ec, &curve_ed25519);
+  printf("  - Testing edwards_mul (ED25519).\n");
 
   drbg_generate(rng, entropy, sizeof(entropy));
 
@@ -1505,6 +1694,8 @@ test_edwards_mul_ed25519(drbg_t *rng) {
   xge_export(ec, q_raw, &q);
 
   ASSERT(memcmp(q_raw, expect_raw, 32) == 0);
+
+  edwards_curve_destroy(ec);
 }
 
 static void
@@ -1537,17 +1728,15 @@ test_edwards_double_mul_ed25519(drbg_t *rng) {
     0xf9, 0xc3, 0x7b, 0xb1, 0x26, 0xa3, 0x7f, 0x50
   };
 
-  edwards_t curve;
-  edwards_t *ec = &curve;
-  sc_t k1, k2;
+  edwards_t *ec = edwards_curve_create(EDWARDS_CURVE_ED25519);
+  scalar_field_t *sc = &ec->sc;
   xge_t p, q, expect;
+  sc_t k1, k2;
+
   unsigned char entropy[ENTROPY_SIZE];
   unsigned char q_raw[32];
-  scalar_field_t *sc = &ec->sc;
 
-  printf("Testing double mul (vector, ed25519).\n");
-
-  edwards_init(ec, &curve_ed25519);
+  printf("  - Testing edwards_mul_double_var (ED25519).\n");
 
   drbg_generate(rng, entropy, sizeof(entropy));
 
@@ -1570,6 +1759,8 @@ test_edwards_double_mul_ed25519(drbg_t *rng) {
   xge_export(ec, q_raw, &q);
 
   ASSERT(memcmp(q_raw, expect_raw, 32) == 0);
+
+  edwards_curve_destroy(ec);
 }
 
 static void
@@ -1616,20 +1807,18 @@ test_edwards_multi_mul_ed25519(drbg_t *rng) {
     0x36, 0x1d, 0x25, 0xea, 0x2a, 0xd5, 0x48, 0x86
   };
 
-  edwards_t curve;
-  edwards_t *ec = &curve;
-  sc_t k0, k1, k2;
-  xge_t p1, p2, q, expect;
-  unsigned char entropy[ENTROPY_SIZE];
-  unsigned char q_raw[32];
+  edwards_t *ec = edwards_curve_create(EDWARDS_CURVE_ED25519);
+  edwards_scratch_t *scratch = edwards_scratch_create(ec, 2);
   scalar_field_t *sc = &ec->sc;
-  edwards_scratch_t *scratch;
+  xge_t p1, p2, q, expect;
+  sc_t k0, k1, k2;
   xge_t points[2];
   sc_t coeffs[2];
 
-  printf("Testing multi mul (vector).\n");
+  unsigned char entropy[ENTROPY_SIZE];
+  unsigned char q_raw[32];
 
-  edwards_init(ec, &curve_ed25519);
+  printf("  - Testing edwards_mul_multi_var (ED25519).\n");
 
   drbg_generate(rng, entropy, sizeof(entropy));
 
@@ -1654,24 +1843,34 @@ test_edwards_multi_mul_ed25519(drbg_t *rng) {
   sc_set(sc, coeffs[0], k1);
   sc_set(sc, coeffs[1], k2);
 
-  scratch = edwards_scratch_create(ec, 2);
   edwards_mul_multi_var(ec, &q, k0, points, (const sc_t *)coeffs, 2, scratch);
-  edwards_scratch_destroy(ec, scratch);
 
   ASSERT(xge_equal(ec, &q, &expect));
 
   xge_export(ec, q_raw, &q);
 
   ASSERT(memcmp(q_raw, expect_raw, 32) == 0);
+
+  edwards_scratch_destroy(ec, scratch);
+  edwards_curve_destroy(ec);
 }
 
 void
 test_ecc_internal(drbg_t *rng) {
+  printf("Testing internal ECC functions...\n");
+
+  /* Scalar */
   test_scalar();
+
+  /* Field Element */
   test_field_element();
+
+  /* Utils */
   test_zero(rng);
   test_lt(rng);
   test_bitlen();
+
+  /* ECC */
   test_wei_points_p256(rng);
   test_wei_points_p521(rng);
   test_wei_points_secp256k1(rng);
