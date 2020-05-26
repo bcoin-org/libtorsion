@@ -25,6 +25,12 @@
  *   Run with:
  *
  *     $ libtool --mode=execute valgrind ./ctime-test
+ *
+ *   Or (with cmake):
+ *
+ *    $ cmake -D TORSION_ENABLE_CTIME=ON .
+ *    $ make
+ *    $ valgrind ./ctime-test
  */
 
 #include <limits.h>

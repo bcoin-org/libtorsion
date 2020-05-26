@@ -148,7 +148,6 @@ fi
 if test x"$enable_ctime" = x"yes"; then
   enable_assert=no
   enable_verify=no
-  enable_tests=yes
 fi
 
 AC_DEFINE(TORSION_HAVE_CONFIG, 1, [Define to pass in config])

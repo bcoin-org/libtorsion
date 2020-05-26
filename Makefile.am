@@ -90,23 +90,24 @@ libtorsion_la_SOURCES += src/entropy/sys.c
 libtorsion_la_SOURCES += src/rand.c
 endif
 
-EXTRA_DIST = LICENSE \
-             README.md
+EXTRA_DIST = LICENSE README.md
+
+TESTS =
+noinst_PROGRAMS =
 
 if ENABLE_TESTS
-TESTS = tests
-noinst_PROGRAMS = tests
+TESTS += tests
+noinst_PROGRAMS += tests
 tests_CFLAGS = @CFLAGS@
 tests_LDFLAGS = -static
 tests_SOURCES = test/test.c test/hrtime.c
 tests_LDADD = libtorsion.la
+endif
+
 if ENABLE_CTIME
 noinst_PROGRAMS += ctime-test
 ctime_test_SOURCES = test/ctime-test.c
 ctime_test_LDADD = libtorsion.la
-endif
-else
-TESTS =
 endif
 
 pkgconfigdir = $(libdir)/pkgconfig

@@ -5,7 +5,7 @@ includedir=@includedir@
 
 Name: libtorsion
 Version: @PACKAGE_VERSION@
-Description: Crypto library in C.
+Description: C crypto library.
 URL: https://github.com/bcoin-org/libtorsion
 
 Libs: -L${libdir} -ltorsion @LIBS@
