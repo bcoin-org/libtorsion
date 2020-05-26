@@ -4,13 +4,12 @@
  * https://github.com/bcoin-org/libtorsion
  */
 
-#include <float.h>
+#include <limits.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <string.h>
-#include <stdint.h>
-#include <limits.h>
-#include <sys/time.h>
+
 #include <torsion/aead.h>
 #include <torsion/chacha20.h>
 #include <torsion/drbg.h>
@@ -28,7 +27,9 @@
 #include <torsion/secretbox.h>
 #include <torsion/siphash.h>
 #include <torsion/util.h>
+
 #include "../src/internal.h"
+
 #include "data/aead-vectors.h"
 #include "data/chacha20-vectors.h"
 #include "data/hash-drbg-vectors.h"
@@ -3512,27 +3513,25 @@ test_murmur3(void) {
  * Benchmarks
  */
 
+typedef uint64_t bench_t;
+
+uint64_t torsion_hrtime(void);
+
 static void
-bench_start(struct timeval *start) {
-  gettimeofday(start, NULL);
+bench_start(bench_t *start, const char *name) {
+  printf("Benchmarking %s...\n", name);
+  *start = torsion_hrtime();
 }
 
 static void
-bench_end(struct timeval *start, size_t ops) {
-  struct timeval end;
-  uint64_t usec;
-  double sec;
+bench_end(bench_t *start, uint64_t ops) {
+  bench_t nsec = torsion_hrtime() - *start;
+  double sec = (double)nsec / 1000000000.0;
 
-  gettimeofday(&end, NULL);
-
-  usec = (uint64_t)(end.tv_sec - start->tv_sec) * 1000000
-       + (uint64_t)(end.tv_usec - start->tv_usec);
-
-  sec = (double)usec / 1000000.0;
-
-  printf("  Ops: %lu\n", ops);
-  printf("  Sec: %f\n", sec);
-  printf("  Ops/Sec: %f\n", (double)ops / sec);
+  printf("  Operations:  %lu\n", ops);
+  printf("  Nanoseconds: %lu\n", nsec);
+  printf("  Seconds:     %f\n", sec);
+  printf("  Ops/Sec:     %f\n", (double)ops / sec);
 }
 
 static void
@@ -3541,14 +3540,12 @@ bench_ecdsa_pubkey_create(drbg_t *rng) {
   unsigned char pub[33];
   size_t pub_len;
   unsigned char bytes[32];
-  struct timeval tv;
+  bench_t tv;
   size_t i;
-
-  printf("Benchmarking ecdsa_pubkey_create...\n");
 
   drbg_generate(rng, bytes, 32);
 
-  bench_start(&tv);
+  bench_start(&tv, "ecdsa_pubkey_create");
 
   for (i = 0; i < 10000; i++)
     ASSERT(ecdsa_pubkey_create(ec, pub, &pub_len, bytes, 1));
@@ -3566,17 +3563,15 @@ bench_ecdsa_derive(drbg_t *rng) {
   unsigned char p0[65];
   unsigned char p1[33];
   size_t p0_len, p1_len;
-  struct timeval tv;
+  bench_t tv;
   size_t i;
-
-  printf("Benchmarking ecdsa_derive...\n");
 
   drbg_generate(rng, k0, 32);
   drbg_generate(rng, k1, 32);
 
   ASSERT(ecdsa_pubkey_create(ec, p0, &p0_len, k0, 0));
 
-  bench_start(&tv);
+  bench_start(&tv, "ecdsa_derive");
 
   for (i = 0; i < 10000; i++)
     ASSERT(ecdsa_derive(ec, p1, &p1_len, p0, p0_len, k1, 1));
@@ -3594,10 +3589,8 @@ bench_ecdsa(drbg_t *rng) {
   unsigned char msg[32];
   unsigned char sig[64];
   unsigned char pub[33];
-  struct timeval tv;
+  bench_t tv;
   size_t i;
-
-  printf("Benchmarking ECDSA...\n");
 
   drbg_generate(rng, entropy, sizeof(entropy));
   drbg_generate(rng, priv, sizeof(priv));
@@ -3610,18 +3603,14 @@ bench_ecdsa(drbg_t *rng) {
   ASSERT(ecdsa_sign(ec, sig, NULL, msg, 32, priv));
   ASSERT(ecdsa_pubkey_create(ec, pub, NULL, priv, 1));
 
-  printf("Benchmarking verify...\n");
-
-  bench_start(&tv);
+  bench_start(&tv, "ecdsa_verify");
 
   for (i = 0; i < 10000; i++)
     ASSERT(ecdsa_verify(ec, msg, 32, sig, pub, 33));
 
   bench_end(&tv, i);
 
-  printf("Benchmarking sign...\n");
-
-  bench_start(&tv);
+  bench_start(&tv, "ecdsa_sign");
 
   for (i = 0; i < 10000; i++)
     ASSERT(ecdsa_sign(ec, sig, NULL, msg, 32, priv));
@@ -3637,16 +3626,14 @@ bench_ecdh(drbg_t *rng) {
   unsigned char priv[MONT_MAX_SCALAR_SIZE];
   unsigned char pub[MONT_MAX_FIELD_SIZE];
   unsigned char secret[MONT_MAX_FIELD_SIZE];
-  struct timeval tv;
+  bench_t tv;
   size_t i;
-
-  printf("Benchmarking ECDH...\n");
 
   drbg_generate(rng, priv, sizeof(priv));
 
   ecdh_pubkey_create(ec, pub, priv);
 
-  bench_start(&tv);
+  bench_start(&tv, "ecdh_derive");
 
   for (i = 0; i < 10000; i++)
     ASSERT(ecdh_derive(ec, secret, pub, priv));
@@ -3664,10 +3651,8 @@ bench_eddsa(drbg_t *rng) {
   unsigned char msg[32];
   unsigned char sig[64];
   unsigned char pub[32];
-  struct timeval tv;
+  bench_t tv;
   size_t i;
-
-  printf("Benchmarking EdDSA...\n");
 
   drbg_generate(rng, entropy, sizeof(entropy));
   drbg_generate(rng, priv, sizeof(priv));
@@ -3678,7 +3663,7 @@ bench_eddsa(drbg_t *rng) {
   eddsa_sign(ec, sig, msg, 32, priv, -1, NULL, 0);
   eddsa_pubkey_create(ec, pub, priv);
 
-  bench_start(&tv);
+  bench_start(&tv, "eddsa_verify");
 
   for (i = 0; i < 10000; i++)
     ASSERT(eddsa_verify(ec, msg, 32, sig, pub, -1, NULL, 0));
@@ -3691,15 +3676,13 @@ bench_eddsa(drbg_t *rng) {
 static void
 bench_hash(drbg_t *rng) {
   unsigned char chain[32];
-  struct timeval tv;
+  bench_t tv;
   hash_t hash;
   size_t i;
 
   drbg_generate(rng, chain, sizeof(chain));
 
-  printf("Benchmarking hash...\n");
-
-  bench_start(&tv);
+  bench_start(&tv, "hash");
 
   for (i = 0; i < 10000000; i++) {
     hash_init(&hash, HASH_SHA256);
@@ -3713,15 +3696,13 @@ bench_hash(drbg_t *rng) {
 static void
 bench_sha256(drbg_t *rng) {
   unsigned char chain[32];
-  struct timeval tv;
+  bench_t tv;
   sha256_t sha;
   size_t i;
 
   drbg_generate(rng, chain, sizeof(chain));
 
-  printf("Benchmarking SHA256...\n");
-
-  bench_start(&tv);
+  bench_start(&tv, "sha256");
 
   for (i = 0; i < 10000000; i++) {
     sha256_init(&sha);
