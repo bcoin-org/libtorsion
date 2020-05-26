@@ -30,11 +30,11 @@ torsion_hrtime(void) {
     if (QueryPerformanceFrequency(&fequency))
       interval = 1.0 / fequency.QuadPart;
     else
-      interval= 0;
+      interval = 0;
   }
 
   if (!QueryPerformanceCounter(&counter))
-    return 0;
+    abort();
 
   return (uint64_t)((double)counter.QuadPart * interval * 1000000000);
 }
