@@ -5,11 +5,11 @@ cd `dirname "$0"`
 set -ex
 
 if test x"`uname`" = x"Darwin" && type glibtoolize > /dev/null 2>& 1; then
-  glibtoolize --copy
+  glibtoolize --copy --force
 else
-  libtoolize --copy
+  libtoolize --copy --force
 fi
 
-aclocal -I m4
-autoconf
-automake --add-missing --copy
+aclocal --force -I m4
+autoconf --force
+automake --add-missing --copy --force-missing

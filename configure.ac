@@ -6,6 +6,7 @@ AC_CONFIG_SRCDIR([include/torsion/ecc.h])
 m4_include([m4/attributes.m4])
 m4_include([m4/as_case.m4])
 AM_INIT_AUTOMAKE([foreign subdir-objects])
+: ${CFLAGS=""}
 AC_CANONICAL_HOST
 AC_ENABLE_SHARED
 AC_ENABLE_STATIC
@@ -17,82 +18,20 @@ if test x"$ac_cv_prog_cc_c89" = x"no"; then
   AC_MSG_ERROR([CC does not support ANSI C89])
 fi
 
-CC_CHECK_CFLAGS_APPEND([-std=c89])
-CC_CHECK_CFLAGS_APPEND([-pedantic])
-CC_CHECK_CFLAGS_APPEND([-Wall])
-CC_CHECK_CFLAGS_APPEND([-Wextra])
-CC_CHECK_CFLAGS_APPEND([-Wshadow])
-CC_CHECK_CFLAGS_APPEND([-Wcast-align])
-CC_CHECK_CFLAGS_APPEND([-Wno-implicit-fallthrough])
-CC_CHECK_CFLAGS_APPEND([-Wno-declaration-after-statement])
-CC_CHECK_CFLAGS_APPEND([-Wno-overlength-strings])
-CC_CHECK_CFLAGS_APPEND([-Wno-long-long])
+AC_ARG_ENABLE(64bit,
+  AS_HELP_STRING([--enable-64bit],[use 64-bit backends if available [default=yes]]),
+  [enable_64bit=$enableval],
+  [enable_64bit=yes])
 
-AC_MSG_CHECKING(for 64 bit support)
-AS_CASE([$host_cpu],
-  [aarch64*|ia64|mips64*|ppc64*|sparc64|x86_64], [has_64bit=yes],
-  [*], [has_64bit=no])
-AC_MSG_RESULT([$has_64bit])
+AC_ARG_ENABLE(asm,
+  AS_HELP_STRING([--enable-asm],[use inline x86-64 assembly if available [default=yes]]),
+  [enable_asm=$enableval],
+  [enable_asm=yes])
 
-AC_MSG_CHECKING(for x86_64 inline asm support)
-AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <stdint.h>]],[[
-#ifdef __EMSCRIPTEN__
-#  error "no asm"
-#endif
-#if !defined(__amd64__) && !defined(__x86_64__)
-#  error "no asm"
-#endif
-#if defined(__CYGWIN__) || defined(__MINGW32__)
-#  error "no asm"
-#endif
-  uint32_t stream[8], state[8];
-  __asm__ __volatile__(
-    "movups (%%rsi), %%xmm0\n"
-    "movups 16(%%rsi), %%xmm1\n"
-    "pxor %%xmm1, %%xmm0\n"
-    "movups %%xmm0,(%%rdi)\n"
-    "movups %%xmm1,16(%%rdi)\n"
-    :
-    : "D" (stream), "S" (state)
-    : "xmm0", "xmm1", "cc", "memory"
-  );
-]])],[has_asm=yes],[has_asm=no])
-AC_MSG_RESULT([$has_asm])
-
-AC_MSG_CHECKING(for int128 support)
-AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-#ifdef __EMSCRIPTEN__
-#  error "no int128"
-#endif
-#ifdef __GNUC__
-#  define TORSION_EXTENSION __extension__
-#else
-#  define TORSION_EXTENSION
-#endif
-TORSION_EXTENSION typedef signed __int128 int128_t;
-TORSION_EXTENSION typedef unsigned __int128 uint128_t;
-void compute_int128(uint128_t *r) {
-  *r = ((uint128_t)1) << 64;
-  *r *= 256;
-  *r >>= 65;
-}
-]],[[
-  uint128_t r;
-  compute_int128(&r);
-]])],[has_int128=yes],[has_int128=no])
-AC_MSG_RESULT([$has_int128])
-
-if test x"$has_int128" = x"yes" -a x"$has_64bit" != x"yes"; then
-  has_int128=no
-fi
-
-AC_CHECK_HEADER([valgrind/memcheck.h], [has_valgrind=yes], [has_valgrind=no], [])
-
-AC_ARG_WITH([64bit], [AS_HELP_STRING([--with-64bit=yes|no|auto],
-[enable to use 64 bit backends [default=auto]])],[use_64bit=$withval], [use_64bit=auto])
-
-AC_ARG_WITH([asm], [AS_HELP_STRING([--with-asm=yes|no|auto],
-[enable to use x86_64 asm [default=auto]])],[use_asm=$withval], [use_asm=auto])
+AC_ARG_ENABLE(int128,
+  AS_HELP_STRING([--enable-int128],[use __int128 if available [default=yes]]),
+  [enable_int128=$enableval],
+  [enable_int128=yes])
 
 AC_ARG_ENABLE(assert,
   AS_HELP_STRING([--enable-assert],[enable assertions [default=yes]]),
@@ -115,99 +54,132 @@ AC_ARG_ENABLE(libsecp256k1,
   [enable_libsecp256k1=no])
 
 AC_ARG_ENABLE(rng,
-  AS_HELP_STRING([--enable-rng],[enable rng [default=no]]),
+  AS_HELP_STRING([--enable-rng],[enable rng [default=yes]]),
   [enable_rng=$enableval],
-  [enable_rng=no])
+  [enable_rng=yes])
 
 AC_ARG_ENABLE(tests,
-  AS_HELP_STRING([--enable-tests],[enable tests [default=no]]),
+  AS_HELP_STRING([--enable-tests],[enable tests [default=yes]]),
   [enable_tests=$enableval],
-  [enable_tests=no])
+  [enable_tests=yes])
 
 AC_ARG_ENABLE(verify,
   AS_HELP_STRING([--enable-verify],[enable scalar bounds checks [default=no]]),
   [enable_verify=$enableval],
   [enable_verify=no])
 
-if test x"$use_64bit" = x"auto"; then
-  if test x"$EMSCRIPTEN" != x""; then
-    use_64bit=no
-  else
-    use_64bit=$has_64bit
-  fi
-fi
-
-if test x"$use_asm" = x"auto"; then
-  if test x"$EMSCRIPTEN" != x""; then
-    use_asm=no
-  else
-    use_asm=$has_asm
-  fi
-fi
-
 if test x"$enable_ctime" = x"yes"; then
   enable_assert=no
   enable_verify=no
 fi
 
-AC_DEFINE(TORSION_HAVE_CONFIG, 1, [Define to pass in config])
+CC_CHECK_CFLAGS_APPEND([-g])
+CC_CHECK_CFLAGS_APPEND([-std=c89])
+CC_CHECK_CFLAGS_APPEND([-pedantic])
+CC_CHECK_CFLAGS_APPEND([-Wall])
+CC_CHECK_CFLAGS_APPEND([-Wextra])
+CC_CHECK_CFLAGS_APPEND([-Wshadow])
+CC_CHECK_CFLAGS_APPEND([-Wcast-align])
+CC_CHECK_CFLAGS_APPEND([-Wno-implicit-fallthrough])
+CC_CHECK_CFLAGS_APPEND([-Wno-declaration-after-statement])
+CC_CHECK_CFLAGS_APPEND([-Wno-overlength-strings])
+CC_CHECK_CFLAGS_APPEND([-Wno-long-long])
+CC_CHECK_CFLAGS_APPEND([-O3])
 
-if test x"$use_64bit" = x"yes"; then
-  if test x"$has_64bit" != x"yes"; then
-    AC_MSG_ERROR([64 bit support not available])
+AC_MSG_CHECKING(for 64 bit support)
+AS_CASE([$host_cpu],
+  [aarch64*|ia64|mips64*|ppc64*|sparc64|x86_64], [has_64bit=yes],
+  [*], [has_64bit=no])
+AC_MSG_RESULT([$has_64bit])
+
+AC_MSG_CHECKING(for emscripten)
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[]],[[
+#ifndef __EMSCRIPTEN__
+#  error "compiler is not emscripten"
+#endif
+]])],[has_emscripten=yes],[has_emscripten=no])
+AC_MSG_RESULT([$has_emscripten])
+
+AC_MSG_CHECKING(for x86_64 inline asm support)
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <stdint.h>]],[[
+#if !defined(__amd64__) && !defined(__x86_64__)
+#  error "not an x64 platform"
+#endif
+#if defined(__CYGWIN__) || defined(__MINGW32__)
+#  error "no asm on unix lookalikes"
+#endif
+  uint32_t stream[8], state[8];
+  __asm__ __volatile__(
+    "movups (%%rsi), %%xmm0\n"
+    "movups 16(%%rsi), %%xmm1\n"
+    "pxor %%xmm1, %%xmm0\n"
+    "movups %%xmm0,(%%rdi)\n"
+    "movups %%xmm1,16(%%rdi)\n"
+    :
+    : "D" (stream), "S" (state)
+    : "xmm0", "xmm1", "cc", "memory"
+  );
+]])],[has_asm=yes],[has_asm=no])
+AC_MSG_RESULT([$has_asm])
+
+AC_MSG_CHECKING(for int128 support)
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+typedef signed __int128 int128_t;
+typedef unsigned __int128 uint128_t;
+]],[[
+uint128_t r;
+r = ((uint128_t)1) << 64;
+r *= 113;
+r >>= 65;
+]])],[has_int128=yes],[has_int128=no])
+AC_MSG_RESULT([$has_int128])
+
+AC_CHECK_HEADER([valgrind/memcheck.h], [has_valgrind=yes], [has_valgrind=no], [])
+
+AC_DEFINE(TORSION_HAVE_CONFIG)
+
+if test x"$enable_64bit" = x"yes" -a x"$has_64bit" = x"yes" -a x"$has_emscripten" != x"yes"; then
+  AC_DEFINE(TORSION_HAVE_64BIT)
+  if test x"$enable_asm" = x"yes" -a x"$has_asm" = x"yes"; then
+    AC_DEFINE(TORSION_HAVE_ASM_X64)
   fi
-
-  AC_DEFINE(TORSION_HAVE_64BIT, 1, [Define to enable 64 bit backends])
-fi
-
-if test x"$use_asm" = x"yes"; then
-  if test x"$has_asm" != x"yes"; then
-    AC_MSG_ERROR([x86_64 asm not available])
+  if test x"$enable_int128" = x"yes" -a x"$has_int128" = x"yes"; then
+    AC_DEFINE(TORSION_HAVE_INT128)
   fi
-
-  if test x"$host_cpu" != x"x86_64"; then
-    AC_MSG_ERROR([asm only supported for x86_64])
-  fi
-
-  AC_DEFINE(TORSION_HAVE_ASM_X64, 1, [Define to enable x86_64 asm])
 fi
 
 if test x"$enable_assert" != x"yes"; then
-  AC_DEFINE(TORSION_NO_ASSERT, 1, [Define to disable assertions])
+  AC_DEFINE(TORSION_NO_ASSERT)
 fi
 
 if test x"$enable_crt" = x"yes"; then
-  AC_DEFINE(TORSION_USE_CRT, 1, [Define to enable RSA CRT])
+  AC_DEFINE(TORSION_USE_CRT)
 fi
 
 if test x"$enable_ctime" = x"yes"; then
   if test x"$has_valgrind" != x"yes"; then
     AC_MSG_ERROR([valgrind must be installed for constant time test])
   fi
-  AC_DEFINE(TORSION_VALGRIND, 1, [Define to make the ECC code valgrind-aware])
-fi
-
-if test x"$has_int128" = x"yes"; then
-  AC_DEFINE(TORSION_HAVE_INT128, 1, [Define to enable __int128 backends])
+  AC_DEFINE(TORSION_VALGRIND)
 fi
 
 if test x"$enable_libsecp256k1" = x"yes"; then
-  AC_DEFINE(TORSION_USE_LIBSECP256K1, 1, [Define to enable the libsecp256k1 field element backend])
+  AC_DEFINE(TORSION_USE_LIBSECP256K1)
 fi
 
 if test x"$enable_rng" = x"yes"; then
-  AC_DEFINE(TORSION_HAVE_RNG, 1, [Define to notify tests of RNG support])
+  AC_DEFINE(TORSION_HAVE_RNG)
 fi
 
 if test x"$enable_tests" = x"yes"; then
-  AC_DEFINE(TORSION_TEST, 1, [Define to enable internal tests])
+  AC_DEFINE(TORSION_TEST)
 fi
 
 if test x"$enable_verify" = x"yes"; then
   if test x"$enable_tests" != x"yes"; then
     AC_MSG_ERROR([scalar bounds verification for testing only])
   fi
-  AC_DEFINE(TORSION_VERIFY, 1, [Define to enable scalar bounds checks])
+  AC_DEFINE(TORSION_VERIFY)
 fi
 
 AM_CONDITIONAL([ENABLE_RNG], [test x"$enable_rng" = x"yes"])
@@ -224,12 +196,13 @@ AC_OUTPUT
 echo ""
 echo "Build Options:"
 echo ""
-echo "  64bit        = $use_64bit"
-echo "  asm          = $use_asm"
+echo "  64bit        = $enable_64bit (support=$has_64bit)"
+echo "  asm          = $enable_asm (support=$has_asm)"
 echo "  assert       = $enable_assert"
 echo "  crt          = $enable_crt"
 echo "  ctime        = $enable_ctime"
-echo "  int128       = $has_int128"
+echo "  emscripten   = $has_emscripten"
+echo "  int128       = $enable_int128 (support=$has_int128)"
 echo "  libsecp256k1 = $enable_libsecp256k1"
 echo "  rng          = $enable_rng"
 echo "  tests        = $enable_tests"

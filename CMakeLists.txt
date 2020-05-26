@@ -10,13 +10,21 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_C_EXTENSIONS OFF)
 set(CMAKE_C_STANDARD 90)
 
+option(TORSION_ENABLE_64BIT "Use 64-bit backends if available" ON)
+option(TORSION_ENABLE_ASM "Use inline x86-64 assembly if available" ON)
+option(TORSION_ENABLE_INT128 "Use __int128 if available" ON)
 option(TORSION_ENABLE_ASSERT "Enable assertions" ON)
 option(TORSION_ENABLE_CRT "Enable chinese remainder theorem for RSA" OFF)
 option(TORSION_ENABLE_CTIME "Enable valgrind constant-time test" OFF)
 option(TORSION_ENABLE_LIBSECP256K1 "Enable libsecp256k1 field element backend" OFF)
-option(TORSION_ENABLE_RNG "Enable RNG" OFF)
-option(TORSION_ENABLE_TESTS "Enable tests" OFF)
+option(TORSION_ENABLE_RNG "Enable RNG" ON)
+option(TORSION_ENABLE_TESTS "Enable tests" ON)
 option(TORSION_ENABLE_VERIFY "Enable scalar bounds checks" OFF)
+
+if(TORSION_ENABLE_CTIME)
+  set(TORSION_ENABLE_ASSERT OFF)
+  set(TORSION_ENABLE_VERIFY OFF)
+endif()
 
 if(MSVC)
 check_c_compiler_flag(/W3 TORSION_HAS_W3)
@@ -39,11 +47,65 @@ check_c_compiler_flag(-Wno-long-long TORSION_HAS_WLONGLONG)
 check_c_compiler_flag(-O3 TORSION_HAS_O3)
 endif()
 
+if("${CMAKE_SIZEOF_VOID_P}" STREQUAL "8")
+  set(TORSION_HAS_64BIT TRUE)
+endif()
+
+check_c_source_compiles("
+#ifndef __EMSCRIPTEN__
+#  error \"compiler is not emscripten\"
+#endif
+int main(void) { return 0; }
+" TORSION_EMSCRIPTEN)
+
+check_c_source_compiles("
+#include <stdint.h>
+#if !defined(__amd64__) && !defined(__x86_64__)
+#  error \"not an x64 platform\"
+#endif
+#if defined(__CYGWIN__) || defined(__MINGW32__)
+#  error \"no asm on unix lookalikes\"
+#endif
+int main(void) {
+  uint32_t stream[8], state[8];
+  __asm__ __volatile__(
+    \"movups (%%rsi), %%xmm0;\"
+    \"movups 16(%%rsi), %%xmm1;\"
+    \"pxor %%xmm1, %%xmm0;\"
+    \"movups %%xmm0,(%%rdi);\"
+    \"movups %%xmm1,16(%%rdi);\"
+    :
+    : \"D\" (stream), \"S\" (state)
+    : \"xmm0\", \"xmm1\", \"cc\", \"memory\"
+  );
+  return 0;
+}
+" TORSION_HAS_ASM)
+
+check_c_source_compiles("
+typedef signed __int128 int128_t;
+typedef unsigned __int128 uint128_t;
+int main(void) {
+  uint128_t r;
+  r = ((uint128_t)1) << 64;
+  r *= 113;
+  r >>= 65;
+  return r & 1;
+}
+" TORSION_HAS_INT128)
+
 check_include_file(valgrind/memcheck.h TORSION_HAS_VALGRIND)
 
-if(TORSION_ENABLE_CTIME)
-  set(TORSION_ENABLE_ASSERT OFF)
-  set(TORSION_ENABLE_VERIFY OFF)
+list(APPEND torsion_defines TORSION_HAVE_CONFIG)
+
+if(TORSION_ENABLE_64BIT AND TORSION_HAS_64BIT AND NOT TORSION_EMSCRIPTEN)
+  list(APPEND torsion_defines TORSION_HAVE_64BIT)
+  if(TORSION_ENABLE_ASM AND TORSION_HAS_ASM)
+    list(APPEND torsion_defines TORSION_HAVE_ASM_X64)
+  endif()
+  if(TORSION_ENABLE_INT128 AND TORSION_HAS_INT128)
+    list(APPEND torsion_defines TORSION_HAVE_INT128)
+  endif()
 endif()
 
 if(NOT TORSION_ENABLE_ASSERT)
@@ -210,3 +272,13 @@ if(WIN32)
           RUNTIME DESTINATION lib/$<CONFIG>
           ARCHIVE DESTINATION lib/$<CONFIG>)
 endif()
+
+message(STATUS "Build Options:
+
+   CMAKE_INSTALL_PREFIX: ${CMAKE_INSTALL_PREFIX}
+   CMAKE_SYSTEM_NAME:    ${CMAKE_SYSTEM_NAME}
+   CMAKE_C_COMPILER:     ${CMAKE_C_COMPILER}
+   CMAKE_C_FLAGS:        ${CMAKE_C_FLAGS_${_build_type}} ${CMAKE_C_FLAGS}
+   torsion_cflags:       ${torsion_cflags}
+   torsion_defines:      ${torsion_defines}
+")
