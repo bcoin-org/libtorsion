@@ -45,16 +45,19 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <stdint.h>]],[[
 #if defined(__CYGWIN__) || defined(__MINGW32__)
 #  error "no asm"
 #endif
-  uint64_t u = 2, v = 3, w0, w1;
+  uint32_t stream[8], state[8];
   __asm__ __volatile__(
-    "mulq %q3\n"
-    : "=a" (w0), "=d" (w1)
-    : "%0" (u), "rm" (v)
+    "movups (%%rsi), %%xmm0\n"
+    "movups 16(%%rsi), %%xmm1\n"
+    "pxor %%xmm1, %%xmm0\n"
+    "movups %%xmm0,(%%rdi)\n"
+    "movups %%xmm1,16(%%rdi)\n"
+    :
+    : "D" (stream), "S" (state)
+    : "xmm0", "xmm1", "cc", "memory"
   );
 ]])],[has_asm=yes],[has_asm=no])
 AC_MSG_RESULT([$has_asm])
-
-AC_C_BIGENDIAN()
 
 AC_MSG_CHECKING(for int128 support)
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
@@ -82,53 +85,6 @@ AC_MSG_RESULT([$has_int128])
 if test x"$has_int128" = x"yes" -a x"$has_64bit" != x"yes"; then
   has_int128=no
 fi
-
-AC_MSG_CHECKING(for TI mode)
-AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-#ifdef __EMSCRIPTEN__
-#  error "no mode(TI)"
-#endif
-typedef unsigned uint128_t __attribute__((mode(TI)));
-typedef signed int128_t __attribute__((mode(TI)));
-void compute_modeti(uint128_t *r) {
-  *r = ((uint128_t)1) << 64;
-  *r *= 256;
-  *r >>= 65;
-}
-]],[[
-  uint128_t r;
-  compute_modeti(&r);
-]])],[has_modeti=yes],[has_modeti=no])
-AC_MSG_RESULT([$has_modeti])
-
-if test x"$has_modeti" = x"yes" -a x"$has_64bit" != x"yes"; then
-  has_modeti=no
-fi
-
-AC_MSG_CHECKING(for sse2 support)
-AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <stdint.h>]],[[
-#ifdef __EMSCRIPTEN__
-#  error "no asm"
-#endif
-#if !defined(__amd64__) && !defined(__x86_64__)
-#  error "no asm"
-#endif
-#if defined(__CYGWIN__) || defined(__MINGW32__)
-#  error "no asm"
-#endif
-  uint32_t stream[8], state[8];
-  __asm__ __volatile__(
-    "movups (%%rsi), %%xmm0\n"
-    "movups 16(%%rsi), %%xmm1\n"
-    "pxor %%xmm1, %%xmm0\n"
-    "movups %%xmm0,(%%rdi)\n"
-    "movups %%xmm1,16(%%rdi)\n"
-    :
-    : "D" (stream), "S" (state)
-    : "xmm0", "xmm1", "cc", "memory"
-  );
-]])],[has_sse2=yes],[has_sse2=no])
-AC_MSG_RESULT([$has_sse2])
 
 AC_CHECK_HEADER([valgrind/memcheck.h], [has_valgrind=yes], [has_valgrind=no], [])
 
@@ -221,10 +177,6 @@ if test x"$enable_assert" != x"yes"; then
   AC_DEFINE(TORSION_NO_ASSERT, 1, [Define to disable assertions])
 fi
 
-if test x"$ac_cv_c_bigendian" = x"yes"; then
-  AC_DEFINE(TORSION_BIGENDIAN, 1, [Define if machine is big endian])
-fi
-
 if test x"$enable_crt" = x"yes"; then
   AC_DEFINE(TORSION_USE_CRT, 1, [Define to enable RSA CRT])
 fi
@@ -244,16 +196,8 @@ if test x"$enable_libsecp256k1" = x"yes"; then
   AC_DEFINE(TORSION_USE_LIBSECP256K1, 1, [Define to enable the libsecp256k1 field element backend])
 fi
 
-if test x"$has_modeti" = x"yes"; then
-  AC_DEFINE(TORSION_HAVE_MODETI, 1, [Define to enable TI mode])
-fi
-
 if test x"$enable_rng" = x"yes"; then
   AC_DEFINE(TORSION_HAVE_RNG, 1, [Define to notify tests of RNG support])
-fi
-
-if test x"$has_sse2" = x"yes"; then
-  AC_DEFINE(TORSION_HAVE_ASM_SSE2, 1, [Define to enable SSE2 instructions])
 fi
 
 if test x"$enable_tests" = x"yes"; then
@@ -284,14 +228,11 @@ echo ""
 echo "  64bit        = $use_64bit"
 echo "  asm          = $use_asm"
 echo "  assert       = $enable_assert"
-echo "  big endian   = $ac_cv_c_bigendian"
 echo "  crt          = $enable_crt"
 echo "  ctime        = $enable_ctime"
 echo "  int128       = $has_int128"
 echo "  libsecp256k1 = $enable_libsecp256k1"
-echo "  modeti       = $has_modeti"
 echo "  rng          = $enable_rng"
-echo "  sse2         = $has_sse2"
 echo "  tests        = $enable_tests"
 echo "  verify       = $enable_verify"
 echo ""

@@ -4,10 +4,14 @@
 *.la
 *.lo
 *.so
+*.so.*
 *~
+*.cmake
 .deps/
 .libs/
 .dirstamp
+CMakeCache.txt
+CMakeFiles/
 Makefile
 Makefile.in
 aclocal.m4
@@ -24,4 +28,8 @@ m4/ltoptions.m4
 m4/ltsugar.m4
 m4/ltversion.m4
 tests
+torsion_run_ctime_test
+torsion_run_ctime_test_a
+torsion_run_tests
+torsion_run_tests_a
 vgcore.*
