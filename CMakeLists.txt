@@ -27,23 +27,44 @@ if(TORSION_ENABLE_CTIME)
 endif()
 
 if(MSVC)
-  check_c_compiler_flag(/W3 TORSION_HAS_W3)
+  # CMake defaults for windows:
+  #
+  #   CMAKE_CFLAGS: /DWIN32 /D_WINDOWS /W3
+  #   CMAKE_CFLAGS_RELEASE: /MD /O2 /Ob2 /DNDEBUG
+  #   CMAKE_CFLAGS_DEBUG: /MDd /Zi /Ob0 /Od /RTC1
+  #
+  # For this reason, we don't mess with optimization
+  # levels here.  We assume the person building will
+  # pass `--config [build-type]` when building.
   check_c_compiler_flag(/wd4146 TORSION_HAS_WMINUS_UNSIGNED)
   check_c_compiler_flag(/wd4244 TORSION_HAS_WCONV_DATA_LOSS1)
   check_c_compiler_flag(/wd4267 TORSION_HAS_WCONV_DATA_LOSS2)
+  check_c_compiler_flag(/wd4334 TORSION_HAS_W64BIT_SHIFT)
   check_c_compiler_flag(/wd4477 TORSION_HAS_WPRINTF_FORMAT)
-  check_c_compiler_flag(/O2 TORSION_HAS_O2)
 else()
+  # CMake defaults for unix:
+  #
+  #   CMAKE_CFLAGS:
+  #   CMAKE_CFLAGS_DEBUG: -g
+  #   CMAKE_CFLAGS_RELEASE: -O3 -NDEBUG
+  #
+  # For Makefiles, -DCMAKE_BUILD_TYPE=[build-type]
+  # must be passed on the command line for any of
+  # the defaults to have an effect. We assume that
+  # CMAKE_BUILD_TYPE is empty and pick debug and
+  # optimization flags ourselves.
   check_c_compiler_flag(-g TORSION_HAS_G)
+  check_c_compiler_flag(-std=c89 TORSION_HAS_C89)
   check_c_compiler_flag(-pedantic TORSION_HAS_PEDANTIC)
   check_c_compiler_flag(-Wall TORSION_HAS_WALL)
   check_c_compiler_flag(-Wextra TORSION_HAS_WEXTRA)
-  check_c_compiler_flag(-Wshadow TORSION_HAS_WSHADOW)
   check_c_compiler_flag(-Wcast-align TORSION_HAS_WCAST_ALIGN)
-  check_c_compiler_flag(-Wno-implicit-fallthrough TORSION_HAS_WFALLTHROUGH)
   check_c_compiler_flag(-Wno-declaration-after-statement TORSION_HAS_WDECL)
-  check_c_compiler_flag(-Wno-overlength-strings TORSION_HAS_WOVERLENGTH)
+  check_c_compiler_flag(-Wno-implicit-fallthrough TORSION_HAS_WFALLTHROUGH)
   check_c_compiler_flag(-Wno-long-long TORSION_HAS_WLONGLONG)
+  check_c_compiler_flag(-Wno-overlength-strings TORSION_HAS_WOVERLENGTH)
+  check_c_compiler_flag(-Wshadow TORSION_HAS_WSHADOW)
+  check_c_compiler_flag(-Wstack-usage=131072 TORSION_HAS_WSTACK_USAGE)
   check_c_compiler_flag(-O3 TORSION_HAS_O3)
 endif()
 
@@ -146,9 +167,6 @@ if(TORSION_ENABLE_VERIFY)
 endif()
 
 if(MSVC)
-  if(TORSION_HAS_W3)
-    list(APPEND torsion_cflags /W3)
-  endif()
   if(TORSION_HAS_WMINUS_UNSIGNED)
     list(APPEND torsion_cflags /wd4146)
   endif()
@@ -158,13 +176,16 @@ if(MSVC)
   if(TORSION_HAS_WCONV_DATA_LOSS2)
     list(APPEND torsion_cflags /wd4267)
   endif()
+  if(TORSION_HAS_W64BIT_SHIFT)
+    list(APPEND torsion_cflags /wd4334)
+  endif()
   if(TORSION_HAS_WPRINTF_FORMAT)
     list(APPEND torsion_cflags /wd4477)
   endif()
-  if(TORSION_HAS_O2)
-    list(APPEND torsion_cflags /O2)
-  endif()
 else()
+  if(TORSION_HAS_C89)
+    list(APPEND torsion_cflags -std=c89)
+  endif()
   if(TORSION_HAS_PEDANTIC)
     list(APPEND torsion_cflags -pedantic)
   endif()
@@ -174,23 +195,26 @@ else()
   if(TORSION_HAS_WEXTRA)
     list(APPEND torsion_cflags -Wextra)
   endif()
-  if(TORSION_HAS_WSHADOW)
-    list(APPEND torsion_cflags -Wshadow)
-  endif()
   if(TORSION_HAS_WCAST_ALIGN)
     list(APPEND torsion_cflags -Wcast-align)
-  endif()
-  if(TORSION_HAS_WFALLTHROUGH)
-    list(APPEND torsion_cflags -Wno-implicit-fallthrough)
   endif()
   if(TORSION_HAS_WDECL)
     list(APPEND torsion_cflags -Wno-declaration-after-statement)
   endif()
-  if(TORSION_HAS_WOVERLENGTH)
-    list(APPEND torsion_cflags -Wno-overlength-strings)
+  if(TORSION_HAS_WFALLTHROUGH)
+    list(APPEND torsion_cflags -Wno-implicit-fallthrough)
   endif()
   if(TORSION_HAS_WLONGLONG)
     list(APPEND torsion_cflags -Wno-long-long)
+  endif()
+  if(TORSION_HAS_WOVERLENGTH)
+    list(APPEND torsion_cflags -Wno-overlength-strings)
+  endif()
+  if(TORSION_HAS_WSHADOW)
+    list(APPEND torsion_cflags -Wshadow)
+  endif()
+  if(TORSION_HAS_WSTACK_USAGE)
+    list(APPEND torsion_cflags -Wstack-usage=131072)
   endif()
   if(TORSION_HAS_O3)
     list(APPEND torsion_cflags -O3)
@@ -238,14 +262,25 @@ if(TORSION_ENABLE_TESTS)
   add_executable(tests test/test.c test/hrtime.c)
   target_compile_definitions(tests PRIVATE ${torsion_defines})
   target_compile_options(tests PRIVATE ${torsion_cflags})
-  target_link_libraries(tests torsion)
+  # Windows can't link to .dll's like this.
+  # See: https://stackoverflow.com/questions/38492087
+  if(WIN32)
+    target_link_libraries(tests torsion_a)
+  else()
+    target_link_libraries(tests torsion)
+  endif()
 endif()
 
 if(TORSION_ENABLE_CTIME)
   add_executable(ctime-test test/ctime-test.c)
   target_compile_definitions(ctime-test PRIVATE ${torsion_defines})
   target_compile_options(ctime-test PRIVATE ${torsion_cflags})
-  target_link_libraries(ctime-test torsion)
+  # See above comment.
+  if(WIN32)
+    target_link_libraries(ctime-test torsion_a)
+  else()
+    target_link_libraries(ctime-test torsion)
+  endif()
 endif()
 
 if(UNIX)
@@ -273,8 +308,11 @@ if(WIN32)
           ARCHIVE DESTINATION lib/$<CONFIG>)
 endif()
 
+string(TOUPPER "${CMAKE_BUILD_TYPE}" _build_type)
+
 message(STATUS "Build Options:
 
+   CMAKE_BUILD_TYPE: ${CMAKE_BUILD_TYPE}
    CMAKE_INSTALL_PREFIX: ${CMAKE_INSTALL_PREFIX}
    CMAKE_SYSTEM_NAME:    ${CMAKE_SYSTEM_NAME}
    CMAKE_C_COMPILER:     ${CMAKE_C_COMPILER}
