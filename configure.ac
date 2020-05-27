@@ -73,7 +73,6 @@ if test x"$enable_ctime" = x"yes"; then
   enable_verify=no
 fi
 
-CC_CHECK_CFLAGS_APPEND([-g])
 CC_CHECK_CFLAGS_APPEND([-std=c89])
 CC_CHECK_CFLAGS_APPEND([-pedantic])
 CC_CHECK_CFLAGS_APPEND([-Wall])
@@ -172,6 +171,7 @@ if test x"$enable_rng" = x"yes"; then
 fi
 
 if test x"$enable_tests" = x"yes"; then
+  CC_CHECK_CFLAGS_APPEND([-g])
   AC_DEFINE(TORSION_TEST)
 fi
 
