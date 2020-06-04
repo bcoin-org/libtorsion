@@ -8,6 +8,10 @@
  *   https://github.com/bitcoin-core/secp256k1/blob/3d23022/src/valgrind_ctime_test.c
  *   Copyright (c) 2020 Gregory Maxwell (MIT License)
  *
+ * Update (2020-06-04): It seems the original idea for this came from
+ * Adam Langley. Curiously, the libsecp256k1 tests do not ascribe credit to
+ * him. See: https://www.imperialviolet.org/2010/04/01/ctgrind.html
+ *
  * Explanation:
  *
  *   Valgrind can tell us whether jumps depend on uninitialized data.
