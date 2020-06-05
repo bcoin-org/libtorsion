@@ -582,15 +582,13 @@ ripemd160_transform(ripemd160_t *ctx, const unsigned char *chunk) {
   uint32_t aa, bb, cc, dd, ee, t;
   uint32_t x[16];
 
-#ifdef TORSION_BIGENDIAN
-  {
+  if (TORSION_BIGENDIAN) {
     int i;
     for (i = 0; i < 16; i++, chunk += 4)
       x[i] = read32le(chunk);
+  } else {
+    memcpy(x, chunk, sizeof(x));
   }
-#else
-  memcpy(x, chunk, sizeof(x));
-#endif
 
 #define K0 0x00000000
 #define K1 0x5a827999
