@@ -9,9 +9,8 @@
  *   https://cr.yp.to/chacha.html
  */
 
-#include <stdlib.h>
+#include <stddef.h>
 #include <stdint.h>
-#include <string.h>
 #include <torsion/chacha20.h>
 #include <torsion/util.h>
 #include "bio.h"
@@ -209,7 +208,8 @@ chacha20_block(chacha20_t *ctx) {
   uint64_t c;
   size_t i;
 
-  memcpy(stream, ctx->state, sizeof(ctx->state));
+  for (i = 0; i < 16; i++)
+    stream[i] = ctx->state[i];
 
   for (i = 0; i < 10; i++) {
     QROUND(stream, 0, 4, 8, 12);
