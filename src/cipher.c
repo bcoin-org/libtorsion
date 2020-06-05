@@ -3566,6 +3566,9 @@ des_encipher(const des_t *ctx, uint32_t *xl, uint32_t *xr) {
   uint32_t kl, kr, b1, b2, s, f, t;
   size_t i;
 
+  /* Initial Permutation */
+  des_ip(&l, &r);
+
   /* Apply f() x16 times */
   for (i = 0; i < 32; i += 2) {
     kl = ctx->keys[i + 0];
@@ -3598,6 +3601,9 @@ des_decipher(const des_t *ctx, uint32_t *xl, uint32_t *xr) {
   uint32_t r = *xl;
   uint32_t kl, kr, b1, b2, s, f, t;
   int i;
+
+  /* Initial Permutation */
+  des_ip(&r, &l);
 
   /* Apply f() x16 times */
   for (i = 32 - 2; i >= 0; i -= 2) {
@@ -3655,9 +3661,6 @@ des_encrypt(const des_t *ctx, unsigned char *dst, const unsigned char *src) {
   uint32_t l = read32be(src + 0);
   uint32_t r = read32be(src + 4);
 
-  /* Initial Permutation */
-  des_ip(&l, &r);
-
   des_encipher(ctx, &l, &r);
 
   write32be(dst + 0, l);
@@ -3668,9 +3671,6 @@ void
 des_decrypt(const des_t *ctx, unsigned char *dst, const unsigned char *src) {
   uint32_t l = read32be(src + 0);
   uint32_t r = read32be(src + 4);
-
-  /* Initial Permutation */
-  des_ip(&l, &r);
 
   des_decipher(ctx, &l, &r);
 
