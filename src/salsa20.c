@@ -92,8 +92,7 @@ salsa20_init(salsa20_t *ctx,
 }
 
 static void
-salsa20_block(salsa20_t *ctx) {
-  uint32_t *stream = ctx->stream.ints;
+salsa20_block(salsa20_t *ctx, uint32_t *stream) {
 #ifdef TORSION_HAVE_ASM_X64
   /* Borrowed from:
    * https://github.com/gnutls/nettle/blob/master/x86_64/salsa20-core-internal.asm
@@ -271,7 +270,6 @@ salsa20_block(salsa20_t *ctx) {
       "xmm7", "xmm8", "cc", "memory"
   );
 #else
-  uint8_t *bytes = ctx->stream.bytes;
   uint64_t c;
   size_t i;
 
@@ -294,7 +292,7 @@ salsa20_block(salsa20_t *ctx) {
 
   if (TORSION_BIGENDIAN) {
     for (i = 0; i < 16; i++)
-      write32le(bytes + i * 4, stream[i]);
+      stream[i] = torsion_bswap32(stream[i]);
   }
 
   c = (uint64_t)ctx->state[8] + 1;
@@ -309,16 +307,16 @@ salsa20_encrypt(salsa20_t *ctx,
                 unsigned char *out,
                 const unsigned char *data,
                 size_t len) {
-  uint8_t *stream = ctx->stream.bytes;
+  unsigned char *bytes = (unsigned char *)ctx->stream;
   size_t i;
 
   for (i = 0; i < len; i++) {
     if ((ctx->pos & 63) == 0) {
-      salsa20_block(ctx);
+      salsa20_block(ctx, ctx->stream);
       ctx->pos = 0;
     }
 
-    out[i] = data[i] ^ stream[ctx->pos++];
+    out[i] = data[i] ^ bytes[ctx->pos++];
   }
 }
 
