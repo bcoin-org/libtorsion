@@ -123,6 +123,11 @@ extern char **environ;
 extern char **environ;
 #    endif
 #  endif
+#  if defined(CLOCK_MONOTONIC) \
+   || defined(CLOCK_REALTIME) \
+   || defined(CLOCK_BOOTTIME)
+#    define HAVE_CLOCK_GETTIME
+#  endif
 #  define HAVE_MANUAL_ENTROPY
 #endif
 
@@ -548,7 +553,7 @@ sha512_write_static_env(sha512_t *hash) {
 #ifdef HW_CACHELINE
   sha512_write_sysctl2(hash, CTL_HW, HW_CACHELINE);
 #endif
-#endif
+#endif /* CTL_HW */
 
 #ifdef CTL_KERN
 #ifdef KERN_BOOTFILE
@@ -587,8 +592,8 @@ sha512_write_static_env(sha512_t *hash) {
 #ifdef KERN_VERSION
   sha512_write_sysctl2(hash, CTL_KERN, KERN_VERSION);
 #endif
-#endif
-#endif
+#endif /* CTL_KERN */
+#endif /* HAVE_SYSCTL */
 
   /* Environment variables. */
   if (environ) {
@@ -629,13 +634,22 @@ sha512_write_dynamic_env(sha512_t *hash) {
   /* Performance data. */
   sha512_write_perfdata(hash);
 #else /* _WIN32 */
+  /* System time. */
+  {
+    struct timeval tv;
+
+    memset(&tv, 0, sizeof(tv));
+
+    gettimeofday(&tv, NULL);
+    sha512_write(hash, &tv, sizeof(tv));
+  }
+
+#ifdef HAVE_CLOCK_GETTIME
   /* Various clocks. */
   {
     struct timespec ts;
-    struct timeval tv;
 
     memset(&ts, 0, sizeof(ts));
-    memset(&tv, 0, sizeof(tv));
 
 #ifdef CLOCK_MONOTONIC
     clock_gettime(CLOCK_MONOTONIC, &ts);
@@ -651,10 +665,11 @@ sha512_write_dynamic_env(sha512_t *hash) {
     clock_gettime(CLOCK_BOOTTIME, &ts);
     sha512_write(hash, &ts, sizeof(ts));
 #endif
-
-    gettimeofday(&tv, NULL);
-    sha512_write(hash, &tv, sizeof(tv));
   }
+#endif /* HAVE_CLOCK_GETTIME */
+
+  /* Probably redudant, but do it anyway. */
+  sha512_write_int(hash, torsion_hrtime());
 
   /* Current resource usage. */
   {
@@ -684,12 +699,12 @@ sha512_write_dynamic_env(sha512_t *hash) {
 #if defined(KERN_PROC) && defined(KERN_PROC_ALL)
   sha512_write_sysctl3(hash, CTL_KERN, KERN_PROC, KERN_PROC_ALL);
 #endif
-#endif
+#endif /* CTL_KERN */
 #ifdef CTL_HW
 #ifdef HW_DISKSTATS
   sha512_write_sysctl2(hash, CTL_HW, HW_DISKSTATS);
 #endif
-#endif
+#endif /* CTL_HW */
 #ifdef CTL_VM
 #ifdef VM_LOADAVG
   sha512_write_sysctl2(hash, CTL_VM, VM_LOADAVG);
@@ -700,8 +715,8 @@ sha512_write_dynamic_env(sha512_t *hash) {
 #ifdef VM_METER
   sha512_write_sysctl2(hash, CTL_VM, VM_METER);
 #endif
-#endif
-#endif
+#endif /* CTL_VM */
+#endif /* HAVE_SYSCTL */
 
   /* Stack and heap location. */
   {

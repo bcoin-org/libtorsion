@@ -49,9 +49,9 @@
  * For non-x86 hardware, we fallback to whatever system clocks
  * are available. This includes:
  *
- *   - _ftime (win32)
- *   - gettimeofday (unix)
- *   - clock_gettime (vxworks)
+ *   - QueryPerformanceCounter, _ftime (win32)
+ *   - clock_gettime (unix, vxworks)
+ *   - gettimeofday (unix legacy)
  *   - zx_clock_get_monotonic (fuchsia)
  *   - cloudabi_sys_clock_time_get (cloud abi)
  *   - __wasi_clock_time_get (wasi)
@@ -59,6 +59,10 @@
  *
  * Note that the only clocks which do not have nanosecond
  * precision are `_ftime`, `gettimeofday`, and `Date.now`.
+ *
+ * Furthermore, QueryPerformance{Counter,Frequency} may fail
+ * on Windows 2000. For this reason, we require Windows XP or
+ * above (otherwise we fall back to _ftime).
  *
  * The CPUID instruction can serve as good source of "static"
  * entropy for seeding (see env.c).
@@ -72,6 +76,11 @@
  * no-ops returning zero. torsion_has_rd{rand,seed} MUST be
  * checked before calling torsion_rd{rand,seed}.
  */
+
+#ifdef __linux__
+/* For clock_gettime(2). */
+#  define _GNU_SOURCE
+#endif
 
 #include <stdint.h>
 #include <stdlib.h>
@@ -93,10 +102,15 @@ uint16_t __wasi_clock_time_get(uint32_t clock_id,
 #elif defined(__wasm__) || defined(__asmjs__)
 /* nothing */
 #elif defined(_WIN32)
-#  include <sys/timeb.h> /* _timeb, _ftime */
-#  ifdef __BORLANDC__
-#    define _timeb timeb
-#    define _ftime ftime
+#  if defined(_WIN32_WINNT) && _WIN32_WINNT >= 0x0501 /* >= Windows XP */
+#    include <windows.h> /* QueryPerformance{Counter,Frequency} */
+#    define HAVE_QPC
+#  else
+#    include <sys/timeb.h> /* _timeb, _ftime */
+#    ifdef __BORLANDC__
+#      define _timeb timeb
+#      define _ftime ftime
+#    endif
 #  endif
 #  if defined(_MSC_VER) && (defined(_M_IX86) || defined(_M_X64))
 #    include <intrin.h> /* __rdtsc */
@@ -109,6 +123,7 @@ uint16_t __wasi_clock_time_get(uint32_t clock_id,
 #  include <zircon/syscalls.h> /* zx_clock_get_monotonic */
 #else
 #  include <sys/time.h> /* gettimeofday */
+#  include <time.h> /* clock_gettime */
 #  if defined(__GNUC__)
 #    define HAVE_INLINE_ASM
 #    if defined(__x86_64__) || defined(__amd64__) || defined(__i386__)
@@ -118,11 +133,11 @@ uint16_t __wasi_clock_time_get(uint32_t clock_id,
 #endif
 
 /*
- * Timestamp Counter
+ * High-Resolution Time
  */
 
 uint64_t
-torsion_rdtsc(void) {
+torsion_hrtime(void) {
 #if defined(__CloudABI__)
   uint64_t time;
 
@@ -170,19 +185,30 @@ torsion_rdtsc(void) {
   return (uint64_t)sec * 1000000000 + (uint64_t)nsec;
 #elif defined(__wasm__) || defined(__asmjs__)
   return 0;
+#elif defined(HAVE_QPC) /* _WIN32 */
+  LARGE_INTEGER freq, ctr;
+  double sec;
+
+  if (!QueryPerformanceFrequency(&freq))
+    abort();
+
+  if (!QueryPerformanceCounter(&ctr))
+    abort();
+
+  if (freq.QuadPart == 0)
+    abort();
+
+  sec = (double)ctr.QuadPart / (double)freq.QuadPart;
+
+  return (uint64_t)(sec * 1000000000);
 #elif defined(_WIN32)
-#ifdef HAVE_RDTSC
-  return __rdtsc();
-#else /* HAVE_RDTSC */
   /* Borrowed from libsodium. */
-  /* FIXME: Figure out how to get nanosecond precision. */
   struct _timeb tb;
 #pragma warning(push)
 #pragma warning(disable: 4996)
   _ftime(&tb);
 #pragma warning(pop)
-  return (uint64_t)tb.time * 1000000 + (uint64_t)tb.millitm * 1000;
-#endif /* HAVE_RDTSC */
+  return (uint64_t)tb.time * 1000000000 + (uint64_t)tb.millitm * 1000000;
 #elif defined(__vxworks)
   struct timespec ts;
 
@@ -192,6 +218,38 @@ torsion_rdtsc(void) {
   return (uint64_t)ts.tv_sec * 1000000000 + (uint64_t)ts.tv_nsec;
 #elif defined(__fuchsia__)
   return zx_clock_get_monotonic();
+#elif defined(CLOCK_MONOTONIC)
+  struct timespec ts;
+
+  if (clock_gettime(CLOCK_MONOTONIC, &ts) != 0)
+    abort();
+
+  return (uint64_t)ts.tv_sec * 1000000000 + (uint64_t)ts.tv_nsec;
+#else
+  struct timeval tv;
+
+  if (gettimeofday(&tv, NULL) != 0)
+    abort();
+
+  return (uint64_t)tv.tv_sec * 1000000000 + (uint64_t)tv.tv_usec * 1000;
+#endif
+}
+
+/*
+ * Timestamp Counter
+ */
+
+uint64_t
+torsion_rdtsc(void) {
+#if defined(HAVE_RDTSC)
+  return __rdtsc();
+#elif defined(HAVE_QPC)
+  LARGE_INTEGER ctr;
+
+  if (!QueryPerformanceCounter(&ctr))
+    abort();
+
+  return (uint64_t)ctr.QuadPart;
 #elif defined(HAVE_INLINE_ASM) && defined(__i386__)
   /* Borrowed from Bitcoin Core. */
   uint64_t r = 0;
@@ -203,12 +261,8 @@ torsion_rdtsc(void) {
   __asm__ __volatile__("rdtsc" : "=a" (r1), "=d" (r2));
   return (r2 << 32) | r1;
 #else
-  struct timeval tv;
-
-  if (gettimeofday(&tv, NULL) != 0)
-    abort();
-
-  return (uint64_t)tv.tv_sec * 1000000 + (uint64_t)tv.tv_usec;
+  /* Fall back to high-resolution time. */
+  return torsion_hrtime();
 #endif
 }
 

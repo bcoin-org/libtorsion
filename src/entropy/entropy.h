@@ -15,6 +15,7 @@
  */
 
 #define torsion_envrand __torsion_envrand
+#define torsion_hrtime __torsion_hrtime
 #define torsion_rdtsc __torsion_rdtsc
 #define torsion_has_cpuid __torsion_has_cpuid
 #define torsion_cpuid __torsion_cpuid
@@ -31,6 +32,9 @@
 
 int
 torsion_envrand(unsigned char *seed);
+
+uint64_t
+torsion_hrtime(void);
 
 uint64_t
 torsion_rdtsc(void);
