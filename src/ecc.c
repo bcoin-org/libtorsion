@@ -588,7 +588,8 @@ bytes_lt(const unsigned char *a,
 
 static size_t
 bit_length(uint32_t x) {
-#if TORSION_GNUC_PREREQ(3, 4) || __has_builtin(__builtin_clz)
+#if !defined(__EMSCRIPTEN__) \
+ && (TORSION_GNUC_PREREQ(3, 4) || __has_builtin(__builtin_clz))
   if (x == 0) /* Undefined behavior. */
     return 0;
 
