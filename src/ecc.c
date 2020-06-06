@@ -8756,7 +8756,9 @@ ecdsa_privkey_import(const wei_t *ec,
   len *= ret;
 
   memset(key, 0x00, sc->size - len);
-  memcpy(key + sc->size - len, bytes, len);
+
+  if (len > 0)
+    memcpy(key + sc->size - len, bytes, len);
 
   ret &= ecdsa_privkey_verify(ec, key);
 
@@ -8829,7 +8831,9 @@ ecdsa_privkey_reduce(const wei_t *ec,
     len = sc->size;
 
   memset(key, 0x00, sc->size - len);
-  memcpy(key + sc->size - len, bytes, len);
+
+  if (len > 0)
+    memcpy(key + sc->size - len, bytes, len);
 
   sc_import_reduce(sc, a, key);
 
@@ -9037,10 +9041,14 @@ ecdsa_pubkey_import(const wei_t *ec,
   y_len *= ret;
 
   memset(xp, 0x00, fe->size - x_len);
-  memcpy(xp + fe->size - x_len, x_raw, x_len);
+
+  if (x_len > 0)
+    memcpy(xp + fe->size - x_len, x_raw, x_len);
 
   memset(yp, 0x00, fe->size - y_len);
-  memcpy(yp + fe->size - y_len, y_raw, y_len);
+
+  if (y_len > 0)
+    memcpy(yp + fe->size - y_len, y_raw, y_len);
 
   ret &= has_x;
   ret &= fe_import(fe, x, xp);
@@ -10325,7 +10333,9 @@ schnorr_pubkey_import(const wei_t *ec,
   x_len *= ret;
 
   memset(xp, 0x00, fe->size - x_len);
-  memcpy(xp + fe->size - x_len, x_raw, x_len);
+
+  if (x_len > 0)
+    memcpy(xp + fe->size - x_len, x_raw, x_len);
 
   ret &= has_x;
   ret &= wge_import_even(ec, &A, xp);
@@ -10997,7 +11007,9 @@ ecdh_privkey_import(const mont_t *ec,
 
   len *= ret;
 
-  memcpy(key, bytes, len);
+  if (len > 0)
+    memcpy(key, bytes, len);
+
   memset(key + len, 0x00, sc->size - len);
   memcpy(out, key, sc->size);
 
@@ -11178,7 +11190,9 @@ ecdh_pubkey_import(const mont_t *ec,
 
   x_len *= ret;
 
-  memcpy(xp, x_raw, x_len);
+  if (x_len > 0)
+    memcpy(xp, x_raw, x_len);
+
   memset(xp + x_len, 0x00, fe->size - x_len);
 
   ret &= has_x;
@@ -11446,7 +11460,9 @@ eddsa_scalar_reduce(const edwards_t *ec,
   if (len > sc->size)
     len = sc->size;
 
-  memcpy(scalar, bytes, len);
+  if (len > 0)
+    memcpy(scalar, bytes, len);
+
   memset(scalar + len, 0x00, sc->size - len);
 
   sc_import_reduce(sc, a, scalar);
@@ -11642,10 +11658,14 @@ eddsa_pubkey_import(const edwards_t *ec,
   x_len *= ret;
   y_len *= ret;
 
-  memcpy(xp, x_raw, x_len);
+  if (x_len > 0)
+    memcpy(xp, x_raw, x_len);
+
   memset(xp + x_len, 0x00, fe->size - x_len);
 
-  memcpy(yp, y_raw, y_len);
+  if (y_len > 0)
+    memcpy(yp, y_raw, y_len);
+
   memset(yp + y_len, 0x00, fe->size - y_len);
 
   ret &= has_x | has_y;

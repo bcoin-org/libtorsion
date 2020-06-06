@@ -1022,7 +1022,9 @@ bcrypt_derive(unsigned char *out,
   if (pass_len >= 255) {
     memcpy(key, pass, 255);
   } else {
-    memcpy(key, pass, pass_len);
+    if (pass_len > 0)
+      memcpy(key, pass, pass_len);
+
     key[pass_len] = 0;
   }
 
