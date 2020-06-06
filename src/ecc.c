@@ -10449,24 +10449,6 @@ schnorr_hash_init(hash_t *hash, int type, const char *tag) {
   size_t hash_size = hash_output_size(type);
   unsigned char bytes[HASH_MAX_OUTPUT_SIZE];
 
-  if (type == HASH_SHA256) {
-    sha256_t *sha = &hash->ctx.sha256;
-
-    if (strcmp(tag, "BIP340/challenge") == 0) {
-      hash->type = HASH_SHA256;
-      sha->state[0] = 0x71985ac9;
-      sha->state[1] = 0x198317a2;
-      sha->state[2] = 0x60b6e581;
-      sha->state[3] = 0x54c109b6;
-      sha->state[4] = 0x64bac2fd;
-      sha->state[5] = 0x91231de2;
-      sha->state[6] = 0x7301ebde;
-      sha->state[7] = 0x87635f83;
-      sha->size = 64;
-      return;
-    }
-  }
-
   hash_init(hash, type);
   hash_update(hash, tag, strlen(tag));
   hash_final(hash, bytes, hash_size);
@@ -10487,7 +10469,23 @@ schnorr_hash_aux(const wei_t *ec,
   hash_t hash;
   size_t i;
 
-  schnorr_hash_init(&hash, ec->hash, "BIP340/aux");
+  if (ec->hash == HASH_SHA256) {
+    sha256_t *sha = &hash.ctx.sha256;
+
+    sha->state[0] = 0x5d74a872;
+    sha->state[1] = 0xd57064d4;
+    sha->state[2] = 0x89495bec;
+    sha->state[3] = 0x910f46f5;
+    sha->state[4] = 0xcbc6fd3e;
+    sha->state[5] = 0xaf05d9d0;
+    sha->state[6] = 0xcb781ce6;
+    sha->state[7] = 0x062930ac;
+    sha->size = 64;
+
+    hash.type = HASH_SHA256;
+  } else {
+    schnorr_hash_init(&hash, ec->hash, "BIP340/aux");
+  }
 
   hash_update(&hash, aux, 32);
   hash_final(&hash, bytes, hash_size);
@@ -10523,7 +10521,23 @@ schnorr_hash_nonce(const wei_t *ec, sc_t k,
     memset(bytes, 0x00, off);
   }
 
-  schnorr_hash_init(&hash, ec->hash, "BIP340/nonce");
+  if (ec->hash == HASH_SHA256) {
+    sha256_t *sha = &hash.ctx.sha256;
+
+    sha->state[0] = 0xa96e75cb;
+    sha->state[1] = 0x74f9f0ac;
+    sha->state[2] = 0xc49e3c98;
+    sha->state[3] = 0x202f99ba;
+    sha->state[4] = 0x8946a616;
+    sha->state[5] = 0x4accf415;
+    sha->state[6] = 0x86e335c3;
+    sha->state[7] = 0x48d0a072;
+    sha->size = 64;
+
+    hash.type = HASH_SHA256;
+  } else {
+    schnorr_hash_init(&hash, ec->hash, "BIP340/nonce");
+  }
 
   hash_update(&hash, secret, sc->size);
   hash_update(&hash, point, fe->size);
@@ -10557,7 +10571,23 @@ schnorr_hash_challenge(const wei_t *ec, sc_t e,
     memset(bytes, 0x00, off);
   }
 
-  schnorr_hash_init(&hash, ec->hash, "BIP340/challenge");
+  if (ec->hash == HASH_SHA256) {
+    sha256_t *sha = &hash.ctx.sha256;
+
+    sha->state[0] = 0x71985ac9;
+    sha->state[1] = 0x198317a2;
+    sha->state[2] = 0x60b6e581;
+    sha->state[3] = 0x54c109b6;
+    sha->state[4] = 0x64bac2fd;
+    sha->state[5] = 0x91231de2;
+    sha->state[6] = 0x7301ebde;
+    sha->state[7] = 0x87635f83;
+    sha->size = 64;
+
+    hash.type = HASH_SHA256;
+  } else {
+    schnorr_hash_init(&hash, ec->hash, "BIP340/challenge");
+  }
 
   hash_update(&hash, R, fe->size);
   hash_update(&hash, A, fe->size);
