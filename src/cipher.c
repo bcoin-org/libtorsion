@@ -6667,8 +6667,8 @@ gcm_crypt(gcm_t *mode,
 int
 gcm_init(gcm_t *mode, const cipher_t *cipher,
          const unsigned char *iv, size_t iv_len) {
+  static const unsigned char initial[4] = {0, 0, 0, 1};
   unsigned char key[16];
-  unsigned char tmp[16];
 
   if (cipher->size != 16) {
     memset(mode, 0, sizeof(*mode));
@@ -6683,26 +6683,16 @@ gcm_init(gcm_t *mode, const cipher_t *cipher,
 
   gcm_crypt(mode, cipher, key, zero64, 16);
 
-  ghash_init(&mode->hash, key);
-
-  if (iv_len != 12) {
-    ghash_update(&mode->hash, iv, iv_len);
-    ghash_final(&mode->hash, tmp);
-    ghash_init(&mode->hash, key);
-
-    iv = tmp;
-    iv_len = 16;
-  }
-
-  memcpy(mode->ctr, iv, iv_len);
-
   if (iv_len == 12) {
-    mode->ctr[12] = 0x00;
-    mode->ctr[13] = 0x00;
-    mode->ctr[14] = 0x00;
-    mode->ctr[15] = 0x01;
+    memcpy(mode->ctr, iv, 12);
+    memcpy(mode->ctr + 12, initial, 4);
+  } else {
+    ghash_init(&mode->hash, key);
+    ghash_update(&mode->hash, iv, iv_len);
+    ghash_final(&mode->hash, mode->ctr);
   }
 
+  ghash_init(&mode->hash, key);
   gcm_crypt(mode, cipher, mode->mask, zero64, 16);
 
   return 1;
