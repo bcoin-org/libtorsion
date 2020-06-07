@@ -271,9 +271,11 @@ sha512_write_sysctl3(sha512_t *hash, int ctl, int opt, int sub) {
 #endif /* HAVE_SYSCTL */
 
 static void
-sha512_write_cpuid(sha512_t *hash, uint32_t leaf, uint32_t subleaf,
-                   uint32_t *ax, uint32_t *bx, uint32_t *cx, uint32_t *dx) {
-  torsion_cpuid(leaf, subleaf, ax, bx, cx, dx);
+sha512_write_cpuid(sha512_t *hash,
+                   uint32_t *ax, uint32_t *bx,
+                   uint32_t *cx, uint32_t *dx,
+                   uint32_t leaf, uint32_t subleaf) {
+  torsion_cpuid(ax, bx, cx, dx, leaf, subleaf);
 
   sha512_write_int(hash, leaf);
   sha512_write_int(hash, subleaf);
@@ -289,7 +291,7 @@ sha512_write_cpuids(sha512_t *hash) {
   uint32_t ax, bx, cx, dx;
 
   /* Iterate over all standard leaves. */
-  sha512_write_cpuid(hash, 0, 0, &ax, &bx, &cx, &dx);
+  sha512_write_cpuid(hash, &ax, &bx, &cx, &dx, 0, 0);
 
   /* Max leaf in ax. */
   max = ax;
@@ -298,7 +300,7 @@ sha512_write_cpuids(sha512_t *hash) {
     maxsub = 0;
 
     for (subleaf = 0; subleaf <= 0xff; subleaf++) {
-      sha512_write_cpuid(hash, leaf, subleaf, &ax, &bx, &cx, &dx);
+      sha512_write_cpuid(hash, &ax, &bx, &cx, &dx, leaf, subleaf);
 
       /* Iterate subleafs for leaf values 4, 7, 11, 13. */
       if (leaf == 4) {
@@ -324,13 +326,13 @@ sha512_write_cpuids(sha512_t *hash) {
   }
 
   /* Iterate over all extended leaves. */
-  sha512_write_cpuid(hash, 0x80000000, 0, &ax, &bx, &cx, &dx);
+  sha512_write_cpuid(hash, &ax, &bx, &cx, &dx, 0x80000000, 0);
 
   /* Max extended leaf in ax. */
   maxext = ax;
 
   for (leaf = 0x80000001; leaf <= maxext && leaf <= 0x800000ff; leaf++)
-    sha512_write_cpuid(hash, leaf, 0, &ax, &bx, &cx, &dx);
+    sha512_write_cpuid(hash, &ax, &bx, &cx, &dx, leaf, 0);
 }
 
 #ifdef _WIN32

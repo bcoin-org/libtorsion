@@ -259,12 +259,16 @@ torsion_rdtsc(void) {
 #elif defined(HAVE_INLINE_ASM) && defined(__i386__)
   /* Borrowed from Bitcoin Core. */
   uint64_t r = 0;
-  __asm__ __volatile__("rdtsc" : "=A" (r));
+
+  __asm__ __volatile__("rdtsc\n" : "=A" (r));
+
   return r;
 #elif defined(HAVE_INLINE_ASM) && (defined(__x86_64__) || defined(__amd64__))
   /* Borrowed from Bitcoin Core. */
   uint64_t lo = 0, hi = 0;
-  __asm__ __volatile__("rdtsc" : "=a" (lo), "=d" (hi));
+
+  __asm__ __volatile__("rdtsc\n" : "=a" (lo), "=d" (hi));
+
   return (hi << 32) | lo;
 #else
   /* Fall back to high-resolution time. */
@@ -286,15 +290,17 @@ torsion_has_cpuid(void) {
 }
 
 void
-torsion_cpuid(uint32_t level,
-              uint32_t count,
-              uint32_t *a,
+torsion_cpuid(uint32_t *a,
               uint32_t *b,
               uint32_t *c,
-              uint32_t *d) {
+              uint32_t *d,
+              uint32_t leaf,
+              uint32_t subleaf) {
 #if defined(HAVE_CPUIDEX)
   int regs[4];
-  __cpuidex(regs, level, count);
+
+  __cpuidex(regs, leaf, subleaf);
+
   *a = (unsigned int)regs[0];
   *b = (unsigned int)regs[1];
   *c = (unsigned int)regs[2];
@@ -303,11 +309,12 @@ torsion_cpuid(uint32_t level,
   __asm__ __volatile__(
     "cpuid\n"
     : "=a" (*a), "=b" (*b), "=c" (*c), "=d" (*d)
-    : "0" (level), "2" (count)
+    : "0" (leaf), "2" (subleaf)
   );
 #else
-  (void)level;
-  (void)count;
+  (void)leaf;
+  (void)subleaf;
+
   *a = 0;
   *b = 0;
   *c = 0;
@@ -323,7 +330,9 @@ int
 torsion_has_rdrand(void) {
 #if defined(HAVE_CPUIDEX) || defined(HAVE_CPUID)
   uint32_t eax, ebx, ecx, edx;
-  torsion_cpuid(1, 0, &eax, &ebx, &ecx, &edx);
+
+  torsion_cpuid(&eax, &ebx, &ecx, &edx, 1, 0);
+
   return (ecx >> 30) & 1;
 #else
   return 0;
@@ -334,7 +343,9 @@ int
 torsion_has_rdseed(void) {
 #if defined(HAVE_CPUIDEX) || defined(HAVE_CPUID)
   uint32_t eax, ebx, ecx, edx;
-  torsion_cpuid(7, 0, &eax, &ebx, &ecx, &edx);
+
+  torsion_cpuid(&eax, &ebx, &ecx, &edx, 7, 0);
+
   return (ebx >> 18) & 1;
 #else
   return 0;
@@ -385,7 +396,8 @@ torsion_rdrand(void) {
       "setc %1\n"
       : "=a" (lo), "=q" (ok)
       :
-      : "cc");
+      : "cc"
+    );
 
     if (ok)
       break;
@@ -397,7 +409,8 @@ torsion_rdrand(void) {
       "setc %1\n"
       : "=a" (hi), "=q" (ok)
       :
-      : "cc");
+      : "cc"
+    );
 
     if (ok)
       break;
@@ -416,7 +429,8 @@ torsion_rdrand(void) {
       "setc %1\n"
       : "=a" (r), "=q" (ok)
       :
-      : "cc");
+      : "cc"
+    );
 
     if (ok)
       break;
@@ -472,7 +486,8 @@ torsion_rdseed(void) {
       "setc %1\n"
       : "=a" (lo), "=q" (ok)
       :
-      : "cc");
+      : "cc"
+    );
 
     if (ok)
       break;
@@ -486,7 +501,8 @@ torsion_rdseed(void) {
       "setc %1\n"
       : "=a" (hi), "=q" (ok)
       :
-      : "cc");
+      : "cc"
+    );
 
     if (ok)
       break;
@@ -506,7 +522,8 @@ torsion_rdseed(void) {
       "setc %1\n"
       : "=a" (r), "=q" (ok)
       :
-      : "cc");
+      : "cc"
+    );
 
     if (ok)
       break;
