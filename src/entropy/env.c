@@ -670,9 +670,6 @@ sha512_write_dynamic_env(sha512_t *hash) {
   }
 #endif /* HAVE_CLOCK_GETTIME */
 
-  /* Probably redudant, but do it anyway. */
-  sha512_write_int(hash, torsion_hrtime());
-
   /* Current resource usage. */
   {
     struct rusage usage;
@@ -683,6 +680,9 @@ sha512_write_dynamic_env(sha512_t *hash) {
       sha512_write(hash, &usage, sizeof(usage));
   }
 #endif /* _WIN32 */
+
+  /* Probably redudant, but do it anyway. */
+  sha512_write_int(hash, torsion_hrtime());
 
 #ifdef __linux__
   sha512_write_file(hash, "/proc/diskstats");
