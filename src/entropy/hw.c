@@ -102,8 +102,8 @@ uint16_t __wasi_clock_time_get(uint32_t clock_id,
 #elif defined(__wasm__) || defined(__asmjs__)
 /* nothing */
 #elif defined(_WIN32)
+#  include <windows.h> /* QueryPerformance{Counter,Frequency} */
 #  if defined(_WIN32_WINNT) && _WIN32_WINNT >= 0x0501 /* >= Windows XP */
-#    include <windows.h> /* QueryPerformance{Counter,Frequency} */
 #    define HAVE_QPC
 #  else
 #    include <sys/timeb.h> /* _timeb, _ftime */
@@ -111,11 +111,18 @@ uint16_t __wasi_clock_time_get(uint32_t clock_id,
 #      define _timeb timeb
 #      define _ftime ftime
 #    endif
+#    ifdef _MSC_VER
+#      pragma warning(disable: 4996) /* deprecation warning */
+#    endif
 #  endif
-#  if defined(_MSC_VER) && (defined(_M_IX86) || defined(_M_X64))
-#    include <intrin.h> /* __rdtsc */
-#    pragma intrinsic(__rdtsc)
-#    define HAVE_RDTSC
+#  if defined(_MSC_VER) && _MSC_VER >= 1900 /* VS 2015 */
+#    if defined(_M_X64) || defined(_M_AMD64) || defined(_M_IX86)
+#      include <intrin.h> /* __cpuidex, __rdtsc */
+#      include <immintrin.h> /* _rd{rand,seed}{32,64}_step */
+#      pragma intrinsic(__cpuidex, __rdtsc)
+#      define HAVE_CPUIDEX
+#      define HAVE_RDTSC
+#    endif
 #  endif
 #elif defined(__vxworks)
 #  include <time.h> /* clock_gettime */
@@ -204,10 +211,9 @@ torsion_hrtime(void) {
 #elif defined(_WIN32)
   /* Borrowed from libsodium. */
   struct _timeb tb;
-#pragma warning(push)
-#pragma warning(disable: 4996)
+
   _ftime(&tb);
-#pragma warning(pop)
+
   return (uint64_t)tb.time * 1000000000 + (uint64_t)tb.millitm * 1000000;
 #elif defined(__vxworks)
   struct timespec ts;
@@ -257,9 +263,9 @@ torsion_rdtsc(void) {
   return r;
 #elif defined(HAVE_INLINE_ASM) && (defined(__x86_64__) || defined(__amd64__))
   /* Borrowed from Bitcoin Core. */
-  uint64_t r1 = 0, r2 = 0;
-  __asm__ __volatile__("rdtsc" : "=a" (r1), "=d" (r2));
-  return (r2 << 32) | r1;
+  uint64_t lo = 0, hi = 0;
+  __asm__ __volatile__("rdtsc" : "=a" (lo), "=d" (hi));
+  return (hi << 32) | lo;
 #else
   /* Fall back to high-resolution time. */
   return torsion_hrtime();
@@ -272,7 +278,7 @@ torsion_rdtsc(void) {
 
 int
 torsion_has_cpuid(void) {
-#ifdef HAVE_CPUID
+#if defined(HAVE_CPUIDEX) || defined(HAVE_CPUID)
   return 1;
 #else
   return 0;
@@ -286,18 +292,27 @@ torsion_cpuid(uint32_t level,
               uint32_t *b,
               uint32_t *c,
               uint32_t *d) {
-#ifdef HAVE_CPUID
-  __asm__ ("cpuid\n"
-           : "=a" (*a), "=b" (*b), "=c" (*c), "=d" (*d)
-           : "0" (level), "2" (count));
-#else /* HAVE_CPUID */
+#if defined(HAVE_CPUIDEX)
+  int regs[4];
+  __cpuidex(regs, level, count);
+  *a = (unsigned int)regs[0];
+  *b = (unsigned int)regs[1];
+  *c = (unsigned int)regs[2];
+  *d = (unsigned int)regs[3];
+#elif defined(HAVE_CPUID)
+  __asm__ __volatile__(
+    "cpuid\n"
+    : "=a" (*a), "=b" (*b), "=c" (*c), "=d" (*d)
+    : "0" (level), "2" (count)
+  );
+#else
   (void)level;
   (void)count;
   *a = 0;
   *b = 0;
   *c = 0;
   *d = 0;
-#endif /* HAVE_CPUID */
+#endif
 }
 
 /*
@@ -306,7 +321,7 @@ torsion_cpuid(uint32_t level,
 
 int
 torsion_has_rdrand(void) {
-#ifdef HAVE_CPUID
+#if defined(HAVE_CPUIDEX) || defined(HAVE_CPUID)
   uint32_t eax, ebx, ecx, edx;
   torsion_cpuid(1, 0, &eax, &ebx, &ecx, &edx);
   return (ecx >> 30) & 1;
@@ -317,7 +332,7 @@ torsion_has_rdrand(void) {
 
 int
 torsion_has_rdseed(void) {
-#ifdef HAVE_CPUID
+#if defined(HAVE_CPUIDEX) || defined(HAVE_CPUID)
   uint32_t eax, ebx, ecx, edx;
   torsion_cpuid(7, 0, &eax, &ebx, &ecx, &edx);
   return (ebx >> 18) & 1;
@@ -328,10 +343,39 @@ torsion_has_rdseed(void) {
 
 uint64_t
 torsion_rdrand(void) {
-  /* Borrowed from Bitcoin Core. */
-#ifdef HAVE_CPUID
+#if defined(HAVE_CPUIDEX)
+#if defined(_M_IX86)
+  unsigned int lo, hi;
+  int i;
+
+  for (i = 0; i < 10; i++) {
+    if (_rdrand32_step(&lo))
+      break;
+  }
+
+  for (i = 0; i < 10; i++) {
+    if (_rdrand32_step(&hi))
+      break;
+  }
+
+  return ((uint64_t)hi << 32) | lo;
+#elif defined(_M_X64) || defined(_M_AMD64)
+  unsigned __int64 r;
+  int i;
+
+  for (i = 0; i < 10; i++) {
+    if (_rdrand64_step(&r))
+      break;
+  }
+
+  return r;
+#else
+#error "unreachable"
+#endif
+#elif defined(HAVE_CPUID)
 #if defined(__i386__)
-  uint32_t r1, r2;
+  /* Borrowed from Bitcoin Core. */
+  uint32_t lo, hi;
   uint8_t ok;
   int i;
 
@@ -339,7 +383,7 @@ torsion_rdrand(void) {
     __asm__ __volatile__(
       ".byte 0x0f, 0xc7, 0xf0\n" /* rdrand %eax */
       "setc %1\n"
-      : "=a" (r1), "=q" (ok)
+      : "=a" (lo), "=q" (ok)
       :
       : "cc");
 
@@ -351,7 +395,7 @@ torsion_rdrand(void) {
     __asm__ __volatile__(
       ".byte 0x0f, 0xc7, 0xf0\n" /* rdrand %eax */
       "setc %1\n"
-      : "=a" (r2), "=q" (ok)
+      : "=a" (hi), "=q" (ok)
       :
       : "cc");
 
@@ -359,17 +403,18 @@ torsion_rdrand(void) {
       break;
   }
 
-  return ((uint64_t)r2 << 32) | r1;
+  return ((uint64_t)hi << 32) | lo;
 #elif defined(__x86_64__) || defined(__amd64__)
+  /* Borrowed from Bitcoin Core. */
   uint8_t ok;
-  uint64_t r1;
+  uint64_t r;
   int i;
 
   for (i = 0; i < 10; i++) {
     __asm__ __volatile__(
       ".byte 0x48, 0x0f, 0xc7, 0xf0\n" /* rdrand %rax */
       "setc %1\n"
-      : "=a" (r1), "=q" (ok)
+      : "=a" (r), "=q" (ok)
       :
       : "cc");
 
@@ -377,28 +422,55 @@ torsion_rdrand(void) {
       break;
   }
 
-  return r1;
+  return r;
 #else
 #error "unreachable"
 #endif
-#else /* HAVE_CPUID */
+#else
   return 0;
-#endif /* HAVE_CPUID */
+#endif
 }
 
 uint64_t
 torsion_rdseed(void) {
-  /* Borrowed from Bitcoin Core. */
-#ifdef HAVE_CPUID
+#if defined(HAVE_CPUIDEX)
+#if defined(_M_IX86)
+  unsigned int lo, hi;
+
+  for (;;) {
+    if (_rdseed32_step(&lo))
+      break;
+  }
+
+  for (;;) {
+    if (_rdseed32_step(&hi))
+      break;
+  }
+
+  return ((uint64_t)hi << 32) | lo;
+#elif defined(_M_X64) || defined(_M_AMD64)
+  unsigned __int64 r;
+
+  for (;;) {
+    if (_rdseed64_step(&r))
+      break;
+  }
+
+  return r;
+#else
+#error "unreachable"
+#endif
+#elif defined(HAVE_CPUID)
 #if defined(__i386__)
-  uint32_t r1, r2;
+  /* Borrowed from Bitcoin Core. */
+  uint32_t lo, hi;
   uint8_t ok;
 
   for (;;) {
     __asm__ __volatile__(
       ".byte 0x0f, 0xc7, 0xf8\n" /* rdseed %eax */
       "setc %1\n"
-      : "=a" (r1), "=q" (ok)
+      : "=a" (lo), "=q" (ok)
       :
       : "cc");
 
@@ -412,7 +484,7 @@ torsion_rdseed(void) {
     __asm__ __volatile__(
       ".byte 0x0f, 0xc7, 0xf8\n" /* rdseed %eax */
       "setc %1\n"
-      : "=a" (r2), "=q" (ok)
+      : "=a" (hi), "=q" (ok)
       :
       : "cc");
 
@@ -422,16 +494,17 @@ torsion_rdseed(void) {
     __asm__ __volatile__("pause");
   }
 
-  return ((uint64_t)r2 << 32) | r1;
+  return ((uint64_t)hi << 32) | lo;
 #elif defined(__x86_64__) || defined(__amd64__)
-  uint64_t r1;
+  /* Borrowed from Bitcoin Core. */
+  uint64_t r;
   uint8_t ok;
 
   for (;;) {
     __asm__ __volatile__(
       ".byte 0x48, 0x0f, 0xc7, 0xf8\n" /* rdseed %rax */
       "setc %1\n"
-      : "=a" (r1), "=q" (ok)
+      : "=a" (r), "=q" (ok)
       :
       : "cc");
 
@@ -441,13 +514,13 @@ torsion_rdseed(void) {
     __asm__ __volatile__("pause");
   }
 
-  return r1;
+  return r;
 #else
 #error "unreachable"
 #endif
-#else /* HAVE_CPUID */
+#else
   return 0;
-#endif /* HAVE_CPUID */
+#endif
 }
 
 /*
@@ -456,7 +529,7 @@ torsion_rdseed(void) {
 
 int
 torsion_hwrand(void *dst, size_t size) {
-#ifdef HAVE_CPUID
+#if defined(HAVE_CPUIDEX) || defined(HAVE_CPUID)
   unsigned char *data = (unsigned char *)dst;
   int has_rdrand = torsion_has_rdrand();
   int has_rdseed = torsion_has_rdseed();
