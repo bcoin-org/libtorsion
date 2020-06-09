@@ -102,7 +102,7 @@ uint16_t __wasi_clock_time_get(uint32_t clock_id,
 #elif defined(__wasm__) || defined(__asmjs__)
 /* nothing */
 #elif defined(_WIN32)
-#  include <windows.h> /* QueryPerformance{Counter,Frequency}, _WIN32_WINNT */
+#  include <windows.h> /* _WIN32_WINNT, QueryPerformance{Counter,Frequency} */
 #  if defined(_WIN32_WINNT) && _WIN32_WINNT >= 0x0501 /* >= Windows XP */
 #    pragma comment(lib, "kernel32.lib")
 #    define HAVE_QPC
@@ -130,8 +130,10 @@ uint16_t __wasi_clock_time_get(uint32_t clock_id,
 #elif defined(__fuchsia__)
 #  include <zircon/syscalls.h> /* zx_clock_get_monotonic */
 #else
-#  include <sys/time.h> /* gettimeofday */
 #  include <time.h> /* clock_gettime */
+#  ifndef CLOCK_MONOTONIC
+#    include <sys/time.h> /* gettimeofday */
+#  endif
 #  if defined(__GNUC__)
 #    define HAVE_INLINE_ASM
 #    if defined(__x86_64__) || defined(__amd64__) || defined(__i386__)
