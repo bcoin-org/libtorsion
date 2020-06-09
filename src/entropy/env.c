@@ -54,7 +54,7 @@
  * be re-enabled by defining TORSION_USE_PERFDATA.
  */
 
-#ifdef __linux__
+#if !defined(_WIN32) && !defined(_GNU_SOURCE)
 /* For gethostname(3), getsid(3), getpgid(3), clock_gettime(2). */
 #  define _GNU_SOURCE
 #endif

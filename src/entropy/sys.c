@@ -186,7 +186,7 @@
  * [2] https://github.com/libuv/libuv/blob/a62f8ce/src/unix/random-sysctl-linux.c
  */
 
-#ifdef __linux__
+#if defined(__linux__) && !defined(_GNU_SOURCE)
 /* For syscall(2). */
 #  define _GNU_SOURCE
 #endif

@@ -4,7 +4,8 @@
  * https://github.com/bcoin-org/libtorsion
  */
 
-#ifdef __linux__
+#if !defined(_WIN32) && !defined(_GNU_SOURCE)
+/* For clock_gettime(2). */
 #  define _GNU_SOURCE
 #endif
 
@@ -12,10 +13,18 @@
 #include <stdint.h>
 
 #ifdef _WIN32
-#  include <windows.h>
+#  include <windows.h> /* QueryPerformance{Counter,Frequency} */
 #  pragma comment(lib, "kernel32.lib")
+#else /* _WIN32 */
+#  include <time.h> /* clock_gettime */
+#  ifndef CLOCK_MONOTONIC
+#    include <sys/time.h> /* gettimeofday */
+#  endif /* !CLOCK_MONOTONIC */
+#endif /* _WIN32 */
+
 uint64_t
 torsion_hrtime(void) {
+#if defined(_WIN32)
   static unsigned int scale = 1000000000;
   LARGE_INTEGER freq, ctr;
   double scaled, result;
@@ -42,29 +51,19 @@ torsion_hrtime(void) {
   result = (double)ctr.QuadPart / scaled;
 
   return (uint64_t)result;
-}
-#else /* _WIN32 */
-#  include <time.h>
-#  ifdef CLOCK_MONOTONIC
-uint64_t
-torsion_hrtime(void) {
+#elif defined(CLOCK_MONOTONIC)
   struct timespec ts;
 
   if (clock_gettime(CLOCK_MONOTONIC, &ts) != 0)
     abort();
 
   return (uint64_t)ts.tv_sec * 1000000000 + (uint64_t)ts.tv_nsec;
-}
-#  else /* CLOCK_MONOTONIC */
-#    include <sys/time.h>
-uint64_t
-torsion_hrtime(void) {
+#else
   struct timeval tv;
 
   if (gettimeofday(&tv, NULL) != 0)
     abort();
 
   return (uint64_t)tv.tv_sec * 1000000000 + (uint64_t)tv.tv_usec * 1000;
+#endif
 }
-#  endif /* CLOCK_MONOTONIC */
-#endif /* _WIN32 */

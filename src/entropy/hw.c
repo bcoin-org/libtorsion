@@ -77,7 +77,7 @@
  * checked before calling torsion_rd{rand,seed}.
  */
 
-#ifdef __linux__
+#if !defined(_WIN32) && !defined(_GNU_SOURCE)
 /* For clock_gettime(2). */
 #  define _GNU_SOURCE
 #endif
