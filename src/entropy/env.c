@@ -731,6 +731,17 @@ sha512_write_static_env(sha512_t *hash) {
 static void
 sha512_write_dynamic_env(sha512_t *hash) {
 #ifdef _WIN32
+  /* System time. */
+  {
+    FILETIME ftime;
+
+    memset(&ftime, 0, sizeof(ftime));
+
+    GetSystemTimeAsFileTime(&ftime);
+
+    sha512_write(hash, &ftime, sizeof(ftime));
+  }
+
   /* Various clocks. */
   {
     SYSTEMTIME stime, ltime;
