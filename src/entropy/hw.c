@@ -436,7 +436,7 @@ torsion_rdrand(void) {
   }
 
   return ((uint64_t)hi << 32) | lo;
-#elif defined(_M_X64) || defined(_M_AMD64)
+#else /* _M_IX86 */
   unsigned __int64 r;
   int i;
 
@@ -446,9 +446,7 @@ torsion_rdrand(void) {
   }
 
   return r;
-#else
-#error "unreachable"
-#endif
+#endif /* _M_IX86 */
 #elif defined(HAVE_CPUID)
 #if defined(__i386__)
   /* Borrowed from Bitcoin Core. */
@@ -483,7 +481,7 @@ torsion_rdrand(void) {
   }
 
   return ((uint64_t)hi << 32) | lo;
-#elif defined(__x86_64__) || defined(__amd64__)
+#else /* __i386__ */
   /* Borrowed from Bitcoin Core. */
   uint8_t ok;
   uint64_t r;
@@ -503,9 +501,7 @@ torsion_rdrand(void) {
   }
 
   return r;
-#else
-#error "unreachable"
-#endif
+#endif /* __i386__ */
 #else
   return 0;
 #endif
@@ -536,7 +532,7 @@ torsion_rdseed(void) {
   }
 
   return ((uint64_t)hi << 32) | lo;
-#elif defined(_M_X64) || defined(_M_AMD64)
+#else /* _M_IX86 */
   unsigned __int64 r;
 
   for (;;) {
@@ -549,9 +545,7 @@ torsion_rdseed(void) {
   }
 
   return r;
-#else
-#error "unreachable"
-#endif
+#endif /* _M_IX86 */
 #elif defined(HAVE_CPUID)
 #if defined(__i386__)
   /* Borrowed from Bitcoin Core. */
@@ -589,7 +583,7 @@ torsion_rdseed(void) {
   }
 
   return ((uint64_t)hi << 32) | lo;
-#elif defined(__x86_64__) || defined(__amd64__)
+#else /* __i386__ */
   /* Borrowed from Bitcoin Core. */
   uint64_t r;
   uint8_t ok;
@@ -610,9 +604,7 @@ torsion_rdseed(void) {
   }
 
   return r;
-#else
-#error "unreachable"
-#endif
+#endif /* __i386__ */
 #else
   return 0;
 #endif
