@@ -83,7 +83,6 @@ CC_CHECK_CFLAGS_APPEND([-Wno-implicit-fallthrough])
 CC_CHECK_CFLAGS_APPEND([-Wno-long-long])
 CC_CHECK_CFLAGS_APPEND([-Wno-overlength-strings])
 CC_CHECK_CFLAGS_APPEND([-Wshadow])
-CC_CHECK_CFLAGS_APPEND([-Wstack-usage=131072])
 CC_CHECK_CFLAGS_APPEND([-O3])
 
 AC_MSG_CHECKING(for 64 bit support)

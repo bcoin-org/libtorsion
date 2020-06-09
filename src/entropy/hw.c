@@ -102,8 +102,9 @@ uint16_t __wasi_clock_time_get(uint32_t clock_id,
 #elif defined(__wasm__) || defined(__asmjs__)
 /* nothing */
 #elif defined(_WIN32)
-#  include <windows.h> /* QueryPerformance{Counter,Frequency} */
+#  include <windows.h> /* QueryPerformance{Counter,Frequency}, _WIN32_WINNT */
 #  if defined(_WIN32_WINNT) && _WIN32_WINNT >= 0x0501 /* >= Windows XP */
+#    pragma comment(lib, "kernel32.lib")
 #    define HAVE_QPC
 #  else
 #    include <sys/timeb.h> /* _timeb, _ftime */
@@ -193,8 +194,9 @@ torsion_hrtime(void) {
 #elif defined(__wasm__) || defined(__asmjs__)
   return 0;
 #elif defined(HAVE_QPC) /* _WIN32 */
+  static unsigned int scale = 1000000000;
   LARGE_INTEGER freq, ctr;
-  double sec;
+  double scaled, result;
 
   if (!QueryPerformanceFrequency(&freq))
     abort();
@@ -205,11 +207,28 @@ torsion_hrtime(void) {
   if (freq.QuadPart == 0)
     abort();
 
-  sec = (double)ctr.QuadPart / (double)freq.QuadPart;
+  /* We have no idea of the magnitude of `freq`,
+   * so we must resort to double arithmetic[1].
+   * Furthermore, we use some wacky arithmetic
+   * to avoid a bug in Visual Studio 2019[2][3].
+   *
+   * [1] https://github.com/libuv/libuv/blob/7967448/src/win/util.c#L503
+   * [2] https://github.com/libuv/libuv/issues/1633
+   * [3] https://github.com/libuv/libuv/pull/2866
+   */
+  scaled = (double)freq.QuadPart / scale;
+  result = (double)ctr.QuadPart / scaled;
 
-  return (uint64_t)(sec * 1000000000);
+  return (uint64_t)result;
 #elif defined(_WIN32)
-  /* Borrowed from libsodium. */
+  /* We could convert GetSystemTimeAsFileTime into
+   * unix time like libuv[1], but we opt for the
+   * simpler `_ftime()` call a la libsodium[2].
+   *
+   * [1] https://github.com/libuv/libuv/blob/7967448/src/win/util.c#L1942
+   * [2] https://github.com/jedisct1/libsodium/blob/d54f072/src/
+   *     libsodium/randombytes/internal/randombytes_internal_random.c#L140
+   */
   struct _timeb tb;
 
   _ftime(&tb);
@@ -265,7 +284,8 @@ torsion_rdtsc(void) {
   return r;
 #elif defined(HAVE_INLINE_ASM) && (defined(__x86_64__) || defined(__amd64__))
   /* Borrowed from Bitcoin Core. */
-  uint64_t lo = 0, hi = 0;
+  uint64_t lo = 0;
+  uint64_t hi = 0;
 
   __asm__ __volatile__("rdtsc\n" : "=a" (lo), "=d" (hi));
 
@@ -282,8 +302,31 @@ torsion_rdtsc(void) {
 
 int
 torsion_has_cpuid(void) {
-#if defined(HAVE_CPUIDEX) || defined(HAVE_CPUID)
+#if defined(HAVE_CPUIDEX)
   return 1;
+#elif defined(HAVE_CPUID)
+#if defined(__i386__)
+  uint32_t ax, bx;
+
+  __asm__ __volatile__(
+    "pushfl\n"
+    "pushfl\n"
+    "popl %0\n"
+    "movl %0, %1\n"
+    "xorl %2, %0\n"
+    "pushl %0\n"
+    "popfl\n"
+    "pushfl\n"
+    "popl %0\n"
+    "popfl\n"
+    : "=&r" (ax), "=&r" (bx)
+    : "i" (0x00200000)
+  );
+
+  return ((ax ^ bx) >> 21) & 1;
+#else /* __i386__ */
+  return 1;
+#endif /* __i386__ */
 #else
   return 0;
 #endif
@@ -306,11 +349,34 @@ torsion_cpuid(uint32_t *a,
   *c = (unsigned int)regs[2];
   *d = (unsigned int)regs[3];
 #elif defined(HAVE_CPUID)
+  *a = 0;
+  *b = 0;
+  *c = 0;
+  *d = 0;
+#if defined(__i386__)
+  /* Older GCC versions reserve %ebx as the global
+   * offset table register when compiling position
+   * independent code[1]. We borrow some assembly
+   * from libsodium to work around this.
+   *
+   * [1] https://gcc.gnu.org/bugzilla/show_bug.cgi?id=54232
+   */
+  if (torsion_has_cpuid()) {
+    __asm__ __volatile__(
+      "xchgl %%ebx, %k1\n"
+      "cpuid\n"
+      "xchgl %%ebx, %k1\n"
+      : "=a" (*a), "=&r" (*b), "=c" (*c), "=d" (*d)
+      : "0" (leaf), "2" (subleaf)
+    );
+  }
+#else /* __i386__ */
   __asm__ __volatile__(
     "cpuid\n"
     : "=a" (*a), "=b" (*b), "=c" (*c), "=d" (*d)
     : "0" (leaf), "2" (subleaf)
   );
+#endif /* __i386__ */
 #else
   (void)leaf;
   (void)subleaf;
@@ -454,11 +520,19 @@ torsion_rdseed(void) {
   for (;;) {
     if (_rdseed32_step(&lo))
       break;
+
+#ifdef YieldProcessor
+    YieldProcessor();
+#endif
   }
 
   for (;;) {
     if (_rdseed32_step(&hi))
       break;
+
+#ifdef YieldProcessor
+    YieldProcessor();
+#endif
   }
 
   return ((uint64_t)hi << 32) | lo;
@@ -468,6 +542,10 @@ torsion_rdseed(void) {
   for (;;) {
     if (_rdseed64_step(&r))
       break;
+
+#ifdef YieldProcessor
+    YieldProcessor();
+#endif
   }
 
   return r;

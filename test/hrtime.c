@@ -13,30 +13,35 @@
 
 #ifdef _WIN32
 #  include <windows.h>
+#  pragma comment(lib, "kernel32.lib")
 uint64_t
 torsion_hrtime(void) {
-  /* From libuv. See:
-   *   https://github.com/libuv/libuv/blob/7967448/src/win/util.c#L77
-   *   https://github.com/libuv/libuv/blob/7967448/src/win/util.c#L493
-   *
-   * Warning: not reentrant.
-   */
-  static double interval = 0;
-  LARGE_INTEGER counter;
+  static unsigned int scale = 1000000000;
+  LARGE_INTEGER freq, ctr;
+  double scaled, result;
 
-  if (interval == 0) {
-    LARGE_INTEGER fequency;
-
-    if (QueryPerformanceFrequency(&fequency))
-      interval = 1.0 / fequency.QuadPart;
-    else
-      interval = 0;
-  }
-
-  if (!QueryPerformanceCounter(&counter))
+  if (!QueryPerformanceFrequency(&freq))
     abort();
 
-  return (uint64_t)((double)counter.QuadPart * interval * 1000000000);
+  if (!QueryPerformanceCounter(&ctr))
+    abort();
+
+  if (freq.QuadPart == 0)
+    abort();
+
+  /* We have no idea of the magnitude of `freq`,
+   * so we must resort to double arithmetic[1].
+   * Furthermore, we use some wacky arithmetic
+   * to avoid a bug in Visual Studio 2019[2][3].
+   *
+   * [1] https://github.com/libuv/libuv/blob/7967448/src/win/util.c#L503
+   * [2] https://github.com/libuv/libuv/issues/1633
+   * [3] https://github.com/libuv/libuv/pull/2866
+   */
+  scaled = (double)freq.QuadPart / scale;
+  result = (double)ctr.QuadPart / scaled;
+
+  return (uint64_t)result;
 }
 #else /* _WIN32 */
 #  include <time.h>
