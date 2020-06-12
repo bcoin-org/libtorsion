@@ -26,7 +26,7 @@
  *   - Network Interfaces (GetAdaptersAddresses, getifaddrs(3))
  *   - Kernel Information (GetSystemInfo, uname(2))
  *   - CPU Information (cpuid)
- *   - Machine Hostname (gethostname(3))
+ *   - Machine Hostname (GetComputerNameExA, gethostname(3))
  *   - Process/User/Group IDs (GetCurrentProcessId, GetCurrentThreadId,
  *                             getpid(3), getppid(3), getsid(3), getpgid(3),
  *                             getuid(3), geteuid(3), getgid(3), getegid(3))
@@ -34,7 +34,7 @@
  *                     GetProcessIoCounters, GetSystemTimes,
  *                     GlobalMemoryStatusEx, GetDiskFreeSpaceExA,
  *                     getrusage(3))
- *   - Disk Usage (GetDiskFreeSpaceExA, HW_DISKSTATS)
+ *   - Disk Usage (GetDiskFreeSpaceExA, /proc/diskstats, HW_DISKSTATS)
  *   - Pointers (stack and heap locations)
  *   - stat(2) calls on system files & directories
  *   - System files (/etc/{passwd,group,hosts,resolv.conf,timezone})
@@ -76,7 +76,7 @@
 #elif defined(__wasm__) || defined(__asmjs__)
 /* nothing */
 #elif defined(_WIN32)
-#  include <winsock2.h> /* iphlpapi.h */
+#  include <winsock2.h> /* required by iphlpapi.h */
 #  include <iphlpapi.h> /* GetAdaptersAddresses */
 #  include <processthreadsapi.h> /* GetCurrentProcess, GetProcessTimes */
 #  include <psapi.h> /* GetProcessMemoryInfo */
@@ -94,13 +94,13 @@
 /* nothing */
 #else
 #  include <sys/types.h> /* open */
-#  include <fcntl.h> /* open */
-#  include <sys/resource.h> /* getrusage */
 #  include <sys/stat.h> /* open, stat */
+#  include <sys/time.h> /* gettimeofday, timeval */
+#  include <sys/resource.h> /* getrusage */
 #  include <sys/utsname.h> /* uname */
-#  include <sys/time.h> /* gettimeofday */
-#  include <time.h> /* clock_gettime */
+#  include <fcntl.h> /* open */
 #  include <unistd.h> /* stat, read, close, gethostname */
+#  include <time.h> /* clock_gettime */
 #  ifdef __linux__
 #    ifdef __GLIBC_PREREQ
 #      define TORSION_GLIBC_PREREQ(maj, min) __GLIBC_PREREQ(maj, min)
@@ -448,6 +448,17 @@ sha512_write_static_env(sha512_t *hash) {
   sha512_write_string(hash, __VERSION__);
 #endif
 
+  /* CPU features. */
+  if (torsion_has_cpuid())
+    sha512_write_cpuids(hash);
+
+  /* Memory locations. */
+  sha512_write_ptr(hash, hash);
+  sha512_write_ptr(hash, &errno);
+#if !defined(_WIN32) && !defined(environ)
+  sha512_write_ptr(hash, &environ);
+#endif
+
 #ifdef _WIN32
   /* System information. */
   {
@@ -523,7 +534,42 @@ sha512_write_static_env(sha512_t *hash) {
     if (addrs)
       free(addrs);
   }
-#endif
+
+  /* Command line. */
+  sha512_write_string(hash, GetCommandLineA());
+
+  /* Environment variables. */
+  {
+    char *env = GetEnvironmentStringsA();
+
+    if (env) {
+      char *penv = env;
+
+      while (*penv != '\0') {
+        sha512_write_string(hash, penv);
+        penv += strlen(penv) + 1;
+      }
+
+      FreeEnvironmentStringsA(env);
+    }
+  }
+
+  /* Process/Thread ID. */
+  sha512_write_int(hash, GetCurrentProcessId());
+  sha512_write_int(hash, GetCurrentThreadId());
+#else /* _WIN32 */
+  /* UNIX kernel information. */
+  {
+    struct utsname name;
+
+    if (uname(&name) != -1) {
+      sha512_write_string(hash, name.sysname);
+      sha512_write_string(hash, name.nodename);
+      sha512_write_string(hash, name.release);
+      sha512_write_string(hash, name.version);
+      sha512_write_string(hash, name.machine);
+    }
+  }
 
 #ifdef HAVE_GETAUXVAL
   /* Information available through getauxval(). */
@@ -560,18 +606,6 @@ sha512_write_static_env(sha512_t *hash) {
 #endif
 #endif /* HAVE_GETAUXVAL */
 
-  /* CPU features. */
-  if (torsion_has_cpuid())
-    sha512_write_cpuids(hash);
-
-  /* Memory locations. */
-  sha512_write_ptr(hash, hash);
-  sha512_write_ptr(hash, &errno);
-#if !defined(_WIN32) && !defined(environ)
-  sha512_write_ptr(hash, &environ);
-#endif
-
-#ifndef _WIN32
   /* Hostname. */
   {
     char hname[256];
@@ -581,7 +615,6 @@ sha512_write_static_env(sha512_t *hash) {
     if (gethostname(hname, sizeof(hname) - 1) == 0)
       sha512_write_string(hash, hname);
   }
-#endif /* !_WIN32 */
 
 #ifdef HAVE_GETIFADDRS
   /* Network interfaces. */
@@ -606,20 +639,6 @@ sha512_write_static_env(sha512_t *hash) {
   }
 #endif /* HAVE_GETIFADDRS */
 
-#ifndef _WIN32
-  /* UNIX kernel information. */
-  {
-    struct utsname name;
-
-    if (uname(&name) != -1) {
-      sha512_write_string(hash, name.sysname);
-      sha512_write_string(hash, name.nodename);
-      sha512_write_string(hash, name.release);
-      sha512_write_string(hash, name.version);
-      sha512_write_string(hash, name.machine);
-    }
-  }
-
   /* Path and filesystem provided data. */
   sha512_write_stat(hash, "/");
   sha512_write_stat(hash, ".");
@@ -637,8 +656,8 @@ sha512_write_static_env(sha512_t *hash) {
   sha512_write_file(hash, "/etc/resolv.conf");
   sha512_write_file(hash, "/etc/timezone");
   sha512_write_file(hash, "/etc/localtime");
-#endif /* !_WIN32 */
 
+  /* Information available through sysctl(2). */
 #ifdef HAVE_SYSCTL
 #ifdef CTL_HW
 #ifdef HW_MACHINE
@@ -713,38 +732,14 @@ sha512_write_static_env(sha512_t *hash) {
 #endif /* CTL_KERN */
 #endif /* HAVE_SYSCTL */
 
-#ifdef _WIN32
-  /* Command line. */
-  sha512_write_string(hash, GetCommandLineA());
-
-  /* Environment variables. */
-  {
-    char *env = GetEnvironmentStringsA();
-
-    if (env) {
-      char *penv = env;
-
-      while (*penv != '\0') {
-        sha512_write_string(hash, penv);
-        penv += strlen(penv) + 1;
-      }
-
-      FreeEnvironmentStringsA(env);
-    }
-  }
-#else /* _WIN32 */
   /* Environment variables. */
   if (environ) {
     size_t i;
     for (i = 0; environ[i] != NULL; i++)
       sha512_write_string(hash, environ[i]);
   }
-#endif /* _WIN32 */
 
-#ifdef _WIN32
-  sha512_write_int(hash, GetCurrentProcessId());
-  sha512_write_int(hash, GetCurrentThreadId());
-#else /* _WIN32 */
+  /* Process/User/Group IDs. */
   sha512_write_int(hash, getpid());
   sha512_write_int(hash, getppid());
   sha512_write_int(hash, getsid(0));
@@ -897,11 +892,6 @@ sha512_write_dynamic_env(sha512_t *hash) {
     if (getrusage(RUSAGE_SELF, &usage) == 0)
       sha512_write(hash, &usage, sizeof(usage));
   }
-#endif /* _WIN32 */
-
-  /* High-resolution time. */
-  sha512_write_int(hash, torsion_hrtime());
-  sha512_write_int(hash, torsion_rdtsc());
 
 #ifdef __linux__
   sha512_write_file(hash, "/proc/diskstats");
@@ -938,6 +928,11 @@ sha512_write_dynamic_env(sha512_t *hash) {
 #endif
 #endif /* CTL_VM */
 #endif /* HAVE_SYSCTL */
+#endif /* _WIN32 */
+
+  /* High-resolution time. */
+  sha512_write_int(hash, torsion_hrtime());
+  sha512_write_int(hash, torsion_rdtsc());
 
   /* Stack and heap location. */
   {
