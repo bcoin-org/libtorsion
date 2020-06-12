@@ -22,7 +22,7 @@
  * There are many sources of entropy on a given OS. This includes:
  *
  *   - Clocks (Get{System,Local}Time, gettimeofday, clock_gettime)
- *   - Environment Variables (char **environ)
+ *   - Environment Variables (GetEnvironmentStringsA, char **environ)
  *   - Network Interfaces (GetAdaptersAddresses, getifaddrs(3))
  *   - Kernel Information (GetSystemInfo, uname(2))
  *   - CPU Information (cpuid)
@@ -59,13 +59,6 @@
 #  define _GNU_SOURCE
 #endif
 
-#ifdef _WIN32
-/* winsock2.h must be included before windows.h. */
-/* See: https://stackoverflow.com/a/9168850 */
-#  include <winsock2.h> /* gethostname */
-#  pragma comment(lib, "ws2_32.lib")
-#endif
-
 #include <errno.h>
 #include <limits.h>
 #include <stdint.h>
@@ -83,13 +76,11 @@
 #elif defined(__wasm__) || defined(__asmjs__)
 /* nothing */
 #elif defined(_WIN32)
+#  include <winsock2.h> /* iphlpapi.h */
 #  include <iphlpapi.h> /* GetAdaptersAddresses */
 #  include <processthreadsapi.h> /* GetCurrentProcess, GetProcessTimes */
 #  include <psapi.h> /* GetProcessMemoryInfo */
 #  include <windows.h>
-#  ifndef environ
-extern char **environ;
-#  endif
 #  ifdef TORSION_USE_PERFDATA
 #    pragma comment(lib, "advapi32.lib") /* RegQueryValueExA */
 #  endif
@@ -111,7 +102,6 @@ extern char **environ;
 #  include <time.h> /* clock_gettime */
 #  include <unistd.h> /* stat, read, close, gethostname */
 #  ifdef __linux__
-#    include <sys/auxv.h> /* getauxval */
 #    ifdef __GLIBC_PREREQ
 #      define TORSION_GLIBC_PREREQ(maj, min) __GLIBC_PREREQ(maj, min)
 #    else
@@ -122,6 +112,10 @@ extern char **environ;
 #      include <netinet/in.h> /* sockaddr_in{,6} */
 #      include <ifaddrs.h> /* getifaddrs */
 #      define HAVE_GETIFADDRS
+#    endif
+#    if TORSION_GLIBC_PREREQ(2, 16)
+#      include <sys/auxv.h> /* getauxval */
+#      define HAVE_GETAUXVAL
 #    endif
 #  endif
 #  if defined(__APPLE__) \
@@ -488,6 +482,17 @@ sha512_write_static_env(sha512_t *hash) {
     sha512_write_int(hash, GetLogicalDrives());
   }
 
+  /* Hostname. */
+  {
+    char hname[256];
+    DWORD nsize = sizeof(hname) - 1;
+
+    memset(hname, 0, sizeof(hname));
+
+    if (GetComputerNameExA(ComputerNameDnsHostname, hname, &nsize))
+      sha512_write_string(hash, hname);
+  }
+
   /* Network interfaces. */
   {
     IP_ADAPTER_ADDRESSES *addrs = NULL;
@@ -520,7 +525,7 @@ sha512_write_static_env(sha512_t *hash) {
   }
 #endif
 
-#ifdef __linux__
+#ifdef HAVE_GETAUXVAL
   /* Information available through getauxval(). */
 #ifdef AT_HWCAP
   sha512_write_int(hash, getauxval(AT_HWCAP));
@@ -553,7 +558,7 @@ sha512_write_static_env(sha512_t *hash) {
       sha512_write_string(hash, exec_str);
   }
 #endif
-#endif /* __linux__ */
+#endif /* HAVE_GETAUXVAL */
 
   /* CPU features. */
   if (torsion_has_cpuid())
@@ -562,10 +567,11 @@ sha512_write_static_env(sha512_t *hash) {
   /* Memory locations. */
   sha512_write_ptr(hash, hash);
   sha512_write_ptr(hash, &errno);
-#ifndef environ
+#if !defined(_WIN32) && !defined(environ)
   sha512_write_ptr(hash, &environ);
 #endif
 
+#ifndef _WIN32
   /* Hostname. */
   {
     char hname[256];
@@ -575,6 +581,7 @@ sha512_write_static_env(sha512_t *hash) {
     if (gethostname(hname, sizeof(hname) - 1) == 0)
       sha512_write_string(hash, hname);
   }
+#endif /* !_WIN32 */
 
 #ifdef HAVE_GETIFADDRS
   /* Network interfaces. */
@@ -706,12 +713,33 @@ sha512_write_static_env(sha512_t *hash) {
 #endif /* CTL_KERN */
 #endif /* HAVE_SYSCTL */
 
+#ifdef _WIN32
+  /* Command line. */
+  sha512_write_string(hash, GetCommandLineA());
+
+  /* Environment variables. */
+  {
+    char *env = GetEnvironmentStringsA();
+
+    if (env) {
+      char *penv = env;
+
+      while (*penv != '\0') {
+        sha512_write_string(hash, penv);
+        penv += strlen(penv) + 1;
+      }
+
+      FreeEnvironmentStringsA(env);
+    }
+  }
+#else /* _WIN32 */
   /* Environment variables. */
   if (environ) {
     size_t i;
     for (i = 0; environ[i] != NULL; i++)
       sha512_write_string(hash, environ[i]);
   }
+#endif /* _WIN32 */
 
 #ifdef _WIN32
   sha512_write_int(hash, GetCurrentProcessId());

@@ -342,14 +342,14 @@ torsion_cpuid(uint32_t *a,
               uint32_t leaf,
               uint32_t subleaf) {
 #if defined(HAVE_CPUIDEX)
-  int regs[4];
+  unsigned int regs[4];
 
-  __cpuidex(regs, leaf, subleaf);
+  __cpuidex((int *)regs, leaf, subleaf);
 
-  *a = (unsigned int)regs[0];
-  *b = (unsigned int)regs[1];
-  *c = (unsigned int)regs[2];
-  *d = (unsigned int)regs[3];
+  *a = regs[0];
+  *b = regs[1];
+  *c = regs[2];
+  *d = regs[3];
 #elif defined(HAVE_CPUID)
   *a = 0;
   *b = 0;
