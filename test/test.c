@@ -4,6 +4,7 @@
  * https://github.com/bcoin-org/libtorsion
  */
 
+#include <inttypes.h>
 #include <limits.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -3528,8 +3529,8 @@ bench_end(bench_t *start, uint64_t ops) {
   bench_t nsec = torsion_hrtime() - *start;
   double sec = (double)nsec / 1000000000.0;
 
-  printf("  Operations:  %lu\n", ops);
-  printf("  Nanoseconds: %lu\n", nsec);
+  printf("  Operations:  %" PRIu64 "\n", ops);
+  printf("  Nanoseconds: %" PRIu64 "\n", nsec);
   printf("  Seconds:     %f\n", sec);
   printf("  Ops/Sec:     %f\n", (double)ops / sec);
 }
