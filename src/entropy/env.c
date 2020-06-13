@@ -79,7 +79,6 @@
 #elif defined(_WIN32)
 #  include <winsock2.h> /* required by iphlpapi.h */
 #  include <iphlpapi.h> /* GetAdaptersAddresses */
-#  include <processthreadsapi.h> /* GetCurrentProcess, GetProcessTimes */
 #  include <psapi.h> /* GetProcessMemoryInfo */
 #  include <windows.h>
 #  pragma comment(lib, "advapi32.lib") /* GetUserNameA, RegQueryValueExA */
@@ -470,7 +469,7 @@ sha512_write_static_env(sha512_t *hash) {
   /* Memory locations. */
   sha512_write_ptr(hash, hash);
   sha512_write_ptr(hash, &errno);
-#if !defined(_WIN32) && !defined(environ)
+#ifndef _WIN32
   sha512_write_ptr(hash, &environ);
 #endif
 
