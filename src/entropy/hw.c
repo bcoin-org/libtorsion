@@ -132,7 +132,12 @@ uint16_t __wasi_clock_time_get(uint32_t clock_id,
 #else
 #  include <time.h> /* clock_gettime */
 #  ifndef CLOCK_MONOTONIC
-#    include <sys/time.h> /* gettimeofday */
+#    ifdef __APPLE__
+#      include <mach/mach.h>
+#      include <mach/mach_time.h> /* mach_timebase_info, mach_absolute_time */
+#    else
+#      include <sys/time.h> /* gettimeofday */
+#    endif
 #  endif
 #  if defined(__GNUC__)
 #    define HAVE_INLINE_ASM
@@ -252,6 +257,13 @@ torsion_hrtime(void) {
     abort();
 
   return (uint64_t)ts.tv_sec * 1000000000 + (uint64_t)ts.tv_nsec;
+#elif defined(__APPLE__)
+  mach_timebase_info_data_t info;
+
+  if (mach_timebase_info(&info) != KERN_SUCCESS)
+    abort();
+
+  return mach_absolute_time() * info.numer / info.denom;
 #else
   struct timeval tv;
 
