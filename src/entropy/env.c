@@ -36,6 +36,7 @@
  *                     getrusage(3))
  *   - Disk Usage (GetDiskFreeSpaceExA, /proc/diskstats, HW_DISKSTATS)
  *   - Pointers (stack and heap locations)
+ *   - File Descriptors (the underlying integer)
  *   - stat(2) calls on system files & directories
  *   - System files (/etc/{passwd,group,hosts,resolv.conf,timezone})
  *   - HKEY_PERFORMANCE_DATA (win32)
@@ -81,9 +82,7 @@
 #  include <processthreadsapi.h> /* GetCurrentProcess, GetProcessTimes */
 #  include <psapi.h> /* GetProcessMemoryInfo */
 #  include <windows.h>
-#  ifdef TORSION_USE_PERFDATA
-#    pragma comment(lib, "advapi32.lib") /* RegQueryValueExA */
-#  endif
+#  pragma comment(lib, "advapi32.lib") /* GetUserNameA, RegQueryValueExA */
 #  pragma comment(lib, "iphlpapi.lib")
 #  pragma comment(lib, "kernel32.lib")
 #  pragma comment(lib, "psapi.lib")
@@ -172,6 +171,11 @@ sha512_write_int(sha512_t *hash, uint64_t num) {
 }
 
 static void
+sha512_write_tsc(sha512_t *hash) {
+  sha512_write_int(hash, torsion_rdtsc());
+}
+
+static void
 sha512_write_ptr(sha512_t *hash, const void *ptr) {
   uintptr_t uptr = (uintptr_t)ptr;
 
@@ -194,26 +198,35 @@ sha512_write_stat(sha512_t *hash, const char *file) {
 static void
 sha512_write_file(sha512_t *hash, const char *file) {
   unsigned char buf[4096];
+  size_t total = 0;
   struct stat st;
-  int fd, nread;
-  size_t total;
+  ssize_t nread;
+  int fd;
 
   fd = open(file, O_RDONLY);
 
   if (fd == -1)
     return;
 
+  sha512_write_string(hash, file);
+  sha512_write_int(hash, fd);
+
   memset(&st, 0, sizeof(st));
 
-  if (fstat(fd, &st) == 0) {
-    sha512_write_string(hash, file);
+  if (fstat(fd, &st) == 0)
     sha512_write(hash, &st, sizeof(st));
-  }
-
-  total = 0;
 
   do {
-    nread = read(fd, buf, sizeof(buf));
+    for (;;) {
+      nread = read(fd, buf, sizeof(buf));
+
+      if (nread < 0) {
+        if (errno == EINTR || errno == EAGAIN)
+          continue;
+      }
+
+      break;
+    }
 
     if (nread <= 0)
       break;
@@ -221,7 +234,7 @@ sha512_write_file(sha512_t *hash, const char *file) {
     sha512_write(hash, buf, nread);
 
     total += nread;
-  } while ((size_t)nread == sizeof(buf) && total < 1048576);
+  } while (total < 1048576);
 
   close(fd);
 }
@@ -232,6 +245,8 @@ static void
 sha512_write_sockaddr(sha512_t *hash, const struct sockaddr *addr) {
   if (addr == NULL)
     return;
+
+  sha512_write_ptr(hash, addr);
 
   switch (addr->sa_family) {
     case AF_INET:
@@ -471,14 +486,19 @@ sha512_write_static_env(sha512_t *hash) {
     sha512_write(hash, &info, sizeof(info));
   }
 
+  /* Performance frequency. */
+  {
+    LARGE_INTEGER freq;
+
+    if (QueryPerformanceFrequency(&freq))
+      sha512_write_int(hash, freq.QuadPart);
+  }
+
   /* Disk information. */
   {
     char vname[MAX_PATH + 1];
     char fsname[MAX_PATH + 1];
     DWORD serial, maxcmp, flags;
-
-    memset(vname, 0, sizeof(vname));
-    memset(fsname, 0, sizeof(fsname));
 
     if (GetVolumeInformationA(NULL, vname, sizeof(vname),
                               &serial, &maxcmp, &flags,
@@ -495,12 +515,13 @@ sha512_write_static_env(sha512_t *hash) {
 
   /* Hostname. */
   {
-    char hname[256];
-    DWORD nsize = sizeof(hname) - 1;
+    /* MAX_COMPUTERNAME_LENGTH is 15 or 31 depending,
+       however, documentation explicitly states that
+       a DNS hostname may be larger than this. */
+    char hname[256 + 1];
+    DWORD size = sizeof(hname);
 
-    memset(hname, 0, sizeof(hname));
-
-    if (GetComputerNameExA(ComputerNameDnsHostname, hname, &nsize))
+    if (GetComputerNameExA(ComputerNameDnsHostname, hname, &size))
       sha512_write_string(hash, hname);
   }
 
@@ -535,8 +556,26 @@ sha512_write_static_env(sha512_t *hash) {
       free(addrs);
   }
 
+  /* Current directory. */
+  {
+    char cwd[MAX_PATH + 1];
+    DWORD len;
+
+    len = GetCurrentDirectoryA(sizeof(cwd), cwd);
+
+    if (len != 0 && len <= MAX_PATH)
+      sha512_write_string(hash, cwd);
+  }
+
   /* Command line. */
-  sha512_write_string(hash, GetCommandLineA());
+  {
+    char *cmd = GetCommandLineA();
+
+    if (cmd) {
+      sha512_write_ptr(hash, cmd);
+      sha512_write_string(hash, cmd);
+    }
+  }
 
   /* Environment variables. */
   {
@@ -545,6 +584,8 @@ sha512_write_static_env(sha512_t *hash) {
     if (env) {
       char *penv = env;
 
+      sha512_write_ptr(hash, env);
+
       while (*penv != '\0') {
         sha512_write_string(hash, penv);
         penv += strlen(penv) + 1;
@@ -552,6 +593,15 @@ sha512_write_static_env(sha512_t *hash) {
 
       FreeEnvironmentStringsA(env);
     }
+  }
+
+  /* Username. */
+  {
+    char name[256 + 1]; /* UNLEN + 1 */
+    DWORD size = sizeof(name);
+
+    if (GetUserNameA(name, &size))
+      sha512_write_string(hash, name);
   }
 
   /* Process/Thread ID. */
@@ -584,36 +634,45 @@ sha512_write_static_env(sha512_t *hash) {
     const unsigned char *random_aux =
       (const unsigned char *)getauxval(AT_RANDOM);
 
-    if (random_aux)
+    if (random_aux) {
+      sha512_write_ptr(hash, random_aux);
       sha512_write(hash, random_aux, 16);
+    }
   }
 #endif
 #ifdef AT_PLATFORM
   {
     const char *platform_str = (const char *)getauxval(AT_PLATFORM);
 
-    if (platform_str)
+    if (platform_str) {
+      sha512_write_ptr(hash, platform_str);
       sha512_write_string(hash, platform_str);
+    }
   }
 #endif
 #ifdef AT_EXECFN
   {
     const char *exec_str = (const char *)getauxval(AT_EXECFN);
 
-    if (exec_str)
+    if (exec_str) {
+      sha512_write_ptr(hash, exec_str);
       sha512_write_string(hash, exec_str);
+    }
   }
 #endif
 #endif /* HAVE_GETAUXVAL */
 
   /* Hostname. */
   {
-    char hname[256];
+    /* HOST_NAME_MAX is 64 on Linux, but we go a
+       bit bigger in case an OS has a higher value. */
+    char hname[256 + 1];
 
-    memset(hname, 0, sizeof(hname));
-
-    if (gethostname(hname, sizeof(hname) - 1) == 0)
+    if (gethostname(hname, sizeof(hname)) == 0) {
+      /* Handle impl-defined behavior. */
+      hname[sizeof(hname) - 1] = '\0';
       sha512_write_string(hash, hname);
+    }
   }
 
 #ifdef HAVE_GETIFADDRS
@@ -625,6 +684,7 @@ sha512_write_static_env(sha512_t *hash) {
       struct ifaddrs *ifit = ifad;
 
       while (ifit != NULL) {
+        sha512_write_ptr(hash, ifit);
         sha512_write_string(hash, ifit->ifa_name);
         sha512_write_int(hash, ifit->ifa_flags);
         sha512_write_sockaddr(hash, ifit->ifa_addr);
@@ -732,9 +792,22 @@ sha512_write_static_env(sha512_t *hash) {
 #endif /* CTL_KERN */
 #endif /* HAVE_SYSCTL */
 
+  /* Current directory. */
+  {
+    char cwd[4096 + 1]; /* PATH_MAX + 1 */
+
+    if (getcwd(cwd, sizeof(cwd)) != NULL) {
+      sha512_write_string(hash, cwd);
+      sha512_write_stat(hash, cwd);
+    }
+  }
+
   /* Environment variables. */
   if (environ) {
     size_t i;
+
+    sha512_write_ptr(hash, environ);
+
     for (i = 0; environ[i] != NULL; i++)
       sha512_write_string(hash, environ[i]);
   }
@@ -768,6 +841,7 @@ sha512_write_dynamic_env(sha512_t *hash) {
   /* Various clocks. */
   {
     SYSTEMTIME stime, ltime;
+    LARGE_INTEGER ctr;
 
     memset(&stime, 0, sizeof(stime));
     memset(&ltime, 0, sizeof(ltime));
@@ -778,6 +852,9 @@ sha512_write_dynamic_env(sha512_t *hash) {
     sha512_write(hash, &stime, sizeof(stime));
     sha512_write(hash, &ltime, sizeof(ltime));
     sha512_write_int(hash, GetTickCount());
+
+    if (QueryPerformanceCounter(&ctr))
+      sha512_write_int(hash, ctr.QuadPart);
   }
 
   /* Current resource usage. */
@@ -898,6 +975,7 @@ sha512_write_dynamic_env(sha512_t *hash) {
   sha512_write_file(hash, "/proc/vmstat");
   sha512_write_file(hash, "/proc/schedstat");
   sha512_write_file(hash, "/proc/zoneinfo");
+  sha512_write_file(hash, "/proc/loadavg");
   sha512_write_file(hash, "/proc/meminfo");
   sha512_write_file(hash, "/proc/softirqs");
   sha512_write_file(hash, "/proc/stat");
@@ -932,7 +1010,6 @@ sha512_write_dynamic_env(sha512_t *hash) {
 
   /* High-resolution time. */
   sha512_write_int(hash, torsion_hrtime());
-  sha512_write_int(hash, torsion_rdtsc());
 
   /* Stack and heap location. */
   {
@@ -954,8 +1031,11 @@ torsion_envrand(unsigned char *seed) {
   sha512_t hash;
   sha512_init(&hash);
   sha512_write_ptr(&hash, seed);
+  sha512_write_tsc(&hash);
   sha512_write_static_env(&hash);
+  sha512_write_tsc(&hash);
   sha512_write_dynamic_env(&hash);
+  sha512_write_tsc(&hash);
   sha512_final(&hash, seed);
   return 1;
 #else
