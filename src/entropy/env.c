@@ -202,18 +202,29 @@ sha512_write_file(sha512_t *hash, const char *file) {
   ssize_t nread;
   int fd;
 
-  fd = open(file, O_RDONLY);
+  memset(&st, 0, sizeof(st));
 
-  if (fd == -1)
-    return;
+  for (;;) {
+    fd = open(file, O_RDONLY);
+
+    if (fd == -1) {
+      if (errno == EINTR)
+        continue;
+
+      return;
+    }
+
+    if (fstat(fd, &st) != 0) {
+      close(fd);
+      return;
+    }
+
+    break;
+  }
 
   sha512_write_string(hash, file);
   sha512_write_int(hash, fd);
-
-  memset(&st, 0, sizeof(st));
-
-  if (fstat(fd, &st) == 0)
-    sha512_write(hash, &st, sizeof(st));
+  sha512_write(hash, &st, sizeof(st));
 
   do {
     for (;;) {
