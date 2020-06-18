@@ -192,7 +192,6 @@
 #  define _GNU_SOURCE
 #endif
 
-#include <assert.h>
 #include <errno.h>
 #include <limits.h>
 #include <stdint.h>
@@ -421,7 +420,8 @@ torsion_syscallrand(void *dst, size_t size) {
     if (nread < 0)
       return 0;
 
-    assert(size >= (size_t)nread);
+    if ((size_t)nread > size)
+      abort();
 
     data += nread;
     size -= nread;
@@ -472,7 +472,8 @@ torsion_syscallrand(void *dst, size_t size) {
     if (sysctl(name, 2, data, &nread, NULL, 0) != 0)
       return 0;
 
-    assert(size >= nread);
+    if (nread > size)
+      abort();
 
     data += nread;
     size -= nread;
@@ -576,7 +577,8 @@ torsion_devrand(void *dst, size_t size) {
     if (nread <= 0)
       break;
 
-    assert(size >= (size_t)nread);
+    if ((size_t)nread > size)
+      abort();
 
     data += nread;
     size -= nread;

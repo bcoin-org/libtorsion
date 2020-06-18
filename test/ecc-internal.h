@@ -1855,8 +1855,8 @@ test_edwards_multi_mul_ed25519(drbg_t *rng) {
   edwards_curve_destroy(ec);
 }
 
-void
-test_ecc_internal(drbg_t *rng) {
+TORSION_EXTERN void
+__torsion_test_ecc(drbg_t *rng) {
   printf("Testing internal ECC functions...\n");
 
   /* Scalar */

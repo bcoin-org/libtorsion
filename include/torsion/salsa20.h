@@ -13,6 +13,7 @@ extern "C" {
 
 #include <stddef.h>
 #include <stdint.h>
+#include "common.h"
 
 /*
  * Symbol Aliases
@@ -37,7 +38,7 @@ typedef struct _salsa20_s {
  * Salsa20
  */
 
-void
+TORSION_EXTERN void
 salsa20_init(salsa20_t *ctx,
              const unsigned char *key,
              size_t key_len,
@@ -45,16 +46,16 @@ salsa20_init(salsa20_t *ctx,
              size_t nonce_len,
              uint64_t counter);
 
-void
+TORSION_EXTERN void
 salsa20_encrypt(salsa20_t *ctx,
                 unsigned char *out,
                 const unsigned char *data,
                 size_t len);
 
-void
+TORSION_EXTERN void
 salsa20_pad(salsa20_t *ctx);
 
-void
+TORSION_EXTERN void
 salsa20_derive(unsigned char *out,
                const unsigned char *key,
                size_t key_len,

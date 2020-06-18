@@ -2,98 +2,147 @@ ACLOCAL_AMFLAGS = -I m4
 
 AM_CPPFLAGS = -I$(top_srcdir)/include
 
-include_HEADERS = include/torsion/aead.h \
-                  include/torsion/chacha20.h \
-                  include/torsion/cipher.h \
-                  include/torsion/drbg.h \
-                  include/torsion/dsa.h \
-                  include/torsion/ecc.h \
-                  include/torsion/encoding.h \
-                  include/torsion/hash.h \
-                  include/torsion/kdf.h \
-                  include/torsion/poly1305.h \
-                  include/torsion/rsa.h \
-                  include/torsion/salsa20.h \
+include_HEADERS = include/torsion/aead.h      \
+                  include/torsion/chacha20.h  \
+                  include/torsion/cipher.h    \
+                  include/torsion/common.h    \
+                  include/torsion/drbg.h      \
+                  include/torsion/dsa.h       \
+                  include/torsion/ecc.h       \
+                  include/torsion/encoding.h  \
+                  include/torsion/hash.h      \
+                  include/torsion/kdf.h       \
+                  include/torsion/poly1305.h  \
+                  include/torsion/rsa.h       \
+                  include/torsion/salsa20.h   \
                   include/torsion/secretbox.h \
-                  include/torsion/siphash.h \
+                  include/torsion/siphash.h   \
                   include/torsion/util.h
 
-noinst_HEADERS = src/asn1.h \
-                 src/bio.h \
-                 src/fields/libsecp256k1_32.h \
-                 src/fields/libsecp256k1_64.h \
-                 src/fields/p192_32.h \
-                 src/fields/p192_64.h \
-                 src/fields/p192.h \
-                 src/fields/p224_32.h \
-                 src/fields/p224_64.h \
-                 src/fields/p224.h \
-                 src/fields/p251_32.h \
-                 src/fields/p251_64.h \
-                 src/fields/p251.h \
-                 src/fields/p25519_32.h \
-                 src/fields/p25519_64.h \
-                 src/fields/p25519.h \
-                 src/fields/p256_32.h \
-                 src/fields/p256_64.h \
-                 src/fields/p256.h \
-                 src/fields/p384_32.h \
-                 src/fields/p384_64.h \
-                 src/fields/p384.h \
-                 src/fields/p448_32.h \
-                 src/fields/p448_64.h \
-                 src/fields/p448.h \
-                 src/fields/p521_32.h \
-                 src/fields/p521_64.h \
-                 src/fields/p521.h \
-                 src/fields/scalar.h \
-                 src/fields/secp256k1_32.h \
-                 src/fields/secp256k1_64.h \
-                 src/fields/secp256k1.h \
-                 src/internal.h \
-                 src/mpi.h \
-                 src/subgroups.h
+noinst_HEADERS = src/asn1.h                         \
+                 src/bio.h                          \
+                 src/fields/libsecp256k1_32.h       \
+                 src/fields/libsecp256k1_64.h       \
+                 src/fields/p192_32.h               \
+                 src/fields/p192_64.h               \
+                 src/fields/p192.h                  \
+                 src/fields/p224_32.h               \
+                 src/fields/p224_64.h               \
+                 src/fields/p224.h                  \
+                 src/fields/p251_32.h               \
+                 src/fields/p251_64.h               \
+                 src/fields/p251.h                  \
+                 src/fields/p25519_32.h             \
+                 src/fields/p25519_64.h             \
+                 src/fields/p25519.h                \
+                 src/fields/p256_32.h               \
+                 src/fields/p256_64.h               \
+                 src/fields/p256.h                  \
+                 src/fields/p384_32.h               \
+                 src/fields/p384_64.h               \
+                 src/fields/p384.h                  \
+                 src/fields/p448_32.h               \
+                 src/fields/p448_64.h               \
+                 src/fields/p448.h                  \
+                 src/fields/p521_32.h               \
+                 src/fields/p521_64.h               \
+                 src/fields/p521.h                  \
+                 src/fields/scalar.h                \
+                 src/fields/secp256k1_32.h          \
+                 src/fields/secp256k1_64.h          \
+                 src/fields/secp256k1.h             \
+                 src/internal.h                     \
+                 src/mpi.h                          \
+                 src/subgroups.h                    \
+                 test/data/aead-vectors.h           \
+                 test/data/chacha20-vectors.h       \
+                 test/data/cipher-aead-vectors.h    \
+                 test/data/cipher-mode-vectors.h    \
+                 test/data/cipher-vectors.h         \
+                 test/data/ctr-drbg-vectors.h       \
+                 test/data/dsa-vectors.h            \
+                 test/data/eb2k-vectors.h           \
+                 test/data/ecdsa-vectors.h          \
+                 test/data/eddsa-vectors.h          \
+                 test/data/hash-drbg-vectors.h      \
+                 test/data/hash-vectors.h           \
+                 test/data/hkdf-vectors.h           \
+                 test/data/hmac-drbg-vectors.h      \
+                 test/data/hmac-vectors.h           \
+                 test/data/pbkdf2-vectors.h         \
+                 test/data/poly1305-vectors.h       \
+                 test/data/rsa-vectors.h            \
+                 test/data/schnorr-legacy-vectors.h \
+                 test/data/schnorr-vectors.h        \
+                 test/testutil.h
 
 if ENABLE_RNG
 include_HEADERS += include/torsion/rand.h
 noinst_HEADERS += src/entropy/entropy.h
 endif
 
-CLEANFILES =
-
-lib_LTLIBRARIES = libtorsion.la
-libtorsion_la_CFLAGS = @CFLAGS@
-libtorsion_la_LDFLAGS = -no-undefined -version-info 0:0:0
-libtorsion_la_SOURCES = src/aead.c \
-                        src/asn1.c \
-                        src/chacha20.c \
-                        src/cipher.c \
-                        src/ecc.c \
-                        src/encoding.c \
-                        src/drbg.c \
-                        src/dsa.c \
-                        src/hash.c \
-                        src/internal.c \
-                        src/kdf.c \
-                        src/mpi.c \
-                        src/poly1305.c \
-                        src/rsa.c \
-                        src/salsa20.c \
-                        src/secretbox.c \
-                        src/siphash.c \
-                        src/util.c
+torsion_sources = src/aead.c      \
+                  src/asn1.c      \
+                  src/chacha20.c  \
+                  src/cipher.c    \
+                  src/ecc.c       \
+                  src/encoding.c  \
+                  src/drbg.c      \
+                  src/dsa.c       \
+                  src/hash.c      \
+                  src/internal.c  \
+                  src/kdf.c       \
+                  src/mpi.c       \
+                  src/poly1305.c  \
+                  src/rsa.c       \
+                  src/salsa20.c   \
+                  src/secretbox.c \
+                  src/siphash.c   \
+                  src/util.c
 
 if ENABLE_RNG
-libtorsion_la_SOURCES += src/entropy/env.c
-libtorsion_la_SOURCES += src/entropy/hw.c
-libtorsion_la_SOURCES += src/entropy/sys.c
-libtorsion_la_SOURCES += src/rand.c
+torsion_sources += src/entropy/env.c
+torsion_sources += src/entropy/hw.c
+torsion_sources += src/entropy/sys.c
+torsion_sources += src/rand.c
 endif
 
+CLEANFILES =
 EXTRA_DIST = LICENSE README.md
 
 TESTS =
 noinst_PROGRAMS =
+
+if EMSCRIPTEN
+torsion_emflags = -s WASM=1                     \
+                  -s SINGLE_FILE=1              \
+                  -s ALLOW_MEMORY_GROWTH=1      \
+                  -s INITIAL_MEMORY=16777216    \
+                  -s MAXIMUM_MEMORY=2147483648  \
+                  -s TOTAL_STACK=5242880        \
+                  -s EMIT_EMSCRIPTEN_METADATA=1 \
+                  -s ENVIRONMENT=node
+
+torsion_emexports =                                                             \
+  -s 'EXPORTED_FUNCTIONS=["_malloc","_free"]'                                   \
+  -s 'EXTRA_EXPORTED_RUNTIME_METHODS=["stackAlloc","stackSave","stackRestore"]'
+
+noinst_PROGRAMS += torsion.js
+torsion_js_CFLAGS = -DTORSION_BUILD @CFLAGS@
+torsion_js_LDFLAGS = ${torsion_emflags} ${torsion_emexports}
+torsion_js_SOURCES = ${torsion_sources}
+
+if ENABLE_TESTS
+noinst_PROGRAMS += tests.js
+tests_js_CFLAGS = @CFLAGS@
+tests_js_LDFLAGS = ${torsion_emflags}
+tests_js_SOURCES = test/test.c test/hrtime.c ${torsion_sources}
+endif
+else !EMSCRIPTEN
+lib_LTLIBRARIES = libtorsion.la
+libtorsion_la_CFLAGS = -DTORSION_BUILD @CFLAGS@
+libtorsion_la_LDFLAGS = -no-undefined -version-info 0:0:0
+libtorsion_la_SOURCES = ${torsion_sources}
 
 if ENABLE_TESTS
 TESTS += tests
@@ -112,3 +161,4 @@ endif
 
 pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA = libtorsion.pc
+endif !EMSCRIPTEN

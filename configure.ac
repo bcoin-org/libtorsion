@@ -73,8 +73,14 @@ if test x"$enable_ctime" = x"yes"; then
   enable_verify=no
 fi
 
-CC_CHECK_CFLAGS_APPEND([-std=c89])
-CC_CHECK_CFLAGS_APPEND([-pedantic])
+if test x"$EMSCRIPTEN" != x""; then
+  CC_CHECK_CFLAGS_APPEND([-std=gnu11])
+else
+  CC_CHECK_CFLAGS_APPEND([-std=c89])
+  CC_CHECK_CFLAGS_APPEND([-pedantic])
+  CC_CHECK_CFLAGS_APPEND([-fvisibility=hidden])
+fi
+
 CC_CHECK_CFLAGS_APPEND([-Wall])
 CC_CHECK_CFLAGS_APPEND([-Wextra])
 CC_CHECK_CFLAGS_APPEND([-Wcast-align])
@@ -90,14 +96,6 @@ AS_CASE([$host_cpu],
   [aarch64*|ia64|mips64*|ppc64*|sparc64|x86_64], [has_64bit=yes],
   [*], [has_64bit=no])
 AC_MSG_RESULT([$has_64bit])
-
-AC_MSG_CHECKING(for emscripten)
-AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[]],[[
-#ifndef __EMSCRIPTEN__
-#  error "compiler is not emscripten"
-#endif
-]])],[has_emscripten=yes],[has_emscripten=no])
-AC_MSG_RESULT([$has_emscripten])
 
 AC_MSG_CHECKING(for x86_64 inline asm support)
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <stdint.h>]],[[
@@ -137,7 +135,14 @@ AC_CHECK_HEADER([valgrind/memcheck.h], [has_valgrind=yes], [has_valgrind=no], []
 
 AC_DEFINE(TORSION_HAVE_CONFIG)
 
-if test x"$enable_64bit" = x"yes" -a x"$has_64bit" = x"yes" -a x"$has_emscripten" != x"yes"; then
+if test x"$EMSCRIPTEN" != x""; then
+  has_64bit=no
+  has_asm=no
+  has_int128=no
+  enable_assert=no
+fi
+
+if test x"$enable_64bit" = x"yes" -a x"$has_64bit" = x"yes"; then
   AC_DEFINE(TORSION_HAVE_64BIT)
   if test x"$enable_asm" = x"yes" -a x"$has_asm" = x"yes"; then
     AC_DEFINE(TORSION_HAVE_ASM_X64)
@@ -171,7 +176,9 @@ if test x"$enable_rng" = x"yes"; then
 fi
 
 if test x"$enable_tests" = x"yes"; then
-  CC_CHECK_CFLAGS_APPEND([-g])
+  if test x"$EMSCRIPTEN" = x""; then
+    CC_CHECK_CFLAGS_APPEND([-g])
+  fi
   AC_DEFINE(TORSION_TEST)
 fi
 
@@ -185,6 +192,7 @@ fi
 AM_CONDITIONAL([ENABLE_RNG], [test x"$enable_rng" = x"yes"])
 AM_CONDITIONAL([ENABLE_TESTS], [test x"$enable_tests" = x"yes"])
 AM_CONDITIONAL([ENABLE_CTIME], [test x"$enable_ctime" = x"yes"])
+AM_CONDITIONAL([EMSCRIPTEN], [test x"$EMSCRIPTEN" != x""])
 
 m4_ifdef([AM_PROG_AR], [AM_PROG_AR])
 AC_PROG_LIBTOOL
@@ -201,7 +209,7 @@ echo "  asm          = $enable_asm (support=$has_asm)"
 echo "  assert       = $enable_assert"
 echo "  crt          = $enable_crt"
 echo "  ctime        = $enable_ctime"
-echo "  emscripten   = $has_emscripten"
+echo "  emscripten   = $EMSCRIPTEN"
 echo "  int128       = $enable_int128 (support=$has_int128)"
 echo "  libsecp256k1 = $enable_libsecp256k1"
 echo "  rng          = $enable_rng"

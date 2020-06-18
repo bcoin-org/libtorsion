@@ -241,6 +241,9 @@ sha512_write_file(sha512_t *hash, const char *file) {
     if (nread <= 0)
       break;
 
+    if ((size_t)nread > sizeof(buf))
+      abort();
+
     sha512_write(hash, buf, nread);
 
     total += nread;

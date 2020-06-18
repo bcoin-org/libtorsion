@@ -1,14 +1,16 @@
 cmake_minimum_required(VERSION 3.4)
 project(libtorsion LANGUAGES C)
 
-include(GNUInstallDirs)
 include(CheckCCompilerFlag)
 include(CheckIncludeFile)
 
-set(CMAKE_C_VISIBILITY_PRESET default)
-set(CMAKE_C_STANDARD_REQUIRED ON)
-set(CMAKE_C_EXTENSIONS OFF)
-set(CMAKE_C_STANDARD 90)
+if(NOT EMSCRIPTEN)
+  include(GNUInstallDirs)
+  set(CMAKE_C_VISIBILITY_PRESET hidden)
+  set(CMAKE_C_STANDARD_REQUIRED ON)
+  set(CMAKE_C_EXTENSIONS OFF)
+  set(CMAKE_C_STANDARD 90)
+endif()
 
 option(TORSION_ENABLE_64BIT "Use 64-bit backends if available" ON)
 option(TORSION_ENABLE_ASM "Use inline x86-64 assembly if available" ON)
@@ -71,13 +73,6 @@ if("${CMAKE_SIZEOF_VOID_P}" STREQUAL "8")
 endif()
 
 check_c_source_compiles("
-#ifndef __EMSCRIPTEN__
-#  error \"compiler is not emscripten\"
-#endif
-int main(void) { return 0; }
-" TORSION_EMSCRIPTEN)
-
-check_c_source_compiles("
 #include <stdint.h>
 #if !defined(__amd64__) && !defined(__x86_64__)
 #  error \"not an x64 platform\"
@@ -117,7 +112,7 @@ check_include_file(valgrind/memcheck.h TORSION_HAS_VALGRIND)
 
 list(APPEND torsion_defines TORSION_HAVE_CONFIG)
 
-if(TORSION_ENABLE_64BIT AND TORSION_HAS_64BIT AND NOT TORSION_EMSCRIPTEN)
+if(TORSION_ENABLE_64BIT AND TORSION_HAS_64BIT AND NOT EMSCRIPTEN)
   list(APPEND torsion_defines TORSION_HAVE_64BIT)
   if(TORSION_ENABLE_ASM AND TORSION_HAS_ASM)
     list(APPEND torsion_defines TORSION_HAVE_ASM_X64)
@@ -127,7 +122,7 @@ if(TORSION_ENABLE_64BIT AND TORSION_HAS_64BIT AND NOT TORSION_EMSCRIPTEN)
   endif()
 endif()
 
-if(NOT TORSION_ENABLE_ASSERT)
+if(NOT TORSION_ENABLE_ASSERT OR EMSCRIPTEN)
   list(APPEND torsion_defines TORSION_NO_ASSERT)
 endif()
 
@@ -152,7 +147,7 @@ endif()
 
 if(TORSION_ENABLE_TESTS)
   list(APPEND torsion_defines TORSION_TEST)
-  if(TORSION_HAS_G)
+  if(TORSION_HAS_G AND NOT EMSCRIPTEN)
     list(APPEND torsion_cflags -g)
   endif()
 endif()
@@ -178,11 +173,15 @@ if(MSVC)
     list(APPEND torsion_cflags /wd4334)
   endif()
 else()
-  if(TORSION_HAS_C89)
-    list(APPEND torsion_cflags -std=c89)
-  endif()
-  if(TORSION_HAS_PEDANTIC)
-    list(APPEND torsion_cflags -pedantic)
+  if(EMSCRIPTEN)
+    list(APPEND torsion_cflags -std=gnu11)
+  else()
+    if(TORSION_HAS_C89)
+      list(APPEND torsion_cflags -std=c89)
+    endif()
+    if(TORSION_HAS_PEDANTIC)
+      list(APPEND torsion_cflags -pedantic)
+    endif()
   endif()
   if(TORSION_HAS_WALL)
     list(APPEND torsion_cflags -Wall)
@@ -240,64 +239,98 @@ if(TORSION_ENABLE_RNG)
   list(APPEND torsion_sources src/rand.c)
 endif()
 
-add_library(torsion SHARED ${torsion_sources})
-target_compile_definitions(torsion PRIVATE ${torsion_defines})
-target_compile_options(torsion PRIVATE ${torsion_cflags})
-target_include_directories(torsion PUBLIC ${PROJECT_SOURCE_DIR}/include)
+if(EMSCRIPTEN)
+  set(torsion_emflags
+      -s WASM=1
+      -s SINGLE_FILE=1
+      -s ALLOW_MEMORY_GROWTH=1
+      -s INITIAL_MEMORY=16777216
+      -s MAXIMUM_MEMORY=2147483648
+      -s TOTAL_STACK=5242880
+      -s EMIT_EMSCRIPTEN_METADATA=1
+      -s ENVIRONMENT=node)
 
-add_library(torsion_a STATIC ${torsion_sources})
-target_compile_definitions(torsion_a PRIVATE ${torsion_defines})
-target_compile_options(torsion_a PRIVATE ${torsion_cflags})
-target_include_directories(torsion_a PUBLIC ${PROJECT_SOURCE_DIR}/include)
+  set(torsion_emexports
+      -s "EXPORTED_FUNCTIONS=[\"_malloc\",\"_free\"]"
+      -s "EXTRA_EXPORTED_RUNTIME_METHODS=[\"stackAlloc\",\"stackSave\",\"stackRestore\"]")
 
-if(TORSION_ENABLE_TESTS)
-  add_executable(tests test/test.c test/hrtime.c)
-  target_compile_definitions(tests PRIVATE ${torsion_defines})
-  target_compile_options(tests PRIVATE ${torsion_cflags})
-  # Windows can't link to .dll's like this.
-  # See: https://stackoverflow.com/questions/38492087
-  if(WIN32)
-    target_link_libraries(tests torsion_a)
-  else()
-    target_link_libraries(tests torsion)
+  string(REPLACE ";" " " torsion_emflags "${torsion_emflags}")
+  string(REPLACE ";" " " torsion_emexports "${torsion_emexports}")
+
+  add_executable(torsion ${torsion_sources})
+  target_compile_definitions(torsion PRIVATE ${torsion_defines} TORSION_BUILD)
+  target_compile_options(torsion PRIVATE ${torsion_cflags})
+  set_target_properties(torsion PROPERTIES LINK_FLAGS
+                        "${torsion_emflags} ${torsion_emexports}")
+  target_include_directories(torsion PRIVATE ${PROJECT_SOURCE_DIR}/include)
+
+  if(TORSION_ENABLE_TESTS)
+    add_executable(tests ${torsion_sources} test/test.c test/hrtime.c)
+    target_compile_definitions(tests PRIVATE ${torsion_defines})
+    target_compile_options(tests PRIVATE ${torsion_cflags})
+    set_target_properties(tests PROPERTIES LINK_FLAGS "${torsion_emflags}")
+    target_include_directories(tests PRIVATE ${PROJECT_SOURCE_DIR}/include)
   endif()
-endif()
+else()
+  add_library(torsion SHARED ${torsion_sources})
+  target_compile_definitions(torsion PRIVATE ${torsion_defines} TORSION_BUILD)
+  target_compile_options(torsion PRIVATE ${torsion_cflags})
+  target_include_directories(torsion PUBLIC ${PROJECT_SOURCE_DIR}/include)
 
-if(TORSION_ENABLE_CTIME)
-  add_executable(ctime-test test/ctime-test.c)
-  target_compile_definitions(ctime-test PRIVATE ${torsion_defines})
-  target_compile_options(ctime-test PRIVATE ${torsion_cflags})
-  # See above comment.
-  if(WIN32)
-    target_link_libraries(ctime-test torsion_a)
-  else()
-    target_link_libraries(ctime-test torsion)
+  add_library(torsion_a STATIC ${torsion_sources})
+  target_compile_definitions(torsion_a PRIVATE ${torsion_defines})
+  target_compile_options(torsion_a PRIVATE ${torsion_cflags})
+  target_include_directories(torsion_a PUBLIC ${PROJECT_SOURCE_DIR}/include)
+
+  if(TORSION_ENABLE_TESTS)
+    add_executable(tests test/test.c test/hrtime.c)
+    target_compile_definitions(tests PRIVATE ${torsion_defines})
+    target_compile_options(tests PRIVATE ${torsion_cflags})
+    # Windows can't link to .dll's like this.
+    # See: https://stackoverflow.com/questions/38492087
+    if(WIN32)
+      target_link_libraries(tests torsion_a)
+    else()
+      target_link_libraries(tests torsion)
+    endif()
   endif()
-endif()
 
-if(UNIX)
-  set(LIBS "")
-  set(PACKAGE_VERSION "0.0.0")
-  set_target_properties(torsion PROPERTIES VERSION 0.0.0 SOVERSION 0)
-  set(includedir ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_INCLUDEDIR})
-  set(libdir ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR})
-  set(prefix ${CMAKE_INSTALL_PREFIX})
-  configure_file(libtorsion.pc.in libtorsion.pc @ONLY)
+  if(TORSION_ENABLE_CTIME)
+    add_executable(ctime-test test/ctime-test.c)
+    target_compile_definitions(ctime-test PRIVATE ${torsion_defines})
+    target_compile_options(ctime-test PRIVATE ${torsion_cflags})
+    # See above comment.
+    if(WIN32)
+      target_link_libraries(ctime-test torsion_a)
+    else()
+      target_link_libraries(ctime-test torsion)
+    endif()
+  endif()
 
-  install(DIRECTORY include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
-  install(FILES LICENSE DESTINATION ${CMAKE_INSTALL_DOCDIR})
-  install(FILES ${PROJECT_BINARY_DIR}/libtorsion.pc
-          DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig)
-  install(TARGETS torsion LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
-  install(TARGETS torsion_a ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
-endif()
+  if(UNIX)
+    set(LIBS "")
+    set(PACKAGE_VERSION "0.0.0")
+    set_target_properties(torsion PROPERTIES VERSION 0.0.0 SOVERSION 0)
+    set(includedir ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_INCLUDEDIR})
+    set(libdir ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR})
+    set(prefix ${CMAKE_INSTALL_PREFIX})
+    configure_file(libtorsion.pc.in libtorsion.pc @ONLY)
 
-if(WIN32)
-  install(DIRECTORY include/ DESTINATION include)
-  install(FILES LICENSE DESTINATION .)
-  install(TARGETS torsion torsion_a
-          RUNTIME DESTINATION lib/$<CONFIG>
-          ARCHIVE DESTINATION lib/$<CONFIG>)
+    install(DIRECTORY include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+    install(FILES LICENSE DESTINATION ${CMAKE_INSTALL_DOCDIR})
+    install(FILES ${PROJECT_BINARY_DIR}/libtorsion.pc
+            DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig)
+    install(TARGETS torsion LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
+    install(TARGETS torsion_a ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
+  endif()
+
+  if(WIN32)
+    install(DIRECTORY include/ DESTINATION include)
+    install(FILES LICENSE DESTINATION .)
+    install(TARGETS torsion torsion_a
+            RUNTIME DESTINATION lib/$<CONFIG>
+            ARCHIVE DESTINATION lib/$<CONFIG>)
+  endif()
 endif()
 
 string(TOUPPER "${CMAKE_BUILD_TYPE}" _build_type)

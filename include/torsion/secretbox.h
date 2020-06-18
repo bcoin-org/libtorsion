@@ -12,6 +12,7 @@ extern "C" {
 #endif
 
 #include <stddef.h>
+#include "common.h"
 
 /*
  * Symbol Aliases
@@ -32,21 +33,21 @@ extern "C" {
  * Secret Box
  */
 
-void
+TORSION_EXTERN void
 secretbox_seal(unsigned char *sealed,
                const unsigned char *msg,
                size_t msg_len,
                const unsigned char *key,
                const unsigned char *nonce);
 
-int
+TORSION_EXTERN int
 secretbox_open(unsigned char *msg,
                const unsigned char *sealed,
                size_t sealed_len,
                const unsigned char *key,
                const unsigned char *nonce);
 
-void
+TORSION_EXTERN void
 secretbox_derive(unsigned char *key, const unsigned char *secret);
 
 #ifdef __cplusplus

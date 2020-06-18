@@ -13,6 +13,7 @@ extern "C" {
 
 #include <stdint.h>
 #include <stddef.h>
+#include "common.h"
 
 /*
  * Symbol Aliases
@@ -29,22 +30,22 @@ extern "C" {
  * AEAD
  */
 
-uint64_t
+TORSION_EXTERN uint64_t
 siphash(const unsigned char *data, size_t len, const unsigned char *key);
 
-uint32_t
+TORSION_EXTERN uint32_t
 siphash32(uint32_t num, const unsigned char *key);
 
-uint64_t
+TORSION_EXTERN uint64_t
 siphash64(uint64_t num, const unsigned char *key);
 
-uint32_t
+TORSION_EXTERN uint32_t
 siphash32k256(uint32_t num, const unsigned char *key);
 
-uint64_t
+TORSION_EXTERN uint64_t
 siphash64k256(uint64_t num, const unsigned char *key);
 
-uint64_t
+TORSION_EXTERN uint64_t
 sipmod(const unsigned char *data,
        size_t len,
        const unsigned char *key,

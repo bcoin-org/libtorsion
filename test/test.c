@@ -29,7 +29,7 @@
 #include <torsion/siphash.h>
 #include <torsion/util.h>
 
-#include "../src/internal.h"
+#include "testutil.h"
 
 #include "data/aead-vectors.h"
 #include "data/chacha20-vectors.h"
@@ -51,9 +51,6 @@
 #include "data/pbkdf2-vectors.h"
 #include "data/poly1305-vectors.h"
 #include "data/rsa-vectors.h"
-
-#undef ASSERT
-#define ASSERT(expr) ASSERT_ALWAYS(expr)
 
 /*
  * String Maps
@@ -794,7 +791,7 @@ test_dsa_keygen(drbg_t *rng) {
 
 #ifdef TORSION_TEST
 void
-test_ecc_internal(drbg_t *rng);
+__torsion_test_ecc(drbg_t *rng);
 #endif
 
 static void
@@ -3780,7 +3777,7 @@ main(int argc, char **argv) {
 
     /* ECC */
 #ifdef TORSION_TEST
-    test_ecc_internal(&rng);
+    __torsion_test_ecc(&rng);
 #endif
     test_ecdsa();
     test_ecdsa_random(&rng);

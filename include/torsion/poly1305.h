@@ -12,6 +12,7 @@ extern "C" {
 #endif
 
 #include <stddef.h>
+#include "common.h"
 
 /*
  * Symbol Aliases
@@ -36,22 +37,22 @@ typedef struct _poly1305_s {
  * Poly1305
  */
 
-void
+TORSION_EXTERN void
 poly1305_init(poly1305_t *ctx, const unsigned char *key);
 
-void
+TORSION_EXTERN void
 poly1305_update(poly1305_t *ctx, const unsigned char *m, size_t bytes);
 
-void
+TORSION_EXTERN void
 poly1305_final(poly1305_t *ctx, unsigned char *mac);
 
-void
+TORSION_EXTERN void
 poly1305_auth(unsigned char *mac,
               const unsigned char *m,
               size_t bytes,
               const unsigned char *key);
 
-int
+TORSION_EXTERN int
 poly1305_verify(const unsigned char *mac1, const unsigned char *mac2);
 
 #ifdef __cplusplus

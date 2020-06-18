@@ -44,10 +44,7 @@
 #include <string.h>
 #include <valgrind/memcheck.h>
 #include <torsion/ecc.h>
-#include "../src/internal.h"
-
-#undef ASSERT
-#define ASSERT(expr) ASSERT_ALWAYS(expr)
+#include "testutil.h"
 
 static void
 test_ecdsa(int curve_name) {

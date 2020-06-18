@@ -14,6 +14,7 @@ extern "C" {
 #include <stddef.h>
 #include <stdint.h>
 
+#include "common.h"
 #include "chacha20.h"
 #include "poly1305.h"
 
@@ -46,34 +47,34 @@ typedef struct _aead_s {
  * AEAD
  */
 
-void
+TORSION_EXTERN void
 aead_init(aead_t *aead,
           const unsigned char *key,
           const unsigned char *iv,
           size_t iv_len);
 
-void
+TORSION_EXTERN void
 aead_aad(aead_t *aead, const unsigned char *aad, size_t len);
 
-void
+TORSION_EXTERN void
 aead_encrypt(aead_t *aead,
              unsigned char *out,
              const unsigned char *in,
              size_t len);
 
-void
+TORSION_EXTERN void
 aead_decrypt(aead_t *aead,
              unsigned char *out,
              const unsigned char *in,
              size_t len);
 
-void
+TORSION_EXTERN void
 aead_auth(aead_t *aead, const unsigned char *in, size_t len);
 
-void
+TORSION_EXTERN void
 aead_final(aead_t *aead, unsigned char *tag);
 
-int
+TORSION_EXTERN int
 aead_verify(const unsigned char *mac1, const unsigned char *mac2);
 
 #ifdef __cplusplus

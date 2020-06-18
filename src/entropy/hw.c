@@ -171,6 +171,8 @@ torsion_hrtime(void) {
 #elif defined(__EMSCRIPTEN__)
   uint32_t sec, nsec;
 
+  /* Note: we could call emscripten_get_now(), but it
+     unfortunately returns a double in milliseconds. */
   int ret = EM_ASM_INT({
     try {
       if (typeof process !== 'undefined' && process
@@ -262,6 +264,9 @@ torsion_hrtime(void) {
   mach_timebase_info_data_t info;
 
   if (mach_timebase_info(&info) != KERN_SUCCESS)
+    abort();
+
+  if (info.denom == 0)
     abort();
 
   return mach_absolute_time() * info.numer / info.denom;

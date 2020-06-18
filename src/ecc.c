@@ -9461,7 +9461,8 @@ ecdsa_sign(const wei_t *ec,
     ok &= sc_is_zero(sc, r) ^ 1;
 
 #ifdef TORSION_VALGRIND
-    VALGRIND_MAKE_MEM_DEFINED(&ok, sizeof(ok));
+    if (RUNNING_ON_VALGRIND)
+      VALGRIND_MAKE_MEM_DEFINED(&ok, sizeof(ok));
 #endif
   } while (!ok);
 
