@@ -3443,9 +3443,9 @@ test_siphash(void) {
     key[i] = i + 32;
 
   ASSERT(siphash(msg, 32, key) == UINT64_C(10090947469682793545));
-  ASSERT(siphash32(v32, key) == 828368916);
+  ASSERT(siphash32(v32, key) == UINT32_C(828368916));
   ASSERT(siphash64(v64, key) == UINT64_C(620914895672640125));
-  ASSERT(siphash32k256(v32, msg) == 3909845928);
+  ASSERT(siphash32k256(v32, msg) == UINT32_C(3909845928));
   ASSERT(siphash64k256(v64, msg) == UINT64_C(16928650368383018294));
   ASSERT(sipmod(msg, 32, key, v64) == UINT64_C(4560894765423557143));
 }
