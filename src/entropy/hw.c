@@ -26,6 +26,7 @@
  * WASI:
  *   https://github.com/WebAssembly/WASI/blob/5d10b2c/design/WASI-core.md#clock_time_get
  *   https://github.com/WebAssembly/WASI/blob/2627acd/phases/snapshot/witx/wasi_snapshot_preview1.witx#L58
+ *   https://github.com/emscripten-core/emscripten/blob/b45948b/system/include/wasi/api.h#L1751
  *
  * Emscripten (wasm, asm.js):
  *   https://emscripten.org/docs/api_reference/emscripten.h.html
@@ -96,7 +97,7 @@ uint16_t cloudabi_sys_clock_time_get(uint32_t clock_id,
 uint16_t __wasi_clock_time_get(uint32_t clock_id,
                                uint64_t precision,
                                uint64_t *time);
-#  define __WASI_CLOCK_MONOTONIC 1
+#  define __WASI_CLOCKID_MONOTONIC 1
 #elif defined(__EMSCRIPTEN__)
 #  include <emscripten.h> /* EM_ASM_INT */
 #elif defined(__wasm__) || defined(__asmjs__)
@@ -163,7 +164,7 @@ torsion_hrtime(void) {
 #elif defined(__wasi__)
   uint64_t time;
 
-  if (__wasi_clock_time_get(__WASI_CLOCK_MONOTONIC, 0, &time) != 0)
+  if (__wasi_clock_time_get(__WASI_CLOCKID_MONOTONIC, 0, &time) != 0)
     abort();
 
   return time;

@@ -58,6 +58,7 @@
  *   https://github.com/WebAssembly/WASI/blob/5d10b2c/design/WASI-core.md#random_get
  *   https://github.com/WebAssembly/WASI/blob/2627acd/phases/snapshot/witx/typenames.witx#L34
  *   https://github.com/WebAssembly/WASI/blob/2627acd/phases/snapshot/witx/wasi_snapshot_preview1.witx#L481
+ *   https://github.com/emscripten-core/emscripten/blob/b45948b/system/include/wasi/api.h#L2648
  *
  * Emscripten (wasm, asm.js):
  *   https://emscripten.org/docs/api_reference/emscripten.h.html
@@ -83,10 +84,10 @@
  * prior to 2015 are affected.
  *
  * In the future, we may consider using dlsym(3) to check
- * features at runtime. This would ensure better ABI
- * compatibility across builds. If GCC is used we can prefer
- * __attribute__((weak)) over dlsym(3). We can take it even
- * further on clang by using __attribute__((availability)).
+ * features at runtime. This would ensure better ABI compat
+ * across builds. If GCC, Clang, or Sun Studio are used, we
+ * can utilize `__attribute__((weak))` or `#pragma weak` over
+ * dlsym(3).
  *
  * We try to match the behavior of the getrandom rust library[1].
  * The primary difference involves the fact that we do not call
@@ -98,49 +99,49 @@
  * Windows:
  *   Source: BCryptGenRandom
  *   Fallback: RtlGenRandom (SystemFunction036)
- *   Support: BCryptGenRandom added in Windows Vista.
+ *   Support: BCryptGenRandom added in Windows Vista (2007).
  *
  * Linux/Android:
  *   Source: getrandom(2)
  *   Fallback: /dev/urandom (after polling /dev/random)
- *   Support: getrandom(2) added in Linux 3.17.
+ *   Support: getrandom(2) added in Linux 3.17 (2014).
  *
  * OSX:
  *   Source: getentropy(2)
  *   Fallback: /dev/random (identical to /dev/urandom)
- *   Support: getentropy(2) added in OSX 10.12.
+ *   Support: getentropy(2) added in OSX 10.12 (2016).
  *
  * iOS:
  *   Source: getentropy(2)
  *   Fallback: /dev/random (identical to /dev/urandom)
- *   Support: getentropy(2) added in iOS 10.0.
+ *   Support: getentropy(2) added in iOS 10.0 (2016).
  *
  * OpenBSD:
  *   Source: getentropy(2)
  *   Fallback 1: sysctl(2) w/ kern.arandom
  *   Fallback 2: /dev/urandom
- *   Support: getentropy(2) added in OpenBSD 5.6.
+ *   Support: getentropy(2) added in OpenBSD 5.6 (2014).
  *
  * FreeBSD:
  *   Source: getrandom(2)
  *   Fallback 1: sysctl(2) w/ kern.arandom
  *   Fallback 2: /dev/urandom
- *   Support: getrandom(2) added in FreeBSD 12.0.
+ *   Support: getrandom(2) added in FreeBSD 12.0 (2018).
  *
  * NetBSD:
  *   Source: sysctl(2) w/ kern.arandom
  *   Fallback: /dev/urandom
- *   Support: kern.arandom was buggy until NetBSD 4.0.
+ *   Support: kern.arandom was buggy until NetBSD 4.0 (2007).
  *
  * DragonFly BSD:
  *   Source: getrandom(2)
  *   Fallback: /dev/random
- *   Support: getrandom(2) added in DragonFly BSD 5.8.
+ *   Support: getrandom(2) added in DragonFly BSD 5.8 (2020).
  *
  * Solaris/Illumos:
  *   Source: getrandom(2)
  *   Fallback: /dev/random
- *   Support: getrandom(2) added in Solaris 11.3 (SunOS 5.11.3).
+ *   Support: getrandom(2) added in Solaris 11.3 (2015) (SunOS 5.11.3).
  *
  * Haiku:
  *   Source: /dev/random
@@ -153,7 +154,7 @@
  * VxWorks:
  *   Source: randBytes (after polling randStatus)
  *   Fallback: none
- *   Support: randBytes added in VxWorks 7.
+ *   Support: randBytes added in VxWorks 7 (2016).
  *
  * Fuchsia:
  *   Source: zx_cprng_draw(2)
@@ -202,7 +203,7 @@
 #if defined(__CloudABI__)
 uint16_t cloudabi_sys_random_get(void *buf, size_t buf_len);
 #elif defined(__wasi__)
-uint16_t __wasi_random_get(void *buf, size_t buf_len);
+uint16_t __wasi_random_get(uint8_t *buf, size_t buf_len);
 #elif defined(__EMSCRIPTEN__)
 #  include <emscripten.h> /* EM_ASM_INT */
 #elif defined(__wasm__) || defined(__asmjs__)
@@ -305,16 +306,8 @@ BOOLEAN NTAPI RtlGenRandom(PVOID RandomBuffer, ULONG RandomBufferLength);
 #    endif
 #    define DEV_RANDOM_NAME "/dev/random"
 #  elif defined(__sun) && defined(__SVR4) /* 11.3 (2015) */
-#    if defined(__SUNPRO_C) || defined(__SUNPRO_CC)
-#      if (defined(__SunOS_RELEASE) && __SunOS_RELEASE >= 0x051103) \
-        || defined(__SunOS_5_11)
-#        include <sys/random.h> /* getrandom */
-#        define HAVE_GETRANDOM
-#      endif
-#    else
-#      include <sys/random.h> /* getrandom */
-#      define HAVE_GETRANDOM
-#    endif
+#    include <sys/random.h> /* getrandom */
+#    define HAVE_GETRANDOM
 #    define DEV_RANDOM_NAME "/dev/random"
 #  elif defined(__HAIKU__)
 #    define DEV_RANDOM_NAME "/dev/random"
@@ -332,7 +325,7 @@ torsion_syscallrand(void *dst, size_t size) {
 #if defined(__CloudABI__)
   return cloudabi_sys_random_get(dst, size) == 0;
 #elif defined(__wasi__)
-  return __wasi_random_get(dst, size) == 0;
+  return __wasi_random_get((uint8_t *)dst, size) == 0;
 #elif defined(__EMSCRIPTEN__)
   if (size > (size_t)INT_MAX)
     return 0;
