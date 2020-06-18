@@ -129,20 +129,20 @@ torsion_emexports =                                                             
 
 noinst_PROGRAMS += torsion.js
 torsion_js_CFLAGS = -DTORSION_BUILD @CFLAGS@
-torsion_js_LDFLAGS = ${torsion_emflags} ${torsion_emexports}
-torsion_js_SOURCES = ${torsion_sources}
+torsion_js_LDFLAGS = $(torsion_emflags) $(torsion_emexports)
+torsion_js_SOURCES = $(torsion_sources)
 
 if ENABLE_TESTS
 noinst_PROGRAMS += tests.js
 tests_js_CFLAGS = @CFLAGS@
-tests_js_LDFLAGS = ${torsion_emflags}
-tests_js_SOURCES = test/test.c test/hrtime.c ${torsion_sources}
+tests_js_LDFLAGS = $(torsion_emflags)
+tests_js_SOURCES = test/test.c test/hrtime.c $(torsion_sources)
 endif
 else !EMSCRIPTEN
 lib_LTLIBRARIES = libtorsion.la
 libtorsion_la_CFLAGS = -DTORSION_BUILD @CFLAGS@
 libtorsion_la_LDFLAGS = -no-undefined -version-info 0:0:0
-libtorsion_la_SOURCES = ${torsion_sources}
+libtorsion_la_SOURCES = $(torsion_sources)
 
 if ENABLE_TESTS
 TESTS += tests
