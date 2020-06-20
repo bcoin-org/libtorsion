@@ -94,10 +94,17 @@ uint16_t cloudabi_sys_clock_time_get(uint32_t clock_id,
                                      uint64_t *time);
 #  define CLOUDABI_CLOCK_MONOTONIC 1
 #elif defined(__wasi__)
+#ifdef TORSION_WASM_BIGINT
+/* Requires --experimental-wasm-bigint at the moment. */
 uint16_t __wasi_clock_time_get(uint32_t clock_id,
                                uint64_t precision,
-                               uint64_t *time);
+                               uint64_t *time) __attribute__((
+  __import_module__("wasi_snapshot_preview1"),
+  __import_name__("clock_time_get"),
+  __warn_unused_result__
+));
 #  define __WASI_CLOCKID_MONOTONIC 1
+#endif
 #elif defined(__EMSCRIPTEN__)
 #  include <emscripten.h> /* EM_ASM_INT */
 #elif defined(__wasm__) || defined(__asmjs__)
@@ -162,12 +169,16 @@ torsion_hrtime(void) {
 
   return time;
 #elif defined(__wasi__)
+#ifdef TORSION_WASM_BIGINT
   uint64_t time;
 
   if (__wasi_clock_time_get(__WASI_CLOCKID_MONOTONIC, 0, &time) != 0)
     abort();
 
   return time;
+#else
+  return 0;
+#endif
 #elif defined(__EMSCRIPTEN__)
   uint32_t sec, nsec;
 

@@ -240,25 +240,27 @@ if(TORSION_ENABLE_RNG)
 endif()
 
 if(EMSCRIPTEN)
+  set(CMAKE_EXECUTABLE_SUFFIX ".wasm")
+
   set(torsion_emflags
       -s WASM=1
-      -s SINGLE_FILE=1
+      -s STANDALONE_WASM=1
+      -s WASM_BIGINT=1
       -s ALLOW_MEMORY_GROWTH=1
       -s INITIAL_MEMORY=16777216
       -s MAXIMUM_MEMORY=2147483648
       -s TOTAL_STACK=5242880
       -s EMIT_EMSCRIPTEN_METADATA=1
-      -s ENVIRONMENT=node)
+      -s ERROR_ON_UNDEFINED_SYMBOLS=0)
 
-  set(torsion_emexports
-      -s "EXPORTED_FUNCTIONS=[\"_malloc\",\"_free\"]"
-      -s "EXTRA_EXPORTED_RUNTIME_METHODS=[\"stackAlloc\",\"stackSave\",\"stackRestore\"]")
+  set(torsion_emexports -s EXPORTED_FUNCTIONS=@etc/exports.json)
 
   string(REPLACE ";" " " torsion_emflags "${torsion_emflags}")
   string(REPLACE ";" " " torsion_emexports "${torsion_emexports}")
 
   add_executable(torsion ${torsion_sources})
-  target_compile_definitions(torsion PRIVATE ${torsion_defines} TORSION_BUILD)
+  target_compile_definitions(torsion PRIVATE ${torsion_defines}
+                             TORSION_BUILD __wasi__)
   target_compile_options(torsion PRIVATE ${torsion_cflags})
   set_target_properties(torsion PROPERTIES LINK_FLAGS
                         "${torsion_emflags} ${torsion_emexports}")
@@ -266,7 +268,7 @@ if(EMSCRIPTEN)
 
   if(TORSION_ENABLE_TESTS)
     add_executable(tests ${torsion_sources} test/test.c test/hrtime.c)
-    target_compile_definitions(tests PRIVATE ${torsion_defines})
+    target_compile_definitions(tests PRIVATE ${torsion_defines} __wasi__)
     target_compile_options(tests PRIVATE ${torsion_cflags})
     set_target_properties(tests PROPERTIES LINK_FLAGS "${torsion_emflags}")
     target_include_directories(tests PRIVATE ${PROJECT_SOURCE_DIR}/include)

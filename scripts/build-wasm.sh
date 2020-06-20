@@ -43,18 +43,18 @@ cflags=(
 
 emflags=(
   '-s' 'WASM=1'
-  '-s' 'SINGLE_FILE=1'
+  '-s' 'STANDALONE_WASM=1'
+  '-s' 'WASM_BIGINT=1'
   '-s' 'ALLOW_MEMORY_GROWTH=1'
   '-s' 'INITIAL_MEMORY=16777216'
   '-s' 'MAXIMUM_MEMORY=2147483648'
   '-s' 'TOTAL_STACK=5242880'
   '-s' 'EMIT_EMSCRIPTEN_METADATA=1'
-  '-s' 'ENVIRONMENT=node'
+  '-s' 'ERROR_ON_UNDEFINED_SYMBOLS=0'
 )
 
 emexports=(
-  '-s' 'EXPORTED_FUNCTIONS=["_malloc","_free"]'
-  '-s' 'EXTRA_EXPORTED_RUNTIME_METHODS=["stackAlloc","stackSave","stackRestore"]'
+  '-s' 'EXPORTED_FUNCTIONS=@etc/exports.json'
 )
 
 set -ex
@@ -62,9 +62,9 @@ set -ex
 test -f include/torsion/ecc.h
 
 emcc "${sources[@]}" \
-  -o torsion.js "${emflags[@]}" "${emexports[@]}" "${cflags[@]}" \
-  -DTORSION_BUILD -DTORSION_NO_ASSERT
+  -o torsion.wasm "${emflags[@]}" "${emexports[@]}" "${cflags[@]}" \
+  -DTORSION_BUILD -DTORSION_NO_ASSERT -D__wasi__
 
 emcc "${sources[@]}" "${tests[@]}" \
-  -o tests.js "${emflags[@]}" "${cflags[@]}" \
-  -DTORSION_TEST -DTORSION_HAVE_RNG
+  -o tests.wasm "${emflags[@]}" "${cflags[@]}" \
+  -DTORSION_TEST -DTORSION_HAVE_RNG -D__wasi__

@@ -114,29 +114,28 @@ TESTS =
 noinst_PROGRAMS =
 
 if EMSCRIPTEN
-torsion_emflags = -s WASM=1                     \
-                  -s SINGLE_FILE=1              \
-                  -s ALLOW_MEMORY_GROWTH=1      \
-                  -s INITIAL_MEMORY=16777216    \
-                  -s MAXIMUM_MEMORY=2147483648  \
-                  -s TOTAL_STACK=5242880        \
-                  -s EMIT_EMSCRIPTEN_METADATA=1 \
-                  -s ENVIRONMENT=node
+torsion_emflags = -s WASM=1                       \
+                  -s STANDALONE_WASM=1            \
+                  -s WASM_BIGINT=1                \
+                  -s ALLOW_MEMORY_GROWTH=1        \
+                  -s INITIAL_MEMORY=16777216      \
+                  -s MAXIMUM_MEMORY=2147483648    \
+                  -s TOTAL_STACK=5242880          \
+                  -s EMIT_EMSCRIPTEN_METADATA=1   \
+                  -s ERROR_ON_UNDEFINED_SYMBOLS=0
 
-torsion_emexports =                                                             \
-  -s 'EXPORTED_FUNCTIONS=["_malloc","_free"]'                                   \
-  -s 'EXTRA_EXPORTED_RUNTIME_METHODS=["stackAlloc","stackSave","stackRestore"]'
+torsion_emexports = -s EXPORTED_FUNCTIONS=@etc/exports.json
 
-noinst_PROGRAMS += torsion.js
-torsion_js_CFLAGS = -DTORSION_BUILD @CFLAGS@
-torsion_js_LDFLAGS = $(torsion_emflags) $(torsion_emexports)
-torsion_js_SOURCES = $(torsion_sources)
+noinst_PROGRAMS += torsion.wasm
+torsion_wasm_CFLAGS = -DTORSION_BUILD -D__wasi__ @CFLAGS@
+torsion_wasm_LDFLAGS = $(torsion_emflags) $(torsion_emexports)
+torsion_wasm_SOURCES = $(torsion_sources)
 
 if ENABLE_TESTS
-noinst_PROGRAMS += tests.js
-tests_js_CFLAGS = @CFLAGS@
-tests_js_LDFLAGS = $(torsion_emflags)
-tests_js_SOURCES = test/test.c test/hrtime.c $(torsion_sources)
+noinst_PROGRAMS += tests.wasm
+tests_wasm_CFLAGS = -D__wasi__ @CFLAGS@
+tests_wasm_LDFLAGS = $(torsion_emflags)
+tests_wasm_SOURCES = test/test.c test/hrtime.c $(torsion_sources)
 endif
 else !EMSCRIPTEN
 lib_LTLIBRARIES = libtorsion.la

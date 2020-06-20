@@ -8,9 +8,8 @@
 #define _TORSION_COMMON_H
 
 #ifdef TORSION_BUILD
-#  if defined(__EMSCRIPTEN__)
-#    include <emscripten.h>
-#    define TORSION_EXTERN EMSCRIPTEN_KEEPALIVE
+#  if defined(__EMSCRIPTEN__) || defined(__wasi__)
+#    define TORSION_EXTERN __attribute__((used))
 #  elif defined(_MSC_VER) || defined(__BORLANDC__)
 #    define TORSION_EXTERN __declspec(dllexport)
 #  elif defined(__GNUC__) && __GNUC__ >= 4

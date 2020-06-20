@@ -202,7 +202,11 @@
 #if defined(__CloudABI__)
 uint16_t cloudabi_sys_random_get(void *buf, size_t buf_len);
 #elif defined(__wasi__)
-uint16_t __wasi_random_get(uint8_t *buf, size_t buf_len);
+uint16_t __wasi_random_get(uint8_t *buf, __SIZE_TYPE__ buf_len) __attribute__((
+  __import_module__("wasi_snapshot_preview1"),
+  __import_name__("random_get"),
+  __warn_unused_result__
+));
 #elif defined(__EMSCRIPTEN__)
 #  include <emscripten.h> /* EM_ASM_INT */
 #elif defined(__wasm__) || defined(__asmjs__)
