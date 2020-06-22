@@ -200,11 +200,13 @@
 #include "entropy.h"
 
 #if defined(__CloudABI__)
-uint16_t cloudabi_sys_random_get(void *buf, size_t buf_len);
+uint16_t
+cloudabi_sys_random_get(void *buf, size_t buf_len);
 #elif defined(__wasi__)
 /* Could call getentropy(3) directly with wasi-libc,
    but this is unsupported by emscripten's libc. */
-uint16_t __wasi_random_get(uint8_t *buf, size_t buf_len) __attribute__((
+uint16_t
+__wasi_random_get(uint8_t *buf, size_t buf_len) __attribute__((
   __import_module__("wasi_snapshot_preview1"),
   __import_name__("random_get"),
   __warn_unused_result__
@@ -225,7 +227,8 @@ uint16_t __wasi_random_get(uint8_t *buf, size_t buf_len) __attribute__((
 #    define HAVE_BCRYPTGENRANDOM
 #  else
 #    define RtlGenRandom SystemFunction036
-BOOLEAN NTAPI RtlGenRandom(PVOID RandomBuffer, ULONG RandomBufferLength);
+BOOLEAN NTAPI
+RtlGenRandom(PVOID RandomBuffer, ULONG RandomBufferLength);
 #    pragma comment(lib, "advapi32.lib")
 #  endif
 #elif defined(__vxworks)

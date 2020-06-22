@@ -89,16 +89,18 @@
 #include "entropy.h"
 
 #if defined(__CloudABI__)
-uint16_t cloudabi_sys_clock_time_get(uint32_t clock_id,
-                                     uint64_t precision,
-                                     uint64_t *time);
+uint16_t
+cloudabi_sys_clock_time_get(uint32_t clock_id,
+                            uint64_t precision,
+                            uint64_t *time);
 #  define CLOUDABI_CLOCK_MONOTONIC 1
 #elif defined(__wasi__)
 #ifdef TORSION_WASM_BIGINT
 /* Requires --experimental-wasm-bigint at the moment. */
-uint16_t __wasi_clock_time_get(uint32_t clock_id,
-                               uint64_t precision,
-                               uint64_t *time) __attribute__((
+uint16_t
+__wasi_clock_time_get(uint32_t clock_id,
+                      uint64_t precision,
+                      uint64_t *time) __attribute__((
   __import_module__("wasi_snapshot_preview1"),
   __import_name__("clock_time_get"),
   __warn_unused_result__
