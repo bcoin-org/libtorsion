@@ -69,7 +69,7 @@
 #include "entropy.h"
 
 #if defined(__CloudABI__) || defined(__wasi__)
-/* Could gather entropy from the filesystem in the future. */
+/* Could gather static entropy from args/env in the future. */
 #elif defined(__EMSCRIPTEN__) || defined(__wasm__)
 /* No reliable entropy sources available for emscripten/wasm. */
 #elif defined(_WIN32)

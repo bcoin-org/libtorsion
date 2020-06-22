@@ -212,7 +212,7 @@ torsion_hrtime(void) {
     abort();
 
   return (uint64_t)sec * 1000000000 + (uint64_t)nsec;
-#elif defined(__wasm__) || defined(__asmjs__)
+#elif defined(__wasm__)
   return 0;
 #elif defined(HAVE_QPC) /* _WIN32 */
   static unsigned int scale = 1000000000;
