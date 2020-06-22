@@ -115,8 +115,8 @@ static const unsigned long __torsion_endian_check = 1;
    you're using an awful build system like gyp. */
 
 /* Detect arch word size. */
-#if defined(__EMSCRIPTEN__)
-/* WASM and asm.js run faster as 32 bit. */
+#if defined(__EMSCRIPTEN__) || defined(__wasm__)
+/* WASM runs faster with 32 bit code. */
 #else
 #  if defined(__amd64__) \
    || defined(__amd64) \
@@ -156,6 +156,7 @@ static const unsigned long __torsion_endian_check = 1;
 
 /* Detect inline ASM support for x86-64. */
 #if defined(__EMSCRIPTEN__) \
+ || defined(__wasm__) \
  || defined(__CYGWIN__) \
  || defined(__MINGW32__) \
  || defined(_WIN32)
@@ -169,8 +170,8 @@ static const unsigned long __torsion_endian_check = 1;
 #endif
 
 /* Detect __int128 support. */
-#if defined(__EMSCRIPTEN__)
-/* According to libsodium, __int128 is broken in emscripten builds.
+#if defined(__EMSCRIPTEN__) || defined(__wasm__)
+/* According to libsodium, __int128 is broken in emscripten/wasm builds.
    See: https://github.com/jedisct1/libsodium/blob/master/configure.ac */
 #else
 /* According to this SO post[1], __int128 is supported

@@ -10,8 +10,8 @@
 #include <torsion/util.h>
 #include "bio.h"
 
-#if defined(__EMSCRIPTEN__)
-/* Inline assembly not supported in wasm/asm.js. */
+#if defined(__EMSCRIPTEN__) || defined(__wasm__)
+/* Inline assembly not supported with emscripten/wasm. */
 #else
 #  if defined(_WIN32)
 #    include <windows.h>

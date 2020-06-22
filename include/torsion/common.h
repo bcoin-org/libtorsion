@@ -8,7 +8,7 @@
 #define _TORSION_COMMON_H
 
 #ifdef TORSION_BUILD
-#  if defined(__EMSCRIPTEN__) || defined(__wasi__)
+#  if defined(__EMSCRIPTEN__) || defined(__wasm__)
 #    define TORSION_EXTERN __attribute__((used))
 #  elif defined(_MSC_VER) || defined(__BORLANDC__)
 #    define TORSION_EXTERN __declspec(dllexport)

@@ -121,7 +121,6 @@ torsion_emflags = -s WASM=1                       \
                   -s INITIAL_MEMORY=16777216      \
                   -s MAXIMUM_MEMORY=2147483648    \
                   -s TOTAL_STACK=5242880          \
-                  -s EMIT_EMSCRIPTEN_METADATA=1   \
                   -s ERROR_ON_UNDEFINED_SYMBOLS=0
 
 torsion_emexports = -s EXPORTED_FUNCTIONS=@etc/exports.json

@@ -215,9 +215,7 @@ write64be(void *dst, uint64_t w) {
  *   https://stackoverflow.com/a/2637138
  */
 
-#if defined(__EMSCRIPTEN__)
-/* Unsure if emscripten supports a bswap builtin. */
-#elif TORSION_GNUC_PREREQ(4, 3)
+#if TORSION_GNUC_PREREQ(4, 3)
 #  define HAVE_BUILTIN_BSWAP16
 #  define HAVE_BUILTIN_BSWAP32
 #  define HAVE_BUILTIN_BSWAP64

@@ -1,0 +1,82 @@
+SDK ?= /opt/wasi-sdk
+CC = $(SDK)/bin/clang
+SYSROOT = $(SDK)/share/wasi-sysroot
+TARGET = wasm32-wasi
+INITIAL_MEMORY ?= 16777216
+MAX_MEMORY ?= 2147483648
+STACK_SIZE ?= 5242880
+
+CFLAGS :=                   \
+	--target=$(TARGET)        \
+	--sysroot=$(SYSROOT)      \
+	-flto                     \
+	-std=gnu11                \
+	-Wall                     \
+	-Wextra                   \
+	-Wcast-align              \
+	-Wno-implicit-fallthrough \
+	-Wshadow                  \
+	-I./include               \
+	-O3
+
+LDFLAGS :=                               \
+	-Wl,--allow-undefined                  \
+	-Wl,--strip-debug                      \
+	-Wl,--gc-sections                      \
+	-Wl,--initial-memory=$(INITIAL_MEMORY) \
+	-Wl,--max-memory=$(MAX_MEMORY)         \
+	-Wl,-z -Wl,stack-size=$(STACK_SIZE)    \
+	-Wl,--lto-O3                           \
+	-Wl,-O3
+
+LIBFLAGS := $(LDFLAGS) -Wl,--export-all
+
+SOURCES =           \
+	src/aead.c        \
+	src/asn1.c        \
+	src/chacha20.c    \
+	src/cipher.c      \
+	src/ecc.c         \
+	src/encoding.c    \
+	src/drbg.c        \
+	src/dsa.c         \
+	src/hash.c        \
+	src/internal.c    \
+	src/kdf.c         \
+	src/mpi.c         \
+	src/poly1305.c    \
+	src/rsa.c         \
+	src/salsa20.c     \
+	src/secretbox.c   \
+	src/siphash.c     \
+	src/util.c        \
+	src/entropy/env.c \
+	src/entropy/hw.c  \
+	src/entropy/sys.c \
+	src/rand.c
+
+all: torsion.wasm tests.wasm
+
+# Note: We have to add an empty main function
+# and link our _initialize function manually
+# until reactor support is widely available
+# via:
+#
+#   -mexec-model=reactor
+#
+# See: https://github.com/llvm/llvm-project/commit/d496437
+#      https://reviews.llvm.org/D62922
+
+torsion.wasm: $(SOURCES) etc/crt1-reactor.c etc/main.c
+	$(CC) -o $@ $(CFLAGS) -DTORSION_BUILD -DTORSION_NO_ASSERT $(LIBFLAGS) $^
+
+tests.wasm: $(SOURCES) test/test.c test/hrtime.c
+	$(CC) -o $@ $(CFLAGS) -DTORSION_TEST -DTORSION_HAVE_RNG $(LDFLAGS) $^
+
+test: tests.wasm
+	./scripts/run-wasi.sh $^
+
+clean:
+	rm -f torsion.wasm tests.wasm
+
+.PHONY: all clean

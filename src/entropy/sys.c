@@ -209,8 +209,8 @@ uint16_t __wasi_random_get(uint8_t *buf, __SIZE_TYPE__ buf_len) __attribute__((
 ));
 #elif defined(__EMSCRIPTEN__)
 #  include <emscripten.h> /* EM_ASM_INT */
-#elif defined(__wasm__) || defined(__asmjs__)
-/* nothing */
+#elif defined(__wasm__)
+/* No entropy sources for plain wasm. */
 #elif defined(_WIN32)
 #  include <windows.h> /* _WIN32_WINNT */
 #  if defined(_MSC_VER) && _MSC_VER > 1500 /* VS 2008 */ \
@@ -233,7 +233,7 @@ BOOLEAN NTAPI RtlGenRandom(PVOID RandomBuffer, ULONG RandomBufferLength);
 #    include <taskLib.h> /* taskDelay */
 #    define HAVE_RANDBYTES
 #  endif
-#elif defined(__fuchsia__)
+#elif defined(__Fuchsia__)
 #  include <zircon/syscalls.h>
 #else
 #  include <sys/types.h> /* open */

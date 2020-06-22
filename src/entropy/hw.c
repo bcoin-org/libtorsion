@@ -107,8 +107,8 @@ uint16_t __wasi_clock_time_get(uint32_t clock_id,
 #endif
 #elif defined(__EMSCRIPTEN__)
 #  include <emscripten.h> /* EM_ASM_INT */
-#elif defined(__wasm__) || defined(__asmjs__)
-/* nothing */
+#elif defined(__wasm__)
+/* No hardware entropy for plain wasm. */
 #elif defined(_WIN32)
 #  include <windows.h> /* _WIN32_WINNT, QueryPerformance{Counter,Frequency} */
 #  if defined(_WIN32_WINNT) && _WIN32_WINNT >= 0x0501 /* >= Windows XP */
@@ -135,7 +135,7 @@ uint16_t __wasi_clock_time_get(uint32_t clock_id,
 #  endif
 #elif defined(__vxworks)
 #  include <time.h> /* clock_gettime */
-#elif defined(__fuchsia__)
+#elif defined(__Fuchsia__)
 #  include <zircon/syscalls.h> /* zx_clock_get_monotonic */
 #else
 #  include <time.h> /* clock_gettime */

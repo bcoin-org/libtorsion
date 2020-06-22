@@ -68,14 +68,10 @@
 #include <torsion/hash.h>
 #include "entropy.h"
 
-#if defined(__CloudABI__)
-/* nothing */
-#elif defined(__wasi__)
-/* nothing */
-#elif defined(__EMSCRIPTEN__)
-/* nothing */
-#elif defined(__wasm__) || defined(__asmjs__)
-/* nothing */
+#if defined(__CloudABI__) || defined(__wasi__)
+/* Could gather entropy from the filesystem in the future. */
+#elif defined(__EMSCRIPTEN__) || defined(__wasm__)
+/* No reliable entropy sources available for emscripten/wasm. */
 #elif defined(_WIN32)
 #  include <winsock2.h> /* required by iphlpapi.h */
 #  include <iphlpapi.h> /* GetAdaptersAddresses */
@@ -87,9 +83,9 @@
 #  pragma comment(lib, "psapi.lib")
 #  define HAVE_MANUAL_ENTROPY
 #elif defined(__vxworks)
-/* nothing */
-#elif defined(__fuchsia__)
-/* nothing */
+/* Unsupported. */
+#elif defined(__Fuchsia__)
+/* Unsupported. */
 #else
 #  include <sys/types.h> /* open */
 #  include <sys/stat.h> /* open, stat */
