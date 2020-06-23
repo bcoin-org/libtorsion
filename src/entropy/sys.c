@@ -24,15 +24,22 @@
  *   https://www.freebsd.org/cgi/man.cgi?getrandom(2)
  *   https://www.freebsd.org/cgi/man.cgi?getentropy(3)
  *   https://www.freebsd.org/cgi/man.cgi?sysctl(3)
+ *   https://github.com/freebsd/freebsd/commit/3ef9d41
+ *   https://github.com/freebsd/freebsd/commit/fb176db
  *   https://www.freebsd.org/cgi/man.cgi?random(4)
  *
  * OpenBSD:
  *   https://man.openbsd.org/getentropy.2
  *   https://github.com/openbsd/src/blob/2981a53/sys/sys/sysctl.h#L140
+ *   https://github.com/openbsd/src/commit/9914119
+ *   https://github.com/openbsd/src/commit/fce3886
+ *   https://github.com/openbsd/src/commit/4680fe5
  *   https://man.openbsd.org/random.4
  *
  * NetBSD:
  *   https://netbsd.gw.com/cgi-bin/man-cgi?sysctl+3+NetBSD-8.0
+ *   https://github.com/NetBSD/src/commit/0a9d2ad
+ *   https://github.com/NetBSD/src/commit/3f78162
  *   https://netbsd.gw.com/cgi-bin/man-cgi?random+4+NetBSD-8.0
  *
  * DragonFly BSD:
@@ -93,12 +100,14 @@
  * Windows:
  *   Source: BCryptGenRandom
  *   Fallback: RtlGenRandom (SystemFunction036)
- *   Support: BCryptGenRandom added in Windows Vista (2007).
+ *   Support: RtlGenRandom added in Windows XP (2001).
+ *            BCryptGenRandom added in Windows Vista (2007).
  *
  * Linux/Android:
  *   Source: getrandom(2)
  *   Fallback: /dev/urandom (after polling /dev/random)
- *   Support: getrandom(2) added in Linux 3.17 (2014).
+ *   Support: /dev/urandom added in Linux 1.3.30 (1995).
+ *            getrandom(2) added in Linux 3.17 (2014).
  *
  * OSX:
  *   Source: getentropy(2)
@@ -115,17 +124,23 @@
  *   Fallback 1: sysctl(2) w/ kern.arandom
  *   Fallback 2: /dev/urandom
  *   Support: getrandom(2) added in FreeBSD 12.0 (2018).
+ *            kern.arandom added in FreeBSD 7.0 (2008).
+ *            kern.arandom modernized in FreeBSD 7.1 (2009).
  *
  * OpenBSD:
  *   Source: getentropy(2)
  *   Fallback 1: sysctl(2) w/ kern.arandom
  *   Fallback 2: /dev/urandom
  *   Support: getentropy(2) added in OpenBSD 5.6 (2014).
+ *            kern.arandom added in OpenBSD 2.6 (1999).
+ *            kern.arandom modernized in OpenBSD 3.8 (2005).
+ *            kern.arandom removed in OpenBSD 6.1 (2017).
  *
  * NetBSD:
  *   Source: sysctl(2) w/ kern.arandom
  *   Fallback: /dev/urandom
- *   Support: kern.arandom was buggy until NetBSD 4.0 (2007).
+ *   Support: kern.arandom added in NetBSD 2.0 (2004).
+ *            kern.arandom modernized in NetBSD 4.0 (2007).
  *
  * DragonFly BSD:
  *   Source: getrandom(2)
@@ -277,8 +292,10 @@ RtlGenRandom(PVOID RandomBuffer, ULONG RandomBufferLength);
 #      define HAVE_GETRANDOM
 #      define HAVE_GETENTROPY
 #    endif
-#    if defined(CTL_KERN) && defined(KERN_ARND)
-#      define HAVE_SYSCTL_ARND
+#    if defined(__FreeBSD_version) && __FreeBSD_version >= 701000 /* 7.1 (2009) */
+#      if defined(CTL_KERN) && defined(KERN_ARND)
+#        define HAVE_SYSCTL_ARND
+#      endif
 #    endif
 #    define DEV_RANDOM_NAME "/dev/urandom"
 #  elif defined(__OpenBSD__)
@@ -287,8 +304,10 @@ RtlGenRandom(PVOID RandomBuffer, ULONG RandomBufferLength);
 #    if defined(OpenBSD) && OpenBSD >= 201411 /* 5.6 (2014) */
 #      define HAVE_GETENTROPY /* resides in unistd.h */
 #    endif
-#    if defined(CTL_KERN) && defined(KERN_ARND)
-#      define HAVE_SYSCTL_ARND
+#    if defined(OpenBSD) && OpenBSD >= 200511 /* 3.8 (2005) */
+#      if defined(CTL_KERN) && defined(KERN_ARND)
+#        define HAVE_SYSCTL_ARND
+#      endif
 #    endif
 #    define DEV_RANDOM_NAME "/dev/urandom"
 #  elif defined(__NetBSD__)
