@@ -20,16 +20,16 @@
  *   https://www.unix.com/man-page/mojave/2/getentropy/
  *   https://www.unix.com/man-page/mojave/4/random/
  *
- * OpenBSD:
- *   https://man.openbsd.org/getentropy.2
- *   https://github.com/openbsd/src/blob/2981a53/sys/sys/sysctl.h#L140
- *   https://man.openbsd.org/random.4
- *
  * FreeBSD:
  *   https://www.freebsd.org/cgi/man.cgi?getrandom(2)
  *   https://www.freebsd.org/cgi/man.cgi?getentropy(3)
  *   https://www.freebsd.org/cgi/man.cgi?sysctl(3)
  *   https://www.freebsd.org/cgi/man.cgi?random(4)
+ *
+ * OpenBSD:
+ *   https://man.openbsd.org/getentropy.2
+ *   https://github.com/openbsd/src/blob/2981a53/sys/sys/sysctl.h#L140
+ *   https://man.openbsd.org/random.4
  *
  * NetBSD:
  *   https://netbsd.gw.com/cgi-bin/man-cgi?sysctl+3+NetBSD-8.0
@@ -110,17 +110,17 @@
  *   Fallback: /dev/random (identical to /dev/urandom)
  *   Support: getentropy(2) added in iOS 10.0 (2016).
  *
- * OpenBSD:
- *   Source: getentropy(2)
- *   Fallback 1: sysctl(2) w/ kern.arandom
- *   Fallback 2: /dev/urandom
- *   Support: getentropy(2) added in OpenBSD 5.6 (2014).
- *
  * FreeBSD:
  *   Source: getrandom(2)
  *   Fallback 1: sysctl(2) w/ kern.arandom
  *   Fallback 2: /dev/urandom
  *   Support: getrandom(2) added in FreeBSD 12.0 (2018).
+ *
+ * OpenBSD:
+ *   Source: getentropy(2)
+ *   Fallback 1: sysctl(2) w/ kern.arandom
+ *   Fallback 2: /dev/urandom
+ *   Support: getentropy(2) added in OpenBSD 5.6 (2014).
  *
  * NetBSD:
  *   Source: sysctl(2) w/ kern.arandom
@@ -269,16 +269,6 @@ RtlGenRandom(PVOID RandomBuffer, ULONG RandomBufferLength);
 #      endif
 #    endif
 #    define DEV_RANDOM_NAME "/dev/random"
-#  elif defined(__OpenBSD__)
-#    include <sys/param.h>
-#    include <sys/sysctl.h> /* sysctl */
-#    if defined(OpenBSD) && OpenBSD >= 201411 /* 5.6 (2014) */
-#      define HAVE_GETENTROPY /* resides in unistd.h */
-#    endif
-#    if defined(CTL_KERN) && defined(KERN_ARND)
-#      define HAVE_SYSCTL_ARND
-#    endif
-#    define DEV_RANDOM_NAME "/dev/urandom"
 #  elif defined(__FreeBSD__)
 #    include <sys/param.h>
 #    include <sys/sysctl.h> /* sysctl */
@@ -286,6 +276,16 @@ RtlGenRandom(PVOID RandomBuffer, ULONG RandomBufferLength);
 #      include <sys/random.h> /* getrandom, getentropy */
 #      define HAVE_GETRANDOM
 #      define HAVE_GETENTROPY
+#    endif
+#    if defined(CTL_KERN) && defined(KERN_ARND)
+#      define HAVE_SYSCTL_ARND
+#    endif
+#    define DEV_RANDOM_NAME "/dev/urandom"
+#  elif defined(__OpenBSD__)
+#    include <sys/param.h>
+#    include <sys/sysctl.h> /* sysctl */
+#    if defined(OpenBSD) && OpenBSD >= 201411 /* 5.6 (2014) */
+#      define HAVE_GETENTROPY /* resides in unistd.h */
 #    endif
 #    if defined(CTL_KERN) && defined(KERN_ARND)
 #      define HAVE_SYSCTL_ARND
