@@ -29,7 +29,8 @@
  * and as such, libtorsion can build without it (in
  * the case that more portability is desired).
  *
- * [1] https://github.com/jedisct1/libsodium/blob/master/src/libsodium/randombytes/internal/randombytes_internal_random.c
+ * [1] https://github.com/jedisct1/libsodium/blob/master/src/libsodium
+ *     /randombytes/internal/randombytes_internal_random.c
  * [2] https://github.com/bitcoin/bitcoin/blob/master/src/random.cpp
  */
 
