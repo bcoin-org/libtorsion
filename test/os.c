@@ -103,8 +103,8 @@ torsion_thread_free(struct torsion_thread_s *thread) {
 
 #ifdef _WIN32
 typedef struct torsion_thread_args_s {
-  torsion_thread_start_f *start_routine,
-  void *arg
+  torsion_thread_start_f *start_routine;
+  void *arg;
 } torsion_thread_args_t;
 
 static DWORD WINAPI

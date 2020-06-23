@@ -53,6 +53,12 @@
 #include "data/poly1305-vectors.h"
 #include "data/rsa-vectors.h"
 
+#if UINTPTR_MAX == UINT64_MAX
+#define PRIzu PRIu64
+#else
+#define PRIzu PRIu32
+#endif
+
 /*
  * String Maps
  */
@@ -225,7 +231,7 @@ test_aead(void) {
     size_t raw_len = sizeof(raw);
     size_t data_len, output_len;
 
-    printf("  - AEAD vector #%lu\n", i + 1);
+    printf("  - AEAD vector #%" PRIzu "\n", i + 1);
 
     hex_decode(input, &input_len, aead_vectors[i][0]);
     hex_decode(aad, &aad_len, aead_vectors[i][1]);
@@ -299,7 +305,7 @@ test_chacha20(void) {
     size_t output_len = sizeof(output);
     size_t data_len;
 
-    printf("  - ChaCha20 vector #%lu\n", i + 1);
+    printf("  - ChaCha20 vector #%" PRIzu "\n", i + 1);
 
     hex_decode(key, &key_len, chacha20_vectors[i].key);
     hex_decode(nonce, &nonce_len, chacha20_vectors[i].nonce);
@@ -347,7 +353,7 @@ test_ciphers(void) {
     ASSERT(type >= 0 && type <= CIPHER_MAX);
     ASSERT(size != 0);
 
-    printf("  - Cipher vector #%lu (%s)\n", i + 1, cipher_names[type]);
+    printf("  - Cipher vector #%" PRIzu " (%s)\n", i + 1, cipher_names[type]);
 
     hex_decode(key, &key_len, cipher_vectors[i].key);
     hex_parse(iv, size, cipher_vectors[i].iv);
@@ -392,7 +398,7 @@ test_cipher_modes(void) {
     ASSERT(type >= 0 && type <= CIPHER_MAX);
     ASSERT(mode >= 0 && mode <= CIPHER_MODE_MAX);
 
-    printf("  - Cipher mode vector #%lu (%s-%s)\n",
+    printf("  - Cipher mode vector #%" PRIzu " (%s-%s)\n",
            i + 1, cipher_names[type], cipher_modes[mode]);
 
     hex_decode(key, &key_len, cipher_mode_vectors[i].key);
@@ -448,7 +454,7 @@ test_cipher_aead(void) {
     ASSERT(type >= 0 && type <= CIPHER_MAX);
     ASSERT(mode >= 0 && mode <= CIPHER_MODE_MAX);
 
-    printf("  - Cipher AEAD vector #%lu (%s-%s)\n",
+    printf("  - Cipher AEAD vector #%" PRIzu " (%s-%s)\n",
            i + 1, cipher_names[type], cipher_modes[mode]);
 
     hex_decode(key, &key_len, cipher_aead_vectors[i].key);
@@ -525,7 +531,7 @@ test_hash_drbg(void) {
     size_t expect_len = sizeof(expect);
     size_t data_len;
 
-    printf("  - Hash-DRBG vector #%lu\n", i + 1);
+    printf("  - Hash-DRBG vector #%" PRIzu "\n", i + 1);
 
     hex_decode(entropy, &entropy_len, hash_drbg_vectors[i].entropy);
     hex_decode(reseed, &reseed_len, hash_drbg_vectors[i].reseed);
@@ -566,7 +572,7 @@ test_hmac_drbg(void) {
     size_t expect_len = sizeof(expect);
     size_t data_len;
 
-    printf("  - HMAC-DRBG vector #%lu\n", i + 1);
+    printf("  - HMAC-DRBG vector #%" PRIzu "\n", i + 1);
 
     hex_decode(entropy, &entropy_len, hmac_drbg_vectors[i].entropy);
     hex_decode(reseed, &reseed_len, hmac_drbg_vectors[i].reseed);
@@ -612,7 +618,7 @@ test_ctr_drbg(void) {
     size_t expect_len = sizeof(expect);
     size_t data_len;
 
-    printf("  - CTR-DRBG vector #%lu\n", i + 1);
+    printf("  - CTR-DRBG vector #%" PRIzu "\n", i + 1);
 
     hex_decode(entropy, &entropy_len, ctr_drbg_vectors[i].entropy);
     hex_decode(pers, &pers_len, ctr_drbg_vectors[i].pers);
@@ -666,7 +672,7 @@ test_dsa(void) {
     size_t der_len = sizeof(der);
     size_t qsize, olen;
 
-    printf("  - DSA vector #%lu\n", i + 1);
+    printf("  - DSA vector #%" PRIzu "\n", i + 1);
 
     hex_decode(params, &params_len, dsa_vectors[i][0]);
     hex_decode(priv, &priv_len, dsa_vectors[i][1]);
@@ -841,7 +847,7 @@ test_ecdsa(void) {
     unsigned int param = ecdsa_vectors[i].param;
     size_t len;
 
-    printf("  - ECDSA vector #%lu (%s)\n", i + 1, wei_curves[type]);
+    printf("  - ECDSA vector #%" PRIzu " (%s)\n", i + 1, wei_curves[type]);
 
     hex_parse(priv, sc_size, ecdsa_vectors[i].priv);
     hex_parse(pub, pub_size, ecdsa_vectors[i].pub);
@@ -1166,7 +1172,7 @@ test_schnorr_legacy(void) {
     int result = schnorr_legacy_vectors[i].result;
     const char *comment = schnorr_legacy_vectors[i].comment;
 
-    printf("  - Schnorr-Legacy vector #%lu (%s)\n", i + 1, comment);
+    printf("  - Schnorr-Legacy vector #%" PRIzu " (%s)\n", i + 1, comment);
 
     hex_decode(priv, &priv_len, schnorr_legacy_vectors[i].priv);
     hex_decode(pub, &pub_len, schnorr_legacy_vectors[i].pub);
@@ -1290,7 +1296,7 @@ test_schnorr(void) {
     int result = schnorr_vectors[i].result;
     const char *comment = schnorr_vectors[i].comment;
 
-    printf("  - Schnorr vector #%lu (%s)\n", i + 1, comment);
+    printf("  - Schnorr vector #%" PRIzu " (%s)\n", i + 1, comment);
 
     hex_decode(priv, &priv_len, schnorr_vectors[i].priv);
     hex_decode(pub, &pub_len, schnorr_vectors[i].pub);
@@ -1685,7 +1691,7 @@ test_eddsa(void) {
     size_t msg_len = sizeof(msg);
     int ph = eddsa_vectors[i].ph;
 
-    printf("  - EdDSA vector #%lu (%s)\n", i + 1, edwards_curves[type]);
+    printf("  - EdDSA vector #%" PRIzu " (%s)\n", i + 1, edwards_curves[type]);
 
     hex_parse(priv, priv_size, eddsa_vectors[i].priv);
     hex_parse(scalar, sc_size, eddsa_vectors[i].scalar);
@@ -2004,7 +2010,7 @@ test_base16(void) {
     const char *str = vectors[i][0];
     const char *hex = vectors[i][1];
 
-    printf("  - Base16 vector #%lu\n", i + 1);
+    printf("  - Base16 vector #%" PRIzu "\n", i + 1);
 
     ASSERT(base16_test(hex, strlen(hex)));
     ASSERT(base16_decode(buf, &len, hex, strlen(hex)));
@@ -2018,7 +2024,7 @@ test_base16(void) {
     const char *str = vectors_le[i][0];
     const char *hex = vectors_le[i][1];
 
-    printf("  - Base16-LE vector #%lu\n", i + 1);
+    printf("  - Base16-LE vector #%" PRIzu "\n", i + 1);
 
     ASSERT(base16le_test(hex, strlen(hex)));
     ASSERT(base16le_decode(buf, &len, hex, strlen(hex)));
@@ -2031,7 +2037,7 @@ test_base16(void) {
   for (i = 0; i < ARRAY_SIZE(invalid); i++) {
     const char *hex = invalid[i];
 
-    printf("  - Base16 (invalid) vector #%lu\n", i + 1);
+    printf("  - Base16 (invalid) vector #%" PRIzu "\n", i + 1);
 
     ASSERT(!base16_test(hex, strlen(hex)));
     ASSERT(!base16le_test(hex, strlen(hex)));
@@ -2072,7 +2078,7 @@ test_base32(void) {
     const char *str = vectors[i][0];
     const char *b32 = vectors[i][1];
 
-    printf("  - Base32 vector #%lu\n", i + 1);
+    printf("  - Base32 vector #%" PRIzu "\n", i + 1);
 
     ASSERT(base32_test(b32, strlen(b32), 1));
     ASSERT(base32_decode(buf, &len, b32, strlen(b32), 1));
@@ -2086,7 +2092,7 @@ test_base32(void) {
     const char *str = vectors_hex[i][0];
     const char *b32 = vectors_hex[i][1];
 
-    printf("  - Base32-Hex vector #%lu\n", i + 1);
+    printf("  - Base32-Hex vector #%" PRIzu "\n", i + 1);
 
     ASSERT(base32hex_test(b32, strlen(b32), 1));
     ASSERT(base32hex_decode(buf, &len, b32, strlen(b32), 1));
@@ -2133,7 +2139,7 @@ test_base58(void) {
 
     ASSERT(base16_decode(data, &dlen, str, strlen(str)));
 
-    printf("  - Base58 vector #%lu\n", i + 1);
+    printf("  - Base58 vector #%" PRIzu "\n", i + 1);
 
     ASSERT(base58_test(b58, strlen(b58)));
     ASSERT(base58_decode(buf, &len, b58, strlen(b58)));
@@ -2198,7 +2204,7 @@ test_base64(void) {
     const char *str = vectors[i][0];
     const char *b64 = vectors[i][1];
 
-    printf("  - Base64 vector #%lu\n", i + 1);
+    printf("  - Base64 vector #%" PRIzu "\n", i + 1);
 
     ASSERT(base64_test(b64, strlen(b64)));
     ASSERT(base64_decode(buf, &len, b64, strlen(b64)));
@@ -2211,7 +2217,7 @@ test_base64(void) {
   for (i = 0; i < ARRAY_SIZE(invalid); i++) {
     const char *b64 = invalid[i];
 
-    printf("  - Base64 (invalid) vector #%lu\n", i + 1);
+    printf("  - Base64 (invalid) vector #%" PRIzu "\n", i + 1);
 
     ASSERT(!base64_test(b64, strlen(b64)));
     ASSERT(!base64_decode(buf, &len, b64, strlen(b64)));
@@ -2221,7 +2227,7 @@ test_base64(void) {
     const char *str = vectors_url[i][0];
     const char *b64 = vectors_url[i][1];
 
-    printf("  - Base64-URL vector #%lu\n", i + 1);
+    printf("  - Base64-URL vector #%" PRIzu "\n", i + 1);
 
     ASSERT(base64url_test(b64, strlen(b64)));
     ASSERT(base64url_decode(buf, &len, b64, strlen(b64)));
@@ -2234,7 +2240,7 @@ test_base64(void) {
   for (i = 0; i < ARRAY_SIZE(invalid_url); i++) {
     const char *b64 = invalid_url[i];
 
-    printf("  - Base64-URL (invalid) vector #%lu\n", i + 1);
+    printf("  - Base64-URL (invalid) vector #%" PRIzu "\n", i + 1);
 
     ASSERT(!base64url_test(b64, strlen(b64)));
     ASSERT(!base64url_decode(buf, &len, b64, strlen(b64)));
@@ -2309,7 +2315,7 @@ test_bech32(void) {
     const char *addr = valid[i][0];
     const char *hex = valid[i][1];
 
-    printf("  - Bech32 vector #%lu (%s)\n", i + 1, addr);
+    printf("  - Bech32 vector #%" PRIzu " (%s)\n", i + 1, addr);
 
     ASSERT(base16_decode(script, &script_len, hex, strlen(hex)));
 
@@ -2329,7 +2335,7 @@ test_bech32(void) {
   for (i = 0; i < ARRAY_SIZE(invalid); i++) {
     const char *addr = invalid[i];
 
-    printf("  - Bech32 (invalid) vector #%lu (%s)\n", i + 1, addr);
+    printf("  - Bech32 (invalid) vector #%" PRIzu " (%s)\n", i + 1, addr);
 
     ASSERT(!bech32_test(addr));
     ASSERT(!bech32_decode(hrp, &version, data, &data_len, addr));
@@ -2423,7 +2429,7 @@ test_cash32(void) {
     const char *prefix = valid[i].prefix;
     const char *hex = valid[i].hash;
 
-    printf("  - Cash32 vector #%lu (%s)\n", i + 1, addr);
+    printf("  - Cash32 vector #%" PRIzu " (%s)\n", i + 1, addr);
 
     ASSERT(base16_decode(hash, &hash_len, hex, strlen(hex)));
 
@@ -2441,7 +2447,7 @@ test_cash32(void) {
     const char *addr = invalid[i][0];
     const char *prefix = invalid[i][1];
 
-    printf("  - Cash32 (invalid) vector #%lu (%s)\n", i + 1, addr);
+    printf("  - Cash32 (invalid) vector #%" PRIzu " (%s)\n", i + 1, addr);
 
     ASSERT(!cash32_test(addr, prefix));
     ASSERT(!cash32_decode(&type, data, &data_len, addr, prefix));
@@ -2469,7 +2475,7 @@ test_hash(void) {
 
     ASSERT(size != 0);
 
-    printf("  - Hash vector #%lu (%s)\n", i + 1, hash_names[type]);
+    printf("  - Hash vector #%" PRIzu " (%s)\n", i + 1, hash_names[type]);
 
     hex_decode(iv, &iv_len, hash_vectors[i].iv);
     hex_parse(expect, size, hash_vectors[i].expect);
@@ -2507,7 +2513,7 @@ test_hmac(void) {
 
     ASSERT(size != 0);
 
-    printf("  - HMAC vector #%lu (%s)\n", i + 1, hash_names[type]);
+    printf("  - HMAC vector #%" PRIzu " (%s)\n", i + 1, hash_names[type]);
 
     hex_decode(data, &data_len, hmac_vectors[i].data);
     hex_decode(key, &key_len, hmac_vectors[i].key);
@@ -2543,7 +2549,7 @@ test_eb2k(void) {
     size_t key_len = sizeof(key);
     size_t iv_len = sizeof(iv);
 
-    printf("  - EB2K vector #%lu (%s)\n", i + 1, pass);
+    printf("  - EB2K vector #%" PRIzu " (%s)\n", i + 1, pass);
 
     hex_decode(salt, &salt_len, eb2k_vectors[i].salt);
     hex_decode(key, &key_len, eb2k_vectors[i].key);
@@ -2584,7 +2590,7 @@ test_hkdf(void) {
     ASSERT(sizeof(okm) >= len);
     ASSERT(sizeof(out) >= len);
 
-    printf("  - HKDF vector #%lu (%s)\n", i + 1, hkdf_vectors[i].okm);
+    printf("  - HKDF vector #%" PRIzu " (%s)\n", i + 1, hkdf_vectors[i].okm);
 
     hex_decode(ikm, &ikm_len, hkdf_vectors[i].ikm);
     hex_decode(salt, &salt_len, hkdf_vectors[i].salt);
@@ -2620,7 +2626,7 @@ test_pbkdf2(void) {
     ASSERT(sizeof(expect) >= len);
     ASSERT(sizeof(out) >= len);
 
-    printf("  - PBKDF2 vector #%lu (%s)\n", i + 1, pbkdf2_vectors[i].expect);
+    printf("  - PBKDF2 vector #%" PRIzu " (%s)\n", i + 1, pbkdf2_vectors[i].expect);
 
     hex_decode(pass, &pass_len, pbkdf2_vectors[i].pass);
     hex_decode(salt, &salt_len, pbkdf2_vectors[i].salt);
@@ -2773,7 +2779,7 @@ test_bcrypt(void) {
     const char *record = vectors[i].record;
     char out[100];
 
-    printf("  - Bcrypt vector #%lu (%s)\n", i + 1, record);
+    printf("  - Bcrypt vector #%" PRIzu " (%s)\n", i + 1, record);
 
     ASSERT(bcrypt_generate_with_salt64(out, (const unsigned char *)pass,
                                        strlen(pass), salt, rounds, 'a'));
@@ -2836,7 +2842,7 @@ test_poly1305(void) {
   for (i = 0; i < ARRAY_SIZE(poly1305_vectors); i++) {
     size_t msg_len = sizeof(msg);
 
-    printf("  - Poly1305 vector #%lu (%s)\n", i + 1, poly1305_vectors[i][0]);
+    printf("  - Poly1305 vector #%" PRIzu " (%s)\n", i + 1, poly1305_vectors[i][0]);
 
     hex_parse(key, 32, poly1305_vectors[i][0]);
     hex_decode(msg, &msg_len, poly1305_vectors[i][1]);
@@ -3154,7 +3160,7 @@ test_rsa(void) {
     size_t ct1_len = sizeof(ct1);
     size_t ct2_len = sizeof(ct2);
 
-    printf("  - RSA vector #%lu\n", i + 1);
+    printf("  - RSA vector #%" PRIzu "\n", i + 1);
 
     hex_decode(priv, &priv_len, rsa_vectors[i].priv);
     hex_decode(pub, &pub_len, rsa_vectors[i].pub);
@@ -3431,7 +3437,7 @@ test_salsa20(void) {
     const unsigned char *nonce = vectors[i].nonce;
     const unsigned char *expect = vectors[i].expect;
 
-    printf("  - Salsa20 vector #%lu\n", i + 1);
+    printf("  - Salsa20 vector #%" PRIzu "\n", i + 1);
 
     memset(out, 0, size);
     memset(xor, 0, 64);
@@ -3663,7 +3669,7 @@ test_murmur3(void) {
     uint32_t sum = vectors[i].sum;
     uint32_t tweak = vectors[i].tweak;
 
-    printf("  - Murmur3 vector #%lu (%u)\n", i + 1, seed);
+    printf("  - Murmur3 vector #%" PRIzu " (%u)\n", i + 1, seed);
 
     ASSERT(base16_decode(data, &len, str, strlen(str)));
 
