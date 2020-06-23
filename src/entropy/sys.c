@@ -75,13 +75,7 @@
  * we are inside a chroot where /dev has not been setup?).
  *
  * To avoid locking ourselves down to a particular build system,
- * we check for features using only the C preprocessor. There is
- * one edge case as a result of of this: the build may fail for
- * older versions of Solaris. This is due to the fact that the
- * Solaris system header files do not expose a version number.
- * As such, it is impossible to tell whether getrandom(2) is
- * supported from the C preprocessor. Solaris versions released
- * prior to 2015 are affected.
+ * we check for features using only the C preprocessor.
  *
  * In the future, we may consider using dlsym(3) to check
  * features at runtime. This would ensure better ABI compat
