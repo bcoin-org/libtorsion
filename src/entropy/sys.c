@@ -282,13 +282,13 @@ RtlGenRandom(PVOID RandomBuffer, ULONG RandomBufferLength);
 #    define DEV_RANDOM_NAME "/dev/random"
 #  elif defined(__FreeBSD__)
 #    include <sys/param.h>
-#    include <sys/sysctl.h> /* sysctl */
 #    if defined(__FreeBSD_version) && __FreeBSD_version >= 1200000 /* 12.0 (2018) */
 #      include <sys/random.h> /* getrandom, getentropy */
 #      define HAVE_GETRANDOM
 #      define HAVE_GETENTROPY
 #    endif
 #    if defined(__FreeBSD_version) && __FreeBSD_version >= 701000 /* 7.1 (2009) */
+#      include <sys/sysctl.h> /* sysctl */
 #      if defined(CTL_KERN) && defined(KERN_ARND)
 #        define HAVE_SYSCTL_ARND
 #      endif
@@ -296,11 +296,11 @@ RtlGenRandom(PVOID RandomBuffer, ULONG RandomBufferLength);
 #    define DEV_RANDOM_NAME "/dev/urandom"
 #  elif defined(__OpenBSD__)
 #    include <sys/param.h>
-#    include <sys/sysctl.h> /* sysctl */
 #    if defined(OpenBSD) && OpenBSD >= 201411 /* 5.6 (2014) */
 #      define HAVE_GETENTROPY /* resides in unistd.h */
 #    endif
 #    if defined(OpenBSD) && OpenBSD >= 200511 /* 3.8 (2005) */
+#      include <sys/sysctl.h> /* sysctl */
 #      if defined(CTL_KERN) && defined(KERN_ARND)
 #        define HAVE_SYSCTL_ARND
 #      endif
@@ -308,8 +308,8 @@ RtlGenRandom(PVOID RandomBuffer, ULONG RandomBufferLength);
 #    define DEV_RANDOM_NAME "/dev/urandom"
 #  elif defined(__NetBSD__)
 #    include <sys/param.h>
-#    include <sys/sysctl.h> /* sysctl */
 #    if defined(__NetBSD_Version__) && __NetBSD_Version__ >= 400000000 /* 4.0 (2007) */
+#      include <sys/sysctl.h> /* sysctl */
 #      if defined(CTL_KERN) && defined(KERN_ARND)
 #        define HAVE_SYSCTL_ARND
 #      endif
