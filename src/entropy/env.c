@@ -104,9 +104,11 @@
 #      define TORSION_GLIBC_PREREQ(maj, min) 0
 #    endif
 #    if TORSION_GLIBC_PREREQ(2, 3)
+#      include <link.h> /* dl_iterate_phdr */
 #      include <sys/socket.h> /* AF_INET{,6} */
 #      include <netinet/in.h> /* sockaddr_in{,6} */
 #      include <ifaddrs.h> /* getifaddrs */
+#      define HAVE_DLITERATEPHDR
 #      define HAVE_GETIFADDRS
 #    endif
 #    if TORSION_GLIBC_PREREQ(2, 16)
@@ -250,6 +252,22 @@ sha512_write_file(sha512_t *hash, const char *file) {
   close(fd);
 }
 #endif /* !_WIN32 */
+
+#ifdef HAVE_DLITERATEPHDR
+static int
+sha512_write_phdr(struct dl_phdr_info *info, size_t size, void *data) {
+  sha512_t *hash = data;
+
+  (void)size;
+
+  sha512_write(hash, &info->dlpi_addr, sizeof(info->dlpi_addr));
+  sha512_write_ptr(hash, info->dlpi_name);
+  sha512_write_string(hash, info->dlpi_name);
+  sha512_write_ptr(hash, info->dlpi_phdr);
+
+  return 0;
+}
+#endif /* HAVE_DLITERATEPHDR */
 
 #ifdef HAVE_GETIFADDRS
 static void
@@ -631,6 +649,11 @@ sha512_write_static_env(sha512_t *hash) {
       sha512_write_string(hash, name.machine);
     }
   }
+
+#ifdef HAVE_DLITERATEPHDR
+  /* Shared objects. */
+  dl_iterate_phdr(sha512_write_phdr, hash);
+#endif /* HAVE_DLITERATEPHDR */
 
 #ifdef HAVE_GETAUXVAL
   /* Information available through getauxval(). */
