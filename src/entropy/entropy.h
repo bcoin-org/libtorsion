@@ -14,6 +14,7 @@
  * Alias
  */
 
+#define torsion_getpid __torsion_getpid
 #define torsion_envrand __torsion_envrand
 #define torsion_hrtime __torsion_hrtime
 #define torsion_rdtsc __torsion_rdtsc
@@ -29,6 +30,9 @@
 /*
  * Entropy
  */
+
+uint64_t
+torsion_getpid(void);
 
 int
 torsion_envrand(unsigned char *seed);

@@ -68,7 +68,9 @@
 #include <torsion/hash.h>
 #include "entropy.h"
 
-#if defined(__CloudABI__) || defined(__wasi__)
+#if defined(__CloudABI__)
+/* Could gather static entropy from filesystem in the future. */
+#elif defined(__wasi__)
 /* Could gather static entropy from args/env in the future. */
 #elif defined(__EMSCRIPTEN__) || defined(__wasm__)
 /* No reliable entropy sources available for emscripten/wasm. */
@@ -86,7 +88,7 @@
 /* Unsupported. */
 #elif defined(__Fuchsia__)
 /* Unsupported. */
-#else
+#elif defined(unix) || defined(__unix) || defined(__unix__)
 #  include <sys/types.h> /* open */
 #  include <sys/stat.h> /* open, stat */
 #  include <sys/time.h> /* gettimeofday, timeval */
@@ -112,10 +114,10 @@
 #      define HAVE_GETAUXVAL
 #    endif
 #  endif
-#  if defined(__APPLE__) \
-   || defined(__OpenBSD__) \
-   || defined(__FreeBSD__) \
-   || defined(__NetBSD__) \
+#  if defined(__APPLE__)     \
+   || defined(__OpenBSD__)   \
+   || defined(__FreeBSD__)   \
+   || defined(__NetBSD__)    \
    || defined(__DragonFly__)
 #    include <sys/sysctl.h> /* sysctl */
 #    include <sys/socket.h> /* AF_INET{,6} */
@@ -136,7 +138,7 @@ extern char **environ;
 #    endif
 #  endif
 #  if defined(CLOCK_MONOTONIC) \
-   || defined(CLOCK_REALTIME) \
+   || defined(CLOCK_REALTIME)  \
    || defined(CLOCK_BOOTTIME)
 #    define HAVE_CLOCK_GETTIME
 #  endif
@@ -977,6 +979,11 @@ sha512_write_dynamic_env(sha512_t *hash) {
 
     if (getrusage(RUSAGE_SELF, &usage) == 0)
       sha512_write(hash, &usage, sizeof(usage));
+
+#ifdef RUSAGE_THREAD
+    if (getrusage(RUSAGE_THREAD, &usage) == 0)
+      sha512_write(hash, &usage, sizeof(usage));
+#endif
   }
 
 #ifdef __linux__
@@ -1033,6 +1040,15 @@ sha512_write_dynamic_env(sha512_t *hash) {
   }
 }
 #endif /* HAVE_MANUAL_ENTROPY */
+
+uint64_t
+torsion_getpid(void) {
+#if defined(HAVE_MANUAL_ENTROPY) && !defined(_WIN32)
+  return (uint64_t)getpid();
+#else
+  return 0;
+#endif
+}
 
 int
 torsion_envrand(unsigned char *seed) {

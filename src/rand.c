@@ -17,12 +17,13 @@
  * gathered from the environment. See entropy/ for
  * more information.
  *
- * We do not currently expose a global interface as
- * it would require locks and getpid() checks (in
- * order to be fork-aware). Instead, the programmer
- * is meant to instantiate a different RNG for each
- * thread/process. This achieves both reentrancy as
- * well as fork-awareness.
+ * We expose a global fork-aware and thread-safe
+ * RNG. However, instead of using locks or atomics
+ * for thread safety, we use thread local storage
+ * for the global context, meaning the context is
+ * not actually global, rather, it is local to
+ * each thread. This avoids us having to link to
+ * pthreads and deal with other OS compat issues.
  *
  * The RNG below is not used anywhere internally,
  * and as such, libtorsion can build without it (in
@@ -40,6 +41,7 @@
 #include <torsion/rand.h>
 #include <torsion/util.h>
 #include "entropy/entropy.h"
+#include "internal.h"
 
 /*
  * Helpers
@@ -188,10 +190,73 @@ rng_uniform(rng_t *rng, uint32_t max) {
 }
 
 /*
- * Entropy
+ * Global Context
+ */
+
+static TORSION_TLS rng_t rng_global;
+static TORSION_TLS struct {
+  int started;
+  uint64_t pid;
+} rng_state = {0, 0};
+
+static int
+rng_global_init(void) {
+  uint64_t pid = torsion_getpid();
+
+  if (!rng_state.started || rng_state.pid != pid) {
+    if (!rng_init(&rng_global))
+      return 0;
+
+    rng_state.started = 1;
+    rng_state.pid = pid;
+  }
+
+  return 1;
+}
+
+#ifdef TORSION_TEST
+TORSION_EXTERN uintptr_t
+__torsion_global_rng_addr(void) {
+  void *rng = (void *)&rng_global;
+  return (uintptr_t)rng;
+}
+#endif
+
+/*
+ * Global API
  */
 
 int
 torsion_getentropy(void *dst, size_t size) {
   return torsion_sysrand(dst, size);
+}
+
+int
+torsion_getrandom(void *dst, size_t size) {
+  if (!rng_global_init())
+    return 0;
+
+  rng_generate(&rng_global, dst, size);
+
+  return 1;
+}
+
+int
+torsion_random(uint32_t *out) {
+  if (!rng_global_init())
+    return 0;
+
+  *out = rng_random(&rng_global);
+
+  return 1;
+}
+
+int
+torsion_uniform(uint32_t *out, uint32_t max) {
+  if (!rng_global_init())
+    return 0;
+
+  *out = rng_uniform(&rng_global, max);
+
+  return 1;
 }

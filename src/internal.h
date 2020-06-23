@@ -62,19 +62,21 @@ __torsion_assert_fail(const char *file, int line, const char *expr);
  * Keywords/Attributes
  */
 
-#if !defined(__STDC_VERSION__) || __STDC_VERSION__ < 199901L
+#if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 199901L
+#  define TORSION_INLINE inline
+#else
 #  if TORSION_GNUC_PREREQ(2, 7)
 #    define TORSION_INLINE __inline__
-#  elif defined(_MSC_VER)
+#  elif defined(_MSC_VER) && _MSC_VER >= 900
 #    define TORSION_INLINE __inline
 #  else
 #    define TORSION_INLINE
 #  endif
-#else
-#  define TORSION_INLINE inline
 #endif
 
-#if !defined(__STDC_VERSION__) || __STDC_VERSION__ < 199901L
+#if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 199901L
+#  define TORSION_RESTRICT restrict
+#else
 #  if TORSION_GNUC_PREREQ(3, 0)
 #    define TORSION_RESTRICT __restrict__
 #  elif defined(_MSC_VER) && _MSC_VER >= 1400
@@ -82,8 +84,39 @@ __torsion_assert_fail(const char *file, int line, const char *expr);
 #  else
 #    define TORSION_RESTRICT
 #  endif
+#endif
+
+#if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L
+#  define TORSION_NORETURN _Noreturn
 #else
-#  define TORSION_RESTRICT restrict
+#  ifdef noreturn
+#    undef noreturn
+#  endif
+#  if TORSION_GNUC_PREREQ(2, 5)
+#    define TORSION_NORETURN __attribute__((noreturn))
+#  elif defined(_MSC_VER) && _MSC_VER >= 1200
+#    define TORSION_NORETURN __declspec(noreturn)
+#  else
+#    define TORSION_NORETURN
+#  endif
+#endif
+
+#if defined(__EMSCRIPTEN__) || defined(__wasm__)
+/* No threads on wasm (yet?). */
+#elif defined(__STDC_VERSION__)     \
+   && __STDC_VERSION__ >= 201112L   \
+   && !defined(__STDC_NO_THREADS__)
+#  define TORSION_TLS _Thread_local
+#else
+#  if TORSION_GNUC_PREREQ(3, 4)
+#    define TORSION_TLS __thread
+#  elif defined(_MSC_VER) && _MSC_VER >= 1500
+#    define TORSION_TLS __declspec(thread)
+#  elif (defined(__SUNPRO_C) && __SUNPRO_C >= 0x590)
+#    define TORSION_TLS __thread
+#  else
+#    define TORSION_TLS
+#  endif
 #endif
 
 #ifdef __GNUC__
@@ -118,37 +151,37 @@ static const unsigned long __torsion_endian_check = 1;
 #if defined(__EMSCRIPTEN__) || defined(__wasm__)
 /* WASM runs faster with 32 bit code. */
 #else
-#  if defined(__amd64__) \
-   || defined(__amd64) \
-   || defined(__x86_64__) \
-   || defined(__x86_64) \
-   || defined(_M_X64) \
-   || defined(_M_AMD64) \
-   || defined(__aarch64__) \
-   || defined(_M_ARM64) \
-   || defined(__ia64__) \
-   || defined(_IA64) \
-   || defined(__IA64__) \
-   || defined(__ia64) \
-   || defined(_M_IA64) \
-   || ((defined(__mips__) \
-     || defined(__mips) \
-     || defined(__MIPS__)) \
+#  if defined(__amd64__)      \
+   || defined(__amd64)        \
+   || defined(__x86_64__)     \
+   || defined(__x86_64)       \
+   || defined(_M_X64)         \
+   || defined(_M_AMD64)       \
+   || defined(__aarch64__)    \
+   || defined(_M_ARM64)       \
+   || defined(__ia64__)       \
+   || defined(_IA64)          \
+   || defined(__IA64__)       \
+   || defined(__ia64)         \
+   || defined(_M_IA64)        \
+   || ((defined(__mips__)     \
+     || defined(__mips)       \
+     || defined(__MIPS__))    \
      && defined(_MIPS_SZLONG) \
-     && _MIPS_SZLONG == 64) \
-   || ((defined(__powerpc) \
-     || defined(__powerpc__) \
-     || defined(__POWERPC__) \
-     || defined(__ppc__) \
-     || defined(__PPC__) \
-     || defined(_M_PPC) \
-     || defined(_ARCH_PPC)) \
-     && defined(__64BIT__)) \
-   || defined(__powerpc64__) \
-   || defined(__ppc64__) \
-   || defined(__PPC64__) \
-   || defined(_ARCH_PPC64) \
-   || defined(__sparc_v9__) \
+     && _MIPS_SZLONG == 64)   \
+   || ((defined(__powerpc)    \
+     || defined(__powerpc__)  \
+     || defined(__POWERPC__)  \
+     || defined(__ppc__)      \
+     || defined(__PPC__)      \
+     || defined(_M_PPC)       \
+     || defined(_ARCH_PPC))   \
+     && defined(__64BIT__))   \
+   || defined(__powerpc64__)  \
+   || defined(__ppc64__)      \
+   || defined(__PPC64__)      \
+   || defined(_ARCH_PPC64)    \
+   || defined(__sparc_v9__)   \
    || defined(__sparcv9)
 #    define TORSION_HAVE_64BIT
 #  endif
@@ -156,9 +189,9 @@ static const unsigned long __torsion_endian_check = 1;
 
 /* Detect inline ASM support for x86-64. */
 #if defined(__EMSCRIPTEN__) \
- || defined(__wasm__) \
- || defined(__CYGWIN__) \
- || defined(__MINGW32__) \
+ || defined(__wasm__)       \
+ || defined(__CYGWIN__)     \
+ || defined(__MINGW32__)    \
  || defined(_WIN32)
 /* No inline ASM support for wasm/asm.js/win32. */
 #else
@@ -238,10 +271,10 @@ TORSION_EXTENSION typedef signed __int128 torsion_int128_t;
 #define torsion_die __torsion_die
 #define torsion_abort __torsion_abort
 
-void
+TORSION_NORETURN void
 torsion_die(const char *msg);
 
-void
+TORSION_NORETURN void
 torsion_abort(void);
 
 #endif /* _TORSION_INTERNAL_H */

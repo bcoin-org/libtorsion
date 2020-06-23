@@ -240,7 +240,7 @@ RtlGenRandom(PVOID RandomBuffer, ULONG RandomBufferLength);
 #  endif
 #elif defined(__Fuchsia__)
 #  include <zircon/syscalls.h>
-#else
+#elif defined(unix) || defined(__unix) || defined(__unix__)
 #  include <sys/types.h> /* open */
 #  include <sys/stat.h> /* open, stat */
 #  include <fcntl.h> /* open, fcntl */
@@ -314,8 +314,10 @@ RtlGenRandom(PVOID RandomBuffer, ULONG RandomBufferLength);
 #    endif
 #    define DEV_RANDOM_NAME "/dev/random"
 #  elif defined(__sun) && defined(__SVR4) /* 11.3 (2015) */
-#    include <sys/random.h> /* getrandom */
-#    define HAVE_GETRANDOM
+#    if defined(__SUNPRO_C) && __SUNPRO_C >= 0x5140 /* 5.14 (2016) */
+#      include <sys/random.h> /* getrandom */
+#      define HAVE_GETRANDOM
+#    endif
 #    define DEV_RANDOM_NAME "/dev/random"
 #  elif defined(__HAIKU__)
 #    define DEV_RANDOM_NAME "/dev/random"
@@ -403,7 +405,7 @@ torsion_syscallrand(void *dst, size_t size) {
   }
 
   return 0;
-#elif defined(__fuchsia__)
+#elif defined(__Fuchsia__)
   zx_cprng_draw(dst, size);
   return 1;
 #elif defined(HAVE_GETRANDOM)

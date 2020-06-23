@@ -140,12 +140,12 @@ __wasi_clock_time_get(uint32_t clock_id,
 #elif defined(__Fuchsia__)
 #  include <zircon/syscalls.h> /* zx_clock_get_monotonic */
 #else
-#  include <time.h> /* clock_gettime */
+#  include <time.h> /* clock_gettime, time */
 #  ifndef CLOCK_MONOTONIC
-#    ifdef __APPLE__
+#    if defined(__APPLE__)
 #      include <mach/mach.h>
 #      include <mach/mach_time.h> /* mach_timebase_info, mach_absolute_time */
-#    else
+#    elif defined(unix) || defined(__unix) || defined(__unix__)
 #      include <sys/time.h> /* gettimeofday */
 #    endif
 #  endif
@@ -264,7 +264,7 @@ torsion_hrtime(void) {
     abort();
 
   return (uint64_t)ts.tv_sec * 1000000000 + (uint64_t)ts.tv_nsec;
-#elif defined(__fuchsia__)
+#elif defined(__Fuchsia__)
   return zx_clock_get_monotonic();
 #elif defined(CLOCK_MONOTONIC)
   struct timespec ts;
@@ -283,13 +283,15 @@ torsion_hrtime(void) {
     abort();
 
   return mach_absolute_time() * info.numer / info.denom;
-#else
+#elif defined(unix) || defined(__unix) || defined(__unix__)
   struct timeval tv;
 
   if (gettimeofday(&tv, NULL) != 0)
     abort();
 
   return (uint64_t)tv.tv_sec * 1000000000 + (uint64_t)tv.tv_usec * 1000;
+#else
+  return (uint64_t)time(NULL) * 1000000000;
 #endif
 }
 

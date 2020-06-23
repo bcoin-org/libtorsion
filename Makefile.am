@@ -74,6 +74,7 @@ noinst_HEADERS = src/asn1.h                         \
                  test/data/rsa-vectors.h            \
                  test/data/schnorr-legacy-vectors.h \
                  test/data/schnorr-vectors.h        \
+                 test/os.h                          \
                  test/testutil.h
 
 if ENABLE_RNG
@@ -134,7 +135,7 @@ if ENABLE_TESTS
 noinst_PROGRAMS += tests.wasm
 tests_wasm_CFLAGS = -D__wasi__ @CFLAGS@
 tests_wasm_LDFLAGS = $(torsion_emflags)
-tests_wasm_SOURCES = test/test.c test/hrtime.c $(torsion_sources)
+tests_wasm_SOURCES = test/test.c test/os.c $(torsion_sources)
 endif
 else !EMSCRIPTEN
 lib_LTLIBRARIES = libtorsion.la
@@ -147,8 +148,14 @@ TESTS += tests
 noinst_PROGRAMS += tests
 tests_CFLAGS = @CFLAGS@
 tests_LDFLAGS = -static
-tests_SOURCES = test/test.c test/hrtime.c
+tests_SOURCES = test/test.c test/os.c
 tests_LDADD = libtorsion.la
+if LINUX
+tests_CFLAGS += -lpthread
+endif
+if DARWIN
+tests_CFLAGS += -lpthread
+endif
 endif
 
 if ENABLE_CTIME

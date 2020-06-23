@@ -70,7 +70,7 @@ all: torsion.wasm tests.wasm
 torsion.wasm: $(SOURCES) etc/crt1-reactor.c etc/main.c
 	$(CC) -o $@ $(CFLAGS) -DTORSION_BUILD -DTORSION_NO_ASSERT $(LIBFLAGS) $^
 
-tests.wasm: $(SOURCES) test/test.c test/hrtime.c
+tests.wasm: $(SOURCES) test/test.c test/os.c
 	$(CC) -o $@ $(CFLAGS) -DTORSION_TEST -DTORSION_HAVE_RNG $(LDFLAGS) $^
 
 test: tests.wasm

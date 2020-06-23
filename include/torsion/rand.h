@@ -54,11 +54,20 @@ TORSION_EXTERN uint32_t
 rng_uniform(rng_t *rng, uint32_t max);
 
 /*
- * Entropy
+ * Global API
  */
 
 TORSION_EXTERN int
 torsion_getentropy(void *dst, size_t size);
+
+TORSION_EXTERN int
+torsion_getrandom(void *dst, size_t size);
+
+TORSION_EXTERN int
+torsion_random(uint32_t *out);
+
+TORSION_EXTERN int
+torsion_uniform(uint32_t *out, uint32_t max);
 
 #ifdef __cplusplus
 }

@@ -194,6 +194,9 @@ AM_CONDITIONAL([ENABLE_TESTS], [test x"$enable_tests" = x"yes"])
 AM_CONDITIONAL([ENABLE_CTIME], [test x"$enable_ctime" = x"yes"])
 AM_CONDITIONAL([EMSCRIPTEN], [test x"$EMSCRIPTEN" != x""])
 
+AM_CONDITIONAL([DARWIN], [AS_CASE([$host_os],[darwin*], [true], [false])])
+AM_CONDITIONAL([LINUX], [AS_CASE([$host_os],[linux*], [true], [false])])
+
 m4_ifdef([AM_PROG_AR], [AM_PROG_AR])
 AC_PROG_LIBTOOL
 m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])

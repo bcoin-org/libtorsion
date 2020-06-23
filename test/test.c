@@ -29,6 +29,7 @@
 #include <torsion/siphash.h>
 #include <torsion/util.h>
 
+#include "os.h"
 #include "testutil.h"
 
 #include "data/aead-vectors.h"
@@ -2890,22 +2891,186 @@ test_rand_rng(void) {
 
   ASSERT(looks_random(data, sizeof(data)));
 
-  for (i = 0; i < ARRAY_SIZE(data); i++)
-    data[i] = rng_uniform(&rng, 0x7fffffff);
+  for (i = 0; i < ARRAY_SIZE(data); i++) {
+    uint32_t hi = rng_uniform(&rng, 0x10000);
+    uint32_t lo = rng_uniform(&rng, 0x10000);
+
+    ASSERT(hi < 0x10000 && lo < 0x10000);
+
+    data[i] = (hi << 16) | lo;
+  }
 
   ASSERT(looks_random(data, sizeof(data)));
 }
 
 static void
-test_rand_entropy(void) {
+test_rand_getentropy(void) {
   uint32_t data[65536 / 4];
+  size_t i;
 
   printf("Testing getentropy...\n");
 
-  ASSERT(torsion_getentropy(data, sizeof(data)));
+  for (i = 0; i < 10; i++) {
+    ASSERT(torsion_getentropy(data, sizeof(data)));
+    ASSERT(looks_random(data, sizeof(data)));
+  }
+}
+
+static void
+test_rand_getrandom(void) {
+  uint32_t data[65536 / 4];
+  size_t i;
+
+  printf("Testing getrandom...\n");
+
+  for (i = 0; i < 10; i++) {
+    ASSERT(torsion_getrandom(data, sizeof(data)));
+    ASSERT(looks_random(data, sizeof(data)));
+  }
+}
+
+static void
+test_rand_random(void) {
+  uint32_t data[65536 / 4];
+  size_t i;
+
+  printf("Testing random...\n");
+
+  for (i = 0; i < ARRAY_SIZE(data); i++)
+    ASSERT(torsion_random(&data[i]));
+
   ASSERT(looks_random(data, sizeof(data)));
 }
-#endif
+
+static void
+test_rand_uniform(void) {
+  uint32_t data[65536 / 4];
+  uint32_t hi, lo;
+  size_t i;
+
+  printf("Testing uniform...\n");
+
+  for (i = 0; i < ARRAY_SIZE(data); i++) {
+    ASSERT(torsion_uniform(&hi, 0x10000));
+    ASSERT(torsion_uniform(&lo, 0x10000));
+    ASSERT(hi < 0x10000 && lo < 0x10000);
+
+    data[i] = (hi << 16) | lo;
+  }
+
+  ASSERT(looks_random(data, sizeof(data)));
+}
+
+#ifdef TORSION_HAVE_THREADS
+typedef struct rng_res_s {
+  uintptr_t ptr;
+  unsigned char data[32];
+} rng_res_t;
+
+uintptr_t
+__torsion_global_rng_addr(void);
+
+static void *
+thread_random(void *ptr) {
+  rng_res_t *obj = ptr;
+
+  obj->ptr = __torsion_global_rng_addr();
+
+  ASSERT(torsion_getrandom(obj->data, 32));
+
+  return NULL;
+}
+
+static void
+test_rand_thread_safety(void) {
+  torsion_thread_t *t1 = torsion_thread_alloc();
+  torsion_thread_t *t2 = torsion_thread_alloc();
+  rng_res_t x0, x1, x2;
+
+  memset(&x0, 0, sizeof(x0));
+  memset(&x1, 0, sizeof(x1));
+  memset(&x2, 0, sizeof(x2));
+
+  printf("Testing RNG thread safety.\n");
+
+  ASSERT(torsion_thread_create(t1, NULL, thread_random, (void *)&x1) == 0);
+  ASSERT(torsion_thread_create(t2, NULL, thread_random, (void *)&x2) == 0);
+
+  ASSERT(torsion_thread_join(t1, NULL) == 0);
+  ASSERT(torsion_thread_join(t2, NULL) == 0);
+
+  torsion_thread_free(t1);
+  torsion_thread_free(t2);
+
+  thread_random(&x0);
+
+  ASSERT(x0.ptr && x1.ptr && x2.ptr);
+
+  ASSERT(x0.ptr != x1.ptr);
+  ASSERT(x0.ptr != x2.ptr);
+
+  ASSERT(x1.ptr != x0.ptr);
+  ASSERT(x1.ptr != x2.ptr);
+
+  ASSERT(x2.ptr != x0.ptr);
+  ASSERT(x2.ptr != x1.ptr);
+
+  ASSERT(memcmp(x0.data, x1.data, 32) != 0);
+  ASSERT(memcmp(x0.data, x2.data, 32) != 0);
+
+  ASSERT(memcmp(x1.data, x0.data, 32) != 0);
+  ASSERT(memcmp(x1.data, x2.data, 32) != 0);
+
+  ASSERT(memcmp(x2.data, x0.data, 32) != 0);
+  ASSERT(memcmp(x2.data, x1.data, 32) != 0);
+}
+#endif /* TORSION_HAVE_THREADS */
+
+#ifdef __linux__
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <unistd.h>
+
+static void
+test_rand_fork_safety(void) {
+  unsigned char ours[32];
+  unsigned char theirs[32];
+  int pfds[2];
+  int status;
+  pid_t pid;
+
+  printf("Testing RNG fork safety...\n");
+
+  memset(ours, 0, 32);
+  memset(theirs, 0, 32);
+
+  ASSERT(pipe(pfds) == 0);
+
+  pid = fork();
+
+  ASSERT(pid != -1);
+  ASSERT(torsion_getrandom(ours, 32));
+
+  if (pid) {
+    ASSERT(close(pfds[1]) == 0);
+    ASSERT(read(pfds[0], theirs, 32) == 32);
+    ASSERT(close(pfds[0]) == 0);
+
+    ASSERT(waitpid(pid, &status, 0) == pid);
+    ASSERT(WIFEXITED(status));
+    ASSERT(WEXITSTATUS(status) == 0);
+  } else {
+    ASSERT(close(pfds[0]) == 0);
+    ASSERT(write(pfds[1], ours, 32) == 32);
+    ASSERT(close(pfds[1]) == 0);
+
+    exit(0);
+  }
+
+  ASSERT(memcmp(ours, theirs, 32) != 0);
+}
+#endif /* __linux__ */
+#endif /* TORSION_HAVE_RNG */
 
 /*
  * RC4
@@ -3513,8 +3678,6 @@ test_murmur3(void) {
 
 typedef uint64_t bench_t;
 
-uint64_t torsion_hrtime(void);
-
 static void
 bench_start(bench_t *start, const char *name) {
   printf("Benchmarking %s...\n", name);
@@ -3825,7 +3988,16 @@ main(int argc, char **argv) {
     /* Random */
 #ifdef TORSION_HAVE_RNG
     test_rand_rng();
-    test_rand_entropy();
+    test_rand_getentropy();
+    test_rand_getrandom();
+    test_rand_random();
+    test_rand_uniform();
+#ifdef TORSION_HAVE_THREADS
+    test_rand_thread_safety();
+#endif
+#ifdef __linux__
+    test_rand_fork_safety();
+#endif
 #endif
 
     /* RC4 */

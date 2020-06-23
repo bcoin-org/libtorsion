@@ -12,12 +12,12 @@
 /* Save some space for wasm builds. */
 #else
 #  include <stdio.h>
-#  define HAVE_STDIO
+#  define TORSION_HAVE_STDIO
 #endif
 
 void
 __torsion_assert_fail(const char *file, int line, const char *expr) {
-#ifdef HAVE_STDIO
+#ifdef TORSION_HAVE_STDIO
   fprintf(stderr, "%s:%d: Assertion `%s' failed.\n", file, line, expr);
   fflush(stderr);
 #else
@@ -30,7 +30,7 @@ __torsion_assert_fail(const char *file, int line, const char *expr) {
 
 void
 torsion_die(const char *msg) {
-#ifdef HAVE_STDIO
+#ifdef TORSION_HAVE_STDIO
   fprintf(stderr, "%s\n", msg);
   fflush(stderr);
 #else
