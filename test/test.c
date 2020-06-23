@@ -2887,7 +2887,8 @@ test_rand_rng(void) {
 
   printf("Testing RNG...\n");
 
-  rng_init(&rng);
+  ASSERT(rng_init(&rng));
+
   rng_generate(&rng, data, sizeof(data));
 
   ASSERT(looks_random(data, sizeof(data)));
