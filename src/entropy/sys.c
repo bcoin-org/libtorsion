@@ -168,9 +168,9 @@
  *   Fallback: none
  *
  * VxWorks:
- *   Source: randBytes (after polling randStatus)
+ *   Source: randABytes (after polling randSecure)
  *   Fallback: none
- *   Support: randBytes added in VxWorks 7 (2016).
+ *   Support: randABytes added in VxWorks 7 (2016).
  *
  * Fuchsia:
  *   Source: zx_cprng_draw(2)
@@ -243,7 +243,7 @@ RtlGenRandom(PVOID RandomBuffer, ULONG RandomBufferLength);
 #elif defined(__vxworks)
 #  include <version.h>
 #  if defined(_WRS_VXWORKS_MAJOR) && _WRS_VXWORKS_MAJOR >= 7 /* 7 (2016) */
-#    include <randomNumGen.h> /* randBytes */
+#    include <randomNumGen.h> /* randABytes, randSecure */
 #    include <taskLib.h> /* taskDelay */
 #    define HAVE_RANDBYTES
 #  endif
@@ -397,26 +397,36 @@ torsion_syscallrand(void *dst, size_t size) {
 #elif defined(_WIN32)
   return RtlGenRandom((PVOID)dst, (ULONG)size) == TRUE;
 #elif defined(HAVE_RANDBYTES) /* __vxworks */
-  /* Borrowed from OpenSSL. */
-  size_t i;
+  unsigned char *data = (unsigned char *)dst;
+  size_t max = (size_t)INT_MAX;
+  int ret;
 
-  if (size > (size_t)INT_MAX)
-    return 0;
+  for (;;) {
+    ret = randSecure();
 
-  for (i = 0; i < 10; i++) {
-    RANDOM_NUM_GEN_STATUS status = randStatus();
+    if (ret != 0)
+      break;
 
-    if (status != RANDOM_NUM_GEN_ENOUGH_ENTROPY
-        && status != RANDOM_NUM_GEN_MAX_ENTROPY) {
-      taskDelay(5);
-      continue;
-    }
-
-    if (randBytes((unsigned char *)dst, (int)size) == 0)
-      return 1;
+    taskDelay(5);
   }
 
-  return 0;
+  if (ret != 1)
+    return 0;
+
+  while (size > 0) {
+    if (max > size)
+      max = size;
+
+    ret = randABytes(data, (int)max);
+
+    if (ret != 0)
+      return 0;
+
+    data += max;
+    size -= max;
+  }
+
+  return 1;
 #elif defined(__Fuchsia__)
   zx_cprng_draw(dst, size);
   return 1;
@@ -429,16 +439,9 @@ torsion_syscallrand(void *dst, size_t size) {
     if (max > size)
       max = size;
 
-    for (;;) {
+    do {
       nread = getrandom(data, max, 0);
-
-      if (nread < 0) {
-        if (errno == EINTR || errno == EAGAIN)
-          continue;
-      }
-
-      break;
-    }
+    } while (nread < 0 && (errno == EINTR || errno == EAGAIN));
 
     if (nread < 0)
       return 0;
@@ -477,14 +480,6 @@ torsion_syscallrand(void *dst, size_t size) {
   unsigned char *data = (unsigned char *)dst;
   size_t max = 256;
   size_t nread;
-
-  /* Older FreeBSD versions returned longs.
-     Error if we're not properly aligned. */
-#ifdef __FreeBSD__
-  /* See: https://github.com/openssl/openssl/blob/ddec332/crypto/rand/rand_unix.c#L231 */
-  if ((size % sizeof(long)) != 0)
-    return 0;
-#endif
 
   while (size > 0) {
     if (max > size)
@@ -584,74 +579,45 @@ torsion_devrand(void *dst, size_t size) {
   int fd;
 
 #ifdef __linux__
-  fd = open("/dev/random", O_RDONLY);
+  do {
+    fd = open("/dev/random", O_RDONLY);
+  } while (fd == -1 && errno == EINTR);
 
   if (fd == -1)
-    goto open_failure;
+    goto fail;
 
   pfd.fd = fd;
   pfd.events = POLLIN;
   pfd.revents = 0;
 
-  for (;;) {
+  do {
     ret = poll(&pfd, 1, -1);
+  } while (ret == -1 && (errno == EINTR || errno == EAGAIN));
 
-    if (ret < 0) {
-      if (errno == EINTR || errno == EAGAIN)
-        continue;
-    }
+  if (ret != 1)
+    goto done;
 
-    break;
-  }
-
-  if (ret != 1) {
-    close(fd);
-    return 0;
-  }
-
-  if (close(fd) != 0)
-    return 0;
+  close(fd);
 #endif
 
-  for (;;) {
+  do {
     fd = open(DEV_RANDOM_NAME, O_RDONLY);
+  } while (fd == -1 && errno == EINTR);
 
-    if (fd == -1) {
-      if (errno == EINTR)
-        continue;
+  if (fd == -1)
+    goto fail;
 
-      goto open_failure;
-    }
+  if (fstat(fd, &st) != 0)
+    goto done;
 
-    if (fstat(fd, &st) != 0) {
-      close(fd);
-      return 0;
-    }
-
-    /* Ensure this is a character/special file. */
-    if (!S_ISCHR(st.st_mode) && !S_ISNAM(st.st_mode)) {
-      close(fd);
-      return 0;
-    }
-
-#if defined(F_SETFD) && defined(FD_CLOEXEC)
-    fcntl(fd, F_SETFD, fcntl(fd, F_GETFD) | FD_CLOEXEC);
-#endif
-
-    break;
-  }
+  /* Ensure this is a character/special file. */
+  if (!S_ISCHR(st.st_mode) && !S_ISNAM(st.st_mode))
+    goto done;
 
   while (size > 0) {
-    for (;;) {
+    do {
       nread = read(fd, data, size);
-
-      if (nread < 0) {
-        if (errno == EINTR || errno == EAGAIN)
-          continue;
-      }
-
-      break;
-    }
+    } while (nread < 0 && (errno == EINTR || errno == EAGAIN));
 
     if (nread <= 0)
       break;
@@ -663,10 +629,11 @@ torsion_devrand(void *dst, size_t size) {
     size -= nread;
   }
 
+done:
   close(fd);
 
   return size == 0;
-open_failure:
+fail:
 #ifdef HAVE_SYSCTL_UUID
   switch (errno) {
     case EACCES:
