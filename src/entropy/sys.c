@@ -15,6 +15,8 @@
  * Linux:
  *   http://man7.org/linux/man-pages/man2/getrandom.2.html
  *   http://man7.org/linux/man-pages/man4/random.4.html
+ *   https://man7.org/linux/man-pages/man2/_sysctl.2.html
+ *   https://github.com/torvalds/linux/blob/v5.4/include/uapi/linux/sysctl.h
  *
  * OSX/iOS:
  *   https://www.unix.com/man-page/mojave/2/getentropy/
@@ -105,9 +107,14 @@
  *
  * Linux/Android:
  *   Source: getrandom(2)
- *   Fallback: /dev/urandom (after polling /dev/random)
+ *   Fallback 1: /dev/urandom (after polling /dev/random)
+ *   Fallback 2: _sysctl(2) w/ kern.random.uuid
  *   Support: /dev/urandom added in Linux 1.3.30 (1995).
  *            getrandom(2) added in Linux 3.17 (2014).
+ *            kern.random.uuid added in Linux 2.3.16 (1999).
+ *            _sysctl(2) added in Linux 1.3.57 (1995).
+ *            _sysctl(2) deprecated in Linux 2.6.24 (2008).
+ *            _sysctl(2) removed in Linux 5.5 (2020).
  *
  * OSX:
  *   Source: getentropy(2)
@@ -185,13 +192,6 @@
  *     Source: crypto.randomFillSync
  *     Fallback: none
  *
- * Note that there is an alternative fallback on linux worth
- * investigating. The _sysctl(2) call allows the generation
- * of random UUIDs (which pull from /dev/urandom) with a name
- * of kern.random.random_uuid. This approach is currently
- * implemented in libuv[2]. This would avoid us having to
- * access a device file which may not exist (!).
- *
  * [1] https://docs.rs/getrandom/0.1.14/getrandom/
  * [2] https://github.com/libuv/libuv/blob/a62f8ce/src/unix/random-sysctl-linux.c
  */
@@ -267,6 +267,9 @@ RtlGenRandom(PVOID RandomBuffer, ULONG RandomBufferLength);
 #    if defined(SYS_getrandom) && defined(__NR_getrandom) /* 3.17 (2014) */
 #      define getrandom(B, S, F) syscall(SYS_getrandom, (B), (int)(S), (F))
 #      define HAVE_GETRANDOM
+#    endif
+#    if defined(SYS__sysctl) && defined(__NR__sysctl)
+#      define HAVE_SYSCTL_UUID
 #    endif
 #    define DEV_RANDOM_NAME "/dev/urandom"
 #  elif defined(__APPLE__)
@@ -512,6 +515,63 @@ torsion_syscallrand(void *dst, size_t size) {
 }
 
 /*
+ * Random UUID (Linux)
+ */
+
+#ifdef HAVE_SYSCTL_UUID
+struct torsion__sysctl_args {
+  int *name;
+  int nlen;
+  void *oldval;
+  size_t *oldlenp;
+  void *newval;
+  size_t newlen;
+  unsigned long unused[4];
+};
+
+static int
+torsion_uuidrand(void *dst, size_t size) {
+  /* Called if we cannot open /dev/urandom (idea from libuv). */
+  static int name[] = {1, 40, 6}; /* kern.random.uuid */
+  struct torsion__sysctl_args args;
+  unsigned char *data = dst;
+  size_t max = 14;
+  char uuid[16];
+  size_t nread;
+
+  while (size > 0) {
+    nread = sizeof(uuid);
+
+    memset(&args, 0, sizeof(args));
+
+    args.name = name;
+    args.nlen = 3;
+    args.oldval = uuid;
+    args.oldlenp = &nread;
+
+    if (syscall(SYS__sysctl, &args) == -1)
+      return 0;
+
+    if (nread != sizeof(uuid))
+      return 0;
+
+    uuid[6] = uuid[14];
+    uuid[8] = uuid[15];
+
+    if (max > size)
+      max = size;
+
+    memcpy(data, uuid, max);
+
+    data += max;
+    size -= max;
+  }
+
+  return 1;
+}
+#endif /* HAVE_SYSCTL_UUID */
+
+/*
  * Device Entropy
  */
 
@@ -531,7 +591,7 @@ torsion_devrand(void *dst, size_t size) {
   fd = open("/dev/random", O_RDONLY);
 
   if (fd == -1)
-    return 0;
+    goto open_failure;
 
   pfd.fd = fd;
   pfd.events = POLLIN;
@@ -564,7 +624,7 @@ torsion_devrand(void *dst, size_t size) {
       if (errno == EINTR)
         continue;
 
-      return 0;
+      goto open_failure;
     }
 
     if (fstat(fd, &st) != 0) {
@@ -611,6 +671,20 @@ torsion_devrand(void *dst, size_t size) {
   close(fd);
 
   return size == 0;
+open_failure:
+#ifdef HAVE_SYSCTL_UUID
+  switch (errno) {
+    case EACCES:
+    case EIO:
+    case ELOOP:
+    case EMFILE:
+    case ENFILE:
+    case ENOENT:
+    case EPERM:
+      return torsion_uuidrand(data, size);
+  }
+#endif /* HAVE_SYSCTL_UUID */
+  return 0;
 #else /* DEV_RANDOM_NAME */
   (void)dst;
   (void)size;
