@@ -254,13 +254,6 @@ RtlGenRandom(PVOID RandomBuffer, ULONG RandomBufferLength);
 #  include <sys/stat.h> /* open, stat */
 #  include <fcntl.h> /* open, fcntl */
 #  include <unistd.h> /* stat, read, close, syscall */
-#  ifndef S_ISNAM
-#    ifdef __COMPCERT__
-#      define S_ISNAM(x) 1
-#    else
-#      define S_ISNAM(x) 0
-#    endif
-#  endif
 #  if defined(__linux__)
 #    include <poll.h> /* poll */
 #    include <sys/syscall.h> /* syscall */
@@ -339,6 +332,9 @@ RtlGenRandom(PVOID RandomBuffer, ULONG RandomBufferLength);
 #    define DEV_RANDOM_NAME "/dev/random"
 #  else
 #    define DEV_RANDOM_NAME "/dev/urandom"
+#  endif
+#  ifndef S_ISNAM
+#    define S_ISNAM(x) 0
 #  endif
 #endif
 
@@ -632,14 +628,13 @@ torsion_devrand(void *dst, size_t size) {
       return 0;
     }
 
-    /* Ensure this is a character device. */
+    /* Ensure this is a character/special file. */
     if (!S_ISCHR(st.st_mode) && !S_ISNAM(st.st_mode)) {
       close(fd);
       return 0;
     }
 
 #if defined(F_SETFD) && defined(FD_CLOEXEC)
-    /* Close on exec(). */
     fcntl(fd, F_SETFD, fcntl(fd, F_GETFD) | FD_CLOEXEC);
 #endif
 
