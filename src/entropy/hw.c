@@ -142,14 +142,14 @@ __wasi_clock_time_get(uint32_t clock_id,
 #else
 #  include <time.h> /* clock_gettime, time */
 #  ifndef CLOCK_MONOTONIC
-#    if defined(__APPLE__)
+#    if defined(__MACH__)
 #      include <mach/mach.h>
 #      include <mach/mach_time.h> /* mach_timebase_info, mach_absolute_time */
-#    elif defined(unix) || defined(__unix) || defined(__unix__)
+#    elif defined(__unix) || defined(__unix__)
 #      include <sys/time.h> /* gettimeofday */
 #    endif
 #  endif
-#  if defined(__GNUC__)
+#  if defined(__GNUC__) && !defined(__CYGWIN__) && !defined(__MINGW32__)
 #    define HAVE_INLINE_ASM
 #    if defined(__x86_64__) || defined(__amd64__) || defined(__i386__)
 #      define HAVE_CPUID
@@ -273,7 +273,7 @@ torsion_hrtime(void) {
     abort();
 
   return (uint64_t)ts.tv_sec * 1000000000 + (uint64_t)ts.tv_nsec;
-#elif defined(__APPLE__)
+#elif defined(__MACH__)
   mach_timebase_info_data_t info;
 
   if (mach_timebase_info(&info) != KERN_SUCCESS)
@@ -283,7 +283,7 @@ torsion_hrtime(void) {
     abort();
 
   return mach_absolute_time() * info.numer / info.denom;
-#elif defined(unix) || defined(__unix) || defined(__unix__)
+#elif defined(__unix) || defined(__unix__)
   struct timeval tv;
 
   if (gettimeofday(&tv, NULL) != 0)
@@ -312,11 +312,11 @@ torsion_rdtsc(void) {
   return (uint64_t)ctr.QuadPart;
 #elif defined(HAVE_INLINE_ASM) && defined(__i386__)
   /* Borrowed from Bitcoin Core. */
-  uint64_t r = 0;
+  uint64_t ts = 0;
 
-  __asm__ __volatile__("rdtsc\n" : "=A" (r));
+  __asm__ __volatile__("rdtsc\n" : "=A" (ts));
 
-  return r;
+  return ts;
 #elif defined(HAVE_INLINE_ASM) && (defined(__x86_64__) || defined(__amd64__))
   /* Borrowed from Bitcoin Core. */
   uint64_t lo = 0;

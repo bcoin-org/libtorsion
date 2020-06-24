@@ -102,19 +102,19 @@
  * Windows:
  *   Source: BCryptGenRandom
  *   Fallback: RtlGenRandom (SystemFunction036)
- *   Support: RtlGenRandom added in Windows XP (2001).
- *            BCryptGenRandom added in Windows Vista (2007).
+ *   Support: BCryptGenRandom added in Windows Vista (2007).
+ *            RtlGenRandom added in Windows XP (2001).
  *
  * Linux/Android:
  *   Source: getrandom(2)
  *   Fallback 1: /dev/urandom (after polling /dev/random)
  *   Fallback 2: _sysctl(2) w/ kern.random.uuid
- *   Support: /dev/urandom added in Linux 1.3.30 (1995).
- *            getrandom(2) added in Linux 3.17 (2014).
- *            kern.random.uuid added in Linux 2.3.16 (1999).
+ *   Support: getrandom(2) added in Linux 3.17 (2014).
+ *            /dev/urandom added in Linux 1.3.30 (1995).
  *            _sysctl(2) added in Linux 1.3.57 (1995).
  *            _sysctl(2) deprecated in Linux 2.6.24 (2008).
  *            _sysctl(2) removed in Linux 5.5 (2020).
+ *            kern.random.uuid added in Linux 2.3.16 (1999).
  *
  * OSX:
  *   Source: getentropy(2)
@@ -248,7 +248,8 @@ RtlGenRandom(PVOID RandomBuffer, ULONG RandomBufferLength);
 #  endif
 #elif defined(__Fuchsia__)
 #  include <zircon/syscalls.h>
-#elif defined(unix) || defined(__unix) || defined(__unix__)
+#elif defined(__unix) || defined(__unix__)     \
+  || (defined(__APPLE__) && defined(__MACH__))
 #  include <sys/types.h> /* open */
 #  include <sys/stat.h> /* open, stat */
 #  include <fcntl.h> /* open, fcntl */
@@ -267,7 +268,7 @@ RtlGenRandom(PVOID RandomBuffer, ULONG RandomBufferLength);
 #  elif defined(__APPLE__)
 #    include <Availability.h>
 #    include <TargetConditionals.h>
-#    if TARGET_OS_IPHONE
+#    if TARGET_OS_IPHONE && !TARGET_IPHONE_SIMULATOR
 #      if __IPHONE_OS_VERSION_MAX_ALLOWED >= 100000 /* 10.0 (2016) */
 #        include <sys/random.h> /* getentropy */
 #        define HAVE_GETENTROPY
@@ -335,25 +336,50 @@ RtlGenRandom(PVOID RandomBuffer, ULONG RandomBufferLength);
 #  ifndef S_ISNAM
 #    define S_ISNAM(x) 0
 #  endif
+#  define HAVE_GETPID
 #endif
 
 /*
  * Helpers
  */
 
+#ifdef DEV_RANDOM_NAME
 static int
 torsion_open(const char *name, int flags) {
-#ifdef O_CLOEXEC
-  int fd = open(name, flags | O_CLOEXEC);
+  int fd, r;
 
-  if (fd == -1 && errno == EINVAL)
-    fd = open(name, flags);
+#if defined(O_CLOEXEC)
+  fd = open(name, flags | O_CLOEXEC);
+
+  if (fd != -1 || errno != EINVAL)
+    return fd;
+#endif
+
+  fd = open(name, flags);
+
+#if defined(F_GETFD) && defined(F_SETFD) && defined(FD_CLOEXEC)
+  if (fd == -1)
+    return fd;
+
+  do {
+    r = fcntl(fd, F_GETFD);
+  } while (r == -1 && errno == EINTR);
+
+  if (r == -1)
+    return fd;
+
+  flags = r | FD_CLOEXEC;
+
+  do {
+    r = fcntl(fd, F_SETFD, flags);
+  } while (r == -1 && errno == EINTR);
+#else
+  (void)r;
+#endif
 
   return fd;
-#else
-  return open(name, flags);
-#endif
 }
+#endif
 
 /*
  * Syscall Entropy
@@ -540,7 +566,7 @@ struct torsion__sysctl_args {
 static int
 torsion_uuidrand(void *dst, size_t size) {
   /* Called if we cannot open /dev/urandom (idea from libuv). */
-  static int name[] = {1, 40, 6}; /* kern.random.uuid */
+  static int name[3] = {1, 40, 6}; /* kern.random.uuid */
   struct torsion__sysctl_args args;
   unsigned char *data = dst;
   size_t max = 14;
@@ -587,15 +613,13 @@ static int
 torsion_devrand(void *dst, size_t size) {
 #ifdef DEV_RANDOM_NAME
   unsigned char *data = (unsigned char *)dst;
-#ifdef __linux__
-  struct pollfd pfd;
-  int ret;
-#endif
   struct stat st;
   ssize_t nread;
   int fd;
-
 #ifdef __linux__
+  struct pollfd pfd;
+  int r;
+
   do {
     fd = torsion_open("/dev/random", O_RDONLY);
   } while (fd == -1 && errno == EINTR);
@@ -608,10 +632,10 @@ torsion_devrand(void *dst, size_t size) {
   pfd.revents = 0;
 
   do {
-    ret = poll(&pfd, 1, -1);
-  } while (ret == -1 && (errno == EINTR || errno == EAGAIN));
+    r = poll(&pfd, 1, -1);
+  } while (r == -1 && errno == EINTR);
 
-  if (ret != 1)
+  if (r != 1)
     goto done;
 
   close(fd);
@@ -627,7 +651,6 @@ torsion_devrand(void *dst, size_t size) {
   if (fstat(fd, &st) != 0)
     goto done;
 
-  /* Ensure this is a character/special file. */
   if (!S_ISCHR(st.st_mode) && !S_ISNAM(st.st_mode))
     goto done;
 
@@ -669,6 +692,19 @@ fail:
   (void)size;
   return 0;
 #endif /* DEV_RANDOM_NAME */
+}
+
+/*
+ * PID (exposed for a fork-aware RNG)
+ */
+
+uint64_t
+torsion_getpid(void) {
+#ifdef HAVE_GETPID
+  return (uint64_t)getpid();
+#else
+  return 0;
+#endif
 }
 
 /*

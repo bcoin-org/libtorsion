@@ -13,14 +13,16 @@
 #include <stdint.h>
 #include "os.h"
 
-#ifdef _WIN32
+#if defined(_WIN32)
 #  include <windows.h> /* QueryPerformance{Counter,Frequency}, CreateThread */
 #  pragma comment(lib, "kernel32.lib")
 #else /* _WIN32 */
 #  include <time.h> /* clock_gettime, time */
 #  ifndef CLOCK_MONOTONIC
-#    if defined(unix) || defined(__unix) || defined(__unix__)
+#    if defined(__unix) || defined(__unix__)     \
+     || (defined(__APPLE__) && defined(__MACH__))
 #      include <sys/time.h> /* gettimeofday */
+#      define HAVE_GETTIMEOFDAY
 #    endif
 #  endif
 #endif /* _WIN32 */
@@ -65,7 +67,7 @@ torsion_hrtime(void) {
     abort();
 
   return (uint64_t)ts.tv_sec * 1000000000 + (uint64_t)ts.tv_nsec;
-#elif defined(unix) || defined(__unix) || defined(__unix__)
+#elif defined(HAVE_GETTIMEOFDAY)
   struct timeval tv;
 
   if (gettimeofday(&tv, NULL) != 0)
@@ -142,7 +144,12 @@ torsion_thread_create(struct torsion_thread_s *thread,
 
   thread->handle = CreateThread(NULL, 0, torsion_thread_run, args, 0, NULL);
 
-  return thread->handle != NULL ? 0 : -1;
+  if (thread->handle == NULL) {
+    free(args);
+    return -1;
+  }
+
+  return 0;
 #else
   if (attr != NULL)
     return -1;
@@ -159,7 +166,10 @@ torsion_thread_join(struct torsion_thread_s *thread, void **retval) {
 
   WaitForSingleObject(thread->handle, INFINITE);
 
-  return CloseHandle(thread->handle) == TRUE ? 0 : -1;
+  if (CloseHandle(thread->handle) == FALSE)
+    return -1;
+
+  return 0;
 #else
   if (retval != NULL)
     return -1;

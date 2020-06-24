@@ -56,7 +56,8 @@
  */
 
 #if !defined(_WIN32) && !defined(_GNU_SOURCE)
-/* For gethostname(3), getsid(3), getpgid(3), clock_gettime(2). */
+/* For gethostname(3), getsid(3), getpgid(3),
+   clock_gettime(2), dl_iterate_phdr(3). */
 #  define _GNU_SOURCE
 #endif
 
@@ -88,7 +89,8 @@
 /* Unsupported. */
 #elif defined(__Fuchsia__)
 /* Unsupported. */
-#elif defined(unix) || defined(__unix) || defined(__unix__)
+#elif defined(__unix) || defined(__unix__)     \
+  || (defined(__APPLE__) && defined(__MACH__))
 #  include <sys/types.h> /* open */
 #  include <sys/stat.h> /* open, stat */
 #  include <sys/time.h> /* gettimeofday, timeval */
@@ -132,6 +134,9 @@
 #    include <vm/vm_param.h> /* VM_{LOADAVG,TOTAL,METER} */
 #  endif
 #  ifdef __APPLE__
+#    include <TargetConditionals.h>
+#  endif
+#  if defined(__APPLE__) && !TARGET_OS_IPHONE
 #    include <crt_externs.h>
 #    define environ (*_NSGetEnviron())
 #  else
@@ -139,10 +144,16 @@
 extern char **environ;
 #    endif
 #  endif
-#  if defined(CLOCK_MONOTONIC) \
-   || defined(CLOCK_REALTIME)  \
-   || defined(CLOCK_BOOTTIME)
-#    define HAVE_CLOCK_GETTIME
+#  if defined(_POSIX_VERSION) && _POSIX_VERSION >= 200112L
+#    if defined(CLOCK_MONOTONIC) \
+     || defined(CLOCK_REALTIME)  \
+     || defined(CLOCK_BOOTTIME)
+#      define HAVE_CLOCK_GETTIME
+#    endif
+#    define HAVE_GETHOSTNAME
+#  endif
+#  if defined(_POSIX_VERSION) && _POSIX_VERSION >= 200809L
+#    define HAVE_GETSID
 #  endif
 #  define HAVE_MANUAL_ENTROPY
 #endif
@@ -464,6 +475,10 @@ sha512_write_static_env(sha512_t *hash) {
   sha512_write_int(hash, __clang_patchlevel__);
 #endif
 
+#ifdef __INTEL_COMPILER
+  sha512_write_int(hash, __INTEL_COMPILER);
+#endif
+
 #ifdef _MSC_VER
   sha512_write_int(hash, _MSC_VER);
 #endif
@@ -475,6 +490,10 @@ sha512_write_static_env(sha512_t *hash) {
 #if defined(__GLIBC__) && defined(__GLIBC_MINOR__)
   sha512_write_int(hash, __GLIBC__);
   sha512_write_int(hash, __GLIBC_MINOR__);
+#endif
+
+#ifdef _POSIX_VERSION
+  sha512_write_int(hash, _POSIX_VERSION);
 #endif
 
 #ifdef _XOPEN_VERSION
@@ -690,6 +709,7 @@ sha512_write_static_env(sha512_t *hash) {
 #endif /* HAVE_GETAUXVAL */
 
   /* Hostname. */
+#ifdef HAVE_GETHOSTNAME
   {
     /* HOST_NAME_MAX is 64 on Linux, but we go a
        bit bigger in case an OS has a higher value. */
@@ -701,6 +721,7 @@ sha512_write_static_env(sha512_t *hash) {
       sha512_write_string(hash, hname);
     }
   }
+#endif /* HAVE_GETHOSTNAME */
 
 #ifdef HAVE_GETIFADDRS
   /* Network interfaces. */
@@ -842,8 +863,10 @@ sha512_write_static_env(sha512_t *hash) {
   /* Process/User/Group IDs. */
   sha512_write_int(hash, getpid());
   sha512_write_int(hash, getppid());
+#ifdef HAVE_GETSID
   sha512_write_int(hash, getsid(0));
   sha512_write_int(hash, getpgid(0));
+#endif
   sha512_write_int(hash, getuid());
   sha512_write_int(hash, geteuid());
   sha512_write_int(hash, getgid());
@@ -984,6 +1007,16 @@ sha512_write_dynamic_env(sha512_t *hash) {
     if (clock_gettime(CLOCK_BOOTTIME, &ts) == 0)
       sha512_write(hash, &ts, sizeof(ts));
 #endif
+
+#ifdef CLOCK_PROCESS_CPUTIME_ID
+    if (clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &ts) == 0)
+      sha512_write(hash, &ts, sizeof(ts));
+#endif
+
+#ifdef CLOCK_THREAD_CPUTIME_ID
+    if (clock_gettime(CLOCK_THREAD_CPUTIME_ID, &ts) == 0)
+      sha512_write(hash, &ts, sizeof(ts));
+#endif
   }
 #endif /* HAVE_CLOCK_GETTIME */
 
@@ -1056,15 +1089,6 @@ sha512_write_dynamic_env(sha512_t *hash) {
   }
 }
 #endif /* HAVE_MANUAL_ENTROPY */
-
-uint64_t
-torsion_getpid(void) {
-#if defined(HAVE_MANUAL_ENTROPY) && !defined(_WIN32)
-  return (uint64_t)getpid();
-#else
-  return 0;
-#endif
-}
 
 int
 torsion_envrand(unsigned char *seed) {
