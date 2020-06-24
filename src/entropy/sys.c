@@ -261,7 +261,7 @@ RtlGenRandom(PVOID RandomBuffer, ULONG RandomBufferLength);
 #      define getrandom(B, S, F) syscall(SYS_getrandom, (B), (int)(S), (F))
 #      define HAVE_GETRANDOM
 #    endif
-#    if defined(SYS__sysctl) && defined(__NR__sysctl)
+#    if defined(SYS__sysctl) && defined(__NR__sysctl) /* 2.3.16 (1999) */
 #      define HAVE_SYSCTL_UUID
 #    endif
 #    define DEV_RANDOM_NAME "/dev/urandom"
@@ -280,7 +280,7 @@ RtlGenRandom(PVOID RandomBuffer, ULONG RandomBufferLength);
 #      endif
 #    endif
 #    define DEV_RANDOM_NAME "/dev/random"
-#  elif defined(__FreeBSD__)
+#  elif defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
 #    include <sys/param.h>
 #    if defined(__FreeBSD_version) && __FreeBSD_version >= 1200000 /* 12.0 (2018) */
 #      include <sys/random.h> /* getrandom, getentropy */
