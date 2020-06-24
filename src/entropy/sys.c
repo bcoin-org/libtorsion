@@ -193,7 +193,6 @@
  *     Fallback: none
  *
  * [1] https://docs.rs/getrandom/0.1.14/getrandom/
- * [2] https://github.com/libuv/libuv/blob/a62f8ce/src/unix/random-sysctl-linux.c
  */
 
 #if defined(__linux__) && !defined(_GNU_SOURCE)
