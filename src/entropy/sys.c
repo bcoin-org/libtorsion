@@ -339,6 +339,24 @@ RtlGenRandom(PVOID RandomBuffer, ULONG RandomBufferLength);
 #endif
 
 /*
+ * Helpers
+ */
+
+static int
+torsion_open(const char *name, int flags) {
+#ifdef O_CLOEXEC
+  int fd = open(name, flags | O_CLOEXEC);
+
+  if (fd == -1 && errno == EINVAL)
+    fd = open(name, flags);
+
+  return fd;
+#else
+  return open(name, flags);
+#endif
+}
+
+/*
  * Syscall Entropy
  */
 
@@ -580,7 +598,7 @@ torsion_devrand(void *dst, size_t size) {
 
 #ifdef __linux__
   do {
-    fd = open("/dev/random", O_RDONLY);
+    fd = torsion_open("/dev/random", O_RDONLY);
   } while (fd == -1 && errno == EINTR);
 
   if (fd == -1)
@@ -601,7 +619,7 @@ torsion_devrand(void *dst, size_t size) {
 #endif
 
   do {
-    fd = open(DEV_RANDOM_NAME, O_RDONLY);
+    fd = torsion_open(DEV_RANDOM_NAME, O_RDONLY);
   } while (fd == -1 && errno == EINTR);
 
   if (fd == -1)
