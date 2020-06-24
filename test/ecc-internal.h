@@ -11,7 +11,7 @@
 #include <limits.h>
 
 #undef ASSERT
-#define ASSERT(expr) ASSERT_ALWAYS(expr)
+#define ASSERT(expr) CHECK(expr)
 
 /*
  * Debug Helpers

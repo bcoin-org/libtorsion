@@ -2,8 +2,6 @@
  * internal.h - internal utils for libtorsion
  * Copyright (c) 2020, Christopher Jeffrey (MIT License).
  * https://github.com/bcoin-org/libtorsion
- *
- * Several macros based on GMP and libsecp256k1.
  */
 
 #ifndef _TORSION_INTERNAL_H
@@ -44,7 +42,7 @@
  * Assertions
  */
 
-#define ASSERT_ALWAYS(expr) do {                      \
+#define CHECK(expr) do {                              \
   if (UNLIKELY(!(expr)))                              \
     __torsion_assert_fail(__FILE__, __LINE__, #expr); \
 } while (0)
@@ -52,11 +50,8 @@
 #ifdef TORSION_NO_ASSERT
 #  define ASSERT(expr) (void)(expr)
 #else
-#  define ASSERT(expr) ASSERT_ALWAYS(expr)
+#  define ASSERT(expr) CHECK(expr)
 #endif
-
-void
-__torsion_assert_fail(const char *file, int line, const char *expr);
 
 /*
  * Keywords/Attributes
@@ -64,59 +59,59 @@ __torsion_assert_fail(const char *file, int line, const char *expr);
 
 #if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 199901L
 #  define TORSION_INLINE inline
+#elif TORSION_GNUC_PREREQ(2, 7)
+#  define TORSION_INLINE __inline__
+#elif defined(_MSC_VER) && _MSC_VER >= 900
+#  define TORSION_INLINE __inline
 #else
-#  if TORSION_GNUC_PREREQ(2, 7)
-#    define TORSION_INLINE __inline__
-#  elif defined(_MSC_VER) && _MSC_VER >= 900
-#    define TORSION_INLINE __inline
-#  else
-#    define TORSION_INLINE
-#  endif
+#  define TORSION_INLINE
 #endif
 
 #if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 199901L
 #  define TORSION_RESTRICT restrict
+#elif TORSION_GNUC_PREREQ(3, 0)
+#  define TORSION_RESTRICT __restrict__
+#elif defined(_MSC_VER) && _MSC_VER >= 1400
+#  define TORSION_RESTRICT __restrict
 #else
-#  if TORSION_GNUC_PREREQ(3, 0)
-#    define TORSION_RESTRICT __restrict__
-#  elif defined(_MSC_VER) && _MSC_VER >= 1400
-#    define TORSION_RESTRICT __restrict
-#  else
-#    define TORSION_RESTRICT
-#  endif
+#  define TORSION_RESTRICT
 #endif
 
 #if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L
 #  define TORSION_NORETURN _Noreturn
+#elif TORSION_GNUC_PREREQ(2, 5)
+#  undef noreturn
+#  define TORSION_NORETURN __attribute__((noreturn))
+#elif defined(_MSC_VER) && _MSC_VER >= 1200
+#  undef noreturn
+#  define TORSION_NORETURN __declspec(noreturn)
 #else
-#  ifdef noreturn
-#    undef noreturn
-#  endif
-#  if TORSION_GNUC_PREREQ(2, 5)
-#    define TORSION_NORETURN __attribute__((noreturn))
-#  elif defined(_MSC_VER) && _MSC_VER >= 1200
-#    define TORSION_NORETURN __declspec(noreturn)
-#  else
-#    define TORSION_NORETURN
+#  define TORSION_NORETURN
+#endif
+
+/* See: https://software.intel.com/en-us/forums/intel-c-compiler/topic/721059 */
+#if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L
+/* We may need to include stdc-predef.h in a roundabout way. */
+#  include <limits.h>
+#  if defined(__INTEL_COMPILER) && __INTEL_COMPILER < 1800 /* 18.0.0 */
+/* ICCs earlier than version 18 do not support std threads. */
+#  elif !defined(__STDC_NO_THREADS__)
+#    define TORSION_STDC_THREADS
 #  endif
 #endif
 
 #if defined(__EMSCRIPTEN__) || defined(__wasm__)
-/* No threads on wasm (yet?). */
-#elif defined(__STDC_VERSION__)     \
-   && __STDC_VERSION__ >= 201112L   \
-   && !defined(__STDC_NO_THREADS__)
+#  define TORSION_TLS
+#elif defined(TORSION_STDC_THREADS)
 #  define TORSION_TLS _Thread_local
+#elif TORSION_GNUC_PREREQ(3, 4)
+#  define TORSION_TLS __thread
+#elif defined(_MSC_VER) && _MSC_VER >= 1500
+#  define TORSION_TLS __declspec(thread)
+#elif (defined(__SUNPRO_C) && __SUNPRO_C >= 0x590)
+#  define TORSION_TLS __thread
 #else
-#  if TORSION_GNUC_PREREQ(3, 4)
-#    define TORSION_TLS __thread
-#  elif defined(_MSC_VER) && _MSC_VER >= 1500
-#    define TORSION_TLS __declspec(thread)
-#  elif (defined(__SUNPRO_C) && __SUNPRO_C >= 0x590)
-#    define TORSION_TLS __thread
-#  else
-#    define TORSION_TLS
-#  endif
+#  define TORSION_TLS
 #endif
 
 #ifdef __GNUC__
@@ -132,7 +127,7 @@ __torsion_assert_fail(const char *file, int line, const char *expr);
  */
 
 /* Any decent compiler should be able to optimize this out. */
-static const unsigned long __torsion_endian_check = 1;
+static const unsigned long __torsion_endian_check TORSION_UNUSED = 1;
 
 #define TORSION_BIGENDIAN \
   (*((const unsigned char *)&__torsion_endian_check) == 0)
@@ -204,18 +199,24 @@ static const unsigned long __torsion_endian_check = 1;
 
 /* Detect __int128 support. */
 #if defined(__EMSCRIPTEN__) || defined(__wasm__)
-/* According to libsodium, __int128 is broken in emscripten/wasm builds.
-   See: https://github.com/jedisct1/libsodium/blob/master/configure.ac */
+/* According to libsodium[1], __int128 is broken in
+ * emscripten/wasm builds. This check shouldn't really
+ * matter all that much since we ignore int128 support
+ * for 32 bit targets anyway.
+ *
+ * [1] https://github.com/jedisct1/libsodium/blob/master/configure.ac
+ */
 #else
 /* According to this SO post[1], __int128 is supported
-   since gcc 4.6 and clang 3.1. However, a quick look at
-   godbolt suggests clang only gained support in 3.6. Note
-   that icc has supported __int128 since 13.0, but didn't
-   define `__SIZEOF_INT128__` until 16.0. All three of the
-   aforementioned compilers define `__GNUC__` (and have
-   since... forever?).
-
-   [1] https://stackoverflow.com/a/54815033 */
+ * since GCC 4.6 and Clang 3.1. However, a quick look at
+ * godbolt suggests Clang only gained support in 3.6. Note
+ * that ICC has supported __int128 since 13.0, but didn't
+ * define `__SIZEOF_INT128__` until 16.0. All three of the
+ * aforementioned compilers define `__GNUC__` (and have
+ * since... forever?).
+ *
+ * [1] https://stackoverflow.com/a/54815033
+ */
 #  ifdef TORSION_HAVE_64BIT
 #    if defined(__GNUC__) && defined(__SIZEOF_INT128__)
 #      define TORSION_HAVE_INT128
@@ -270,6 +271,9 @@ TORSION_EXTENSION typedef signed __int128 torsion_int128_t;
 
 #define torsion_die __torsion_die
 #define torsion_abort __torsion_abort
+
+TORSION_NORETURN void
+__torsion_assert_fail(const char *file, int line, const char *expr);
 
 TORSION_NORETURN void
 torsion_die(const char *msg);
