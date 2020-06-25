@@ -190,9 +190,9 @@ static void
 hex_decode(unsigned char *out, size_t *out_len, const char *str) {
   size_t size = strlen(str);
 
-  ASSERT((size & 1) == 0);
-  ASSERT(*out_len >= size / 2);
-  ASSERT(base16_decode(out, out_len, str, size));
+  CHECK((size & 1) == 0);
+  CHECK(*out_len >= size / 2);
+  CHECK(base16_decode(out, out_len, str, size));
 }
 
 static void
@@ -201,7 +201,7 @@ hex_parse(unsigned char *out, size_t len, const char *str) {
 
   hex_decode(out, &out_len, str);
 
-  ASSERT(out_len == len);
+  CHECK(out_len == len);
 }
 
 /*
@@ -239,7 +239,7 @@ test_aead(void) {
     hex_decode(nonce, &nonce_len, aead_vectors[i][3]);
     hex_decode(raw, &raw_len, aead_vectors[i][4]);
 
-    ASSERT(raw_len >= 16);
+    CHECK(raw_len >= 16);
 
     data_len = input_len;
     output_len = raw_len - 16;
@@ -252,12 +252,12 @@ test_aead(void) {
     aead_aad(&ctx, aad, aad_len);
     aead_encrypt(&ctx, data, data, data_len);
 
-    ASSERT(memcmp(data, output, output_len) == 0);
+    CHECK(memcmp(data, output, output_len) == 0);
 
     aead_final(&ctx, mac);
 
-    ASSERT(memcmp(mac, tag, 16) == 0);
-    ASSERT(aead_verify(mac, tag));
+    CHECK(memcmp(mac, tag, 16) == 0);
+    CHECK(aead_verify(mac, tag));
 
     aead_init(&ctx, key, nonce, nonce_len);
     aead_aad(&ctx, aad, aad_len);
@@ -265,19 +265,19 @@ test_aead(void) {
 
     aead_final(&ctx, mac);
 
-    ASSERT(memcmp(mac, tag, 16) == 0);
-    ASSERT(aead_verify(mac, tag));
+    CHECK(memcmp(mac, tag, 16) == 0);
+    CHECK(aead_verify(mac, tag));
 
     aead_init(&ctx, key, nonce, nonce_len);
     aead_aad(&ctx, aad, aad_len);
     aead_decrypt(&ctx, data, data, data_len);
 
-    ASSERT(memcmp(data, input, input_len) == 0);
+    CHECK(memcmp(data, input, input_len) == 0);
 
     aead_final(&ctx, mac);
 
-    ASSERT(memcmp(mac, tag, 16) == 0);
-    ASSERT(aead_verify(mac, tag));
+    CHECK(memcmp(mac, tag, 16) == 0);
+    CHECK(aead_verify(mac, tag));
   }
 }
 
@@ -312,7 +312,7 @@ test_chacha20(void) {
     hex_decode(input, &input_len, chacha20_vectors[i].input);
     hex_decode(output, &output_len, chacha20_vectors[i].output);
 
-    ASSERT(input_len == output_len);
+    CHECK(input_len == output_len);
 
     data_len = input_len;
 
@@ -321,12 +321,12 @@ test_chacha20(void) {
     chacha20_init(&ctx, key, key_len, nonce, nonce_len, counter);
     chacha20_encrypt(&ctx, data, data, data_len);
 
-    ASSERT(memcmp(data, output, output_len) == 0);
+    CHECK(memcmp(data, output, output_len) == 0);
 
     chacha20_init(&ctx, key, key_len, nonce, nonce_len, counter);
     chacha20_encrypt(&ctx, data, data, data_len);
 
-    ASSERT(memcmp(data, input, input_len) == 0);
+    CHECK(memcmp(data, input, input_len) == 0);
   }
 }
 
@@ -350,8 +350,8 @@ test_ciphers(void) {
     size_t size = cipher_block_size(type);
     size_t key_len = sizeof(key);
 
-    ASSERT(type >= 0 && type <= CIPHER_MAX);
-    ASSERT(size != 0);
+    CHECK(type >= 0 && type <= CIPHER_MAX);
+    CHECK(size != 0);
 
     printf("  - Cipher vector #%" PRIzu " (%s)\n", i + 1, cipher_names[type]);
 
@@ -366,12 +366,12 @@ test_ciphers(void) {
     for (j = 0; j < 1000; j++)
       cipher_encrypt(&ctx, data, data);
 
-    ASSERT(memcmp(data, expect, size) == 0);
+    CHECK(memcmp(data, expect, size) == 0);
 
     for (j = 0; j < 1000; j++)
       cipher_decrypt(&ctx, data, data);
 
-    ASSERT(memcmp(data, iv, size) == 0);
+    CHECK(memcmp(data, iv, size) == 0);
   }
 }
 
@@ -395,8 +395,8 @@ test_cipher_modes(void) {
     size_t output_len = sizeof(output);
     size_t len;
 
-    ASSERT(type >= 0 && type <= CIPHER_MAX);
-    ASSERT(mode >= 0 && mode <= CIPHER_MODE_MAX);
+    CHECK(type >= 0 && type <= CIPHER_MAX);
+    CHECK(mode >= 0 && mode <= CIPHER_MODE_MAX);
 
     printf("  - Cipher mode vector #%" PRIzu " (%s-%s)\n",
            i + 1, cipher_names[type], cipher_modes[mode]);
@@ -406,22 +406,22 @@ test_cipher_modes(void) {
     hex_decode(input, &input_len, cipher_mode_vectors[i].input);
     hex_decode(output, &output_len, cipher_mode_vectors[i].output);
 
-    ASSERT(sizeof(data) >= CIPHER_MAX_ENCRYPT_SIZE(input_len));
-    ASSERT(sizeof(data) >= CIPHER_MAX_DECRYPT_SIZE(output_len));
+    CHECK(sizeof(data) >= CIPHER_MAX_ENCRYPT_SIZE(input_len));
+    CHECK(sizeof(data) >= CIPHER_MAX_DECRYPT_SIZE(output_len));
 
-    ASSERT(cipher_static_encrypt(data, &len, type, mode,
+    CHECK(cipher_static_encrypt(data, &len, type, mode,
                                  key, key_len, iv, iv_len,
                                  input, input_len));
 
-    ASSERT(len == output_len);
-    ASSERT(memcmp(data, output, len) == 0);
+    CHECK(len == output_len);
+    CHECK(memcmp(data, output, len) == 0);
 
-    ASSERT(cipher_static_decrypt(data, &len, type, mode,
+    CHECK(cipher_static_decrypt(data, &len, type, mode,
                                  key, key_len, iv, iv_len,
                                  output, output_len));
 
-    ASSERT(len == input_len);
-    ASSERT(memcmp(data, input, len) == 0);
+    CHECK(len == input_len);
+    CHECK(memcmp(data, input, len) == 0);
   }
 }
 
@@ -451,8 +451,8 @@ test_cipher_aead(void) {
     size_t tag_len = sizeof(tag);
     size_t len;
 
-    ASSERT(type >= 0 && type <= CIPHER_MAX);
-    ASSERT(mode >= 0 && mode <= CIPHER_MODE_MAX);
+    CHECK(type >= 0 && type <= CIPHER_MAX);
+    CHECK(mode >= 0 && mode <= CIPHER_MODE_MAX);
 
     printf("  - Cipher AEAD vector #%" PRIzu " (%s-%s)\n",
            i + 1, cipher_names[type], cipher_modes[mode]);
@@ -464,44 +464,44 @@ test_cipher_aead(void) {
     hex_decode(output, &output_len, cipher_aead_vectors[i].output);
     hex_decode(tag, &tag_len, cipher_aead_vectors[i].tag);
 
-    ASSERT(input_len == output_len);
-    ASSERT(cipher_stream_init(&ctx, type, mode, 1, key, key_len, iv, iv_len));
+    CHECK(input_len == output_len);
+    CHECK(cipher_stream_init(&ctx, type, mode, 1, key, key_len, iv, iv_len));
 
     if (mode == CIPHER_MODE_CCM)
-      ASSERT(cipher_stream_set_ccm(&ctx, input_len, tag_len, aad, aad_len));
+      CHECK(cipher_stream_set_ccm(&ctx, input_len, tag_len, aad, aad_len));
     else
-      ASSERT(cipher_stream_set_aad(&ctx, aad, aad_len));
+      CHECK(cipher_stream_set_aad(&ctx, aad, aad_len));
 
-    ASSERT(sizeof(data) >= cipher_stream_update_size(&ctx, input_len));
+    CHECK(sizeof(data) >= cipher_stream_update_size(&ctx, input_len));
 
     cipher_stream_update(&ctx, data, &len, input, input_len);
 
-    ASSERT(len == output_len);
+    CHECK(len == output_len);
 
-    ASSERT(cipher_stream_final(&ctx, data, &len));
-    ASSERT(len == 0);
-    ASSERT(memcmp(data, output, output_len) == 0);
+    CHECK(cipher_stream_final(&ctx, data, &len));
+    CHECK(len == 0);
+    CHECK(memcmp(data, output, output_len) == 0);
 
-    ASSERT(cipher_stream_get_tag(&ctx, mac, &len));
-    ASSERT(len == tag_len && memcmp(mac, tag, tag_len) == 0);
+    CHECK(cipher_stream_get_tag(&ctx, mac, &len));
+    CHECK(len == tag_len && memcmp(mac, tag, tag_len) == 0);
 
-    ASSERT(cipher_stream_init(&ctx, type, mode, 0, key, key_len, iv, iv_len));
+    CHECK(cipher_stream_init(&ctx, type, mode, 0, key, key_len, iv, iv_len));
 
     if (mode == CIPHER_MODE_CCM)
-      ASSERT(cipher_stream_set_ccm(&ctx, output_len, tag_len, aad, aad_len));
+      CHECK(cipher_stream_set_ccm(&ctx, output_len, tag_len, aad, aad_len));
     else
-      ASSERT(cipher_stream_set_aad(&ctx, aad, aad_len));
+      CHECK(cipher_stream_set_aad(&ctx, aad, aad_len));
 
-    ASSERT(cipher_stream_set_tag(&ctx, tag, tag_len));
-    ASSERT(sizeof(data) >= cipher_stream_update_size(&ctx, output_len));
+    CHECK(cipher_stream_set_tag(&ctx, tag, tag_len));
+    CHECK(sizeof(data) >= cipher_stream_update_size(&ctx, output_len));
 
     cipher_stream_update(&ctx, data, &len, output, output_len);
 
-    ASSERT(len == input_len);
+    CHECK(len == input_len);
 
-    ASSERT(cipher_stream_final(&ctx, data, &len));
-    ASSERT(len == 0);
-    ASSERT(memcmp(data, input, input_len) == 0);
+    CHECK(cipher_stream_final(&ctx, data, &len));
+    CHECK(len == 0);
+    CHECK(memcmp(data, input, input_len) == 0);
   }
 }
 
@@ -546,7 +546,7 @@ test_hash_drbg(void) {
     hash_drbg_generate(&drbg, data, data_len, add1, add1_len);
     hash_drbg_generate(&drbg, data, data_len, add2, add2_len);
 
-    ASSERT(memcmp(data, expect, expect_len) == 0);
+    CHECK(memcmp(data, expect, expect_len) == 0);
   }
 }
 
@@ -587,7 +587,7 @@ test_hmac_drbg(void) {
     hmac_drbg_generate(&drbg, data, data_len, add1, add1_len);
     hmac_drbg_generate(&drbg, data, data_len, add2, add2_len);
 
-    ASSERT(memcmp(data, expect, expect_len) == 0);
+    CHECK(memcmp(data, expect, expect_len) == 0);
   }
 }
 
@@ -635,7 +635,7 @@ test_ctr_drbg(void) {
     ctr_drbg_generate(&drbg, data, data_len, add1, add1_len);
     ctr_drbg_generate(&drbg, data, data_len, add2, add2_len);
 
-    ASSERT(memcmp(data, expect, expect_len) == 0);
+    CHECK(memcmp(data, expect, expect_len) == 0);
   }
 }
 
@@ -681,62 +681,62 @@ test_dsa(void) {
     hex_decode(sig, &sig_len, dsa_vectors[i][4]);
     hex_decode(der, &der_len, dsa_vectors[i][5]);
 
-    ASSERT(dsa_params_verify(params, params_len));
-    ASSERT(dsa_privkey_verify(priv, priv_len));
-    ASSERT(dsa_pubkey_verify(pub, pub_len));
+    CHECK(dsa_params_verify(params, params_len));
+    CHECK(dsa_privkey_verify(priv, priv_len));
+    CHECK(dsa_pubkey_verify(pub, pub_len));
 
-    ASSERT(dsa_params_create(oparams, &olen, priv, priv_len));
-    ASSERT(dsa_params_verify(oparams, olen));
-    ASSERT(olen == params_len);
-    ASSERT(memcmp(oparams, params, params_len) == 0);
+    CHECK(dsa_params_create(oparams, &olen, priv, priv_len));
+    CHECK(dsa_params_verify(oparams, olen));
+    CHECK(olen == params_len);
+    CHECK(memcmp(oparams, params, params_len) == 0);
 
-    ASSERT(dsa_params_create(oparams, &olen, pub, pub_len));
-    ASSERT(dsa_params_verify(oparams, olen));
-    ASSERT(olen == params_len);
-    ASSERT(memcmp(oparams, params, params_len) == 0);
+    CHECK(dsa_params_create(oparams, &olen, pub, pub_len));
+    CHECK(dsa_params_verify(oparams, olen));
+    CHECK(olen == params_len);
+    CHECK(memcmp(oparams, params, params_len) == 0);
 
-    ASSERT(dsa_pubkey_create(opub, &olen, priv, priv_len));
-    ASSERT(dsa_pubkey_verify(opub, olen));
-    ASSERT(olen == pub_len);
-    ASSERT(memcmp(opub, pub, pub_len) == 0);
+    CHECK(dsa_pubkey_create(opub, &olen, priv, priv_len));
+    CHECK(dsa_pubkey_verify(opub, olen));
+    CHECK(olen == pub_len);
+    CHECK(memcmp(opub, pub, pub_len) == 0);
 
     qsize = dsa_pubkey_qbits(pub, pub_len) / 8;
 
-    ASSERT(qsize != 0);
+    CHECK(qsize != 0);
 
-    ASSERT(dsa_sig_export(oder, &olen, sig, sig_len, qsize));
-    ASSERT(olen == der_len);
-    ASSERT(memcmp(oder, der, der_len) == 0);
+    CHECK(dsa_sig_export(oder, &olen, sig, sig_len, qsize));
+    CHECK(olen == der_len);
+    CHECK(memcmp(oder, der, der_len) == 0);
 
-    ASSERT(dsa_sig_export(oder, &olen, sig, sig_len, 0));
-    ASSERT(olen == der_len);
-    ASSERT(memcmp(oder, der, der_len) == 0);
+    CHECK(dsa_sig_export(oder, &olen, sig, sig_len, 0));
+    CHECK(olen == der_len);
+    CHECK(memcmp(oder, der, der_len) == 0);
 
-    ASSERT(dsa_sig_import(osig, &olen, der, der_len, qsize));
-    ASSERT(olen == sig_len);
-    ASSERT(memcmp(osig, sig, sig_len) == 0);
+    CHECK(dsa_sig_import(osig, &olen, der, der_len, qsize));
+    CHECK(olen == sig_len);
+    CHECK(memcmp(osig, sig, sig_len) == 0);
 
-    ASSERT(dsa_verify(msg, msg_len, sig, sig_len, pub, pub_len));
-    ASSERT(dsa_sign(osig, &olen, msg, msg_len, priv, priv_len, entropy));
-    ASSERT(dsa_verify(msg, msg_len, osig, olen, pub, pub_len));
+    CHECK(dsa_verify(msg, msg_len, sig, sig_len, pub, pub_len));
+    CHECK(dsa_sign(osig, &olen, msg, msg_len, priv, priv_len, entropy));
+    CHECK(dsa_verify(msg, msg_len, osig, olen, pub, pub_len));
 
     osig[4] ^= 1;
 
-    ASSERT(!dsa_verify(msg, msg_len, osig, olen, pub, pub_len));
+    CHECK(!dsa_verify(msg, msg_len, osig, olen, pub, pub_len));
 
     osig[4] ^= 1;
     pub[4] ^= 1;
 
-    ASSERT(!dsa_verify(msg, msg_len, osig, olen, pub, pub_len));
+    CHECK(!dsa_verify(msg, msg_len, osig, olen, pub, pub_len));
 
     pub[4] ^= 1;
     msg[4] ^= 1;
 
-    ASSERT(!dsa_verify(msg, msg_len, osig, olen, pub, pub_len));
+    CHECK(!dsa_verify(msg, msg_len, osig, olen, pub, pub_len));
 
     msg[4] ^= 1;
 
-    ASSERT(dsa_verify(msg, msg_len, osig, olen, pub, pub_len));
+    CHECK(dsa_verify(msg, msg_len, osig, olen, pub, pub_len));
   }
 }
 
@@ -757,39 +757,39 @@ test_dsa_keygen(drbg_t *rng) {
   /* Params. */
   drbg_generate(rng, entropy, ENTROPY_SIZE);
 
-  ASSERT(dsa_params_generate(params, &params_len, 1024, entropy));
+  CHECK(dsa_params_generate(params, &params_len, 1024, entropy));
 
   /* Alice key pair. */
   drbg_generate(rng, entropy, ENTROPY_SIZE);
-  ASSERT(dsa_privkey_create(alice_priv, &alice_priv_len,
+  CHECK(dsa_privkey_create(alice_priv, &alice_priv_len,
                             params, params_len, entropy));
-  ASSERT(dsa_pubkey_create(alice_pub, &alice_pub_len,
+  CHECK(dsa_pubkey_create(alice_pub, &alice_pub_len,
                            alice_priv, alice_priv_len));
 
   /* Bob key pair. */
   drbg_generate(rng, entropy, ENTROPY_SIZE);
-  ASSERT(dsa_privkey_create(bob_priv, &bob_priv_len,
+  CHECK(dsa_privkey_create(bob_priv, &bob_priv_len,
                             params, params_len, entropy));
-  ASSERT(dsa_pubkey_create(bob_pub, &bob_pub_len,
+  CHECK(dsa_pubkey_create(bob_pub, &bob_pub_len,
                            bob_priv, bob_priv_len));
 
   /* Verify. */
-  ASSERT(dsa_params_verify(params, params_len));
-  ASSERT(dsa_privkey_verify(alice_priv, alice_priv_len));
-  ASSERT(dsa_privkey_verify(bob_priv, bob_priv_len));
-  ASSERT(dsa_pubkey_verify(alice_pub, alice_pub_len));
-  ASSERT(dsa_pubkey_verify(bob_pub, bob_pub_len));
+  CHECK(dsa_params_verify(params, params_len));
+  CHECK(dsa_privkey_verify(alice_priv, alice_priv_len));
+  CHECK(dsa_privkey_verify(bob_priv, bob_priv_len));
+  CHECK(dsa_pubkey_verify(alice_pub, alice_pub_len));
+  CHECK(dsa_pubkey_verify(bob_pub, bob_pub_len));
 
   /* Diffie hellman. */
-  ASSERT(dsa_derive(alice_sec, &alice_sec_len,
+  CHECK(dsa_derive(alice_sec, &alice_sec_len,
                     bob_pub, bob_pub_len,
                     alice_priv, alice_priv_len));
-  ASSERT(dsa_derive(bob_sec, &bob_sec_len,
+  CHECK(dsa_derive(bob_sec, &bob_sec_len,
                     alice_pub, alice_pub_len,
                     bob_priv, bob_priv_len));
 
-  ASSERT(alice_sec_len == bob_sec_len);
-  ASSERT(memcmp(alice_sec, bob_sec, bob_sec_len) == 0);
+  CHECK(alice_sec_len == bob_sec_len);
+  CHECK(memcmp(alice_sec, bob_sec, bob_sec_len) == 0);
 }
 
 /*
@@ -868,52 +868,52 @@ test_ecdsa(void) {
     hex_parse(other, sc_size, ecdsa_vectors[i].other);
     hex_parse(secret, pub_size, ecdsa_vectors[i].secret);
 
-    ASSERT(ecdsa_privkey_verify(ec, priv));
-    ASSERT(ecdsa_pubkey_verify(ec, pub, pub_size));
-    ASSERT(ecdsa_pubkey_verify(ec, pubconv, upub_size));
-    ASSERT(ecdsa_pubkey_verify(ec, pubhybrid, upub_size));
+    CHECK(ecdsa_privkey_verify(ec, priv));
+    CHECK(ecdsa_pubkey_verify(ec, pub, pub_size));
+    CHECK(ecdsa_pubkey_verify(ec, pubconv, upub_size));
+    CHECK(ecdsa_pubkey_verify(ec, pubhybrid, upub_size));
 
-    ASSERT(ecdsa_privkey_negate(ec, tweakneg, tweak));
-    ASSERT(ecdsa_privkey_invert(ec, tweakinv, tweak));
+    CHECK(ecdsa_privkey_negate(ec, tweakneg, tweak));
+    CHECK(ecdsa_privkey_invert(ec, tweakinv, tweak));
 
-    ASSERT(ecdsa_pubkey_create(ec, out, &len, priv, 1));
-    ASSERT(len == pub_size && memcmp(out, pub, pub_size) == 0);
+    CHECK(ecdsa_pubkey_create(ec, out, &len, priv, 1));
+    CHECK(len == pub_size && memcmp(out, pub, pub_size) == 0);
 
-    ASSERT(ecdsa_privkey_reduce(ec, out, priv, sc_size));
-    ASSERT(memcmp(out, priv, sc_size) == 0);
+    CHECK(ecdsa_privkey_reduce(ec, out, priv, sc_size));
+    CHECK(memcmp(out, priv, sc_size) == 0);
 
-    ASSERT(ecdsa_privkey_tweak_add(ec, out, priv, tweak));
-    ASSERT(memcmp(out, privadd, sc_size) == 0);
+    CHECK(ecdsa_privkey_tweak_add(ec, out, priv, tweak));
+    CHECK(memcmp(out, privadd, sc_size) == 0);
 
-    ASSERT(ecdsa_privkey_tweak_add(ec, out, out, tweakneg));
-    ASSERT(memcmp(out, priv, sc_size) == 0);
+    CHECK(ecdsa_privkey_tweak_add(ec, out, out, tweakneg));
+    CHECK(memcmp(out, priv, sc_size) == 0);
 
-    ASSERT(ecdsa_privkey_tweak_mul(ec, out, priv, tweak));
-    ASSERT(memcmp(out, privmul, sc_size) == 0);
+    CHECK(ecdsa_privkey_tweak_mul(ec, out, priv, tweak));
+    CHECK(memcmp(out, privmul, sc_size) == 0);
 
-    ASSERT(ecdsa_privkey_tweak_mul(ec, out, out, tweakinv));
-    ASSERT(memcmp(out, priv, sc_size) == 0);
+    CHECK(ecdsa_privkey_tweak_mul(ec, out, out, tweakinv));
+    CHECK(memcmp(out, priv, sc_size) == 0);
 
-    ASSERT(ecdsa_privkey_negate(ec, out, priv));
-    ASSERT(memcmp(out, privneg, sc_size) == 0);
+    CHECK(ecdsa_privkey_negate(ec, out, priv));
+    CHECK(memcmp(out, privneg, sc_size) == 0);
 
-    ASSERT(ecdsa_privkey_invert(ec, out, priv));
-    ASSERT(memcmp(out, privinv, sc_size) == 0);
+    CHECK(ecdsa_privkey_invert(ec, out, priv));
+    CHECK(memcmp(out, privinv, sc_size) == 0);
 
-    ASSERT(ecdsa_pubkey_tweak_add(ec, out, &len, pub, pub_size, tweak, 1));
-    ASSERT(len == pub_size && memcmp(out, pubadd, pub_size) == 0);
+    CHECK(ecdsa_pubkey_tweak_add(ec, out, &len, pub, pub_size, tweak, 1));
+    CHECK(len == pub_size && memcmp(out, pubadd, pub_size) == 0);
 
-    ASSERT(ecdsa_pubkey_tweak_add(ec, out, &len, pubadd, pub_size, tweakneg, 1));
-    ASSERT(len == pub_size && memcmp(out, pub, pub_size) == 0);
+    CHECK(ecdsa_pubkey_tweak_add(ec, out, &len, pubadd, pub_size, tweakneg, 1));
+    CHECK(len == pub_size && memcmp(out, pub, pub_size) == 0);
 
-    ASSERT(ecdsa_pubkey_tweak_mul(ec, out, &len, pub, pub_size, tweak, 1));
-    ASSERT(len == pub_size && memcmp(out, pubmul, pub_size) == 0);
+    CHECK(ecdsa_pubkey_tweak_mul(ec, out, &len, pub, pub_size, tweak, 1));
+    CHECK(len == pub_size && memcmp(out, pubmul, pub_size) == 0);
 
-    ASSERT(ecdsa_pubkey_tweak_mul(ec, out, &len, pubmul, pub_size, tweakinv, 1));
-    ASSERT(len == pub_size && memcmp(out, pub, pub_size) == 0);
+    CHECK(ecdsa_pubkey_tweak_mul(ec, out, &len, pubmul, pub_size, tweakinv, 1));
+    CHECK(len == pub_size && memcmp(out, pub, pub_size) == 0);
 
-    ASSERT(ecdsa_pubkey_negate(ec, out, &len, pub, pub_size, 1));
-    ASSERT(len == pub_size && memcmp(out, pubneg, pub_size) == 0);
+    CHECK(ecdsa_pubkey_negate(ec, out, &len, pub, pub_size, 1));
+    CHECK(len == pub_size && memcmp(out, pubneg, pub_size) == 0);
 
     pubs[0] = pub;
     pubs[1] = pub;
@@ -921,8 +921,8 @@ test_ecdsa(void) {
     publens[0] = pub_size;
     publens[1] = pub_size;
 
-    ASSERT(ecdsa_pubkey_combine(ec, out, &len, pubs, publens, 2, 1));
-    ASSERT(len == pub_size && memcmp(out, pubdbl, pub_size) == 0);
+    CHECK(ecdsa_pubkey_combine(ec, out, &len, pubs, publens, 2, 1));
+    CHECK(len == pub_size && memcmp(out, pubdbl, pub_size) == 0);
 
     pubs[0] = pubdbl;
     pubs[1] = pubneg;
@@ -930,8 +930,8 @@ test_ecdsa(void) {
     publens[0] = pub_size;
     publens[1] = pub_size;
 
-    ASSERT(ecdsa_pubkey_combine(ec, out, &len, pubs, publens, 2, 1));
-    ASSERT(len == pub_size && memcmp(out, pub, pub_size) == 0);
+    CHECK(ecdsa_pubkey_combine(ec, out, &len, pubs, publens, 2, 1));
+    CHECK(len == pub_size && memcmp(out, pub, pub_size) == 0);
 
     pubs[0] = pub;
     pubs[1] = pubneg;
@@ -941,68 +941,68 @@ test_ecdsa(void) {
     publens[1] = pub_size;
     publens[2] = upub_size;
 
-    ASSERT(ecdsa_pubkey_combine(ec, out, &len, pubs, publens, 3, 1));
-    ASSERT(len == pub_size && memcmp(out, pub, pub_size) == 0);
+    CHECK(ecdsa_pubkey_combine(ec, out, &len, pubs, publens, 3, 1));
+    CHECK(len == pub_size && memcmp(out, pub, pub_size) == 0);
 
-    ASSERT(!ecdsa_pubkey_combine(ec, out, &len, pubs, publens, 2, 1));
+    CHECK(!ecdsa_pubkey_combine(ec, out, &len, pubs, publens, 2, 1));
 
-    ASSERT(ecdsa_pubkey_create(ec, out, &len, priv, 0));
-    ASSERT(len == upub_size && memcmp(out, pubconv, upub_size) == 0);
+    CHECK(ecdsa_pubkey_create(ec, out, &len, priv, 0));
+    CHECK(len == upub_size && memcmp(out, pubconv, upub_size) == 0);
 
-    ASSERT(ecdsa_pubkey_convert(ec, out, &len, pub, pub_size, 0));
-    ASSERT(len == upub_size && memcmp(out, pubconv, upub_size) == 0);
+    CHECK(ecdsa_pubkey_convert(ec, out, &len, pub, pub_size, 0));
+    CHECK(len == upub_size && memcmp(out, pubconv, upub_size) == 0);
 
-    ASSERT(ecdsa_pubkey_convert(ec, out, &len, pubconv, upub_size, 1));
-    ASSERT(len == pub_size && memcmp(out, pub, pub_size) == 0);
+    CHECK(ecdsa_pubkey_convert(ec, out, &len, pubconv, upub_size, 1));
+    CHECK(len == pub_size && memcmp(out, pub, pub_size) == 0);
 
-    ASSERT(ecdsa_is_low_s(ec, sig));
+    CHECK(ecdsa_is_low_s(ec, sig));
 
-    ASSERT(ecdsa_sig_export(ec, out, &len, sig));
-    ASSERT(len == der_len && memcmp(out, der, der_len) == 0);
+    CHECK(ecdsa_sig_export(ec, out, &len, sig));
+    CHECK(len == der_len && memcmp(out, der, der_len) == 0);
 
-    ASSERT(ecdsa_sig_import(ec, out, der, der_len));
-    ASSERT(memcmp(out, sig, sig_size) == 0);
+    CHECK(ecdsa_sig_import(ec, out, der, der_len));
+    CHECK(memcmp(out, sig, sig_size) == 0);
 
-    ASSERT(ecdsa_recover(ec, out, &len, msg, msg_len, sig, param, 1));
-    ASSERT(len == pub_size && memcmp(out, pub, pub_size) == 0);
+    CHECK(ecdsa_recover(ec, out, &len, msg, msg_len, sig, param, 1));
+    CHECK(len == pub_size && memcmp(out, pub, pub_size) == 0);
 
-    ASSERT(ecdsa_recover(ec, out, &len, msg, msg_len, sig, param, 0));
-    ASSERT(len == upub_size && memcmp(out, pubconv, upub_size) == 0);
+    CHECK(ecdsa_recover(ec, out, &len, msg, msg_len, sig, param, 0));
+    CHECK(len == upub_size && memcmp(out, pubconv, upub_size) == 0);
 
-    ASSERT(ecdsa_derive(ec, out, &len, pub, pub_size, other, 1));
-    ASSERT(len == pub_size && memcmp(out, secret, pub_size) == 0);
+    CHECK(ecdsa_derive(ec, out, &len, pub, pub_size, other, 1));
+    CHECK(len == pub_size && memcmp(out, secret, pub_size) == 0);
 
-    ASSERT(ecdsa_derive(ec, out, &len, pubconv, upub_size, other, 1));
-    ASSERT(len == pub_size && memcmp(out, secret, pub_size) == 0);
+    CHECK(ecdsa_derive(ec, out, &len, pubconv, upub_size, other, 1));
+    CHECK(len == pub_size && memcmp(out, secret, pub_size) == 0);
 
-    ASSERT(ecdsa_derive(ec, out, &len, pubhybrid, upub_size, other, 1));
-    ASSERT(len == pub_size && memcmp(out, secret, pub_size) == 0);
+    CHECK(ecdsa_derive(ec, out, &len, pubhybrid, upub_size, other, 1));
+    CHECK(len == pub_size && memcmp(out, secret, pub_size) == 0);
 
-    ASSERT(ecdsa_sign(ec, out, &flag, msg, msg_len, priv));
-    ASSERT(memcmp(out, sig, sig_size) == 0);
-    ASSERT(flag == param);
+    CHECK(ecdsa_sign(ec, out, &flag, msg, msg_len, priv));
+    CHECK(memcmp(out, sig, sig_size) == 0);
+    CHECK(flag == param);
 
-    ASSERT(ecdsa_verify(ec, msg, msg_len, sig, pub, pub_size));
-    ASSERT(ecdsa_verify(ec, msg, msg_len, sig, pubconv, upub_size));
-    ASSERT(ecdsa_verify(ec, msg, msg_len, sig, pubhybrid, upub_size));
+    CHECK(ecdsa_verify(ec, msg, msg_len, sig, pub, pub_size));
+    CHECK(ecdsa_verify(ec, msg, msg_len, sig, pubconv, upub_size));
+    CHECK(ecdsa_verify(ec, msg, msg_len, sig, pubhybrid, upub_size));
 
     msg[2] ^= 1;
 
-    ASSERT(!ecdsa_verify(ec, msg, msg_len, sig, pub, pub_size));
+    CHECK(!ecdsa_verify(ec, msg, msg_len, sig, pub, pub_size));
 
     msg[2] ^= 1;
     sig[2] ^= 1;
 
-    ASSERT(!ecdsa_verify(ec, msg, msg_len, sig, pub, pub_size));
+    CHECK(!ecdsa_verify(ec, msg, msg_len, sig, pub, pub_size));
 
     sig[2] ^= 1;
     pub[2] ^= 1;
 
-    ASSERT(!ecdsa_verify(ec, msg, msg_len, sig, pub, pub_size));
+    CHECK(!ecdsa_verify(ec, msg, msg_len, sig, pub, pub_size));
 
     pub[2] ^= 1;
 
-    ASSERT(ecdsa_verify(ec, msg, msg_len, sig, pub, pub_size));
+    CHECK(ecdsa_verify(ec, msg, msg_len, sig, pub, pub_size));
   }
 
   for (i = 0; i < ARRAY_SIZE(curves); i++)
@@ -1043,39 +1043,39 @@ test_ecdsa_random(drbg_t *rng) {
 
       wei_curve_randomize(ec, entropy);
 
-      ASSERT(ecdsa_sign(ec, sig, &param, msg, sc_size, priv));
-      ASSERT(ecdsa_pubkey_create(ec, pub, &pub_len, priv, 1));
-      ASSERT(pub_len == fe_size + 1);
-      ASSERT(ecdsa_verify(ec, msg, sc_size, sig, pub, pub_len));
-      ASSERT(ecdsa_recover(ec, rec, &rec_len, msg, sc_size, sig, param, 1));
-      ASSERT(rec_len == pub_len);
-      ASSERT(memcmp(pub, rec, pub_len) == 0);
+      CHECK(ecdsa_sign(ec, sig, &param, msg, sc_size, priv));
+      CHECK(ecdsa_pubkey_create(ec, pub, &pub_len, priv, 1));
+      CHECK(pub_len == fe_size + 1);
+      CHECK(ecdsa_verify(ec, msg, sc_size, sig, pub, pub_len));
+      CHECK(ecdsa_recover(ec, rec, &rec_len, msg, sc_size, sig, param, 1));
+      CHECK(rec_len == pub_len);
+      CHECK(memcmp(pub, rec, pub_len) == 0);
 
       k = drbg_uniform(rng, sc_size);
 
       msg[k] ^= 1;
 
       if (fe_bits != 521 || k < 65)
-        ASSERT(!ecdsa_verify(ec, msg, sc_size, sig, pub, pub_len));
+        CHECK(!ecdsa_verify(ec, msg, sc_size, sig, pub, pub_len));
 
       msg[k] ^= 1;
       pub[k] ^= 1;
 
-      ASSERT(!ecdsa_verify(ec, msg, sc_size, sig, pub, pub_len));
+      CHECK(!ecdsa_verify(ec, msg, sc_size, sig, pub, pub_len));
 
       pub[k] ^= 1;
       sig[k] ^= 1;
 
-      ASSERT(!ecdsa_verify(ec, msg, sc_size, sig, pub, pub_len));
+      CHECK(!ecdsa_verify(ec, msg, sc_size, sig, pub, pub_len));
 
       sig[k] ^= 1;
       sig[sc_size + k] ^= 1;
 
-      ASSERT(!ecdsa_verify(ec, msg, sc_size, sig, pub, pub_len));
+      CHECK(!ecdsa_verify(ec, msg, sc_size, sig, pub, pub_len));
 
       sig[sc_size + k] ^= 1;
 
-      ASSERT(ecdsa_verify(ec, msg, sc_size, sig, pub, pub_len));
+      CHECK(ecdsa_verify(ec, msg, sc_size, sig, pub, pub_len));
     }
 
     wei_curve_destroy(ec);
@@ -1107,10 +1107,10 @@ test_ecdsa_sswu(void) {
 
   ecdsa_pubkey_from_uniform(ec, out, &out_len, bytes, 1);
 
-  ASSERT(out_len == 33);
-  ASSERT(memcmp(out, expect, 33) == 0);
-  ASSERT(ecdsa_pubkey_to_uniform(ec, out, expect, 33, 3));
-  ASSERT(memcmp(out, bytes, 32) == 0);
+  CHECK(out_len == 33);
+  CHECK(memcmp(out, expect, 33) == 0);
+  CHECK(ecdsa_pubkey_to_uniform(ec, out, expect, 33, 3));
+  CHECK(memcmp(out, bytes, 32) == 0);
 
   wei_curve_destroy(ec);
 }
@@ -1140,10 +1140,10 @@ test_ecdsa_svdw(void) {
 
   ecdsa_pubkey_from_uniform(ec, out, &out_len, bytes, 1);
 
-  ASSERT(out_len == 33);
-  ASSERT(memcmp(out, expect, 33) == 0);
-  ASSERT(ecdsa_pubkey_to_uniform(ec, out, expect, 33, 1));
-  ASSERT(memcmp(out, bytes, 32) == 0);
+  CHECK(out_len == 33);
+  CHECK(memcmp(out, expect, 33) == 0);
+  CHECK(ecdsa_pubkey_to_uniform(ec, out, expect, 33, 1));
+  CHECK(memcmp(out, bytes, 32) == 0);
 
   wei_curve_destroy(ec);
 }
@@ -1179,30 +1179,30 @@ test_schnorr_legacy(void) {
     hex_decode(msg, &msg_len, schnorr_legacy_vectors[i].msg);
     hex_decode(sig, &sig_len, schnorr_legacy_vectors[i].sig);
 
-    ASSERT(priv_len == 0 || priv_len == 32);
-    ASSERT(pub_len == 33);
-    ASSERT(msg_len == 32);
-    ASSERT(sig_len == 0 || sig_len == 64);
+    CHECK(priv_len == 0 || priv_len == 32);
+    CHECK(pub_len == 33);
+    CHECK(msg_len == 32);
+    CHECK(sig_len == 0 || sig_len == 64);
 
     if (sig_len == 0)
       memset(sig, 0, 64);
 
     if (priv_len > 0) {
-      ASSERT(schnorr_legacy_privkey_verify(ec, priv));
-      ASSERT(schnorr_legacy_pubkey_create(ec, out, &len, priv, 1));
-      ASSERT(len == pub_len && memcmp(out, pub, pub_len) == 0);
-      ASSERT(schnorr_legacy_sign(ec, out, msg, 32, priv));
-      ASSERT(memcmp(out, sig, sig_len) == 0);
+      CHECK(schnorr_legacy_privkey_verify(ec, priv));
+      CHECK(schnorr_legacy_pubkey_create(ec, out, &len, priv, 1));
+      CHECK(len == pub_len && memcmp(out, pub, pub_len) == 0);
+      CHECK(schnorr_legacy_sign(ec, out, msg, 32, priv));
+      CHECK(memcmp(out, sig, sig_len) == 0);
     }
 
-    ASSERT(schnorr_legacy_verify(ec, msg, msg_len,
+    CHECK(schnorr_legacy_verify(ec, msg, msg_len,
                                  sig, pub, pub_len) == result);
 
     msgs[0] = msg;
     sigs[0] = sig;
     pubs[0] = pub;
 
-    ASSERT(schnorr_legacy_verify_batch(ec, msgs, &msg_len, sigs,
+    CHECK(schnorr_legacy_verify_batch(ec, msgs, &msg_len, sigs,
                                        pubs, &pub_len, 1, scratch) == result);
   }
 
@@ -1243,27 +1243,27 @@ test_schnorr_legacy_random(drbg_t *rng) {
 
       wei_curve_randomize(ec, entropy);
 
-      ASSERT(schnorr_legacy_sign(ec, sig, msg, 32, priv));
-      ASSERT(schnorr_legacy_pubkey_create(ec, pub, &pub_len, priv, 1));
-      ASSERT(schnorr_legacy_verify(ec, msg, 32, sig, pub, pub_len));
+      CHECK(schnorr_legacy_sign(ec, sig, msg, 32, priv));
+      CHECK(schnorr_legacy_pubkey_create(ec, pub, &pub_len, priv, 1));
+      CHECK(schnorr_legacy_verify(ec, msg, 32, sig, pub, pub_len));
 
       msg[0] ^= 1;
 
-      ASSERT(!schnorr_legacy_verify(ec, msg, 32, sig, pub, pub_len));
+      CHECK(!schnorr_legacy_verify(ec, msg, 32, sig, pub, pub_len));
 
       msg[0] ^= 1;
       pub[1] ^= 1;
 
-      ASSERT(!schnorr_legacy_verify(ec, msg, 32, sig, pub, pub_len));
+      CHECK(!schnorr_legacy_verify(ec, msg, 32, sig, pub, pub_len));
 
       pub[1] ^= 1;
       sig[0] ^= 1;
 
-      ASSERT(!schnorr_legacy_verify(ec, msg, 32, sig, pub, pub_len));
+      CHECK(!schnorr_legacy_verify(ec, msg, 32, sig, pub, pub_len));
 
       sig[0] ^= 1;
 
-      ASSERT(schnorr_legacy_verify(ec, msg, 32, sig, pub, pub_len));
+      CHECK(schnorr_legacy_verify(ec, msg, 32, sig, pub, pub_len));
     }
 
     wei_curve_destroy(ec);
@@ -1304,30 +1304,30 @@ test_schnorr(void) {
     hex_decode(msg, &msg_len, schnorr_vectors[i].msg);
     hex_decode(sig, &sig_len, schnorr_vectors[i].sig);
 
-    ASSERT(priv_len == 0 || priv_len == 32);
-    ASSERT(pub_len == 32);
-    ASSERT(aux_len == 0 || aux_len == 32);
-    ASSERT(msg_len == 32);
-    ASSERT(sig_len == 64);
+    CHECK(priv_len == 0 || priv_len == 32);
+    CHECK(pub_len == 32);
+    CHECK(aux_len == 0 || aux_len == 32);
+    CHECK(msg_len == 32);
+    CHECK(sig_len == 64);
 
     if (aux_len == 0)
       memset(aux, 0, 32);
 
     if (priv_len > 0) {
-      ASSERT(schnorr_privkey_verify(ec, priv));
-      ASSERT(schnorr_pubkey_create(ec, out, priv));
-      ASSERT(memcmp(out, pub, pub_len) == 0);
-      ASSERT(schnorr_sign(ec, out, msg, 32, priv, aux));
-      ASSERT(memcmp(out, sig, sig_len) == 0);
+      CHECK(schnorr_privkey_verify(ec, priv));
+      CHECK(schnorr_pubkey_create(ec, out, priv));
+      CHECK(memcmp(out, pub, pub_len) == 0);
+      CHECK(schnorr_sign(ec, out, msg, 32, priv, aux));
+      CHECK(memcmp(out, sig, sig_len) == 0);
     }
 
-    ASSERT(schnorr_verify(ec, msg, msg_len, sig, pub) == result);
+    CHECK(schnorr_verify(ec, msg, msg_len, sig, pub) == result);
 
     msgs[0] = msg;
     sigs[0] = sig;
     pubs[0] = pub;
 
-    ASSERT(schnorr_verify_batch(ec, msgs, &msg_len, sigs,
+    CHECK(schnorr_verify_batch(ec, msgs, &msg_len, sigs,
                                 pubs, 1, scratch) == result);
   }
 
@@ -1369,27 +1369,27 @@ test_schnorr_random(drbg_t *rng) {
 
       wei_curve_randomize(ec, entropy);
 
-      ASSERT(schnorr_sign(ec, sig, msg, 32, priv, aux));
-      ASSERT(schnorr_pubkey_create(ec, pub, priv));
-      ASSERT(schnorr_verify(ec, msg, 32, sig, pub));
+      CHECK(schnorr_sign(ec, sig, msg, 32, priv, aux));
+      CHECK(schnorr_pubkey_create(ec, pub, priv));
+      CHECK(schnorr_verify(ec, msg, 32, sig, pub));
 
       msg[0] ^= 1;
 
-      ASSERT(!schnorr_verify(ec, msg, 32, sig, pub));
+      CHECK(!schnorr_verify(ec, msg, 32, sig, pub));
 
       msg[0] ^= 1;
       pub[1] ^= 1;
 
-      ASSERT(!schnorr_verify(ec, msg, 32, sig, pub));
+      CHECK(!schnorr_verify(ec, msg, 32, sig, pub));
 
       pub[1] ^= 1;
       sig[0] ^= 1;
 
-      ASSERT(!schnorr_verify(ec, msg, 32, sig, pub));
+      CHECK(!schnorr_verify(ec, msg, 32, sig, pub));
 
       sig[0] ^= 1;
 
-      ASSERT(schnorr_verify(ec, msg, 32, sig, pub));
+      CHECK(schnorr_verify(ec, msg, 32, sig, pub));
     }
 
     wei_curve_destroy(ec);
@@ -1436,32 +1436,32 @@ test_ecdh_x25519(void) {
   u[0] = 9;
 
   for (; i < 1; i++) {
-    ASSERT(ecdh_derive(ec, t, u, k));
+    CHECK(ecdh_derive(ec, t, u, k));
     memcpy(u, k, 32);
     memcpy(k, t, 32);
   }
 
-  ASSERT(memcmp(k, intervals[0], 32) == 0);
+  CHECK(memcmp(k, intervals[0], 32) == 0);
 
   for (; i < 1000; i++) {
-    ASSERT(ecdh_derive(ec, t, u, k));
+    CHECK(ecdh_derive(ec, t, u, k));
     memcpy(u, k, 32);
     memcpy(k, t, 32);
   }
 
-  ASSERT(memcmp(k, intervals[1], 32) == 0);
+  CHECK(memcmp(k, intervals[1], 32) == 0);
 
 #ifdef TORSION_TEST_SLOW
   for (; i < 1000000; i++) {
-    ASSERT(ecdh_derive(ec, t, u, k));
+    CHECK(ecdh_derive(ec, t, u, k));
     memcpy(u, k, 32);
     memcpy(k, t, 32);
   }
 
-  ASSERT(memcmp(k, intervals[2], 32) == 0);
+  CHECK(memcmp(k, intervals[2], 32) == 0);
 #endif
 
-  ASSERT(ecdh_pubkey_verify(ec, t));
+  CHECK(ecdh_pubkey_verify(ec, t));
 
   mont_curve_destroy(ec);
 }
@@ -1524,40 +1524,40 @@ test_ecdh_x448(void) {
   u[0] = 5;
 
   for (; i < 1; i++) {
-    ASSERT(ecdh_derive(ec, t, u, k));
+    CHECK(ecdh_derive(ec, t, u, k));
     memcpy(u, k, 56);
     memcpy(k, t, 56);
   }
 
-  ASSERT(memcmp(k, intervals[0], 56) == 0);
+  CHECK(memcmp(k, intervals[0], 56) == 0);
 
   for (; i < 100; i++) {
-    ASSERT(ecdh_derive(ec, t, u, k));
+    CHECK(ecdh_derive(ec, t, u, k));
     memcpy(u, k, 56);
     memcpy(k, t, 56);
   }
 
-  ASSERT(memcmp(k, intervals[1], 56) == 0);
+  CHECK(memcmp(k, intervals[1], 56) == 0);
 
   for (; i < 1000; i++) {
-    ASSERT(ecdh_derive(ec, t, u, k));
+    CHECK(ecdh_derive(ec, t, u, k));
     memcpy(u, k, 56);
     memcpy(k, t, 56);
   }
 
-  ASSERT(memcmp(k, intervals[2], 56) == 0);
+  CHECK(memcmp(k, intervals[2], 56) == 0);
 
 #ifdef TORSION_TEST_SLOW
   for (; i < 1000000; i++) {
-    ASSERT(ecdh_derive(ec, t, u, k));
+    CHECK(ecdh_derive(ec, t, u, k));
     memcpy(u, k, 56);
     memcpy(k, t, 56);
   }
 
-  ASSERT(memcmp(k, intervals[3], 56) == 0);
+  CHECK(memcmp(k, intervals[3], 56) == 0);
 #endif
 
-  ASSERT(ecdh_pubkey_verify(ec, t));
+  CHECK(ecdh_pubkey_verify(ec, t));
 
   mont_curve_destroy(ec);
 }
@@ -1589,13 +1589,13 @@ test_ecdh_random(drbg_t *rng) {
       ecdh_pubkey_create(ec, alice_pub, alice_priv);
       ecdh_pubkey_create(ec, bob_pub, bob_priv);
 
-      ASSERT(ecdh_pubkey_verify(ec, alice_pub));
-      ASSERT(ecdh_pubkey_verify(ec, bob_pub));
+      CHECK(ecdh_pubkey_verify(ec, alice_pub));
+      CHECK(ecdh_pubkey_verify(ec, bob_pub));
 
-      ASSERT(ecdh_derive(ec, alice_secret, bob_pub, alice_priv));
-      ASSERT(ecdh_derive(ec, bob_secret, alice_pub, bob_priv));
+      CHECK(ecdh_derive(ec, alice_secret, bob_pub, alice_priv));
+      CHECK(ecdh_derive(ec, bob_secret, alice_pub, bob_priv));
 
-      ASSERT(memcmp(alice_secret, bob_secret, fe_size) == 0);
+      CHECK(memcmp(alice_secret, bob_secret, fe_size) == 0);
     }
 
     mont_curve_destroy(ec);
@@ -1625,9 +1625,9 @@ test_ecdh_elligator2(void) {
 
   ecdh_pubkey_from_uniform(ec, out, bytes);
 
-  ASSERT(memcmp(out, expect, 32) == 0);
-  ASSERT(ecdh_pubkey_to_uniform(ec, out, expect, 0));
-  ASSERT(memcmp(out, bytes, 32) == 0);
+  CHECK(memcmp(out, expect, 32) == 0);
+  CHECK(ecdh_pubkey_to_uniform(ec, out, expect, 0));
+  CHECK(memcmp(out, bytes, 32) == 0);
 
   mont_curve_destroy(ec);
 }
@@ -1715,155 +1715,155 @@ test_eddsa(void) {
     hex_parse(other, priv_size, eddsa_vectors[i].other);
     hex_parse(secret, pub_size, eddsa_vectors[i].secret);
 
-    ASSERT(eddsa_privkey_verify(ec, priv));
-    ASSERT(eddsa_pubkey_verify(ec, pub));
+    CHECK(eddsa_privkey_verify(ec, priv));
+    CHECK(eddsa_pubkey_verify(ec, pub));
 
     eddsa_scalar_negate(ec, tweakneg, tweak);
     eddsa_scalar_invert(ec, tweakinv, tweak);
 
     eddsa_pubkey_create(ec, out, priv);
-    ASSERT(memcmp(out, pub, pub_size) == 0);
+    CHECK(memcmp(out, pub, pub_size) == 0);
 
     eddsa_pubkey_from_scalar(ec, out, scalar);
-    ASSERT(memcmp(out, pub, pub_size) == 0);
+    CHECK(memcmp(out, pub, pub_size) == 0);
 
     eddsa_privkey_expand(ec, scalar_, prefix_, priv);
-    ASSERT(memcmp(scalar_, scalar, sc_size) == 0);
-    ASSERT(memcmp(prefix_, prefix, pub_size) == 0);
+    CHECK(memcmp(scalar_, scalar, sc_size) == 0);
+    CHECK(memcmp(prefix_, prefix, pub_size) == 0);
 
     eddsa_scalar_reduce(ec, out, scalar, sc_size);
-    ASSERT(memcmp(out, reduced, sc_size) == 0);
+    CHECK(memcmp(out, reduced, sc_size) == 0);
 
     eddsa_scalar_tweak_add(ec, out, scalar, tweak);
-    ASSERT(memcmp(out, privadd, sc_size) == 0);
+    CHECK(memcmp(out, privadd, sc_size) == 0);
 
     eddsa_scalar_tweak_add(ec, out, privadd, tweakneg);
-    ASSERT(memcmp(out, reduced, sc_size) == 0);
+    CHECK(memcmp(out, reduced, sc_size) == 0);
 
     eddsa_scalar_tweak_mul(ec, out, scalar, tweak);
-    ASSERT(memcmp(out, privmul, sc_size) == 0);
+    CHECK(memcmp(out, privmul, sc_size) == 0);
 
     eddsa_scalar_tweak_mul(ec, out, privmul, tweakinv);
-    ASSERT(memcmp(out, reduced, sc_size) == 0);
+    CHECK(memcmp(out, reduced, sc_size) == 0);
 
     eddsa_scalar_negate(ec, out, scalar);
-    ASSERT(memcmp(out, privneg, sc_size) == 0);
+    CHECK(memcmp(out, privneg, sc_size) == 0);
 
     eddsa_scalar_invert(ec, out, scalar);
-    ASSERT(memcmp(out, privinv, sc_size) == 0);
+    CHECK(memcmp(out, privinv, sc_size) == 0);
 
-    ASSERT(eddsa_pubkey_tweak_add(ec, out, pub, tweak));
-    ASSERT(memcmp(out, pubadd, pub_size) == 0);
+    CHECK(eddsa_pubkey_tweak_add(ec, out, pub, tweak));
+    CHECK(memcmp(out, pubadd, pub_size) == 0);
 
-    ASSERT(eddsa_pubkey_tweak_add(ec, out, pubadd, tweakneg));
-    ASSERT(memcmp(out, pub, pub_size) == 0);
+    CHECK(eddsa_pubkey_tweak_add(ec, out, pubadd, tweakneg));
+    CHECK(memcmp(out, pub, pub_size) == 0);
 
-    ASSERT(eddsa_pubkey_tweak_mul(ec, out, pub, tweak));
-    ASSERT(memcmp(out, pubmul, pub_size) == 0);
+    CHECK(eddsa_pubkey_tweak_mul(ec, out, pub, tweak));
+    CHECK(memcmp(out, pubmul, pub_size) == 0);
 
-    ASSERT(eddsa_pubkey_tweak_mul(ec, out, pubmul, tweakinv));
-    ASSERT(memcmp(out, pub, pub_size) == 0);
+    CHECK(eddsa_pubkey_tweak_mul(ec, out, pubmul, tweakinv));
+    CHECK(memcmp(out, pub, pub_size) == 0);
 
-    ASSERT(eddsa_pubkey_negate(ec, out, pub));
-    ASSERT(memcmp(out, pubneg, pub_size) == 0);
+    CHECK(eddsa_pubkey_negate(ec, out, pub));
+    CHECK(memcmp(out, pubneg, pub_size) == 0);
 
     pubs[0] = pub;
     pubs[1] = pub;
 
-    ASSERT(eddsa_pubkey_combine(ec, out, pubs, 2));
-    ASSERT(memcmp(out, pubdbl, pub_size) == 0);
+    CHECK(eddsa_pubkey_combine(ec, out, pubs, 2));
+    CHECK(memcmp(out, pubdbl, pub_size) == 0);
 
     pubs[0] = pubdbl;
     pubs[1] = pubneg;
 
-    ASSERT(eddsa_pubkey_combine(ec, out, pubs, 2));
-    ASSERT(memcmp(out, pub, pub_size) == 0);
+    CHECK(eddsa_pubkey_combine(ec, out, pubs, 2));
+    CHECK(memcmp(out, pub, pub_size) == 0);
 
     pubs[0] = pub;
     pubs[1] = pubneg;
     pubs[2] = pub;
 
-    ASSERT(eddsa_pubkey_combine(ec, out, pubs, 3));
-    ASSERT(memcmp(out, pub, pub_size) == 0);
+    CHECK(eddsa_pubkey_combine(ec, out, pubs, 3));
+    CHECK(memcmp(out, pub, pub_size) == 0);
 
     eddsa_privkey_convert(ec, out, priv);
-    ASSERT(memcmp(out, scalar, sc_size) == 0);
+    CHECK(memcmp(out, scalar, sc_size) == 0);
 
-    ASSERT(eddsa_pubkey_convert(ec, out, pub));
-    ASSERT(memcmp(out, pubconv, fe_size) == 0);
+    CHECK(eddsa_pubkey_convert(ec, out, pub));
+    CHECK(memcmp(out, pubconv, fe_size) == 0);
 
-    ASSERT(eddsa_pubkey_combine(ec, out, NULL, 0));
-    ASSERT(memcmp(out, inf, pub_size) == 0);
+    CHECK(eddsa_pubkey_combine(ec, out, NULL, 0));
+    CHECK(memcmp(out, inf, pub_size) == 0);
 
     pubs[0] = pub;
     pubs[1] = pubneg;
 
-    ASSERT(eddsa_pubkey_combine(ec, out, pubs, 2));
-    ASSERT(memcmp(out, inf, pub_size) == 0);
+    CHECK(eddsa_pubkey_combine(ec, out, pubs, 2));
+    CHECK(memcmp(out, inf, pub_size) == 0);
 
-    ASSERT(eddsa_derive(ec, out, pub, other));
-    ASSERT(memcmp(out, secret, sc_size) == 0);
+    CHECK(eddsa_derive(ec, out, pub, other));
+    CHECK(memcmp(out, secret, sc_size) == 0);
 
     eddsa_privkey_convert(ec, out, other);
-    ASSERT(eddsa_derive_with_scalar(ec, out, pub, out));
-    ASSERT(memcmp(out, secret, sc_size) == 0);
+    CHECK(eddsa_derive_with_scalar(ec, out, pub, out));
+    CHECK(memcmp(out, secret, sc_size) == 0);
 
     eddsa_sign(ec, out, msg, msg_len, priv, ph, NULL, 0);
-    ASSERT(memcmp(out, sig, sig_size) == 0);
+    CHECK(memcmp(out, sig, sig_size) == 0);
 
     eddsa_sign_with_scalar(ec, out, msg, msg_len, scalar, prefix, ph, NULL, 0);
-    ASSERT(memcmp(out, sig, sig_size) == 0);
+    CHECK(memcmp(out, sig, sig_size) == 0);
 
     msgs[0] = msg;
     pubs[0] = pub;
     sigs[0] = sig;
 
-    ASSERT(eddsa_verify(ec, msg, msg_len, sig, pub, ph, NULL, 0));
-    ASSERT(eddsa_verify_single(ec, msg, msg_len, sig, pub, ph, NULL, 0));
-    ASSERT(eddsa_verify_batch(ec, msgs, &msg_len, sigs, pubs,
+    CHECK(eddsa_verify(ec, msg, msg_len, sig, pub, ph, NULL, 0));
+    CHECK(eddsa_verify_single(ec, msg, msg_len, sig, pub, ph, NULL, 0));
+    CHECK(eddsa_verify_batch(ec, msgs, &msg_len, sigs, pubs,
                               1, ph, NULL, 0, scratch));
 
     msg[0] ^= 1;
 
-    ASSERT(!eddsa_verify(ec, msg, msg_len, sig, pub, ph, NULL, 0));
-    ASSERT(!eddsa_verify_single(ec, msg, msg_len, sig, pub, ph, NULL, 0));
-    ASSERT(!eddsa_verify_batch(ec, msgs, &msg_len, sigs, pubs,
+    CHECK(!eddsa_verify(ec, msg, msg_len, sig, pub, ph, NULL, 0));
+    CHECK(!eddsa_verify_single(ec, msg, msg_len, sig, pub, ph, NULL, 0));
+    CHECK(!eddsa_verify_batch(ec, msgs, &msg_len, sigs, pubs,
                                1, ph, NULL, 0, scratch));
 
     msg[0] ^= 1;
     sig[0] ^= 1;
 
-    ASSERT(!eddsa_verify(ec, msg, msg_len, sig, pub, ph, NULL, 0));
-    ASSERT(!eddsa_verify_single(ec, msg, msg_len, sig, pub, ph, NULL, 0));
-    ASSERT(!eddsa_verify_batch(ec, msgs, &msg_len, sigs, pubs,
+    CHECK(!eddsa_verify(ec, msg, msg_len, sig, pub, ph, NULL, 0));
+    CHECK(!eddsa_verify_single(ec, msg, msg_len, sig, pub, ph, NULL, 0));
+    CHECK(!eddsa_verify_batch(ec, msgs, &msg_len, sigs, pubs,
                                1, ph, NULL, 0, scratch));
 
     sig[0] ^= 1;
     pub[0] ^= 1;
 
-    ASSERT(!eddsa_verify(ec, msg, msg_len, sig, pub, ph, NULL, 0));
-    ASSERT(!eddsa_verify_single(ec, msg, msg_len, sig, pub, ph, NULL, 0));
-    ASSERT(!eddsa_verify_batch(ec, msgs, &msg_len, sigs, pubs,
+    CHECK(!eddsa_verify(ec, msg, msg_len, sig, pub, ph, NULL, 0));
+    CHECK(!eddsa_verify_single(ec, msg, msg_len, sig, pub, ph, NULL, 0));
+    CHECK(!eddsa_verify_batch(ec, msgs, &msg_len, sigs, pubs,
                                1, ph, NULL, 0, scratch));
 
     pub[0] ^= 1;
 
-    ASSERT(eddsa_verify(ec, msg, msg_len, sig, pub, ph, NULL, 0));
-    ASSERT(eddsa_verify_single(ec, msg, msg_len, sig, pub, ph, NULL, 0));
-    ASSERT(eddsa_verify_batch(ec, msgs, &msg_len, sigs, pubs,
+    CHECK(eddsa_verify(ec, msg, msg_len, sig, pub, ph, NULL, 0));
+    CHECK(eddsa_verify_single(ec, msg, msg_len, sig, pub, ph, NULL, 0));
+    CHECK(eddsa_verify_batch(ec, msgs, &msg_len, sigs, pubs,
                               1, ph, NULL, 0, scratch));
 
     eddsa_sign_tweak_add(ec, out, msg, msg_len, priv, tweak, ph, NULL, 0);
-    ASSERT(memcmp(out, sigadd, sig_size) == 0);
+    CHECK(memcmp(out, sigadd, sig_size) == 0);
 
-    ASSERT(eddsa_verify(ec, msg, msg_len, sigadd, pubadd, ph, NULL, 0));
-    ASSERT(eddsa_verify_single(ec, msg, msg_len, sigadd, pubadd, ph, NULL, 0));
+    CHECK(eddsa_verify(ec, msg, msg_len, sigadd, pubadd, ph, NULL, 0));
+    CHECK(eddsa_verify_single(ec, msg, msg_len, sigadd, pubadd, ph, NULL, 0));
 
     eddsa_sign_tweak_mul(ec, out, msg, msg_len, priv, tweak, ph, NULL, 0);
-    ASSERT(memcmp(out, sigmul, sig_size) == 0);
+    CHECK(memcmp(out, sigmul, sig_size) == 0);
 
-    ASSERT(eddsa_verify(ec, msg, msg_len, sigmul, pubmul, ph, NULL, 0));
-    ASSERT(eddsa_verify_single(ec, msg, msg_len, sigmul, pubmul, ph, NULL, 0));
+    CHECK(eddsa_verify(ec, msg, msg_len, sigmul, pubmul, ph, NULL, 0));
+    CHECK(eddsa_verify_single(ec, msg, msg_len, sigmul, pubmul, ph, NULL, 0));
   }
 
   for (i = 0; i < ARRAY_SIZE(curves); i++) {
@@ -1903,32 +1903,32 @@ test_eddsa_random(drbg_t *rng) {
       eddsa_sign(ec, sig, msg, sc_size, priv, -1, NULL, 0);
       eddsa_pubkey_create(ec, pub, priv);
 
-      ASSERT(eddsa_verify(ec, msg, sc_size, sig, pub, -1, NULL, 0));
+      CHECK(eddsa_verify(ec, msg, sc_size, sig, pub, -1, NULL, 0));
 
       k = drbg_uniform(rng, sc_size);
 
       msg[k] ^= 1;
 
-      ASSERT(!eddsa_verify(ec, msg, sc_size, sig, pub, -1, NULL, 0));
+      CHECK(!eddsa_verify(ec, msg, sc_size, sig, pub, -1, NULL, 0));
 
       msg[k] ^= 1;
       pub[k] ^= 1;
 
-      ASSERT(!eddsa_verify(ec, msg, sc_size, sig, pub, -1, NULL, 0));
+      CHECK(!eddsa_verify(ec, msg, sc_size, sig, pub, -1, NULL, 0));
 
       pub[k] ^= 1;
       sig[k] ^= 1;
 
-      ASSERT(!eddsa_verify(ec, msg, sc_size, sig, pub, -1, NULL, 0));
+      CHECK(!eddsa_verify(ec, msg, sc_size, sig, pub, -1, NULL, 0));
 
       sig[k] ^= 1;
       sig[fe_size + k] ^= 1;
 
-      ASSERT(!eddsa_verify(ec, msg, sc_size, sig, pub, -1, NULL, 0));
+      CHECK(!eddsa_verify(ec, msg, sc_size, sig, pub, -1, NULL, 0));
 
       sig[fe_size + k] ^= 1;
 
-      ASSERT(eddsa_verify(ec, msg, sc_size, sig, pub, -1, NULL, 0));
+      CHECK(eddsa_verify(ec, msg, sc_size, sig, pub, -1, NULL, 0));
     }
 
     edwards_curve_destroy(ec);
@@ -1958,9 +1958,9 @@ test_eddsa_elligator2(void) {
 
   eddsa_pubkey_from_uniform(ec, out, bytes);
 
-  ASSERT(memcmp(out, expect, 32) == 0);
-  ASSERT(eddsa_pubkey_to_uniform(ec, out, expect, 0));
-  ASSERT(memcmp(out, bytes, 32) == 0);
+  CHECK(memcmp(out, expect, 32) == 0);
+  CHECK(eddsa_pubkey_to_uniform(ec, out, expect, 0));
+  CHECK(memcmp(out, bytes, 32) == 0);
 
   edwards_curve_destroy(ec);
 }
@@ -2012,12 +2012,12 @@ test_base16(void) {
 
     printf("  - Base16 vector #%" PRIzu "\n", i + 1);
 
-    ASSERT(base16_test(hex, strlen(hex)));
-    ASSERT(base16_decode(buf, &len, hex, strlen(hex)));
-    ASSERT(len == strlen(str) && memcmp(buf, str, len) == 0);
+    CHECK(base16_test(hex, strlen(hex)));
+    CHECK(base16_decode(buf, &len, hex, strlen(hex)));
+    CHECK(len == strlen(str) && memcmp(buf, str, len) == 0);
 
     base16_encode((char *)buf, &len, (unsigned char *)str, strlen(str));
-    ASSERT(len == strlen(hex) && memcmp(buf, hex, len) == 0);
+    CHECK(len == strlen(hex) && memcmp(buf, hex, len) == 0);
   }
 
   for (i = 0; i < ARRAY_SIZE(vectors_le); i++) {
@@ -2026,12 +2026,12 @@ test_base16(void) {
 
     printf("  - Base16-LE vector #%" PRIzu "\n", i + 1);
 
-    ASSERT(base16le_test(hex, strlen(hex)));
-    ASSERT(base16le_decode(buf, &len, hex, strlen(hex)));
-    ASSERT(len == strlen(str) && memcmp(buf, str, len) == 0);
+    CHECK(base16le_test(hex, strlen(hex)));
+    CHECK(base16le_decode(buf, &len, hex, strlen(hex)));
+    CHECK(len == strlen(str) && memcmp(buf, str, len) == 0);
 
     base16le_encode((char *)buf, &len, (unsigned char *)str, strlen(str));
-    ASSERT(len == strlen(hex) && memcmp(buf, hex, len) == 0);
+    CHECK(len == strlen(hex) && memcmp(buf, hex, len) == 0);
   }
 
   for (i = 0; i < ARRAY_SIZE(invalid); i++) {
@@ -2039,10 +2039,10 @@ test_base16(void) {
 
     printf("  - Base16 (invalid) vector #%" PRIzu "\n", i + 1);
 
-    ASSERT(!base16_test(hex, strlen(hex)));
-    ASSERT(!base16le_test(hex, strlen(hex)));
-    ASSERT(!base16_decode(buf, &len, hex, strlen(hex)));
-    ASSERT(!base16le_decode(buf, &len, hex, strlen(hex)));
+    CHECK(!base16_test(hex, strlen(hex)));
+    CHECK(!base16le_test(hex, strlen(hex)));
+    CHECK(!base16_decode(buf, &len, hex, strlen(hex)));
+    CHECK(!base16le_decode(buf, &len, hex, strlen(hex)));
   }
 }
 
@@ -2080,12 +2080,12 @@ test_base32(void) {
 
     printf("  - Base32 vector #%" PRIzu "\n", i + 1);
 
-    ASSERT(base32_test(b32, strlen(b32), 1));
-    ASSERT(base32_decode(buf, &len, b32, strlen(b32), 1));
-    ASSERT(len == strlen(str) && memcmp(buf, str, len) == 0);
+    CHECK(base32_test(b32, strlen(b32), 1));
+    CHECK(base32_decode(buf, &len, b32, strlen(b32), 1));
+    CHECK(len == strlen(str) && memcmp(buf, str, len) == 0);
 
     base32_encode((char *)buf, &len, (unsigned char *)str, strlen(str), 1);
-    ASSERT(len == strlen(b32) && memcmp(buf, b32, len) == 0);
+    CHECK(len == strlen(b32) && memcmp(buf, b32, len) == 0);
   }
 
   for (i = 0; i < ARRAY_SIZE(vectors_hex); i++) {
@@ -2094,12 +2094,12 @@ test_base32(void) {
 
     printf("  - Base32-Hex vector #%" PRIzu "\n", i + 1);
 
-    ASSERT(base32hex_test(b32, strlen(b32), 1));
-    ASSERT(base32hex_decode(buf, &len, b32, strlen(b32), 1));
-    ASSERT(len == strlen(str) && memcmp(buf, str, len) == 0);
+    CHECK(base32hex_test(b32, strlen(b32), 1));
+    CHECK(base32hex_decode(buf, &len, b32, strlen(b32), 1));
+    CHECK(len == strlen(str) && memcmp(buf, str, len) == 0);
 
     base32hex_encode((char *)buf, &len, (unsigned char *)str, strlen(str), 1);
-    ASSERT(len == strlen(b32) && memcmp(buf, b32, len) == 0);
+    CHECK(len == strlen(b32) && memcmp(buf, b32, len) == 0);
   }
 }
 
@@ -2137,16 +2137,16 @@ test_base58(void) {
     const char *str = vectors[i][0];
     const char *b58 = vectors[i][1];
 
-    ASSERT(base16_decode(data, &dlen, str, strlen(str)));
+    CHECK(base16_decode(data, &dlen, str, strlen(str)));
 
     printf("  - Base58 vector #%" PRIzu "\n", i + 1);
 
-    ASSERT(base58_test(b58, strlen(b58)));
-    ASSERT(base58_decode(buf, &len, b58, strlen(b58)));
-    ASSERT(len == dlen && memcmp(buf, data, len) == 0);
+    CHECK(base58_test(b58, strlen(b58)));
+    CHECK(base58_decode(buf, &len, b58, strlen(b58)));
+    CHECK(len == dlen && memcmp(buf, data, len) == 0);
 
-    ASSERT(base58_encode((char *)buf, &len, data, dlen));
-    ASSERT(len == strlen(b58) && memcmp(buf, b58, len) == 0);
+    CHECK(base58_encode((char *)buf, &len, data, dlen));
+    CHECK(len == strlen(b58) && memcmp(buf, b58, len) == 0);
   }
 }
 
@@ -2206,12 +2206,12 @@ test_base64(void) {
 
     printf("  - Base64 vector #%" PRIzu "\n", i + 1);
 
-    ASSERT(base64_test(b64, strlen(b64)));
-    ASSERT(base64_decode(buf, &len, b64, strlen(b64)));
-    ASSERT(len == strlen(str) && memcmp(buf, str, len) == 0);
+    CHECK(base64_test(b64, strlen(b64)));
+    CHECK(base64_decode(buf, &len, b64, strlen(b64)));
+    CHECK(len == strlen(str) && memcmp(buf, str, len) == 0);
 
     base64_encode((char *)buf, &len, (unsigned char *)str, strlen(str));
-    ASSERT(len == strlen(b64) && memcmp(buf, b64, len) == 0);
+    CHECK(len == strlen(b64) && memcmp(buf, b64, len) == 0);
   }
 
   for (i = 0; i < ARRAY_SIZE(invalid); i++) {
@@ -2219,8 +2219,8 @@ test_base64(void) {
 
     printf("  - Base64 (invalid) vector #%" PRIzu "\n", i + 1);
 
-    ASSERT(!base64_test(b64, strlen(b64)));
-    ASSERT(!base64_decode(buf, &len, b64, strlen(b64)));
+    CHECK(!base64_test(b64, strlen(b64)));
+    CHECK(!base64_decode(buf, &len, b64, strlen(b64)));
   }
 
   for (i = 0; i < ARRAY_SIZE(vectors_url); i++) {
@@ -2229,12 +2229,12 @@ test_base64(void) {
 
     printf("  - Base64-URL vector #%" PRIzu "\n", i + 1);
 
-    ASSERT(base64url_test(b64, strlen(b64)));
-    ASSERT(base64url_decode(buf, &len, b64, strlen(b64)));
-    ASSERT(len == strlen(str) && memcmp(buf, str, len) == 0);
+    CHECK(base64url_test(b64, strlen(b64)));
+    CHECK(base64url_decode(buf, &len, b64, strlen(b64)));
+    CHECK(len == strlen(str) && memcmp(buf, str, len) == 0);
 
     base64url_encode((char *)buf, &len, (unsigned char *)str, strlen(str));
-    ASSERT(len == strlen(b64) && memcmp(buf, b64, len) == 0);
+    CHECK(len == strlen(b64) && memcmp(buf, b64, len) == 0);
   }
 
   for (i = 0; i < ARRAY_SIZE(invalid_url); i++) {
@@ -2242,8 +2242,8 @@ test_base64(void) {
 
     printf("  - Base64-URL (invalid) vector #%" PRIzu "\n", i + 1);
 
-    ASSERT(!base64url_test(b64, strlen(b64)));
-    ASSERT(!base64url_decode(buf, &len, b64, strlen(b64)));
+    CHECK(!base64url_test(b64, strlen(b64)));
+    CHECK(!base64url_decode(buf, &len, b64, strlen(b64)));
   }
 }
 
@@ -2317,19 +2317,19 @@ test_bech32(void) {
 
     printf("  - Bech32 vector #%" PRIzu " (%s)\n", i + 1, addr);
 
-    ASSERT(base16_decode(script, &script_len, hex, strlen(hex)));
+    CHECK(base16_decode(script, &script_len, hex, strlen(hex)));
 
-    ASSERT(bech32_test(addr));
-    ASSERT(bech32_is(addr));
-    ASSERT(bech32_decode(hrp, &version, data, &data_len, addr));
-    ASSERT(strlen(hrp) >= 2 && memcmp(hrp, expect[i], 2) == 0);
-    ASSERT(2 + data_len == script_len);
-    ASSERT(script[0] == (version ? version + 0x80 : 0));
-    ASSERT(script[1] == data_len);
-    ASSERT(memcmp(data, script + 2, data_len) == 0);
+    CHECK(bech32_test(addr));
+    CHECK(bech32_is(addr));
+    CHECK(bech32_decode(hrp, &version, data, &data_len, addr));
+    CHECK(strlen(hrp) >= 2 && memcmp(hrp, expect[i], 2) == 0);
+    CHECK(2 + data_len == script_len);
+    CHECK(script[0] == (version ? version + 0x80 : 0));
+    CHECK(script[1] == data_len);
+    CHECK(memcmp(data, script + 2, data_len) == 0);
 
-    ASSERT(bech32_encode(out, hrp, version, data, data_len));
-    ASSERT(strcmp(out, expect[i]) == 0);
+    CHECK(bech32_encode(out, hrp, version, data, data_len));
+    CHECK(strcmp(out, expect[i]) == 0);
   }
 
   for (i = 0; i < ARRAY_SIZE(invalid); i++) {
@@ -2337,8 +2337,8 @@ test_bech32(void) {
 
     printf("  - Bech32 (invalid) vector #%" PRIzu " (%s)\n", i + 1, addr);
 
-    ASSERT(!bech32_test(addr));
-    ASSERT(!bech32_decode(hrp, &version, data, &data_len, addr));
+    CHECK(!bech32_test(addr));
+    CHECK(!bech32_decode(hrp, &version, data, &data_len, addr));
   }
 }
 
@@ -2431,16 +2431,16 @@ test_cash32(void) {
 
     printf("  - Cash32 vector #%" PRIzu " (%s)\n", i + 1, addr);
 
-    ASSERT(base16_decode(hash, &hash_len, hex, strlen(hex)));
+    CHECK(base16_decode(hash, &hash_len, hex, strlen(hex)));
 
-    ASSERT(cash32_test(addr, prefix));
-    ASSERT(cash32_is(addr, prefix));
-    ASSERT(cash32_decode(&type, data, &data_len, addr, prefix));
-    ASSERT(type == valid[i].type);
-    ASSERT(data_len == hash_len && memcmp(data, hash, hash_len) == 0);
+    CHECK(cash32_test(addr, prefix));
+    CHECK(cash32_is(addr, prefix));
+    CHECK(cash32_decode(&type, data, &data_len, addr, prefix));
+    CHECK(type == valid[i].type);
+    CHECK(data_len == hash_len && memcmp(data, hash, hash_len) == 0);
 
-    ASSERT(cash32_encode(out, prefix, type, data, data_len));
-    ASSERT(strcmp(out, addr) == 0);
+    CHECK(cash32_encode(out, prefix, type, data, data_len));
+    CHECK(strcmp(out, addr) == 0);
   }
 
   for (i = 0; i < ARRAY_SIZE(invalid); i++) {
@@ -2449,8 +2449,8 @@ test_cash32(void) {
 
     printf("  - Cash32 (invalid) vector #%" PRIzu " (%s)\n", i + 1, addr);
 
-    ASSERT(!cash32_test(addr, prefix));
-    ASSERT(!cash32_decode(&type, data, &data_len, addr, prefix));
+    CHECK(!cash32_test(addr, prefix));
+    CHECK(!cash32_decode(&type, data, &data_len, addr, prefix));
   }
 }
 
@@ -2473,7 +2473,7 @@ test_hash(void) {
     size_t size = hash_output_size(type);
     size_t iv_len = sizeof(iv);
 
-    ASSERT(size != 0);
+    CHECK(size != 0);
 
     printf("  - Hash vector #%" PRIzu " (%s)\n", i + 1, hash_names[type]);
 
@@ -2490,7 +2490,7 @@ test_hash(void) {
       hash_final(&hash, out, size);
     }
 
-    ASSERT(memcmp(out, expect, size) == 0);
+    CHECK(memcmp(out, expect, size) == 0);
   }
 }
 
@@ -2511,7 +2511,7 @@ test_hmac(void) {
     size_t data_len = sizeof(data);
     size_t key_len = sizeof(key);
 
-    ASSERT(size != 0);
+    CHECK(size != 0);
 
     printf("  - HMAC vector #%" PRIzu " (%s)\n", i + 1, hash_names[type]);
 
@@ -2523,7 +2523,7 @@ test_hmac(void) {
     hmac_update(&hmac, data, data_len);
     hmac_final(&hmac, out);
 
-    ASSERT(memcmp(out, expect, size) == 0);
+    CHECK(memcmp(out, expect, size) == 0);
   }
 }
 
@@ -2555,14 +2555,14 @@ test_eb2k(void) {
     hex_decode(key, &key_len, eb2k_vectors[i].key);
     hex_decode(iv, &iv_len, eb2k_vectors[i].iv);
 
-    ASSERT(sizeof(out1) >= key_len);
-    ASSERT(sizeof(out2) >= iv_len);
+    CHECK(sizeof(out1) >= key_len);
+    CHECK(sizeof(out2) >= iv_len);
 
-    ASSERT(eb2k_derive(out1, out2, HASH_MD5, pass, pass_len,
+    CHECK(eb2k_derive(out1, out2, HASH_MD5, pass, pass_len,
                        salt, salt_len, key_len, iv_len));
 
-    ASSERT(memcmp(out1, key, key_len) == 0);
-    ASSERT(memcmp(out2, iv, iv_len) == 0);
+    CHECK(memcmp(out1, key, key_len) == 0);
+    CHECK(memcmp(out2, iv, iv_len) == 0);
   }
 }
 
@@ -2586,9 +2586,9 @@ test_hkdf(void) {
     size_t info_len = sizeof(info);
     size_t len = hkdf_vectors[i].len;
 
-    ASSERT(size != 0);
-    ASSERT(sizeof(okm) >= len);
-    ASSERT(sizeof(out) >= len);
+    CHECK(size != 0);
+    CHECK(sizeof(okm) >= len);
+    CHECK(sizeof(out) >= len);
 
     printf("  - HKDF vector #%" PRIzu " (%s)\n", i + 1, hkdf_vectors[i].okm);
 
@@ -2598,11 +2598,11 @@ test_hkdf(void) {
     hex_parse(prk, size, hkdf_vectors[i].prk);
     hex_parse(okm, len, hkdf_vectors[i].okm);
 
-    ASSERT(hkdf_extract(out, type, ikm, ikm_len, salt, salt_len));
-    ASSERT(memcmp(out, prk, size) == 0);
+    CHECK(hkdf_extract(out, type, ikm, ikm_len, salt, salt_len));
+    CHECK(memcmp(out, prk, size) == 0);
 
-    ASSERT(hkdf_expand(out, type, prk, info, info_len, len));
-    ASSERT(memcmp(out, okm, len) == 0);
+    CHECK(hkdf_expand(out, type, prk, info, info_len, len));
+    CHECK(memcmp(out, okm, len) == 0);
   }
 }
 
@@ -2623,8 +2623,8 @@ test_pbkdf2(void) {
     unsigned int iter = pbkdf2_vectors[i].iter;
     size_t len = pbkdf2_vectors[i].len;
 
-    ASSERT(sizeof(expect) >= len);
-    ASSERT(sizeof(out) >= len);
+    CHECK(sizeof(expect) >= len);
+    CHECK(sizeof(out) >= len);
 
     printf("  - PBKDF2 vector #%" PRIzu " (%s)\n", i + 1, pbkdf2_vectors[i].expect);
 
@@ -2632,8 +2632,8 @@ test_pbkdf2(void) {
     hex_decode(salt, &salt_len, pbkdf2_vectors[i].salt);
     hex_parse(expect, len, pbkdf2_vectors[i].expect);
 
-    ASSERT(pbkdf2_derive(out, type, pass, pass_len, salt, salt_len, iter, len));
-    ASSERT(memcmp(out, expect, len) == 0);
+    CHECK(pbkdf2_derive(out, type, pass, pass_len, salt, salt_len, iter, len));
+    CHECK(memcmp(out, expect, len) == 0);
   }
 }
 
@@ -2674,18 +2674,18 @@ test_scrypt(void) {
 
   printf("Testing Scrypt...\n");
 
-  ASSERT(scrypt_derive(out, NULL, 0, NULL, 0, 16, 1, 1, 64));
-  ASSERT(memcmp(out, expect1, 64) == 0);
+  CHECK(scrypt_derive(out, NULL, 0, NULL, 0, 16, 1, 1, 64));
+  CHECK(memcmp(out, expect1, 64) == 0);
 
-  ASSERT(scrypt_derive(out, pass2, sizeof(pass2) - 1,
+  CHECK(scrypt_derive(out, pass2, sizeof(pass2) - 1,
                             salt2, sizeof(salt2) - 1, 1024, 8, 16, 64));
 
-  ASSERT(memcmp(out, expect2, 64) == 0);
+  CHECK(memcmp(out, expect2, 64) == 0);
 
-  ASSERT(scrypt_derive(out, pass3, sizeof(pass3) - 1,
+  CHECK(scrypt_derive(out, pass3, sizeof(pass3) - 1,
                             salt3, sizeof(salt3) - 1, 16384, 8, 1, 64));
 
-  ASSERT(memcmp(out, expect3, 64) == 0);
+  CHECK(memcmp(out, expect3, 64) == 0);
 }
 
 static void
@@ -2716,16 +2716,16 @@ test_pgpdf(void) {
 
   printf("Testing PGPDF...\n");
 
-  ASSERT(pgpdf_derive_simple(out, HASH_SHA256, pass, pass_len, 32));
-  ASSERT(memcmp(out, expect1, 32) == 0);
+  CHECK(pgpdf_derive_simple(out, HASH_SHA256, pass, pass_len, 32));
+  CHECK(memcmp(out, expect1, 32) == 0);
 
-  ASSERT(pgpdf_derive_salted(out, HASH_SHA256, pass, pass_len,
+  CHECK(pgpdf_derive_salted(out, HASH_SHA256, pass, pass_len,
                              salt, salt_len, 32));
-  ASSERT(memcmp(out, expect2, 32) == 0);
+  CHECK(memcmp(out, expect2, 32) == 0);
 
-  ASSERT(pgpdf_derive_iterated(out, HASH_SHA256, pass, pass_len,
+  CHECK(pgpdf_derive_iterated(out, HASH_SHA256, pass, pass_len,
                                salt, salt_len, 100, 32));
-  ASSERT(memcmp(out, expect3, 32) == 0);
+  CHECK(memcmp(out, expect3, 32) == 0);
 }
 
 static void
@@ -2781,12 +2781,12 @@ test_bcrypt(void) {
 
     printf("  - Bcrypt vector #%" PRIzu " (%s)\n", i + 1, record);
 
-    ASSERT(bcrypt_generate_with_salt64(out, (const unsigned char *)pass,
+    CHECK(bcrypt_generate_with_salt64(out, (const unsigned char *)pass,
                                        strlen(pass), salt, rounds, 'a'));
 
-    ASSERT(strcmp(out, record) == 0);
+    CHECK(strcmp(out, record) == 0);
 
-    ASSERT(bcrypt_verify((const unsigned char *)pass, strlen(pass), record));
+    CHECK(bcrypt_verify((const unsigned char *)pass, strlen(pass), record));
   }
 }
 
@@ -2810,8 +2810,8 @@ test_bcrypt_pbkdf(void) {
 
   printf("Testing Bcrypt-PBKDF...\n");
 
-  ASSERT(bcrypt_pbkdf(out, pass, sizeof(pass) - 1, salt, sizeof(salt), 16, 48));
-  ASSERT(memcmp(out, expect, 48) == 0);
+  CHECK(bcrypt_pbkdf(out, pass, sizeof(pass) - 1, salt, sizeof(salt), 16, 48));
+  CHECK(memcmp(out, expect, 48) == 0);
 }
 
 /*
@@ -2852,8 +2852,8 @@ test_poly1305(void) {
     poly1305_update(&ctx, msg, msg_len);
     poly1305_final(&ctx, mac);
 
-    ASSERT(poly1305_verify(mac, tag));
-    ASSERT(memcmp(mac, tag, 16) == 0);
+    CHECK(poly1305_verify(mac, tag));
+    CHECK(memcmp(mac, tag, 16) == 0);
   }
 }
 
@@ -2887,27 +2887,27 @@ test_rand_rng(void) {
 
   printf("Testing RNG...\n");
 
-  ASSERT(rng_init(&rng));
+  CHECK(rng_init(&rng));
 
   rng_generate(&rng, data, sizeof(data));
 
-  ASSERT(looks_random(data, sizeof(data)));
+  CHECK(looks_random(data, sizeof(data)));
 
   for (i = 0; i < ARRAY_SIZE(data); i++)
     data[i] = rng_random(&rng);
 
-  ASSERT(looks_random(data, sizeof(data)));
+  CHECK(looks_random(data, sizeof(data)));
 
   for (i = 0; i < ARRAY_SIZE(data); i++) {
     uint32_t hi = rng_uniform(&rng, 0x10000);
     uint32_t lo = rng_uniform(&rng, 0x10000);
 
-    ASSERT(hi < 0x10000 && lo < 0x10000);
+    CHECK(hi < 0x10000 && lo < 0x10000);
 
     data[i] = (hi << 16) | lo;
   }
 
-  ASSERT(looks_random(data, sizeof(data)));
+  CHECK(looks_random(data, sizeof(data)));
 }
 
 static void
@@ -2918,8 +2918,8 @@ test_rand_getentropy(void) {
   printf("Testing getentropy...\n");
 
   for (i = 0; i < 10; i++) {
-    ASSERT(torsion_getentropy(data, sizeof(data)));
-    ASSERT(looks_random(data, sizeof(data)));
+    CHECK(torsion_getentropy(data, sizeof(data)));
+    CHECK(looks_random(data, sizeof(data)));
   }
 }
 
@@ -2931,8 +2931,8 @@ test_rand_getrandom(void) {
   printf("Testing getrandom...\n");
 
   for (i = 0; i < 10; i++) {
-    ASSERT(torsion_getrandom(data, sizeof(data)));
-    ASSERT(looks_random(data, sizeof(data)));
+    CHECK(torsion_getrandom(data, sizeof(data)));
+    CHECK(looks_random(data, sizeof(data)));
   }
 }
 
@@ -2944,9 +2944,9 @@ test_rand_random(void) {
   printf("Testing random...\n");
 
   for (i = 0; i < ARRAY_SIZE(data); i++)
-    ASSERT(torsion_random(&data[i]));
+    CHECK(torsion_random(&data[i]));
 
-  ASSERT(looks_random(data, sizeof(data)));
+  CHECK(looks_random(data, sizeof(data)));
 }
 
 static void
@@ -2958,14 +2958,14 @@ test_rand_uniform(void) {
   printf("Testing uniform...\n");
 
   for (i = 0; i < ARRAY_SIZE(data); i++) {
-    ASSERT(torsion_uniform(&hi, 0x10000));
-    ASSERT(torsion_uniform(&lo, 0x10000));
-    ASSERT(hi < 0x10000 && lo < 0x10000);
+    CHECK(torsion_uniform(&hi, 0x10000));
+    CHECK(torsion_uniform(&lo, 0x10000));
+    CHECK(hi < 0x10000 && lo < 0x10000);
 
     data[i] = (hi << 16) | lo;
   }
 
-  ASSERT(looks_random(data, sizeof(data)));
+  CHECK(looks_random(data, sizeof(data)));
 }
 
 #ifdef TORSION_HAVE_THREADS
@@ -2983,7 +2983,7 @@ thread_random(void *ptr) {
 
   obj->ptr = __torsion_global_rng_addr();
 
-  ASSERT(torsion_getrandom(obj->data, 32));
+  CHECK(torsion_getrandom(obj->data, 32));
 
   return NULL;
 }
@@ -3000,36 +3000,36 @@ test_rand_thread_safety(void) {
 
   printf("Testing RNG thread safety.\n");
 
-  ASSERT(torsion_thread_create(t1, NULL, thread_random, (void *)&x1) == 0);
-  ASSERT(torsion_thread_create(t2, NULL, thread_random, (void *)&x2) == 0);
+  CHECK(torsion_thread_create(t1, NULL, thread_random, (void *)&x1) == 0);
+  CHECK(torsion_thread_create(t2, NULL, thread_random, (void *)&x2) == 0);
 
-  ASSERT(torsion_thread_join(t1, NULL) == 0);
-  ASSERT(torsion_thread_join(t2, NULL) == 0);
+  CHECK(torsion_thread_join(t1, NULL) == 0);
+  CHECK(torsion_thread_join(t2, NULL) == 0);
 
   torsion_thread_free(t1);
   torsion_thread_free(t2);
 
   thread_random(&x0);
 
-  ASSERT(x0.ptr && x1.ptr && x2.ptr);
+  CHECK(x0.ptr && x1.ptr && x2.ptr);
 
-  ASSERT(x0.ptr != x1.ptr);
-  ASSERT(x0.ptr != x2.ptr);
+  CHECK(x0.ptr != x1.ptr);
+  CHECK(x0.ptr != x2.ptr);
 
-  ASSERT(x1.ptr != x0.ptr);
-  ASSERT(x1.ptr != x2.ptr);
+  CHECK(x1.ptr != x0.ptr);
+  CHECK(x1.ptr != x2.ptr);
 
-  ASSERT(x2.ptr != x0.ptr);
-  ASSERT(x2.ptr != x1.ptr);
+  CHECK(x2.ptr != x0.ptr);
+  CHECK(x2.ptr != x1.ptr);
 
-  ASSERT(memcmp(x0.data, x1.data, 32) != 0);
-  ASSERT(memcmp(x0.data, x2.data, 32) != 0);
+  CHECK(memcmp(x0.data, x1.data, 32) != 0);
+  CHECK(memcmp(x0.data, x2.data, 32) != 0);
 
-  ASSERT(memcmp(x1.data, x0.data, 32) != 0);
-  ASSERT(memcmp(x1.data, x2.data, 32) != 0);
+  CHECK(memcmp(x1.data, x0.data, 32) != 0);
+  CHECK(memcmp(x1.data, x2.data, 32) != 0);
 
-  ASSERT(memcmp(x2.data, x0.data, 32) != 0);
-  ASSERT(memcmp(x2.data, x1.data, 32) != 0);
+  CHECK(memcmp(x2.data, x0.data, 32) != 0);
+  CHECK(memcmp(x2.data, x1.data, 32) != 0);
 }
 #endif /* TORSION_HAVE_THREADS */
 
@@ -3051,30 +3051,30 @@ test_rand_fork_safety(void) {
   memset(ours, 0, 32);
   memset(theirs, 0, 32);
 
-  ASSERT(pipe(pfds) == 0);
+  CHECK(pipe(pfds) == 0);
 
   pid = fork();
 
-  ASSERT(pid != -1);
-  ASSERT(torsion_getrandom(ours, 32));
+  CHECK(pid != -1);
+  CHECK(torsion_getrandom(ours, 32));
 
   if (pid) {
-    ASSERT(close(pfds[1]) == 0);
-    ASSERT(read(pfds[0], theirs, 32) == 32);
-    ASSERT(close(pfds[0]) == 0);
+    CHECK(close(pfds[1]) == 0);
+    CHECK(read(pfds[0], theirs, 32) == 32);
+    CHECK(close(pfds[0]) == 0);
 
-    ASSERT(waitpid(pid, &status, 0) == pid);
-    ASSERT(WIFEXITED(status));
-    ASSERT(WEXITSTATUS(status) == 0);
+    CHECK(waitpid(pid, &status, 0) == pid);
+    CHECK(WIFEXITED(status));
+    CHECK(WEXITSTATUS(status) == 0);
   } else {
-    ASSERT(close(pfds[0]) == 0);
-    ASSERT(write(pfds[1], ours, 32) == 32);
-    ASSERT(close(pfds[1]) == 0);
+    CHECK(close(pfds[0]) == 0);
+    CHECK(write(pfds[1], ours, 32) == 32);
+    CHECK(close(pfds[1]) == 0);
 
     exit(0);
   }
 
-  ASSERT(memcmp(ours, theirs, 32) != 0);
+  CHECK(memcmp(ours, theirs, 32) != 0);
 }
 #endif /* __linux__ */
 #endif /* TORSION_HAVE_RNG */
@@ -3112,14 +3112,14 @@ test_rc4(void) {
   for (i = 0; i < 1000; i++)
     rc4_encrypt(&ctx, data, data, 32);
 
-  ASSERT(memcmp(data, expect, 32) == 0);
+  CHECK(memcmp(data, expect, 32) == 0);
 
   rc4_init(&ctx, key, 32);
 
   for (i = 0; i < 1000; i++)
     rc4_encrypt(&ctx, data, data, 32);
 
-  ASSERT(memcmp(data, msg, 32) == 0);
+  CHECK(memcmp(data, msg, 32) == 0);
 }
 
 /*
@@ -3172,86 +3172,86 @@ test_rsa(void) {
     hex_decode(ct2, &ct2_len, rsa_vectors[i].ct2);
 
     /* Key functions. */
-    ASSERT(rsa_privkey_verify(priv, priv_len));
-    ASSERT(rsa_pubkey_verify(pub, pub_len));
-    ASSERT(rsa_pubkey_create(out, &len, priv, priv_len));
-    ASSERT(len == pub_len && memcmp(out, pub, pub_len) == 0);
+    CHECK(rsa_privkey_verify(priv, priv_len));
+    CHECK(rsa_pubkey_verify(pub, pub_len));
+    CHECK(rsa_pubkey_create(out, &len, priv, priv_len));
+    CHECK(len == pub_len && memcmp(out, pub, pub_len) == 0);
 
     /* RSA-PKCS1v1.5 type 1. */
-    ASSERT(rsa_sign(out, &len, hash, msg, msg_len,
+    CHECK(rsa_sign(out, &len, hash, msg, msg_len,
                     priv, priv_len, entropy));
-    ASSERT(len == sig1_len && memcmp(out, sig1, sig1_len) == 0);
+    CHECK(len == sig1_len && memcmp(out, sig1, sig1_len) == 0);
 
-    ASSERT(rsa_verify(hash, msg, msg_len, sig1, sig1_len, pub, pub_len));
+    CHECK(rsa_verify(hash, msg, msg_len, sig1, sig1_len, pub, pub_len));
 
     msg[0] ^= 1;
 
-    ASSERT(!rsa_verify(hash, msg, msg_len, sig1, sig1_len, pub, pub_len));
+    CHECK(!rsa_verify(hash, msg, msg_len, sig1, sig1_len, pub, pub_len));
 
     msg[0] ^= 1;
     sig1[0] ^= 1;
 
-    ASSERT(!rsa_verify(hash, msg, msg_len, sig1, sig1_len, pub, pub_len));
+    CHECK(!rsa_verify(hash, msg, msg_len, sig1, sig1_len, pub, pub_len));
 
     sig1[0] ^= 1;
     pub[0] ^= 1;
 
-    ASSERT(!rsa_verify(hash, msg, msg_len, sig1, sig1_len, pub, pub_len));
+    CHECK(!rsa_verify(hash, msg, msg_len, sig1, sig1_len, pub, pub_len));
 
     pub[0] ^= 1;
 
-    ASSERT(rsa_verify(hash, msg, msg_len, sig1, sig1_len, pub, pub_len));
+    CHECK(rsa_verify(hash, msg, msg_len, sig1, sig1_len, pub, pub_len));
 
     /* RSA-PSS. */
-    ASSERT(rsa_sign_pss(out, &len, hash, msg, msg_len,
+    CHECK(rsa_sign_pss(out, &len, hash, msg, msg_len,
                         priv, priv_len, salt_len, entropy));
 
-    ASSERT(rsa_verify_pss(hash, msg, msg_len, out, len,
+    CHECK(rsa_verify_pss(hash, msg, msg_len, out, len,
                           pub, pub_len, salt_len));
 
-    ASSERT(rsa_verify_pss(hash, msg, msg_len, sig2, sig2_len,
+    CHECK(rsa_verify_pss(hash, msg, msg_len, sig2, sig2_len,
                           pub, pub_len, salt_len));
 
     msg[0] ^= 1;
 
-    ASSERT(!rsa_verify_pss(hash, msg, msg_len, sig2, sig2_len,
+    CHECK(!rsa_verify_pss(hash, msg, msg_len, sig2, sig2_len,
                            pub, pub_len, salt_len));
 
     msg[0] ^= 1;
     sig2[0] ^= 1;
 
-    ASSERT(!rsa_verify_pss(hash, msg, msg_len, sig2, sig2_len,
+    CHECK(!rsa_verify_pss(hash, msg, msg_len, sig2, sig2_len,
                            pub, pub_len, salt_len));
 
     sig2[0] ^= 1;
     pub[0] ^= 1;
 
-    ASSERT(!rsa_verify_pss(hash, msg, msg_len, sig2, sig2_len,
+    CHECK(!rsa_verify_pss(hash, msg, msg_len, sig2, sig2_len,
                            pub, pub_len, salt_len));
 
     pub[0] ^= 1;
 
-    ASSERT(rsa_verify_pss(hash, msg, msg_len, sig2, sig2_len,
+    CHECK(rsa_verify_pss(hash, msg, msg_len, sig2, sig2_len,
                           pub, pub_len, salt_len));
 
     /* RSA-PKCS1v1.5 type 2. */
-    ASSERT(rsa_decrypt(out, &len, ct1, ct1_len, priv, priv_len, entropy));
-    ASSERT(len == msg_len && memcmp(out, msg, msg_len) == 0);
+    CHECK(rsa_decrypt(out, &len, ct1, ct1_len, priv, priv_len, entropy));
+    CHECK(len == msg_len && memcmp(out, msg, msg_len) == 0);
 
-    ASSERT(rsa_encrypt(tmp, &len, msg, msg_len, pub, pub_len, entropy));
-    ASSERT(rsa_decrypt(out, &len, tmp, len, priv, priv_len, entropy));
-    ASSERT(len == msg_len && memcmp(out, msg, msg_len) == 0);
+    CHECK(rsa_encrypt(tmp, &len, msg, msg_len, pub, pub_len, entropy));
+    CHECK(rsa_decrypt(out, &len, tmp, len, priv, priv_len, entropy));
+    CHECK(len == msg_len && memcmp(out, msg, msg_len) == 0);
 
     /* RSA-OAEP. */
-    ASSERT(rsa_decrypt_oaep(out, &len, hash, ct2, ct2_len,
+    CHECK(rsa_decrypt_oaep(out, &len, hash, ct2, ct2_len,
                             priv, priv_len, label, sizeof(label), entropy));
-    ASSERT(len == msg_len && memcmp(out, msg, msg_len) == 0);
+    CHECK(len == msg_len && memcmp(out, msg, msg_len) == 0);
 
-    ASSERT(rsa_encrypt_oaep(tmp, &len, hash, msg, msg_len,
+    CHECK(rsa_encrypt_oaep(tmp, &len, hash, msg, msg_len,
                             pub, pub_len, label, sizeof(label), entropy));
-    ASSERT(rsa_decrypt_oaep(out, &len, hash, tmp, len,
+    CHECK(rsa_decrypt_oaep(out, &len, hash, tmp, len,
                             priv, priv_len, label, sizeof(label), entropy));
-    ASSERT(len == msg_len && memcmp(out, msg, msg_len) == 0);
+    CHECK(len == msg_len && memcmp(out, msg, msg_len) == 0);
   }
 }
 
@@ -3272,75 +3272,75 @@ test_rsa_random(drbg_t *rng) {
   for (i = 0; i < 10; i++) {
     drbg_generate(rng, entropy, sizeof(entropy));
 
-    ASSERT(rsa_privkey_generate(priv, &priv_len, 1024, 65537, entropy));
-    ASSERT(rsa_privkey_verify(priv, priv_len));
+    CHECK(rsa_privkey_generate(priv, &priv_len, 1024, 65537, entropy));
+    CHECK(rsa_privkey_verify(priv, priv_len));
 
-    ASSERT(rsa_pubkey_create(pub, &pub_len, priv, priv_len));
-    ASSERT(rsa_pubkey_verify(pub, pub_len));
+    CHECK(rsa_pubkey_create(pub, &pub_len, priv, priv_len));
+    CHECK(rsa_pubkey_verify(pub, pub_len));
 
     drbg_generate(rng, msg, 32);
     drbg_generate(rng, entropy, sizeof(entropy));
 
     j = drbg_uniform(rng, 128);
 
-    ASSERT(rsa_sign(sig, &sig_len, HASH_SHA256, msg, 32,
+    CHECK(rsa_sign(sig, &sig_len, HASH_SHA256, msg, 32,
                     priv, priv_len, entropy));
 
-    ASSERT(rsa_verify(HASH_SHA256, msg, 32, sig, sig_len, pub, pub_len));
+    CHECK(rsa_verify(HASH_SHA256, msg, 32, sig, sig_len, pub, pub_len));
 
     sig[j] ^= 1;
 
-    ASSERT(!rsa_verify(HASH_SHA256, msg, 32, sig, sig_len, pub, pub_len));
+    CHECK(!rsa_verify(HASH_SHA256, msg, 32, sig, sig_len, pub, pub_len));
 
     drbg_generate(rng, msg, 32);
     drbg_generate(rng, entropy, sizeof(entropy));
 
-    ASSERT(rsa_encrypt(ct, &ct_len, msg, 32, pub, pub_len, entropy));
-    ASSERT(rsa_decrypt(pt, &pt_len, ct, ct_len, priv, priv_len, entropy));
-    ASSERT(pt_len == 32 && memcmp(pt, msg, 32) == 0);
+    CHECK(rsa_encrypt(ct, &ct_len, msg, 32, pub, pub_len, entropy));
+    CHECK(rsa_decrypt(pt, &pt_len, ct, ct_len, priv, priv_len, entropy));
+    CHECK(pt_len == 32 && memcmp(pt, msg, 32) == 0);
 
     ct[j] ^= 1;
 
-    ASSERT(!rsa_decrypt(pt, &pt_len, ct, ct_len, priv, priv_len, entropy));
+    CHECK(!rsa_decrypt(pt, &pt_len, ct, ct_len, priv, priv_len, entropy));
 
     drbg_generate(rng, msg, 32);
     drbg_generate(rng, entropy, sizeof(entropy));
 
-    ASSERT(rsa_sign_pss(sig, &sig_len, HASH_SHA256, msg, 32,
+    CHECK(rsa_sign_pss(sig, &sig_len, HASH_SHA256, msg, 32,
                         priv, priv_len, 0, entropy));
 
-    ASSERT(rsa_verify_pss(HASH_SHA256, msg, 32, sig, sig_len, pub, pub_len, 0));
+    CHECK(rsa_verify_pss(HASH_SHA256, msg, 32, sig, sig_len, pub, pub_len, 0));
 
     sig[j] ^= 1;
 
-    ASSERT(!rsa_verify_pss(HASH_SHA256, msg, 32,
+    CHECK(!rsa_verify_pss(HASH_SHA256, msg, 32,
                            sig, sig_len, pub, pub_len, 0));
 
-    ASSERT(rsa_sign_pss(sig, &sig_len, HASH_SHA256, msg, 32,
+    CHECK(rsa_sign_pss(sig, &sig_len, HASH_SHA256, msg, 32,
                         priv, priv_len, -1, entropy));
 
-    ASSERT(rsa_verify_pss(HASH_SHA256, msg, 32,
+    CHECK(rsa_verify_pss(HASH_SHA256, msg, 32,
                           sig, sig_len, pub, pub_len, -1));
 
     sig[j] ^= 1;
 
-    ASSERT(!rsa_verify_pss(HASH_SHA256, msg, 32,
+    CHECK(!rsa_verify_pss(HASH_SHA256, msg, 32,
                            sig, sig_len, pub, pub_len, -1));
 
     drbg_generate(rng, msg, 32);
     drbg_generate(rng, entropy, sizeof(entropy));
 
-    ASSERT(rsa_encrypt_oaep(ct, &ct_len, HASH_SHA256, msg, 32,
+    CHECK(rsa_encrypt_oaep(ct, &ct_len, HASH_SHA256, msg, 32,
                             pub, pub_len, NULL, 0, entropy));
 
-    ASSERT(rsa_decrypt_oaep(pt, &pt_len, HASH_SHA256, ct, ct_len,
+    CHECK(rsa_decrypt_oaep(pt, &pt_len, HASH_SHA256, ct, ct_len,
                             priv, priv_len, NULL, 0, entropy));
 
-    ASSERT(pt_len == 32 && memcmp(pt, msg, 32) == 0);
+    CHECK(pt_len == 32 && memcmp(pt, msg, 32) == 0);
 
     ct[j] ^= 1;
 
-    ASSERT(!rsa_decrypt_oaep(pt, &pt_len, HASH_SHA256, ct, ct_len,
+    CHECK(!rsa_decrypt_oaep(pt, &pt_len, HASH_SHA256, ct, ct_len,
                              priv, priv_len, NULL, 0, entropy));
   }
 }
@@ -3429,7 +3429,7 @@ test_salsa20(void) {
   size_t i, j, k;
   salsa20_t ctx;
 
-  ASSERT(out != NULL);
+  CHECK(out != NULL);
 
   printf("Testing Salsa20...\n");
 
@@ -3451,7 +3451,7 @@ test_salsa20(void) {
         xor[k] ^= out[j + k];
     }
 
-    ASSERT(memcmp(xor, expect, 64) == 0);
+    CHECK(memcmp(xor, expect, 64) == 0);
   }
 
   free(out);
@@ -3476,7 +3476,7 @@ test_xsalsa20(void) {
   salsa20_init(&ctx, key, 32, nonce, 24, 0);
   salsa20_encrypt(&ctx, data, input, 12);
 
-  ASSERT(memcmp(data, expect, 12) == 0);
+  CHECK(memcmp(data, expect, 12) == 0);
 }
 
 /*
@@ -3518,7 +3518,7 @@ test_secretbox(void) {
 
   printf("Testing Secretbox...\n");
 
-  ASSERT(sizeof(sealed) == 80);
+  CHECK(sizeof(sealed) == 80);
 
   /* Raw. */
   memset(key, 1, sizeof(key));
@@ -3527,10 +3527,10 @@ test_secretbox(void) {
 
   secretbox_seal(sealed, msg, sizeof(msg), key, nonce);
 
-  ASSERT(secretbox_open(opened, sealed, sizeof(sealed), key, nonce));
+  CHECK(secretbox_open(opened, sealed, sizeof(sealed), key, nonce));
 
-  ASSERT(memcmp(sealed, expect1, sizeof(expect1)) == 0);
-  ASSERT(memcmp(opened, msg, sizeof(msg)) == 0);
+  CHECK(memcmp(sealed, expect1, sizeof(expect1)) == 0);
+  CHECK(memcmp(opened, msg, sizeof(msg)) == 0);
 
   /* crypto_secretbox_xsalsa20poly1305 */
   memset(priv1, 1, sizeof(priv1));
@@ -3540,15 +3540,15 @@ test_secretbox(void) {
 
   ecdh_pubkey_create(ec, pub1, priv1);
 
-  ASSERT(ecdh_derive(ec, secret, pub1, priv2));
+  CHECK(ecdh_derive(ec, secret, pub1, priv2));
 
   secretbox_derive(key, secret);
   secretbox_seal(sealed, msg, sizeof(msg), key, nonce);
 
-  ASSERT(secretbox_open(opened, sealed, sizeof(sealed), key, nonce));
+  CHECK(secretbox_open(opened, sealed, sizeof(sealed), key, nonce));
 
-  ASSERT(memcmp(sealed, expect2, sizeof(expect2)) == 0);
-  ASSERT(memcmp(opened, msg, sizeof(msg)) == 0);
+  CHECK(memcmp(sealed, expect2, sizeof(expect2)) == 0);
+  CHECK(memcmp(opened, msg, sizeof(msg)) == 0);
 
   mont_curve_destroy(ec);
 }
@@ -3573,22 +3573,22 @@ test_secretbox_random(drbg_t *rng) {
     secretbox_seal(sealed, msg, len, key, nonce);
 
     if (len > 0) {
-      ASSERT(memcmp(sealed, msg, len) != 0);
-      ASSERT(memcmp(sealed + 16, msg, len) != 0);
+      CHECK(memcmp(sealed, msg, len) != 0);
+      CHECK(memcmp(sealed + 16, msg, len) != 0);
     }
 
-    ASSERT(secretbox_open(opened, sealed, len + 16, key, nonce));
+    CHECK(secretbox_open(opened, sealed, len + 16, key, nonce));
 
     last = len + 16;
   }
 
   for (i = 0; i < last; i++) {
     sealed[i] ^= 0x20;
-    ASSERT(!secretbox_open(opened, sealed, last, key, nonce));
+    CHECK(!secretbox_open(opened, sealed, last, key, nonce));
     sealed[i] ^= 0x20;
   }
 
-  ASSERT(secretbox_open(opened, sealed, last, key, nonce));
+  CHECK(secretbox_open(opened, sealed, last, key, nonce));
 }
 
 /*
@@ -3611,12 +3611,12 @@ test_siphash(void) {
   for (i = 0; i < 16; i++)
     key[i] = i + 32;
 
-  ASSERT(siphash(msg, 32, key) == UINT64_C(10090947469682793545));
-  ASSERT(siphash32(v32, key) == UINT32_C(828368916));
-  ASSERT(siphash64(v64, key) == UINT64_C(620914895672640125));
-  ASSERT(siphash32k256(v32, msg) == UINT32_C(3909845928));
-  ASSERT(siphash64k256(v64, msg) == UINT64_C(16928650368383018294));
-  ASSERT(sipmod(msg, 32, key, v64) == UINT64_C(4560894765423557143));
+  CHECK(siphash(msg, 32, key) == UINT64_C(10090947469682793545));
+  CHECK(siphash32(v32, key) == UINT32_C(828368916));
+  CHECK(siphash64(v64, key) == UINT64_C(620914895672640125));
+  CHECK(siphash32k256(v32, msg) == UINT32_C(3909845928));
+  CHECK(siphash64k256(v64, msg) == UINT64_C(16928650368383018294));
+  CHECK(sipmod(msg, 32, key, v64) == UINT64_C(4560894765423557143));
 }
 
 /*
@@ -3632,11 +3632,11 @@ test_cleanse(drbg_t *rng) {
 
   drbg_generate(rng, raw, 32);
 
-  ASSERT(memcmp(raw, zero, 32) != 0);
+  CHECK(memcmp(raw, zero, 32) != 0);
 
   cleanse(raw, 32);
 
-  ASSERT(memcmp(raw, zero, 32) == 0);
+  CHECK(memcmp(raw, zero, 32) == 0);
 }
 
 static void
@@ -3672,10 +3672,10 @@ test_murmur3(void) {
 
     printf("  - Murmur3 vector #%" PRIzu " (%u)\n", i + 1, seed);
 
-    ASSERT(base16_decode(data, &len, str, strlen(str)));
+    CHECK(base16_decode(data, &len, str, strlen(str)));
 
-    ASSERT(murmur3_sum(data, len, seed) == sum);
-    ASSERT(murmur3_tweak(data, len, sum, seed) == tweak);
+    CHECK(murmur3_sum(data, len, seed) == sum);
+    CHECK(murmur3_tweak(data, len, sum, seed) == tweak);
   }
 }
 
@@ -3716,7 +3716,7 @@ bench_ecdsa_pubkey_create(drbg_t *rng) {
   bench_start(&tv, "ecdsa_pubkey_create");
 
   for (i = 0; i < 10000; i++)
-    ASSERT(ecdsa_pubkey_create(ec, pub, &pub_len, bytes, 1));
+    CHECK(ecdsa_pubkey_create(ec, pub, &pub_len, bytes, 1));
 
   bench_end(&tv, i);
 
@@ -3737,12 +3737,12 @@ bench_ecdsa_derive(drbg_t *rng) {
   drbg_generate(rng, k0, 32);
   drbg_generate(rng, k1, 32);
 
-  ASSERT(ecdsa_pubkey_create(ec, p0, &p0_len, k0, 0));
+  CHECK(ecdsa_pubkey_create(ec, p0, &p0_len, k0, 0));
 
   bench_start(&tv, "ecdsa_derive");
 
   for (i = 0; i < 10000; i++)
-    ASSERT(ecdsa_derive(ec, p1, &p1_len, p0, p0_len, k1, 1));
+    CHECK(ecdsa_derive(ec, p1, &p1_len, p0, p0_len, k1, 1));
 
   bench_end(&tv, i);
 
@@ -3768,20 +3768,20 @@ bench_ecdsa(drbg_t *rng) {
 
   wei_curve_randomize(ec, entropy);
 
-  ASSERT(ecdsa_sign(ec, sig, NULL, msg, 32, priv));
-  ASSERT(ecdsa_pubkey_create(ec, pub, NULL, priv, 1));
+  CHECK(ecdsa_sign(ec, sig, NULL, msg, 32, priv));
+  CHECK(ecdsa_pubkey_create(ec, pub, NULL, priv, 1));
 
   bench_start(&tv, "ecdsa_verify");
 
   for (i = 0; i < 10000; i++)
-    ASSERT(ecdsa_verify(ec, msg, 32, sig, pub, 33));
+    CHECK(ecdsa_verify(ec, msg, 32, sig, pub, 33));
 
   bench_end(&tv, i);
 
   bench_start(&tv, "ecdsa_sign");
 
   for (i = 0; i < 10000; i++)
-    ASSERT(ecdsa_sign(ec, sig, NULL, msg, 32, priv));
+    CHECK(ecdsa_sign(ec, sig, NULL, msg, 32, priv));
 
   bench_end(&tv, i);
 
@@ -3804,7 +3804,7 @@ bench_ecdh(drbg_t *rng) {
   bench_start(&tv, "ecdh_derive");
 
   for (i = 0; i < 10000; i++)
-    ASSERT(ecdh_derive(ec, secret, pub, priv));
+    CHECK(ecdh_derive(ec, secret, pub, priv));
 
   bench_end(&tv, i);
 
@@ -3834,7 +3834,7 @@ bench_eddsa(drbg_t *rng) {
   bench_start(&tv, "eddsa_verify");
 
   for (i = 0; i < 10000; i++)
-    ASSERT(eddsa_verify(ec, msg, 32, sig, pub, -1, NULL, 0));
+    CHECK(eddsa_verify(ec, msg, 32, sig, pub, -1, NULL, 0));
 
   bench_end(&tv, i);
 
