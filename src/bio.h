@@ -215,6 +215,10 @@ write64be(void *dst, uint64_t w) {
  *   https://stackoverflow.com/a/2637138
  */
 
+#undef HAVE_BUILTIN_BSWAP16
+#undef HAVE_BUILTIN_BSWAP32
+#undef HAVE_BUILTIN_BSWAP64
+
 #if TORSION_GNUC_PREREQ(4, 3)
 #  define HAVE_BUILTIN_BSWAP16
 #  define HAVE_BUILTIN_BSWAP32
@@ -263,5 +267,9 @@ torsion_bswap64(uint64_t x) {
   return (x << 32) | (x >> 32);
 }
 #endif
+
+#undef HAVE_BUILTIN_BSWAP16
+#undef HAVE_BUILTIN_BSWAP32
+#undef HAVE_BUILTIN_BSWAP64
 
 #endif /* _TORSION_BIO_H */

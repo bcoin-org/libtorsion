@@ -207,6 +207,15 @@
 #include <string.h>
 #include "entropy.h"
 
+#undef HAVE_BCRYPTGENRANDOM
+#undef HAVE_RANDBYTES
+#undef HAVE_GETRANDOM
+#undef HAVE_SYSCTL_UUID
+#undef HAVE_GETENTROPY
+#undef HAVE_SYSCTL_ARND
+#undef HAVE_GETPID
+#undef DEV_RANDOM_NAME
+
 #if defined(__CloudABI__)
 uint16_t
 cloudabi_sys_random_get(void *buf, size_t buf_len);

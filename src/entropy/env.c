@@ -69,6 +69,15 @@
 #include <torsion/hash.h>
 #include "entropy.h"
 
+#undef HAVE_MANUAL_ENTROPY
+#undef HAVE_DLITERATEPHDR
+#undef HAVE_GETIFADDRS
+#undef HAVE_GETAUXVAL
+#undef HAVE_SYSCTL
+#undef HAVE_CLOCK_GETTIME
+#undef HAVE_GETHOSTNAME
+#undef HAVE_GETSID
+
 #if defined(__CloudABI__)
 /* Could gather static entropy from filesystem in the future. */
 #elif defined(__wasi__)
@@ -145,9 +154,7 @@ extern char **environ;
 #    endif
 #  endif
 #  if defined(_POSIX_VERSION) && _POSIX_VERSION >= 200112L
-#    if defined(CLOCK_MONOTONIC) \
-     || defined(CLOCK_REALTIME)  \
-     || defined(CLOCK_BOOTTIME)
+#    if defined(CLOCK_REALTIME) || defined(CLOCK_MONOTONIC)
 #      define HAVE_CLOCK_GETTIME
 #    endif
 #    define HAVE_GETHOSTNAME
@@ -993,18 +1000,13 @@ sha512_write_dynamic_env(sha512_t *hash) {
 
     memset(&ts, 0, sizeof(ts));
 
-#ifdef CLOCK_MONOTONIC
-    if (clock_gettime(CLOCK_MONOTONIC, &ts) == 0)
-      sha512_write(hash, &ts, sizeof(ts));
-#endif
-
 #ifdef CLOCK_REALTIME
     if (clock_gettime(CLOCK_REALTIME, &ts) == 0)
       sha512_write(hash, &ts, sizeof(ts));
 #endif
 
-#ifdef CLOCK_BOOTTIME
-    if (clock_gettime(CLOCK_BOOTTIME, &ts) == 0)
+#ifdef CLOCK_MONOTONIC
+    if (clock_gettime(CLOCK_MONOTONIC, &ts) == 0)
       sha512_write(hash, &ts, sizeof(ts));
 #endif
 
@@ -1015,6 +1017,11 @@ sha512_write_dynamic_env(sha512_t *hash) {
 
 #ifdef CLOCK_THREAD_CPUTIME_ID
     if (clock_gettime(CLOCK_THREAD_CPUTIME_ID, &ts) == 0)
+      sha512_write(hash, &ts, sizeof(ts));
+#endif
+
+#ifdef CLOCK_BOOTTIME
+    if (clock_gettime(CLOCK_BOOTTIME, &ts) == 0)
       sha512_write(hash, &ts, sizeof(ts));
 #endif
   }

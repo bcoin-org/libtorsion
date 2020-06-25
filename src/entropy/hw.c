@@ -88,6 +88,12 @@
 #include <string.h>
 #include "entropy.h"
 
+#undef HAVE_QPC
+#undef HAVE_CPUIDEX
+#undef HAVE_RDTSC
+#undef HAVE_INLINE_ASM
+#undef HAVE_CPUID
+
 #if defined(__CloudABI__)
 uint16_t
 cloudabi_sys_clock_time_get(uint32_t clock_id,
@@ -149,7 +155,7 @@ __wasi_clock_time_get(uint32_t clock_id,
 #      include <sys/time.h> /* gettimeofday */
 #    endif
 #  endif
-#  if defined(__GNUC__) && !defined(__CYGWIN__) && !defined(__MINGW32__)
+#  if defined(__GNUC__) && __GNUC__ >= 4
 #    define HAVE_INLINE_ASM
 #    if defined(__x86_64__) || defined(__amd64__) || defined(__i386__)
 #      define HAVE_CPUID

@@ -183,17 +183,11 @@ static const unsigned long __torsion_endian_check TORSION_UNUSED = 1;
 #endif
 
 /* Detect inline ASM support for x86-64. */
-#if defined(__EMSCRIPTEN__) \
- || defined(__wasm__)       \
- || defined(__CYGWIN__)     \
- || defined(__MINGW32__)    \
- || defined(_WIN32)
-/* No inline ASM support for wasm/asm.js/win32. */
-#else
-#  ifdef __GNUC__
-#    if defined(__amd64__) || defined(__x86_64__)
-#      define TORSION_HAVE_ASM_X64
-#    endif
+#if defined(__EMSCRIPTEN__) || defined(__wasm__) || defined(_WIN32)
+/* No inline ASM support for emscripten/wasm/win32. */
+#elif TORSION_GNUC_PREREQ(3, 2)
+#  if defined(__amd64__) || defined(__x86_64__)
+#    define TORSION_HAVE_ASM_X64
 #  endif
 #endif
 

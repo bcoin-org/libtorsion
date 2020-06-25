@@ -13,6 +13,8 @@
 #include <stdint.h>
 #include "os.h"
 
+#undef HAVE_GETTIMEOFDAY
+
 #if defined(_WIN32)
 #  include <windows.h> /* QueryPerformance{Counter,Frequency}, CreateThread */
 #  pragma comment(lib, "kernel32.lib")

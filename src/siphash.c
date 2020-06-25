@@ -22,6 +22,8 @@
 #include "bio.h"
 #include "internal.h"
 
+#undef HAVE_UMULH
+
 #if defined(__EMSCRIPTEN__) || defined(__wasm__)
 /* Intrinsics not available with emscripten/wasm. */
 #elif defined(_MSC_VER) && _MSC_VER >= 1400 /* VS 2005 */
