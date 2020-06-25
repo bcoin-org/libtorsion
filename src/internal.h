@@ -102,16 +102,16 @@
 
 #if defined(__EMSCRIPTEN__) || defined(__wasm__)
 #  define TORSION_TLS
+#elif defined(__APPLE__) && defined(__MACH__)
+/* Apple has _serious_ issues with TLS. */
 #elif defined(TORSION_STDC_THREADS)
 #  define TORSION_TLS _Thread_local
-#elif TORSION_GNUC_PREREQ(3, 4)
+#elif TORSION_GNUC_PREREQ(3, 3)
 #  define TORSION_TLS __thread
 #elif defined(_MSC_VER) && _MSC_VER >= 1500
 #  define TORSION_TLS __declspec(thread)
 #elif (defined(__SUNPRO_C) && __SUNPRO_C >= 0x590)
 #  define TORSION_TLS __thread
-#else
-#  define TORSION_TLS
 #endif
 
 #ifdef __GNUC__

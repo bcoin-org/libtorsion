@@ -2975,6 +2975,9 @@ typedef struct rng_res_s {
   unsigned char data[32];
 } rng_res_t;
 
+int
+__torsion_global_rng_tls(void);
+
 uintptr_t
 __torsion_global_rng_addr(void);
 
@@ -3014,14 +3017,16 @@ test_rand_thread_safety(void) {
 
   CHECK(x0.ptr && x1.ptr && x2.ptr);
 
-  CHECK(x0.ptr != x1.ptr);
-  CHECK(x0.ptr != x2.ptr);
+  if (__torsion_global_rng_tls()) {
+    CHECK(x0.ptr != x1.ptr);
+    CHECK(x0.ptr != x2.ptr);
 
-  CHECK(x1.ptr != x0.ptr);
-  CHECK(x1.ptr != x2.ptr);
+    CHECK(x1.ptr != x0.ptr);
+    CHECK(x1.ptr != x2.ptr);
 
-  CHECK(x2.ptr != x0.ptr);
-  CHECK(x2.ptr != x1.ptr);
+    CHECK(x2.ptr != x0.ptr);
+    CHECK(x2.ptr != x1.ptr);
+  }
 
   CHECK(memcmp(x0.data, x1.data, 32) != 0);
   CHECK(memcmp(x0.data, x2.data, 32) != 0);

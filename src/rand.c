@@ -191,21 +191,68 @@ rng_uniform(rng_t *rng, uint32_t max) {
 }
 
 /*
+ * Global Lock
+ */
+
+#undef HAVE_PTHREAD
+#undef HAVE_ATOMICS
+
+#ifndef TORSION_TLS
+#  if defined(TORSION_HAVE_PTHREAD)
+#    include <pthread.h>
+static pthread_mutex_t rng_lock = PTHREAD_MUTEX_INITIALIZER;
+#    define HAVE_PTHREAD
+#  elif TORSION_GNUC_PREREQ(4, 1)
+static volatile int rng_lock;
+#    define HAVE_ATOMICS
+#  endif
+#  define TORSION_TLS
+#endif
+
+static void
+rng_global_lock(void) {
+#if defined(HAVE_PTHREAD)
+  if (pthread_mutex_lock(&rng_lock) != 0)
+    abort();
+#elif defined(HAVE_ATOMICS)
+  while (__sync_val_compare_and_swap(&rng_lock, 0, 1) != 0) {
+#if defined(__i386__) || defined(__amd64__) || defined(__x86_64__)
+    __asm__ __volatile__("pause");
+#elif defined(__aarch64__)
+    __asm__ __volatile__("yield");
+#endif
+  }
+#endif
+}
+
+static void
+rng_global_unlock(void) {
+#if defined(HAVE_PTHREAD)
+  if (pthread_mutex_unlock(&rng_lock) != 0)
+    abort();
+#elif defined(HAVE_ATOMICS)
+  __sync_synchronize();
+  rng_lock = 0;
+  __sync_synchronize();
+#endif
+}
+
+/*
  * Global Context
  */
 
-static TORSION_TLS rng_t rng_global;
 static TORSION_TLS struct {
+  rng_t rng;
   int started;
   uint64_t pid;
-} rng_state = {0, 0};
+} rng_state;
 
 static int
 rng_global_init(void) {
   uint64_t pid = torsion_getpid();
 
   if (!rng_state.started || rng_state.pid != pid) {
-    if (!rng_init(&rng_global))
+    if (!rng_init(&rng_state.rng))
       return 0;
 
     rng_state.started = 1;
@@ -216,9 +263,18 @@ rng_global_init(void) {
 }
 
 #ifdef TORSION_TEST
+TORSION_EXTERN int
+__torsion_global_rng_tls(void) {
+#if defined(HAVE_ATOMICS) || defined(HAVE_PTHREAD)
+  return 0;
+#else
+  return 1;
+#endif
+}
+
 TORSION_EXTERN uintptr_t
 __torsion_global_rng_addr(void) {
-  void *rng = (void *)&rng_global;
+  void *rng = (void *)&rng_state.rng;
   return (uintptr_t)rng;
 }
 #endif
@@ -234,30 +290,47 @@ torsion_getentropy(void *dst, size_t size) {
 
 int
 torsion_getrandom(void *dst, size_t size) {
-  if (!rng_global_init())
-    return 0;
+  rng_global_lock();
 
-  rng_generate(&rng_global, dst, size);
+  if (!rng_global_init()) {
+    rng_global_unlock();
+    return 0;
+  }
+
+  rng_generate(&rng_state.rng, dst, size);
+  rng_global_unlock();
 
   return 1;
 }
 
 int
 torsion_random(uint32_t *out) {
-  if (!rng_global_init())
-    return 0;
+  rng_global_lock();
 
-  *out = rng_random(&rng_global);
+  if (!rng_global_init()) {
+    rng_global_unlock();
+    return 0;
+  }
+
+  *out = rng_random(&rng_state.rng);
+
+  rng_global_unlock();
 
   return 1;
 }
 
 int
 torsion_uniform(uint32_t *out, uint32_t max) {
-  if (!rng_global_init())
-    return 0;
+  rng_global_lock();
 
-  *out = rng_uniform(&rng_global, max);
+  if (!rng_global_init()) {
+    rng_global_unlock();
+    return 0;
+  }
+
+  *out = rng_uniform(&rng_state.rng, max);
+
+  rng_global_unlock();
 
   return 1;
 }
