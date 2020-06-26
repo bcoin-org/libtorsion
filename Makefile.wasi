@@ -19,6 +19,15 @@ CFLAGS :=                   \
 	-I./include               \
 	-O3
 
+BUILDFLAGS =          \
+	-DTORSION_BUILD     \
+	-DTORSION_NO_ASSERT
+
+TESTFLAGS =           \
+	-DTORSION_TEST      \
+	-DTORSION_HAVE_RNG  \
+	-DTORSION_HAVE_RAND
+
 LDFLAGS :=                               \
 	-Wl,--allow-undefined                  \
 	-Wl,--strip-debug                      \
@@ -53,7 +62,8 @@ SOURCES =           \
 	src/entropy/env.c \
 	src/entropy/hw.c  \
 	src/entropy/sys.c \
-	src/rand.c
+	src/rand.c        \
+	src/rng.c
 
 all: torsion.wasm tests.wasm
 
@@ -68,10 +78,10 @@ all: torsion.wasm tests.wasm
 #      https://reviews.llvm.org/D62922
 
 torsion.wasm: $(SOURCES) etc/crt1-reactor.c etc/main.c
-	$(CC) -o $@ $(CFLAGS) -DTORSION_BUILD -DTORSION_NO_ASSERT $(LIBFLAGS) $^
+	$(CC) -o $@ $(CFLAGS) $(BUILDFLAGS) $(LIBFLAGS) $^
 
 tests.wasm: $(SOURCES) test/test.c test/os.c
-	$(CC) -o $@ $(CFLAGS) -DTORSION_TEST -DTORSION_HAVE_RNG $(LDFLAGS) $^
+	$(CC) -o $@ $(CFLAGS) $(TESTFLAGS) $(LDFLAGS) $^
 
 test: tests.wasm
 	./scripts/run-wasi.sh $^

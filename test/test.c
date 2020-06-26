@@ -21,6 +21,9 @@
 #include <torsion/kdf.h>
 #include <torsion/poly1305.h>
 #ifdef TORSION_HAVE_RNG
+#include <torsion/rng.h>
+#endif
+#ifdef TORSION_HAVE_RAND
 #include <torsion/rand.h>
 #endif
 #include <torsion/rsa.h>
@@ -2911,6 +2914,7 @@ test_rand_rng(void) {
   CHECK(looks_random(data, sizeof(data)));
 }
 
+#ifdef TORSION_HAVE_RAND
 static void
 test_rand_getentropy(void) {
   uint32_t data[65536 / 4];
@@ -2975,9 +2979,6 @@ typedef struct rng_res_s {
   unsigned char data[32];
 } rng_res_t;
 
-int
-__torsion_global_rng_tls(void);
-
 uintptr_t
 __torsion_global_rng_addr(void);
 
@@ -2998,6 +2999,11 @@ test_rand_thread_safety(void) {
   torsion_thread_t *t2 = torsion_thread_alloc();
   rng_res_t x0, x1, x2;
 
+  if (!torsion_is_reentrant()) {
+    printf("Skipping RNG test (not reentrant).\n");
+    return;
+  }
+
   memset(&x0, 0, sizeof(x0));
   memset(&x1, 0, sizeof(x1));
   memset(&x2, 0, sizeof(x2));
@@ -3017,7 +3023,9 @@ test_rand_thread_safety(void) {
 
   CHECK(x0.ptr && x1.ptr && x2.ptr);
 
-  if (__torsion_global_rng_tls()) {
+  if (torsion_has_tls()) {
+    printf("  - Checking TLS.\n");
+
     CHECK(x0.ptr != x1.ptr);
     CHECK(x0.ptr != x2.ptr);
 
@@ -3083,6 +3091,7 @@ test_rand_fork_safety(void) {
   CHECK(memcmp(ours, theirs, 32) != 0);
 }
 #endif /* __linux__ */
+#endif /* TORSION_HAVE_RAND */
 #endif /* TORSION_HAVE_RNG */
 
 /*

@@ -58,6 +58,11 @@ AC_ARG_ENABLE(rng,
   [enable_rng=$enableval],
   [enable_rng=yes])
 
+AC_ARG_ENABLE(rand,
+  AS_HELP_STRING([--enable-rand],[enable global rng [default=yes]]),
+  [enable_rand=$enableval],
+  [enable_rand=yes])
+
 AC_ARG_ENABLE(tests,
   AS_HELP_STRING([--enable-tests],[enable tests [default=yes]]),
   [enable_tests=$enableval],
@@ -173,6 +178,11 @@ fi
 
 if test x"$enable_rng" = x"yes"; then
   AC_DEFINE(TORSION_HAVE_RNG)
+  if test x"$enable_rand" = x"yes"; then
+    AC_DEFINE(TORSION_HAVE_RAND)
+  fi
+else
+  enable_rand=no
 fi
 
 if test x"$enable_tests" = x"yes"; then
@@ -190,6 +200,7 @@ if test x"$enable_verify" = x"yes"; then
 fi
 
 AM_CONDITIONAL([ENABLE_RNG], [test x"$enable_rng" = x"yes"])
+AM_CONDITIONAL([ENABLE_RAND], [test x"$enable_rand" = x"yes"])
 AM_CONDITIONAL([ENABLE_TESTS], [test x"$enable_tests" = x"yes"])
 AM_CONDITIONAL([ENABLE_CTIME], [test x"$enable_ctime" = x"yes"])
 AM_CONDITIONAL([EMSCRIPTEN], [test x"$EMSCRIPTEN" != x""])
@@ -216,6 +227,7 @@ echo "  emscripten   = $EMSCRIPTEN"
 echo "  int128       = $enable_int128 (support=$has_int128)"
 echo "  libsecp256k1 = $enable_libsecp256k1"
 echo "  rng          = $enable_rng"
+echo "  rand         = $enable_rand"
 echo "  tests        = $enable_tests"
 echo "  verify       = $enable_verify"
 echo ""

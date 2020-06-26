@@ -14,6 +14,15 @@ CFLAGS :=                   \
 	-D__wasi__                \
 	-O3
 
+BUILDFLAGS =          \
+	-DTORSION_BUILD     \
+	-DTORSION_NO_ASSERT
+
+TESTFLAGS =           \
+	-DTORSION_TEST      \
+	-DTORSION_HAVE_RNG  \
+	-DTORSION_HAVE_RAND
+
 LDFLAGS :=                            \
 	-s WASM=1                           \
 	-s STANDALONE_WASM=1                \
@@ -48,15 +57,16 @@ SOURCES =           \
 	src/entropy/env.c \
 	src/entropy/hw.c  \
 	src/entropy/sys.c \
-	src/rand.c
+	src/rand.c        \
+	src/rng.c
 
 all: torsion.wasm tests.wasm
 
 torsion.wasm: $(SOURCES)
-	$(CC) -o $@ $(CFLAGS) -DTORSION_BUILD -DTORSION_NO_ASSERT $(LIBFLAGS) $^
+	$(CC) -o $@ $(CFLAGS) $(BUILDFLAGS) $(LIBFLAGS) $^
 
 tests.wasm: $(SOURCES) test/test.c test/os.c
-	$(CC) -o $@ $(CFLAGS) -DTORSION_TEST -DTORSION_HAVE_RNG $(LDFLAGS) $^
+	$(CC) -o $@ $(CFLAGS) $(TESTFLAGS) $(LDFLAGS) $^
 
 test: tests.wasm
 	./scripts/run-wasi.sh $^

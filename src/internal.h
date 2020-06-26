@@ -63,6 +63,8 @@
 #  define TORSION_INLINE __inline__
 #elif defined(_MSC_VER) && _MSC_VER >= 900
 #  define TORSION_INLINE __inline
+#elif defined(__SUNPRO_C) && __SUNPRO_C >= 0x550
+#  define TORSION_INLINE inline
 #else
 #  define TORSION_INLINE
 #endif
@@ -87,31 +89,6 @@
 #  define TORSION_NORETURN __declspec(noreturn)
 #else
 #  define TORSION_NORETURN
-#endif
-
-/* See: https://software.intel.com/en-us/forums/intel-c-compiler/topic/721059 */
-#if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L
-/* We may need to include stdc-predef.h in a roundabout way. */
-#  include <limits.h>
-#  if defined(__INTEL_COMPILER) && __INTEL_COMPILER < 1800 /* 18.0.0 */
-/* ICCs earlier than version 18 do not support std threads. */
-#  elif !defined(__STDC_NO_THREADS__)
-#    define TORSION_STDC_THREADS
-#  endif
-#endif
-
-#if defined(__EMSCRIPTEN__) || defined(__wasm__)
-#  define TORSION_TLS
-#elif defined(__APPLE__) && defined(__MACH__)
-/* Apple has _serious_ issues with TLS. */
-#elif defined(TORSION_STDC_THREADS)
-#  define TORSION_TLS _Thread_local
-#elif TORSION_GNUC_PREREQ(3, 3)
-#  define TORSION_TLS __thread
-#elif defined(_MSC_VER) && _MSC_VER >= 1500
-#  define TORSION_TLS __declspec(thread)
-#elif (defined(__SUNPRO_C) && __SUNPRO_C >= 0x590)
-#  define TORSION_TLS __thread
 #endif
 
 #ifdef __GNUC__

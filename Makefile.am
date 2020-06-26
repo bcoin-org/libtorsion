@@ -54,6 +54,7 @@ noinst_HEADERS = src/asn1.h                         \
                  src/internal.h                     \
                  src/mpi.h                          \
                  src/subgroups.h                    \
+                 src/tls.h                          \
                  test/data/aead-vectors.h           \
                  test/data/chacha20-vectors.h       \
                  test/data/cipher-aead-vectors.h    \
@@ -78,8 +79,11 @@ noinst_HEADERS = src/asn1.h                         \
                  test/testutil.h
 
 if ENABLE_RNG
-include_HEADERS += include/torsion/rand.h
+include_HEADERS += include/torsion/rng.h
 noinst_HEADERS += src/entropy/entropy.h
+if ENABLE_RAND
+include_HEADERS += include/torsion/rand.h
+endif
 endif
 
 torsion_sources = src/aead.c      \
@@ -106,6 +110,9 @@ torsion_sources += src/entropy/env.c
 torsion_sources += src/entropy/hw.c
 torsion_sources += src/entropy/sys.c
 torsion_sources += src/rand.c
+if ENABLE_RAND
+torsion_sources += src/rng.c
+endif
 endif
 
 CLEANFILES =
