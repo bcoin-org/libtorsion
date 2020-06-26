@@ -31,13 +31,19 @@
  * Global Lock
  */
 
+#undef HAVE_UNIX
 #undef HAVE_TLS
 #undef HAVE_PTHREAD
 #undef HAVE_ATOMICS
 
+#if (defined(__unix) || defined(__unix__))    \
+ || (defined(__APPLE__) && defined(__MACH__))
+#  define HAVE_UNIX
+#endif
+
 #if defined(TORSION_HAVE_TLS)
 #  define HAVE_TLS
-#elif defined(_REENTRANT)
+#elif defined(HAVE_UNIX) && defined(_REENTRANT)
 #  include <pthread.h>
 static pthread_mutex_t rng_lock = PTHREAD_MUTEX_INITIALIZER;
 #  define HAVE_PTHREAD
