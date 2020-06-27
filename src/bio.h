@@ -220,7 +220,6 @@ write64be(void *dst, uint64_t w) {
 #undef HAVE_BUILTIN_BSWAP64
 
 #if TORSION_GNUC_PREREQ(4, 3)
-#  define HAVE_BUILTIN_BSWAP16
 #  define HAVE_BUILTIN_BSWAP32
 #  define HAVE_BUILTIN_BSWAP64
 #else
