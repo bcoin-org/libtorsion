@@ -57,14 +57,14 @@
  * Keywords/Attributes
  */
 
+#undef noreturn
+
 #if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 199901L
 #  define TORSION_INLINE inline
 #elif TORSION_GNUC_PREREQ(2, 7)
 #  define TORSION_INLINE __inline__
 #elif defined(_MSC_VER) && _MSC_VER >= 900
 #  define TORSION_INLINE __inline
-#elif defined(__SUNPRO_C) && __SUNPRO_C >= 0x550
-#  define TORSION_INLINE inline
 #else
 #  define TORSION_INLINE
 #endif
@@ -81,21 +81,23 @@
 
 #if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L
 #  define TORSION_NORETURN _Noreturn
-#elif TORSION_GNUC_PREREQ(2, 5)
-#  undef noreturn
+#elif TORSION_GNUC_PREREQ(2, 7)
 #  define TORSION_NORETURN __attribute__((noreturn))
 #elif defined(_MSC_VER) && _MSC_VER >= 1200
-#  undef noreturn
 #  define TORSION_NORETURN __declspec(noreturn)
 #else
 #  define TORSION_NORETURN
 #endif
 
-#ifdef __GNUC__
+#if TORSION_GNUC_PREREQ(2, 7)
 #  define TORSION_UNUSED __attribute__((unused))
-#  define TORSION_EXTENSION __extension__
 #else
 #  define TORSION_UNUSED
+#endif
+
+#ifdef __GNUC__
+#  define TORSION_EXTENSION __extension__
+#else
 #  define TORSION_EXTENSION
 #endif
 
