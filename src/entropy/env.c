@@ -115,11 +115,13 @@
 #      define TORSION_GLIBC_PREREQ(maj, min) 0
 #    endif
 #    if TORSION_GLIBC_PREREQ(2, 3)
-#      include <link.h> /* dl_iterate_phdr */
+#      if defined(__GNUC__) && defined(__SIZEOF_INT128__)
+#        include <link.h> /* dl_iterate_phdr */
+#        define HAVE_DLITERATEPHDR
+#      endif
 #      include <sys/socket.h> /* AF_INET{,6} */
 #      include <netinet/in.h> /* sockaddr_in{,6} */
 #      include <ifaddrs.h> /* getifaddrs */
-#      define HAVE_DLITERATEPHDR
 #      define HAVE_GETIFADDRS
 #    endif
 #    if TORSION_GLIBC_PREREQ(2, 16)
@@ -153,14 +155,18 @@
 extern char **environ;
 #    endif
 #  endif
-#  if defined(_POSIX_VERSION) && _POSIX_VERSION >= 200112L
-#    if defined(CLOCK_REALTIME) || defined(CLOCK_MONOTONIC)
-#      define HAVE_CLOCK_GETTIME
+#  ifdef _POSIX_VERSION
+#    if _POSIX_VERSION >= 199309L
+#      if defined(CLOCK_REALTIME) || defined(CLOCK_MONOTONIC)
+#        define HAVE_CLOCK_GETTIME
+#      endif
 #    endif
-#    define HAVE_GETHOSTNAME
-#  endif
-#  if defined(_POSIX_VERSION) && _POSIX_VERSION >= 200809L
-#    define HAVE_GETSID
+#    if _POSIX_VERSION >= 200112L
+#      define HAVE_GETHOSTNAME
+#    endif
+#    if _POSIX_VERSION >= 200809L
+#      define HAVE_GETSID
+#    endif
 #  endif
 #  define HAVE_MANUAL_ENTROPY
 #endif
