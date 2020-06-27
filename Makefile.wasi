@@ -25,8 +25,7 @@ BUILDFLAGS =          \
 
 TESTFLAGS =           \
 	-DTORSION_TEST      \
-	-DTORSION_HAVE_RNG  \
-	-DTORSION_HAVE_RAND
+	-DTORSION_HAVE_RNG
 
 LDFLAGS :=                               \
 	-Wl,--allow-undefined                  \
@@ -62,8 +61,7 @@ SOURCES =           \
 	src/entropy/env.c \
 	src/entropy/hw.c  \
 	src/entropy/sys.c \
-	src/rand.c        \
-	src/rng.c
+	src/rand.c
 
 all: torsion.wasm tests.wasm
 

@@ -160,8 +160,8 @@ static const unsigned long __torsion_endian_check TORSION_UNUSED = 1;
 #endif
 
 /* Detect inline ASM support for x86-64. */
-#if defined(__EMSCRIPTEN__) || defined(__wasm__) || defined(_WIN32)
-/* No inline ASM support for emscripten/wasm/win32. */
+#if defined(__EMSCRIPTEN__) || defined(__wasm__)
+/* No inline ASM support for emscripten/wasm. */
 #elif TORSION_GNUC_PREREQ(3, 2)
 #  if defined(__amd64__) || defined(__x86_64__)
 #    define TORSION_HAVE_ASM_X64

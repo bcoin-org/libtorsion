@@ -79,11 +79,8 @@ noinst_HEADERS = src/asn1.h                         \
                  test/testutil.h
 
 if ENABLE_RNG
-include_HEADERS += include/torsion/rng.h
-noinst_HEADERS += src/entropy/entropy.h
-if ENABLE_RAND
 include_HEADERS += include/torsion/rand.h
-endif
+noinst_HEADERS += src/entropy/entropy.h
 endif
 
 torsion_sources = src/aead.c      \
@@ -110,9 +107,6 @@ torsion_sources += src/entropy/env.c
 torsion_sources += src/entropy/hw.c
 torsion_sources += src/entropy/sys.c
 torsion_sources += src/rand.c
-if ENABLE_RAND
-torsion_sources += src/rng.c
-endif
 endif
 
 CLEANFILES =
@@ -158,10 +152,16 @@ tests_LDFLAGS = -static
 tests_SOURCES = test/test.c test/os.c
 tests_LDADD = libtorsion.la
 if LINUX
-tests_CFLAGS += -lpthread
+tests_LDADD += -lpthread
 endif
 if DARWIN
-tests_CFLAGS += -lpthread
+tests_LDADD += -lpthread
+endif
+if FREEBSD
+tests_LDADD += -lpthread
+endif
+if CYGWIN
+tests_LDADD += -lpthread
 endif
 endif
 

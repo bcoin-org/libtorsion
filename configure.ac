@@ -58,11 +58,6 @@ AC_ARG_ENABLE(rng,
   [enable_rng=$enableval],
   [enable_rng=yes])
 
-AC_ARG_ENABLE(rand,
-  AS_HELP_STRING([--enable-rand],[enable global rng [default=yes]]),
-  [enable_rand=$enableval],
-  [enable_rand=yes])
-
 AC_ARG_ENABLE(tests,
   AS_HELP_STRING([--enable-tests],[enable tests [default=yes]]),
   [enable_tests=$enableval],
@@ -107,9 +102,6 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <stdint.h>]],[[
 #if !defined(__amd64__) && !defined(__x86_64__)
 #  error "not an x64 platform"
 #endif
-#if defined(__CYGWIN__) || defined(__MINGW32__)
-#  error "no asm on unix lookalikes"
-#endif
   uint32_t stream[8], state[8];
   __asm__ __volatile__(
     "movups (%%rsi), %%xmm0\n"
@@ -135,6 +127,21 @@ r *= 113;
 r >>= 65;
 ]])],[has_int128=yes],[has_int128=no])
 AC_MSG_RESULT([$has_int128])
+
+AC_MSG_CHECKING(for tls support)
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#if defined(__EMSCRIPTEN__) || defined(__wasm__)
+#  define TLS
+#elif defined(_WIN32) && !defined(__MINGW32__)
+#  define TLS __declspec(thread)
+#else
+#  define TLS __thread
+#endif
+static TLS int value;
+]],[[
+value = 0;
+]])],[has_tls=yes],[has_tls=no])
+AC_MSG_RESULT([$has_tls])
 
 AC_CHECK_HEADER([valgrind/memcheck.h], [has_valgrind=yes], [has_valgrind=no], [])
 
@@ -178,11 +185,6 @@ fi
 
 if test x"$enable_rng" = x"yes"; then
   AC_DEFINE(TORSION_HAVE_RNG)
-  if test x"$enable_rand" = x"yes"; then
-    AC_DEFINE(TORSION_HAVE_RAND)
-  fi
-else
-  enable_rand=no
 fi
 
 if test x"$enable_tests" = x"yes"; then
@@ -190,6 +192,10 @@ if test x"$enable_tests" = x"yes"; then
     CC_CHECK_CFLAGS_APPEND([-g])
   fi
   AC_DEFINE(TORSION_TEST)
+fi
+
+if test x"$has_tls" = x"yes"; then
+  AC_DEFINE(TORSION_HAVE_TLS)
 fi
 
 if test x"$enable_verify" = x"yes"; then
@@ -200,13 +206,27 @@ if test x"$enable_verify" = x"yes"; then
 fi
 
 AM_CONDITIONAL([ENABLE_RNG], [test x"$enable_rng" = x"yes"])
-AM_CONDITIONAL([ENABLE_RAND], [test x"$enable_rand" = x"yes"])
 AM_CONDITIONAL([ENABLE_TESTS], [test x"$enable_tests" = x"yes"])
 AM_CONDITIONAL([ENABLE_CTIME], [test x"$enable_ctime" = x"yes"])
 AM_CONDITIONAL([EMSCRIPTEN], [test x"$EMSCRIPTEN" != x""])
 
-AM_CONDITIONAL([DARWIN], [AS_CASE([$host_os],[darwin*], [true], [false])])
-AM_CONDITIONAL([LINUX], [AS_CASE([$host_os],[linux*], [true], [false])])
+dnl Taken from libuv, in case we need them.
+AM_CONDITIONAL([AIX],      [AS_CASE([$host_os],[aix*],          [true], [false])])
+AM_CONDITIONAL([ANDROID],  [AS_CASE([$host_os],[linux-android*],[true], [false])])
+AM_CONDITIONAL([CYGWIN],   [AS_CASE([$host_os],[cygwin*],       [true], [false])])
+AM_CONDITIONAL([DARWIN],   [AS_CASE([$host_os],[darwin*],       [true], [false])])
+AM_CONDITIONAL([DRAGONFLY],[AS_CASE([$host_os],[dragonfly*],    [true], [false])])
+AM_CONDITIONAL([FREEBSD],  [AS_CASE([$host_os],[*freebsd*],     [true], [false])])
+AM_CONDITIONAL([HAIKU],    [AS_CASE([$host_os],[haiku],         [true], [false])])
+AM_CONDITIONAL([HURD],     [AS_CASE([$host_os],[gnu*],          [true], [false])])
+AM_CONDITIONAL([LINUX],    [AS_CASE([$host_os],[linux*],        [true], [false])])
+AM_CONDITIONAL([MSYS],     [AS_CASE([$host_os],[msys*],         [true], [false])])
+AM_CONDITIONAL([NETBSD],   [AS_CASE([$host_os],[netbsd*],       [true], [false])])
+AM_CONDITIONAL([OPENBSD],  [AS_CASE([$host_os],[openbsd*],      [true], [false])])
+AM_CONDITIONAL([OS390],    [AS_CASE([$host_os],[openedition*],  [true], [false])])
+AM_CONDITIONAL([OS400],    [AS_CASE([$host_os],[os400],         [true], [false])])
+AM_CONDITIONAL([SUNOS],    [AS_CASE([$host_os],[solaris*],      [true], [false])])
+AM_CONDITIONAL([WINNT],    [AS_CASE([$host_os],[mingw*],        [true], [false])])
 
 m4_ifdef([AM_PROG_AR], [AM_PROG_AR])
 AC_PROG_LIBTOOL
@@ -227,8 +247,8 @@ echo "  emscripten   = $EMSCRIPTEN"
 echo "  int128       = $enable_int128 (support=$has_int128)"
 echo "  libsecp256k1 = $enable_libsecp256k1"
 echo "  rng          = $enable_rng"
-echo "  rand         = $enable_rand"
 echo "  tests        = $enable_tests"
+echo "  tls          = $has_tls"
 echo "  verify       = $enable_verify"
 echo ""
 echo "  CC           = $CC"

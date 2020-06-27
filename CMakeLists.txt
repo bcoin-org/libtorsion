@@ -20,7 +20,6 @@ option(TORSION_ENABLE_CRT "Enable chinese remainder theorem for RSA" OFF)
 option(TORSION_ENABLE_CTIME "Enable valgrind constant-time test" OFF)
 option(TORSION_ENABLE_LIBSECP256K1 "Enable libsecp256k1 field element backend" OFF)
 option(TORSION_ENABLE_RNG "Enable RNG" ON)
-option(TORSION_ENABLE_RAND "Enable global RNG" ON)
 option(TORSION_ENABLE_TESTS "Enable tests" ON)
 option(TORSION_ENABLE_VERIFY "Enable scalar bounds checks" OFF)
 
@@ -78,9 +77,6 @@ check_c_source_compiles("
 #if !defined(__amd64__) && !defined(__x86_64__)
 #  error \"not an x64 platform\"
 #endif
-#if defined(__CYGWIN__) || defined(__MINGW32__)
-#  error \"no asm on unix lookalikes\"
-#endif
 int main(void) {
   uint32_t stream[8], state[8];
   __asm__ __volatile__(
@@ -108,6 +104,21 @@ int main(void) {
   return r & 1;
 }
 " TORSION_HAS_INT128)
+
+check_c_source_compiles("
+#if defined(__EMSCRIPTEN__) || defined(__wasm__)
+#  define TLS
+#elif defined(_WIN32) && !defined(__MINGW32__)
+#  define TLS __declspec(thread)
+#else
+#  define TLS __thread
+#endif
+static TLS int value;
+int main(void) {
+  value = 1;
+  return 0;
+}
+" TORSION_HAS_TLS)
 
 check_include_file(valgrind/memcheck.h TORSION_HAS_VALGRIND)
 
@@ -144,9 +155,6 @@ endif()
 
 if(TORSION_ENABLE_RNG)
   list(APPEND torsion_defines TORSION_HAVE_RNG)
-  if(TORSION_ENABLE_RAND)
-    list(APPEND torsion_defines TORSION_HAVE_RAND)
-  endif()
 endif()
 
 if(TORSION_ENABLE_TESTS)
@@ -154,6 +162,10 @@ if(TORSION_ENABLE_TESTS)
   if(TORSION_HAS_G AND NOT EMSCRIPTEN)
     list(APPEND torsion_cflags -g)
   endif()
+endif()
+
+if(TORSION_HAS_TLS)
+  list(APPEND torsion_defines TORSION_HAVE_TLS)
 endif()
 
 if(TORSION_ENABLE_VERIFY)
@@ -241,9 +253,6 @@ if(TORSION_ENABLE_RNG)
   list(APPEND torsion_sources src/entropy/hw.c)
   list(APPEND torsion_sources src/entropy/sys.c)
   list(APPEND torsion_sources src/rand.c)
-  if(TORSION_ENABLE_RAND)
-    list(APPEND torsion_sources src/rng.c)
-  endif()
 endif()
 
 if(EMSCRIPTEN)
@@ -298,7 +307,7 @@ else()
     # See: https://stackoverflow.com/questions/38492087
     if(WIN32)
       target_link_libraries(tests torsion_a)
-    elseif(APPLE OR CMAKE_SYSTEM_NAME MATCHES "Linux")
+    elseif(APPLE OR CYGWIN OR CMAKE_SYSTEM_NAME MATCHES "Linux|FreeBSD")
       target_link_libraries(tests torsion pthread)
     else()
       target_link_libraries(tests torsion)

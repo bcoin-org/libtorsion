@@ -1,15 +1,16 @@
 #ifndef _TORSION_OS_H
 #define _TORSION_OS_H
 
-#if defined(TORSION_HAVE_RNG) && defined(TORSION_TEST)
-#  if defined(__CloudABI__) || defined(__EMSCRIPTEN__) || defined(__wasm__)
+#ifdef TORSION_HAVE_RNG
+#  if defined(__EMSCRIPTEN__) || defined(__wasm__)
 /* Nothing. */
 #  elif defined(_WIN32)
 #    define TORSION_HAVE_THREADS
-#    define TORSION_HAVE_WINTHREAD
-#  elif defined(__linux__) || defined(__APPLE__)
+#  elif defined(__linux__) || defined(__APPLE__) \
+     || defined(__FreeBSD__) || defined(__CYGWIN__)
 #    define TORSION_HAVE_THREADS
 #    define TORSION_HAVE_PTHREAD
+#    define TORSION_HAVE_FORK
 #  endif
 #endif
 
