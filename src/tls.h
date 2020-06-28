@@ -260,7 +260,7 @@
 #  if __WATCOMC__ >= 1200 /* 12.0 */
 #    define TORSION_TLS_MSVC
 #  endif
-#elif defined(__DCC__)
+#elif defined(__DCC__) && defined(__VERSION_NUMBER__)
 #  if __VERSION_NUMBER__ >= 5600 /* 5.6 */
 #    define TORSION_TLS_GNUC
 #  endif
@@ -307,7 +307,7 @@
 #      define TORSION_TLS_GNUC
 #    endif
 #  endif
-#elif defined(__CC_ARM)
+#elif defined(__CC_ARM) && defined(__ARMCC_VERSION)
 /* Newer ARM CC versions are based on clang and should be caught above. */
 #  if __ARMCC_VERSION >= 510000 /* 5.1 */
 #    define TORSION_TLS_BOTH

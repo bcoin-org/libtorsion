@@ -121,50 +121,19 @@ static const unsigned long __torsion_endian_check TORSION_UNUSED = 1;
    Otherwise, auto configuration is useful if
    you're using an awful build system like gyp. */
 
-/* Detect arch word size. */
-#if defined(__EMSCRIPTEN__) || defined(__wasm__)
-/* WASM runs faster with 32 bit code. */
-#else
-#  if defined(__amd64__)      \
-   || defined(__amd64)        \
-   || defined(__x86_64__)     \
-   || defined(__x86_64)       \
-   || defined(_M_X64)         \
-   || defined(_M_AMD64)       \
-   || defined(__aarch64__)    \
-   || defined(_M_ARM64)       \
-   || defined(__ia64__)       \
-   || defined(_IA64)          \
-   || defined(__IA64__)       \
-   || defined(__ia64)         \
-   || defined(_M_IA64)        \
-   || ((defined(__mips__)     \
-     || defined(__mips)       \
-     || defined(__MIPS__))    \
-     && defined(_MIPS_SZLONG) \
-     && _MIPS_SZLONG == 64)   \
-   || ((defined(__powerpc)    \
-     || defined(__powerpc__)  \
-     || defined(__POWERPC__)  \
-     || defined(__ppc__)      \
-     || defined(__PPC__)      \
-     || defined(_M_PPC)       \
-     || defined(_ARCH_PPC))   \
-     && defined(__64BIT__))   \
-   || defined(__powerpc64__)  \
-   || defined(__ppc64__)      \
-   || defined(__PPC64__)      \
-   || defined(_ARCH_PPC64)    \
-   || defined(__sparc_v9__)   \
-   || defined(__sparcv9)
-#    define TORSION_HAVE_64BIT
-#  endif
-#endif
-
 /* Detect inline ASM support for x86-64. */
 #if defined(__EMSCRIPTEN__) || defined(__wasm__)
 /* No inline ASM support for emscripten/wasm. */
-#elif TORSION_GNUC_PREREQ(3, 2)
+#elif TORSION_GNUC_PREREQ(4, 0)
+/* GCC inline assembly has been documented as
+ * far back as 2.95[1]. It appears in the GCC
+ * codebase as early as 2.0. However, early
+ * implementations may not have the features
+ * we require, so to be practical, we require
+ * GNUC version 4.0.
+ *
+ * [1] https://gcc.gnu.org/onlinedocs/gcc-2.95.3/gcc_4.html#SEC93
+ */
 #  if defined(__amd64__) || defined(__x86_64__)
 #    define TORSION_HAVE_ASM_X64
 #  endif
@@ -172,25 +141,27 @@ static const unsigned long __torsion_endian_check TORSION_UNUSED = 1;
 
 /* Detect __int128 support. */
 #if defined(__EMSCRIPTEN__) || defined(__wasm__)
-/* According to libsodium[1], __int128 is broken in
- * emscripten/wasm builds. This check shouldn't really
- * matter all that much since we ignore int128 support
- * for 32 bit targets anyway.
+/* According to libsodium[1][2], __int128 is
+ * currently broken in emscripten/wasm builds.
  *
- * [1] https://github.com/jedisct1/libsodium/blob/master/configure.ac
+ * [1] https://github.com/jedisct1/libsodium/blob/8360706/configure.ac#L685
+ * [2] https://github.com/jedisct1/libsodium/commit/fff87d5
  */
 #else
-/* According to this SO post[1], __int128 is supported
- * since GCC 4.6 and Clang 3.1. However, a quick look at
- * godbolt suggests Clang only gained support in 3.6. Note
- * that ICC has supported __int128 since 13.0, but didn't
- * define `__SIZEOF_INT128__` until 16.0. All three of the
- * aforementioned compilers define `__GNUC__` (and have
- * since... forever?).
+/* Support for __int128 (verified on godbolt):
  *
- * [1] https://stackoverflow.com/a/54815033
+ *   x86-64:
+ *     gcc 4.6.4 (gnuc 4.6)
+ *     clang 3.1 (gnuc 4.2) (__SIZEOF_INT128__ defined in 3.3)
+ *     icc <=13.0.1 (gnuc 4.7) (__SIZEOF_INT128__ defined in 16.0.3)
+ *
+ *   arm64:
+ *     gcc <=5.4.0 (gnuc 5.4)
+ *     clang <=9.0 (gnuc 4.2)
+ *
+ * See: https://stackoverflow.com/a/54815033
  */
-#  ifdef TORSION_HAVE_64BIT
+#  if defined(__amd64__) || defined(__x86_64__)
 #    if defined(__GNUC__) && defined(__SIZEOF_INT128__)
 #      define TORSION_HAVE_INT128
 #    endif
@@ -199,7 +170,6 @@ static const unsigned long __torsion_endian_check TORSION_UNUSED = 1;
 
 /* Allow some overrides (for testing). */
 #ifdef TORSION_FORCE_32BIT
-#  undef TORSION_HAVE_64BIT
 #  undef TORSION_HAVE_ASM_X64
 #  undef TORSION_HAVE_INT128
 #endif

@@ -5,6 +5,7 @@ AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_SRCDIR([include/torsion/ecc.h])
 m4_include([m4/attributes.m4])
 m4_include([m4/as_case.m4])
+m4_include([m4/ax_pthread.m4])
 AM_INIT_AUTOMAKE([foreign subdir-objects])
 : ${CFLAGS=""}
 AC_CANONICAL_HOST
@@ -63,6 +64,11 @@ AC_ARG_ENABLE(tests,
   [enable_tests=$enableval],
   [enable_tests=yes])
 
+AC_ARG_ENABLE(tls,
+  AS_HELP_STRING([--enable-tls],[enable tls [default=yes]]),
+  [enable_tls=$enableval],
+  [enable_tls=yes])
+
 AC_ARG_ENABLE(verify,
   AS_HELP_STRING([--enable-verify],[enable scalar bounds checks [default=no]]),
   [enable_verify=$enableval],
@@ -93,8 +99,8 @@ CC_CHECK_CFLAGS_APPEND([-O3])
 
 AC_MSG_CHECKING(for 64 bit support)
 AS_CASE([$host_cpu],
-  [aarch64*|ia64|mips64*|ppc64*|sparc64|x86_64], [has_64bit=yes],
-  [*], [has_64bit=no])
+  [aarch64*|ia64|mips64*|ppc64*|sparc64|x86_64],
+  [has_64bit=yes], [has_64bit=no])
 AC_MSG_RESULT([$has_64bit])
 
 AC_MSG_CHECKING(for x86_64 inline asm support)
@@ -139,7 +145,7 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
 #endif
 static TLS int value;
 ]],[[
-value = 0;
+value = 1;
 ]])],[has_tls=yes],[has_tls=no])
 AC_MSG_RESULT([$has_tls])
 
@@ -155,7 +161,6 @@ if test x"$EMSCRIPTEN" != x""; then
 fi
 
 if test x"$enable_64bit" = x"yes" -a x"$has_64bit" = x"yes"; then
-  AC_DEFINE(TORSION_HAVE_64BIT)
   if test x"$enable_asm" = x"yes" -a x"$has_asm" = x"yes"; then
     AC_DEFINE(TORSION_HAVE_ASM_X64)
   fi
@@ -194,8 +199,11 @@ if test x"$enable_tests" = x"yes"; then
   AC_DEFINE(TORSION_TEST)
 fi
 
-if test x"$has_tls" = x"yes"; then
+use_tls=no
+
+if test x"$enable_tls" = x"yes" -a x"$has_tls" = x"yes"; then
   AC_DEFINE(TORSION_HAVE_TLS)
+  use_tls=yes
 fi
 
 if test x"$enable_verify" = x"yes"; then
@@ -205,28 +213,18 @@ if test x"$enable_verify" = x"yes"; then
   AC_DEFINE(TORSION_VERIFY)
 fi
 
+if test x"$EMSCRIPTEN" = x""; then
+  AX_PTHREAD
+fi
+
+AC_SUBST(PTHREAD_CFLAGS)
+AC_SUBST(PTHREAD_LIBS)
+
 AM_CONDITIONAL([ENABLE_RNG], [test x"$enable_rng" = x"yes"])
 AM_CONDITIONAL([ENABLE_TESTS], [test x"$enable_tests" = x"yes"])
 AM_CONDITIONAL([ENABLE_CTIME], [test x"$enable_ctime" = x"yes"])
 AM_CONDITIONAL([EMSCRIPTEN], [test x"$EMSCRIPTEN" != x""])
-
-dnl Taken from libuv, in case we need them.
-AM_CONDITIONAL([AIX],      [AS_CASE([$host_os],[aix*],          [true], [false])])
-AM_CONDITIONAL([ANDROID],  [AS_CASE([$host_os],[linux-android*],[true], [false])])
-AM_CONDITIONAL([CYGWIN],   [AS_CASE([$host_os],[cygwin*],       [true], [false])])
-AM_CONDITIONAL([DARWIN],   [AS_CASE([$host_os],[darwin*],       [true], [false])])
-AM_CONDITIONAL([DRAGONFLY],[AS_CASE([$host_os],[dragonfly*],    [true], [false])])
-AM_CONDITIONAL([FREEBSD],  [AS_CASE([$host_os],[*freebsd*],     [true], [false])])
-AM_CONDITIONAL([HAIKU],    [AS_CASE([$host_os],[haiku],         [true], [false])])
-AM_CONDITIONAL([HURD],     [AS_CASE([$host_os],[gnu*],          [true], [false])])
-AM_CONDITIONAL([LINUX],    [AS_CASE([$host_os],[linux*],        [true], [false])])
-AM_CONDITIONAL([MSYS],     [AS_CASE([$host_os],[msys*],         [true], [false])])
-AM_CONDITIONAL([NETBSD],   [AS_CASE([$host_os],[netbsd*],       [true], [false])])
-AM_CONDITIONAL([OPENBSD],  [AS_CASE([$host_os],[openbsd*],      [true], [false])])
-AM_CONDITIONAL([OS390],    [AS_CASE([$host_os],[openedition*],  [true], [false])])
-AM_CONDITIONAL([OS400],    [AS_CASE([$host_os],[os400],         [true], [false])])
-AM_CONDITIONAL([SUNOS],    [AS_CASE([$host_os],[solaris*],      [true], [false])])
-AM_CONDITIONAL([WINNT],    [AS_CASE([$host_os],[mingw*],        [true], [false])])
+AM_CONDITIONAL([USE_TLS], [test x"$use_tls" = x"yes"])
 
 m4_ifdef([AM_PROG_AR], [AM_PROG_AR])
 AC_PROG_LIBTOOL
@@ -248,7 +246,7 @@ echo "  int128       = $enable_int128 (support=$has_int128)"
 echo "  libsecp256k1 = $enable_libsecp256k1"
 echo "  rng          = $enable_rng"
 echo "  tests        = $enable_tests"
-echo "  tls          = $has_tls"
+echo "  tls          = $enable_tls (support=$has_tls)"
 echo "  verify       = $enable_verify"
 echo ""
 echo "  CC           = $CC"
