@@ -6,6 +6,9 @@
 /* No threads support. */
 #  elif defined(_WIN32)
 #    define TORSION_HAVE_THREADS
+#  elif defined(TORSION_HAVE_PTHREAD)
+#    define TORSION_HAVE_THREADS
+#    define TORSION_HAVE_FORK
 #  elif (defined(__unix) || defined(__unix__))    \
      || (defined(__APPLE__) && defined(__MACH__))
 #    ifdef _REENTRANT

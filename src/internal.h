@@ -124,7 +124,7 @@ static const unsigned long __torsion_endian_check TORSION_UNUSED = 1;
 /* Detect inline ASM support for x86-64. */
 #if defined(__EMSCRIPTEN__) || defined(__wasm__)
 /* No inline ASM support for emscripten/wasm. */
-#elif TORSION_GNUC_PREREQ(4, 0)
+#else
 /* GCC inline assembly has been documented as
  * far back as 2.95[1]. It appears in the GCC
  * codebase as early as 2.0. However, early
@@ -134,8 +134,10 @@ static const unsigned long __torsion_endian_check TORSION_UNUSED = 1;
  *
  * [1] https://gcc.gnu.org/onlinedocs/gcc-2.95.3/gcc_4.html#SEC93
  */
-#  if defined(__amd64__) || defined(__x86_64__)
-#    define TORSION_HAVE_ASM_X64
+#  if TORSION_GNUC_PREREQ(4, 0)
+#    if defined(__amd64__) || defined(__x86_64__)
+#      define TORSION_HAVE_ASM_X64
+#    endif
 #  endif
 #endif
 
@@ -161,8 +163,8 @@ static const unsigned long __torsion_endian_check TORSION_UNUSED = 1;
  *
  * See: https://stackoverflow.com/a/54815033
  */
-#  if defined(__amd64__) || defined(__x86_64__)
-#    if defined(__GNUC__) && defined(__SIZEOF_INT128__)
+#  if defined(__GNUC__) && defined(__SIZEOF_INT128__)
+#    if defined(__amd64__) || defined(__x86_64__)
 #      define TORSION_HAVE_INT128
 #    endif
 #  endif

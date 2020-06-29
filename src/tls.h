@@ -186,13 +186,14 @@
  *   - Apple Clang 5.0 (Xcode 5.0.0) included Real Clang 3.3[2] (no TLS[1]).
  *   - Apple Clang 8.0.0 (Xcode 8.0) included Real Clang 3.9.0[1][2].
  *   - Apple Clang 10.0.1 (Xcode 10.2) included Real Clang 7.0.0[2].
- *   - The minimum OSX version required must be >=10.7 for TLS[7].
- *   - The minimum iOS 64-bit version required must be >=8 for TLS[7].
- *   - The minimum iOS 32-bit version required must be >=9 for TLS[7].
- *   - The minimum iOS simulator version required must be >=10 for TLS[7].
- *
- * A useful SO answer points out that Apple Clang's
- * changes affect __has_extension(c_thread_local)[7].
+ *   - The minimum OSX version required must be >=10.7 for TLS[6].
+ *   - The minimum iOS 64-bit version required must be >=8 for TLS[6].
+ *   - The minimum iOS 32-bit version required must be >=9 for TLS[6].
+ *   - The minimum iOS simulator version required must be >=10 for TLS[6].
+ *   - The iOS requirements also apply to tvOS[6].
+ *   - The minimum watchOS version required must be >=2 for TLS[6].
+ *   - The minimum watchOS simulator version required must be >=3 for TLS[6].
+ *   - Apple Clang's changes affect __has_extension(c_thread_local)[7].
  *
  * [1] https://stackoverflow.com/a/29929949
  * [2] https://en.wikipedia.org/wiki/Xcode#Xcode_7.0_-_11.x_(since_Free_On-Device_Development)
@@ -229,15 +230,43 @@
 #  define __has_extension(x) 0
 #endif
 
-/* Some hackery to get apple versions. */
+/* Detect Apple version. */
 #if defined(__APPLE__) && defined(__MACH__)
-#  if defined(__ENVIRONMENT_IPHONE_OS_VERSION_MIN_REQUIRED__)
-/* Note: Clang serializes the short form version prior to 3.9.1. */
-#    if __ENVIRONMENT_IPHONE_OS_VERSION_MIN_REQUIRED__ >= 100000 /* 10.0 */
+/* Some hackery to get Apple versions: Compilers with
+ * Darwin targets pass in these defines as they are
+ * necessary for Apple's Availability.h. We can abuse
+ * this fact to avoid including the header (which may
+ * not be available on older Apple versions).
+ *
+ * OSX versions prior to 10.10 are formatted as VVRP.
+ * Everything else is formatted as VVRRPP.
+ */
+#  if defined(__APPLE_EMBEDDED_SIMULATOR__)
+#    define TORSION__IOS_VERSION 100000 /* 10.0 */
+#  elif defined(__x86_64__) || defined(__aarch64__)
+#    define TORSION__IOS_VERSION 80000 /* 8.0 */
+#  else
+#    define TORSION__IOS_VERSION 90000 /* 9.0 */
+#  endif
+#  if defined(__APPLE_EMBEDDED_SIMULATOR__)
+#    define TORSION__WOS_VERSION 30000 /* 3.0 */
+#  else
+#    define TORSION__WOS_VERSION 20000 /* 2.0 */
+#  endif
+#  if defined(__ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__)
+#    if __ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__ >= 1070 /* 10.7 */
 #      define TORSION__APPLE_OS
 #    endif
-#  elif defined(__ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__)
-#    if __ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__ >= 1070 /* 10.7 */
+#  elif defined(__ENVIRONMENT_IPHONE_OS_VERSION_MIN_REQUIRED__)
+#    if __ENVIRONMENT_IPHONE_OS_VERSION_MIN_REQUIRED__ >= TORSION__IOS_VERSION
+#      define TORSION__APPLE_OS
+#    endif
+#  elif defined(__ENVIRONMENT_TV_OS_VERSION_MIN_REQUIRED__)
+#    if __ENVIRONMENT_TV_OS_VERSION_MIN_REQUIRED__ >= TORSION__IOS_VERSION
+#      define TORSION__APPLE_OS
+#    endif
+#  elif defined(__ENVIRONMENT_WATCH_OS_VERSION_MIN_REQUIRED__)
+#    if __ENVIRONMENT_WATCH_OS_VERSION_MIN_REQUIRED__ >= TORSION__WOS_VERSION
 #      define TORSION__APPLE_OS
 #    endif
 #  endif
@@ -284,11 +313,7 @@
 #      define TORSION_TLS_GNUC
 #    endif
 #  elif __has_extension(c_thread_local)
-#    if defined(__APPLE__) && defined(__MACH__)
-#      ifdef TORSION__APPLE_OS
-#        define TORSION_TLS_GNUC
-#      endif
-#    elif defined(__ANDROID__)
+#    if defined(__ANDROID__)
 #      if ((__clang_major__ << 16) + __clang_minor__ >= 0x50000) /* 5.0 */
 #        define TORSION_TLS_GNUC
 #      endif
@@ -365,6 +390,28 @@
 #  define TORSION_TLS
 #endif
 
+/* Allow override (for testing). */
+#ifdef TORSION_NO_TLS
+#  undef TORSION_HAVE_TLS
+#endif
+
+/* Check for pthread if TLS is not supported. */
+#ifndef TORSION_HAVE_TLS
+#  if defined(__EMSCRIPTEN__) || defined(__wasm__)
+/* No threads support. */
+#  elif (defined(__unix) || defined(__unix__))    \
+     || (defined(__APPLE__) && defined(__MACH__))
+#    ifdef _REENTRANT
+#      define TORSION_HAVE_PTHREAD
+#    endif
+#  endif
+#endif
+
+/* Allow override (for testing). */
+#ifdef TORSION_NO_PTHREAD
+#  undef TORSION_HAVE_PTHREAD
+#endif
+
 #else /* TORSION_HAVE_CONFIG */
 
 /* Pick thread-local keyword. */
@@ -380,27 +427,11 @@
 #  define TORSION_TLS
 #endif
 
-#endif /* TORSION_HAVE_CONFIG */
-
-/* Configure fallback. */
-#ifndef TORSION_HAVE_TLS
-#  if defined(__EMSCRIPTEN__) || defined(__wasm__)
-/* No threads support. */
-#elif (defined(__unix) || defined(__unix__))    \
-   || (defined(__APPLE__) && defined(__MACH__))
-#    ifdef _REENTRANT
-#      define TORSION_HAVE_PTHREAD
-#    endif
-#  endif
-#endif
-
-/* Allow some overrides (for testing). */
-#ifdef TORSION_NO_TLS
-#  undef TORSION_HAVE_TLS
-#endif
-
-#ifdef TORSION_NO_PTHREAD
+/* These are mutually exclusive. */
+#ifdef TORSION_HAVE_TLS
 #  undef TORSION_HAVE_PTHREAD
 #endif
+
+#endif /* TORSION_HAVE_CONFIG */
 
 #endif /* _TORSION_TLS_H */

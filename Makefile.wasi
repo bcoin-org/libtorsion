@@ -1,69 +1,58 @@
 SDK ?= /opt/wasi-sdk
-CC = $(SDK)/bin/clang
-SYSROOT = $(SDK)/share/wasi-sysroot
+CC := $(SDK)/bin/clang
+SYSROOT := $(SDK)/share/wasi-sysroot
 TARGET = wasm32-wasi
 INITIAL_MEMORY ?= 16777216
 MAX_MEMORY ?= 2147483648
 STACK_SIZE ?= 5242880
+ENABLE_RNG ?= 1
 
-CFLAGS :=                   \
-	--target=$(TARGET)        \
-	--sysroot=$(SYSROOT)      \
-	-flto                     \
-	-std=gnu11                \
-	-Wall                     \
-	-Wextra                   \
-	-Wcast-align              \
-	-Wno-implicit-fallthrough \
-	-Wshadow                  \
-	-I./include               \
-	-O3
+COMMON_CFLAGS := --target=$(TARGET)        \
+                 --sysroot=$(SYSROOT)      \
+                 -flto                     \
+                 -std=gnu11                \
+                 -Wall                     \
+                 -Wextra                   \
+                 -Wcast-align              \
+                 -Wno-implicit-fallthrough \
+                 -Wshadow                  \
+                 -I./include               \
+                 -O3
 
-BUILDFLAGS =          \
-	-DTORSION_BUILD     \
-	-DTORSION_NO_ASSERT
+COMMON_LDFLAGS := -Wl,--allow-undefined                  \
+                  -Wl,--strip-debug                      \
+                  -Wl,--gc-sections                      \
+                  -Wl,--initial-memory=$(INITIAL_MEMORY) \
+                  -Wl,--max-memory=$(MAX_MEMORY)         \
+                  -Wl,-z -Wl,stack-size=$(STACK_SIZE)    \
+                  -Wl,--lto-O3                           \
+                  -Wl,-O3
 
-TESTFLAGS =           \
-	-DTORSION_TEST      \
-	-DTORSION_HAVE_RNG
+COMMON_SOURCES = src/aead.c      \
+                 src/asn1.c      \
+                 src/chacha20.c  \
+                 src/cipher.c    \
+                 src/ecc.c       \
+                 src/encoding.c  \
+                 src/drbg.c      \
+                 src/dsa.c       \
+                 src/hash.c      \
+                 src/internal.c  \
+                 src/kdf.c       \
+                 src/mpi.c       \
+                 src/poly1305.c  \
+                 src/rsa.c       \
+                 src/salsa20.c   \
+                 src/secretbox.c \
+                 src/siphash.c   \
+                 src/util.c
 
-LDFLAGS :=                               \
-	-Wl,--allow-undefined                  \
-	-Wl,--strip-debug                      \
-	-Wl,--gc-sections                      \
-	-Wl,--initial-memory=$(INITIAL_MEMORY) \
-	-Wl,--max-memory=$(MAX_MEMORY)         \
-	-Wl,-z -Wl,stack-size=$(STACK_SIZE)    \
-	-Wl,--lto-O3                           \
-	-Wl,-O3
-
-LIBFLAGS := $(LDFLAGS) -Wl,--export-all
-
-SOURCES =           \
-	src/aead.c        \
-	src/asn1.c        \
-	src/chacha20.c    \
-	src/cipher.c      \
-	src/ecc.c         \
-	src/encoding.c    \
-	src/drbg.c        \
-	src/dsa.c         \
-	src/hash.c        \
-	src/internal.c    \
-	src/kdf.c         \
-	src/mpi.c         \
-	src/poly1305.c    \
-	src/rsa.c         \
-	src/salsa20.c     \
-	src/secretbox.c   \
-	src/siphash.c     \
-	src/util.c        \
-	src/entropy/env.c \
-	src/entropy/hw.c  \
-	src/entropy/sys.c \
-	src/rand.c
-
-all: torsion.wasm tests.wasm
+ifeq ($(ENABLE_RNG), 1)
+COMMON_SOURCES += src/entropy/env.c \
+                  src/entropy/hw.c  \
+                  src/entropy/sys.c \
+                  src/rand.c
+endif
 
 # Note: We have to add an empty main function
 # and link our _initialize function manually
@@ -75,16 +64,32 @@ all: torsion.wasm tests.wasm
 # See: https://github.com/llvm/llvm-project/commit/d496437
 #      https://reviews.llvm.org/D62922
 
-torsion.wasm: $(SOURCES) etc/crt1-reactor.c etc/main.c
-	$(CC) -o $@ $(CFLAGS) $(BUILDFLAGS) $(LIBFLAGS) $^
+LIB_SOURCES := $(COMMON_SOURCES) etc/crt1-reactor.c etc/main.c
+LIB_CFLAGS := $(COMMON_CFLAGS) -DTORSION_BUILD -DTORSION_NO_ASSERT $(CFLAGS)
+LIB_LDFLAGS := $(COMMON_LDFLAGS) -Wl,--export-all
 
-tests.wasm: $(SOURCES) test/test.c test/os.c
-	$(CC) -o $@ $(CFLAGS) $(TESTFLAGS) $(LDFLAGS) $^
+TEST_SOURCES := $(COMMON_SOURCES) test/os.c test/test.c
+TEST_CFLAGS := $(COMMON_CFLAGS) -DTORSION_TEST $(CFLAGS)
+TEST_LDFLAGS := $(COMMON_LDFLAGS)
+
+ifeq ($(ENABLE_RNG), 1)
+TEST_CFLAGS += -DTORSION_HAVE_RNG
+endif
+
+OUTPUT = torsion.wasm tests.wasm
+
+all: $(OUTPUT)
+
+torsion.wasm: $(LIB_SOURCES)
+	$(CC) -o $@ $(LIB_CFLAGS) $(LIB_LDFLAGS) $^
+
+tests.wasm: $(TEST_SOURCES)
+	$(CC) -o $@ $(TEST_CFLAGS) $(TEST_LDFLAGS) $^
 
 test: tests.wasm
-	./scripts/run-wasi.sh $^
+	@./scripts/run-wasi.sh $^
 
 clean:
-	rm -f torsion.wasm tests.wasm
+	rm -f $(OUTPUT)
 
-.PHONY: all clean
+.PHONY: all test clean

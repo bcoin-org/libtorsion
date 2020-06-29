@@ -39,6 +39,11 @@ AC_ARG_ENABLE(assert,
   [enable_assert=$enableval],
   [enable_assert=yes])
 
+AC_ARG_ENABLE(coverage,
+  AS_HELP_STRING([--enable-coverage],[enable coverage [default=no]]),
+  [enable_coverage=$enableval],
+  [enable_coverage=no])
+
 AC_ARG_ENABLE(crt,
   AS_HELP_STRING([--enable-crt],[enable chinese remainder theorem for RSA [default=no]]),
   [enable_crt=$enableval],
@@ -173,6 +178,11 @@ if test x"$enable_assert" != x"yes"; then
   AC_DEFINE(TORSION_NO_ASSERT)
 fi
 
+if test x"$enable_coverage" = x"yes"; then
+  CFLAGS="$CFLAGS --coverage"
+  LDFLAGS="$LDFLAGS --coverage"
+fi
+
 if test x"$enable_crt" = x"yes"; then
   AC_DEFINE(TORSION_USE_CRT)
 fi
@@ -214,7 +224,9 @@ if test x"$enable_verify" = x"yes"; then
 fi
 
 if test x"$EMSCRIPTEN" = x""; then
-  AX_PTHREAD
+  AX_PTHREAD([
+    PTHREAD_CFLAGS="$PTHREAD_CFLAGS -DTORSION_HAVE_PTHREAD"
+  ])
 fi
 
 AC_SUBST(PTHREAD_CFLAGS)
@@ -239,6 +251,7 @@ echo ""
 echo "  64bit        = $enable_64bit (support=$has_64bit)"
 echo "  asm          = $enable_asm (support=$has_asm)"
 echo "  assert       = $enable_assert"
+echo "  coverage     = $enable_coverage"
 echo "  crt          = $enable_crt"
 echo "  ctime        = $enable_ctime"
 echo "  emscripten   = $EMSCRIPTEN"

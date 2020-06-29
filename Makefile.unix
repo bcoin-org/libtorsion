@@ -1,0 +1,116 @@
+PREFIX ?= /usr/local
+ENABLE_RNG ?= 1
+ENABLE_TLS ?= 1
+
+COMMON_CFLAGS = -std=c89                         \
+                -pedantic                        \
+                -Wall                            \
+                -Wextra                          \
+                -Wcast-align                     \
+                -Wno-declaration-after-statement \
+                -Wno-implicit-fallthrough        \
+                -Wno-long-long                   \
+                -Wno-overlength-strings          \
+                -Wshadow                         \
+                -I./include                      \
+                -O3
+
+LIB_SOURCES = src/aead.c      \
+              src/asn1.c      \
+              src/chacha20.c  \
+              src/cipher.c    \
+              src/ecc.c       \
+              src/encoding.c  \
+              src/drbg.c      \
+              src/dsa.c       \
+              src/hash.c      \
+              src/internal.c  \
+              src/kdf.c       \
+              src/mpi.c       \
+              src/poly1305.c  \
+              src/rsa.c       \
+              src/salsa20.c   \
+              src/secretbox.c \
+              src/siphash.c   \
+              src/util.c
+
+ifeq ($(ENABLE_RNG), 1)
+LIB_SOURCES += src/entropy/env.c \
+               src/entropy/hw.c  \
+               src/entropy/sys.c \
+               src/rand.c
+endif
+
+LIB_OBJECTS := $(subst .c,.o,$(LIB_SOURCES))
+LIB_CFLAGS := $(COMMON_CFLAGS) -DTORSION_BUILD -DTORSION_TEST $(CFLAGS)
+LIB_LIBS =
+
+ifeq ($(ENABLE_RNG), 1)
+ifneq ($(ENABLE_TLS), 1)
+LIB_CFLAGS += -DTORSION_NO_TLS
+LIB_CFLAGS += -D_REENTRANT
+LIB_LIBS += -lpthread
+endif
+endif
+
+TEST_SOURCES = test/os.c test/test.c
+TEST_CFLAGS := $(COMMON_CFLAGS) -DTORSION_TEST $(CFLAGS)
+TEST_LIBS_SO = -L. -ltorsion
+TEST_LIBS_A = -L. -Wl,-Bstatic -ltorsion -Wl,-Bdynamic
+
+ifeq ($(ENABLE_RNG), 1)
+TEST_CFLAGS += -DTORSION_HAVE_RNG
+TEST_CFLAGS += -D_REENTRANT
+TEST_LIBS_SO += -lpthread
+TEST_LIBS_A += -lpthread
+endif
+
+OUTPUT = libtorsion.so libtorsion.a libtorsion.pc tests tests_a
+
+all: $(OUTPUT)
+
+%.o: %.c
+	$(CC) -o $@ -c -fPIC $(LIB_CFLAGS) $<
+
+libtorsion.so: $(LIB_OBJECTS)
+	$(CC) -o $@ -shared -fPIC $^ $(LIB_LIBS)
+
+libtorsion.a: $(LIB_OBJECTS)
+	$(AR) rcs $@ $^
+
+tests: libtorsion.so $(TEST_SOURCES)
+	$(CC) -o $@ $(TEST_CFLAGS) $(TEST_SOURCES) $(TEST_LIBS_SO)
+
+tests_a: libtorsion.a $(TEST_SOURCES)
+	$(CC) -o $@ $(TEST_CFLAGS) $(TEST_SOURCES) $(TEST_LIBS_A)
+
+libtorsion.pc:
+	cp -f libtorsion.pc.in libtorsion.pc
+	sed -i 's;@prefix@;$(PREFIX);g' libtorsion.pc
+	sed -i 's;@libdir@;$${exec_prefix}/lib;g' libtorsion.pc
+	sed -i 's;@includedir@;$${exec_prefix}/include;g' libtorsion.pc
+	sed -i 's;@PACKAGE_VERSION@;0.0.0;g' libtorsion.pc
+	sed -i 's;@LIBS@;$(LIB_LIBS);g' libtorsion.pc
+
+install: $(OUTPUT)
+	install -d $(DESTDIR)$(PREFIX)/include/torsion
+	install -d $(DESTDIR)$(PREFIX)/lib/pkgconfig
+	install -d $(DESTDIR)$(PREFIX)/share/licenses
+	install -m 755 libtorsion.so $(DESTDIR)$(PREFIX)/lib/
+	install -m 644 libtorsion.a $(DESTDIR)$(PREFIX)/lib/
+	install -m 644 include/torsion/*.h $(DESTDIR)$(PREFIX)/include/torsion/
+	install -m 644 libtorsion.pc $(DESTDIR)$(PREFIX)/lib/pkgconfig/
+	install -m 644 LICENSE $(DESTDIR)$(PREFIX)/share/licenses/
+
+test: tests
+	@LD_LIBRARY_PATH=. ./tests
+
+test_a: tests_a
+	@./tests_a
+
+check: test test_a
+
+clean:
+	rm -f $(LIB_OBJECTS) $(OUTPUT)
+
+.PHONY: all install test test_a check clean

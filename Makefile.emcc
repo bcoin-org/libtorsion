@@ -2,74 +2,79 @@ CC = emcc
 INITIAL_MEMORY ?= 16777216
 MAX_MEMORY ?= 2147483648
 STACK_SIZE ?= 5242880
+ENABLE_RNG ?= 1
 
-CFLAGS :=                   \
-	-std=gnu11                \
-	-Wall                     \
-	-Wextra                   \
-	-Wcast-align              \
-	-Wno-implicit-fallthrough \
-	-Wshadow                  \
-	-I./include               \
-	-D__wasi__                \
-	-O3
+COMMON_CFLAGS = -std=gnu11                \
+                -Wall                     \
+                -Wextra                   \
+                -Wcast-align              \
+                -Wno-implicit-fallthrough \
+                -Wshadow                  \
+                -I./include               \
+                -D__wasi__                \
+                -O3
 
-BUILDFLAGS =          \
-	-DTORSION_BUILD     \
-	-DTORSION_NO_ASSERT
+COMMON_LDFLAGS := -s WASM=1                           \
+                  -s STANDALONE_WASM=1                \
+                  -s WASM_BIGINT=1                    \
+                  -s ALLOW_MEMORY_GROWTH=1            \
+                  -s INITIAL_MEMORY=$(INITIAL_MEMORY) \
+                  -s MAXIMUM_MEMORY=$(MAX_MEMORY)     \
+                  -s TOTAL_STACK=$(STACK_SIZE)        \
+                  -s ERROR_ON_UNDEFINED_SYMBOLS=0
 
-TESTFLAGS =           \
-	-DTORSION_TEST      \
-	-DTORSION_HAVE_RNG
+COMMON_SOURCES = src/aead.c      \
+                 src/asn1.c      \
+                 src/chacha20.c  \
+                 src/cipher.c    \
+                 src/ecc.c       \
+                 src/encoding.c  \
+                 src/drbg.c      \
+                 src/dsa.c       \
+                 src/hash.c      \
+                 src/internal.c  \
+                 src/kdf.c       \
+                 src/mpi.c       \
+                 src/poly1305.c  \
+                 src/rsa.c       \
+                 src/salsa20.c   \
+                 src/secretbox.c \
+                 src/siphash.c   \
+                 src/util.c
 
-LDFLAGS :=                            \
-	-s WASM=1                           \
-	-s STANDALONE_WASM=1                \
-	-s WASM_BIGINT=1                    \
-	-s ALLOW_MEMORY_GROWTH=1            \
-	-s INITIAL_MEMORY=$(INITIAL_MEMORY) \
-	-s MAXIMUM_MEMORY=$(MAX_MEMORY)     \
-	-s TOTAL_STACK=$(STACK_SIZE)        \
-	-s ERROR_ON_UNDEFINED_SYMBOLS=0
+ifeq ($(ENABLE_RNG), 1)
+COMMON_SOURCES += src/entropy/env.c \
+                  src/entropy/hw.c  \
+                  src/entropy/sys.c \
+                  src/rand.c
+endif
 
-LIBFLAGS := $(LDFLAGS) -s EXPORTED_FUNCTIONS=@etc/exports.json
+LIB_SOURCES := $(COMMON_SOURCES)
+LIB_CFLAGS := $(COMMON_CFLAGS) -DTORSION_BUILD -DTORSION_NO_ASSERT $(CFLAGS)
+LIB_LDFLAGS := $(COMMON_LDFLAGS) -s EXPORTED_FUNCTIONS=@etc/exports.json
 
-SOURCES =           \
-	src/aead.c        \
-	src/asn1.c        \
-	src/chacha20.c    \
-	src/cipher.c      \
-	src/ecc.c         \
-	src/encoding.c    \
-	src/drbg.c        \
-	src/dsa.c         \
-	src/hash.c        \
-	src/internal.c    \
-	src/kdf.c         \
-	src/mpi.c         \
-	src/poly1305.c    \
-	src/rsa.c         \
-	src/salsa20.c     \
-	src/secretbox.c   \
-	src/siphash.c     \
-	src/util.c        \
-	src/entropy/env.c \
-	src/entropy/hw.c  \
-	src/entropy/sys.c \
-	src/rand.c
+TEST_SOURCES := $(COMMON_SOURCES) test/os.c test/test.c
+TEST_CFLAGS := $(COMMON_CFLAGS) -DTORSION_TEST $(CFLAGS)
+TEST_LDFLAGS := $(COMMON_LDFLAGS)
 
-all: torsion.wasm tests.wasm
+ifeq ($(ENABLE_RNG), 1)
+TEST_CFLAGS += -DTORSION_HAVE_RNG
+endif
 
-torsion.wasm: $(SOURCES)
-	$(CC) -o $@ $(CFLAGS) $(BUILDFLAGS) $(LIBFLAGS) $^
+OUTPUT = torsion.wasm tests.wasm
 
-tests.wasm: $(SOURCES) test/test.c test/os.c
-	$(CC) -o $@ $(CFLAGS) $(TESTFLAGS) $(LDFLAGS) $^
+all: $(OUTPUT)
+
+torsion.wasm: $(LIB_SOURCES)
+	$(CC) -o $@ $(LIB_CFLAGS) $(LIB_LDFLAGS) $^
+
+tests.wasm: $(TEST_SOURCES)
+	$(CC) -o $@ $(TEST_CFLAGS) $(TEST_LDFLAGS) $^
 
 test: tests.wasm
-	./scripts/run-wasi.sh $^
+	@./scripts/run-wasi.sh $^
 
 clean:
-	rm -f torsion.wasm tests.wasm
+	rm -f $(OUTPUT)
 
-.PHONY: all clean
+.PHONY: all test clean

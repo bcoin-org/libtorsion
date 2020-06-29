@@ -128,19 +128,19 @@ torsion_emflags = -s WASM=1                       \
 torsion_emexports = -s EXPORTED_FUNCTIONS=@etc/exports.json
 
 noinst_PROGRAMS += torsion.wasm
-torsion_wasm_CFLAGS = -DTORSION_BUILD -D__wasi__ @CFLAGS@
+torsion_wasm_CFLAGS = -DTORSION_BUILD -D__wasi__
 torsion_wasm_LDFLAGS = $(torsion_emflags) $(torsion_emexports)
 torsion_wasm_SOURCES = $(torsion_sources)
 
 if ENABLE_TESTS
 noinst_PROGRAMS += tests.wasm
-tests_wasm_CFLAGS = -D__wasi__ @CFLAGS@
+tests_wasm_CFLAGS = -D__wasi__
 tests_wasm_LDFLAGS = $(torsion_emflags)
 tests_wasm_SOURCES = test/test.c test/os.c $(torsion_sources)
 endif
 else !EMSCRIPTEN
 lib_LTLIBRARIES = libtorsion.la
-libtorsion_la_CFLAGS = -DTORSION_BUILD @CFLAGS@
+libtorsion_la_CFLAGS = -DTORSION_BUILD
 libtorsion_la_LDFLAGS = -no-undefined -version-info 0:0:0
 libtorsion_la_SOURCES = $(torsion_sources)
 libtorsion_la_LIBADD =
@@ -155,7 +155,7 @@ endif
 if ENABLE_TESTS
 TESTS += tests
 noinst_PROGRAMS += tests
-tests_CFLAGS = @CFLAGS@
+tests_CFLAGS =
 tests_LDFLAGS = -static
 tests_SOURCES = test/test.c test/os.c
 tests_LDADD = libtorsion.la
