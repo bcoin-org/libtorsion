@@ -3,15 +3,15 @@
 
 #ifdef TORSION_HAVE_RNG
 #  if defined(__EMSCRIPTEN__) || defined(__wasm__)
-/* No threads support. */
-#  elif defined(_WIN32)
-#    define TORSION_HAVE_THREADS
-#  elif defined(TORSION_HAVE_PTHREAD)
-#    define TORSION_HAVE_THREADS
-#  endif
-#  if (defined(__unix) || defined(__unix__))    \
+/* No threads/fork support. */
+#  else
+#    if defined(_WIN32) || defined(TORSION_HAVE_PTHREAD)
+#      define TORSION_HAVE_THREADS
+#    endif
+#    if (defined(__unix) || defined(__unix__))    \
      || (defined(__APPLE__) && defined(__MACH__))
-#    define TORSION_HAVE_FORK
+#      define TORSION_HAVE_FORK
+#    endif
 #  endif
 #endif
 
