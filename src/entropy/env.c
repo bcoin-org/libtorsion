@@ -77,6 +77,7 @@
 #undef HAVE_CLOCK_GETTIME
 #undef HAVE_GETHOSTNAME
 #undef HAVE_GETSID
+#undef HAVE_OS_IPHONE
 
 #if defined(__CloudABI__)
 /* Could gather static entropy from filesystem in the future. */
@@ -144,10 +145,10 @@
 #  if defined(__FreeBSD__) || defined(__DragonFly__)
 #    include <vm/vm_param.h> /* VM_{LOADAVG,TOTAL,METER} */
 #  endif
-#  ifdef __APPLE__
-#    include <TargetConditionals.h>
+#  ifdef __ENVIRONMENT_IPHONE_OS_VERSION_MIN_REQUIRED__
+#    define HAVE_OS_IPHONE
 #  endif
-#  if defined(__APPLE__) && !TARGET_OS_IPHONE
+#  if defined(__APPLE__) && !defined(HAVE_OS_IPHONE)
 #    include <crt_externs.h>
 #    define environ (*_NSGetEnviron())
 #  else
