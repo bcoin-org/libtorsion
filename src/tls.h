@@ -51,63 +51,79 @@
  * - Supports TLS via __declspec(thread)[26].
  * - Unknown when TLS was implemented, but this repo[27]
  *   from 2009 suggests it existed in VS .NET 2002 (7.0).
+ * - Another project dating from 1996-2003 suggests
+ *   TLS was supported in Visual Studio 6.0 (1998)[28].
  *
  * Sun Pro C / Sun Studio / Solaris Studio:
  *
- * - Supports TLS via __thread[28].
- * - First mentioned in documentation for Sun Studio 12[29].
+ * - Supports TLS via __thread[29].
+ * - First mentioned in documentation for Sun Studio 12[30].
  *   This would suggest support from 5.9 onward.
  *
  * IBM XL C:
  *
- * - Supports TLS via __thread[30].
- * - Support added for Linux in XL C 8.0[31].
- * - Support added for AIX in XL C 10.1[31].
+ * - Supports TLS via __thread[31].
+ * - Support added for Linux in XL C 8.0[32].
+ * - Support added for AIX in XL C 10.1[32].
  * - Note that -qtls must be passed on the command line.
  *
  * C++ Builder:
  *
- * - Supports TLS via __thread[32], __declspec(thread)[33].
- * - Mentioned in C++ Builder 2009 documentation[32].
+ * - Supports TLS via __thread[33], __declspec(thread)[34].
+ * - Mentioned in C++ Builder 2009 documentation[33].
  *
  * Digital Mars C/C++:
  *
- * - Supports TLS via __declspec(thread) (32 bit only)[34].
- * - TLS supported since at least 2005 (8.42n)[35].
+ * - Supports TLS via __declspec(thread) (32 bit only)[35].
+ * - TLS supported since at least 2005 (8.42n)[36].
  *
  * ARM CC:
  *
- * - Supports TLS via __thread, __declspec(thread)[36][37].
- * - Mentioned on the gnulib mailing list[38].
+ * - Supports TLS via __thread, __declspec(thread)[37][38].
+ * - Mentioned on the gnulib mailing list[39].
  *
  * HP ANSI C:
  *
- * - Supports TLS via __thread[39].
+ * - Supports TLS via __thread[40].
  * - The release notes suggest this has been the
  *   case since at least version A.05.55.02.
  *
  * Watcom C:
  *
- * - TLS supported via __declspec(thread)[40].
- * - TLS supported since at least version 11.0c[40].
+ * - TLS supported via __declspec(thread)[41].
+ * - TLS supported since at least version 11.0c[41].
  *   Notable as this predates Open Watcom.
  *
  * Wind River Compiler (Diab C):
  *
- * - TLS supported via __thread[41][42].
- * - TLS supported since at least 2007 (5.6)[42].
+ * - TLS supported via __thread[42][43].
+ * - TLS supported since at least 2007 (5.6)[43].
  *
  * NWCC:
  *
- * - TLS supported via __thread[43].
+ * - TLS supported via __thread[44].
+ *
+ * Metrowerks C:
+ *
+ * - TLS supported via __declspec(thread)[45].
+ *   Documentation explicitly states this is
+ *   windows-only.
+ * - TLS supported since at least Dec. 1996[45].
+ *   This places the support timeframe somewhere
+ *   around CodeWarrior 10 or 11 (not CW Pro).
+ * - Google states that the PDF is from Oct 1995,
+ *   which would place the timeframe more near
+ *   CodeWarrior 7 (again, _not_ CW Pro).
+ * - Notable as this is the earliest TLS support
+ *   mentioned by this document.
  *
  * CompCert:
  *
- * - TLS not yet supported[44].
+ * - TLS not yet supported[46].
  *
  * C11:
  *
- * - C11 specifies support for _Thread_local[45].
+ * - C11 specifies support for _Thread_local[47].
  * - Support can be tested by checking both:
  *
  *     __STDC_VERSION__ >= 201112L
@@ -115,7 +131,7 @@
  *
  *   However, some compilers do not define STDC_NO_THREADS
  *   or do not define it directly (in particular, Intel C
- *   versions less than 18.0.0[46]).
+ *   versions less than 18.0.0[48]).
  *
  * [1] https://gcc.gnu.org/onlinedocs/gcc-3.3.1/gcc/Thread-Local.html
  * [2] https://github.com/gcc-mirror/gcc/commit/8893239dc4ed32bd3bb4e00d6e43b859554ab82a
@@ -144,25 +160,27 @@
  * [25] https://community.intel.com/t5/Intel-C-Compiler/Mach-O-thread-local-storage/td-p/948267
  * [26] https://docs.microsoft.com/en-us/cpp/c-language/thread-local-storage?view=vs-2019
  * [27] https://github.com/snaewe/loki-lib/commit/7d8e59abc8f48785d564ddabab5ba3f01cd24444
- * [28] https://docs.oracle.com/cd/E18659_01/html/821-1383/bkaeg.html
- * [29] https://docs.oracle.com/cd/E19205-01/819-5267/bkaeg/index.html
- * [30] https://www.ibm.com/support/knowledgecenter/en/SSXVZZ_13.1.3/com.ibm.xlcpp1313.lelinux.doc/language_ref/thread.html
- * [31] https://www.ibm.com/support/pages/node/318521#6
- * [32] http://docs.embarcadero.com/products/rad_studio/delphiAndcpp2009/HelpUpdate2/EN/html/devwin32/threadsusingthreadlocalvariables_xml.html
- * [33] http://docwiki.embarcadero.com/RADStudio/Sydney/en/Declspec(thread)
- * [34] https://digitalmars.com/ctg/ctgLanguageImplementation.html#declspec
- * [35] https://www.digitalmars.com/d/archives/c++/setjmp_longjmp_code_crashing_5923.html
- * [36] https://developer.arm.com/docs/dui0472/latest/compiler-specific-features/__declspecthread
- * [37] https://developer.arm.com/docs/dui0491/g/compiler-specific-features/__declspec-attributes
- * [38] https://lists.gnu.org/archive/html/bug-gnulib/2019-06/msg00063.html
- * [39] http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.172.9698&rep=rep1&type=pdf
- * [40] http://www.os2site.com/sw/dev/watcom/11.0c/c_readme.txt
- * [41] https://community.synopsys.com/s/article/Multiple-parse-warnings-for-defined-variables
- * [42] http://read.pudn.com/downloads259/doc/1193608/wr_compiler_error_messages_reference_5.6.pdf
- * [43] http://nwcc.sourceforge.net/features.html
- * [44] https://github.com/AbsInt/CompCert/issues/268
- * [45] https://en.cppreference.com/w/c/keyword/_Thread_local
- * [46] https://software.intel.com/en-us/forums/intel-c-compiler/topic/721059
+ * [28] http://www.simkin.co.uk/Docs/cpp/api/skGeneral_8h-source.html
+ * [29] https://docs.oracle.com/cd/E18659_01/html/821-1383/bkaeg.html
+ * [30] https://docs.oracle.com/cd/E19205-01/819-5267/bkaeg/index.html
+ * [31] https://www.ibm.com/support/knowledgecenter/en/SSXVZZ_13.1.3/com.ibm.xlcpp1313.lelinux.doc/language_ref/thread.html
+ * [32] https://www.ibm.com/support/pages/node/318521#6
+ * [33] http://docs.embarcadero.com/products/rad_studio/delphiAndcpp2009/HelpUpdate2/EN/html/devwin32/threadsusingthreadlocalvariables_xml.html
+ * [34] http://docwiki.embarcadero.com/RADStudio/Sydney/en/Declspec(thread)
+ * [35] https://digitalmars.com/ctg/ctgLanguageImplementation.html#declspec
+ * [36] https://www.digitalmars.com/d/archives/c++/setjmp_longjmp_code_crashing_5923.html
+ * [37] https://developer.arm.com/docs/dui0472/latest/compiler-specific-features/__declspecthread
+ * [38] https://developer.arm.com/docs/dui0491/g/compiler-specific-features/__declspec-attributes
+ * [39] https://lists.gnu.org/archive/html/bug-gnulib/2019-06/msg00063.html
+ * [40] http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.172.9698&rep=rep1&type=pdf
+ * [41] http://www.os2site.com/sw/dev/watcom/11.0c/c_readme.txt
+ * [42] https://community.synopsys.com/s/article/Multiple-parse-warnings-for-defined-variables
+ * [43] http://read.pudn.com/downloads259/doc/1193608/wr_compiler_error_messages_reference_5.6.pdf
+ * [44] http://nwcc.sourceforge.net/features.html
+ * [45] http://index-of.co.uk/C++/CodeWarrior%20C%20and%20C++%20and%20Assembly%20Language%20Reference.pdf
+ * [46] https://github.com/AbsInt/CompCert/issues/268
+ * [47] https://en.cppreference.com/w/c/keyword/_Thread_local
+ * [48] https://software.intel.com/en-us/forums/intel-c-compiler/topic/721059
  */
 
 /* Apple Quirks
@@ -295,6 +313,10 @@
 #  endif
 #elif defined(__NWCC__)
 #  define TORSION_TLS_GNUC
+#elif defined(__MWERKS__)
+#  if defined(__INTEL__) && __INTEL__ && __MWERKS__ >= 0x0710 /* CW 7.1 */
+#    define TORSION_TLS_MSVC
+#  endif
 #elif defined(__SUNPRO_C)
 #  if __SUNPRO_C >= 0x590 /* 5.9 */
 #    define TORSION_TLS_GNUC
