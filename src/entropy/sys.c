@@ -116,15 +116,13 @@
  *            _sysctl(2) removed in Linux 5.5 (2020).
  *            kern.random.uuid added in Linux 2.3.16 (1999).
  *
- * OSX:
+ * OSX/iOS/tvOS/watchOS:
  *   Source: getentropy(2)
  *   Fallback: /dev/random (identical to /dev/urandom)
  *   Support: getentropy(2) added in OSX 10.12 (2016).
- *
- * iOS:
- *   Source: getentropy(2)
- *   Fallback: /dev/random (identical to /dev/urandom)
- *   Support: getentropy(2) added in iOS 10.0 (2016).
+ *            getentropy(2) added in iOS 10.0 (2016).
+ *            getentropy(2) added in tvOS 10.0 (2016).
+ *            getentropy(2) added in watchOS 3.0 (2016).
  *
  * FreeBSD:
  *   Source: getrandom(2)
@@ -275,15 +273,27 @@ RtlGenRandom(PVOID RandomBuffer, ULONG RandomBufferLength);
 #    endif
 #    define DEV_RANDOM_NAME "/dev/urandom"
 #  elif defined(__APPLE__)
-#    include <Availability.h>
-#    include <TargetConditionals.h>
-#    if TARGET_OS_IPHONE && !TARGET_IPHONE_SIMULATOR
+#    if defined(__ENVIRONMENT_IPHONE_OS_VERSION_MIN_REQUIRED__)
+#      include <Availability.h>
 #      if __IPHONE_OS_VERSION_MAX_ALLOWED >= 100000 /* 10.0 (2016) */
 #        include <sys/random.h> /* getentropy */
 #        define HAVE_GETENTROPY
 #      endif
+#    elif defined(__ENVIRONMENT_TV_OS_VERSION_MIN_REQUIRED__)
+#      include <Availability.h>
+#      if __TV_OS_VERSION_MAX_ALLOWED >= 100000 /* 10.0 (2016) */
+#        include <sys/random.h> /* getentropy */
+#        define HAVE_GETENTROPY
+#      endif
+#    elif defined(__ENVIRONMENT_WATCH_OS_VERSION_MIN_REQUIRED__)
+#      include <Availability.h>
+#      if __WATCH_OS_VERSION_MAX_ALLOWED >= 30000 /* 3.0 (2016) */
+#        include <sys/random.h> /* getentropy */
+#        define HAVE_GETENTROPY
+#      endif
 #    else
-#      if __MAC_OS_X_VERSION_MAX_ALLOWED >= 101200 /* 10.12 (2016) */
+#      include <AvailabilityMacros.h>
+#      if MAC_OS_X_VERSION_MAX_ALLOWED >= 101200 /* 10.12 (2016) */
 #        include <sys/random.h> /* getentropy */
 #        define HAVE_GETENTROPY
 #      endif
@@ -510,9 +520,7 @@ torsion_syscallrand(void *dst, size_t size) {
   unsigned char *data = (unsigned char *)dst;
   size_t max = 256;
 
-  /* NULL on older iOS versions. */
-  /* See: https://github.com/jedisct1/libsodium/commit/d54f072 */
-  if (&getentropy == NULL)
+  if (getentropy == NULL)
     return 0;
 
   while (size > 0) {
