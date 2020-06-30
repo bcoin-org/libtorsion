@@ -1,5 +1,7 @@
 *.a
 *.cmake
+*.gcda
+*.gcno
 *.la
 *.lo
 *.o

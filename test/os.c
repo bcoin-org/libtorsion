@@ -29,10 +29,6 @@
 #  endif
 #endif /* _WIN32 */
 
-#ifdef TORSION_HAVE_PTHREAD
-#  include <pthread.h>
-#endif
-
 uint64_t
 torsion_hrtime(void) {
 #if defined(_WIN32)
@@ -82,6 +78,11 @@ torsion_hrtime(void) {
 }
 
 #ifdef TORSION_HAVE_THREADS
+
+#ifndef _WIN32
+#  include <pthread.h>
+#endif
+
 struct torsion_thread_s {
 #ifdef _WIN32
   HANDLE handle;

@@ -3,7 +3,6 @@
 const fs = require('fs');
 const {WASI} = require('wasi');
 const code = fs.readFileSync(process.argv[2])
-
 const args = process.argv.slice(3);
 
 // Work around a WASI bug in node.js.

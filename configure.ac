@@ -14,6 +14,10 @@ AC_ENABLE_STATIC
 AC_PROG_CC
 AM_PROG_CC_C_O
 AC_PROG_CC_C89
+m4_ifdef([AM_PROG_AR], [AM_PROG_AR])
+AC_PROG_LIBTOOL
+m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
+LT_INIT
 
 if test x"$ac_cv_prog_cc_c89" = x"no"; then
   AC_MSG_ERROR([CC does not support ANSI C89])
@@ -28,11 +32,6 @@ AC_ARG_ENABLE(asm,
   AS_HELP_STRING([--enable-asm],[use inline x86-64 assembly if available [default=yes]]),
   [enable_asm=$enableval],
   [enable_asm=yes])
-
-AC_ARG_ENABLE(int128,
-  AS_HELP_STRING([--enable-int128],[use __int128 if available [default=yes]]),
-  [enable_int128=$enableval],
-  [enable_int128=yes])
 
 AC_ARG_ENABLE(assert,
   AS_HELP_STRING([--enable-assert],[enable assertions [default=yes]]),
@@ -53,6 +52,11 @@ AC_ARG_ENABLE(ctime,
   AS_HELP_STRING([--enable-ctime],[enable valgrind constant-time test [default=no]]),
   [enable_ctime=$enableval],
   [enable_ctime=no])
+
+AC_ARG_ENABLE(int128,
+  AS_HELP_STRING([--enable-int128],[use __int128 if available [default=yes]]),
+  [enable_int128=$enableval],
+  [enable_int128=yes])
 
 AC_ARG_ENABLE(libsecp256k1,
   AS_HELP_STRING([--enable-libsecp256k1],[enable libsecp256k1 field element backend [default=no]]),
@@ -113,17 +117,17 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <stdint.h>]],[[
 #if !defined(__amd64__) && !defined(__x86_64__)
 #  error "not an x64 platform"
 #endif
-  uint32_t stream[8], state[8];
-  __asm__ __volatile__(
-    "movups (%%rsi), %%xmm0\n"
-    "movups 16(%%rsi), %%xmm1\n"
-    "pxor %%xmm1, %%xmm0\n"
-    "movups %%xmm0,(%%rdi)\n"
-    "movups %%xmm1,16(%%rdi)\n"
-    :
-    : "D" (stream), "S" (state)
-    : "xmm0", "xmm1", "cc", "memory"
-  );
+uint32_t stream[8], state[8];
+__asm__ __volatile__(
+  "movups (%%rsi), %%xmm0\n"
+  "movups 16(%%rsi), %%xmm1\n"
+  "pxor %%xmm1, %%xmm0\n"
+  "movups %%xmm0,(%%rdi)\n"
+  "movups %%xmm1,16(%%rdi)\n"
+  :
+  : "D" (stream), "S" (state)
+  : "xmm0", "xmm1", "cc", "memory"
+);
 ]])],[has_asm=yes],[has_asm=no])
 AC_MSG_RESULT([$has_asm])
 
@@ -179,8 +183,7 @@ if test x"$enable_assert" != x"yes"; then
 fi
 
 if test x"$enable_coverage" = x"yes"; then
-  CFLAGS="$CFLAGS --coverage"
-  LDFLAGS="$LDFLAGS --coverage"
+  AC_DEFINE(TORSION_NO_ASSERT)
 fi
 
 if test x"$enable_crt" = x"yes"; then
@@ -209,11 +212,8 @@ if test x"$enable_tests" = x"yes"; then
   AC_DEFINE(TORSION_TEST)
 fi
 
-use_tls=no
-
 if test x"$enable_tls" = x"yes" -a x"$has_tls" = x"yes"; then
   AC_DEFINE(TORSION_HAVE_TLS)
-  use_tls=yes
 fi
 
 if test x"$enable_verify" = x"yes"; then
@@ -234,15 +234,12 @@ AC_SUBST(PTHREAD_LIBS)
 
 AM_CONDITIONAL([ENABLE_RNG], [test x"$enable_rng" = x"yes"])
 AM_CONDITIONAL([ENABLE_TESTS], [test x"$enable_tests" = x"yes"])
+AM_CONDITIONAL([ENABLE_COVERAGE], [test x"$enable_coverage" = x"yes"])
 AM_CONDITIONAL([ENABLE_CTIME], [test x"$enable_ctime" = x"yes"])
 AM_CONDITIONAL([EMSCRIPTEN], [test x"$EMSCRIPTEN" != x""])
-AM_CONDITIONAL([USE_TLS], [test x"$use_tls" = x"yes"])
 
-m4_ifdef([AM_PROG_AR], [AM_PROG_AR])
-AC_PROG_LIBTOOL
-m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
-LT_INIT
 AC_CONFIG_FILES([Makefile libtorsion.pc])
+
 AC_OUTPUT
 
 echo ""

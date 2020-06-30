@@ -395,23 +395,6 @@
 #  undef TORSION_HAVE_TLS
 #endif
 
-/* Check for pthread if TLS is not supported. */
-#ifndef TORSION_HAVE_TLS
-#  if defined(__EMSCRIPTEN__) || defined(__wasm__)
-/* No threads support. */
-#  elif (defined(__unix) || defined(__unix__))    \
-     || (defined(__APPLE__) && defined(__MACH__))
-#    ifdef _REENTRANT
-#      define TORSION_HAVE_PTHREAD
-#    endif
-#  endif
-#endif
-
-/* Allow override (for testing). */
-#ifdef TORSION_NO_PTHREAD
-#  undef TORSION_HAVE_PTHREAD
-#endif
-
 #else /* TORSION_HAVE_CONFIG */
 
 /* Pick thread-local keyword. */
@@ -425,11 +408,6 @@
 #  endif
 #else
 #  define TORSION_TLS
-#endif
-
-/* These are mutually exclusive. */
-#ifdef TORSION_HAVE_TLS
-#  undef TORSION_HAVE_PTHREAD
 #endif
 
 #endif /* TORSION_HAVE_CONFIG */

@@ -1,6 +1,9 @@
 PREFIX ?= /usr/local
+PTHREAD_CFLAGS ?=
+PTHREAD_LIBS ?= -lpthread
+ENABLE_COVERAGE ?= 0
 ENABLE_RNG ?= 1
-ENABLE_TLS ?= 1
+ENABLE_TEST ?= 0
 
 COMMON_CFLAGS = -std=c89                         \
                 -pedantic                        \
@@ -42,30 +45,34 @@ LIB_SOURCES += src/entropy/env.c \
 endif
 
 LIB_OBJECTS := $(subst .c,.o,$(LIB_SOURCES))
-LIB_CFLAGS := $(COMMON_CFLAGS) -DTORSION_BUILD -DTORSION_TEST $(CFLAGS)
-LIB_LIBS =
-
-ifeq ($(ENABLE_RNG), 1)
-ifneq ($(ENABLE_TLS), 1)
-LIB_CFLAGS += -DTORSION_NO_TLS
-LIB_CFLAGS += -D_REENTRANT
-LIB_LIBS += -lpthread
-endif
-endif
+LIB_CFLAGS := $(COMMON_CFLAGS) -DTORSION_BUILD $(CFLAGS)
+LIB_LDFLAGS =
 
 TEST_SOURCES = test/os.c test/test.c
-TEST_CFLAGS := $(COMMON_CFLAGS) -DTORSION_TEST $(CFLAGS)
-TEST_LIBS_SO = -L. -ltorsion
-TEST_LIBS_A = -L. -Wl,-Bstatic -ltorsion -Wl,-Bdynamic
+TEST_CFLAGS := $(COMMON_CFLAGS) $(CFLAGS)
+TEST_LIBS = -L. -ltorsion
+
+ifeq ($(ENABLE_COVERAGE), 1)
+LIB_CFLAGS += -DTORSION_NO_ASSERT
+LIB_CFLAGS += --coverage
+LIB_LDFLAGS += --coverage
+endif
 
 ifeq ($(ENABLE_RNG), 1)
 TEST_CFLAGS += -DTORSION_HAVE_RNG
-TEST_CFLAGS += -D_REENTRANT
-TEST_LIBS_SO += -lpthread
-TEST_LIBS_A += -lpthread
+TEST_CFLAGS += -DTORSION_HAVE_PTHREAD
+TEST_CFLAGS += $(PTHREAD_CFLAGS)
+TEST_LIBS += $(PTHREAD_LIBS)
 endif
 
-OUTPUT = libtorsion.so libtorsion.a libtorsion.pc tests tests_a
+ifeq ($(ENABLE_TEST), 1)
+LIB_CFLAGS += -DTORSION_TEST
+TEST_CFLAGS += -DTORSION_TEST
+else
+LIB_CFLAGS += -DTORSION_NO_ASSERT
+endif
+
+OUTPUT = libtorsion.so libtorsion.a
 
 all: $(OUTPUT)
 
@@ -73,33 +80,27 @@ all: $(OUTPUT)
 	$(CC) -o $@ -c -fPIC $(LIB_CFLAGS) $<
 
 libtorsion.so: $(LIB_OBJECTS)
-	$(CC) -o $@ -shared -fPIC $^ $(LIB_LIBS)
+	$(CC) -o $@ -shared -fPIC $(LIB_LDFLAGS) $^
 
 libtorsion.a: $(LIB_OBJECTS)
 	$(AR) rcs $@ $^
 
 tests: libtorsion.so $(TEST_SOURCES)
-	$(CC) -o $@ $(TEST_CFLAGS) $(TEST_SOURCES) $(TEST_LIBS_SO)
+	$(CC) -o $@ $(TEST_CFLAGS) $(TEST_SOURCES) $(TEST_LIBS)
 
 tests_a: libtorsion.a $(TEST_SOURCES)
-	$(CC) -o $@ $(TEST_CFLAGS) $(TEST_SOURCES) $(TEST_LIBS_A)
+	$(CC) -o $@ -static $(TEST_CFLAGS) $(TEST_SOURCES) $(TEST_LIBS)
 
-libtorsion.pc:
-	cp -f libtorsion.pc.in libtorsion.pc
-	sed -i 's;@prefix@;$(PREFIX);g' libtorsion.pc
-	sed -i 's;@libdir@;$${exec_prefix}/lib;g' libtorsion.pc
-	sed -i 's;@includedir@;$${exec_prefix}/include;g' libtorsion.pc
-	sed -i 's;@PACKAGE_VERSION@;0.0.0;g' libtorsion.pc
-	sed -i 's;@LIBS@;$(LIB_LIBS);g' libtorsion.pc
+ctime-test: libtorsion.so test/ctime-test.c
+	$(CC) -o $@ $(TEST_CFLAGS) test/ctime-test.c $(TEST_LIBS)
 
 install: $(OUTPUT)
+	install -d $(DESTDIR)$(PREFIX)/lib
 	install -d $(DESTDIR)$(PREFIX)/include/torsion
-	install -d $(DESTDIR)$(PREFIX)/lib/pkgconfig
 	install -d $(DESTDIR)$(PREFIX)/share/licenses
 	install -m 755 libtorsion.so $(DESTDIR)$(PREFIX)/lib/
 	install -m 644 libtorsion.a $(DESTDIR)$(PREFIX)/lib/
 	install -m 644 include/torsion/*.h $(DESTDIR)$(PREFIX)/include/torsion/
-	install -m 644 libtorsion.pc $(DESTDIR)$(PREFIX)/lib/pkgconfig/
 	install -m 644 LICENSE $(DESTDIR)$(PREFIX)/share/licenses/
 
 test: tests
@@ -108,9 +109,12 @@ test: tests
 test_a: tests_a
 	@./tests_a
 
+ctime: ctime-test
+	@LD_LIBRARY_PATH=. valgrind ./ctime-test
+
 check: test test_a
 
 clean:
-	rm -f $(LIB_OBJECTS) $(OUTPUT)
+	rm -f $(LIB_OBJECTS) $(OUTPUT) tests tests_a ctime-test
 
-.PHONY: all install test test_a check clean
+.PHONY: all install test test_a ctime check clean

@@ -2976,16 +2976,13 @@ typedef struct rng_res_s {
 } rng_res_t;
 
 uintptr_t
-__torsion_global_rng_addr(void);
-
-int
-__torsion_global_rng_tls(void);
+__torsion_rng_global_addr(void);
 
 static void *
 thread_random(void *ptr) {
   rng_res_t *obj = ptr;
 
-  obj->ptr = __torsion_global_rng_addr();
+  obj->ptr = __torsion_rng_global_addr();
 
   CHECK(torsion_getrandom(obj->data, 32));
 
@@ -2998,16 +2995,16 @@ test_rand_thread_safety(void) {
   torsion_thread_t *t2 = torsion_thread_alloc();
   rng_res_t x0, x1, x2;
 
-  if (!torsion_is_reentrant()) {
-    printf("Skipping RNG test (not reentrant).\n");
-    return;
-  }
-
   memset(&x0, 0, sizeof(x0));
   memset(&x1, 0, sizeof(x1));
   memset(&x2, 0, sizeof(x2));
 
   printf("Testing RNG thread safety.\n");
+
+  if (!torsion_is_reentrant()) {
+    printf("  - Skipping RNG test (not reentrant).\n");
+    return;
+  }
 
   CHECK(torsion_thread_create(t1, NULL, thread_random, (void *)&x1) == 0);
   CHECK(torsion_thread_create(t2, NULL, thread_random, (void *)&x2) == 0);
@@ -3022,18 +3019,14 @@ test_rand_thread_safety(void) {
 
   CHECK(x0.ptr && x1.ptr && x2.ptr);
 
-  if (__torsion_global_rng_tls()) {
-    printf("  - Checking TLS.\n");
+  CHECK(x0.ptr != x1.ptr);
+  CHECK(x0.ptr != x2.ptr);
 
-    CHECK(x0.ptr != x1.ptr);
-    CHECK(x0.ptr != x2.ptr);
+  CHECK(x1.ptr != x0.ptr);
+  CHECK(x1.ptr != x2.ptr);
 
-    CHECK(x1.ptr != x0.ptr);
-    CHECK(x1.ptr != x2.ptr);
-
-    CHECK(x2.ptr != x0.ptr);
-    CHECK(x2.ptr != x1.ptr);
-  }
+  CHECK(x2.ptr != x0.ptr);
+  CHECK(x2.ptr != x1.ptr);
 
   CHECK(memcmp(x0.data, x1.data, 32) != 0);
   CHECK(memcmp(x0.data, x2.data, 32) != 0);

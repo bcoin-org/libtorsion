@@ -2,8 +2,8 @@
 
 DIR=`dirname "$0"`
 
-exec node \
-  --no-warnings \
+exec node                               \
+  --no-warnings                         \
   --experimental-wasi-unstable-preview1 \
-  --experimental-wasm-bigint \
+  --experimental-wasm-bigint            \
   $DIR/run-wasi.js "$@"

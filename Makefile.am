@@ -145,11 +145,9 @@ libtorsion_la_LDFLAGS = -no-undefined -version-info 0:0:0
 libtorsion_la_SOURCES = $(torsion_sources)
 libtorsion_la_LIBADD =
 
-if ENABLE_RNG
-if !USE_TLS
-libtorsion_la_CFLAGS += @PTHREAD_CFLAGS@
-libtorsion_la_LIBADD += @PTHREAD_LIBS@
-endif
+if ENABLE_COVERAGE
+libtorsion_la_CFLAGS += --coverage
+libtorsion_la_LDFLAGS += --coverage
 endif
 
 if ENABLE_TESTS
