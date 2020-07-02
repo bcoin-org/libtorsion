@@ -329,14 +329,14 @@
 #  elif __INTEL_COMPILER >= 800 /* 8.0.0 */
 #    define TORSION_TLS_BOTH
 #  endif
-#elif defined(__clang__)
+#elif defined(__clang__) && defined(__clang_major__)
 #  if defined(__apple_build_version__)
 #    if defined(TORSION__APPLE_OS) && __apple_build_version__ >= 8000038 /* 800.0.38 */
 #      define TORSION_TLS_GNUC
 #    endif
 #  elif __has_extension(c_thread_local)
 #    if defined(__ANDROID__)
-#      if ((__clang_major__ << 16) + __clang_minor__ >= 0x50000) /* 5.0 */
+#      if __clang_major__ >= 5 /* 5.0 */
 #        define TORSION_TLS_GNUC
 #      endif
 #    else
