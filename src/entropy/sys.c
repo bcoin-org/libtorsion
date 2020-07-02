@@ -273,30 +273,10 @@ RtlGenRandom(PVOID RandomBuffer, ULONG RandomBufferLength);
 #    endif
 #    define DEV_RANDOM_NAME "/dev/urandom"
 #  elif defined(__APPLE__)
-#    if defined(__ENVIRONMENT_IPHONE_OS_VERSION_MIN_REQUIRED__)
-#      include <Availability.h>
-#      if __IPHONE_OS_VERSION_MAX_ALLOWED >= 100000 /* 10.0 (2016) */
-#        include <sys/random.h> /* getentropy */
-#        define HAVE_GETENTROPY
-#      endif
-#    elif defined(__ENVIRONMENT_TV_OS_VERSION_MIN_REQUIRED__)
-#      include <Availability.h>
-#      if __TV_OS_VERSION_MAX_ALLOWED >= 100000 /* 10.0 (2016) */
-#        include <sys/random.h> /* getentropy */
-#        define HAVE_GETENTROPY
-#      endif
-#    elif defined(__ENVIRONMENT_WATCH_OS_VERSION_MIN_REQUIRED__)
-#      include <Availability.h>
-#      if __WATCH_OS_VERSION_MAX_ALLOWED >= 30000 /* 3.0 (2016) */
-#        include <sys/random.h> /* getentropy */
-#        define HAVE_GETENTROPY
-#      endif
-#    else
-#      include <AvailabilityMacros.h>
-#      if MAC_OS_X_VERSION_MAX_ALLOWED >= 101200 /* 10.12 (2016) */
-#        include <sys/random.h> /* getentropy */
-#        define HAVE_GETENTROPY
-#      endif
+#    include <AvailabilityMacros.h>
+#    if MAC_OS_X_VERSION_MAX_ALLOWED >= 101200 /* 10.12 (2016) */
+#      include <sys/random.h> /* getentropy */
+#      define HAVE_GETENTROPY
 #    endif
 #    define DEV_RANDOM_NAME "/dev/random"
 #  elif defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
