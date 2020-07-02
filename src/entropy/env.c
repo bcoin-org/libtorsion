@@ -233,7 +233,7 @@ sha512_write_file(sha512_t *hash, const char *file) {
   memset(&st, 0, sizeof(st));
 
   do {
-#ifdef O_CLOEXEC
+#if defined(O_CLOEXEC)
     fd = open(file, O_RDONLY | O_CLOEXEC);
 
     if (fd == -1 && errno == EINVAL)

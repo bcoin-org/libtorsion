@@ -347,7 +347,7 @@ static int
 torsion_open(const char *name, int flags) {
   int fd, r;
 
-#if defined(O_CLOEXEC)
+#ifdef O_CLOEXEC
   fd = open(name, flags | O_CLOEXEC);
 
   if (fd != -1 || errno != EINVAL)
