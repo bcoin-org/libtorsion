@@ -51,15 +51,20 @@
  * are available. This includes:
  *
  *   - QueryPerformanceCounter, _ftime (win32)
- *   - clock_gettime (unix, vxworks)
- *   - gettimeofday (unix legacy)
+ *   - mach_absolute_time (apple)
+ *   - clock_gettime (vxworks)
  *   - zx_clock_get_monotonic (fuchsia)
+ *   - clock_gettime (unix)
+ *   - gettimeofday (unix legacy)
  *   - cloudabi_sys_clock_time_get (cloud abi)
  *   - __wasi_clock_time_get (wasi)
  *   - Date.now, process.hrtime (wasm, asm.js)
  *
  * Note that the only clocks which do not have nanosecond
  * precision are `_ftime`, `gettimeofday`, and `Date.now`.
+ *
+ * If no OS clocks are present, we fall back to standard
+ * C89 time functions (i.e. time(2)).
  *
  * Furthermore, QueryPerformance{Counter,Frequency} may fail
  * on Windows 2000. For this reason, we require Windows XP or
@@ -89,6 +94,7 @@
 #include "entropy.h"
 
 #undef HAVE_QPC
+#undef HAVE_CLOCK_GETTIME
 #undef HAVE_CPUIDEX
 #undef HAVE_RDTSC
 #undef HAVE_INLINE_ASM
@@ -101,7 +107,7 @@ cloudabi_sys_clock_time_get(uint32_t clock_id,
                             uint64_t *time);
 #  define CLOUDABI_CLOCK_MONOTONIC 1
 #elif defined(__wasi__)
-#ifdef TORSION_WASM_BIGINT
+#  ifdef TORSION_WASM_BIGINT
 /* Requires --experimental-wasm-bigint at the moment. */
 uint16_t
 __wasi_clock_time_get(uint32_t clock_id,
@@ -111,8 +117,8 @@ __wasi_clock_time_get(uint32_t clock_id,
   __import_name__("clock_time_get"),
   __warn_unused_result__
 ));
-#  define __WASI_CLOCKID_MONOTONIC 1
-#endif
+#    define __WASI_CLOCKID_MONOTONIC 1
+#  endif
 #elif defined(__EMSCRIPTEN__)
 #  include <emscripten.h> /* EM_ASM_INT */
 #elif defined(__wasm__)
@@ -128,38 +134,44 @@ __wasi_clock_time_get(uint32_t clock_id,
 #      define _timeb timeb
 #      define _ftime ftime
 #    endif
-#    ifdef _MSC_VER
-#      pragma warning(disable: 4996) /* deprecation warning */
-#    endif
+#    pragma warning(disable: 4996) /* deprecation warning */
 #  endif
-#  if defined(_MSC_VER) && _MSC_VER >= 1900 /* VS 2015 */
-#    if defined(_M_X64) || defined(_M_AMD64) || defined(_M_IX86)
-#      include <intrin.h> /* __cpuidex, __rdtsc */
-#      include <immintrin.h> /* _rd{rand,seed}{32,64}_step */
-#      pragma intrinsic(__cpuidex, __rdtsc)
-#      define HAVE_CPUIDEX
-#      define HAVE_RDTSC
-#    endif
-#  endif
+#elif defined(__APPLE__) && defined(__MACH__)
+#  include <mach/mach.h> /* KERN_SUCCESS */
+#  include <mach/mach_time.h> /* mach_timebase_info, mach_absolute_time */
 #elif defined(__vxworks)
 #  include <time.h> /* clock_gettime */
 #elif defined(__Fuchsia__)
 #  include <zircon/syscalls.h> /* zx_clock_get_monotonic */
-#else
-#  include <time.h> /* clock_gettime, time */
-#  ifndef CLOCK_MONOTONIC
-#    if defined(__MACH__)
-#      include <mach/mach.h>
-#      include <mach/mach_time.h> /* mach_timebase_info, mach_absolute_time */
-#    elif defined(__unix) || defined(__unix__)
-#      include <sys/time.h> /* gettimeofday */
+#elif defined(__unix) || defined(__unix__)
+#  include <time.h> /* clock_gettime */
+#  include <unistd.h> /* _POSIX_VERSION */
+#  if defined(_POSIX_VERSION) && _POSIX_VERSION >= 199309L
+#    if defined(CLOCK_REALTIME) && defined(CLOCK_MONOTONIC)
+#      define HAVE_CLOCK_GETTIME
 #    endif
 #  endif
-#  if defined(__GNUC__) && __GNUC__ >= 4
-#    define HAVE_INLINE_ASM
-#    if defined(__x86_64__) || defined(__amd64__) || defined(__i386__)
-#      define HAVE_CPUID
-#    endif
+#  ifndef HAVE_CLOCK_GETTIME
+#    include <sys/time.h> /* gettimeofday */
+#  endif
+#else
+#  include <time.h> /* time */
+#endif
+
+#if defined(__EMSCRIPTEN__) || defined(__wasm__)
+/* No inline assembly or intrinsics for emscripten/wasm. */
+#elif defined(_MSC_VER) && _MSC_VER >= 1900 /* VS 2015 */
+#  if defined(_M_IX86) || defined(_M_AMD64) || defined(_M_X64)
+#    include <intrin.h> /* __cpuidex, __rdtsc */
+#    include <immintrin.h> /* _rd{rand,seed}{32,64}_step */
+#    pragma intrinsic(__cpuidex, __rdtsc)
+#    define HAVE_CPUIDEX
+#    define HAVE_RDTSC
+#  endif
+#elif defined(__GNUC__) && __GNUC__ >= 4
+#  define HAVE_INLINE_ASM
+#  if defined(__i386__) || defined(__amd64__) || defined(__x86_64__)
+#    define HAVE_CPUID
 #  endif
 #endif
 
@@ -263,23 +275,7 @@ torsion_hrtime(void) {
   _ftime(&tb);
 
   return (uint64_t)tb.time * 1000000000 + (uint64_t)tb.millitm * 1000000;
-#elif defined(__vxworks)
-  struct timespec ts;
-
-  if (clock_gettime(CLOCK_REALTIME, &ts) != 0)
-    abort();
-
-  return (uint64_t)ts.tv_sec * 1000000000 + (uint64_t)ts.tv_nsec;
-#elif defined(__Fuchsia__)
-  return zx_clock_get_monotonic();
-#elif defined(CLOCK_MONOTONIC)
-  struct timespec ts;
-
-  if (clock_gettime(CLOCK_MONOTONIC, &ts) != 0)
-    abort();
-
-  return (uint64_t)ts.tv_sec * 1000000000 + (uint64_t)ts.tv_nsec;
-#elif defined(__MACH__)
+#elif defined(__APPLE__) && defined(__MACH__)
   mach_timebase_info_data_t info;
 
   if (mach_timebase_info(&info) != KERN_SUCCESS)
@@ -289,6 +285,24 @@ torsion_hrtime(void) {
     abort();
 
   return mach_absolute_time() * info.numer / info.denom;
+#elif defined(__vxworks)
+  struct timespec ts;
+
+  if (clock_gettime(CLOCK_REALTIME, &ts) != 0)
+    abort();
+
+  return (uint64_t)ts.tv_sec * 1000000000 + (uint64_t)ts.tv_nsec;
+#elif defined(__Fuchsia__)
+  return zx_clock_get_monotonic();
+#elif defined(HAVE_CLOCK_GETTIME)
+  struct timespec ts;
+
+  if (clock_gettime(CLOCK_MONOTONIC, &ts) != 0) {
+    if (clock_gettime(CLOCK_REALTIME, &ts) != 0)
+      abort();
+  }
+
+  return (uint64_t)ts.tv_sec * 1000000000 + (uint64_t)ts.tv_nsec;
 #elif defined(__unix) || defined(__unix__)
   struct timeval tv;
 
@@ -297,7 +311,16 @@ torsion_hrtime(void) {
 
   return (uint64_t)tv.tv_sec * 1000000000 + (uint64_t)tv.tv_usec * 1000;
 #else
-  return (uint64_t)time(NULL) * 1000000000;
+  /* The encoding of the value returned from
+     time(2) is unspecified according to C89.
+     However, on most systems, it is the number
+     of seconds elapsed since the unix epoch. */
+  time_t ts = time(NULL);
+
+  if (ts == (time_t)-1)
+    return 0;
+
+  return (uint64_t)ts * 1000000000;
 #endif
 }
 
@@ -323,7 +346,7 @@ torsion_rdtsc(void) {
   __asm__ __volatile__("rdtsc\n" : "=A" (ts));
 
   return ts;
-#elif defined(HAVE_INLINE_ASM) && (defined(__x86_64__) || defined(__amd64__))
+#elif defined(HAVE_INLINE_ASM) && (defined(__amd64__) || defined(__x86_64__))
   /* Borrowed from Bitcoin Core. */
   uint64_t lo = 0;
   uint64_t hi = 0;
@@ -605,7 +628,7 @@ torsion_rdseed(void) {
     if (ok)
       break;
 
-    __asm__ __volatile__("pause");
+    __asm__ __volatile__("pause\n");
   }
 
   for (;;) {
@@ -620,7 +643,7 @@ torsion_rdseed(void) {
     if (ok)
       break;
 
-    __asm__ __volatile__("pause");
+    __asm__ __volatile__("pause\n");
   }
 
   return ((uint64_t)hi << 32) | lo;
@@ -641,7 +664,7 @@ torsion_rdseed(void) {
     if (ok)
       break;
 
-    __asm__ __volatile__("pause");
+    __asm__ __volatile__("pause\n");
   }
 
   return r;

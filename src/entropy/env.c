@@ -172,6 +172,9 @@ extern char **environ;
 #      define HAVE_GETSID
 #    endif
 #  endif
+#  ifdef __GNUC__
+#    pragma GCC diagnostic ignored "-Waddress"
+#  endif
 #  define HAVE_MANUAL_ENTROPY
 #endif
 
@@ -784,6 +787,7 @@ sha512_write_static_env(sha512_t *hash) {
 
   /* Information available through sysctl(2). */
 #ifdef HAVE_SYSCTL
+  (void)sha512_write_sysctl2;
 #ifdef CTL_HW
 #ifdef HW_MACHINE
   sha512_write_sysctl2(hash, CTL_HW, HW_MACHINE);
@@ -1005,7 +1009,7 @@ sha512_write_dynamic_env(sha512_t *hash) {
 
 #ifdef HAVE_CLOCK_GETTIME
   /* Various clocks. */
-  {
+  if (clock_gettime != NULL) {
     struct timespec ts;
 
     memset(&ts, 0, sizeof(ts));
@@ -1066,6 +1070,8 @@ sha512_write_dynamic_env(sha512_t *hash) {
 #endif
 
 #ifdef HAVE_SYSCTL
+  (void)sha512_write_sysctl3;
+  (void)sha512_write_sysctl2;
 #ifdef CTL_KERN
 #if defined(KERN_PROC) && defined(KERN_PROC_ALL)
   sha512_write_sysctl3(hash, CTL_KERN, KERN_PROC, KERN_PROC_ALL);

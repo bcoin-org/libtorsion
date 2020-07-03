@@ -276,6 +276,9 @@ RtlGenRandom(PVOID RandomBuffer, ULONG RandomBufferLength);
 #    include <AvailabilityMacros.h>
 #    if MAC_OS_X_VERSION_MAX_ALLOWED >= 101200 /* 10.12 (2016) */
 #      include <sys/random.h> /* getentropy */
+#      ifdef __GNUC__
+#        pragma GCC diagnostic ignored "-Waddress"
+#      endif
 #      define HAVE_GETENTROPY
 #    endif
 #    define DEV_RANDOM_NAME "/dev/random"
@@ -500,8 +503,12 @@ torsion_syscallrand(void *dst, size_t size) {
   unsigned char *data = (unsigned char *)dst;
   size_t max = 256;
 
+#ifdef __APPLE__
+  /* Apple uses weak symbols depending on
+     the minimum OS version requested. */
   if (getentropy == NULL)
     return 0;
+#endif
 
   while (size > 0) {
     if (max > size)
