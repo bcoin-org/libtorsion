@@ -30,6 +30,9 @@
  * Builtins
  */
 
+#undef LIKELY
+#undef UNLIKELY
+
 #if TORSION_GNUC_PREREQ(3, 0) || __has_builtin(__builtin_expect)
 #  define LIKELY(x) __builtin_expect(!!(x), 1)
 #  define UNLIKELY(x) __builtin_expect(!!(x), 0)
@@ -41,6 +44,9 @@
 /*
  * Assertions
  */
+
+#undef CHECK
+#undef ASSERT
 
 #define CHECK(expr) do {                              \
   if (UNLIKELY(!(expr)))                              \
@@ -54,10 +60,26 @@
 #endif
 
 /*
- * Keywords/Attributes
+ * Static Assertions
  */
 
-#undef noreturn
+#undef STATIC_ASSERT
+
+#if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L
+#  undef _Static_assert
+#  define STATIC_ASSERT(x) _Static_assert(x, "static assertion failed")
+#elif TORSION_GNUC_PREREQ(2, 7)
+#  define __TORSION_STATIC_ASSERT(x, y) \
+     typedef char __torsion_assert_ ## y[(x) ? 1 : -1] __attribute__((unused))
+#  define _TORSION_STATIC_ASSERT(x, y) __TORSION_STATIC_ASSERT(x, y)
+#  define STATIC_ASSERT(x) _TORSION_STATIC_ASSERT(x, __LINE__)
+#else
+#  define STATIC_ASSERT(x) struct __torsion_assert_empty
+#endif
+
+/*
+ * Keywords/Attributes
+ */
 
 #if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 199901L
 #  define TORSION_INLINE inline
@@ -82,8 +104,10 @@
 #if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L
 #  define TORSION_NORETURN _Noreturn
 #elif TORSION_GNUC_PREREQ(2, 7)
+#  undef noreturn
 #  define TORSION_NORETURN __attribute__((noreturn))
 #elif defined(_MSC_VER) && _MSC_VER >= 1200
+#  undef noreturn
 #  define TORSION_NORETURN __declspec(noreturn)
 #else
 #  define TORSION_NORETURN
