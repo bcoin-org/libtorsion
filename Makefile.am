@@ -128,7 +128,7 @@ torsion_wasm_CFLAGS = -DTORSION_BUILD -D__wasi__
 torsion_wasm_LDFLAGS = $(torsion_emflags) $(torsion_emexports)
 torsion_wasm_SOURCES = $(torsion_sources)
 
-if ENABLE_TESTS
+if ENABLE_TEST
 noinst_PROGRAMS += tests.wasm
 tests_wasm_CFLAGS = -D__wasi__
 tests_wasm_LDFLAGS = $(torsion_emflags)
@@ -139,14 +139,13 @@ lib_LTLIBRARIES = libtorsion.la
 libtorsion_la_CFLAGS = -DTORSION_BUILD
 libtorsion_la_LDFLAGS = -no-undefined -version-info 0:0:0
 libtorsion_la_SOURCES = $(torsion_sources)
-libtorsion_la_LIBADD =
 
 if ENABLE_COVERAGE
 libtorsion_la_CFLAGS += --coverage
 libtorsion_la_LDFLAGS += --coverage
 endif
 
-if ENABLE_TESTS
+if ENABLE_TEST
 TESTS += tests
 noinst_PROGRAMS += tests
 tests_CFLAGS =

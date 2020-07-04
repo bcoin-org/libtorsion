@@ -11,9 +11,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-#undef CHECK
+#undef ASSERT
 
-#define CHECK(expr) do {                                   \
+#define ASSERT(expr) do {                                  \
   if (!(expr))                                             \
     __torsion_test_assert_fail(__FILE__, __LINE__, #expr); \
 } while (0)

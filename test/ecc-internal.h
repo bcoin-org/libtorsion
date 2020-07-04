@@ -10,6 +10,9 @@
 #include <stdint.h>
 #include <limits.h>
 
+#undef ASSERT
+#define ASSERT(expr) ASSERT_ALWAYS(expr)
+
 /*
  * Debug Helpers
  */
@@ -20,7 +23,7 @@ mpn_out_str(FILE *stream, int base, mp_srcptr xp, mp_size_t xn) {
   mp_limb_t ch;
   mp_size_t i;
 
-  CHECK(base == 16);
+  ASSERT(base == 16);
 
   if (xn < 0) {
     fputc('-', stream);
@@ -239,37 +242,37 @@ test_scalar(void) {
 
     sc_reduce(sc, r, t);
 
-    CHECK(sc_is_zero(sc, r));
+    ASSERT(sc_is_zero(sc, r));
 
     raw[sc->size - 1] -= 1;
 
-    CHECK(sc_import(sc, r, raw));
+    ASSERT(sc_import(sc, r, raw));
 
     raw[sc->size - 1] += 1;
 
-    CHECK(!sc_import(sc, r, raw));
+    ASSERT(!sc_import(sc, r, raw));
 
     raw[sc->size - 1] += 1;
 
-    CHECK(!sc_import(sc, r, raw));
+    ASSERT(!sc_import(sc, r, raw));
 
     memcpy(raw, sc->raw, sc->size);
 
-    CHECK(!sc_import_reduce(sc, r, raw));
+    ASSERT(!sc_import_reduce(sc, r, raw));
 
     sc_export(sc, raw, r);
 
-    CHECK(memcmp(raw, expect1, 32) == 0);
+    ASSERT(memcmp(raw, expect1, 32) == 0);
 
     memcpy(raw, sc->raw, sc->size);
 
     raw[sc->size - 1] += 1;
 
-    CHECK(!sc_import_reduce(sc, r, raw));
+    ASSERT(!sc_import_reduce(sc, r, raw));
 
     sc_export(sc, raw, r);
 
-    CHECK(memcmp(raw, expect2, 32) == 0);
+    ASSERT(memcmp(raw, expect2, 32) == 0);
 
     wei_curve_destroy(ec);
   }
@@ -304,41 +307,41 @@ test_scalar(void) {
 
     sc_reduce(sc, r, t);
 
-    CHECK(sc_is_zero(sc, r));
+    ASSERT(sc_is_zero(sc, r));
 
     sc_neg(sc, r, r);
 
-    CHECK(sc_is_zero(sc, r));
+    ASSERT(sc_is_zero(sc, r));
 
     raw[0] -= 1;
 
-    CHECK(sc_import(sc, r, raw));
+    ASSERT(sc_import(sc, r, raw));
 
     raw[0] += 1;
 
-    CHECK(!sc_import(sc, r, raw));
+    ASSERT(!sc_import(sc, r, raw));
 
     raw[0] += 1;
 
-    CHECK(!sc_import(sc, r, raw));
+    ASSERT(!sc_import(sc, r, raw));
 
     memcpy(raw, sc->raw, sc->size);
 
-    CHECK(!sc_import_reduce(sc, r, raw));
+    ASSERT(!sc_import_reduce(sc, r, raw));
 
     sc_export(sc, raw, r);
 
-    CHECK(memcmp(raw, expect1, 32) == 0);
+    ASSERT(memcmp(raw, expect1, 32) == 0);
 
     memcpy(raw, sc->raw, sc->size);
 
     raw[0] += 1;
 
-    CHECK(!sc_import_reduce(sc, r, raw));
+    ASSERT(!sc_import_reduce(sc, r, raw));
 
     sc_export(sc, raw, r);
 
-    CHECK(memcmp(raw, expect2, 32) == 0);
+    ASSERT(memcmp(raw, expect2, 32) == 0);
 
     edwards_curve_destroy(ec);
   }
@@ -358,11 +361,11 @@ test_scalar(void) {
 
     memset(max, 0xff, 32);
 
-    CHECK(!sc_import_reduce(sc, r, max));
+    ASSERT(!sc_import_reduce(sc, r, max));
 
     sc_export(sc, max, r);
 
-    CHECK(memcmp(max, expect, 32) == 0);
+    ASSERT(memcmp(max, expect, 32) == 0);
 
     wei_curve_destroy(ec);
   }
@@ -385,15 +388,15 @@ test_field_element(void) {
 
   raw[fe->size - 1] -= 1;
 
-  CHECK(fe_import(fe, t, raw));
+  ASSERT(fe_import(fe, t, raw));
 
   raw[fe->size - 1] += 1;
 
-  CHECK(!fe_import(fe, t, raw));
+  ASSERT(!fe_import(fe, t, raw));
 
   raw[7] += 1;
 
-  CHECK(!fe_import(fe, t, raw));
+  ASSERT(!fe_import(fe, t, raw));
 
   wei_curve_destroy(ec);
 }
@@ -411,9 +414,9 @@ test_zero(drbg_t *rng) {
     const unsigned char one[4] = {0, 0, 0, 1};
     const unsigned char full[4] = {0xff, 0xff, 0xff, 0xff};
 
-    CHECK(bytes_zero(zero, 4));
-    CHECK(!bytes_zero(one, 4));
-    CHECK(!bytes_zero(full, 4));
+    ASSERT(bytes_zero(zero, 4));
+    ASSERT(!bytes_zero(one, 4));
+    ASSERT(!bytes_zero(full, 4));
   }
 
   {
@@ -427,7 +430,7 @@ test_zero(drbg_t *rng) {
       if (i % 10 == 0)
         memset(a, 0, sizeof(a));
 
-      CHECK(bytes_zero(a, 32) == stupid_bytes_zero(a, 32));
+      ASSERT(bytes_zero(a, 32) == stupid_bytes_zero(a, 32));
     }
   }
 }
@@ -442,11 +445,11 @@ test_lt(drbg_t *rng) {
     const unsigned char plus1[4] = {1, 2, 3, 5};
     const unsigned char full[4] = {0xff, 0xff, 0xff, 0xff};
 
-    CHECK(bytes_lt(minus1, mod, 4, 1));
-    CHECK(!bytes_lt(mod, mod, 4, 1));
-    CHECK(!bytes_lt(plus1, mod, 4, 1));
-    CHECK(bytes_lt(mod, full, 4, 1));
-    CHECK(!bytes_lt(full, mod, 4, 1));
+    ASSERT(bytes_lt(minus1, mod, 4, 1));
+    ASSERT(!bytes_lt(mod, mod, 4, 1));
+    ASSERT(!bytes_lt(plus1, mod, 4, 1));
+    ASSERT(bytes_lt(mod, full, 4, 1));
+    ASSERT(!bytes_lt(full, mod, 4, 1));
   }
 
   {
@@ -455,11 +458,11 @@ test_lt(drbg_t *rng) {
     const unsigned char plus1[4] = {5, 3, 2, 1};
     const unsigned char full[4] = {0xff, 0xff, 0xff, 0xff};
 
-    CHECK(bytes_lt(minus1, mod, 4, -1));
-    CHECK(!bytes_lt(mod, mod, 4, -1));
-    CHECK(!bytes_lt(plus1, mod, 4, -1));
-    CHECK(bytes_lt(mod, full, 4, -1));
-    CHECK(!bytes_lt(full, mod, 4, -1));
+    ASSERT(bytes_lt(minus1, mod, 4, -1));
+    ASSERT(!bytes_lt(mod, mod, 4, -1));
+    ASSERT(!bytes_lt(plus1, mod, 4, -1));
+    ASSERT(bytes_lt(mod, full, 4, -1));
+    ASSERT(!bytes_lt(full, mod, 4, -1));
   }
 
   {
@@ -472,15 +475,15 @@ test_lt(drbg_t *rng) {
       drbg_generate(rng, a, sizeof(a));
       drbg_generate(rng, b, sizeof(b));
 
-      CHECK(bytes_lt(a, a, 32, 1) == 0);
-      CHECK(bytes_lt(b, b, 32, 1) == 0);
-      CHECK(bytes_lt(a, b, 32, 1) == (memcmp(a, b, 32) < 0));
-      CHECK(bytes_lt(b, a, 32, 1) == (memcmp(b, a, 32) < 0));
+      ASSERT(bytes_lt(a, a, 32, 1) == 0);
+      ASSERT(bytes_lt(b, b, 32, 1) == 0);
+      ASSERT(bytes_lt(a, b, 32, 1) == (memcmp(a, b, 32) < 0));
+      ASSERT(bytes_lt(b, a, 32, 1) == (memcmp(b, a, 32) < 0));
 
-      CHECK(bytes_lt(a, a, 32, -1) == 0);
-      CHECK(bytes_lt(b, b, 32, -1) == 0);
-      CHECK(bytes_lt(a, b, 32, -1) == (revcmp(a, b, 32) < 0));
-      CHECK(bytes_lt(b, a, 32, -1) == (revcmp(b, a, 32) < 0));
+      ASSERT(bytes_lt(a, a, 32, -1) == 0);
+      ASSERT(bytes_lt(b, b, 32, -1) == 0);
+      ASSERT(bytes_lt(a, b, 32, -1) == (revcmp(a, b, 32) < 0));
+      ASSERT(bytes_lt(b, a, 32, -1) == (revcmp(b, a, 32) < 0));
     }
   }
 }
@@ -492,11 +495,11 @@ test_bitlen(void) {
   printf("  - Bit length sanity check.\n");
 
   for (i = 0; i <= UINT16_MAX; i++)
-    CHECK(bit_length(i) == stupid_bit_length(i));
+    ASSERT(bit_length(i) == stupid_bit_length(i));
 
-  CHECK(bit_length((1ul << 24) - 1ul) == 24);
-  CHECK(bit_length(1ul << 24) == 25);
-  CHECK(bit_length(UINT32_MAX) == 32);
+  ASSERT(bit_length((1ul << 24) - 1ul) == 24);
+  ASSERT(bit_length(1ul << 24) == 25);
+  ASSERT(bit_length(UINT32_MAX) == 32);
 }
 
 /*
@@ -546,69 +549,69 @@ test_wei_points_p256(drbg_t *rng) {
   wge_set(ec, &g, &ec->g);
   wge_to_jge(ec, &jg, &ec->g);
 
-  CHECK(wge_import(ec, &p, g_raw, 33));
+  ASSERT(wge_import(ec, &p, g_raw, 33));
 
   wge_to_jge(ec, &jp, &p);
   wge_to_jge(ec, &jq, &ec->g);
 
-  CHECK(wge_validate(ec, &p));
-  CHECK(jge_validate(ec, &jp));
-  CHECK(jge_validate(ec, &jq));
-  CHECK(wge_equal(ec, &p, &ec->g));
-  CHECK(jge_equal(ec, &jp, &jq));
+  ASSERT(wge_validate(ec, &p));
+  ASSERT(jge_validate(ec, &jp));
+  ASSERT(jge_validate(ec, &jq));
+  ASSERT(wge_equal(ec, &p, &ec->g));
+  ASSERT(jge_equal(ec, &jp, &jq));
 
-  CHECK(wge_import(ec, &q, g2_raw, 33));
-  CHECK(wge_import(ec, &r, g3_raw, 33));
+  ASSERT(wge_import(ec, &q, g2_raw, 33));
+  ASSERT(wge_import(ec, &r, g3_raw, 33));
 
   wge_to_jge(ec, &jq, &q);
   wge_to_jge(ec, &jr, &r);
 
   wge_dbl_var(ec, &p, &ec->g);
 
-  CHECK(wge_equal(ec, &p, &q));
+  ASSERT(wge_equal(ec, &p, &q));
 
   wge_add_var(ec, &p, &p, &ec->g);
 
-  CHECK(wge_equal(ec, &p, &r));
+  ASSERT(wge_equal(ec, &p, &r));
 
   jge_dbl_var(ec, &jp, &jg);
 
-  CHECK(jge_equal(ec, &jp, &jq));
+  ASSERT(jge_equal(ec, &jp, &jq));
 
   jge_add_var(ec, &jp, &jp, &jg);
 
-  CHECK(jge_equal(ec, &jp, &jr));
+  ASSERT(jge_equal(ec, &jp, &jr));
 
   jge_sub_var(ec, &jp, &jp, &jg);
 
-  CHECK(jge_equal(ec, &jp, &jq));
+  ASSERT(jge_equal(ec, &jp, &jq));
 
   jge_mixed_add_var(ec, &jp, &jp, &g);
 
-  CHECK(jge_equal(ec, &jp, &jr));
+  ASSERT(jge_equal(ec, &jp, &jr));
 
   jge_mixed_sub_var(ec, &jp, &jp, &g);
 
-  CHECK(jge_equal(ec, &jp, &jq));
+  ASSERT(jge_equal(ec, &jp, &jq));
 
-  CHECK(jge_validate(ec, &jg));
-  CHECK(jge_validate(ec, &jp));
-  CHECK(jge_validate(ec, &jq));
-  CHECK(jge_validate(ec, &jr));
+  ASSERT(jge_validate(ec, &jg));
+  ASSERT(jge_validate(ec, &jp));
+  ASSERT(jge_validate(ec, &jq));
+  ASSERT(jge_validate(ec, &jr));
 
-  CHECK(!jge_is_zero(ec, &jg));
-  CHECK(!jge_is_zero(ec, &jp));
-  CHECK(!jge_is_zero(ec, &jq));
-  CHECK(!jge_is_zero(ec, &jr));
+  ASSERT(!jge_is_zero(ec, &jg));
+  ASSERT(!jge_is_zero(ec, &jp));
+  ASSERT(!jge_is_zero(ec, &jq));
+  ASSERT(!jge_is_zero(ec, &jr));
 
   jge_to_wge(ec, &p, &jp);
 
-  CHECK(wge_equal(ec, &p, &q));
+  ASSERT(wge_equal(ec, &p, &q));
 
-  CHECK(wge_export(ec, p_raw, &p_size, &p, 1));
-  CHECK(p_size == 33);
+  ASSERT(wge_export(ec, p_raw, &p_size, &p, 1));
+  ASSERT(p_size == 33);
 
-  CHECK(memcmp(p_raw, g2_raw, 33) == 0);
+  ASSERT(memcmp(p_raw, g2_raw, 33) == 0);
 
   wei_curve_destroy(ec);
 }
@@ -668,69 +671,69 @@ test_wei_points_p521(drbg_t *rng) {
   wge_set(ec, &g, &ec->g);
   wge_to_jge(ec, &jg, &ec->g);
 
-  CHECK(wge_import(ec, &p, g_raw, 67));
+  ASSERT(wge_import(ec, &p, g_raw, 67));
 
   wge_to_jge(ec, &jp, &p);
   wge_to_jge(ec, &jq, &ec->g);
 
-  CHECK(wge_validate(ec, &p));
-  CHECK(jge_validate(ec, &jp));
-  CHECK(jge_validate(ec, &jq));
-  CHECK(wge_equal(ec, &p, &ec->g));
-  CHECK(jge_equal(ec, &jp, &jq));
+  ASSERT(wge_validate(ec, &p));
+  ASSERT(jge_validate(ec, &jp));
+  ASSERT(jge_validate(ec, &jq));
+  ASSERT(wge_equal(ec, &p, &ec->g));
+  ASSERT(jge_equal(ec, &jp, &jq));
 
-  CHECK(wge_import(ec, &q, g2_raw, 67));
-  CHECK(wge_import(ec, &r, g3_raw, 67));
+  ASSERT(wge_import(ec, &q, g2_raw, 67));
+  ASSERT(wge_import(ec, &r, g3_raw, 67));
 
   wge_to_jge(ec, &jq, &q);
   wge_to_jge(ec, &jr, &r);
 
   wge_dbl_var(ec, &p, &ec->g);
 
-  CHECK(wge_equal(ec, &p, &q));
+  ASSERT(wge_equal(ec, &p, &q));
 
   wge_add_var(ec, &p, &p, &ec->g);
 
-  CHECK(wge_equal(ec, &p, &r));
+  ASSERT(wge_equal(ec, &p, &r));
 
   jge_dbl_var(ec, &jp, &jg);
 
-  CHECK(jge_equal(ec, &jp, &jq));
+  ASSERT(jge_equal(ec, &jp, &jq));
 
   jge_add_var(ec, &jp, &jp, &jg);
 
-  CHECK(jge_equal(ec, &jp, &jr));
+  ASSERT(jge_equal(ec, &jp, &jr));
 
   jge_sub_var(ec, &jp, &jp, &jg);
 
-  CHECK(jge_equal(ec, &jp, &jq));
+  ASSERT(jge_equal(ec, &jp, &jq));
 
   jge_mixed_add_var(ec, &jp, &jp, &g);
 
-  CHECK(jge_equal(ec, &jp, &jr));
+  ASSERT(jge_equal(ec, &jp, &jr));
 
   jge_mixed_sub_var(ec, &jp, &jp, &g);
 
-  CHECK(jge_equal(ec, &jp, &jq));
+  ASSERT(jge_equal(ec, &jp, &jq));
 
-  CHECK(jge_validate(ec, &jg));
-  CHECK(jge_validate(ec, &jp));
-  CHECK(jge_validate(ec, &jq));
-  CHECK(jge_validate(ec, &jr));
+  ASSERT(jge_validate(ec, &jg));
+  ASSERT(jge_validate(ec, &jp));
+  ASSERT(jge_validate(ec, &jq));
+  ASSERT(jge_validate(ec, &jr));
 
-  CHECK(!jge_is_zero(ec, &jg));
-  CHECK(!jge_is_zero(ec, &jp));
-  CHECK(!jge_is_zero(ec, &jq));
-  CHECK(!jge_is_zero(ec, &jr));
+  ASSERT(!jge_is_zero(ec, &jg));
+  ASSERT(!jge_is_zero(ec, &jp));
+  ASSERT(!jge_is_zero(ec, &jq));
+  ASSERT(!jge_is_zero(ec, &jr));
 
   jge_to_wge(ec, &p, &jp);
 
-  CHECK(wge_equal(ec, &p, &q));
+  ASSERT(wge_equal(ec, &p, &q));
 
-  CHECK(wge_export(ec, p_raw, &p_size, &p, 1));
-  CHECK(p_size == 67);
+  ASSERT(wge_export(ec, p_raw, &p_size, &p, 1));
+  ASSERT(p_size == 67);
 
-  CHECK(memcmp(p_raw, g2_raw, 67) == 0);
+  ASSERT(memcmp(p_raw, g2_raw, 67) == 0);
 
   wei_curve_destroy(ec);
 }
@@ -778,69 +781,69 @@ test_wei_points_secp256k1(drbg_t *rng) {
   wge_set(ec, &g, &ec->g);
   wge_to_jge(ec, &jg, &ec->g);
 
-  CHECK(wge_import(ec, &p, g_raw, 33));
+  ASSERT(wge_import(ec, &p, g_raw, 33));
 
   wge_to_jge(ec, &jp, &p);
   wge_to_jge(ec, &jq, &ec->g);
 
-  CHECK(wge_validate(ec, &p));
-  CHECK(jge_validate(ec, &jp));
-  CHECK(jge_validate(ec, &jq));
-  CHECK(wge_equal(ec, &p, &ec->g));
-  CHECK(jge_equal(ec, &jp, &jq));
+  ASSERT(wge_validate(ec, &p));
+  ASSERT(jge_validate(ec, &jp));
+  ASSERT(jge_validate(ec, &jq));
+  ASSERT(wge_equal(ec, &p, &ec->g));
+  ASSERT(jge_equal(ec, &jp, &jq));
 
-  CHECK(wge_import(ec, &q, g2_raw, 33));
-  CHECK(wge_import(ec, &r, g3_raw, 33));
+  ASSERT(wge_import(ec, &q, g2_raw, 33));
+  ASSERT(wge_import(ec, &r, g3_raw, 33));
 
   wge_to_jge(ec, &jq, &q);
   wge_to_jge(ec, &jr, &r);
 
   wge_dbl_var(ec, &p, &ec->g);
 
-  CHECK(wge_equal(ec, &p, &q));
+  ASSERT(wge_equal(ec, &p, &q));
 
   wge_add_var(ec, &p, &p, &ec->g);
 
-  CHECK(wge_equal(ec, &p, &r));
+  ASSERT(wge_equal(ec, &p, &r));
 
   jge_dbl_var(ec, &jp, &jg);
 
-  CHECK(jge_equal(ec, &jp, &jq));
+  ASSERT(jge_equal(ec, &jp, &jq));
 
   jge_add_var(ec, &jp, &jp, &jg);
 
-  CHECK(jge_equal(ec, &jp, &jr));
+  ASSERT(jge_equal(ec, &jp, &jr));
 
   jge_sub_var(ec, &jp, &jp, &jg);
 
-  CHECK(jge_equal(ec, &jp, &jq));
+  ASSERT(jge_equal(ec, &jp, &jq));
 
   jge_mixed_add_var(ec, &jp, &jp, &g);
 
-  CHECK(jge_equal(ec, &jp, &jr));
+  ASSERT(jge_equal(ec, &jp, &jr));
 
   jge_mixed_sub_var(ec, &jp, &jp, &g);
 
-  CHECK(jge_equal(ec, &jp, &jq));
+  ASSERT(jge_equal(ec, &jp, &jq));
 
-  CHECK(jge_validate(ec, &jg));
-  CHECK(jge_validate(ec, &jp));
-  CHECK(jge_validate(ec, &jq));
-  CHECK(jge_validate(ec, &jr));
+  ASSERT(jge_validate(ec, &jg));
+  ASSERT(jge_validate(ec, &jp));
+  ASSERT(jge_validate(ec, &jq));
+  ASSERT(jge_validate(ec, &jr));
 
-  CHECK(!jge_is_zero(ec, &jg));
-  CHECK(!jge_is_zero(ec, &jp));
-  CHECK(!jge_is_zero(ec, &jq));
-  CHECK(!jge_is_zero(ec, &jr));
+  ASSERT(!jge_is_zero(ec, &jg));
+  ASSERT(!jge_is_zero(ec, &jp));
+  ASSERT(!jge_is_zero(ec, &jq));
+  ASSERT(!jge_is_zero(ec, &jr));
 
   jge_to_wge(ec, &p, &jp);
 
-  CHECK(wge_equal(ec, &p, &q));
+  ASSERT(wge_equal(ec, &p, &q));
 
-  CHECK(wge_export(ec, p_raw, &p_size, &p, 1));
-  CHECK(p_size == 33);
+  ASSERT(wge_export(ec, p_raw, &p_size, &p, 1));
+  ASSERT(p_size == 33);
 
-  CHECK(memcmp(p_raw, g2_raw, 33) == 0);
+  ASSERT(memcmp(p_raw, g2_raw, 33) == 0);
 
   wei_curve_destroy(ec);
 }
@@ -877,21 +880,21 @@ test_wei_mul_g_p256(drbg_t *rng) {
 
   wei_randomize(ec, entropy);
 
-  CHECK(sc_import(sc, k, k_raw));
-  CHECK(wge_import(ec, &expect, expect_raw, 33));
+  ASSERT(sc_import(sc, k, k_raw));
+  ASSERT(wge_import(ec, &expect, expect_raw, 33));
 
-  CHECK(wge_validate(ec, &expect));
-  CHECK(wge_equal(ec, &expect, &expect));
-  CHECK(!wge_equal(ec, &expect, &ec->g));
+  ASSERT(wge_validate(ec, &expect));
+  ASSERT(wge_equal(ec, &expect, &expect));
+  ASSERT(!wge_equal(ec, &expect, &ec->g));
 
   wei_mul_g(ec, &q, k);
 
-  CHECK(wge_equal(ec, &q, &expect));
+  ASSERT(wge_equal(ec, &q, &expect));
 
-  CHECK(wge_export(ec, q_raw, &q_size, &q, 1));
-  CHECK(q_size == 33);
+  ASSERT(wge_export(ec, q_raw, &q_size, &q, 1));
+  ASSERT(q_size == 33);
 
-  CHECK(memcmp(q_raw, expect_raw, 33) == 0);
+  ASSERT(memcmp(q_raw, expect_raw, 33) == 0);
 
   wei_curve_destroy(ec);
 }
@@ -936,23 +939,23 @@ test_wei_mul_p256(drbg_t *rng) {
 
   wei_randomize(ec, entropy);
 
-  CHECK(wge_import(ec, &p, p_raw, 33));
-  CHECK(sc_import(sc, k, k_raw));
-  CHECK(wge_import(ec, &expect, expect_raw, 33));
+  ASSERT(wge_import(ec, &p, p_raw, 33));
+  ASSERT(sc_import(sc, k, k_raw));
+  ASSERT(wge_import(ec, &expect, expect_raw, 33));
 
-  CHECK(wge_validate(ec, &p));
-  CHECK(wge_validate(ec, &expect));
-  CHECK(wge_equal(ec, &expect, &expect));
-  CHECK(!wge_equal(ec, &expect, &ec->g));
+  ASSERT(wge_validate(ec, &p));
+  ASSERT(wge_validate(ec, &expect));
+  ASSERT(wge_equal(ec, &expect, &expect));
+  ASSERT(!wge_equal(ec, &expect, &ec->g));
 
   wei_mul(ec, &q, &p, k);
 
-  CHECK(wge_equal(ec, &q, &expect));
+  ASSERT(wge_equal(ec, &q, &expect));
 
-  CHECK(wge_export(ec, q_raw, &q_size, &q, 1));
-  CHECK(q_size == 33);
+  ASSERT(wge_export(ec, q_raw, &q_size, &q, 1));
+  ASSERT(q_size == 33);
 
-  CHECK(memcmp(q_raw, expect_raw, 33) == 0);
+  ASSERT(memcmp(q_raw, expect_raw, 33) == 0);
 
   wei_curve_destroy(ec);
 }
@@ -1004,24 +1007,24 @@ test_wei_double_mul_p256(drbg_t *rng) {
 
   wei_randomize(ec, entropy);
 
-  CHECK(wge_import(ec, &p, p_raw, 33));
-  CHECK(sc_import(sc, k1, k1_raw));
-  CHECK(sc_import(sc, k2, k2_raw));
-  CHECK(wge_import(ec, &expect, expect_raw, 33));
+  ASSERT(wge_import(ec, &p, p_raw, 33));
+  ASSERT(sc_import(sc, k1, k1_raw));
+  ASSERT(sc_import(sc, k2, k2_raw));
+  ASSERT(wge_import(ec, &expect, expect_raw, 33));
 
-  CHECK(wge_validate(ec, &p));
-  CHECK(wge_validate(ec, &expect));
-  CHECK(wge_equal(ec, &expect, &expect));
-  CHECK(!wge_equal(ec, &expect, &ec->g));
+  ASSERT(wge_validate(ec, &p));
+  ASSERT(wge_validate(ec, &expect));
+  ASSERT(wge_equal(ec, &expect, &expect));
+  ASSERT(!wge_equal(ec, &expect, &ec->g));
 
   wei_mul_double_var(ec, &q, k1, &p, k2);
 
-  CHECK(wge_equal(ec, &q, &expect));
+  ASSERT(wge_equal(ec, &q, &expect));
 
-  CHECK(wge_export(ec, q_raw, &q_size, &q, 1));
-  CHECK(q_size == 33);
+  ASSERT(wge_export(ec, q_raw, &q_size, &q, 1));
+  ASSERT(q_size == 33);
 
-  CHECK(memcmp(q_raw, expect_raw, 33) == 0);
+  ASSERT(memcmp(q_raw, expect_raw, 33) == 0);
 
   wei_curve_destroy(ec);
 }
@@ -1091,18 +1094,18 @@ test_wei_multi_mul_p256(drbg_t *rng) {
 
   wei_randomize(ec, entropy);
 
-  CHECK(wge_import(ec, &p1, p1_raw, 33));
-  CHECK(wge_import(ec, &p2, p2_raw, 33));
-  CHECK(sc_import(sc, k0, k0_raw));
-  CHECK(sc_import(sc, k1, k1_raw));
-  CHECK(sc_import(sc, k2, k2_raw));
-  CHECK(wge_import(ec, &expect, expect_raw, 33));
+  ASSERT(wge_import(ec, &p1, p1_raw, 33));
+  ASSERT(wge_import(ec, &p2, p2_raw, 33));
+  ASSERT(sc_import(sc, k0, k0_raw));
+  ASSERT(sc_import(sc, k1, k1_raw));
+  ASSERT(sc_import(sc, k2, k2_raw));
+  ASSERT(wge_import(ec, &expect, expect_raw, 33));
 
-  CHECK(wge_validate(ec, &p1));
-  CHECK(wge_validate(ec, &p2));
-  CHECK(wge_validate(ec, &expect));
-  CHECK(wge_equal(ec, &expect, &expect));
-  CHECK(!wge_equal(ec, &expect, &ec->g));
+  ASSERT(wge_validate(ec, &p1));
+  ASSERT(wge_validate(ec, &p2));
+  ASSERT(wge_validate(ec, &expect));
+  ASSERT(wge_equal(ec, &expect, &expect));
+  ASSERT(!wge_equal(ec, &expect, &ec->g));
 
   wge_set(ec, &points[0], &p1);
   wge_set(ec, &points[1], &p2);
@@ -1112,12 +1115,12 @@ test_wei_multi_mul_p256(drbg_t *rng) {
 
   wei_mul_multi_var(ec, &q, k0, points, (const sc_t *)coeffs, 2, scratch);
 
-  CHECK(wge_equal(ec, &q, &expect));
+  ASSERT(wge_equal(ec, &q, &expect));
 
-  CHECK(wge_export(ec, q_raw, &q_size, &q, 1));
-  CHECK(q_size == 33);
+  ASSERT(wge_export(ec, q_raw, &q_size, &q, 1));
+  ASSERT(q_size == 33);
 
-  CHECK(memcmp(q_raw, expect_raw, 33) == 0);
+  ASSERT(memcmp(q_raw, expect_raw, 33) == 0);
 
   wei_scratch_destroy(ec, scratch);
   wei_curve_destroy(ec);
@@ -1155,21 +1158,21 @@ test_wei_mul_g_secp256k1(drbg_t *rng) {
 
   wei_randomize(ec, entropy);
 
-  CHECK(sc_import(sc, k, k_raw));
-  CHECK(wge_import(ec, &expect, expect_raw, 33));
+  ASSERT(sc_import(sc, k, k_raw));
+  ASSERT(wge_import(ec, &expect, expect_raw, 33));
 
-  CHECK(wge_validate(ec, &expect));
-  CHECK(wge_equal(ec, &expect, &expect));
-  CHECK(!wge_equal(ec, &expect, &ec->g));
+  ASSERT(wge_validate(ec, &expect));
+  ASSERT(wge_equal(ec, &expect, &expect));
+  ASSERT(!wge_equal(ec, &expect, &ec->g));
 
   wei_mul_g(ec, &q, k);
 
-  CHECK(wge_equal(ec, &q, &expect));
+  ASSERT(wge_equal(ec, &q, &expect));
 
-  CHECK(wge_export(ec, q_raw, &q_size, &q, 1));
-  CHECK(q_size == 33);
+  ASSERT(wge_export(ec, q_raw, &q_size, &q, 1));
+  ASSERT(q_size == 33);
 
-  CHECK(memcmp(q_raw, expect_raw, 33) == 0);
+  ASSERT(memcmp(q_raw, expect_raw, 33) == 0);
 
   wei_curve_destroy(ec);
 }
@@ -1214,23 +1217,23 @@ test_wei_mul_secp256k1(drbg_t *rng) {
 
   wei_randomize(ec, entropy);
 
-  CHECK(wge_import(ec, &p, p_raw, 33));
-  CHECK(sc_import(sc, k, k_raw));
-  CHECK(wge_import(ec, &expect, expect_raw, 33));
+  ASSERT(wge_import(ec, &p, p_raw, 33));
+  ASSERT(sc_import(sc, k, k_raw));
+  ASSERT(wge_import(ec, &expect, expect_raw, 33));
 
-  CHECK(wge_validate(ec, &p));
-  CHECK(wge_validate(ec, &expect));
-  CHECK(wge_equal(ec, &expect, &expect));
-  CHECK(!wge_equal(ec, &expect, &ec->g));
+  ASSERT(wge_validate(ec, &p));
+  ASSERT(wge_validate(ec, &expect));
+  ASSERT(wge_equal(ec, &expect, &expect));
+  ASSERT(!wge_equal(ec, &expect, &ec->g));
 
   wei_mul(ec, &q, &p, k);
 
-  CHECK(wge_equal(ec, &q, &expect));
+  ASSERT(wge_equal(ec, &q, &expect));
 
-  CHECK(wge_export(ec, q_raw, &q_size, &q, 1));
-  CHECK(q_size == 33);
+  ASSERT(wge_export(ec, q_raw, &q_size, &q, 1));
+  ASSERT(q_size == 33);
 
-  CHECK(memcmp(q_raw, expect_raw, 33) == 0);
+  ASSERT(memcmp(q_raw, expect_raw, 33) == 0);
 
   wei_curve_destroy(ec);
 }
@@ -1282,24 +1285,24 @@ test_wei_double_mul_secp256k1(drbg_t *rng) {
 
   wei_randomize(ec, entropy);
 
-  CHECK(wge_import(ec, &p, p_raw, 33));
-  CHECK(sc_import(sc, k1, k1_raw));
-  CHECK(sc_import(sc, k2, k2_raw));
-  CHECK(wge_import(ec, &expect, expect_raw, 33));
+  ASSERT(wge_import(ec, &p, p_raw, 33));
+  ASSERT(sc_import(sc, k1, k1_raw));
+  ASSERT(sc_import(sc, k2, k2_raw));
+  ASSERT(wge_import(ec, &expect, expect_raw, 33));
 
-  CHECK(wge_validate(ec, &p));
-  CHECK(wge_validate(ec, &expect));
-  CHECK(wge_equal(ec, &expect, &expect));
-  CHECK(!wge_equal(ec, &expect, &ec->g));
+  ASSERT(wge_validate(ec, &p));
+  ASSERT(wge_validate(ec, &expect));
+  ASSERT(wge_equal(ec, &expect, &expect));
+  ASSERT(!wge_equal(ec, &expect, &ec->g));
 
   wei_mul_double_var(ec, &q, k1, &p, k2);
 
-  CHECK(wge_equal(ec, &q, &expect));
+  ASSERT(wge_equal(ec, &q, &expect));
 
-  CHECK(wge_export(ec, q_raw, &q_size, &q, 1));
-  CHECK(q_size == 33);
+  ASSERT(wge_export(ec, q_raw, &q_size, &q, 1));
+  ASSERT(q_size == 33);
 
-  CHECK(memcmp(q_raw, expect_raw, 33) == 0);
+  ASSERT(memcmp(q_raw, expect_raw, 33) == 0);
 
   wei_curve_destroy(ec);
 }
@@ -1369,18 +1372,18 @@ test_wei_multi_mul_secp256k1(drbg_t *rng) {
 
   wei_randomize(ec, entropy);
 
-  CHECK(wge_import(ec, &p1, p1_raw, 33));
-  CHECK(wge_import(ec, &p2, p2_raw, 33));
-  CHECK(sc_import(sc, k0, k0_raw));
-  CHECK(sc_import(sc, k1, k1_raw));
-  CHECK(sc_import(sc, k2, k2_raw));
-  CHECK(wge_import(ec, &expect, expect_raw, 33));
+  ASSERT(wge_import(ec, &p1, p1_raw, 33));
+  ASSERT(wge_import(ec, &p2, p2_raw, 33));
+  ASSERT(sc_import(sc, k0, k0_raw));
+  ASSERT(sc_import(sc, k1, k1_raw));
+  ASSERT(sc_import(sc, k2, k2_raw));
+  ASSERT(wge_import(ec, &expect, expect_raw, 33));
 
-  CHECK(wge_validate(ec, &p1));
-  CHECK(wge_validate(ec, &p2));
-  CHECK(wge_validate(ec, &expect));
-  CHECK(wge_equal(ec, &expect, &expect));
-  CHECK(!wge_equal(ec, &expect, &ec->g));
+  ASSERT(wge_validate(ec, &p1));
+  ASSERT(wge_validate(ec, &p2));
+  ASSERT(wge_validate(ec, &expect));
+  ASSERT(wge_equal(ec, &expect, &expect));
+  ASSERT(!wge_equal(ec, &expect, &ec->g));
 
   wge_set(ec, &points[0], &p1);
   wge_set(ec, &points[1], &p2);
@@ -1390,12 +1393,12 @@ test_wei_multi_mul_secp256k1(drbg_t *rng) {
 
   wei_mul_multi_var(ec, &q, k0, points, (const sc_t *)coeffs, 2, scratch);
 
-  CHECK(wge_equal(ec, &q, &expect));
+  ASSERT(wge_equal(ec, &q, &expect));
 
-  CHECK(wge_export(ec, q_raw, &q_size, &q, 1));
-  CHECK(q_size == 33);
+  ASSERT(wge_export(ec, q_raw, &q_size, &q, 1));
+  ASSERT(q_size == 33);
 
-  CHECK(memcmp(q_raw, expect_raw, 33) == 0);
+  ASSERT(memcmp(q_raw, expect_raw, 33) == 0);
 
   wei_scratch_destroy(ec, scratch);
   wei_curve_destroy(ec);
@@ -1435,52 +1438,52 @@ test_mont_points_x25519(void) {
   mge_set(ec, &g, &ec->g);
   mge_to_pge(ec, &jg, &ec->g);
 
-  CHECK(mge_import(ec, &p, g_raw, 0));
+  ASSERT(mge_import(ec, &p, g_raw, 0));
 
   mge_to_pge(ec, &jp, &p);
   mge_to_pge(ec, &jq, &ec->g);
 
-  CHECK(mge_validate(ec, &p));
-  CHECK(pge_validate(ec, &jp));
-  CHECK(pge_validate(ec, &jq));
-  CHECK(mge_equal(ec, &p, &ec->g));
-  CHECK(pge_equal(ec, &jp, &jq));
+  ASSERT(mge_validate(ec, &p));
+  ASSERT(pge_validate(ec, &jp));
+  ASSERT(pge_validate(ec, &jq));
+  ASSERT(mge_equal(ec, &p, &ec->g));
+  ASSERT(pge_equal(ec, &jp, &jq));
 
-  CHECK(mge_import(ec, &q, g2_raw, 0));
-  CHECK(mge_import(ec, &r, g3_raw, 0));
+  ASSERT(mge_import(ec, &q, g2_raw, 0));
+  ASSERT(mge_import(ec, &r, g3_raw, 0));
 
   mge_to_pge(ec, &jq, &q);
   mge_to_pge(ec, &jr, &r);
 
   mge_dbl(ec, &p, &ec->g);
 
-  CHECK(mge_equal(ec, &p, &q));
+  ASSERT(mge_equal(ec, &p, &q));
 
   mge_add(ec, &p, &p, &ec->g);
 
-  CHECK(mge_equal(ec, &p, &r));
+  ASSERT(mge_equal(ec, &p, &r));
 
   pge_dbl(ec, &jp, &jg);
 
-  CHECK(pge_equal(ec, &jp, &jq));
+  ASSERT(pge_equal(ec, &jp, &jq));
 
-  CHECK(pge_validate(ec, &jg));
-  CHECK(pge_validate(ec, &jp));
-  CHECK(pge_validate(ec, &jq));
-  CHECK(pge_validate(ec, &jr));
+  ASSERT(pge_validate(ec, &jg));
+  ASSERT(pge_validate(ec, &jp));
+  ASSERT(pge_validate(ec, &jq));
+  ASSERT(pge_validate(ec, &jr));
 
-  CHECK(!pge_is_zero(ec, &jg));
-  CHECK(!pge_is_zero(ec, &jp));
-  CHECK(!pge_is_zero(ec, &jq));
-  CHECK(!pge_is_zero(ec, &jr));
+  ASSERT(!pge_is_zero(ec, &jg));
+  ASSERT(!pge_is_zero(ec, &jp));
+  ASSERT(!pge_is_zero(ec, &jq));
+  ASSERT(!pge_is_zero(ec, &jr));
 
   pge_to_mge(ec, &p, &jp, 0);
 
-  CHECK(mge_equal(ec, &p, &q));
+  ASSERT(mge_equal(ec, &p, &q));
 
-  CHECK(mge_export(ec, p_raw, &p));
+  ASSERT(mge_export(ec, p_raw, &p));
 
-  CHECK(memcmp(p_raw, g2_raw, 32) == 0);
+  ASSERT(memcmp(p_raw, g2_raw, 32) == 0);
 
   mont_curve_destroy(ec);
 }
@@ -1524,68 +1527,68 @@ test_edwards_points_ed25519(drbg_t *rng) {
   xge_set(ec, &g, &ec->g);
   xge_set(ec, &jg, &ec->g);
 
-  CHECK(xge_import(ec, &p, g_raw));
+  ASSERT(xge_import(ec, &p, g_raw));
 
   xge_set(ec, &jp, &p);
   xge_set(ec, &jq, &ec->g);
 
-  CHECK(xge_validate(ec, &p));
-  CHECK(xge_validate(ec, &jp));
-  CHECK(xge_validate(ec, &jq));
-  CHECK(xge_equal(ec, &p, &ec->g));
-  CHECK(xge_equal(ec, &jp, &jq));
+  ASSERT(xge_validate(ec, &p));
+  ASSERT(xge_validate(ec, &jp));
+  ASSERT(xge_validate(ec, &jq));
+  ASSERT(xge_equal(ec, &p, &ec->g));
+  ASSERT(xge_equal(ec, &jp, &jq));
 
-  CHECK(xge_import(ec, &q, g2_raw));
-  CHECK(xge_import(ec, &r, g3_raw));
+  ASSERT(xge_import(ec, &q, g2_raw));
+  ASSERT(xge_import(ec, &r, g3_raw));
 
   xge_set(ec, &jq, &q);
   xge_set(ec, &jr, &r);
 
   xge_dbl(ec, &p, &ec->g);
 
-  CHECK(xge_equal(ec, &p, &q));
+  ASSERT(xge_equal(ec, &p, &q));
 
   xge_add(ec, &p, &p, &ec->g);
 
-  CHECK(xge_equal(ec, &p, &r));
+  ASSERT(xge_equal(ec, &p, &r));
 
   xge_dbl(ec, &jp, &jg);
 
-  CHECK(xge_equal(ec, &jp, &jq));
+  ASSERT(xge_equal(ec, &jp, &jq));
 
   xge_add(ec, &jp, &jp, &jg);
 
-  CHECK(xge_equal(ec, &jp, &jr));
+  ASSERT(xge_equal(ec, &jp, &jr));
 
   xge_sub(ec, &jp, &jp, &jg);
 
-  CHECK(xge_equal(ec, &jp, &jq));
+  ASSERT(xge_equal(ec, &jp, &jq));
 
   xge_add(ec, &jp, &jp, &jg);
 
-  CHECK(xge_equal(ec, &jp, &jr));
+  ASSERT(xge_equal(ec, &jp, &jr));
 
   xge_sub(ec, &jp, &jp, &jg);
 
-  CHECK(xge_equal(ec, &jp, &jq));
+  ASSERT(xge_equal(ec, &jp, &jq));
 
-  CHECK(xge_validate(ec, &jg));
-  CHECK(xge_validate(ec, &jp));
-  CHECK(xge_validate(ec, &jq));
-  CHECK(xge_validate(ec, &jr));
+  ASSERT(xge_validate(ec, &jg));
+  ASSERT(xge_validate(ec, &jp));
+  ASSERT(xge_validate(ec, &jq));
+  ASSERT(xge_validate(ec, &jr));
 
-  CHECK(!xge_is_zero(ec, &jg));
-  CHECK(!xge_is_zero(ec, &jp));
-  CHECK(!xge_is_zero(ec, &jq));
-  CHECK(!xge_is_zero(ec, &jr));
+  ASSERT(!xge_is_zero(ec, &jg));
+  ASSERT(!xge_is_zero(ec, &jp));
+  ASSERT(!xge_is_zero(ec, &jq));
+  ASSERT(!xge_is_zero(ec, &jr));
 
   xge_set(ec, &p, &jp);
 
-  CHECK(xge_equal(ec, &p, &q));
+  ASSERT(xge_equal(ec, &p, &q));
 
   xge_export(ec, p_raw, &p);
 
-  CHECK(memcmp(p_raw, g2_raw, 32) == 0);
+  ASSERT(memcmp(p_raw, g2_raw, 32) == 0);
 
   edwards_curve_destroy(ec);
 }
@@ -1620,20 +1623,20 @@ test_edwards_mul_g_ed25519(drbg_t *rng) {
 
   edwards_randomize(ec, entropy);
 
-  CHECK(sc_import(sc, k, k_raw));
-  CHECK(xge_import(ec, &expect, expect_raw));
+  ASSERT(sc_import(sc, k, k_raw));
+  ASSERT(xge_import(ec, &expect, expect_raw));
 
-  CHECK(xge_validate(ec, &expect));
-  CHECK(xge_equal(ec, &expect, &expect));
-  CHECK(!xge_equal(ec, &expect, &ec->g));
+  ASSERT(xge_validate(ec, &expect));
+  ASSERT(xge_equal(ec, &expect, &expect));
+  ASSERT(!xge_equal(ec, &expect, &ec->g));
 
   edwards_mul_g(ec, &q, k);
 
-  CHECK(xge_equal(ec, &q, &expect));
+  ASSERT(xge_equal(ec, &q, &expect));
 
   xge_export(ec, q_raw, &q);
 
-  CHECK(memcmp(q_raw, expect_raw, 32) == 0);
+  ASSERT(memcmp(q_raw, expect_raw, 32) == 0);
 
   edwards_curve_destroy(ec);
 }
@@ -1675,22 +1678,22 @@ test_edwards_mul_ed25519(drbg_t *rng) {
 
   edwards_randomize(ec, entropy);
 
-  CHECK(xge_import(ec, &p, p_raw));
-  CHECK(sc_import(sc, k, k_raw));
-  CHECK(xge_import(ec, &expect, expect_raw));
+  ASSERT(xge_import(ec, &p, p_raw));
+  ASSERT(sc_import(sc, k, k_raw));
+  ASSERT(xge_import(ec, &expect, expect_raw));
 
-  CHECK(xge_validate(ec, &p));
-  CHECK(xge_validate(ec, &expect));
-  CHECK(xge_equal(ec, &expect, &expect));
-  CHECK(!xge_equal(ec, &expect, &ec->g));
+  ASSERT(xge_validate(ec, &p));
+  ASSERT(xge_validate(ec, &expect));
+  ASSERT(xge_equal(ec, &expect, &expect));
+  ASSERT(!xge_equal(ec, &expect, &ec->g));
 
   edwards_mul(ec, &q, &p, k);
 
-  CHECK(xge_equal(ec, &q, &expect));
+  ASSERT(xge_equal(ec, &q, &expect));
 
   xge_export(ec, q_raw, &q);
 
-  CHECK(memcmp(q_raw, expect_raw, 32) == 0);
+  ASSERT(memcmp(q_raw, expect_raw, 32) == 0);
 
   edwards_curve_destroy(ec);
 }
@@ -1739,23 +1742,23 @@ test_edwards_double_mul_ed25519(drbg_t *rng) {
 
   edwards_randomize(ec, entropy);
 
-  CHECK(xge_import(ec, &p, p_raw));
-  CHECK(sc_import(sc, k1, k1_raw));
-  CHECK(sc_import(sc, k2, k2_raw));
-  CHECK(xge_import(ec, &expect, expect_raw));
+  ASSERT(xge_import(ec, &p, p_raw));
+  ASSERT(sc_import(sc, k1, k1_raw));
+  ASSERT(sc_import(sc, k2, k2_raw));
+  ASSERT(xge_import(ec, &expect, expect_raw));
 
-  CHECK(xge_validate(ec, &p));
-  CHECK(xge_validate(ec, &expect));
-  CHECK(xge_equal(ec, &expect, &expect));
-  CHECK(!xge_equal(ec, &expect, &ec->g));
+  ASSERT(xge_validate(ec, &p));
+  ASSERT(xge_validate(ec, &expect));
+  ASSERT(xge_equal(ec, &expect, &expect));
+  ASSERT(!xge_equal(ec, &expect, &ec->g));
 
   edwards_mul_double_var(ec, &q, k1, &p, k2);
 
-  CHECK(xge_equal(ec, &q, &expect));
+  ASSERT(xge_equal(ec, &q, &expect));
 
   xge_export(ec, q_raw, &q);
 
-  CHECK(memcmp(q_raw, expect_raw, 32) == 0);
+  ASSERT(memcmp(q_raw, expect_raw, 32) == 0);
 
   edwards_curve_destroy(ec);
 }
@@ -1821,18 +1824,18 @@ test_edwards_multi_mul_ed25519(drbg_t *rng) {
 
   edwards_randomize(ec, entropy);
 
-  CHECK(xge_import(ec, &p1, p1_raw));
-  CHECK(xge_import(ec, &p2, p2_raw));
-  CHECK(sc_import(sc, k0, k0_raw));
-  CHECK(sc_import(sc, k1, k1_raw));
-  CHECK(sc_import(sc, k2, k2_raw));
-  CHECK(xge_import(ec, &expect, expect_raw));
+  ASSERT(xge_import(ec, &p1, p1_raw));
+  ASSERT(xge_import(ec, &p2, p2_raw));
+  ASSERT(sc_import(sc, k0, k0_raw));
+  ASSERT(sc_import(sc, k1, k1_raw));
+  ASSERT(sc_import(sc, k2, k2_raw));
+  ASSERT(xge_import(ec, &expect, expect_raw));
 
-  CHECK(xge_validate(ec, &p1));
-  CHECK(xge_validate(ec, &p2));
-  CHECK(xge_validate(ec, &expect));
-  CHECK(xge_equal(ec, &expect, &expect));
-  CHECK(!xge_equal(ec, &expect, &ec->g));
+  ASSERT(xge_validate(ec, &p1));
+  ASSERT(xge_validate(ec, &p2));
+  ASSERT(xge_validate(ec, &expect));
+  ASSERT(xge_equal(ec, &expect, &expect));
+  ASSERT(!xge_equal(ec, &expect, &ec->g));
 
   xge_set(ec, &points[0], &p1);
   xge_set(ec, &points[1], &p2);
@@ -1842,11 +1845,11 @@ test_edwards_multi_mul_ed25519(drbg_t *rng) {
 
   edwards_mul_multi_var(ec, &q, k0, points, (const sc_t *)coeffs, 2, scratch);
 
-  CHECK(xge_equal(ec, &q, &expect));
+  ASSERT(xge_equal(ec, &q, &expect));
 
   xge_export(ec, q_raw, &q);
 
-  CHECK(memcmp(q_raw, expect_raw, 32) == 0);
+  ASSERT(memcmp(q_raw, expect_raw, 32) == 0);
 
   edwards_scratch_destroy(ec, scratch);
   edwards_curve_destroy(ec);

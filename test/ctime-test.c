@@ -72,50 +72,50 @@ test_ecdsa(int curve_name) {
   ret = ecdsa_pubkey_create(ec, pub, &pub_len, priv, 1);
   VALGRIND_MAKE_MEM_DEFINED(&ret, sizeof(ret));
   VALGRIND_MAKE_MEM_DEFINED(pub, sizeof(pub));
-  CHECK(ret);
-  CHECK(ecdsa_pubkey_verify(ec, pub, 33));
+  ASSERT(ret);
+  ASSERT(ecdsa_pubkey_verify(ec, pub, 33));
 
   /* Signing */
   VALGRIND_MAKE_MEM_UNDEFINED(priv, 32);
   ret = ecdsa_sign(ec, sig, NULL, msg, 32, priv);
   VALGRIND_MAKE_MEM_DEFINED(&ret, sizeof(ret));
   VALGRIND_MAKE_MEM_DEFINED(sig, sizeof(sig));
-  CHECK(ret);
-  CHECK(ecdsa_verify(ec, msg, 32, sig, pub, 33));
+  ASSERT(ret);
+  ASSERT(ecdsa_verify(ec, msg, 32, sig, pub, 33));
 
   /* ECDH */
   VALGRIND_MAKE_MEM_UNDEFINED(priv, 32);
   ret = ecdsa_derive(ec, secret, &secret_len, pub, 33, priv, 1);
   VALGRIND_MAKE_MEM_DEFINED(&ret, sizeof(ret));
   VALGRIND_MAKE_MEM_DEFINED(secret, sizeof(secret));
-  CHECK(ret);
-  CHECK(ecdsa_pubkey_verify(ec, secret, 33));
+  ASSERT(ret);
+  ASSERT(ecdsa_pubkey_verify(ec, secret, 33));
 
   /* Validation */
   VALGRIND_MAKE_MEM_UNDEFINED(priv, 32);
   ret = ecdsa_privkey_verify(ec, priv);
   VALGRIND_MAKE_MEM_DEFINED(&ret, sizeof(ret));
-  CHECK(ret);
+  ASSERT(ret);
 
   /* Negation */
   VALGRIND_MAKE_MEM_UNDEFINED(priv, 32);
   ret = ecdsa_privkey_negate(ec, priv, priv);
   VALGRIND_MAKE_MEM_DEFINED(&ret, sizeof(ret));
-  CHECK(ret);
+  ASSERT(ret);
 
   /* Addition */
   VALGRIND_MAKE_MEM_UNDEFINED(priv, 32);
   VALGRIND_MAKE_MEM_UNDEFINED(msg, 32);
   ret = ecdsa_privkey_tweak_add(ec, priv, priv, msg);
   VALGRIND_MAKE_MEM_DEFINED(&ret, sizeof(ret));
-  CHECK(ret);
+  ASSERT(ret);
 
   /* Multiplication */
   VALGRIND_MAKE_MEM_UNDEFINED(priv, 32);
   VALGRIND_MAKE_MEM_UNDEFINED(msg, 32);
   ret = ecdsa_privkey_tweak_mul(ec, priv, priv, msg);
   VALGRIND_MAKE_MEM_DEFINED(&ret, sizeof(ret));
-  CHECK(ret);
+  ASSERT(ret);
 
   wei_curve_destroy(ec);
 }
@@ -139,15 +139,15 @@ test_ecdh(void) {
   ecdh_pubkey_create(ec, pub, priv);
   VALGRIND_MAKE_MEM_DEFINED(&ret, sizeof(ret));
   VALGRIND_MAKE_MEM_DEFINED(pub, sizeof(pub));
-  CHECK(ecdh_pubkey_verify(ec, pub));
+  ASSERT(ecdh_pubkey_verify(ec, pub));
 
   /* ECDH */
   VALGRIND_MAKE_MEM_UNDEFINED(priv, 32);
   ret = ecdh_derive(ec, secret, pub, priv);
   VALGRIND_MAKE_MEM_DEFINED(&ret, sizeof(ret));
   VALGRIND_MAKE_MEM_DEFINED(secret, sizeof(secret));
-  CHECK(ret);
-  CHECK(ecdh_pubkey_verify(ec, secret));
+  ASSERT(ret);
+  ASSERT(ecdh_pubkey_verify(ec, secret));
 
   mont_curve_destroy(ec);
 }
@@ -175,21 +175,21 @@ test_eddsa(void) {
   VALGRIND_MAKE_MEM_UNDEFINED(priv, 32);
   eddsa_pubkey_create(ec, pub, priv);
   VALGRIND_MAKE_MEM_DEFINED(pub, sizeof(pub));
-  CHECK(eddsa_pubkey_verify(ec, pub));
+  ASSERT(eddsa_pubkey_verify(ec, pub));
 
   /* Signing */
   VALGRIND_MAKE_MEM_UNDEFINED(priv, 32);
   eddsa_sign(ec, sig, msg, 32, priv, 0, NULL, 0);
   VALGRIND_MAKE_MEM_DEFINED(sig, sizeof(sig));
-  CHECK(eddsa_verify(ec, msg, 32, sig, pub, 0, NULL, 0));
+  ASSERT(eddsa_verify(ec, msg, 32, sig, pub, 0, NULL, 0));
 
   /* ECDH */
   VALGRIND_MAKE_MEM_UNDEFINED(priv, 32);
   ret = eddsa_derive(ec, secret, pub, priv);
   VALGRIND_MAKE_MEM_DEFINED(secret, sizeof(secret));
   VALGRIND_MAKE_MEM_DEFINED(&ret, sizeof(ret));
-  CHECK(ret);
-  CHECK(eddsa_pubkey_verify(ec, secret));
+  ASSERT(ret);
+  ASSERT(eddsa_pubkey_verify(ec, secret));
 
   /* Negation */
   VALGRIND_MAKE_MEM_UNDEFINED(priv, 32);

@@ -12,7 +12,6 @@ if(NOT EMSCRIPTEN)
   set(CMAKE_C_STANDARD 90)
 endif()
 
-option(TORSION_ENABLE_64BIT "Use 64-bit backends if available" ON)
 option(TORSION_ENABLE_ASM "Use inline x86-64 assembly if available" ON)
 option(TORSION_ENABLE_ASSERT "Enable assertions" ON)
 option(TORSION_ENABLE_COVERAGE "Enable coverage" OFF)
@@ -21,14 +20,9 @@ option(TORSION_ENABLE_CTIME "Enable valgrind constant-time test" OFF)
 option(TORSION_ENABLE_INT128 "Use __int128 if available" ON)
 option(TORSION_ENABLE_LIBSECP256K1 "Enable libsecp256k1 field element backend" OFF)
 option(TORSION_ENABLE_RNG "Enable RNG" ON)
-option(TORSION_ENABLE_TESTS "Enable tests" ON)
+option(TORSION_ENABLE_TEST "Enable tests" ON)
 option(TORSION_ENABLE_TLS "Enable TLS" ON)
 option(TORSION_ENABLE_VERIFY "Enable scalar bounds checks" OFF)
-
-if(TORSION_ENABLE_CTIME)
-  set(TORSION_ENABLE_ASSERT OFF)
-  set(TORSION_ENABLE_VERIFY OFF)
-endif()
 
 if(MSVC)
   # CMake defaults for windows:
@@ -70,12 +64,11 @@ else()
   check_c_compiler_flag(-O3 TORSION_HAS_O3)
 endif()
 
-if("${CMAKE_SIZEOF_VOID_P}" STREQUAL "8")
-  set(TORSION_HAS_64BIT TRUE)
-endif()
-
 check_c_source_compiles("
 #include <stdint.h>
+#if defined(__EMSCRIPTEN__) || defined(__wasm__)
+#  error \"cannot use inline asm with wasm\"
+#endif
 #if !defined(__amd64__) && !defined(__x86_64__)
 #  error \"not an x64 platform\"
 #endif
@@ -96,6 +89,10 @@ int main(void) {
 " TORSION_HAS_ASM)
 
 check_c_source_compiles("
+#if defined(__EMSCRIPTEN__) || defined(__wasm__)
+#  error \"cannot use __int128 with wasm\"
+#endif
+typedef char check_64bit_t[sizeof(void *) == 8 ? 1 : -1];
 typedef signed __int128 int128_t;
 typedef unsigned __int128 uint128_t;
 int main(void) {
@@ -126,13 +123,8 @@ check_include_file(valgrind/memcheck.h TORSION_HAS_VALGRIND)
 
 list(APPEND torsion_defines TORSION_HAVE_CONFIG)
 
-if(TORSION_ENABLE_64BIT AND TORSION_HAS_64BIT AND NOT EMSCRIPTEN)
-  if(TORSION_ENABLE_ASM AND TORSION_HAS_ASM)
-    list(APPEND torsion_defines TORSION_HAVE_ASM_X64)
-  endif()
-  if(TORSION_ENABLE_INT128 AND TORSION_HAS_INT128)
-    list(APPEND torsion_defines TORSION_HAVE_INT128)
-  endif()
+if(TORSION_ENABLE_ASM AND TORSION_HAS_ASM)
+  list(APPEND torsion_defines TORSION_HAVE_ASM_X64)
 endif()
 
 if(NOT TORSION_ENABLE_ASSERT OR EMSCRIPTEN)
@@ -140,7 +132,7 @@ if(NOT TORSION_ENABLE_ASSERT OR EMSCRIPTEN)
 endif()
 
 if(TORSION_ENABLE_COVERAGE)
-  list(APPEND torsion_defines TORSION_NO_ASSERT)
+  list(APPEND torsion_defines TORSION_COVERAGE)
   list(APPEND torsion_cflags --coverage)
   list(APPEND torsion_ldflags --coverage)
 endif()
@@ -153,7 +145,11 @@ if(TORSION_ENABLE_CTIME)
   if(NOT TORSION_HAS_VALGRIND)
     message(FATAL_ERROR "valgrind must be installed for constant time test")
   endif()
-  list(APPEND torsion_defines TORSION_VALGRIND)
+  list(APPEND torsion_defines TORSION_CTIME)
+endif()
+
+if(TORSION_ENABLE_INT128 AND TORSION_HAS_INT128)
+  list(APPEND torsion_defines TORSION_HAVE_INT128)
 endif()
 
 if(TORSION_ENABLE_LIBSECP256K1)
@@ -164,7 +160,7 @@ if(TORSION_ENABLE_RNG)
   list(APPEND torsion_defines TORSION_HAVE_RNG)
 endif()
 
-if(TORSION_ENABLE_TESTS)
+if(TORSION_ENABLE_TEST)
   list(APPEND torsion_defines TORSION_TEST)
   if(TORSION_HAS_G AND NOT EMSCRIPTEN)
     list(APPEND torsion_cflags -g)
@@ -176,7 +172,7 @@ if(TORSION_ENABLE_TLS AND TORSION_HAS_TLS)
 endif()
 
 if(TORSION_ENABLE_VERIFY)
-  if(NOT TORSION_ENABLE_TESTS)
+  if(NOT TORSION_ENABLE_TEST)
     message(FATAL_ERROR "scalar bounds verification for testing only")
   endif()
   list(APPEND torsion_defines TORSION_VERIFY)
@@ -286,7 +282,7 @@ if(EMSCRIPTEN)
                         "${torsion_emflags} ${torsion_emexports}")
   target_include_directories(torsion PRIVATE ${PROJECT_SOURCE_DIR}/include)
 
-  if(TORSION_ENABLE_TESTS)
+  if(TORSION_ENABLE_TEST)
     add_executable(tests ${torsion_sources} test/test.c test/os.c)
     target_compile_definitions(tests PRIVATE ${torsion_defines} __wasi__)
     target_compile_options(tests PRIVATE ${torsion_cflags})
@@ -317,7 +313,7 @@ else()
   target_include_directories(torsion_a PUBLIC ${PROJECT_SOURCE_DIR}/include)
   target_link_options(torsion_a PRIVATE ${torsion_ldflags})
 
-  if(TORSION_ENABLE_TESTS)
+  if(TORSION_ENABLE_TEST)
     add_executable(tests test/test.c test/os.c)
     target_compile_definitions(tests PRIVATE ${test_defines})
     target_compile_options(tests PRIVATE ${test_cflags})

@@ -23,11 +23,6 @@ if test x"$ac_cv_prog_cc_c89" = x"no"; then
   AC_MSG_ERROR([CC does not support ANSI C89])
 fi
 
-AC_ARG_ENABLE(64bit,
-  AS_HELP_STRING([--enable-64bit],[use 64-bit backends if available [default=yes]]),
-  [enable_64bit=$enableval],
-  [enable_64bit=yes])
-
 AC_ARG_ENABLE(asm,
   AS_HELP_STRING([--enable-asm],[use inline x86-64 assembly if available [default=yes]]),
   [enable_asm=$enableval],
@@ -68,10 +63,10 @@ AC_ARG_ENABLE(rng,
   [enable_rng=$enableval],
   [enable_rng=yes])
 
-AC_ARG_ENABLE(tests,
-  AS_HELP_STRING([--enable-tests],[enable tests [default=yes]]),
-  [enable_tests=$enableval],
-  [enable_tests=yes])
+AC_ARG_ENABLE(test,
+  AS_HELP_STRING([--enable-test],[enable tests [default=yes]]),
+  [enable_test=$enableval],
+  [enable_test=yes])
 
 AC_ARG_ENABLE(tls,
   AS_HELP_STRING([--enable-tls],[enable tls [default=yes]]),
@@ -82,11 +77,6 @@ AC_ARG_ENABLE(verify,
   AS_HELP_STRING([--enable-verify],[enable scalar bounds checks [default=no]]),
   [enable_verify=$enableval],
   [enable_verify=no])
-
-if test x"$enable_ctime" = x"yes"; then
-  enable_assert=no
-  enable_verify=no
-fi
 
 if test x"$EMSCRIPTEN" != x""; then
   CC_CHECK_CFLAGS_APPEND([-std=gnu11])
@@ -106,14 +96,11 @@ CC_CHECK_CFLAGS_APPEND([-Wno-overlength-strings])
 CC_CHECK_CFLAGS_APPEND([-Wshadow])
 CC_CHECK_CFLAGS_APPEND([-O3])
 
-AC_MSG_CHECKING(for 64 bit support)
-AS_CASE([$host_cpu],
-  [aarch64*|ia64|mips64*|ppc64*|sparc64|x86_64],
-  [has_64bit=yes], [has_64bit=no])
-AC_MSG_RESULT([$has_64bit])
-
 AC_MSG_CHECKING(for x86_64 inline asm support)
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <stdint.h>]],[[
+#if defined(__EMSCRIPTEN__) || defined(__wasm__)
+#  error "cannot use inline asm with wasm"
+#endif
 #if !defined(__amd64__) && !defined(__x86_64__)
 #  error "not an x64 platform"
 #endif
@@ -133,6 +120,10 @@ AC_MSG_RESULT([$has_asm])
 
 AC_MSG_CHECKING(for int128 support)
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#if defined(__EMSCRIPTEN__) || defined(__wasm__)
+#  error "cannot use __int128 with wasm"
+#endif
+typedef char check_64bit_t[sizeof(void *) == 8 ? 1 : -1];
 typedef signed __int128 int128_t;
 typedef unsigned __int128 uint128_t;
 ]],[[
@@ -162,20 +153,8 @@ AC_CHECK_HEADER([valgrind/memcheck.h], [has_valgrind=yes], [has_valgrind=no], []
 
 AC_DEFINE(TORSION_HAVE_CONFIG)
 
-if test x"$EMSCRIPTEN" != x""; then
-  has_64bit=no
-  has_asm=no
-  has_int128=no
-  enable_assert=no
-fi
-
-if test x"$enable_64bit" = x"yes" -a x"$has_64bit" = x"yes"; then
-  if test x"$enable_asm" = x"yes" -a x"$has_asm" = x"yes"; then
-    AC_DEFINE(TORSION_HAVE_ASM_X64)
-  fi
-  if test x"$enable_int128" = x"yes" -a x"$has_int128" = x"yes"; then
-    AC_DEFINE(TORSION_HAVE_INT128)
-  fi
+if test x"$enable_asm" = x"yes" -a x"$has_asm" = x"yes"; then
+  AC_DEFINE(TORSION_HAVE_ASM_X64)
 fi
 
 if test x"$enable_assert" != x"yes"; then
@@ -183,7 +162,7 @@ if test x"$enable_assert" != x"yes"; then
 fi
 
 if test x"$enable_coverage" = x"yes"; then
-  AC_DEFINE(TORSION_NO_ASSERT)
+  AC_DEFINE(TORSION_COVERAGE)
 fi
 
 if test x"$enable_crt" = x"yes"; then
@@ -194,7 +173,11 @@ if test x"$enable_ctime" = x"yes"; then
   if test x"$has_valgrind" != x"yes"; then
     AC_MSG_ERROR([valgrind must be installed for constant time test])
   fi
-  AC_DEFINE(TORSION_VALGRIND)
+  AC_DEFINE(TORSION_CTIME)
+fi
+
+if test x"$enable_int128" = x"yes" -a x"$has_int128" = x"yes"; then
+  AC_DEFINE(TORSION_HAVE_INT128)
 fi
 
 if test x"$enable_libsecp256k1" = x"yes"; then
@@ -205,7 +188,7 @@ if test x"$enable_rng" = x"yes"; then
   AC_DEFINE(TORSION_HAVE_RNG)
 fi
 
-if test x"$enable_tests" = x"yes"; then
+if test x"$enable_test" = x"yes"; then
   if test x"$EMSCRIPTEN" = x""; then
     CC_CHECK_CFLAGS_APPEND([-g])
   fi
@@ -217,7 +200,7 @@ if test x"$enable_tls" = x"yes" -a x"$has_tls" = x"yes"; then
 fi
 
 if test x"$enable_verify" = x"yes"; then
-  if test x"$enable_tests" != x"yes"; then
+  if test x"$enable_test" != x"yes"; then
     AC_MSG_ERROR([scalar bounds verification for testing only])
   fi
   AC_DEFINE(TORSION_VERIFY)
@@ -233,7 +216,7 @@ AC_SUBST(PTHREAD_CFLAGS)
 AC_SUBST(PTHREAD_LIBS)
 
 AM_CONDITIONAL([ENABLE_RNG], [test x"$enable_rng" = x"yes"])
-AM_CONDITIONAL([ENABLE_TESTS], [test x"$enable_tests" = x"yes"])
+AM_CONDITIONAL([ENABLE_TEST], [test x"$enable_test" = x"yes"])
 AM_CONDITIONAL([ENABLE_COVERAGE], [test x"$enable_coverage" = x"yes"])
 AM_CONDITIONAL([ENABLE_CTIME], [test x"$enable_ctime" = x"yes"])
 AM_CONDITIONAL([EMSCRIPTEN], [test x"$EMSCRIPTEN" != x""])
@@ -245,7 +228,6 @@ AC_OUTPUT
 echo ""
 echo "Build Options:"
 echo ""
-echo "  64bit        = $enable_64bit (support=$has_64bit)"
 echo "  asm          = $enable_asm (support=$has_asm)"
 echo "  assert       = $enable_assert"
 echo "  coverage     = $enable_coverage"
@@ -255,7 +237,7 @@ echo "  emscripten   = $EMSCRIPTEN"
 echo "  int128       = $enable_int128 (support=$has_int128)"
 echo "  libsecp256k1 = $enable_libsecp256k1"
 echo "  rng          = $enable_rng"
-echo "  tests        = $enable_tests"
+echo "  test         = $enable_test"
 echo "  tls          = $enable_tls (support=$has_tls)"
 echo "  verify       = $enable_verify"
 echo ""

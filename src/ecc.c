@@ -141,7 +141,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
-#ifdef TORSION_VALGRIND
+#ifdef TORSION_CTIME
 #include <valgrind/memcheck.h>
 #endif
 #include <torsion/drbg.h>
@@ -640,7 +640,7 @@ checked_malloc(size_t size) {
   void *ptr = malloc(size);
 
   if (ptr == NULL)
-    torsion_die("checked_malloc: allocation failed.");
+    torsion_abort();
 
   return ptr;
 }
@@ -1716,7 +1716,7 @@ fe_sqrt(const prime_field_t *fe, fe_t r, const fe_t a) {
       fe_mul(fe, b, b, a);
       fe_mul(fe, b, b, c);
     } else {
-      ASSERT(0 && "fe_sqrt: no sqrt implementation.");
+      torsion_abort();
     }
 
     /* b2 = b^2 mod p */
@@ -8452,10 +8452,8 @@ wei_t *
 wei_curve_create(int type) {
   wei_t *ec = NULL;
 
-  if (type < 0 || (size_t)type > ARRAY_SIZE(wei_curves)) {
-    torsion_die("wei_curve_create: invalid curve.");
+  if (type < 0 || (size_t)type > ARRAY_SIZE(wei_curves))
     return NULL;
-  }
 
   ec = checked_malloc(sizeof(wei_t));
 
@@ -8545,10 +8543,8 @@ mont_t *
 mont_curve_create(int type) {
   mont_t *ec = NULL;
 
-  if (type < 0 || (size_t)type > ARRAY_SIZE(mont_curves)) {
-    torsion_die("mont_curve_create: invalid curve.");
+  if (type < 0 || (size_t)type > ARRAY_SIZE(mont_curves))
     return NULL;
-  }
 
   ec = checked_malloc(sizeof(mont_t));
 
@@ -8591,10 +8587,8 @@ edwards_t *
 edwards_curve_create(int type) {
   edwards_t *ec = NULL;
 
-  if (type < 0 || (size_t)type > ARRAY_SIZE(edwards_curves)) {
-    torsion_die("edwards_curve_create: invalid curve.");
+  if (type < 0 || (size_t)type > ARRAY_SIZE(edwards_curves))
     return NULL;
-  }
 
   ec = checked_malloc(sizeof(edwards_t));
 
@@ -9461,7 +9455,7 @@ ecdsa_sign(const wei_t *ec,
     ok &= wge_is_zero(ec, &R) ^ 1;
     ok &= sc_is_zero(sc, r) ^ 1;
 
-#ifdef TORSION_VALGRIND
+#ifdef TORSION_CTIME
     if (RUNNING_ON_VALGRIND)
       VALGRIND_MAKE_MEM_DEFINED(&ok, sizeof(ok));
 #endif
@@ -9975,7 +9969,7 @@ schnorr_legacy_verify_batch(const wei_t *ec,
   size_t j = 0;
   size_t i;
 
-  ASSERT(scratch->size >= 2);
+  CHECK(scratch->size >= 2);
 
   /* Seed RNG. */
   {
@@ -10827,7 +10821,7 @@ schnorr_verify_batch(const wei_t *ec,
   size_t j = 0;
   size_t i;
 
-  ASSERT(scratch->size >= 2);
+  CHECK(scratch->size >= 2);
 
   /* Seed RNG. */
   {
@@ -12230,7 +12224,7 @@ eddsa_verify_batch(const edwards_t *ec,
   size_t j = 0;
   size_t i;
 
-  ASSERT(scratch->size >= 2);
+  CHECK(scratch->size >= 2);
 
   /* Seed RNG. */
   {

@@ -42,21 +42,46 @@
 #endif
 
 /*
- * Assertions
+ * Sanity Checks
  */
 
 #undef CHECK
+
+#define CHECK(expr) do { \
+  if (UNLIKELY(!(expr))) \
+    __torsion_abort();   \
+} while (0)
+
+/*
+ * Assertions
+ */
+
+#undef ASSERT_ALWAYS
 #undef ASSERT
 
-#define CHECK(expr) do {                              \
+#define ASSERT_ALWAYS(expr) do {                      \
   if (UNLIKELY(!(expr)))                              \
     __torsion_assert_fail(__FILE__, __LINE__, #expr); \
 } while (0)
 
-#ifdef TORSION_NO_ASSERT
-#  define ASSERT(expr) (void)(expr)
-#else
+#if defined(TORSION_NO_ASSERT)
+#  define ASSERT(expr) do { (void)(expr); } while (0)
+#elif defined(__EMSCRIPTEN__) || defined(__wasm__)
 #  define ASSERT(expr) CHECK(expr)
+#else
+#  define ASSERT(expr) ASSERT_ALWAYS(expr)
+#endif
+
+/*
+ * Coverage / Constant Time
+ */
+
+#if defined(TORSION_COVERAGE) || defined(TORSION_CTIME)
+#  undef TORSION_VERIFY
+#  undef CHECK
+#  undef ASSERT
+#  define CHECK(expr) do { (void)(expr); } while (0)
+#  define ASSERT(expr) do { (void)(expr); } while (0)
 #endif
 
 /*
@@ -67,14 +92,14 @@
 
 #if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L
 #  undef _Static_assert
-#  define STATIC_ASSERT(x) _Static_assert(x, "static assertion failed")
+#  define STATIC_ASSERT(expr) _Static_assert(expr, "")
 #elif TORSION_GNUC_PREREQ(2, 7)
 #  define __TORSION_STATIC_ASSERT(x, y) \
      typedef char __torsion_assert_ ## y[(x) ? 1 : -1] __attribute__((unused))
 #  define _TORSION_STATIC_ASSERT(x, y) __TORSION_STATIC_ASSERT(x, y)
-#  define STATIC_ASSERT(x) _TORSION_STATIC_ASSERT(x, __LINE__)
+#  define STATIC_ASSERT(expr) _TORSION_STATIC_ASSERT(expr, __LINE__)
 #else
-#  define STATIC_ASSERT(x) struct __torsion_assert_empty
+#  define STATIC_ASSERT(expr) struct __torsion_assert_empty
 #endif
 
 /*
@@ -238,14 +263,10 @@ TORSION_EXTENSION typedef signed __int128 torsion_int128_t;
  * Helpers
  */
 
-#define torsion_die __torsion_die
 #define torsion_abort __torsion_abort
 
 TORSION_NORETURN void
 __torsion_assert_fail(const char *file, int line, const char *expr);
-
-TORSION_NORETURN void
-torsion_die(const char *msg);
 
 TORSION_NORETURN void
 torsion_abort(void);

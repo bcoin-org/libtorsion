@@ -79,8 +79,8 @@ blake2b_init(blake2b_t *ctx,
              size_t keylen) {
   size_t i;
 
-  ASSERT(outlen >= 1 && outlen <= 64);
-  ASSERT(keylen <= 64);
+  CHECK(outlen >= 1 && outlen <= 64);
+  CHECK(keylen <= 64);
 
   memset(ctx, 0, sizeof(blake2b_t));
 
@@ -283,8 +283,8 @@ blake2s_init(blake2s_t *ctx,
              size_t keylen) {
   size_t i;
 
-  ASSERT(outlen >= 1 && outlen <= 32);
-  ASSERT(keylen <= 32);
+  CHECK(outlen >= 1 && outlen <= 32);
+  CHECK(keylen <= 32);
 
   memset(ctx, 0, sizeof(blake2s_t));
 
@@ -762,9 +762,9 @@ void
 keccak_init(keccak_t *ctx, size_t bits) {
   size_t rate = 1600 - bits * 2;
 
-  ASSERT(bits >= 128);
-  ASSERT(bits <= 512);
-  ASSERT((rate & 63) == 0);
+  CHECK(bits >= 128);
+  CHECK(bits <= 512);
+  CHECK((rate & 63) == 0);
 
   ctx->bs = rate >> 3;
   ctx->pos = 0;
@@ -1352,7 +1352,7 @@ keccak_final(keccak_t *ctx, unsigned char *out, unsigned char pad, size_t len) {
   if (len == 0)
     len = 100 - (ctx->bs >> 1);
 
-  ASSERT(len <= ctx->bs);
+  CHECK(len <= ctx->bs);
 
   memset(ctx->block + ctx->pos, 0x00, ctx->bs - ctx->pos);
 
@@ -6674,7 +6674,7 @@ hash_init(hash_t *hash, int type) {
       whirlpool_init(&hash->ctx.whirlpool);
       break;
     default:
-      ASSERT(0);
+      torsion_abort();
       break;
   }
 }
@@ -6745,7 +6745,7 @@ hash_update(hash_t *hash, const void *data, size_t len) {
       whirlpool_update(&hash->ctx.whirlpool, data, len);
       break;
     default:
-      ASSERT(0);
+      torsion_abort();
       break;
   }
 }
@@ -6824,7 +6824,7 @@ hash_final(hash_t *hash, unsigned char *out, size_t len) {
       whirlpool_final(&hash->ctx.whirlpool, out);
       break;
     default:
-      ASSERT(0);
+      torsion_abort();
       break;
   }
 }
