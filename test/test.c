@@ -249,7 +249,7 @@ test_aead(void) {
     aead_final(&ctx, mac);
 
     CHECK(memcmp(mac, tag, 16) == 0);
-    CHECK(aead_verify(mac, tag));
+    CHECK(torsion_memequal(mac, tag, 16));
 
     aead_init(&ctx, key, nonce, nonce_len);
     aead_aad(&ctx, aad, aad_len);
@@ -258,7 +258,7 @@ test_aead(void) {
     aead_final(&ctx, mac);
 
     CHECK(memcmp(mac, tag, 16) == 0);
-    CHECK(aead_verify(mac, tag));
+    CHECK(torsion_memequal(mac, tag, 16));
 
     aead_init(&ctx, key, nonce, nonce_len);
     aead_aad(&ctx, aad, aad_len);
@@ -269,7 +269,7 @@ test_aead(void) {
     aead_final(&ctx, mac);
 
     CHECK(memcmp(mac, tag, 16) == 0);
-    CHECK(aead_verify(mac, tag));
+    CHECK(torsion_memequal(mac, tag, 16));
   }
 }
 
@@ -2851,7 +2851,7 @@ test_poly1305(void) {
     poly1305_update(&ctx, msg, msg_len);
     poly1305_final(&ctx, mac);
 
-    CHECK(poly1305_verify(mac, tag));
+    CHECK(torsion_memequal(mac, tag, 16));
     CHECK(memcmp(mac, tag, 16) == 0);
   }
 }
@@ -3602,7 +3602,7 @@ test_secretbox_random(drbg_t *rng) {
 
 static void
 test_siphash(void) {
-  static const uint32_t v32 = 0x9dcb553a;
+  static const uint32_t v32 = UINT32_C(0x9dcb553a);
   static const uint64_t v64 = UINT64_C(0x73b4e2ae9316f6b2);
   unsigned char msg[32];
   unsigned char key[16];
@@ -3616,12 +3616,12 @@ test_siphash(void) {
   for (i = 0; i < 16; i++)
     key[i] = i + 32;
 
-  CHECK(siphash(msg, 32, key) == UINT64_C(10090947469682793545));
-  CHECK(siphash32(v32, key) == UINT32_C(828368916));
-  CHECK(siphash64(v64, key) == UINT64_C(620914895672640125));
-  CHECK(siphash32k256(v32, msg) == UINT32_C(3909845928));
-  CHECK(siphash64k256(v64, msg) == UINT64_C(16928650368383018294));
-  CHECK(sipmod(msg, 32, key, v64) == UINT64_C(4560894765423557143));
+  CHECK(siphash_sum(msg, 32, key) == UINT64_C(10090947469682793545));
+  CHECK(siphash_mod(msg, 32, key, v64) == UINT64_C(4560894765423557143));
+  CHECK((uint32_t)siphash128_sum(v32, key) == UINT32_C(828368916));
+  CHECK(siphash128_sum(v64, key) == UINT64_C(620914895672640125));
+  CHECK((uint32_t)siphash256_sum(v32, msg) == UINT32_C(3909845928));
+  CHECK(siphash256_sum(v64, msg) == UINT64_C(16928650368383018294));
 }
 
 /*
@@ -3639,9 +3639,27 @@ test_cleanse(drbg_t *rng) {
 
   CHECK(memcmp(raw, zero, 32) != 0);
 
-  cleanse(raw, 32);
+  torsion_cleanse(raw, 32);
 
   CHECK(memcmp(raw, zero, 32) == 0);
+}
+
+static void
+test_memequal(drbg_t *rng) {
+  unsigned char s1[32];
+  unsigned char s2[32];
+
+  printf("Testing Memequal...\n");
+
+  drbg_generate(rng, s1, 32);
+
+  memcpy(s2, s1, 32);
+
+  CHECK(torsion_memequal(s1, s2, 32));
+
+  s2[drbg_uniform(rng, 32)] ^= 1;
+
+  CHECK(!torsion_memequal(s1, s2, 32));
 }
 
 static void
@@ -4033,6 +4051,7 @@ main(int argc, char **argv) {
 
     /* Util */
     test_cleanse(&rng);
+    test_memequal(&rng);
     test_murmur3();
 
     printf("All tests passed.\n");

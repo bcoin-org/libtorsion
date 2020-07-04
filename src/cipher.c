@@ -6081,7 +6081,7 @@ cbc_unsteal(cbc_t *mode,
   for (i = 0; i < cipher->size; i++)
     last[i] ^= tmp[i];
 
-  cleanse(tmp, cipher->size);
+  torsion_cleanse(tmp, cipher->size);
 }
 
 /*
@@ -6104,7 +6104,7 @@ xts_setup(xts_t *mode, const cipher_t *cipher,
 
   cipher_encrypt(&c, mode->tweak, mode->tweak);
 
-  cleanse(&c, sizeof(c));
+  torsion_cleanse(&c, sizeof(c));
 
   return 1;
 }
@@ -7760,7 +7760,7 @@ cipher_static_crypt(unsigned char *output,
   *output_len = len1 + len2;
   r = 1;
 fail:
-  cleanse(&ctx, sizeof(ctx));
+  torsion_cleanse(&ctx, sizeof(ctx));
   return r;
 }
 

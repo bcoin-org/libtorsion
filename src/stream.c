@@ -148,7 +148,7 @@ chacha20_init(chacha20_t *ctx,
 
   ctx->pos = 0;
 
-  cleanse(tmp, sizeof(tmp));
+  torsion_cleanse(tmp, sizeof(tmp));
 }
 
 static void
@@ -369,7 +369,7 @@ chacha20_derive(unsigned char *out,
   write32le(out + 24, state[14]);
   write32le(out + 28, state[15]);
 
-  cleanse(state, sizeof(state));
+  torsion_cleanse(state, sizeof(state));
 }
 
 #undef ROTL32
@@ -448,7 +448,7 @@ salsa20_init(salsa20_t *ctx,
 
   ctx->pos = 0;
 
-  cleanse(tmp, sizeof(tmp));
+  torsion_cleanse(tmp, sizeof(tmp));
 }
 
 static void
@@ -732,7 +732,7 @@ salsa20_derive(unsigned char *out,
   write32le(out + 24, state[8]);
   write32le(out + 28, state[9]);
 
-  cleanse(state, sizeof(state));
+  torsion_cleanse(state, sizeof(state));
 }
 
 #undef ROTL32

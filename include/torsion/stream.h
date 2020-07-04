@@ -34,19 +34,19 @@ extern "C" {
  * Structs
  */
 
-typedef struct _rc4_s {
+typedef struct rc4_s {
   uint8_t s[256];
   uint8_t i;
   uint8_t j;
 } rc4_t;
 
-typedef struct _chacha20_s {
+typedef struct chacha20_s {
   uint32_t state[16];
   uint32_t stream[16];
   size_t pos;
 } chacha20_t;
 
-typedef struct _salsa20_s {
+typedef struct salsa20_s {
   uint32_t state[16];
   uint32_t stream[16];
   size_t pos;

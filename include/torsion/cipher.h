@@ -181,61 +181,61 @@ extern "C" {
  * Structs
  */
 
-typedef struct _aes_s {
+typedef struct aes_s {
   unsigned int rounds;
   uint32_t enckey[60];
   uint32_t deckey[60];
 } aes_t;
 
-typedef struct _blowfish_s {
+typedef struct blowfish_s {
   uint32_t S[4][256];
   uint32_t P[18];
 } blowfish_t;
 
-typedef struct _camellia_s {
+typedef struct camellia_s {
   unsigned int bits;
   uint32_t key[68];
 } camellia_t;
 
-typedef struct _cast5_s {
+typedef struct cast5_s {
   uint32_t masking[16];
   uint8_t rotate[16];
 } cast5_t;
 
-typedef struct _des_s {
+typedef struct des_s {
   uint32_t keys[32];
 } des_t;
 
-typedef struct _des_ede_s {
+typedef struct des_ede_s {
   des_t x;
   des_t y;
 } des_ede_t;
 
-typedef struct _des_ede3_s {
+typedef struct des_ede3_s {
   des_t x;
   des_t y;
   des_t z;
 } des_ede3_t;
 
-typedef struct _idea_s {
+typedef struct idea_s {
   uint16_t enckey[52];
   uint16_t deckey[52];
 } idea_t;
 
-typedef struct _rc2_s {
+typedef struct rc2_s {
   uint16_t k[64];
 } rc2_t;
 
-typedef struct _serpent_s {
+typedef struct serpent_s {
   uint32_t subkeys[132];
 } serpent_t;
 
-typedef struct _twofish_s {
+typedef struct twofish_s {
   uint32_t S[4][256];
   uint32_t k[40];
 } twofish_t;
 
-typedef struct _cipher_s {
+typedef struct cipher_s {
   int type;
   size_t size;
   union {
@@ -253,28 +253,28 @@ typedef struct _cipher_s {
   } ctx;
 } cipher_t;
 
-typedef struct _cbc_s {
+typedef struct cbc_s {
   unsigned char prev[CIPHER_MAX_BLOCK_SIZE];
 } cbc_t;
 
-typedef struct _xts_s {
+typedef struct xts_s {
   unsigned char tweak[CIPHER_MAX_BLOCK_SIZE];
   unsigned char prev[CIPHER_MAX_BLOCK_SIZE];
 } xts_t;
 
-typedef struct _ctr_s {
+typedef struct ctr_s {
   uint8_t ctr[CIPHER_MAX_BLOCK_SIZE];
   unsigned char state[CIPHER_MAX_BLOCK_SIZE];
   size_t pos;
 } ctr_t;
 
-typedef struct _cfb_s {
+typedef struct cfb_s {
   unsigned char state[CIPHER_MAX_BLOCK_SIZE];
   unsigned char prev[CIPHER_MAX_BLOCK_SIZE];
   size_t pos;
 } cfb_t;
 
-typedef struct _ofb_s {
+typedef struct ofb_s {
   unsigned char state[CIPHER_MAX_BLOCK_SIZE];
   size_t pos;
 } ofb_t;
@@ -293,7 +293,7 @@ struct __ghash_s {
   size_t size;
 };
 
-typedef struct _gcm_s {
+typedef struct gcm_s {
   struct __ghash_s hash;
   uint8_t ctr[16];
   unsigned char state[16];
@@ -306,14 +306,14 @@ struct __cmac_s {
   size_t pos;
 };
 
-typedef struct _ccm_s {
+typedef struct ccm_s {
   struct __cmac_s hash;
   unsigned char state[16];
   uint8_t ctr[16];
   size_t pos;
 } ccm_t;
 
-typedef struct _eax_s {
+typedef struct eax_s {
   struct __cmac_s hash1;
   struct __cmac_s hash2;
   unsigned char state[CIPHER_MAX_BLOCK_SIZE];
@@ -336,7 +336,7 @@ struct __cipher_mode_s {
   } mode;
 };
 
-typedef struct _cipher_stream_s {
+typedef struct cipher_stream_s {
   int encrypt;
   int padding;
   int unpad;

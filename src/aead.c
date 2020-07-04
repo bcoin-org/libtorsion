@@ -45,7 +45,7 @@ chachapoly_init(chachapoly_t *aead,
   aead->adlen = 0;
   aead->ctlen = 0;
 
-  cleanse(polykey, sizeof(polykey));
+  torsion_cleanse(polykey, sizeof(polykey));
 }
 
 void
@@ -67,8 +67,8 @@ chachapoly_pad16(chachapoly_t *aead, uint64_t size) {
 
 void
 chachapoly_encrypt(chachapoly_t *aead,
-                   unsigned char *out,
-                   const unsigned char *in,
+                   unsigned char *dst,
+                   const unsigned char *src,
                    size_t len) {
   if (aead->mode == 0) {
     chachapoly_pad16(aead, aead->adlen);
@@ -77,16 +77,16 @@ chachapoly_encrypt(chachapoly_t *aead,
 
   ASSERT(aead->mode == 1);
 
-  chacha20_crypt(&aead->chacha, out, in, len);
-  poly1305_update(&aead->poly, out, len);
+  chacha20_crypt(&aead->chacha, dst, src, len);
+  poly1305_update(&aead->poly, dst, len);
 
   aead->ctlen += len;
 }
 
 void
 chachapoly_decrypt(chachapoly_t *aead,
-                   unsigned char *out,
-                   const unsigned char *in,
+                   unsigned char *dst,
+                   const unsigned char *src,
                    size_t len) {
   if (aead->mode == 0) {
     chachapoly_pad16(aead, aead->adlen);
@@ -97,12 +97,12 @@ chachapoly_decrypt(chachapoly_t *aead,
 
   aead->ctlen += len;
 
-  poly1305_update(&aead->poly, in, len);
-  chacha20_crypt(&aead->chacha, out, in, len);
+  poly1305_update(&aead->poly, src, len);
+  chacha20_crypt(&aead->chacha, dst, src, len);
 }
 
 void
-chachapoly_auth(chachapoly_t *aead, const unsigned char *in, size_t len) {
+chachapoly_auth(chachapoly_t *aead, const unsigned char *data, size_t len) {
   if (aead->mode == 0) {
     chachapoly_pad16(aead, aead->adlen);
     aead->mode = 3;
@@ -112,7 +112,7 @@ chachapoly_auth(chachapoly_t *aead, const unsigned char *in, size_t len) {
 
   aead->ctlen += len;
 
-  poly1305_update(&aead->poly, in, len);
+  poly1305_update(&aead->poly, data, len);
 }
 
 void
@@ -131,9 +131,4 @@ chachapoly_final(chachapoly_t *aead, unsigned char *tag) {
   poly1305_final(&aead->poly, tag);
 
   aead->mode = -1;
-}
-
-int
-chachapoly_verify(const unsigned char *mac1, const unsigned char *mac2) {
-  return poly1305_verify(mac1, mac2) != 0;
 }
