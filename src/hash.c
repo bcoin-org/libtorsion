@@ -110,7 +110,7 @@ blake2b_increment(blake2b_t *ctx, const uint64_t inc) {
 }
 
 static void
-blake2b_compress(blake2b_t *ctx, const unsigned char *chunk) {
+blake2b_compress(blake2b_t *ctx, const unsigned char *chunk, uint64_t f0) {
   uint64_t m[16];
   uint64_t v[16];
   size_t i;
@@ -127,8 +127,8 @@ blake2b_compress(blake2b_t *ctx, const unsigned char *chunk) {
   v[11] = blake2b_iv[3];
   v[12] = blake2b_iv[4] ^ ctx->t[0];
   v[13] = blake2b_iv[5] ^ ctx->t[1];
-  v[14] = blake2b_iv[6] ^ ctx->f[0];
-  v[15] = blake2b_iv[7] ^ ctx->f[1];
+  v[14] = blake2b_iv[6] ^ f0;
+  v[15] = blake2b_iv[7];
 
 #define G(r, i, a, b, c, d) do {              \
   a = a + b + m[blake2b_sigma[r][2 * i + 0]]; \
@@ -166,7 +166,7 @@ blake2b_compress(blake2b_t *ctx, const unsigned char *chunk) {
   ROUND(11);
 
   for (i = 0; i < 8; i++)
-    ctx->h[i] = ctx->h[i] ^ v[i] ^ v[i + 8];
+    ctx->h[i] ^= v[i] ^ v[i + 8];
 #undef G
 #undef ROUND
 }
@@ -185,14 +185,14 @@ blake2b_update(blake2b_t *ctx, const void *data, size_t len) {
       memcpy(ctx->buf + left, in, fill);
 
       blake2b_increment(ctx, 128);
-      blake2b_compress(ctx, ctx->buf);
+      blake2b_compress(ctx, ctx->buf, 0);
 
       in += fill;
       len -= fill;
 
       while (len > 128) {
         blake2b_increment(ctx, 128);
-        blake2b_compress(ctx, in);
+        blake2b_compress(ctx, in, 0);
         in += 128;
         len -= 128;
       }
@@ -210,11 +210,9 @@ blake2b_final(blake2b_t *ctx, unsigned char *out) {
 
   blake2b_increment(ctx, ctx->buflen);
 
-  ctx->f[0] = (uint64_t)-1;
-
   memset(ctx->buf + ctx->buflen, 0x00, 128 - ctx->buflen);
 
-  blake2b_compress(ctx, ctx->buf);
+  blake2b_compress(ctx, ctx->buf, (uint64_t)-1);
 
   for (i = 0; i < 8; i++)
     write64le(buffer + i * 8, ctx->h[i]);
@@ -316,7 +314,7 @@ blake2s_increment(blake2s_t *ctx, uint32_t inc) {
 }
 
 static void
-blake2s_compress(blake2s_t *ctx, const unsigned char *chunk) {
+blake2s_compress(blake2s_t *ctx, const unsigned char *chunk, uint32_t f0) {
   uint32_t m[16];
   uint32_t v[16];
   size_t i;
@@ -331,10 +329,10 @@ blake2s_compress(blake2s_t *ctx, const unsigned char *chunk) {
   v[ 9] = blake2s_iv[1];
   v[10] = blake2s_iv[2];
   v[11] = blake2s_iv[3];
-  v[12] = ctx->t[0] ^ blake2s_iv[4];
-  v[13] = ctx->t[1] ^ blake2s_iv[5];
-  v[14] = ctx->f[0] ^ blake2s_iv[6];
-  v[15] = ctx->f[1] ^ blake2s_iv[7];
+  v[12] = blake2s_iv[4] ^ ctx->t[0];
+  v[13] = blake2s_iv[5] ^ ctx->t[1];
+  v[14] = blake2s_iv[6] ^ f0;
+  v[15] = blake2s_iv[7];
 
 #define G(r, i, a, b, c, d) do {              \
   a = a + b + m[blake2s_sigma[r][2 * i + 0]]; \
@@ -370,7 +368,7 @@ blake2s_compress(blake2s_t *ctx, const unsigned char *chunk) {
   ROUND(9);
 
   for (i = 0; i < 8; i++)
-    ctx->h[i] = ctx->h[i] ^ v[i] ^ v[i + 8];
+    ctx->h[i] ^= v[i] ^ v[i + 8];
 #undef G
 #undef ROUND
 }
@@ -388,14 +386,14 @@ blake2s_update(blake2s_t *ctx, const void *data, size_t len) {
       memcpy(ctx->buf + left, in, fill);
 
       blake2s_increment(ctx, 64);
-      blake2s_compress(ctx, ctx->buf);
+      blake2s_compress(ctx, ctx->buf, 0);
 
       in += fill;
       len -= fill;
 
       while (len > 64) {
         blake2s_increment(ctx, 64);
-        blake2s_compress(ctx, in);
+        blake2s_compress(ctx, in, 0);
 
         in += 64;
         len -= 64;
@@ -414,11 +412,9 @@ blake2s_final(blake2s_t *ctx, unsigned char *out) {
 
   blake2s_increment(ctx, (uint32_t)ctx->buflen);
 
-  ctx->f[0] = (uint32_t)-1;
-
   memset(ctx->buf + ctx->buflen, 0, 64 - ctx->buflen);
 
-  blake2s_compress(ctx, ctx->buf);
+  blake2s_compress(ctx, ctx->buf, (uint32_t)-1);
 
   for (i = 0; i < 8; i++)
     write32le(buffer + i * 4, ctx->h[i]);

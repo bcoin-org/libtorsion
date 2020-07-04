@@ -182,7 +182,6 @@ extern "C" {
 typedef struct blake2b_s {
   uint64_t h[8];
   uint64_t t[2];
-  uint64_t f[2];
   unsigned char buf[128];
   size_t buflen;
   size_t outlen;
@@ -191,7 +190,6 @@ typedef struct blake2b_s {
 typedef struct blake2s_s {
   uint32_t h[8];
   uint32_t t[2];
-  uint32_t f[2];
   unsigned char buf[64];
   size_t buflen;
   size_t outlen;
