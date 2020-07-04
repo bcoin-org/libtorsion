@@ -152,7 +152,7 @@ poly1305_blocks(poly1305_internal_t *st,
 
     h0 += c * 5;
     c = (h0 >> 44);
-    h0 = h0 & UINT64_C(0xfffffffffff);
+    h0 &= UINT64_C(0xfffffffffff);
 
     h1 += c;
 
@@ -243,7 +243,7 @@ poly1305_blocks(poly1305_internal_t *st,
     h0 += c * 5;
 
     c = (h0 >> 26);
-    h0 = h0 & 0x3ffffff;
+    h0 &= 0x3ffffff;
     h1 += c;
 
     data += 16;
