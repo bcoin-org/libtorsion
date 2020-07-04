@@ -552,9 +552,10 @@ siphash_sum(const unsigned char *data, size_t len, const unsigned char *key) {
   uint64_t v1 = k1 ^ c1;
   uint64_t v2 = k0 ^ c2;
   uint64_t v3 = k1 ^ c3;
+  uint64_t word;
 
   while (len >= 8) {
-    uint64_t word = read64le(data);
+    word = read64le(data);
 
     v3 ^= word;
     SIPROUND;
