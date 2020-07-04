@@ -388,7 +388,7 @@ torsion_open(const char *name, int flags) {
  */
 
 static int
-torsion_syscallrand(void *dst, size_t size) {
+torsion_callrand(void *dst, size_t size) {
 #if defined(__CloudABI__)
   return cloudabi_sys_random_get(dst, size) == 0;
 #elif defined(__wasi__)
@@ -491,7 +491,7 @@ torsion_syscallrand(void *dst, size_t size) {
     if (nread < 0)
       return 0;
 
-    if ((size_t)nread > size)
+    if ((size_t)nread > max)
       abort();
 
     data += nread;
@@ -537,7 +537,7 @@ torsion_syscallrand(void *dst, size_t size) {
     if (sysctl(name, 2, data, &nread, NULL, 0) != 0)
       return 0;
 
-    if (nread > size)
+    if (nread > max)
       abort();
 
     data += nread;
@@ -629,6 +629,12 @@ torsion_devrand(void *dst, size_t size) {
   } while (fd == -1 && errno == EINTR);
 
   if (fd == -1)
+    return 0;
+
+  if (fstat(fd, &st) != 0)
+    goto fail;
+
+  if (!S_ISCHR(st.st_mode))
     goto fail;
 
   pfd.fd = fd;
@@ -640,7 +646,7 @@ torsion_devrand(void *dst, size_t size) {
   } while (r == -1 && errno == EINTR);
 
   if (r != 1)
-    goto done;
+    goto fail;
 
   close(fd);
 #endif
@@ -650,13 +656,13 @@ torsion_devrand(void *dst, size_t size) {
   } while (fd == -1 && errno == EINTR);
 
   if (fd == -1)
-    goto fail;
+    return 0;
 
   if (fstat(fd, &st) != 0)
-    goto done;
+    goto fail;
 
   if (!S_ISCHR(st.st_mode) && !S_ISNAM(st.st_mode))
-    goto done;
+    goto fail;
 
   while (size > 0) {
     do {
@@ -673,24 +679,10 @@ torsion_devrand(void *dst, size_t size) {
     size -= nread;
   }
 
-done:
+fail:
   close(fd);
 
   return size == 0;
-fail:
-#ifdef HAVE_SYSCTL_UUID
-  switch (errno) {
-    case EACCES:
-    case EIO:
-    case ELOOP:
-    case EMFILE:
-    case ENFILE:
-    case ENOENT:
-    case EPERM:
-      return torsion_uuidrand(data, size);
-  }
-#endif /* HAVE_SYSCTL_UUID */
-  return 0;
 #else /* DEV_RANDOM_NAME */
   (void)dst;
   (void)size;
@@ -720,6 +712,16 @@ torsion_sysrand(void *dst, size_t size) {
   if (size == 0)
     return 1;
 
-  return torsion_syscallrand(dst, size)
-      || torsion_devrand(dst, size);
+  if (torsion_callrand(dst, size))
+    return 1;
+
+  if (torsion_devrand(dst, size))
+    return 1;
+
+#ifdef HAVE_SYSCTL_UUID
+  if (torsion_uuidrand(dst, size))
+    return 1;
+#endif
+
+  return 0;
 }
