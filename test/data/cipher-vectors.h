@@ -367,91 +367,91 @@ static const cipher_vector_t cipher_vectors[105] = {
     "873553690ccf9517"
   },
   {
-    CIPHER_RC2_40,
+    CIPHER_ARC2_40,
     "e02f247505",
     "b0359345bcbcf851",
     "ee1c292543d5874a"
   },
   {
-    CIPHER_RC2_40,
+    CIPHER_ARC2_40,
     "3cd6934057",
     "1b693c9b00783e52",
     "3f2f7a53d0794cc7"
   },
   {
-    CIPHER_RC2_40,
+    CIPHER_ARC2_40,
     "39cc5aeaa2",
     "8c39c4a117e23da4",
     "8bc3946052228aed"
   },
   {
-    CIPHER_RC2_40,
+    CIPHER_ARC2_40,
     "815d30776f",
     "f2e4ee5f2494ed82",
     "2d84e9e4da41bc0e"
   },
   {
-    CIPHER_RC2_40,
+    CIPHER_ARC2_40,
     "f0237f487f",
     "8669cdf03aa8b681",
     "82df353550b4b146"
   },
   {
-    CIPHER_RC2_64,
+    CIPHER_ARC2_64,
     "d382b9760ffc4fc6",
     "802dd863e055dd0f",
     "54ef0e3b8dfd3ce9"
   },
   {
-    CIPHER_RC2_64,
+    CIPHER_ARC2_64,
     "c349197ac500d151",
     "1e019bca52b55384",
     "18da1287bb7156c0"
   },
   {
-    CIPHER_RC2_64,
+    CIPHER_ARC2_64,
     "4f97ee7426e7cb99",
     "929b5b8e9e5ae073",
     "5b376fb87c08ab1a"
   },
   {
-    CIPHER_RC2_64,
+    CIPHER_ARC2_64,
     "91e13a7e1276eba4",
     "4df9b065ba77bb77",
     "61bf7bab0977f1e8"
   },
   {
-    CIPHER_RC2_64,
+    CIPHER_ARC2_64,
     "7772b6f9e47e90d2",
     "1caa9ed8dfb9ba62",
     "91dc890df19b49dc"
   },
   {
-    CIPHER_RC2_128,
+    CIPHER_ARC2_128,
     "569b427550f5b92e8caa8e3e426b679e",
     "12b66de304dfaa44",
     "f01e4238d443efb0"
   },
   {
-    CIPHER_RC2_128,
+    CIPHER_ARC2_128,
     "0e142f0af020de7e01739006d52006ea",
     "d84d48fbd0da6a79",
     "e3784a32b8f5335d"
   },
   {
-    CIPHER_RC2_128,
+    CIPHER_ARC2_128,
     "92851cc1c2cf60a80d0359ec4bea16e9",
     "a6fa9f564eadd415",
     "06ca0c0d7c9d0756"
   },
   {
-    CIPHER_RC2_128,
+    CIPHER_ARC2_128,
     "8fc6d6c7c37cc0d80ecbfc21094ceae6",
     "7bce26b221ba4e37",
     "31c2971278a2ca32"
   },
   {
-    CIPHER_RC2_128,
+    CIPHER_ARC2_128,
     "9e16928aeaf33ce953c74b7a847040d2",
     "0c27f9de884b8697",
     "53133ef9e2f20582"

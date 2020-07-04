@@ -23,13 +23,11 @@ extern "C" {
  */
 
 #define chachapoly_init torsion_chachapoly_init
-#define chachapoly_setup torsion_chachapoly_setup
 #define chachapoly_aad torsion_chachapoly_aad
 #define chachapoly_encrypt torsion_chachapoly_encrypt
 #define chachapoly_decrypt torsion_chachapoly_decrypt
 #define chachapoly_auth torsion_chachapoly_auth
 #define chachapoly_final torsion_chachapoly_final
-#define chachapoly_verify torsion_chachapoly_verify
 
 /*
  * Structs
@@ -50,13 +48,11 @@ typedef struct chachapoly_s {
 typedef chachapoly_t aead_t;
 
 #define aead_init chachapoly_init
-#define aead_setup chachapoly_setup
 #define aead_aad chachapoly_aad
 #define aead_encrypt chachapoly_encrypt
 #define aead_decrypt chachapoly_decrypt
 #define aead_auth chachapoly_auth
 #define aead_final chachapoly_final
-#define aead_verify chachapoly_verify
 
 /*
  * ChaCha20-Poly1305

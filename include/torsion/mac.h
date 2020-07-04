@@ -22,8 +22,6 @@ extern "C" {
 #define poly1305_init torsion_poly1305_init
 #define poly1305_update torsion_poly1305_update
 #define poly1305_final torsion_poly1305_final
-#define poly1305_auth torsion_poly1305_auth
-#define poly1305_verify torsion_poly1305_verify
 #define siphash_sum torsion_siphash_sum
 #define siphash_mod torsion_siphash_mod
 #define siphash128_sum torsion_siphash128_sum

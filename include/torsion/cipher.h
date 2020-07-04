@@ -52,9 +52,9 @@ extern "C" {
 #define idea_init_decrypt torsion_idea_init_decrypt
 #define idea_encrypt torsion_idea_encrypt
 #define idea_decrypt torsion_idea_decrypt
-#define rc2_init torsion_rc2_init
-#define rc2_encrypt torsion_rc2_encrypt
-#define rc2_decrypt torsion_rc2_decrypt
+#define arc2_init torsion_arc2_init
+#define arc2_encrypt torsion_arc2_encrypt
+#define arc2_decrypt torsion_arc2_decrypt
 #define serpent_init torsion_serpent_init
 #define serpent_encrypt torsion_serpent_encrypt
 #define serpent_decrypt torsion_serpent_decrypt
@@ -134,12 +134,12 @@ extern "C" {
 #define CIPHER_DES_EDE 9
 #define CIPHER_DES_EDE3 10
 #define CIPHER_IDEA 11
-#define CIPHER_RC2 12
-#define CIPHER_RC2_GUTMANN 13
-#define CIPHER_RC2_40 14
-#define CIPHER_RC2_64 15
-#define CIPHER_RC2_128 16
-#define CIPHER_RC2_128_GUTMANN 17
+#define CIPHER_ARC2 12
+#define CIPHER_ARC2_GUTMANN 13
+#define CIPHER_ARC2_40 14
+#define CIPHER_ARC2_64 15
+#define CIPHER_ARC2_128 16
+#define CIPHER_ARC2_128_GUTMANN 17
 #define CIPHER_SERPENT128 18
 #define CIPHER_SERPENT192 19
 #define CIPHER_SERPENT256 20
@@ -222,9 +222,9 @@ typedef struct idea_s {
   uint16_t deckey[52];
 } idea_t;
 
-typedef struct rc2_s {
+typedef struct arc2_s {
   uint16_t k[64];
-} rc2_t;
+} arc2_t;
 
 typedef struct serpent_s {
   uint32_t subkeys[132];
@@ -247,7 +247,7 @@ typedef struct cipher_s {
     des_ede_t ede;
     des_ede3_t ede3;
     idea_t idea;
-    rc2_t rc2;
+    arc2_t arc2;
     serpent_t serpent;
     twofish_t twofish;
   } ctx;
@@ -510,20 +510,20 @@ TORSION_EXTERN void
 idea_decrypt(const idea_t *ctx, unsigned char *dst, const unsigned char *src);
 
 /*
- * RC2
+ * ARC2
  */
 
 TORSION_EXTERN void
-rc2_init(rc2_t *ctx,
-         const unsigned char *key,
-         size_t key_len,
-         unsigned int ekb);
+arc2_init(arc2_t *ctx,
+          const unsigned char *key,
+          size_t key_len,
+          unsigned int ekb);
 
 TORSION_EXTERN void
-rc2_encrypt(const rc2_t *ctx, unsigned char *dst, const unsigned char *src);
+arc2_encrypt(const arc2_t *ctx, unsigned char *dst, const unsigned char *src);
 
 TORSION_EXTERN void
-rc2_decrypt(const rc2_t *ctx, unsigned char *dst, const unsigned char *src);
+arc2_decrypt(const arc2_t *ctx, unsigned char *dst, const unsigned char *src);
 
 /*
  * Serpent

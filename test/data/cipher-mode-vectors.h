@@ -2121,7 +2121,7 @@ static const cipher_mode_vector_t cipher_mode_vectors[462] = {
     "e431c4812b396fadfa39d3043e32783d3f4faae3906494b8e24ccf46dd30f229a3552fac83"
   },
   {
-    CIPHER_RC2_40,
+    CIPHER_ARC2_40,
     CIPHER_MODE_RAW,
     "b8e086c253",
     "",
@@ -2129,7 +2129,7 @@ static const cipher_mode_vector_t cipher_mode_vectors[462] = {
     "5d4f29bb5e59a5b867035688ba0a18871fee7d88ef37c24842912a413abb7513"
   },
   {
-    CIPHER_RC2_40,
+    CIPHER_ARC2_40,
     CIPHER_MODE_ECB,
     "871b8cc8b8",
     "",
@@ -2137,7 +2137,7 @@ static const cipher_mode_vector_t cipher_mode_vectors[462] = {
     "3e8a22081fd25f042086c37534b17bc83102831c0be4a383"
   },
   {
-    CIPHER_RC2_40,
+    CIPHER_ARC2_40,
     CIPHER_MODE_ECB,
     "98d7172ee2",
     "",
@@ -2145,7 +2145,7 @@ static const cipher_mode_vector_t cipher_mode_vectors[462] = {
     "432a832b080dad60c78ae18c26601bf430bf2d6979e1a656d48f2463fd8c4306fc1576e0cf2c17ba"
   },
   {
-    CIPHER_RC2_40,
+    CIPHER_ARC2_40,
     CIPHER_MODE_ECB,
     "8979b4795c",
     "",
@@ -2153,7 +2153,7 @@ static const cipher_mode_vector_t cipher_mode_vectors[462] = {
     "c7ec16ca4edcc7298c4e7fbb2ea524f17dfe318a2f63d3cd995f82548287afd1cd65b83948133085"
   },
   {
-    CIPHER_RC2_40,
+    CIPHER_ARC2_40,
     CIPHER_MODE_CBC,
     "b2069c88c5",
     "3411097a9e01a134",
@@ -2161,7 +2161,7 @@ static const cipher_mode_vector_t cipher_mode_vectors[462] = {
     "9c1884d827dbf3e2ae381251440752377f461792e640eb88"
   },
   {
-    CIPHER_RC2_40,
+    CIPHER_ARC2_40,
     CIPHER_MODE_CBC,
     "4329ee03af",
     "bb948741e28083d3",
@@ -2169,7 +2169,7 @@ static const cipher_mode_vector_t cipher_mode_vectors[462] = {
     "619ac549712ba87c033a02f3225c3d8e5ab92657895a6341975941b58a0b9870d80689fd5c2bee62"
   },
   {
-    CIPHER_RC2_40,
+    CIPHER_ARC2_40,
     CIPHER_MODE_CBC,
     "09a5e592c2",
     "f5c24960652336fe",
@@ -2177,7 +2177,7 @@ static const cipher_mode_vector_t cipher_mode_vectors[462] = {
     "45c44070d336c13c82228e9656aea326a9f64ee3adf7920567d7f0f6c0b285ad0d37460c305ead57"
   },
   {
-    CIPHER_RC2_40,
+    CIPHER_ARC2_40,
     CIPHER_MODE_CTS,
     "ae5e1d94cf",
     "1e375a975926ad56",
@@ -2185,7 +2185,7 @@ static const cipher_mode_vector_t cipher_mode_vectors[462] = {
     "1783e3e6e9f7877d8c508869765417cdc8"
   },
   {
-    CIPHER_RC2_40,
+    CIPHER_ARC2_40,
     CIPHER_MODE_CTS,
     "b958970447",
     "68196cfd68d17e8b",
@@ -2193,7 +2193,7 @@ static const cipher_mode_vector_t cipher_mode_vectors[462] = {
     "8218a1e550229497c3f4977dd88efc8e5fd3df4ae2bcb2c2bc15d1bf43fb85d4"
   },
   {
-    CIPHER_RC2_40,
+    CIPHER_ARC2_40,
     CIPHER_MODE_CTS,
     "673dab2307",
     "9ab001c772a604b2",
@@ -2201,7 +2201,7 @@ static const cipher_mode_vector_t cipher_mode_vectors[462] = {
     "16e0e419bcbb36a165cb04bf1763f946530423dc87930bbd212e8b32050f790c4e3ac6d88f"
   },
   {
-    CIPHER_RC2_40,
+    CIPHER_ARC2_40,
     CIPHER_MODE_XTS,
     "cdf5dc821da00715da61",
     "27e7e3ea7813dc5b",
@@ -2209,7 +2209,7 @@ static const cipher_mode_vector_t cipher_mode_vectors[462] = {
     "d542f6b549d18f6f18b4914dcb2936cc9a"
   },
   {
-    CIPHER_RC2_40,
+    CIPHER_ARC2_40,
     CIPHER_MODE_XTS,
     "8211bc18b06beb6c1131",
     "71c0a757a8bca4c1",
@@ -2217,7 +2217,7 @@ static const cipher_mode_vector_t cipher_mode_vectors[462] = {
     "f08d3319c5578e8720fee7449576d136980726e1bc99ecaa113b23a099969e30"
   },
   {
-    CIPHER_RC2_40,
+    CIPHER_ARC2_40,
     CIPHER_MODE_XTS,
     "2a363c5e465baf3fff90",
     "adf969519f60d704",
@@ -2225,7 +2225,7 @@ static const cipher_mode_vector_t cipher_mode_vectors[462] = {
     "5cdb59e4f62fd59ac3a07d041a3ca03ccde45c83fb69d99033036084a8945c066a58bc59e7"
   },
   {
-    CIPHER_RC2_40,
+    CIPHER_ARC2_40,
     CIPHER_MODE_CTR,
     "3162fa64c8",
     "8382de5e394363b6",
@@ -2233,7 +2233,7 @@ static const cipher_mode_vector_t cipher_mode_vectors[462] = {
     "2e092aa08f31f3603523a04bd6aeb56feb"
   },
   {
-    CIPHER_RC2_40,
+    CIPHER_ARC2_40,
     CIPHER_MODE_CTR,
     "4489d177f8",
     "6e469ec8e0b96bd0",
@@ -2241,7 +2241,7 @@ static const cipher_mode_vector_t cipher_mode_vectors[462] = {
     "350762ce9672cedf164773510c6ecb46a5500db0ea76a20a95732dacab663dec"
   },
   {
-    CIPHER_RC2_40,
+    CIPHER_ARC2_40,
     CIPHER_MODE_CTR,
     "c14e0bca6b",
     "ee06abf2c88c1c7d",
@@ -2249,7 +2249,7 @@ static const cipher_mode_vector_t cipher_mode_vectors[462] = {
     "588fcd432920980d48e6a78a39f003f5be82e374d526f4ec96f78d06632a378c7d08fc7eaf"
   },
   {
-    CIPHER_RC2_40,
+    CIPHER_ARC2_40,
     CIPHER_MODE_CFB,
     "cb52d183c3",
     "d9e0c9950defd9a5",
@@ -2257,7 +2257,7 @@ static const cipher_mode_vector_t cipher_mode_vectors[462] = {
     "a832324a7608b9e10e5d1177fc234b685a"
   },
   {
-    CIPHER_RC2_40,
+    CIPHER_ARC2_40,
     CIPHER_MODE_CFB,
     "21f5a4b985",
     "534405e72691ce9b",
@@ -2265,7 +2265,7 @@ static const cipher_mode_vector_t cipher_mode_vectors[462] = {
     "2be59682522f5fe7ffc063e03eac8fc5a0f78d6f41f79993aea09146bc90625c"
   },
   {
-    CIPHER_RC2_40,
+    CIPHER_ARC2_40,
     CIPHER_MODE_CFB,
     "2d2601f613",
     "44f165f7f89386de",
@@ -2273,7 +2273,7 @@ static const cipher_mode_vector_t cipher_mode_vectors[462] = {
     "57cc59120ddf3cd2f86996255c1e8404ab136fc7111507561604ac6bd2eb07f2ca035bbc14"
   },
   {
-    CIPHER_RC2_40,
+    CIPHER_ARC2_40,
     CIPHER_MODE_OFB,
     "8ce61577c9",
     "537c131bca8de844",
@@ -2281,7 +2281,7 @@ static const cipher_mode_vector_t cipher_mode_vectors[462] = {
     "7533f2154a03b272c82f3e2747f93ad6e9"
   },
   {
-    CIPHER_RC2_40,
+    CIPHER_ARC2_40,
     CIPHER_MODE_OFB,
     "d4eb03ab1e",
     "cff228b97f96747a",
@@ -2289,7 +2289,7 @@ static const cipher_mode_vector_t cipher_mode_vectors[462] = {
     "3e3c4339d043b300b92e553ddd90b782a4bcaa093a87c62777b1bef7cd8aae3a"
   },
   {
-    CIPHER_RC2_40,
+    CIPHER_ARC2_40,
     CIPHER_MODE_OFB,
     "70dea2f2e3",
     "f5a382f1af622286",
@@ -2297,7 +2297,7 @@ static const cipher_mode_vector_t cipher_mode_vectors[462] = {
     "9eb0704c3d8524b5f4d1327f370a4d7fce0f5e233dddf708c79deb0cba03cd0ff19cf863c3"
   },
   {
-    CIPHER_RC2_64,
+    CIPHER_ARC2_64,
     CIPHER_MODE_RAW,
     "427ee8fdc8d8cbf3",
     "",
@@ -2305,7 +2305,7 @@ static const cipher_mode_vector_t cipher_mode_vectors[462] = {
     "681c316fd4def0eeab520343e21f06ed7e191003e09b25fa82dcd08bc74ecedc"
   },
   {
-    CIPHER_RC2_64,
+    CIPHER_ARC2_64,
     CIPHER_MODE_ECB,
     "08296cebe735d91c",
     "",
@@ -2313,7 +2313,7 @@ static const cipher_mode_vector_t cipher_mode_vectors[462] = {
     "cde8126f1237cc87448b2671b3de1890e01371c580b48f41"
   },
   {
-    CIPHER_RC2_64,
+    CIPHER_ARC2_64,
     CIPHER_MODE_ECB,
     "d0950f1b68660ae6",
     "",
@@ -2321,7 +2321,7 @@ static const cipher_mode_vector_t cipher_mode_vectors[462] = {
     "ca525f9cb09887d6f4a9dd774eed58654bbfb41df02399c3632fa04d619e3a4611bf273f8446d903"
   },
   {
-    CIPHER_RC2_64,
+    CIPHER_ARC2_64,
     CIPHER_MODE_ECB,
     "7f5e6b9e6b704e6d",
     "",
@@ -2329,7 +2329,7 @@ static const cipher_mode_vector_t cipher_mode_vectors[462] = {
     "7d63ac51c6c13063bd29bdb12f0076cacc1405d1e1f92dc9828e084a90984e4bcaa8da3d5856bfe1"
   },
   {
-    CIPHER_RC2_64,
+    CIPHER_ARC2_64,
     CIPHER_MODE_CBC,
     "d27de5028470b844",
     "2cf4a69f892d8970",
@@ -2337,7 +2337,7 @@ static const cipher_mode_vector_t cipher_mode_vectors[462] = {
     "ca769792966cd81a26d399e860c13b8de600bccc5f7d16b8"
   },
   {
-    CIPHER_RC2_64,
+    CIPHER_ARC2_64,
     CIPHER_MODE_CBC,
     "469271fb5daec0c8",
     "b169d1c667a32c6f",
@@ -2345,7 +2345,7 @@ static const cipher_mode_vector_t cipher_mode_vectors[462] = {
     "1455a408426bed959f2c0fe4e633ca502288ed47680f98559483dd7f92ccb93475a121c4bbd645c2"
   },
   {
-    CIPHER_RC2_64,
+    CIPHER_ARC2_64,
     CIPHER_MODE_CBC,
     "141e67d4765b028a",
     "7343a73ade41ba09",
@@ -2353,7 +2353,7 @@ static const cipher_mode_vector_t cipher_mode_vectors[462] = {
     "514acfc035a4c78908586d210e87da794216813facdb00a7e68e54ba8e5dc424569723efb444c7e1"
   },
   {
-    CIPHER_RC2_64,
+    CIPHER_ARC2_64,
     CIPHER_MODE_CTS,
     "a283a455c7e139cc",
     "6085122981b819bf",
@@ -2361,7 +2361,7 @@ static const cipher_mode_vector_t cipher_mode_vectors[462] = {
     "e2ecf19700c7488fb09aaaead3642671f6"
   },
   {
-    CIPHER_RC2_64,
+    CIPHER_ARC2_64,
     CIPHER_MODE_CTS,
     "dc70e9ef5885ee82",
     "960e4c6d59bc4c0f",
@@ -2369,7 +2369,7 @@ static const cipher_mode_vector_t cipher_mode_vectors[462] = {
     "ef1556971b6ea66b97a9505825b4f550554e1dbc1284d78a9b7275978881e11b"
   },
   {
-    CIPHER_RC2_64,
+    CIPHER_ARC2_64,
     CIPHER_MODE_CTS,
     "d2617080a0c208c3",
     "69517622b2a384e4",
@@ -2377,7 +2377,7 @@ static const cipher_mode_vector_t cipher_mode_vectors[462] = {
     "980cdcb3fc1affbca24b795a28dc53109608b5d62fa3c398fc0f4c23b06bd625e6bebb9ff6"
   },
   {
-    CIPHER_RC2_64,
+    CIPHER_ARC2_64,
     CIPHER_MODE_XTS,
     "7517b8b87c28dfc871cecca9f93bbab1",
     "55510e1abdac8a01",
@@ -2385,7 +2385,7 @@ static const cipher_mode_vector_t cipher_mode_vectors[462] = {
     "3ae4498ea63b7146bbd72241db3d6916d6"
   },
   {
-    CIPHER_RC2_64,
+    CIPHER_ARC2_64,
     CIPHER_MODE_XTS,
     "ee255171ab289a804f80da7ec97907e9",
     "75cc1de69dd35826",
@@ -2393,7 +2393,7 @@ static const cipher_mode_vector_t cipher_mode_vectors[462] = {
     "4129f1347b7f4b589da5d79f5178db76cbeb63575ca5570f7a10fd43bbd9b0db"
   },
   {
-    CIPHER_RC2_64,
+    CIPHER_ARC2_64,
     CIPHER_MODE_XTS,
     "b2f707cb13ef31469d769a08a38b683a",
     "41a1cb47c784570b",
@@ -2401,7 +2401,7 @@ static const cipher_mode_vector_t cipher_mode_vectors[462] = {
     "41d88a777192e88208e6f903b043e368098dc482efdb8b322d6f0304556e59b7fbb28c16d2"
   },
   {
-    CIPHER_RC2_64,
+    CIPHER_ARC2_64,
     CIPHER_MODE_CTR,
     "cc64fae3070224c9",
     "7afaade9ba996779",
@@ -2409,7 +2409,7 @@ static const cipher_mode_vector_t cipher_mode_vectors[462] = {
     "c19d33e3caabe025bf794eadd8fdb935de"
   },
   {
-    CIPHER_RC2_64,
+    CIPHER_ARC2_64,
     CIPHER_MODE_CTR,
     "30089842535c0488",
     "50a2060f1faf9713",
@@ -2417,7 +2417,7 @@ static const cipher_mode_vector_t cipher_mode_vectors[462] = {
     "5515d5c2b304816f3d97e4740eb4af16d6e242af77470c69e8de18befe19378d"
   },
   {
-    CIPHER_RC2_64,
+    CIPHER_ARC2_64,
     CIPHER_MODE_CTR,
     "25b5246d7f33a01c",
     "8a07bbbc056b4d2f",
@@ -2425,7 +2425,7 @@ static const cipher_mode_vector_t cipher_mode_vectors[462] = {
     "705e6c1e1c92b31a939e3a1acf15df04c60896b87e9be51ec12903f55e1a92842cd271645e"
   },
   {
-    CIPHER_RC2_64,
+    CIPHER_ARC2_64,
     CIPHER_MODE_CFB,
     "11f7690e37969a83",
     "4d5b297fbce9c382",
@@ -2433,7 +2433,7 @@ static const cipher_mode_vector_t cipher_mode_vectors[462] = {
     "bbd629b825836c23e05a7b0aa9ab28ad3c"
   },
   {
-    CIPHER_RC2_64,
+    CIPHER_ARC2_64,
     CIPHER_MODE_CFB,
     "815aeb96f6132157",
     "d0bc9f631b85c452",
@@ -2441,7 +2441,7 @@ static const cipher_mode_vector_t cipher_mode_vectors[462] = {
     "dfbe4a7325f87294cae8ce1389e73c153a98fd2776a90448901b41569a512021"
   },
   {
-    CIPHER_RC2_64,
+    CIPHER_ARC2_64,
     CIPHER_MODE_CFB,
     "75e8a2e3cc8c9adb",
     "2c72a6207f09da94",
@@ -2449,7 +2449,7 @@ static const cipher_mode_vector_t cipher_mode_vectors[462] = {
     "1a6dfc5e7c545597b2346f9bcf54d010a655c54d24210403f697f32e9582fff57555f2246a"
   },
   {
-    CIPHER_RC2_64,
+    CIPHER_ARC2_64,
     CIPHER_MODE_OFB,
     "85626f0bf9d086fb",
     "8d84d2886d82b212",
@@ -2457,7 +2457,7 @@ static const cipher_mode_vector_t cipher_mode_vectors[462] = {
     "06b74201da2a043bea41b57e20adc1bfe5"
   },
   {
-    CIPHER_RC2_64,
+    CIPHER_ARC2_64,
     CIPHER_MODE_OFB,
     "02430993038e8294",
     "d0b6960927451db2",
@@ -2465,7 +2465,7 @@ static const cipher_mode_vector_t cipher_mode_vectors[462] = {
     "f304b34a1e71fb8183063616aa19891285b82ded3d841a5f5a02ac46f06bec88"
   },
   {
-    CIPHER_RC2_64,
+    CIPHER_ARC2_64,
     CIPHER_MODE_OFB,
     "cd174abd13c7ba1d",
     "272e2627421cef23",
@@ -2473,7 +2473,7 @@ static const cipher_mode_vector_t cipher_mode_vectors[462] = {
     "633859912030befb06ef89078b45a409c2ed481f5fd10ee48de9108c721b3d8df74e97d456"
   },
   {
-    CIPHER_RC2_128,
+    CIPHER_ARC2_128,
     CIPHER_MODE_RAW,
     "8f0a331a9405bc76592c5fa374c46a17",
     "",
@@ -2481,7 +2481,7 @@ static const cipher_mode_vector_t cipher_mode_vectors[462] = {
     "a37c2305d4f4c5ac2123eb6f013271998142490ab3d561d0bec99336e7a6aaf6"
   },
   {
-    CIPHER_RC2_128,
+    CIPHER_ARC2_128,
     CIPHER_MODE_ECB,
     "ae20a06b9a13f5a04e6b3a8e70db85dd",
     "",
@@ -2489,7 +2489,7 @@ static const cipher_mode_vector_t cipher_mode_vectors[462] = {
     "c86d58eef14d4d73ee40b5ebbce28b5c47800128aa45710b"
   },
   {
-    CIPHER_RC2_128,
+    CIPHER_ARC2_128,
     CIPHER_MODE_ECB,
     "4dca6d4e02608957426ac1a5c8b9ae36",
     "",
@@ -2497,7 +2497,7 @@ static const cipher_mode_vector_t cipher_mode_vectors[462] = {
     "b72f31b4eb75802d2077103cde9079702079b4571b05991f4618a25278fc5903a8db405838458126"
   },
   {
-    CIPHER_RC2_128,
+    CIPHER_ARC2_128,
     CIPHER_MODE_ECB,
     "b48607a5ca20f5034c732c6152ed72ed",
     "",
@@ -2505,7 +2505,7 @@ static const cipher_mode_vector_t cipher_mode_vectors[462] = {
     "7be92828f7ae0c13ca7c54a0799a278fdd2f914fbc93eaa2f00aed2b330e838080058e4a2e514904"
   },
   {
-    CIPHER_RC2_128,
+    CIPHER_ARC2_128,
     CIPHER_MODE_CBC,
     "ee9504bba0a8a20778adcfdb7b3731b5",
     "aa3b0299eed71d12",
@@ -2513,7 +2513,7 @@ static const cipher_mode_vector_t cipher_mode_vectors[462] = {
     "1b63bd593b1801ed547a31653e7dc0f3fc74c381868a2cd8"
   },
   {
-    CIPHER_RC2_128,
+    CIPHER_ARC2_128,
     CIPHER_MODE_CBC,
     "2021655bc00f6ccdef7b46ffdd3cfbd8",
     "fb91ce468ada0ac5",
@@ -2521,7 +2521,7 @@ static const cipher_mode_vector_t cipher_mode_vectors[462] = {
     "5aa8a961f998581b8f3e0bcba13fa332a2b601b59e257054ea81dc3e619677b0c653589d1423bb12"
   },
   {
-    CIPHER_RC2_128,
+    CIPHER_ARC2_128,
     CIPHER_MODE_CBC,
     "e3dd8e554926c1625d69cf01bb2b80e4",
     "99c72cfb94b72c6d",
@@ -2529,7 +2529,7 @@ static const cipher_mode_vector_t cipher_mode_vectors[462] = {
     "61e6a878816b844e602d406972da175966c673df3c42e412ce52e26c31d64c1a4cf99a7e31b67105"
   },
   {
-    CIPHER_RC2_128,
+    CIPHER_ARC2_128,
     CIPHER_MODE_CTS,
     "7858c52a18d4cc0f2e11a9a513706f99",
     "97f99b4d95e4d6e3",
@@ -2537,7 +2537,7 @@ static const cipher_mode_vector_t cipher_mode_vectors[462] = {
     "ec33c4530ec777e7d90931393465dd9546"
   },
   {
-    CIPHER_RC2_128,
+    CIPHER_ARC2_128,
     CIPHER_MODE_CTS,
     "ee941b7164b6eb5d36d6f5cc2d846103",
     "9cdbe5bc59587798",
@@ -2545,7 +2545,7 @@ static const cipher_mode_vector_t cipher_mode_vectors[462] = {
     "b69ef4b678bcf302943a5023dc1d3dca2633a50331aa638056e9e7c993f24123"
   },
   {
-    CIPHER_RC2_128,
+    CIPHER_ARC2_128,
     CIPHER_MODE_CTS,
     "37ccfa40f7aa6a9a45aa6d5d2e62e420",
     "b802e10787951d77",
@@ -2553,7 +2553,7 @@ static const cipher_mode_vector_t cipher_mode_vectors[462] = {
     "2464364ea82ca713cd056828291afb28033fd89c10fd80e737ba3ccae2346e10f727f7156b"
   },
   {
-    CIPHER_RC2_128,
+    CIPHER_ARC2_128,
     CIPHER_MODE_XTS,
     "89869bbfbb5164d63227015433d66890781aa51c95419a829fde69c464006845",
     "76a049ff3c6d2488",
@@ -2561,7 +2561,7 @@ static const cipher_mode_vector_t cipher_mode_vectors[462] = {
     "7e0834d196a2a5dafacdd9218c6e1e3d23"
   },
   {
-    CIPHER_RC2_128,
+    CIPHER_ARC2_128,
     CIPHER_MODE_XTS,
     "48c70387d5fabfc67cbc3deaa8d88d6fbf30efd198ba81c7a9c9a2dae7615a91",
     "541120b5d39114f0",
@@ -2569,7 +2569,7 @@ static const cipher_mode_vector_t cipher_mode_vectors[462] = {
     "876a1f1562650dc7a2003f44b2a4b6175880c2e1cb72f894fd1d01db7b5c2efe"
   },
   {
-    CIPHER_RC2_128,
+    CIPHER_ARC2_128,
     CIPHER_MODE_XTS,
     "3be392c5bb678c66498c38108705d2deb89fd165833b4db86855f73636f60239",
     "fc5a329f9d439acb",
@@ -2577,7 +2577,7 @@ static const cipher_mode_vector_t cipher_mode_vectors[462] = {
     "47496f1af2bf0c2046ea4e863360a8df95dd1eb67492dfb14e5e2bc963c5072ae7e48cd892"
   },
   {
-    CIPHER_RC2_128,
+    CIPHER_ARC2_128,
     CIPHER_MODE_CTR,
     "d77ea25df1ad5ff73e78e97ab144230c",
     "c8dc02f580dd057e",
@@ -2585,7 +2585,7 @@ static const cipher_mode_vector_t cipher_mode_vectors[462] = {
     "ffbfa4b7fe510280b5b67bdea2a147300c"
   },
   {
-    CIPHER_RC2_128,
+    CIPHER_ARC2_128,
     CIPHER_MODE_CTR,
     "24164ca7bcd437ee4050abe5e874f2cc",
     "e72818db6f8e8ecf",
@@ -2593,7 +2593,7 @@ static const cipher_mode_vector_t cipher_mode_vectors[462] = {
     "ce00a2b2eed770a21161a39caed9345b021d2237a57470db95687225353ebcaa"
   },
   {
-    CIPHER_RC2_128,
+    CIPHER_ARC2_128,
     CIPHER_MODE_CTR,
     "e4aa9ca5861d539e2ccad18b608eee57",
     "bd29be66418e327e",
@@ -2601,7 +2601,7 @@ static const cipher_mode_vector_t cipher_mode_vectors[462] = {
     "56af71ca1866959ea3183af0190f9617151f6e287db68f855e14d65660483ad7729a6f5929"
   },
   {
-    CIPHER_RC2_128,
+    CIPHER_ARC2_128,
     CIPHER_MODE_CFB,
     "8d329afe40af94e23e858772dd6a341e",
     "39e240f4a2f1fc7e",
@@ -2609,7 +2609,7 @@ static const cipher_mode_vector_t cipher_mode_vectors[462] = {
     "6e329f2bf413fed7700a2292028b75bb35"
   },
   {
-    CIPHER_RC2_128,
+    CIPHER_ARC2_128,
     CIPHER_MODE_CFB,
     "988de3241df7cbda7a161acb45d518df",
     "e62b0da1abba2bd2",
@@ -2617,7 +2617,7 @@ static const cipher_mode_vector_t cipher_mode_vectors[462] = {
     "fb2a0efaecb141ad113a2291affc50bf3f03a8cc98dc5f1d61c20e4f843b64e1"
   },
   {
-    CIPHER_RC2_128,
+    CIPHER_ARC2_128,
     CIPHER_MODE_CFB,
     "796d1f41e9dece6da3b2b2acd517beb5",
     "5c88e8ad6d0b5d87",
@@ -2625,7 +2625,7 @@ static const cipher_mode_vector_t cipher_mode_vectors[462] = {
     "57cc93955d2f8484e356e904f32b432c9cd5d604f39ffa1a4e7468502f1c5e3351142c5075"
   },
   {
-    CIPHER_RC2_128,
+    CIPHER_ARC2_128,
     CIPHER_MODE_OFB,
     "f7749598b49510b4e46ae69c85a30795",
     "7d7f59cb07765131",
@@ -2633,7 +2633,7 @@ static const cipher_mode_vector_t cipher_mode_vectors[462] = {
     "dabe53947aa7cee33c3bcb212e1df8c8ab"
   },
   {
-    CIPHER_RC2_128,
+    CIPHER_ARC2_128,
     CIPHER_MODE_OFB,
     "d07fec61aed4fd55046ef80cb6c383cf",
     "712ce092df54fb64",
@@ -2641,7 +2641,7 @@ static const cipher_mode_vector_t cipher_mode_vectors[462] = {
     "9dac4cc3167371ddf092e1f871b3b563a6799c86545ae67a64f3fc23a8acc337"
   },
   {
-    CIPHER_RC2_128,
+    CIPHER_ARC2_128,
     CIPHER_MODE_OFB,
     "50287a5df7e5188a4f68de5fa8169611",
     "b36104d229fae932",

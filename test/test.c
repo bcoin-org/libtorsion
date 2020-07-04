@@ -68,12 +68,12 @@ static const char *cipher_names[24] = {
   "DES_EDE",
   "DES_EDE3",
   "IDEA",
-  "RC2",
-  "RC2_GUTMANN",
-  "RC2_40",
-  "RC2_64",
-  "RC2_128",
-  "RC2_128_GUTMANN",
+  "ARC2",
+  "ARC2_GUTMANN",
+  "ARC2_40",
+  "ARC2_64",
+  "ARC2_128",
+  "ARC2_128_GUTMANN",
   "SERPENT128",
   "SERPENT192",
   "SERPENT256",
@@ -3084,11 +3084,11 @@ test_rand_fork_safety(void) {
 #endif /* TORSION_HAVE_RNG */
 
 /*
- * RC4
+ * ARC4
  */
 
 static void
-test_rc4(void) {
+test_arc4(void) {
   static const unsigned char expect[32] = {
     0x42, 0x83, 0x06, 0x31, 0x1d, 0xd2, 0x34, 0x98,
     0x51, 0x3a, 0x18, 0x7c, 0x36, 0x4c, 0x03, 0xc0,
@@ -3099,10 +3099,10 @@ test_rc4(void) {
   unsigned char key[32];
   unsigned char msg[32];
   unsigned char data[32];
-  rc4_t ctx;
+  arc4_t ctx;
   size_t i;
 
-  printf("Testing RC4...\n");
+  printf("Testing ARC4...\n");
 
   for (i = 0; i < 32; i++) {
     key[i] = i + 10;
@@ -3111,17 +3111,17 @@ test_rc4(void) {
 
   memcpy(data, msg, 32);
 
-  rc4_init(&ctx, key, 32);
+  arc4_init(&ctx, key, 32);
 
   for (i = 0; i < 1000; i++)
-    rc4_crypt(&ctx, data, data, 32);
+    arc4_crypt(&ctx, data, data, 32);
 
   CHECK(memcmp(data, expect, 32) == 0);
 
-  rc4_init(&ctx, key, 32);
+  arc4_init(&ctx, key, 32);
 
   for (i = 0; i < 1000; i++)
-    rc4_crypt(&ctx, data, data, 32);
+    arc4_crypt(&ctx, data, data, 32);
 
   CHECK(memcmp(data, msg, 32) == 0);
 }
@@ -4031,8 +4031,8 @@ main(int argc, char **argv) {
 #endif /* TORSION_HAVE_FORK */
 #endif /* TORSION_HAVE_RNG */
 
-    /* RC4 */
-    test_rc4();
+    /* ARC4 */
+    test_arc4();
 
     /* RSA */
     test_rsa();

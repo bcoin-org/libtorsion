@@ -3934,7 +3934,7 @@ idea_decrypt(const idea_t *ctx, unsigned char *dst, const unsigned char *src) {
 #undef mul16
 
 /*
- * RC2
+ * ARC2
  *
  * Resources:
  *   https://en.wikipedia.org/wiki/RC2
@@ -3944,7 +3944,7 @@ idea_decrypt(const idea_t *ctx, unsigned char *dst, const unsigned char *src) {
  *   http://people.csail.mit.edu/rivest/pubs/KRRR98.pdf
  */
 
-#define PI rc2_PI
+#define PI arc2_PI
 #define ROTL16(x, b) (((x) >> (16 - (b))) | ((x) << (b)))
 
 static const uint8_t PI[256] = {
@@ -3983,10 +3983,10 @@ static const uint8_t PI[256] = {
 };
 
 void
-rc2_init(rc2_t *ctx,
-         const unsigned char *key,
-         size_t key_len,
-         unsigned int ekb) {
+arc2_init(arc2_t *ctx,
+          const unsigned char *key,
+          size_t key_len,
+          unsigned int ekb) {
   /* Initialization logic borrowed from nettle. */
   uint8_t L[128];
   size_t i, len;
@@ -4022,7 +4022,7 @@ rc2_init(rc2_t *ctx,
 }
 
 void
-rc2_encrypt(const rc2_t *ctx, unsigned char *dst, const unsigned char *src) {
+arc2_encrypt(const arc2_t *ctx, unsigned char *dst, const unsigned char *src) {
   uint16_t r0 = read16le(src + 0);
   uint16_t r1 = read16le(src + 2);
   uint16_t r2 = read16le(src + 4);
@@ -4136,7 +4136,7 @@ rc2_encrypt(const rc2_t *ctx, unsigned char *dst, const unsigned char *src) {
 }
 
 void
-rc2_decrypt(const rc2_t *ctx, unsigned char *dst, const unsigned char *src) {
+arc2_decrypt(const arc2_t *ctx, unsigned char *dst, const unsigned char *src) {
   uint16_t r0 = read16le(src + 0);
   uint16_t r1 = read16le(src + 2);
   uint16_t r2 = read16le(src + 4);
@@ -5461,17 +5461,17 @@ cipher_key_size(int type) {
       return 24;
     case CIPHER_IDEA:
       return 16;
-    case CIPHER_RC2:
+    case CIPHER_ARC2:
       return 8;
-    case CIPHER_RC2_GUTMANN:
+    case CIPHER_ARC2_GUTMANN:
       return 8;
-    case CIPHER_RC2_40:
+    case CIPHER_ARC2_40:
       return 5;
-    case CIPHER_RC2_64:
+    case CIPHER_ARC2_64:
       return 8;
-    case CIPHER_RC2_128:
+    case CIPHER_ARC2_128:
       return 16;
-    case CIPHER_RC2_128_GUTMANN:
+    case CIPHER_ARC2_128_GUTMANN:
       return 16;
     case CIPHER_SERPENT128:
       return 16;
@@ -5517,17 +5517,17 @@ cipher_block_size(int type) {
       return 8;
     case CIPHER_IDEA:
       return 8;
-    case CIPHER_RC2:
+    case CIPHER_ARC2:
       return 8;
-    case CIPHER_RC2_GUTMANN:
+    case CIPHER_ARC2_GUTMANN:
       return 8;
-    case CIPHER_RC2_40:
+    case CIPHER_ARC2_40:
       return 8;
-    case CIPHER_RC2_64:
+    case CIPHER_ARC2_64:
       return 8;
-    case CIPHER_RC2_128:
+    case CIPHER_ARC2_128:
       return 8;
-    case CIPHER_RC2_128_GUTMANN:
+    case CIPHER_ARC2_128_GUTMANN:
       return 8;
     case CIPHER_SERPENT128:
       return 16;
@@ -5660,56 +5660,56 @@ cipher_init(cipher_t *ctx, int type, const unsigned char *key, size_t key_len) {
       break;
     }
 
-    case CIPHER_RC2: {
+    case CIPHER_ARC2: {
       if (key_len < 1 || key_len > 128)
         goto fail;
 
-      rc2_init(&ctx->ctx.rc2, key, key_len, key_len * 8);
+      arc2_init(&ctx->ctx.arc2, key, key_len, key_len * 8);
 
       break;
     }
 
-    case CIPHER_RC2_GUTMANN: {
+    case CIPHER_ARC2_GUTMANN: {
       if (key_len < 1 || key_len > 128)
         goto fail;
 
-      rc2_init(&ctx->ctx.rc2, key, key_len, 0);
+      arc2_init(&ctx->ctx.arc2, key, key_len, 0);
 
       break;
     }
 
-    case CIPHER_RC2_40: {
+    case CIPHER_ARC2_40: {
       if (key_len != 5)
         goto fail;
 
-      rc2_init(&ctx->ctx.rc2, key, key_len, 40);
+      arc2_init(&ctx->ctx.arc2, key, key_len, 40);
 
       break;
     }
 
-    case CIPHER_RC2_64: {
+    case CIPHER_ARC2_64: {
       if (key_len != 8)
         goto fail;
 
-      rc2_init(&ctx->ctx.rc2, key, key_len, 64);
+      arc2_init(&ctx->ctx.arc2, key, key_len, 64);
 
       break;
     }
 
-    case CIPHER_RC2_128: {
+    case CIPHER_ARC2_128: {
       if (key_len != 16)
         goto fail;
 
-      rc2_init(&ctx->ctx.rc2, key, key_len, 128);
+      arc2_init(&ctx->ctx.arc2, key, key_len, 128);
 
       break;
     }
 
-    case CIPHER_RC2_128_GUTMANN: {
+    case CIPHER_ARC2_128_GUTMANN: {
       if (key_len != 16)
         goto fail;
 
-      rc2_init(&ctx->ctx.rc2, key, key_len, 1024);
+      arc2_init(&ctx->ctx.arc2, key, key_len, 1024);
 
       break;
     }
@@ -5812,13 +5812,13 @@ cipher_encrypt(const cipher_t *ctx,
     case CIPHER_IDEA:
       idea_encrypt(&ctx->ctx.idea, dst, src);
       break;
-    case CIPHER_RC2:
-    case CIPHER_RC2_GUTMANN:
-    case CIPHER_RC2_40:
-    case CIPHER_RC2_64:
-    case CIPHER_RC2_128:
-    case CIPHER_RC2_128_GUTMANN:
-      rc2_encrypt(&ctx->ctx.rc2, dst, src);
+    case CIPHER_ARC2:
+    case CIPHER_ARC2_GUTMANN:
+    case CIPHER_ARC2_40:
+    case CIPHER_ARC2_64:
+    case CIPHER_ARC2_128:
+    case CIPHER_ARC2_128_GUTMANN:
+      arc2_encrypt(&ctx->ctx.arc2, dst, src);
       break;
     case CIPHER_SERPENT128:
     case CIPHER_SERPENT192:
@@ -5869,13 +5869,13 @@ cipher_decrypt(const cipher_t *ctx,
     case CIPHER_IDEA:
       idea_decrypt(&ctx->ctx.idea, dst, src);
       break;
-    case CIPHER_RC2:
-    case CIPHER_RC2_GUTMANN:
-    case CIPHER_RC2_40:
-    case CIPHER_RC2_64:
-    case CIPHER_RC2_128:
-    case CIPHER_RC2_128_GUTMANN:
-      rc2_decrypt(&ctx->ctx.rc2, dst, src);
+    case CIPHER_ARC2:
+    case CIPHER_ARC2_GUTMANN:
+    case CIPHER_ARC2_40:
+    case CIPHER_ARC2_64:
+    case CIPHER_ARC2_128:
+    case CIPHER_ARC2_128_GUTMANN:
+      arc2_decrypt(&ctx->ctx.arc2, dst, src);
       break;
     case CIPHER_SERPENT128:
     case CIPHER_SERPENT192:

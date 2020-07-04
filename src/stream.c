@@ -13,7 +13,7 @@
 #include "internal.h"
 
 /*
- * RC4
+ * ARC4
  *
  * Resources:
  *   https://en.wikipedia.org/wiki/RC4
@@ -25,7 +25,7 @@
  */
 
 void
-rc4_init(rc4_t *ctx, const unsigned char *key, size_t key_len) {
+arc4_init(arc4_t *ctx, const unsigned char *key, size_t key_len) {
   size_t k = key_len;
   uint8_t *s = ctx->s;
   uint8_t j, si;
@@ -52,10 +52,10 @@ rc4_init(rc4_t *ctx, const unsigned char *key, size_t key_len) {
 }
 
 void
-rc4_crypt(rc4_t *ctx,
-          unsigned char *dst,
-          const unsigned char *src,
-          size_t len) {
+arc4_crypt(arc4_t *ctx,
+           unsigned char *dst,
+           const unsigned char *src,
+           size_t len) {
   uint8_t *s = ctx->s;
   uint8_t i = ctx->i;
   uint8_t j = ctx->j;
@@ -315,11 +315,6 @@ chacha20_crypt(chacha20_t *ctx,
 
     out[i] = data[i] ^ bytes[ctx->pos++];
   }
-}
-
-void
-chacha20_pad(chacha20_t *ctx) {
-  ctx->pos = 0;
 }
 
 void
@@ -678,11 +673,6 @@ salsa20_crypt(salsa20_t *ctx,
 
     out[i] = data[i] ^ bytes[ctx->pos++];
   }
-}
-
-void
-salsa20_pad(salsa20_t *ctx) {
-  ctx->pos = 0;
 }
 
 void

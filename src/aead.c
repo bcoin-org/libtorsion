@@ -18,7 +18,7 @@
  * Constants
  */
 
-static const unsigned char zero32[32] = {0};
+static const unsigned char zero64[64] = {0};
 
 /*
  * ChaCha20-Poly1305
@@ -33,11 +33,10 @@ chachapoly_init(chachapoly_t *aead,
                 const unsigned char *key,
                 const unsigned char *iv,
                 size_t iv_len) {
-  unsigned char polykey[32];
+  unsigned char polykey[64];
 
   chacha20_init(&aead->chacha, key, 32, iv, iv_len, 0);
-  chacha20_crypt(&aead->chacha, polykey, zero32, 32);
-  chacha20_pad(&aead->chacha);
+  chacha20_crypt(&aead->chacha, polykey, zero64, 64);
 
   poly1305_init(&aead->poly, polykey);
 
@@ -62,7 +61,7 @@ chachapoly_pad16(chachapoly_t *aead, uint64_t size) {
   uint64_t pos = size & 15;
 
   if (pos > 0)
-    poly1305_update(&aead->poly, zero32, 16 - pos);
+    poly1305_update(&aead->poly, zero64, 16 - pos);
 }
 
 void
