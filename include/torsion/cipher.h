@@ -24,6 +24,9 @@ extern "C" {
 #define aes_init_decrypt torsion_aes_init_decrypt
 #define aes_encrypt torsion_aes_encrypt
 #define aes_decrypt torsion_aes_decrypt
+#define arc2_init torsion_arc2_init
+#define arc2_encrypt torsion_arc2_encrypt
+#define arc2_decrypt torsion_arc2_decrypt
 #define blowfish_init torsion_blowfish_init
 #define blowfish_stream2word torsion_blowfish_stream2word
 #define blowfish_expand0state torsion_blowfish_expand0state
@@ -52,9 +55,6 @@ extern "C" {
 #define idea_init_decrypt torsion_idea_init_decrypt
 #define idea_encrypt torsion_idea_encrypt
 #define idea_decrypt torsion_idea_decrypt
-#define arc2_init torsion_arc2_init
-#define arc2_encrypt torsion_arc2_encrypt
-#define arc2_decrypt torsion_arc2_decrypt
 #define serpent_init torsion_serpent_init
 #define serpent_encrypt torsion_serpent_encrypt
 #define serpent_decrypt torsion_serpent_decrypt
@@ -125,21 +125,21 @@ extern "C" {
 #define CIPHER_AES128 0
 #define CIPHER_AES192 1
 #define CIPHER_AES256 2
-#define CIPHER_BLOWFISH 3
-#define CIPHER_CAMELLIA128 4
-#define CIPHER_CAMELLIA192 5
-#define CIPHER_CAMELLIA256 6
-#define CIPHER_CAST5 7
-#define CIPHER_DES 8
-#define CIPHER_DES_EDE 9
-#define CIPHER_DES_EDE3 10
-#define CIPHER_IDEA 11
-#define CIPHER_ARC2 12
-#define CIPHER_ARC2_GUTMANN 13
-#define CIPHER_ARC2_40 14
-#define CIPHER_ARC2_64 15
-#define CIPHER_ARC2_128 16
-#define CIPHER_ARC2_128_GUTMANN 17
+#define CIPHER_ARC2 3
+#define CIPHER_ARC2_GUTMANN 4
+#define CIPHER_ARC2_40 5
+#define CIPHER_ARC2_64 6
+#define CIPHER_ARC2_128 7
+#define CIPHER_ARC2_128_GUTMANN 8
+#define CIPHER_BLOWFISH 9
+#define CIPHER_CAMELLIA128 10
+#define CIPHER_CAMELLIA192 11
+#define CIPHER_CAMELLIA256 12
+#define CIPHER_CAST5 13
+#define CIPHER_DES 14
+#define CIPHER_DES_EDE 15
+#define CIPHER_DES_EDE3 16
+#define CIPHER_IDEA 17
 #define CIPHER_SERPENT128 18
 #define CIPHER_SERPENT192 19
 #define CIPHER_SERPENT256 20
@@ -187,6 +187,10 @@ typedef struct aes_s {
   uint32_t deckey[60];
 } aes_t;
 
+typedef struct arc2_s {
+  uint16_t k[64];
+} arc2_t;
+
 typedef struct blowfish_s {
   uint32_t S[4][256];
   uint32_t P[18];
@@ -222,10 +226,6 @@ typedef struct idea_s {
   uint16_t deckey[52];
 } idea_t;
 
-typedef struct arc2_s {
-  uint16_t k[64];
-} arc2_t;
-
 typedef struct serpent_s {
   uint32_t subkeys[132];
 } serpent_t;
@@ -240,6 +240,7 @@ typedef struct cipher_s {
   size_t size;
   union {
     aes_t aes;
+    arc2_t arc2;
     blowfish_t blowfish;
     camellia_t camellia;
     cast5_t cast5;
@@ -247,7 +248,6 @@ typedef struct cipher_s {
     des_ede_t ede;
     des_ede3_t ede3;
     idea_t idea;
-    arc2_t arc2;
     serpent_t serpent;
     twofish_t twofish;
   } ctx;
@@ -370,6 +370,22 @@ aes_encrypt(const aes_t *ctx, unsigned char *dst, const unsigned char *src);
 
 TORSION_EXTERN void
 aes_decrypt(const aes_t *ctx, unsigned char *dst, const unsigned char *src);
+
+/*
+ * ARC2
+ */
+
+TORSION_EXTERN void
+arc2_init(arc2_t *ctx,
+          const unsigned char *key,
+          size_t key_len,
+          unsigned int ekb);
+
+TORSION_EXTERN void
+arc2_encrypt(const arc2_t *ctx, unsigned char *dst, const unsigned char *src);
+
+TORSION_EXTERN void
+arc2_decrypt(const arc2_t *ctx, unsigned char *dst, const unsigned char *src);
 
 /*
  * Blowfish
@@ -508,22 +524,6 @@ idea_encrypt(const idea_t *ctx, unsigned char *dst, const unsigned char *src);
 
 TORSION_EXTERN void
 idea_decrypt(const idea_t *ctx, unsigned char *dst, const unsigned char *src);
-
-/*
- * ARC2
- */
-
-TORSION_EXTERN void
-arc2_init(arc2_t *ctx,
-          const unsigned char *key,
-          size_t key_len,
-          unsigned int ekb);
-
-TORSION_EXTERN void
-arc2_encrypt(const arc2_t *ctx, unsigned char *dst, const unsigned char *src);
-
-TORSION_EXTERN void
-arc2_decrypt(const arc2_t *ctx, unsigned char *dst, const unsigned char *src);
 
 /*
  * Serpent
