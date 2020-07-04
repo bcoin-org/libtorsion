@@ -69,11 +69,11 @@ typedef struct _ctr_drbg_s {
   uint8_t state[16];
 } ctr_drbg_t;
 
-typedef hmac_drbg_t drbg_t;
-
 /*
  * DRBG
  */
+
+typedef hmac_drbg_t drbg_t;
 
 #define drbg_init hmac_drbg_init
 #define drbg_reseed hmac_drbg_reseed

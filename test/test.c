@@ -12,21 +12,19 @@
 #include <string.h>
 
 #include <torsion/aead.h>
-#include <torsion/chacha20.h>
 #include <torsion/drbg.h>
 #include <torsion/dsa.h>
 #include <torsion/ecc.h>
 #include <torsion/encoding.h>
 #include <torsion/hash.h>
+#include <torsion/ies.h>
 #include <torsion/kdf.h>
-#include <torsion/poly1305.h>
+#include <torsion/mac.h>
 #ifdef TORSION_HAVE_RNG
 #include <torsion/rand.h>
 #endif
 #include <torsion/rsa.h>
-#include <torsion/salsa20.h>
-#include <torsion/secretbox.h>
-#include <torsion/siphash.h>
+#include <torsion/stream.h>
 #include <torsion/util.h>
 
 #include "os.h"
@@ -313,12 +311,12 @@ test_chacha20(void) {
     memcpy(data, input, input_len);
 
     chacha20_init(&ctx, key, key_len, nonce, nonce_len, counter);
-    chacha20_encrypt(&ctx, data, data, data_len);
+    chacha20_crypt(&ctx, data, data, data_len);
 
     CHECK(memcmp(data, output, output_len) == 0);
 
     chacha20_init(&ctx, key, key_len, nonce, nonce_len, counter);
-    chacha20_encrypt(&ctx, data, data, data_len);
+    chacha20_crypt(&ctx, data, data, data_len);
 
     CHECK(memcmp(data, input, input_len) == 0);
   }
@@ -3116,14 +3114,14 @@ test_rc4(void) {
   rc4_init(&ctx, key, 32);
 
   for (i = 0; i < 1000; i++)
-    rc4_encrypt(&ctx, data, data, 32);
+    rc4_crypt(&ctx, data, data, 32);
 
   CHECK(memcmp(data, expect, 32) == 0);
 
   rc4_init(&ctx, key, 32);
 
   for (i = 0; i < 1000; i++)
-    rc4_encrypt(&ctx, data, data, 32);
+    rc4_crypt(&ctx, data, data, 32);
 
   CHECK(memcmp(data, msg, 32) == 0);
 }
@@ -3451,7 +3449,7 @@ test_salsa20(void) {
     memset(xor, 0, 64);
 
     salsa20_init(&ctx, key, 32, nonce, 8, 0);
-    salsa20_encrypt(&ctx, out, out, size);
+    salsa20_crypt(&ctx, out, out, size);
 
     for (j = 0; j < size; j += 64) {
       for (k = 0; k < 64; k++)
@@ -3481,7 +3479,7 @@ test_xsalsa20(void) {
   printf("Testing XSalsa20...\n");
 
   salsa20_init(&ctx, key, 32, nonce, 24, 0);
-  salsa20_encrypt(&ctx, data, input, 12);
+  salsa20_crypt(&ctx, data, input, 12);
 
   CHECK(memcmp(data, expect, 12) == 0);
 }

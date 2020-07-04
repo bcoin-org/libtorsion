@@ -3,7 +3,6 @@ ACLOCAL_AMFLAGS = -I m4
 AM_CPPFLAGS = -I$(top_srcdir)/include
 
 include_HEADERS = include/torsion/aead.h      \
-                  include/torsion/chacha20.h  \
                   include/torsion/cipher.h    \
                   include/torsion/common.h    \
                   include/torsion/drbg.h      \
@@ -11,12 +10,11 @@ include_HEADERS = include/torsion/aead.h      \
                   include/torsion/ecc.h       \
                   include/torsion/encoding.h  \
                   include/torsion/hash.h      \
+                  include/torsion/ies.h       \
                   include/torsion/kdf.h       \
-                  include/torsion/poly1305.h  \
+                  include/torsion/mac.h       \
                   include/torsion/rsa.h       \
-                  include/torsion/salsa20.h   \
-                  include/torsion/secretbox.h \
-                  include/torsion/siphash.h   \
+                  include/torsion/stream.h    \
                   include/torsion/util.h
 
 noinst_HEADERS = src/asn1.h                         \
@@ -85,21 +83,19 @@ endif
 
 torsion_sources = src/aead.c      \
                   src/asn1.c      \
-                  src/chacha20.c  \
                   src/cipher.c    \
                   src/ecc.c       \
                   src/encoding.c  \
                   src/drbg.c      \
                   src/dsa.c       \
                   src/hash.c      \
+                  src/ies.c       \
                   src/internal.c  \
                   src/kdf.c       \
+                  src/mac.c       \
                   src/mpi.c       \
-                  src/poly1305.c  \
                   src/rsa.c       \
-                  src/salsa20.c   \
-                  src/secretbox.c \
-                  src/siphash.c   \
+                  src/stream.c    \
                   src/util.c
 
 if ENABLE_RNG

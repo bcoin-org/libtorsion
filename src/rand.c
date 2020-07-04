@@ -40,9 +40,9 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
-#include <torsion/chacha20.h>
 #include <torsion/hash.h>
 #include <torsion/rand.h>
+#include <torsion/stream.h>
 #include <torsion/util.h>
 #include "entropy/entropy.h"
 #include "internal.h"
@@ -140,7 +140,7 @@ rng_generate(rng_t *rng, void *dst, size_t size) {
 
   /* Read the keystream. */
   chacha20_init(&ctx, key, 32, nonce, 8, rng->zero);
-  chacha20_encrypt(&ctx, dst, dst, size);
+  chacha20_crypt(&ctx, dst, dst, size);
 
   /* Mix in some user entropy. */
   rng->key[0] ^= size;
@@ -162,7 +162,7 @@ rng_generate(rng_t *rng, void *dst, size_t size) {
      terms of security, as the outputs in both
      scenarios are dependent on the key. */
   chacha20_init(&ctx, key, 32, nonce, 8, rng->zero);
-  chacha20_encrypt(&ctx, key, key, 32);
+  chacha20_crypt(&ctx, key, key, 32);
 
   /* Cleanse the chacha state. */
   cleanse(&ctx, sizeof(ctx));

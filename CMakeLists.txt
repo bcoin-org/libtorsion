@@ -238,21 +238,19 @@ endif()
 set(torsion_sources
     src/aead.c
     src/asn1.c
-    src/chacha20.c
     src/cipher.c
     src/ecc.c
     src/encoding.c
     src/drbg.c
     src/dsa.c
     src/hash.c
+    src/ies.c
     src/internal.c
     src/kdf.c
+    src/mac.c
     src/mpi.c
-    src/poly1305.c
     src/rsa.c
-    src/salsa20.c
-    src/secretbox.c
-    src/siphash.c
+    src/stream.c
     src/util.c)
 
 if(TORSION_ENABLE_RNG)
