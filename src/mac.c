@@ -276,6 +276,52 @@ poly1305_blocks(poly1305_internal_t *st, const unsigned char *m, size_t bytes) {
 }
 
 void
+poly1305_update(poly1305_t *ctx, const unsigned char *m, size_t bytes) {
+  poly1305_internal_t *st = (poly1305_internal_t *)ctx;
+  size_t i;
+
+  /* handle leftover */
+  if (st->leftover > 0) {
+    size_t want = POLY1305_BLOCK_SIZE - st->leftover;
+
+    if (want > bytes)
+      want = bytes;
+
+    for (i = 0; i < want; i++)
+      st->buffer[st->leftover + i] = m[i];
+
+    bytes -= want;
+    m += want;
+    st->leftover += want;
+
+    if (st->leftover < POLY1305_BLOCK_SIZE)
+      return;
+
+    poly1305_blocks(st, st->buffer, POLY1305_BLOCK_SIZE);
+
+    st->leftover = 0;
+  }
+
+  /* process full blocks */
+  if (bytes >= POLY1305_BLOCK_SIZE) {
+    size_t want = bytes & ~(POLY1305_BLOCK_SIZE - 1);
+
+    poly1305_blocks(st, m, want);
+
+    m += want;
+    bytes -= want;
+  }
+
+  /* store leftover */
+  if (bytes > 0) {
+    for (i = 0; i < bytes; i++)
+      st->buffer[st->leftover + i] = m[i];
+
+    st->leftover += bytes;
+  }
+}
+
+void
 poly1305_final(poly1305_t *ctx, unsigned char *mac) {
   poly1305_internal_t *st = (poly1305_internal_t *)ctx;
 #ifdef TORSION_HAVE_INT128
@@ -471,52 +517,6 @@ poly1305_final(poly1305_t *ctx, unsigned char *mac) {
   write32le(mac + 8, h2);
   write32le(mac + 12, h3);
 #endif /* TORSION_HAVE_INT128 */
-}
-
-void
-poly1305_update(poly1305_t *ctx, const unsigned char *m, size_t bytes) {
-  poly1305_internal_t *st = (poly1305_internal_t *)ctx;
-  size_t i;
-
-  /* handle leftover */
-  if (st->leftover > 0) {
-    size_t want = POLY1305_BLOCK_SIZE - st->leftover;
-
-    if (want > bytes)
-      want = bytes;
-
-    for (i = 0; i < want; i++)
-      st->buffer[st->leftover + i] = m[i];
-
-    bytes -= want;
-    m += want;
-    st->leftover += want;
-
-    if (st->leftover < POLY1305_BLOCK_SIZE)
-      return;
-
-    poly1305_blocks(st, st->buffer, POLY1305_BLOCK_SIZE);
-
-    st->leftover = 0;
-  }
-
-  /* process full blocks */
-  if (bytes >= POLY1305_BLOCK_SIZE) {
-    size_t want = bytes & ~(POLY1305_BLOCK_SIZE - 1);
-
-    poly1305_blocks(st, m, want);
-
-    m += want;
-    bytes -= want;
-  }
-
-  /* store leftover */
-  if (bytes > 0) {
-    for (i = 0; i < bytes; i++)
-      st->buffer[st->leftover + i] = m[i];
-
-    st->leftover += bytes;
-  }
 }
 
 void
