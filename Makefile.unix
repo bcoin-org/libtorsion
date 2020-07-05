@@ -2,8 +2,13 @@ PREFIX ?= /usr/local
 PTHREAD_CFLAGS ?=
 PTHREAD_LIBS ?= -lpthread
 ENABLE_COVERAGE ?= 0
+ENABLE_DEBUG ?= 0
 ENABLE_RNG ?= 1
-ENABLE_TEST ?= 0
+SO = so
+
+ifeq ($(shell uname -s), Darwin)
+SO = dylib
+endif
 
 COMMON_CFLAGS = -std=c89                         \
                 -pedantic                        \
@@ -46,73 +51,90 @@ LIB_OBJECTS := $(subst .c,.o,$(LIB_SOURCES))
 LIB_CFLAGS := $(COMMON_CFLAGS) -DTORSION_BUILD $(CFLAGS)
 LIB_LDFLAGS =
 
-TEST_SOURCES = test/os.c test/test.c
+BENCH_SOURCES = test/bench.c test/hrtime.c
+BENCH_CFLAGS := $(COMMON_CFLAGS) $(CFLAGS)
+BENCH_LIBS = -L. -ltorsion
+
+TEST_SOURCES = test/test.c
 TEST_CFLAGS := $(COMMON_CFLAGS) $(CFLAGS)
 TEST_LIBS = -L. -ltorsion
+
+CTIME_SOURCES = test/ctime.c
+CTIME_CFLAGS := $(COMMON_CFLAGS) $(CFLAGS)
+CTIME_LIBS = -L. -ltorsion
+
+OUTPUT := libtorsion.$(SO) libtorsion.a torsion_bench
 
 ifeq ($(ENABLE_COVERAGE), 1)
 LIB_CFLAGS += -DTORSION_COVERAGE
 LIB_CFLAGS += --coverage
 LIB_LDFLAGS += --coverage
+OUTPUT += torsion_test
+endif
+
+ifeq ($(ENABLE_DEBUG), 1)
+LIB_CFLAGS += -g
+LIB_CFLAGS += -DTORSION_DEBUG
+BENCH_CFLAGS += -g
+TEST_CFLAGS += -g
+OUTPUT += torsion_test torsion_test_a
 endif
 
 ifeq ($(ENABLE_RNG), 1)
+BENCH_CFLAGS += -DTORSION_HAVE_RNG
+TEST_SOURCES += test/thread.c
 TEST_CFLAGS += -DTORSION_HAVE_RNG
-TEST_CFLAGS += -DTORSION_HAVE_PTHREAD
+TEST_CFLAGS += -DTORSION_HAVE_FORK
+TEST_CFLAGS += -DTORSION_HAVE_THREADS
 TEST_CFLAGS += $(PTHREAD_CFLAGS)
 TEST_LIBS += $(PTHREAD_LIBS)
 endif
-
-ifeq ($(ENABLE_TEST), 1)
-LIB_CFLAGS += -DTORSION_TEST
-TEST_CFLAGS += -DTORSION_TEST
-else
-LIB_CFLAGS += -DTORSION_NO_ASSERT
-endif
-
-OUTPUT = libtorsion.so libtorsion.a
 
 all: $(OUTPUT)
 
 %.o: %.c
 	$(CC) -o $@ -c -fPIC $(LIB_CFLAGS) $<
 
-libtorsion.so: $(LIB_OBJECTS)
+libtorsion.$(SO): $(LIB_OBJECTS)
 	$(CC) -o $@ -shared -fPIC $(LIB_LDFLAGS) $^
 
 libtorsion.a: $(LIB_OBJECTS)
 	$(AR) rcs $@ $^
 
-tests: libtorsion.so $(TEST_SOURCES)
+torsion_bench: libtorsion.a $(TEST_SOURCES)
+	$(CC) -o $@ -static $(BENCH_CFLAGS) $(BENCH_SOURCES) $(BENCH_LIBS)
+
+torsion_test: libtorsion.$(SO) $(TEST_SOURCES)
 	$(CC) -o $@ $(TEST_CFLAGS) $(TEST_SOURCES) $(TEST_LIBS)
 
-tests_a: libtorsion.a $(TEST_SOURCES)
+torsion_test_a: libtorsion.a $(TEST_SOURCES)
 	$(CC) -o $@ -static $(TEST_CFLAGS) $(TEST_SOURCES) $(TEST_LIBS)
 
-ctime-test: libtorsion.so test/ctime-test.c
-	$(CC) -o $@ $(TEST_CFLAGS) test/ctime-test.c $(TEST_LIBS)
+torsion_ctime: libtorsion.$(SO) $(CTIME_SOURCES)
+	$(CC) -o $@ $(CTIME_CFLAGS) $(CTIME_SOURCES) $(CTIME_LIBS)
 
 install: $(OUTPUT)
 	install -d $(DESTDIR)$(PREFIX)/lib
 	install -d $(DESTDIR)$(PREFIX)/include/torsion
 	install -d $(DESTDIR)$(PREFIX)/share/licenses
-	install -m 755 libtorsion.so $(DESTDIR)$(PREFIX)/lib/
+	install -m 755 libtorsion.$(SO) $(DESTDIR)$(PREFIX)/lib/
 	install -m 644 libtorsion.a $(DESTDIR)$(PREFIX)/lib/
 	install -m 644 include/torsion/*.h $(DESTDIR)$(PREFIX)/include/torsion/
 	install -m 644 LICENSE $(DESTDIR)$(PREFIX)/share/licenses/
 
-test: tests
-	@LD_LIBRARY_PATH=. ./tests
+bench: torsion_bench
+	@./torsion_bench
 
-test_a: tests_a
-	@./tests_a
+test: torsion_test
+	@LD_LIBRARY_PATH=. ./torsion_test
 
-ctime: ctime-test
-	@LD_LIBRARY_PATH=. valgrind ./ctime-test
+test_a: torsion_test_a
+	@./torsion_test_a
 
-check: test test_a
+ctime: torsion_ctime
+	@LD_LIBRARY_PATH=. valgrind ./torsion_ctime
 
 clean:
-	rm -f $(LIB_OBJECTS) $(OUTPUT) tests tests_a ctime-test
+	rm -f $(LIB_OBJECTS) $(OUTPUT) torsion_test torsion_test_a torsion_ctime
 
-.PHONY: all install test test_a ctime check clean
+.PHONY: all install bench test test_a ctime clean

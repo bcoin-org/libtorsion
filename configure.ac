@@ -28,11 +28,6 @@ AC_ARG_ENABLE(asm,
   [enable_asm=$enableval],
   [enable_asm=yes])
 
-AC_ARG_ENABLE(assert,
-  AS_HELP_STRING([--enable-assert],[enable assertions [default=yes]]),
-  [enable_assert=$enableval],
-  [enable_assert=yes])
-
 AC_ARG_ENABLE(coverage,
   AS_HELP_STRING([--enable-coverage],[enable coverage [default=no]]),
   [enable_coverage=$enableval],
@@ -43,10 +38,10 @@ AC_ARG_ENABLE(crt,
   [enable_crt=$enableval],
   [enable_crt=no])
 
-AC_ARG_ENABLE(ctime,
-  AS_HELP_STRING([--enable-ctime],[enable valgrind constant-time test [default=no]]),
-  [enable_ctime=$enableval],
-  [enable_ctime=no])
+AC_ARG_ENABLE(debug,
+  AS_HELP_STRING([--enable-debug],[enable tests [default=no]]),
+  [enable_debug=$enableval],
+  [enable_debug=no])
 
 AC_ARG_ENABLE(int128,
   AS_HELP_STRING([--enable-int128],[use __int128 if available [default=yes]]),
@@ -62,11 +57,6 @@ AC_ARG_ENABLE(rng,
   AS_HELP_STRING([--enable-rng],[enable rng [default=yes]]),
   [enable_rng=$enableval],
   [enable_rng=yes])
-
-AC_ARG_ENABLE(test,
-  AS_HELP_STRING([--enable-test],[enable tests [default=yes]]),
-  [enable_test=$enableval],
-  [enable_test=yes])
 
 AC_ARG_ENABLE(tls,
   AS_HELP_STRING([--enable-tls],[enable tls [default=yes]]),
@@ -149,6 +139,36 @@ value = 1;
 ]])],[has_tls=yes],[has_tls=no])
 AC_MSG_RESULT([$has_tls])
 
+if test x"$EMSCRIPTEN" = x""; then
+  AX_PTHREAD([has_threads=yes], [has_threads=no])
+else
+  has_threads=no
+fi
+
+AC_MSG_CHECKING(for fork support)
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#if defined(__EMSCRIPTEN__) || defined(__wasm__)
+#  error "cannot use fork with wasm"
+#endif
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <unistd.h>
+]],[[
+unsigned char data[32];
+int pfds[2];
+int status;
+pid_t pid;
+pipe(pfds);
+pid = fork();
+close(pfds[1]);
+read(pfds[0], data, 32);
+close(pfds[0]);
+waitpid(pid, &status, 0);
+WIFEXITED(status);
+WEXITSTATUS(status);
+]])],[has_fork=yes],[has_fork=no])
+AC_MSG_RESULT([$has_fork])
+
 AC_CHECK_HEADER([valgrind/memcheck.h], [has_valgrind=yes], [has_valgrind=no], [])
 
 AC_DEFINE(TORSION_HAVE_CONFIG)
@@ -157,11 +177,10 @@ if test x"$enable_asm" = x"yes" -a x"$has_asm" = x"yes"; then
   AC_DEFINE(TORSION_HAVE_ASM_X64)
 fi
 
-if test x"$enable_assert" != x"yes"; then
-  AC_DEFINE(TORSION_NO_ASSERT)
-fi
-
 if test x"$enable_coverage" = x"yes"; then
+  if test x"$EMSCRIPTEN" != x""; then
+    AC_MSG_ERROR([coverage not supported with emscripten])
+  fi
   AC_DEFINE(TORSION_COVERAGE)
 fi
 
@@ -169,11 +188,13 @@ if test x"$enable_crt" = x"yes"; then
   AC_DEFINE(TORSION_USE_CRT)
 fi
 
-if test x"$enable_ctime" = x"yes"; then
-  if test x"$has_valgrind" != x"yes"; then
-    AC_MSG_ERROR([valgrind must be installed for constant time test])
-  fi
-  AC_DEFINE(TORSION_CTIME)
+if test x"$enable_debug" = x"yes"; then
+  CC_CHECK_CFLAGS_APPEND([-g])
+  AC_DEFINE(TORSION_DEBUG)
+fi
+
+if test x"$has_fork" = x"yes"; then
+  AC_DEFINE(TORSION_HAVE_FORK)
 fi
 
 if test x"$enable_int128" = x"yes" -a x"$has_int128" = x"yes"; then
@@ -188,11 +209,8 @@ if test x"$enable_rng" = x"yes"; then
   AC_DEFINE(TORSION_HAVE_RNG)
 fi
 
-if test x"$enable_test" = x"yes"; then
-  if test x"$EMSCRIPTEN" = x""; then
-    CC_CHECK_CFLAGS_APPEND([-g])
-  fi
-  AC_DEFINE(TORSION_TEST)
+if test x"$has_threads" = x"yes"; then
+  AC_DEFINE(TORSION_HAVE_THREADS)
 fi
 
 if test x"$enable_tls" = x"yes" -a x"$has_tls" = x"yes"; then
@@ -200,26 +218,21 @@ if test x"$enable_tls" = x"yes" -a x"$has_tls" = x"yes"; then
 fi
 
 if test x"$enable_verify" = x"yes"; then
-  if test x"$enable_test" != x"yes"; then
+  if test x"$enable_debug" != x"yes"; then
     AC_MSG_ERROR([scalar bounds verification for testing only])
   fi
   AC_DEFINE(TORSION_VERIFY)
 fi
 
-if test x"$EMSCRIPTEN" = x""; then
-  AX_PTHREAD([
-    PTHREAD_CFLAGS="$PTHREAD_CFLAGS -DTORSION_HAVE_PTHREAD"
-  ])
-fi
-
 AC_SUBST(PTHREAD_CFLAGS)
 AC_SUBST(PTHREAD_LIBS)
 
-AM_CONDITIONAL([ENABLE_RNG], [test x"$enable_rng" = x"yes"])
-AM_CONDITIONAL([ENABLE_TEST], [test x"$enable_test" = x"yes"])
-AM_CONDITIONAL([ENABLE_COVERAGE], [test x"$enable_coverage" = x"yes"])
-AM_CONDITIONAL([ENABLE_CTIME], [test x"$enable_ctime" = x"yes"])
 AM_CONDITIONAL([EMSCRIPTEN], [test x"$EMSCRIPTEN" != x""])
+AM_CONDITIONAL([ENABLE_COVERAGE], [test x"$enable_coverage" = x"yes"])
+AM_CONDITIONAL([ENABLE_CTIME], [test x"$has_valgrind" = x"yes" -a x"$enable_debug" != x"yes"])
+AM_CONDITIONAL([ENABLE_RNG], [test x"$enable_rng" = x"yes"])
+AM_CONDITIONAL([ENABLE_TESTS], [test x"$enable_debug" = x"yes" -o x"$enable_coverage" = x"yes"])
+AM_CONDITIONAL([ENABLE_THREADS], [test x"$has_threads" = x"yes"])
 
 AC_CONFIG_FILES([Makefile libtorsion.pc])
 
@@ -229,16 +242,17 @@ echo ""
 echo "Build Options:"
 echo ""
 echo "  asm          = $enable_asm (support=$has_asm)"
-echo "  assert       = $enable_assert"
 echo "  coverage     = $enable_coverage"
 echo "  crt          = $enable_crt"
-echo "  ctime        = $enable_ctime"
+echo "  debug        = $enable_debug"
 echo "  emscripten   = $EMSCRIPTEN"
+echo "  fork         = $has_fork"
 echo "  int128       = $enable_int128 (support=$has_int128)"
 echo "  libsecp256k1 = $enable_libsecp256k1"
 echo "  rng          = $enable_rng"
-echo "  test         = $enable_test"
+echo "  threads      = $has_threads"
 echo "  tls          = $enable_tls (support=$has_tls)"
+echo "  valgrind     = $has_valgrind"
 echo "  verify       = $enable_verify"
 echo ""
 echo "  CC           = $CC"

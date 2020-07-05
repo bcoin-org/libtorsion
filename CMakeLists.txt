@@ -13,14 +13,12 @@ if(NOT EMSCRIPTEN)
 endif()
 
 option(TORSION_ENABLE_ASM "Use inline x86-64 assembly if available" ON)
-option(TORSION_ENABLE_ASSERT "Enable assertions" ON)
 option(TORSION_ENABLE_COVERAGE "Enable coverage" OFF)
 option(TORSION_ENABLE_CRT "Enable chinese remainder theorem for RSA" OFF)
-option(TORSION_ENABLE_CTIME "Enable valgrind constant-time test" OFF)
+option(TORSION_ENABLE_DEBUG "Enable debug build" OFF)
 option(TORSION_ENABLE_INT128 "Use __int128 if available" ON)
 option(TORSION_ENABLE_LIBSECP256K1 "Enable libsecp256k1 field element backend" OFF)
 option(TORSION_ENABLE_RNG "Enable RNG" ON)
-option(TORSION_ENABLE_TEST "Enable tests" ON)
 option(TORSION_ENABLE_TLS "Enable TLS" ON)
 option(TORSION_ENABLE_VERIFY "Enable scalar bounds checks" OFF)
 
@@ -119,6 +117,44 @@ int main(void) {
 }
 " TORSION_HAS_TLS)
 
+set(TORSION_HAS_THREADS OFF)
+
+if(NOT EMSCRIPTEN)
+  if(WIN32)
+    set(TORSION_HAS_THREADS ON)
+  else()
+    set(THREADS_PREFER_PTHREAD_FLAG ON)
+    find_package(Threads)
+    if(CMAKE_USE_PTHREADS_INIT)
+      set(TORSION_HAS_THREADS ON)
+    endif()
+  endif()
+endif()
+
+check_c_source_compiles("
+#if defined(__EMSCRIPTEN__) || defined(__wasm__)
+#  error \"cannot use fork with wasm\"
+#endif
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <unistd.h>
+int main(void) {
+  unsigned char data[32];
+  int pfds[2];
+  int status;
+  pid_t pid;
+  pipe(pfds);
+  pid = fork();
+  close(pfds[1]);
+  read(pfds[0], data, 32);
+  close(pfds[0]);
+  waitpid(pid, &status, 0);
+  WIFEXITED(status);
+  WEXITSTATUS(status);
+  return 0;
+}
+" TORSION_HAS_FORK)
+
 check_include_file(valgrind/memcheck.h TORSION_HAS_VALGRIND)
 
 list(APPEND torsion_defines TORSION_HAVE_CONFIG)
@@ -127,11 +163,10 @@ if(TORSION_ENABLE_ASM AND TORSION_HAS_ASM)
   list(APPEND torsion_defines TORSION_HAVE_ASM_X64)
 endif()
 
-if(NOT TORSION_ENABLE_ASSERT OR EMSCRIPTEN)
-  list(APPEND torsion_defines TORSION_NO_ASSERT)
-endif()
-
 if(TORSION_ENABLE_COVERAGE)
+  if(EMSCRIPTEN)
+    message(FATAL_ERROR "coverage not supported with emscripten")
+  endif()
   list(APPEND torsion_defines TORSION_COVERAGE)
   list(APPEND torsion_cflags --coverage)
   list(APPEND torsion_ldflags --coverage)
@@ -141,11 +176,15 @@ if(TORSION_ENABLE_CRT)
   list(APPEND torsion_defines TORSION_USE_CRT)
 endif()
 
-if(TORSION_ENABLE_CTIME)
-  if(NOT TORSION_HAS_VALGRIND)
-    message(FATAL_ERROR "valgrind must be installed for constant time test")
+if(TORSION_ENABLE_DEBUG)
+  if(TORSION_HAS_G)
+    list(APPEND torsion_cflags -g)
   endif()
-  list(APPEND torsion_defines TORSION_CTIME)
+  list(APPEND torsion_defines TORSION_DEBUG)
+endif()
+
+if(TORSION_HAS_FORK)
+  list(APPEND torsion_defines TORSION_HAVE_FORK)
 endif()
 
 if(TORSION_ENABLE_INT128 AND TORSION_HAS_INT128)
@@ -160,11 +199,8 @@ if(TORSION_ENABLE_RNG)
   list(APPEND torsion_defines TORSION_HAVE_RNG)
 endif()
 
-if(TORSION_ENABLE_TEST)
-  list(APPEND torsion_defines TORSION_TEST)
-  if(TORSION_HAS_G AND NOT EMSCRIPTEN)
-    list(APPEND torsion_cflags -g)
-  endif()
+if(TORSION_HAS_THREADS)
+  list(APPEND torsion_defines TORSION_HAVE_THREADS)
 endif()
 
 if(TORSION_ENABLE_TLS AND TORSION_HAS_TLS)
@@ -172,7 +208,7 @@ if(TORSION_ENABLE_TLS AND TORSION_HAS_TLS)
 endif()
 
 if(TORSION_ENABLE_VERIFY)
-  if(NOT TORSION_ENABLE_TEST)
+  if(NOT TORSION_ENABLE_DEBUG)
     message(FATAL_ERROR "scalar bounds verification for testing only")
   endif()
   list(APPEND torsion_defines TORSION_VERIFY)
@@ -282,23 +318,30 @@ if(EMSCRIPTEN)
                         "${torsion_emflags} ${torsion_emexports}")
   target_include_directories(torsion PRIVATE ${PROJECT_SOURCE_DIR}/include)
 
-  if(TORSION_ENABLE_TEST)
-    add_executable(tests ${torsion_sources} test/test.c test/os.c)
-    target_compile_definitions(tests PRIVATE ${torsion_defines} __wasi__)
-    target_compile_options(tests PRIVATE ${torsion_cflags})
-    set_target_properties(tests PROPERTIES LINK_FLAGS "${torsion_emflags}")
-    target_include_directories(tests PRIVATE ${PROJECT_SOURCE_DIR}/include)
+  add_executable(torsion_bench ${torsion_sources} test/bench.c test/hrtime.c)
+  target_compile_definitions(torsion_bench PRIVATE ${torsion_defines} __wasi__)
+  target_compile_options(torsion_bench PRIVATE ${torsion_cflags})
+  set_target_properties(torsion_bench PROPERTIES LINK_FLAGS "${torsion_emflags}")
+  target_include_directories(torsion_bench PRIVATE ${PROJECT_SOURCE_DIR}/include)
+
+  if(TORSION_ENABLE_DEBUG)
+    add_executable(torsion_test ${torsion_sources} test/test.c)
+    target_compile_definitions(torsion_test PRIVATE ${torsion_defines} __wasi__)
+    target_compile_options(torsion_test PRIVATE ${torsion_cflags})
+    set_target_properties(torsion_test PROPERTIES LINK_FLAGS "${torsion_emflags}")
+    target_include_directories(torsion_test PRIVATE ${PROJECT_SOURCE_DIR}/include)
   endif()
 else()
-  set(test_defines ${torsion_defines})
-  set(test_cflags ${torsion_cflags})
-  set(test_ldflags ${torsion_ldflags})
+  set(torsion_lib torsion)
 
-  if(TORSION_ENABLE_RNG AND UNIX)
-    find_package(Threads REQUIRED)
+  # Windows can't link to .dll's like this.
+  # See: https://stackoverflow.com/questions/38492087
+  if(WIN32)
+    set(torsion_lib torsion_a)
+  endif()
 
-    list(APPEND test_defines TORSION_HAVE_PTHREAD)
-    set(test_libs ${CMAKE_THREAD_LIBS_INIT})
+  if(NOT WIN32 AND TORSION_HAS_THREADS)
+    set(test_libs Threads::Threads)
   endif()
 
   add_library(torsion SHARED ${torsion_sources})
@@ -313,31 +356,24 @@ else()
   target_include_directories(torsion_a PUBLIC ${PROJECT_SOURCE_DIR}/include)
   target_link_options(torsion_a PRIVATE ${torsion_ldflags})
 
-  if(TORSION_ENABLE_TEST)
-    add_executable(tests test/test.c test/os.c)
-    target_compile_definitions(tests PRIVATE ${test_defines})
-    target_compile_options(tests PRIVATE ${test_cflags})
-    target_link_options(tests PRIVATE ${test_ldflags})
-    # Windows can't link to .dll's like this.
-    # See: https://stackoverflow.com/questions/38492087
-    if(WIN32)
-      target_link_libraries(tests torsion_a)
-    else()
-      target_link_libraries(tests torsion ${test_libs})
-    endif()
+  add_executable(torsion_bench test/bench.c test/hrtime.c)
+  target_compile_definitions(torsion_bench PRIVATE ${torsion_defines})
+  target_compile_options(torsion_bench PRIVATE ${torsion_cflags})
+  target_link_libraries(torsion_bench ${torsion_lib})
+
+  if(TORSION_ENABLE_DEBUG OR TORSION_ENABLE_COVERAGE)
+    add_executable(torsion_test test/test.c test/thread.c)
+    target_compile_definitions(torsion_test PRIVATE ${torsion_defines})
+    target_compile_options(torsion_test PRIVATE ${torsion_cflags})
+    target_link_options(torsion_test PRIVATE ${torsion_ldflags})
+    target_link_libraries(torsion_test ${torsion_lib} ${test_libs})
   endif()
 
-  if(TORSION_ENABLE_CTIME)
-    add_executable(ctime-test test/ctime-test.c)
-    target_compile_definitions(ctime-test PRIVATE ${test_defines})
-    target_compile_options(ctime-test PRIVATE ${test_cflags})
-    target_link_options(ctime-test PRIVATE ${test_ldflags})
-    # See above comment.
-    if(WIN32)
-      target_link_libraries(ctime-test torsion_a)
-    else()
-      target_link_libraries(ctime-test torsion)
-    endif()
+  if(TORSION_HAS_VALGRIND AND NOT TORSION_ENABLE_DEBUG)
+    add_executable(torsion_ctime test/ctime.c)
+    target_compile_definitions(torsion_ctime PRIVATE ${torsion_defines})
+    target_compile_options(torsion_ctime PRIVATE ${torsion_cflags})
+    target_link_libraries(torsion_ctime ${torsion_lib})
   endif()
 
   if(UNIX)

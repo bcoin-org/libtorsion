@@ -141,9 +141,6 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
-#ifdef TORSION_CTIME
-#include <valgrind/memcheck.h>
-#endif
 #include <torsion/drbg.h>
 #include <torsion/ecc.h>
 #include <torsion/hash.h>
@@ -640,7 +637,7 @@ checked_malloc(size_t size) {
   void *ptr = malloc(size);
 
   if (ptr == NULL)
-    torsion_abort();
+    torsion_abort(); /* LCOV_EXCL_LINE */
 
   return ptr;
 }
@@ -1716,7 +1713,7 @@ fe_sqrt(const prime_field_t *fe, fe_t r, const fe_t a) {
       fe_mul(fe, b, b, a);
       fe_mul(fe, b, b, c);
     } else {
-      torsion_abort();
+      torsion_abort(); /* LCOV_EXCL_LINE */
     }
 
     /* b2 = b^2 mod p */
@@ -9377,6 +9374,17 @@ ecdsa_sign(const wei_t *ec,
            const unsigned char *msg,
            size_t msg_len,
            const unsigned char *priv) {
+  return ecdsa_sign_internal(ec, sig, param, msg, msg_len, priv, NULL);
+}
+
+int
+ecdsa_sign_internal(const wei_t *ec,
+                    unsigned char *sig,
+                    unsigned int *param,
+                    const unsigned char *msg,
+                    size_t msg_len,
+                    const unsigned char *priv,
+                    ecdsa_redefine_f *redefine) {
   /* ECDSA Signing.
    *
    * [SEC1] Page 44, Section 4.1.3.
@@ -9455,11 +9463,9 @@ ecdsa_sign(const wei_t *ec,
     ok &= wge_is_zero(ec, &R) ^ 1;
     ok &= sc_is_zero(sc, r) ^ 1;
 
-#ifdef TORSION_CTIME
-    if (RUNNING_ON_VALGRIND)
-      VALGRIND_MAKE_MEM_DEFINED(&ok, sizeof(ok));
-#endif
-  } while (!ok);
+    if (redefine)
+      redefine(&ok, sizeof(ok));
+  } while (UNLIKELY(!ok));
 
   ASSERT(sc_invert(sc, k, k));
   sc_mul(sc, s, r, a);
@@ -12382,6 +12388,11 @@ eddsa_derive(const edwards_t *ec,
   return ret;
 }
 
-#ifdef TORSION_TEST
-#include "../test/ecc-internal.h"
+#ifdef TORSION_DEBUG
+#include "../test/ecc_internal.h"
+#else
+void
+test_ecc_internal(drbg_t *rng) {
+  (void)rng;
+}
 #endif

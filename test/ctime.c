@@ -44,7 +44,12 @@
 #include <string.h>
 #include <valgrind/memcheck.h>
 #include <torsion/ecc.h>
-#include "testutil.h"
+#include "utils.h"
+
+static void
+redefine(void *ptr, size_t size) {
+  VALGRIND_MAKE_MEM_DEFINED(ptr, size);
+}
 
 static void
 test_ecdsa(int curve_name) {
@@ -77,7 +82,7 @@ test_ecdsa(int curve_name) {
 
   /* Signing */
   VALGRIND_MAKE_MEM_UNDEFINED(priv, 32);
-  ret = ecdsa_sign(ec, sig, NULL, msg, 32, priv);
+  ret = ecdsa_sign_internal(ec, sig, NULL, msg, 32, priv, redefine);
   VALGRIND_MAKE_MEM_DEFINED(&ret, sizeof(ret));
   VALGRIND_MAKE_MEM_DEFINED(sig, sizeof(sig));
   ASSERT(ret);

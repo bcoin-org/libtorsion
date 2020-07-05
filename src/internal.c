@@ -4,7 +4,7 @@
  * https://github.com/bcoin-org/libtorsion
  */
 
-#if !defined(__EMSCRIPTEN__) && !defined(__wasm__)
+#ifdef TORSION_DEBUG
 #  include <stdio.h>
 #endif
 
@@ -14,7 +14,8 @@
 
 void
 __torsion_assert_fail(const char *file, int line, const char *expr) {
-#if !defined(__EMSCRIPTEN__) && !defined(__wasm__)
+  /* LCOV_EXCL_START */
+#if defined(TORSION_DEBUG)
   fprintf(stderr, "%s:%d: Assertion `%s' failed.\n", file, line, expr);
   fflush(stderr);
 #else
@@ -23,9 +24,10 @@ __torsion_assert_fail(const char *file, int line, const char *expr) {
   (void)expr;
 #endif
   abort();
+  /* LCOV_EXCL_STOP */
 }
 
 void
-torsion_abort(void) {
-  abort();
+__torsion_abort(void) {
+  abort(); /* LCOV_EXCL_LINE */
 }

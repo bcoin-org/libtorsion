@@ -45,12 +45,19 @@
  * Sanity Checks
  */
 
+#undef CHECK_ALWAYS
 #undef CHECK
 
-#define CHECK(expr) do { \
-  if (UNLIKELY(!(expr))) \
-    __torsion_abort();   \
+#define CHECK_ALWAYS(expr) do { \
+  if (UNLIKELY(!(expr)))        \
+    __torsion_abort();          \
 } while (0)
+
+#if !defined(TORSION_COVERAGE)
+#  define CHECK(expr) CHECK_ALWAYS(expr)
+#else
+#  define CHECK(expr) do { (void)(expr); } while (0)
+#endif
 
 /*
  * Assertions
@@ -64,23 +71,9 @@
     __torsion_assert_fail(__FILE__, __LINE__, #expr); \
 } while (0)
 
-#if defined(TORSION_NO_ASSERT)
-#  define ASSERT(expr) do { (void)(expr); } while (0)
-#elif defined(__EMSCRIPTEN__) || defined(__wasm__)
-#  define ASSERT(expr) CHECK(expr)
-#else
+#if defined(TORSION_DEBUG) && !defined(TORSION_COVERAGE)
 #  define ASSERT(expr) ASSERT_ALWAYS(expr)
-#endif
-
-/*
- * Coverage / Constant Time
- */
-
-#if defined(TORSION_COVERAGE) || defined(TORSION_CTIME)
-#  undef TORSION_VERIFY
-#  undef CHECK
-#  undef ASSERT
-#  define CHECK(expr) do { (void)(expr); } while (0)
+#else
 #  define ASSERT(expr) do { (void)(expr); } while (0)
 #endif
 
@@ -269,6 +262,6 @@ TORSION_NORETURN void
 __torsion_assert_fail(const char *file, int line, const char *expr);
 
 TORSION_NORETURN void
-torsion_abort(void);
+__torsion_abort(void);
 
 #endif /* _TORSION_INTERNAL_H */

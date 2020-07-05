@@ -3,7 +3,6 @@ INITIAL_MEMORY ?= 16777216
 MAX_MEMORY ?= 2147483648
 STACK_SIZE ?= 5242880
 ENABLE_RNG ?= 1
-ENABLE_TEST ?= 0
 
 COMMON_CFLAGS = -std=gnu11                \
                 -Wall                     \
@@ -52,35 +51,39 @@ LIB_SOURCES := $(COMMON_SOURCES)
 LIB_CFLAGS := $(COMMON_CFLAGS) -DTORSION_BUILD $(CFLAGS)
 LIB_LDFLAGS := $(COMMON_LDFLAGS) -s EXPORTED_FUNCTIONS=@etc/exports.json
 
-TEST_SOURCES := $(COMMON_SOURCES) test/os.c test/test.c
-TEST_CFLAGS := $(COMMON_CFLAGS) $(CFLAGS)
+BENCH_SOURCES := $(COMMON_SOURCES) test/bench.c test/hrtime.c
+BENCH_CFLAGS := $(COMMON_CFLAGS) $(CFLAGS)
+BENCH_LDFLAGS := $(COMMON_LDFLAGS)
+
+TEST_SOURCES := $(COMMON_SOURCES) test/test.c
+TEST_CFLAGS := $(COMMON_CFLAGS) $(CFLAGS) -DTORSION_DEBUG
 TEST_LDFLAGS := $(COMMON_LDFLAGS)
 
 ifeq ($(ENABLE_RNG), 1)
+BENCH_CFLAGS += -DTORSION_HAVE_RNG
 TEST_CFLAGS += -DTORSION_HAVE_RNG
 endif
 
-ifeq ($(ENABLE_TEST), 1)
-LIB_CFLAGS += -DTORSION_TEST
-TEST_CFLAGS += -DTORSION_TEST
-else
-LIB_CFLAGS += -DTORSION_NO_ASSERT
-endif
-
-OUTPUT = torsion.wasm tests.wasm
+OUTPUT = torsion.wasm torsion_bench.wasm torsion_test.wasm
 
 all: $(OUTPUT)
 
 torsion.wasm: $(LIB_SOURCES)
 	$(CC) -o $@ $(LIB_CFLAGS) $(LIB_LDFLAGS) $^
 
-tests.wasm: $(TEST_SOURCES)
+torsion_bench.wasm: $(BENCH_SOURCES)
+	$(CC) -o $@ $(BENCH_CFLAGS) $(BENCH_LDFLAGS) $^
+
+torsion_test.wasm: $(TEST_SOURCES)
 	$(CC) -o $@ $(TEST_CFLAGS) $(TEST_LDFLAGS) $^
 
-test: tests.wasm
+bench: torsion_bench.wasm
+	@./scripts/run-wasi.sh $^
+
+test: torsion_test.wasm
 	@./scripts/run-wasi.sh $^
 
 clean:
 	rm -f $(OUTPUT)
 
-.PHONY: all test clean
+.PHONY: all bench test clean

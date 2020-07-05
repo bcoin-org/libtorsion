@@ -143,7 +143,7 @@ chacha20_init(chacha20_t *ctx,
     ctx->state[14] = read32le(nonce + 8);
     ctx->state[15] = read32le(nonce + 12);
   } else {
-    torsion_abort();
+    torsion_abort(); /* LCOV_EXCL_LINE */
   }
 
   ctx->pos = 0;
@@ -431,7 +431,7 @@ salsa20_init(salsa20_t *ctx,
     ctx->state[8] = read32le(nonce + 8);
     ctx->state[9] = read32le(nonce + 12);
   } else {
-    torsion_abort();
+    torsion_abort(); /* LCOV_EXCL_LINE */
   }
 
   ctx->state[10] = key_len < 32 ? 0x79622d36 : 0x79622d32;

@@ -73,8 +73,10 @@ noinst_HEADERS = src/asn1.h                         \
                  test/data/rsa-vectors.h            \
                  test/data/schnorr-legacy-vectors.h \
                  test/data/schnorr-vectors.h        \
-                 test/os.h                          \
-                 test/testutil.h
+                 test/ecc_internal.h                \
+                 test/hrtime.h                      \
+                 test/thread.h                      \
+                 test/utils.h
 
 if ENABLE_RNG
 include_HEADERS += include/torsion/rand.h
@@ -105,6 +107,9 @@ torsion_sources += src/entropy/sys.c
 torsion_sources += src/rand.c
 endif
 
+bench_sources = test/bench.c test/hrtime.c
+test_sources = test/test.c
+
 CLEANFILES =
 EXTRA_DIST = LICENSE README.md
 
@@ -124,44 +129,50 @@ torsion_emflags = -s WASM=1                       \
 torsion_emexports = -s EXPORTED_FUNCTIONS=@etc/exports.json
 
 noinst_PROGRAMS += torsion.wasm
-torsion_wasm_CFLAGS = -DTORSION_BUILD -D__wasi__
-torsion_wasm_LDFLAGS = $(torsion_emflags) $(torsion_emexports)
 torsion_wasm_SOURCES = $(torsion_sources)
+torsion_wasm_CFLAGS = -D__wasi__ -DTORSION_BUILD
+torsion_wasm_LDFLAGS = $(torsion_emflags) $(torsion_emexports)
 
-if ENABLE_TEST
-noinst_PROGRAMS += tests.wasm
-tests_wasm_CFLAGS = -D__wasi__
-tests_wasm_LDFLAGS = $(torsion_emflags)
-tests_wasm_SOURCES = test/test.c test/os.c $(torsion_sources)
+if ENABLE_TESTS
+noinst_PROGRAMS += torsion_test.wasm
+torsion_test_wasm_SOURCES = $(torsion_sources) $(test_sources)
+torsion_test_wasm_CFLAGS = -D__wasi__
+torsion_test_wasm_LDFLAGS = $(torsion_emflags)
 endif
 else !EMSCRIPTEN
 lib_LTLIBRARIES = libtorsion.la
+libtorsion_la_SOURCES = $(torsion_sources)
 libtorsion_la_CFLAGS = -DTORSION_BUILD
 libtorsion_la_LDFLAGS = -no-undefined -version-info 0:0:0
-libtorsion_la_SOURCES = $(torsion_sources)
 
 if ENABLE_COVERAGE
 libtorsion_la_CFLAGS += --coverage
 libtorsion_la_LDFLAGS += --coverage
 endif
 
-if ENABLE_TEST
-TESTS += tests
-noinst_PROGRAMS += tests
-tests_CFLAGS =
-tests_LDFLAGS = -static
-tests_SOURCES = test/test.c test/os.c
-tests_LDADD = libtorsion.la
-if ENABLE_RNG
-tests_CFLAGS += @PTHREAD_CFLAGS@
-tests_LDADD += @PTHREAD_LIBS@
+noinst_PROGRAMS += torsion_bench
+torsion_bench_SOURCES = $(bench_sources)
+torsion_bench_LDFLAGS = -static
+torsion_bench_LDADD = libtorsion.la
+
+if ENABLE_TESTS
+TESTS += torsion_test
+noinst_PROGRAMS += torsion_test
+torsion_test_SOURCES = $(test_sources)
+torsion_test_CFLAGS =
+torsion_test_LDFLAGS = -static
+torsion_test_LDADD = libtorsion.la
+if ENABLE_THREADS
+torsion_test_SOURCES += test/thread.c
+torsion_test_CFLAGS += @PTHREAD_CFLAGS@
+torsion_test_LDADD += @PTHREAD_LIBS@
 endif
 endif
 
 if ENABLE_CTIME
-noinst_PROGRAMS += ctime-test
-ctime_test_SOURCES = test/ctime-test.c
-ctime_test_LDADD = libtorsion.la
+noinst_PROGRAMS += torsion_ctime
+torsion_ctime_SOURCES = test/ctime.c
+torsion_ctime_LDADD = libtorsion.la
 endif
 
 pkgconfigdir = $(libdir)/pkgconfig

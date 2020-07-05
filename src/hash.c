@@ -6674,7 +6674,7 @@ hash_init(hash_t *hash, int type) {
       whirlpool_init(&hash->ctx.whirlpool);
       break;
     default:
-      torsion_abort();
+      torsion_abort(); /* LCOV_EXCL_LINE */
       break;
   }
 }
@@ -6745,7 +6745,7 @@ hash_update(hash_t *hash, const void *data, size_t len) {
       whirlpool_update(&hash->ctx.whirlpool, data, len);
       break;
     default:
-      torsion_abort();
+      torsion_abort(); /* LCOV_EXCL_LINE */
       break;
   }
 }
@@ -6824,7 +6824,7 @@ hash_final(hash_t *hash, unsigned char *out, size_t len) {
       whirlpool_final(&hash->ctx.whirlpool, out);
       break;
     default:
-      torsion_abort();
+      torsion_abort(); /* LCOV_EXCL_LINE */
       break;
   }
 }

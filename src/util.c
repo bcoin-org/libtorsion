@@ -59,8 +59,8 @@ torsion_cleanse(void *ptr, size_t len) {
 
 int
 torsion_memequal(const void *s1, const void *s2, size_t n) {
-  const unsigned char *x = (const unsigned char *)s1;
-  const unsigned char *y = (const unsigned char *)s2;
+  const unsigned char *x = s1;
+  const unsigned char *y = s2;
   uint32_t z = 0;
 
   while (n--)

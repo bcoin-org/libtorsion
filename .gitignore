@@ -33,8 +33,10 @@ m4/lt~obsolete.m4
 m4/ltoptions.m4
 m4/ltsugar.m4
 m4/ltversion.m4
-tests
-tests_a
-tests.js
+torsion_bench
+torsion_test
+torsion_test_a
+torsion_bench.js
+torsion_test.js
 torsion.js
 vgcore.*

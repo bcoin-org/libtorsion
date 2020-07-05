@@ -778,7 +778,7 @@ aes_init_encrypt(aes_t *ctx, unsigned int bits, const unsigned char *key) {
     return;
   }
 
-  torsion_abort();
+  torsion_abort(); /* LCOV_EXCL_LINE */
 }
 
 void
@@ -2439,7 +2439,7 @@ camellia256_init(camellia_t *ctx, const unsigned char *key, size_t key_len) {
     k[10] = read32be(key + 24);
     k[11] = read32be(key + 28);
   } else {
-    torsion_abort();
+    torsion_abort(); /* LCOV_EXCL_LINE */
   }
 
   s0 = k[8] ^ k[0];
@@ -2764,7 +2764,7 @@ camellia_init(camellia_t *ctx, unsigned int bits, const unsigned char *key) {
       camellia256_init(ctx, key, 32);
       break;
     default:
-      torsion_abort();
+      torsion_abort(); /* LCOV_EXCL_LINE */
       break;
   }
 }
@@ -5088,7 +5088,7 @@ mds_mul(uint8_t v, size_t col) {
       return y | (x << 8) | (z << 16) | (y << 24);
   }
 
-  torsion_abort();
+  torsion_abort(); /* LCOV_EXCL_LINE */
 
   return 0;
 }
@@ -5130,7 +5130,7 @@ h_gen(const uint8_t *v, const uint8_t *key, size_t off, size_t k) {
            ^ key[4 * (0 + off) + 3]];
       break;
     default:
-      torsion_abort();
+      torsion_abort(); /* LCOV_EXCL_LINE */
       break;
   }
 
@@ -5223,7 +5223,7 @@ twofish_init(twofish_t *ctx, unsigned int bits, const unsigned char *key) {
       }
       break;
     default:
-      torsion_abort();
+      torsion_abort(); /* LCOV_EXCL_LINE */
       break;
   }
 }
@@ -5830,7 +5830,7 @@ cipher_encrypt(const cipher_t *ctx,
       twofish_encrypt(&ctx->ctx.twofish, dst, src);
       break;
     default:
-      torsion_abort();
+      torsion_abort(); /* LCOV_EXCL_LINE */
       break;
   }
 }
@@ -5887,7 +5887,7 @@ cipher_decrypt(const cipher_t *ctx,
       twofish_decrypt(&ctx->ctx.twofish, dst, src);
       break;
     default:
-      torsion_abort();
+      torsion_abort(); /* LCOV_EXCL_LINE */
       break;
   }
 }
@@ -7172,7 +7172,7 @@ cipher_mode_aad(cipher_mode_t *ctx, const cipher_t *cipher,
       eax_aad(&ctx->mode.eax, cipher, aad, len);
       break;
     default:
-      torsion_abort();
+      torsion_abort(); /* LCOV_EXCL_LINE */
       break;
   }
 }
@@ -7214,7 +7214,7 @@ cipher_mode_encrypt(cipher_mode_t *ctx,
       eax_encrypt(&ctx->mode.eax, cipher, dst, src, len);
       break;
     default:
-      torsion_abort();
+      torsion_abort(); /* LCOV_EXCL_LINE */
       break;
   }
 }
@@ -7256,7 +7256,7 @@ cipher_mode_decrypt(cipher_mode_t *ctx,
       eax_decrypt(&ctx->mode.eax, cipher, dst, src, len);
       break;
     default:
-      torsion_abort();
+      torsion_abort(); /* LCOV_EXCL_LINE */
       break;
   }
 }
@@ -7275,7 +7275,7 @@ cipher_mode_steal(cipher_mode_t *ctx,
       xts_steal(&ctx->mode.xts, cipher, last, block, len);
       break;
     default:
-      torsion_abort();
+      torsion_abort(); /* LCOV_EXCL_LINE */
       break;
   }
 }
@@ -7294,7 +7294,7 @@ cipher_mode_unsteal(cipher_mode_t *ctx,
       xts_unsteal(&ctx->mode.xts, cipher, last, block, len);
       break;
     default:
-      torsion_abort();
+      torsion_abort(); /* LCOV_EXCL_LINE */
       break;
   }
 }
@@ -7314,7 +7314,7 @@ cipher_mode_digest(cipher_mode_t *ctx,
       eax_digest(&ctx->mode.eax, cipher, mac);
       break;
     default:
-      torsion_abort();
+      torsion_abort(); /* LCOV_EXCL_LINE */
       break;
   }
 }

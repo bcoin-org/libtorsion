@@ -4,8 +4,8 @@
  * https://github.com/bcoin-org/libtorsion
  */
 
-#ifndef _TORSION_TESTUTIL_H
-#define _TORSION_TESTUTIL_H
+#ifndef _TORSION_UTILS_H
+#define _TORSION_UTILS_H
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -28,4 +28,4 @@ __torsion_test_assert_fail(const char *file, int line, const char *expr) {
 #define ENTROPY_SIZE 32
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
 
-#endif /* _TORSION_TESTUTIL_H */
+#endif /* _TORSION_UTILS_H */
