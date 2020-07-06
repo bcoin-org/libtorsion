@@ -35,7 +35,7 @@ m4/ltversion.m4
 torsion_bench
 torsion_ctime
 torsion_test
-torsion_test_a
+torsion_test_static
 torsion_bench.js
 torsion_test.js
 torsion.js

@@ -117,6 +117,8 @@ bench_sources = test/bench.c test/hrtime.c
 test_sources = test/test.c
 
 if EMSCRIPTEN
+LOG_COMPILER = ./scripts/run-wasi.sh
+
 torsion_emflags = -s WASM=1                       \
                   -s STANDALONE_WASM=1            \
                   -s WASM_BIGINT=1                \
@@ -124,7 +126,8 @@ torsion_emflags = -s WASM=1                       \
                   -s INITIAL_MEMORY=16777216      \
                   -s MAXIMUM_MEMORY=2147483648    \
                   -s TOTAL_STACK=5242880          \
-                  -s ERROR_ON_UNDEFINED_SYMBOLS=0
+                  -s ERROR_ON_UNDEFINED_SYMBOLS=0 \
+                  -s WARN_ON_UNDEFINED_SYMBOLS=0
 
 torsion_emexports = -s EXPORTED_FUNCTIONS=@etc/exports.json
 
@@ -133,12 +136,16 @@ torsion_wasm_SOURCES = $(torsion_sources)
 torsion_wasm_CFLAGS = -D__wasi__ -DTORSION_BUILD
 torsion_wasm_LDFLAGS = $(torsion_emflags) $(torsion_emexports)
 
-if ENABLE_TESTS
+noinst_PROGRAMS += torsion_bench.wasm
+torsion_bench_wasm_SOURCES = $(torsion_sources) $(bench_sources)
+torsion_bench_wasm_CFLAGS = -D__wasi__
+torsion_bench_wasm_LDFLAGS = $(torsion_emflags)
+
+TESTS += torsion_test.wasm
 noinst_PROGRAMS += torsion_test.wasm
 torsion_test_wasm_SOURCES = $(torsion_sources) $(test_sources)
-torsion_test_wasm_CFLAGS = -D__wasi__
+torsion_test_wasm_CFLAGS = -g -D__wasi__ -DTORSION_DEBUG
 torsion_test_wasm_LDFLAGS = $(torsion_emflags)
-endif
 else !EMSCRIPTEN
 lib_LTLIBRARIES = libtorsion.la
 libtorsion_la_SOURCES = $(torsion_sources)
@@ -146,7 +153,7 @@ libtorsion_la_CFLAGS = -DTORSION_BUILD
 libtorsion_la_LDFLAGS = -no-undefined -version-info 0:0:0
 
 if ENABLE_COVERAGE
-libtorsion_la_CFLAGS += --coverage
+libtorsion_la_CFLAGS += -O0 --coverage
 libtorsion_la_LDFLAGS += --coverage
 endif
 
@@ -155,19 +162,25 @@ torsion_bench_SOURCES = $(bench_sources)
 torsion_bench_LDFLAGS = -static
 torsion_bench_LDADD = libtorsion.la
 
-if ENABLE_TESTS
 TESTS += torsion_test
 noinst_PROGRAMS += torsion_test
 torsion_test_SOURCES = $(test_sources)
 torsion_test_CFLAGS =
-torsion_test_LDFLAGS = -static
+torsion_test_LDFLAGS =
 torsion_test_LDADD = libtorsion.la
+
 if ENABLE_THREADS
 torsion_test_SOURCES += test/thread.c
 torsion_test_CFLAGS += @PTHREAD_CFLAGS@
 torsion_test_LDADD += @PTHREAD_LIBS@
 endif
-endif
+
+TESTS += torsion_test_static
+noinst_PROGRAMS += torsion_test_static
+torsion_test_static_SOURCES = $(torsion_test_SOURCES)
+torsion_test_static_CFLAGS = $(torsion_test_CFLAGS)
+torsion_test_static_LDFLAGS = -static
+torsion_test_static_LDADD = $(torsion_test_LDADD)
 
 if ENABLE_CTIME
 noinst_PROGRAMS += torsion_ctime

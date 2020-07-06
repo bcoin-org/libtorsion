@@ -231,7 +231,6 @@ AM_CONDITIONAL([EMSCRIPTEN], [test x"$EMSCRIPTEN" != x""])
 AM_CONDITIONAL([ENABLE_COVERAGE], [test x"$enable_coverage" = x"yes"])
 AM_CONDITIONAL([ENABLE_CTIME], [test x"$has_valgrind" = x"yes" -a x"$enable_debug" != x"yes"])
 AM_CONDITIONAL([ENABLE_RNG], [test x"$enable_rng" = x"yes"])
-AM_CONDITIONAL([ENABLE_TESTS], [test x"$enable_debug" = x"yes" -o x"$enable_coverage" = x"yes"])
 AM_CONDITIONAL([ENABLE_THREADS], [test x"$has_threads" = x"yes"])
 
 AC_CONFIG_FILES([Makefile libtorsion.pc])

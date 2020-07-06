@@ -3,8 +3,14 @@ project(libtorsion LANGUAGES C)
 
 include(CheckCCompilerFlag)
 include(CheckIncludeFile)
+include(CTest)
 
-if(NOT EMSCRIPTEN)
+if(EMSCRIPTEN)
+  set(CMAKE_C_VISIBILITY_PRESET default)
+  set(CMAKE_C_STANDARD_REQUIRED ON)
+  set(CMAKE_C_EXTENSIONS ON)
+  set(CMAKE_C_STANDARD 11)
+else()
   include(GNUInstallDirs)
   set(CMAKE_C_VISIBILITY_PRESET hidden)
   set(CMAKE_C_STANDARD_REQUIRED ON)
@@ -12,10 +18,19 @@ if(NOT EMSCRIPTEN)
   set(CMAKE_C_STANDARD 90)
 endif()
 
+if(${CMAKE_VERSION} VERSION_LESS "3.9.0")
+  set(TORSION_MULTI_CONFIG 0)
+  if(CMAKE_CONFIGURATION_TYPES)
+    set(TORSION_MULTI_CONFIG 1)
+  endif()
+else()
+  get_property(TORSION_MULTI_CONFIG GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
+endif()
+
 option(TORSION_ENABLE_ASM "Use inline x86-64 assembly if available" ON)
 option(TORSION_ENABLE_COVERAGE "Enable coverage" OFF)
 option(TORSION_ENABLE_CRT "Enable chinese remainder theorem for RSA" OFF)
-if(NOT MSVC)
+if(NOT TORSION_MULTI_CONFIG AND NOT EMSCRIPTEN)
   option(TORSION_ENABLE_DEBUG "Enable debug build" OFF)
 endif()
 option(TORSION_ENABLE_INT128 "Use __int128 if available" ON)
@@ -53,8 +68,11 @@ else()
   # the defaults to have an effect. We assume that
   # CMAKE_BUILD_TYPE is empty and pick debug and
   # optimization flags ourselves.
+  if(TORSION_MULTI_CONFIG OR CMAKE_BUILD_TYPE)
+    set(CMAKE_C_FLAGS_DEBUG "-DTORSION_DEBUG")
+    set(CMAKE_C_FLAGS_RELEASE "")
+  endif()
   check_c_compiler_flag(-g TORSION_HAS_G)
-  check_c_compiler_flag(-std=c89 TORSION_HAS_C89)
   check_c_compiler_flag(-pedantic TORSION_HAS_PEDANTIC)
   check_c_compiler_flag(-Wall TORSION_HAS_WALL)
   check_c_compiler_flag(-Wextra TORSION_HAS_WEXTRA)
@@ -211,7 +229,7 @@ if(TORSION_ENABLE_TLS AND TORSION_HAS_TLS)
 endif()
 
 if(TORSION_ENABLE_VERIFY)
-  if(NOT MSVC AND NOT TORSION_ENABLE_DEBUG)
+  if(NOT TORSION_MULTI_CONFIG AND NOT TORSION_ENABLE_DEBUG)
     message(FATAL_ERROR "scalar bounds verification for testing only")
   endif()
   list(APPEND torsion_defines TORSION_VERIFY)
@@ -231,15 +249,8 @@ if(MSVC)
     list(APPEND torsion_cflags /wd4334)
   endif()
 else()
-  if(EMSCRIPTEN)
-    list(APPEND torsion_cflags -std=gnu11)
-  else()
-    if(TORSION_HAS_C89)
-      list(APPEND torsion_cflags -std=c89)
-    endif()
-    if(TORSION_HAS_PEDANTIC)
-      list(APPEND torsion_cflags -pedantic)
-    endif()
+  if(NOT EMSCRIPTEN AND TORSION_HAS_PEDANTIC)
+    list(APPEND torsion_cflags -pedantic)
   endif()
   if(TORSION_HAS_WALL)
     list(APPEND torsion_cflags -Wall)
@@ -306,7 +317,8 @@ if(EMSCRIPTEN)
       -s INITIAL_MEMORY=16777216
       -s MAXIMUM_MEMORY=2147483648
       -s TOTAL_STACK=5242880
-      -s ERROR_ON_UNDEFINED_SYMBOLS=0)
+      -s ERROR_ON_UNDEFINED_SYMBOLS=0
+      -s WARN_ON_UNDEFINED_SYMBOLS=0)
 
   set(torsion_emexports -s EXPORTED_FUNCTIONS=@etc/exports.json)
 
@@ -315,7 +327,7 @@ if(EMSCRIPTEN)
 
   add_executable(torsion ${torsion_sources})
   target_compile_definitions(torsion PRIVATE ${torsion_defines}
-                             TORSION_BUILD __wasi__)
+                             __wasi__ TORSION_BUILD)
   target_compile_options(torsion PRIVATE ${torsion_cflags})
   set_target_properties(torsion PROPERTIES LINK_FLAGS
                         "${torsion_emflags} ${torsion_emexports}")
@@ -324,33 +336,33 @@ if(EMSCRIPTEN)
   add_executable(torsion_bench ${torsion_sources} test/bench.c test/hrtime.c)
   target_compile_definitions(torsion_bench PRIVATE ${torsion_defines} __wasi__)
   target_compile_options(torsion_bench PRIVATE ${torsion_cflags})
-  set_target_properties(torsion_bench PROPERTIES LINK_FLAGS "${torsion_emflags}")
-  target_include_directories(torsion_bench PRIVATE ${PROJECT_SOURCE_DIR}/include)
+  set_target_properties(torsion_bench PROPERTIES LINK_FLAGS
+                        "${torsion_emflags}")
+  target_include_directories(torsion_bench PRIVATE
+                             ${PROJECT_SOURCE_DIR}/include)
 
-  if(MSVC OR TORSION_ENABLE_DEBUG)
-    add_executable(torsion_test ${torsion_sources} test/test.c)
-    target_compile_definitions(torsion_test PRIVATE ${torsion_defines} __wasi__)
-    target_compile_options(torsion_test PRIVATE ${torsion_cflags})
-    set_target_properties(torsion_test PROPERTIES LINK_FLAGS "${torsion_emflags}")
-    target_include_directories(torsion_test PRIVATE ${PROJECT_SOURCE_DIR}/include)
-  endif()
+  add_executable(torsion_test ${torsion_sources} test/test.c)
+  target_compile_definitions(torsion_test PRIVATE ${torsion_defines}
+                             __wasi__ TORSION_DEBUG)
+  target_compile_options(torsion_test PRIVATE -g ${torsion_cflags})
+  set_target_properties(torsion_test PROPERTIES LINK_FLAGS "${torsion_emflags}")
+  target_include_directories(torsion_test PRIVATE ${PROJECT_SOURCE_DIR}/include)
+  add_test(NAME test_wasm COMMAND ./scripts/run-wasi.sh torsion_test.wasm)
 else()
-  set(torsion_lib torsion)
   set(torsion_lib_cflags ${torsion_cflags})
-
-  # Windows can't link to .dll's like this.
-  # See: https://stackoverflow.com/questions/38492087
-  if(WIN32)
-    set(torsion_lib torsion_a)
-  endif()
+  set(test_sources test/test.c)
 
   if(TORSION_ENABLE_COVERAGE)
+    list(APPEND torsion_lib_cflags -O0)
     list(APPEND torsion_lib_cflags --coverage)
     list(APPEND torsion_lib_ldflags --coverage)
   endif()
 
-  if(NOT WIN32 AND TORSION_HAS_THREADS)
-    set(test_libs Threads::Threads)
+  if(TORSION_HAS_THREADS)
+    list(APPEND test_sources test/thread.c)
+    if(NOT WIN32)
+      set(test_libs Threads::Threads)
+    endif()
   endif()
 
   add_library(torsion_o OBJECT ${torsion_sources})
@@ -360,34 +372,36 @@ else()
   set_property(TARGET torsion_o PROPERTY POSITION_INDEPENDENT_CODE 1)
 
   add_library(torsion SHARED $<TARGET_OBJECTS:torsion_o>)
-  target_include_directories(torsion PUBLIC ${PROJECT_SOURCE_DIR}/include)
+  target_compile_definitions(torsion INTERFACE ${torsion_defines})
+  target_compile_options(torsion INTERFACE ${torsion_cflags})
+  target_include_directories(torsion INTERFACE ${PROJECT_SOURCE_DIR}/include)
   target_link_options(torsion PRIVATE ${torsion_lib_ldflags})
 
-  add_library(torsion_a STATIC $<TARGET_OBJECTS:torsion_o>)
-  target_include_directories(torsion_a PUBLIC ${PROJECT_SOURCE_DIR}/include)
-  target_link_options(torsion_a PRIVATE ${torsion_lib_ldflags})
+  add_library(torsion_static STATIC $<TARGET_OBJECTS:torsion_o>)
+  target_compile_definitions(torsion_static INTERFACE ${torsion_defines})
+  target_compile_options(torsion_static INTERFACE ${torsion_cflags})
+  target_include_directories(torsion_static INTERFACE
+                             ${PROJECT_SOURCE_DIR}/include)
+  target_link_options(torsion_static PRIVATE ${torsion_lib_ldflags})
 
   if(NOT WIN32)
-    set_target_properties(torsion_a PROPERTIES OUTPUT_NAME torsion)
+    set_target_properties(torsion_static PROPERTIES OUTPUT_NAME torsion)
   endif()
 
   add_executable(torsion_bench test/bench.c test/hrtime.c)
-  target_compile_definitions(torsion_bench PRIVATE ${torsion_defines})
-  target_compile_options(torsion_bench PRIVATE ${torsion_cflags})
-  target_link_libraries(torsion_bench ${torsion_lib})
+  target_link_libraries(torsion_bench torsion)
 
-  if(MSVC OR TORSION_ENABLE_DEBUG OR TORSION_ENABLE_COVERAGE)
-    add_executable(torsion_test test/test.c test/thread.c)
-    target_compile_definitions(torsion_test PRIVATE ${torsion_defines})
-    target_compile_options(torsion_test PRIVATE ${torsion_cflags})
-    target_link_libraries(torsion_test ${torsion_lib} ${test_libs})
-  endif()
+  add_executable(torsion_test ${test_sources})
+  target_link_libraries(torsion_test torsion ${test_libs})
+  add_test(NAME test_shared COMMAND torsion_test)
+
+  add_executable(torsion_test_static ${test_sources})
+  target_link_libraries(torsion_test_static torsion_static ${test_libs})
+  add_test(NAME test_static COMMAND torsion_test_static)
 
   if(TORSION_HAS_VALGRIND AND NOT TORSION_ENABLE_DEBUG)
     add_executable(torsion_ctime test/ctime.c)
-    target_compile_definitions(torsion_ctime PRIVATE ${torsion_defines})
-    target_compile_options(torsion_ctime PRIVATE ${torsion_cflags})
-    target_link_libraries(torsion_ctime ${torsion_lib})
+    target_link_libraries(torsion_ctime torsion)
   endif()
 
   if(UNIX)
@@ -404,13 +418,13 @@ else()
     install(FILES ${PROJECT_BINARY_DIR}/libtorsion.pc
             DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig)
     install(TARGETS torsion LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
-    install(TARGETS torsion_a ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
+    install(TARGETS torsion_static ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
   endif()
 
   if(WIN32)
     install(DIRECTORY include/ DESTINATION include)
     install(FILES LICENSE DESTINATION .)
-    install(TARGETS torsion torsion_a
+    install(TARGETS torsion torsion_static
             RUNTIME DESTINATION lib/$<CONFIG>
             ARCHIVE DESTINATION lib/$<CONFIG>)
   endif()
@@ -420,6 +434,7 @@ string(TOUPPER "${CMAKE_BUILD_TYPE}" _build_type)
 
 message(STATUS "Build Options:
 
+   CMAKE_MULTI_CONFIG:   ${TORSION_MULTI_CONFIG}
    CMAKE_BUILD_TYPE:     ${CMAKE_BUILD_TYPE}
    CMAKE_INSTALL_PREFIX: ${CMAKE_INSTALL_PREFIX}
    CMAKE_SYSTEM_NAME:    ${CMAKE_SYSTEM_NAME}

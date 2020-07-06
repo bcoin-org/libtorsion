@@ -71,7 +71,7 @@ BENCH_CFLAGS := $(COMMON_CFLAGS) $(CFLAGS)
 BENCH_LDFLAGS := $(COMMON_LDFLAGS)
 
 TEST_SOURCES := $(COMMON_SOURCES) test/test.c
-TEST_CFLAGS := $(COMMON_CFLAGS) $(CFLAGS) -DTORSION_DEBUG
+TEST_CFLAGS := -g $(COMMON_CFLAGS) -DTORSION_DEBUG $(CFLAGS)
 TEST_LDFLAGS := $(COMMON_LDFLAGS)
 
 ifeq ($(ENABLE_RNG), 1)
@@ -98,7 +98,9 @@ bench: torsion_bench.wasm
 test: torsion_test.wasm
 	@./scripts/run-wasi.sh $^
 
+check: test
+
 clean:
 	rm -f $(OUTPUT)
 
-.PHONY: all bench test clean
+.PHONY: all bench test check clean

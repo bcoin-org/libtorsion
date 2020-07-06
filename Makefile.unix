@@ -23,6 +23,10 @@ COMMON_CFLAGS = -std=c89                         \
                 -I./include                      \
                 -O3
 
+ifeq ($(ENABLE_DEBUG), 1)
+COMMON_CFLAGS += -g
+endif
+
 LIB_SOURCES = src/aead.c      \
               src/asn1.c      \
               src/cipher.c    \
@@ -63,21 +67,14 @@ CTIME_SOURCES = test/ctime.c
 CTIME_CFLAGS := $(COMMON_CFLAGS) $(CFLAGS)
 CTIME_LIBS = -L. -ltorsion
 
-OUTPUT := libtorsion.$(SO) libtorsion.a torsion_bench
-
 ifeq ($(ENABLE_COVERAGE), 1)
 LIB_CFLAGS += -DTORSION_COVERAGE
-LIB_CFLAGS += --coverage
+LIB_CFLAGS += -O0 --coverage
 LIB_LDFLAGS += --coverage
-OUTPUT += torsion_test
 endif
 
 ifeq ($(ENABLE_DEBUG), 1)
-LIB_CFLAGS += -g
 LIB_CFLAGS += -DTORSION_DEBUG
-BENCH_CFLAGS += -g
-TEST_CFLAGS += -g
-OUTPUT += torsion_test torsion_test_a
 endif
 
 ifeq ($(ENABLE_RNG), 1)
@@ -88,6 +85,12 @@ TEST_CFLAGS += -DTORSION_HAVE_THREADS
 TEST_CFLAGS += $(PTHREAD_CFLAGS)
 TEST_LIBS += $(PTHREAD_LIBS)
 endif
+
+OUTPUT := libtorsion.$(SO)    \
+          libtorsion.a        \
+          torsion_bench       \
+          torsion_test        \
+          torsion_test_static
 
 all: $(OUTPUT)
 
@@ -106,7 +109,7 @@ torsion_bench: libtorsion.a $(TEST_SOURCES)
 torsion_test: libtorsion.$(SO) $(TEST_SOURCES)
 	$(CC) -o $@ $(TEST_CFLAGS) $(TEST_SOURCES) $(TEST_LIBS)
 
-torsion_test_a: libtorsion.a $(TEST_SOURCES)
+torsion_test_static: libtorsion.a $(TEST_SOURCES)
 	$(CC) -o $@ -static $(TEST_CFLAGS) $(TEST_SOURCES) $(TEST_LIBS)
 
 torsion_ctime: libtorsion.$(SO) $(CTIME_SOURCES)
@@ -127,13 +130,15 @@ bench: torsion_bench
 test: torsion_test
 	@LD_LIBRARY_PATH=. ./torsion_test
 
-test_a: torsion_test_a
-	@./torsion_test_a
+test_static: torsion_test_static
+	@./torsion_test_static
+
+check: test test_static
 
 ctime: torsion_ctime
 	@LD_LIBRARY_PATH=. valgrind ./torsion_ctime
 
 clean:
-	rm -f $(LIB_OBJECTS) $(OUTPUT) torsion_test torsion_test_a torsion_ctime
+	rm -f $(LIB_OBJECTS) $(OUTPUT) torsion_ctime
 
-.PHONY: all install bench test test_a ctime clean
+.PHONY: all install bench test test_static check ctime clean
