@@ -1,5 +1,5 @@
 /*!
- * ctime-test.c - valgrind constant-time test
+ * ctime.c - valgrind constant-time test
  *
  * Idea taken from the libsecp256k1 tests:
  *   https://github.com/bitcoin-core/secp256k1/commit/3d23022
@@ -22,19 +22,11 @@
  *
  *   We have only one part of our ECC code which is variable time:
  *   the ECDSA signing loop. We have code present to explicitly
- *   exclude this. Note that libtorsion must be configured with:
+ *   exclude this.
  *
- *     $ ./configure --enable-ctime
+ *   When using autotools, this test can be run with:
  *
- *   Run with:
- *
- *     $ libtool --mode=execute valgrind ./ctime-test
- *
- *   Or (with cmake):
- *
- *    $ cmake -D TORSION_ENABLE_CTIME=ON .
- *    $ make
- *    $ valgrind ./ctime-test
+ *     $ libtool --mode=execute valgrind ./torsion_ctime
  */
 
 #include <limits.h>
@@ -216,7 +208,7 @@ test_eddsa(void) {
 int
 main(void) {
   if (!RUNNING_ON_VALGRIND) {
-    fprintf(stderr, "Usage: libtool --mode=execute valgrind ./ctime-test\n");
+    fprintf(stderr, "Test must be run with valgrind.\n");
     return 1;
   }
 
