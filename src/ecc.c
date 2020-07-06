@@ -12388,6 +12388,10 @@ eddsa_derive(const edwards_t *ec,
   return ret;
 }
 
+/*
+ * Testing
+ */
+
 #ifdef TORSION_DEBUG
 #include "../test/ecc_internal.h"
 #else
