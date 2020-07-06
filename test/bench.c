@@ -243,16 +243,24 @@ bench_sha256(drbg_t *rng) {
   bench_end(&tv, i);
 }
 
-static void
-bench_all(drbg_t *rng) {
-  bench_ecdsa_pubkey_create(rng);
-  bench_ecdsa_derive(rng);
-  bench_ecdsa(rng);
-  bench_ecdh(rng);
-  bench_eddsa(rng);
-  bench_hash(rng);
-  bench_sha256(rng);
-}
+/*
+ * Benchmark Registry
+ */
+
+#define TORSION_BENCH(name) { #name, bench_ ## name }
+
+static const struct {
+  const char *name;
+  void (*run)(drbg_t *);
+} torsion_benches[] = {
+  TORSION_BENCH(ecdsa_pubkey_create),
+  TORSION_BENCH(ecdsa_derive),
+  TORSION_BENCH(ecdsa),
+  TORSION_BENCH(ecdh),
+  TORSION_BENCH(eddsa),
+  TORSION_BENCH(hash),
+  TORSION_BENCH(sha256)
+};
 
 /*
  * Main
@@ -260,31 +268,35 @@ bench_all(drbg_t *rng) {
 
 int
 main(int argc, char **argv) {
-  int ret = 0;
   drbg_t rng;
+  size_t i, j;
+  int found;
 
   drbg_init_rand(&rng);
 
-  if (argc < 2) {
-    bench_all(&rng);
-  } else if (strcmp(argv[1], "ecdsa_pubkey_create") == 0) {
-    bench_ecdsa_pubkey_create(&rng);
-  } else if (strcmp(argv[1], "ecdsa_derive") == 0) {
-    bench_ecdsa_derive(&rng);
-  } else if (strcmp(argv[1], "ecdsa") == 0) {
-    bench_ecdsa(&rng);
-  } else if (strcmp(argv[1], "ecdh") == 0) {
-    bench_ecdh(&rng);
-  } else if (strcmp(argv[1], "eddsa") == 0) {
-    bench_eddsa(&rng);
-  } else if (strcmp(argv[1], "hash") == 0) {
-    bench_hash(&rng);
-  } else if (strcmp(argv[1], "sha256") == 0) {
-    bench_sha256(&rng);
-  } else {
-    fprintf(stderr, "Unknown benchmark: %s\n", argv[1]);
-    ret = 1;
+  if (argc <= 1) {
+    for (i = 0; i < ARRAY_SIZE(torsion_benches); i++)
+      torsion_benches[i].run(&rng);
+
+    return 0;
   }
 
-  return ret;
+  for (i = 1; i < (size_t)argc; i++) {
+    found = 0;
+
+    for (j = 0; j < ARRAY_SIZE(torsion_benches); j++) {
+      if (strcmp(torsion_benches[j].name, argv[i]) == 0) {
+        torsion_benches[j].run(&rng);
+        found = 1;
+        break;
+      }
+    }
+
+    if (!found) {
+      fprintf(stderr, "Unknown benchmark: %s.\n", argv[i]);
+      return 1;
+    }
+  }
+
+  return 0;
 }

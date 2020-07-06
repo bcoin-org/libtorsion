@@ -10,6 +10,11 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
+#ifdef TORSION_HAVE_FORK
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <unistd.h>
+#endif
 
 #include <torsion/aead.h>
 #include <torsion/drbg.h>
@@ -204,7 +209,7 @@ hex_parse(unsigned char *out, size_t len, const char *str) {
  */
 
 static void
-test_aead(void) {
+test_aead(drbg_t *unused) {
   static unsigned char input[8192];
   static unsigned char aad[128];
   static unsigned char key[32];
@@ -217,7 +222,7 @@ test_aead(void) {
   aead_t ctx;
   unsigned int i;
 
-  printf("Testing AEAD...\n");
+  (void)unused;
 
   for (i = 0; i < ARRAY_SIZE(aead_vectors); i++) {
     size_t input_len = sizeof(input);
@@ -281,7 +286,7 @@ test_aead(void) {
  */
 
 static void
-test_arc4(void) {
+test_arc4(drbg_t *unused) {
   static const unsigned char expect[32] = {
     0x42, 0x83, 0x06, 0x31, 0x1d, 0xd2, 0x34, 0x98,
     0x51, 0x3a, 0x18, 0x7c, 0x36, 0x4c, 0x03, 0xc0,
@@ -295,7 +300,7 @@ test_arc4(void) {
   arc4_t ctx;
   size_t i;
 
-  printf("Testing ARC4...\n");
+  (void)unused;
 
   for (i = 0; i < 32; i++) {
     key[i] = i + 10;
@@ -324,7 +329,7 @@ test_arc4(void) {
  */
 
 static void
-test_chacha20(void) {
+test_chacha20(drbg_t *unused) {
   unsigned char key[32];
   unsigned char nonce[24];
   unsigned char input[4096];
@@ -333,7 +338,7 @@ test_chacha20(void) {
   chacha20_t ctx;
   unsigned int i;
 
-  printf("Testing ChaCha20...\n");
+  (void)unused;
 
   for (i = 0; i < ARRAY_SIZE(chacha20_vectors); i++) {
     size_t key_len = sizeof(key);
@@ -373,7 +378,7 @@ test_chacha20(void) {
  */
 
 static void
-test_ciphers(void) {
+test_ciphers(drbg_t *unused) {
   unsigned char key[32];
   unsigned char iv[CIPHER_MAX_BLOCK_SIZE];
   unsigned char expect[CIPHER_MAX_BLOCK_SIZE];
@@ -381,7 +386,7 @@ test_ciphers(void) {
   cipher_t ctx;
   unsigned int i, j;
 
-  printf("Testing ciphers...\n");
+  (void)unused;
 
   for (i = 0; i < ARRAY_SIZE(cipher_vectors); i++) {
     int type = cipher_vectors[i].type;
@@ -414,7 +419,7 @@ test_ciphers(void) {
 }
 
 static void
-test_cipher_modes(void) {
+test_cipher_modes(drbg_t *unused) {
   unsigned char key[64];
   unsigned char iv[CIPHER_MAX_BLOCK_SIZE];
   unsigned char input[64];
@@ -422,7 +427,7 @@ test_cipher_modes(void) {
   unsigned char data[64];
   unsigned int i;
 
-  printf("Testing cipher modes...\n");
+  (void)unused;
 
   for (i = 0; i < ARRAY_SIZE(cipher_mode_vectors); i++) {
     int type = cipher_mode_vectors[i].type;
@@ -464,7 +469,7 @@ test_cipher_modes(void) {
 }
 
 static void
-test_cipher_aead(void) {
+test_cipher_aead(drbg_t *unused) {
   unsigned char key[32];
   unsigned char iv[16];
   unsigned char aad[64];
@@ -476,7 +481,7 @@ test_cipher_aead(void) {
   cipher_stream_t ctx;
   unsigned int i;
 
-  printf("Testing cipher AEADs...\n");
+  (void)unused;
 
   for (i = 0; i < ARRAY_SIZE(cipher_aead_vectors); i++) {
     int type = cipher_aead_vectors[i].type;
@@ -548,7 +553,7 @@ test_cipher_aead(void) {
  */
 
 static void
-test_hash_drbg(void) {
+test_hash_drbg(drbg_t *unused) {
   unsigned char entropy[256];
   unsigned char reseed[256];
   unsigned char add1[256];
@@ -558,7 +563,7 @@ test_hash_drbg(void) {
   hash_drbg_t drbg;
   unsigned int i;
 
-  printf("Testing Hash-DRBG...\n");
+  (void)unused;
 
   for (i = 0; i < ARRAY_SIZE(hash_drbg_vectors); i++) {
     int type = hash_drbg_vectors[i].type;
@@ -589,7 +594,7 @@ test_hash_drbg(void) {
 }
 
 static void
-test_hmac_drbg(void) {
+test_hmac_drbg(drbg_t *unused) {
   unsigned char entropy[256];
   unsigned char reseed[256];
   unsigned char add1[256];
@@ -599,7 +604,7 @@ test_hmac_drbg(void) {
   hmac_drbg_t drbg;
   unsigned int i;
 
-  printf("Testing HMAC-DRBG...\n");
+  (void)unused;
 
   for (i = 0; i < ARRAY_SIZE(hmac_drbg_vectors); i++) {
     int type = hmac_drbg_vectors[i].type;
@@ -630,7 +635,7 @@ test_hmac_drbg(void) {
 }
 
 static void
-test_ctr_drbg(void) {
+test_ctr_drbg(drbg_t *unused) {
   unsigned char entropy[256];
   unsigned char pers[256];
   unsigned char reseed[256];
@@ -642,7 +647,7 @@ test_ctr_drbg(void) {
   ctr_drbg_t drbg;
   unsigned int i;
 
-  printf("Testing CTR-DRBG...\n");
+  (void)unused;
 
   for (i = 0; i < ARRAY_SIZE(ctr_drbg_vectors); i++) {
     unsigned int bits = ctr_drbg_vectors[i].bits;
@@ -682,7 +687,7 @@ test_ctr_drbg(void) {
  */
 
 static void
-test_dsa(void) {
+test_dsa(drbg_t *unused) {
   unsigned char params[DSA_MAX_PARAMS_SIZE];
   unsigned char priv[DSA_MAX_PRIV_SIZE];
   unsigned char pub[DSA_MAX_PUB_SIZE];
@@ -696,7 +701,7 @@ test_dsa(void) {
   unsigned char oder[DSA_MAX_DER_SIZE];
   unsigned int i;
 
-  printf("Testing DSA...\n");
+  (void)unused;
 
   for (i = 0; i < ENTROPY_SIZE; i++)
     entropy[i] = i + 1;
@@ -835,7 +840,7 @@ test_dsa_keygen(drbg_t *rng) {
  */
 
 static void
-test_ecdsa(void) {
+test_ecdsa(drbg_t *unused) {
   unsigned char priv[ECDSA_MAX_PRIV_SIZE];
   unsigned char pub[ECDSA_MAX_PUB_SIZE];
   unsigned char tweak[ECDSA_MAX_PRIV_SIZE];
@@ -863,10 +868,10 @@ test_ecdsa(void) {
   unsigned int flag;
   unsigned int i;
 
+  (void)unused;
+
   for (i = 0; i < ARRAY_SIZE(curves); i++)
     curves[i] = wei_curve_create(i);
-
-  printf("Testing ECDSA...\n");
 
   for (i = 0; i < ARRAY_SIZE(ecdsa_vectors); i++) {
     int type = ecdsa_vectors[i].type;
@@ -1046,8 +1051,6 @@ static void
 test_ecdsa_random(drbg_t *rng) {
   size_t i, j;
 
-  printf("Randomized ECDSA testing...\n");
-
   for (i = 0; i < ARRAY_SIZE(wei_curves); i++) {
     const char *id = wei_curves[i];
     wei_curve_t *ec = wei_curve_create(i);
@@ -1116,7 +1119,7 @@ test_ecdsa_random(drbg_t *rng) {
 }
 
 static void
-test_ecdsa_sswu(void) {
+test_ecdsa_sswu(drbg_t *unused) {
   const unsigned char bytes[32] = {
     0x6a, 0x53, 0xb3, 0x44, 0xc1, 0x88, 0x8a, 0x62,
     0xf2, 0x81, 0xaf, 0xbd, 0xbe, 0x67, 0x6b, 0xc3,
@@ -1136,7 +1139,7 @@ test_ecdsa_sswu(void) {
   unsigned char out[33];
   size_t out_len;
 
-  printf("Testing SSWU (P256).\n");
+  (void)unused;
 
   ecdsa_pubkey_from_uniform(ec, out, &out_len, bytes, 1);
 
@@ -1149,7 +1152,7 @@ test_ecdsa_sswu(void) {
 }
 
 static void
-test_ecdsa_svdw(void) {
+test_ecdsa_svdw(drbg_t *unused) {
   const unsigned char bytes[32] = {
     0xb0, 0xf0, 0xa9, 0x2d, 0x14, 0xa9, 0x82, 0xeb,
     0x12, 0x04, 0x78, 0x1a, 0x91, 0x6f, 0xdf, 0x38,
@@ -1169,7 +1172,7 @@ test_ecdsa_svdw(void) {
   unsigned char out[33];
   size_t out_len;
 
-  printf("Testing SVDW (secp256k1).\n");
+  (void)unused;
 
   ecdsa_pubkey_from_uniform(ec, out, &out_len, bytes, 1);
 
@@ -1182,7 +1185,7 @@ test_ecdsa_svdw(void) {
 }
 
 static void
-test_schnorr_legacy(void) {
+test_schnorr_legacy(drbg_t *unused) {
   wei_curve_t *ec = wei_curve_create(WEI_CURVE_SECP256K1);
   wei_scratch_t *scratch = wei_scratch_create(ec, 10);
   unsigned char priv[32];
@@ -1196,7 +1199,7 @@ test_schnorr_legacy(void) {
   unsigned int i;
   size_t len;
 
-  printf("Testing Schnorr-Legacy...\n");
+  (void)unused;
 
   for (i = 0; i < ARRAY_SIZE(schnorr_legacy_vectors); i++) {
     size_t priv_len = sizeof(priv);
@@ -1247,8 +1250,6 @@ test_schnorr_legacy(void) {
 static void
 test_schnorr_legacy_random(drbg_t *rng) {
   size_t i, j;
-
-  printf("Randomized Schnorr-Legacy testing...\n");
 
   for (i = 0; i < ARRAY_SIZE(wei_curves); i++) {
     const char *id = wei_curves[i];
@@ -1305,7 +1306,7 @@ test_schnorr_legacy_random(drbg_t *rng) {
 }
 
 static void
-test_schnorr(void) {
+test_schnorr(drbg_t *unused) {
   wei_curve_t *ec = wei_curve_create(WEI_CURVE_SECP256K1);
   wei_scratch_t *scratch = wei_scratch_create(ec, 10);
   unsigned char priv[32];
@@ -1319,7 +1320,7 @@ test_schnorr(void) {
   const unsigned char *sigs[1];
   unsigned int i;
 
-  printf("Testing Schnorr...\n");
+  (void)unused;
 
   for (i = 0; i < ARRAY_SIZE(schnorr_vectors); i++) {
     size_t priv_len = sizeof(priv);
@@ -1372,8 +1373,6 @@ test_schnorr(void) {
 static void
 test_schnorr_random(drbg_t *rng) {
   size_t i, j;
-
-  printf("Randomized Schnorr-Legacy testing...\n");
 
   for (i = 0; i < ARRAY_SIZE(wei_curves); i++) {
     const char *id = wei_curves[i];
@@ -1431,7 +1430,7 @@ test_schnorr_random(drbg_t *rng) {
 }
 
 static void
-test_ecdh_x25519(void) {
+test_ecdh_x25519(drbg_t *unused) {
   /* From RFC 7748 */
   const unsigned char intervals[3][32] = {
     {
@@ -1460,7 +1459,7 @@ test_ecdh_x25519(void) {
   unsigned char t[32];
   size_t i = 0;
 
-  printf("Testing X25519 vectors...\n");
+  (void)unused;
 
   memset(k, 0x00, 32);
   memset(u, 0x00, 32);
@@ -1501,7 +1500,7 @@ test_ecdh_x25519(void) {
 }
 
 static void
-test_ecdh_x448(void) {
+test_ecdh_x448(drbg_t *unused) {
   /* From RFC 7748 */
   const unsigned char intervals[4][56] = {
     {
@@ -1548,7 +1547,7 @@ test_ecdh_x448(void) {
   unsigned char t[56];
   size_t i = 0;
 
-  printf("Testing X448 vectors...\n");
+  (void)unused;
 
   memset(k, 0x00, 56);
   memset(u, 0x00, 56);
@@ -1600,8 +1599,6 @@ static void
 test_ecdh_random(drbg_t *rng) {
   size_t i, j;
 
-  printf("Randomized ECDH testing...\n");
-
   for (i = 0; i < ARRAY_SIZE(mont_curves); i++) {
     const char *id = mont_curves[i];
     mont_curve_t *ec = mont_curve_create(i);
@@ -1637,7 +1634,7 @@ test_ecdh_random(drbg_t *rng) {
 }
 
 static void
-test_ecdh_elligator2(void) {
+test_ecdh_elligator2(drbg_t *unused) {
   const unsigned char bytes[32] = {
     0xf9, 0xd4, 0x08, 0xba, 0x8a, 0x4e, 0x6a, 0x04,
     0xb9, 0xeb, 0x8d, 0x10, 0x38, 0x9b, 0xc0, 0x13,
@@ -1655,7 +1652,7 @@ test_ecdh_elligator2(void) {
   mont_curve_t *ec = mont_curve_create(MONT_CURVE_X25519);
   unsigned char out[32];
 
-  printf("Testing Elligator 2 (x25519).\n");
+  (void)unused;
 
   ecdh_pubkey_from_uniform(ec, out, bytes);
 
@@ -1667,7 +1664,7 @@ test_ecdh_elligator2(void) {
 }
 
 static void
-test_eddsa(void) {
+test_eddsa(drbg_t *unused) {
   unsigned char priv[EDDSA_MAX_PRIV_SIZE];
   unsigned char scalar[EDWARDS_MAX_SCALAR_SIZE];
   unsigned char prefix[EDDSA_MAX_PREFIX_SIZE];
@@ -1702,7 +1699,7 @@ test_eddsa(void) {
   const unsigned char *sigs[1];
   unsigned int i;
 
-  printf("Testing EdDSA...\n");
+  (void)unused;
 
   for (i = 0; i < ARRAY_SIZE(curves); i++) {
     curves[i] = edwards_curve_create(i);
@@ -1910,8 +1907,6 @@ static void
 test_eddsa_random(drbg_t *rng) {
   size_t i, j;
 
-  printf("Randomized EdDSA testing...\n");
-
   for (i = 0; i < ARRAY_SIZE(edwards_curves); i++) {
     const char *id = edwards_curves[i];
     edwards_curve_t *ec = edwards_curve_create(i);
@@ -1970,7 +1965,7 @@ test_eddsa_random(drbg_t *rng) {
 }
 
 static void
-test_eddsa_elligator2(void) {
+test_eddsa_elligator2(drbg_t *unused) {
   const unsigned char bytes[32] = {
     0xd3, 0xef, 0xfb, 0x44, 0xc4, 0xc9, 0x8d, 0x69,
     0x33, 0xbf, 0xa6, 0x17, 0xfb, 0x88, 0x4f, 0x89,
@@ -1988,7 +1983,7 @@ test_eddsa_elligator2(void) {
   edwards_curve_t *ec = edwards_curve_create(EDWARDS_CURVE_ED25519);
   unsigned char out[32];
 
-  printf("Testing Elligator 2 (ed25519).\n");
+  (void)unused;
 
   eddsa_pubkey_from_uniform(ec, out, bytes);
 
@@ -2004,7 +1999,7 @@ test_eddsa_elligator2(void) {
  */
 
 static void
-test_base16(void) {
+test_base16(drbg_t *unused) {
   /* https://tools.ietf.org/html/rfc4648#section-10 */
   static const char *vectors[7][2] = {
     {"", ""},
@@ -2039,7 +2034,7 @@ test_base16(void) {
   unsigned int i;
   size_t len;
 
-  printf("Testing Base16...\n");
+  (void)unused;
 
   for (i = 0; i < ARRAY_SIZE(vectors); i++) {
     const char *str = vectors[i][0];
@@ -2082,7 +2077,7 @@ test_base16(void) {
 }
 
 static void
-test_base32(void) {
+test_base32(drbg_t *unused) {
   /* https://tools.ietf.org/html/rfc4648#section-10 */
   static const char *vectors[7][2] = {
     {"", ""},
@@ -2108,7 +2103,7 @@ test_base32(void) {
   unsigned int i;
   size_t len;
 
-  printf("Testing Base32...\n");
+  (void)unused;
 
   for (i = 0; i < ARRAY_SIZE(vectors); i++) {
     const char *str = vectors[i][0];
@@ -2140,7 +2135,7 @@ test_base32(void) {
 }
 
 static void
-test_base58(void) {
+test_base58(drbg_t *unused) {
   static const char *vectors[13][2] = {
     {"", ""},
     {"61", "2g"},
@@ -2168,7 +2163,7 @@ test_base58(void) {
   unsigned int i;
   size_t len, dlen;
 
-  printf("Testing Base58...\n");
+  (void)unused;
 
   for (i = 0; i < ARRAY_SIZE(vectors); i++) {
     const char *str = vectors[i][0];
@@ -2188,7 +2183,7 @@ test_base58(void) {
 }
 
 static void
-test_base64(void) {
+test_base64(drbg_t *unused) {
   /* https://tools.ietf.org/html/rfc4648#section-10 */
   static const char *vectors[8][2] = {
     {"", ""},
@@ -2236,7 +2231,7 @@ test_base64(void) {
   unsigned int i;
   size_t len;
 
-  printf("Testing Base64...\n");
+  (void)unused;
 
   for (i = 0; i < ARRAY_SIZE(vectors); i++) {
     const char *str = vectors[i][0];
@@ -2286,7 +2281,7 @@ test_base64(void) {
 }
 
 static void
-test_bech32(void) {
+test_bech32(drbg_t *unused) {
   static const char *valid[6][2] = {
     {
       "BC1QW508D6QEJXTDG4Y5R3ZARVARY0C5XW7KV8F3T4",
@@ -2348,7 +2343,7 @@ test_bech32(void) {
   size_t script_len, data_len;
   unsigned int i;
 
-  printf("Testing Bech32...\n");
+  (void)unused;
 
   for (i = 0; i < ARRAY_SIZE(valid); i++) {
     const char *addr = valid[i][0];
@@ -2382,7 +2377,7 @@ test_bech32(void) {
 }
 
 static void
-test_cash32(void) {
+test_cash32(drbg_t *unused) {
   struct {
     unsigned int type;
     const char *addr;
@@ -2462,7 +2457,7 @@ test_cash32(void) {
   size_t data_len, hash_len;
   unsigned int i;
 
-  printf("Testing Cash32...\n");
+  (void)unused;
 
   for (i = 0; i < ARRAY_SIZE(valid); i++) {
     const char *addr = valid[i].addr;
@@ -2499,14 +2494,14 @@ test_cash32(void) {
  */
 
 static void
-test_hash(void) {
+test_hash(drbg_t *unused) {
   unsigned char iv[256];
   unsigned char expect[HASH_MAX_OUTPUT_SIZE];
   unsigned char out[HASH_MAX_OUTPUT_SIZE];
   hash_t hash;
   unsigned int i, j;
 
-  printf("Testing hashes...\n");
+  (void)unused;
 
   for (i = 0; i < ARRAY_SIZE(hash_vectors); i++) {
     int type = hash_vectors[i].type;
@@ -2535,7 +2530,7 @@ test_hash(void) {
 }
 
 static void
-test_hmac(void) {
+test_hmac(drbg_t *unused) {
   unsigned char data[256];
   unsigned char key[256];
   unsigned char expect[HASH_MAX_OUTPUT_SIZE];
@@ -2543,7 +2538,7 @@ test_hmac(void) {
   hmac_t hmac;
   unsigned int i;
 
-  printf("Testing HMACs...\n");
+  (void)unused;
 
   for (i = 0; i < ARRAY_SIZE(hmac_vectors); i++) {
     int type = hmac_vectors[i].type;
@@ -2572,7 +2567,7 @@ test_hmac(void) {
  */
 
 static void
-test_eb2k(void) {
+test_eb2k(drbg_t *unused) {
   unsigned char salt[64];
   unsigned char key[64];
   unsigned char iv[64];
@@ -2580,7 +2575,7 @@ test_eb2k(void) {
   unsigned char out2[64];
   unsigned int i;
 
-  printf("Testing EB2K...\n");
+  (void)unused;
 
   for (i = 0; i < ARRAY_SIZE(eb2k_vectors); i++) {
     const unsigned char *pass = (const unsigned char *)eb2k_vectors[i].pass;
@@ -2607,7 +2602,7 @@ test_eb2k(void) {
 }
 
 static void
-test_hkdf(void) {
+test_hkdf(drbg_t *unused) {
   unsigned char ikm[128];
   unsigned char salt[128];
   unsigned char info[128];
@@ -2616,7 +2611,7 @@ test_hkdf(void) {
   unsigned char out[128];
   unsigned int i;
 
-  printf("Testing HKDF...\n");
+  (void)unused;
 
   for (i = 0; i < ARRAY_SIZE(hkdf_vectors); i++) {
     int type = hkdf_vectors[i].type;
@@ -2647,14 +2642,14 @@ test_hkdf(void) {
 }
 
 static void
-test_pbkdf2(void) {
+test_pbkdf2(drbg_t *unused) {
   unsigned char pass[256];
   unsigned char salt[256];
   unsigned char expect[256];
   unsigned char out[256];
   unsigned int i;
 
-  printf("Testing HKDF...\n");
+  (void)unused;
 
   for (i = 0; i < ARRAY_SIZE(pbkdf2_vectors); i++) {
     int type = pbkdf2_vectors[i].type;
@@ -2678,7 +2673,7 @@ test_pbkdf2(void) {
 }
 
 static void
-test_scrypt(void) {
+test_scrypt(drbg_t *unused) {
   static const unsigned char expect1[64] = {
     0x77, 0xd6, 0x57, 0x62, 0x38, 0x65, 0x7b, 0x20, 0x3b, 0x19, 0xca, 0x42,
     0xc1, 0x8a, 0x04, 0x97, 0xf1, 0x6b, 0x48, 0x44, 0xe3, 0x07, 0x4a, 0xe8,
@@ -2712,7 +2707,7 @@ test_scrypt(void) {
 
   unsigned char out[64];
 
-  printf("Testing Scrypt...\n");
+  (void)unused;
 
   ASSERT(scrypt_derive(out, NULL, 0, NULL, 0, 16, 1, 1, 64));
   ASSERT(memcmp(out, expect1, 64) == 0);
@@ -2729,7 +2724,7 @@ test_scrypt(void) {
 }
 
 static void
-test_pgpdf(void) {
+test_pgpdf(drbg_t *unused) {
   static unsigned char expect1[32] = {
     0xc3, 0xab, 0x8f, 0xf1, 0x37, 0x20, 0xe8, 0xad, 0x90, 0x47, 0xdd, 0x39,
     0x46, 0x6b, 0x3c, 0x89, 0x74, 0xe5, 0x92, 0xc2, 0xfa, 0x38, 0x3d, 0x4a,
@@ -2754,7 +2749,7 @@ test_pgpdf(void) {
   static size_t salt_len = sizeof(salt) - 1;
   unsigned char out[32];
 
-  printf("Testing PGPDF...\n");
+  (void)unused;
 
   ASSERT(pgpdf_derive_simple(out, HASH_SHA256, pass, pass_len, 32));
   ASSERT(memcmp(out, expect1, 32) == 0);
@@ -2769,7 +2764,7 @@ test_pgpdf(void) {
 }
 
 static void
-test_bcrypt(void) {
+test_bcrypt(drbg_t *unused) {
   static const struct {
     const char *pass;
     unsigned int rounds;
@@ -2810,7 +2805,7 @@ test_bcrypt(void) {
 
   unsigned int i;
 
-  printf("Testing Bcrypt...\n");
+  (void)unused;
 
   for (i = 0; i < ARRAY_SIZE(vectors); i++) {
     const char *pass = vectors[i].pass;
@@ -2831,7 +2826,7 @@ test_bcrypt(void) {
 }
 
 static void
-test_bcrypt_pbkdf(void) {
+test_bcrypt_pbkdf(drbg_t *unused) {
   static const unsigned char pass[] = "foo";
 
   static const unsigned char salt[] = {
@@ -2848,7 +2843,7 @@ test_bcrypt_pbkdf(void) {
 
   unsigned char out[48];
 
-  printf("Testing Bcrypt-PBKDF...\n");
+  (void)unused;
 
   ASSERT(bcrypt_pbkdf(out, pass, sizeof(pass) - 1, salt, sizeof(salt), 16, 48));
   ASSERT(memcmp(out, expect, 48) == 0);
@@ -2859,9 +2854,9 @@ test_bcrypt_pbkdf(void) {
  */
 
 static void
-test_mpi_primes(drbg_t *rng) {
+test_mpi_primes(drbg_t *unused) {
   /* TODO */
-  (void)rng;
+  (void)unused;
 }
 
 /*
@@ -2869,7 +2864,7 @@ test_mpi_primes(drbg_t *rng) {
  */
 
 static void
-test_poly1305(void) {
+test_poly1305(drbg_t *unused) {
   unsigned char key[32];
   unsigned char msg[8192];
   unsigned char tag[16];
@@ -2877,7 +2872,7 @@ test_poly1305(void) {
   poly1305_t ctx;
   unsigned int i;
 
-  printf("Testing Poly1305...\n");
+  (void)unused;
 
   for (i = 0; i < ARRAY_SIZE(poly1305_vectors); i++) {
     size_t msg_len = sizeof(msg);
@@ -2920,12 +2915,12 @@ looks_random(const void *data, size_t size) {
 }
 
 static void
-test_rand_rng(void) {
+test_rand_rng(drbg_t *unused) {
   uint32_t data[65536 / 4];
   rng_t rng;
   size_t i;
 
-  printf("Testing RNG...\n");
+  (void)unused;
 
   ASSERT(rng_init(&rng));
 
@@ -2951,11 +2946,11 @@ test_rand_rng(void) {
 }
 
 static void
-test_rand_getentropy(void) {
+test_rand_getentropy(drbg_t *unused) {
   uint32_t data[65536 / 4];
   size_t i;
 
-  printf("Testing getentropy...\n");
+  (void)unused;
 
   for (i = 0; i < 10; i++) {
     ASSERT(torsion_getentropy(data, sizeof(data)));
@@ -2964,11 +2959,11 @@ test_rand_getentropy(void) {
 }
 
 static void
-test_rand_getrandom(void) {
+test_rand_getrandom(drbg_t *unused) {
   uint32_t data[65536 / 4];
   size_t i;
 
-  printf("Testing getrandom...\n");
+  (void)unused;
 
   for (i = 0; i < 10; i++) {
     ASSERT(torsion_getrandom(data, sizeof(data)));
@@ -2977,11 +2972,11 @@ test_rand_getrandom(void) {
 }
 
 static void
-test_rand_random(void) {
+test_rand_random(drbg_t *unused) {
   uint32_t data[65536 / 4];
   size_t i;
 
-  printf("Testing random...\n");
+  (void)unused;
 
   for (i = 0; i < ARRAY_SIZE(data); i++)
     ASSERT(torsion_random(&data[i]));
@@ -2990,12 +2985,12 @@ test_rand_random(void) {
 }
 
 static void
-test_rand_uniform(void) {
+test_rand_uniform(drbg_t *unused) {
   uint32_t data[65536 / 4];
   uint32_t hi, lo;
   size_t i;
 
-  printf("Testing uniform...\n");
+  (void)unused;
 
   for (i = 0; i < ARRAY_SIZE(data); i++) {
     ASSERT(torsion_uniform(&hi, 0x10000));
@@ -3029,16 +3024,16 @@ thread_random(void *ptr) {
 }
 
 static void
-test_rand_thread_safety(void) {
+test_rand_thread_safety(drbg_t *unused) {
   torsion_thread_t *t1 = torsion_thread_alloc();
   torsion_thread_t *t2 = torsion_thread_alloc();
   rng_res_t x0, x1, x2;
 
+  (void)unused;
+
   memset(&x0, 0, sizeof(x0));
   memset(&x1, 0, sizeof(x1));
   memset(&x2, 0, sizeof(x2));
-
-  printf("Testing RNG thread safety.\n");
 
   if (!torsion_is_reentrant()) {
     printf("  - Skipping RNG test (not reentrant).\n");
@@ -3079,19 +3074,15 @@ test_rand_thread_safety(void) {
 #endif /* TORSION_HAVE_THREADS */
 
 #ifdef TORSION_HAVE_FORK
-#include <sys/types.h>
-#include <sys/wait.h>
-#include <unistd.h>
-
 static void
-test_rand_fork_safety(void) {
+test_rand_fork_safety(drbg_t *unused) {
   unsigned char ours[32];
   unsigned char theirs[32];
   int pfds[2];
   int status;
   pid_t pid;
 
-  printf("Testing RNG fork safety...\n");
+  (void)unused;
 
   memset(ours, 0, 32);
   memset(theirs, 0, 32);
@@ -3129,7 +3120,7 @@ test_rand_fork_safety(void) {
  */
 
 static void
-test_rsa(void) {
+test_rsa(drbg_t *unused) {
   static unsigned char priv[RSA_MAX_PRIV_SIZE];
   static unsigned char pub[RSA_MAX_PUB_SIZE];
   static unsigned char msg[HASH_MAX_OUTPUT_SIZE];
@@ -3148,10 +3139,10 @@ test_rsa(void) {
   unsigned int i;
   size_t len;
 
+  (void)unused;
+
   for (i = 0; i < ENTROPY_SIZE; i++)
     entropy[i] = i;
-
-  printf("Testing RSA...\n");
 
   for (i = 0; i < ARRAY_SIZE(rsa_vectors); i++) {
     size_t priv_len = sizeof(priv);
@@ -3270,8 +3261,6 @@ test_rsa_random(drbg_t *rng) {
   unsigned char entropy[ENTROPY_SIZE];
   size_t i, j;
 
-  printf("Randomized RSA testing...\n");
-
   for (i = 0; i < 10; i++) {
     drbg_generate(rng, entropy, sizeof(entropy));
 
@@ -3353,7 +3342,7 @@ test_rsa_random(drbg_t *rng) {
  */
 
 static void
-test_salsa20(void) {
+test_salsa20(drbg_t *unused) {
   /* https://github.com/golang/crypto/blob/master/salsa20/salsa20_test.go */
   struct {
     unsigned char key[32];
@@ -3432,9 +3421,9 @@ test_salsa20(void) {
   unsigned int i, j, k;
   salsa20_t ctx;
 
-  ASSERT(out != NULL);
+  (void)unused;
 
-  printf("Testing Salsa20...\n");
+  ASSERT(out != NULL);
 
   for (i = 0; i < ARRAY_SIZE(vectors); i++) {
     const unsigned char *key = vectors[i].key;
@@ -3461,7 +3450,7 @@ test_salsa20(void) {
 }
 
 static void
-test_xsalsa20(void) {
+test_xsalsa20(drbg_t *unused) {
   /* https://github.com/golang/crypto/blob/master/salsa20/salsa20_test.go */
   static const unsigned char input[] = "Hello world!";
   static const unsigned char nonce[] = "24-byte nonce for xsalsa";
@@ -3474,7 +3463,7 @@ test_xsalsa20(void) {
   unsigned char data[12];
   salsa20_t ctx;
 
-  printf("Testing XSalsa20...\n");
+  (void)unused;
 
   salsa20_init(&ctx, key, 32, nonce, 24, 0);
   salsa20_crypt(&ctx, data, input, 12);
@@ -3487,7 +3476,7 @@ test_xsalsa20(void) {
  */
 
 static void
-test_secretbox(void) {
+test_secretbox(drbg_t *unused) {
   static const unsigned char expect1[80] = {
     0x84, 0x42, 0xbc, 0x31, 0x3f, 0x46, 0x26, 0xf1, 0x35, 0x9e, 0x3b, 0x50,
     0x12, 0x2b, 0x6c, 0xe6, 0xfe, 0x66, 0xdd, 0xfe, 0x7d, 0x39, 0xd1, 0x4e,
@@ -3519,7 +3508,7 @@ test_secretbox(void) {
   unsigned char sealed[SECRETBOX_SEAL_SIZE(64)];
   unsigned char opened[64];
 
-  printf("Testing Secretbox...\n");
+  (void)unused;
 
   ASSERT(sizeof(sealed) == 80);
 
@@ -3565,8 +3554,6 @@ test_secretbox_random(drbg_t *rng) {
   unsigned char nonce[24];
   size_t i, len, last;
 
-  printf("Randomized Secretbox testing...\n");
-
   drbg_generate(rng, key, 32);
   drbg_generate(rng, nonce, 24);
 
@@ -3599,14 +3586,14 @@ test_secretbox_random(drbg_t *rng) {
  */
 
 static void
-test_siphash(void) {
+test_siphash(drbg_t *unused) {
   static const uint32_t v32 = UINT32_C(0x9dcb553a);
   static const uint64_t v64 = UINT64_C(0x73b4e2ae9316f6b2);
   unsigned char msg[32];
   unsigned char key[16];
   size_t i;
 
-  printf("Testing Siphash...\n");
+  (void)unused;
 
   for (i = 0; i < 32; i++)
     msg[i] = i;
@@ -3631,8 +3618,6 @@ test_cleanse(drbg_t *rng) {
   static const unsigned char zero[32] = {0};
   unsigned char raw[32];
 
-  printf("Testing Cleanse...\n");
-
   drbg_generate(rng, raw, 32);
 
   ASSERT(memcmp(raw, zero, 32) != 0);
@@ -3647,8 +3632,6 @@ test_memequal(drbg_t *rng) {
   unsigned char s1[32];
   unsigned char s2[32];
 
-  printf("Testing Memequal...\n");
-
   drbg_generate(rng, s1, 32);
 
   memcpy(s2, s1, 32);
@@ -3661,7 +3644,7 @@ test_memequal(drbg_t *rng) {
 }
 
 static void
-test_murmur3(void) {
+test_murmur3(drbg_t *unused) {
   static const struct {
     const char *str;
     uint32_t seed;
@@ -3684,7 +3667,7 @@ test_murmur3(void) {
   unsigned int i;
   size_t len;
 
-  printf("Testing Murmur3...\n");
+  (void)unused;
 
   for (i = 0; i < ARRAY_SIZE(vectors); i++) {
     const char *str = vectors[i].str;
@@ -3702,119 +3685,279 @@ test_murmur3(void) {
 }
 
 /*
- * Main
+ * Test Registry
  */
 
-int
-main(void) {
-  drbg_t rng;
+#define TORSION_TEST(name) { #name, test_ ## name }
 
-  drbg_init_rand(&rng);
+typedef struct torsion_test_s {
+  const char *name;
+  void (*run)(drbg_t *);
+} torsion_test_t;
 
+static const torsion_test_t torsion_tests[] = {
   /* AEAD */
-  test_aead();
+  TORSION_TEST(aead),
 
   /* ARC4 */
-  test_arc4();
+  TORSION_TEST(arc4),
 
   /* ChaCha20 */
-  test_chacha20();
+  TORSION_TEST(chacha20),
 
   /* Cipher */
-  test_ciphers();
-  test_cipher_modes();
-  test_cipher_aead();
+  TORSION_TEST(ciphers),
+  TORSION_TEST(cipher_modes),
+  TORSION_TEST(cipher_aead),
 
   /* DRBG */
-  test_hash_drbg();
-  test_hmac_drbg();
-  test_ctr_drbg();
+  TORSION_TEST(hash_drbg),
+  TORSION_TEST(hmac_drbg),
+  TORSION_TEST(ctr_drbg),
 
   /* DSA */
-  test_dsa();
-  test_dsa_keygen(&rng);
+  TORSION_TEST(dsa),
+  TORSION_TEST(dsa_keygen),
 
   /* ECC */
-  test_ecc_internal(&rng);
-  test_ecdsa();
-  test_ecdsa_random(&rng);
-  test_ecdsa_sswu();
-  test_ecdsa_svdw();
-  test_schnorr_legacy();
-  test_schnorr_legacy_random(&rng);
-  test_schnorr();
-  test_schnorr_random(&rng);
-  test_ecdh_x25519();
-  test_ecdh_x448();
-  test_ecdh_random(&rng);
-  test_ecdh_elligator2();
-  test_eddsa();
-  test_eddsa_random(&rng);
-  test_eddsa_elligator2();
+  TORSION_TEST(ecc_internal),
+  TORSION_TEST(ecdsa),
+  TORSION_TEST(ecdsa_random),
+  TORSION_TEST(ecdsa_sswu),
+  TORSION_TEST(ecdsa_svdw),
+  TORSION_TEST(schnorr_legacy),
+  TORSION_TEST(schnorr_legacy_random),
+  TORSION_TEST(schnorr),
+  TORSION_TEST(schnorr_random),
+  TORSION_TEST(ecdh_x25519),
+  TORSION_TEST(ecdh_x448),
+  TORSION_TEST(ecdh_random),
+  TORSION_TEST(ecdh_elligator2),
+  TORSION_TEST(eddsa),
+  TORSION_TEST(eddsa_random),
+  TORSION_TEST(eddsa_elligator2),
 
   /* Encoding */
-  test_base16();
-  test_base32();
-  test_base58();
-  test_base64();
-  test_bech32();
-  test_cash32();
+  TORSION_TEST(base16),
+  TORSION_TEST(base32),
+  TORSION_TEST(base58),
+  TORSION_TEST(base64),
+  TORSION_TEST(bech32),
+  TORSION_TEST(cash32),
 
   /* Hash */
-  test_hash();
-  test_hmac();
+  TORSION_TEST(hash),
+  TORSION_TEST(hmac),
 
   /* KDF */
-  test_eb2k();
-  test_hkdf();
-  test_pbkdf2();
-  test_scrypt();
-  test_pgpdf();
-  test_bcrypt();
-  test_bcrypt_pbkdf();
+  TORSION_TEST(eb2k),
+  TORSION_TEST(hkdf),
+  TORSION_TEST(pbkdf2),
+  TORSION_TEST(scrypt),
+  TORSION_TEST(pgpdf),
+  TORSION_TEST(bcrypt),
+  TORSION_TEST(bcrypt_pbkdf),
 
   /* MPI */
-  test_mpi_primes(&rng);
+  TORSION_TEST(mpi_primes),
 
   /* Poly1305 */
-  test_poly1305();
+  TORSION_TEST(poly1305),
 
   /* Random */
 #ifdef TORSION_HAVE_RNG
-  test_rand_rng();
-  test_rand_getentropy();
-  test_rand_getrandom();
-  test_rand_random();
-  test_rand_uniform();
+  TORSION_TEST(rand_rng),
+  TORSION_TEST(rand_getentropy),
+  TORSION_TEST(rand_getrandom),
+  TORSION_TEST(rand_random),
+  TORSION_TEST(rand_uniform),
 #ifdef TORSION_HAVE_THREADS
-  test_rand_thread_safety();
+  TORSION_TEST(rand_thread_safety),
 #endif
 #ifdef TORSION_HAVE_FORK
-  test_rand_fork_safety();
+  TORSION_TEST(rand_fork_safety),
 #endif
 #endif /* TORSION_HAVE_RNG */
 
   /* RSA */
-  test_rsa();
-  test_rsa_random(&rng);
+  TORSION_TEST(rsa),
+  TORSION_TEST(rsa_random),
 
   /* Salsa20 */
-  test_salsa20();
-  test_xsalsa20();
+  TORSION_TEST(salsa20),
+  TORSION_TEST(xsalsa20),
 
   /* Secretbox */
-  test_secretbox();
-  test_secretbox_random(&rng);
+  TORSION_TEST(secretbox),
+  TORSION_TEST(secretbox_random),
 
   /* Siphash */
-  test_siphash();
+  TORSION_TEST(siphash),
 
   /* Util */
-  test_cleanse(&rng);
-  test_memequal(&rng);
-  test_murmur3();
+  TORSION_TEST(cleanse),
+  TORSION_TEST(memequal),
+  TORSION_TEST(murmur3)
+};
 
-  printf("All tests passed.\n");
+/*
+ * Test Runner
+ */
+
+static int
+run_test(const torsion_test_t *test, drbg_t *rng, int child) {
+  printf("Testing %s...\n", test->name);
+
+#ifdef TORSION_HAVE_FORK
+  if (child) {
+    pid_t pid = fork();
+    int status;
+
+    ASSERT(pid != -1);
+
+    if (pid) {
+      ASSERT(waitpid(pid, &status, 0) == pid);
+
+      if (WIFEXITED(status) == 0)
+        return 0;
+
+      if (WEXITSTATUS(status) != 0)
+        return 0;
+
+      return 1;
+    }
+
+    drbg_init_rand(rng);
+
+    test->run(rng);
+
+    exit(0);
+
+    return 0;
+  }
+#endif
+
+  test->run(rng);
+
+  return 1;
+}
+
+/*
+ * Main
+ */
+
+int
+main(int argc, char **argv) {
+  size_t args_len = 0;
+  char *args[256];
+  drbg_t rng;
+  int grep = 0;
+  int child = 0;
+  int total = 0;
+  int passing = 0;
+  int found;
+  size_t i, j;
+
+  if ((size_t)argc > ARRAY_SIZE(args)) {
+    fprintf(stderr, "Too many arguments.\n");
+    return 1;
+  }
+
+  for (i = 1; i < (size_t)argc; i++) {
+    if (strcmp(argv[i], "-g") == 0 || strcmp(argv[i], "--grep") == 0) {
+      grep = 1;
+      continue;
+    }
+
+    if (strcmp(argv[i], "-f") == 0 || strcmp(argv[i], "--fork") == 0) {
+      child = 1;
+      continue;
+    }
+
+    if (strcmp(argv[i], "-l") == 0 || strcmp(argv[i], "--list") == 0) {
+      for (j = 0; j < ARRAY_SIZE(torsion_tests); j++)
+        printf("%s\n", torsion_tests[j].name);
+      return 0;
+    }
+
+    if (strcmp(argv[i], "-h") == 0 || strcmp(argv[i], "--help") == 0) {
+      printf("%s",
+        "\n"
+        "  Usage: ./torsion_test [options] [test-name]\n"
+        "\n"
+        "  Options:\n"
+        "\n"
+        "    -g, --grep   treat [test-name] as a substring\n"
+        "    -f, --fork   run each test in a subprocess\n"
+        "    -l, --list   list all test names\n"
+        "    -h, --help   output usage information\n"
+        "\n"
+      );
+      return 0;
+    }
+
+    if (argv[i][0] == '-') {
+      fprintf(stderr, "Unknown argument: %s.\n", argv[i]);
+      return 1;
+    }
+
+    args[args_len++] = argv[i];
+  }
+
+  drbg_init_rand(&rng);
+
+  if (grep) {
+    for (i = 0; i < args_len; i++) {
+      for (j = 0; j < ARRAY_SIZE(torsion_tests); j++) {
+        if (strstr(torsion_tests[j].name, args[i]) != NULL) {
+          passing += run_test(&torsion_tests[j], &rng, child);
+          total += 1;
+        }
+      }
+    }
+
+    if (total == 0) {
+      fprintf(stderr, "No tests found.\n");
+      return 1;
+    }
+
+    goto done;
+  }
+
+  if (args_len == 0) {
+    for (i = 0; i < ARRAY_SIZE(torsion_tests); i++) {
+      passing += run_test(&torsion_tests[i], &rng, child);
+      total += 1;
+    }
+
+    goto done;
+  }
+
+  for (i = 0; i < args_len; i++) {
+    found = 0;
+
+    for (j = 0; j < ARRAY_SIZE(torsion_tests); j++) {
+      if (strcmp(torsion_tests[j].name, args[i]) == 0) {
+        passing += run_test(&torsion_tests[j], &rng, child);
+        total += 1;
+        found = 1;
+        break;
+      }
+    }
+
+    if (!found) {
+      fprintf(stderr, "Unknown test: %s.\n", args[i]);
+      return 1;
+    }
+  }
+
+done:
+  if (passing != total) {
+    printf("Tests failed (%d/%d).\n", passing, total);
+    return 1;
+  }
+
+  printf("Tests passed (%d/%d).\n", passing, total);
 
   return 0;
 }
