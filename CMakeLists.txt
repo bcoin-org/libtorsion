@@ -1,6 +1,9 @@
 cmake_minimum_required(VERSION 3.4)
 project(libtorsion LANGUAGES C)
 
+set(TORSION_PKG_VERSION 0.0.0)
+set(TORSION_LIB_VERSION 0:0:0)
+
 include(CheckCCompilerFlag)
 include(CheckIncludeFile)
 include(CTest)
@@ -384,7 +387,11 @@ else()
                              ${PROJECT_SOURCE_DIR}/include)
   target_link_libraries(torsion_static INTERFACE ${torsion_libs})
 
-  if(NOT WIN32)
+  if(UNIX)
+    string(REPLACE ":" "." TORSION_VERSION "${TORSION_LIB_VERSION}")
+    string(REGEX MATCH "^[0-9]+" TORSION_SOVERSION "${TORSION_LIB_VERSION}")
+    set_target_properties(torsion PROPERTIES VERSION ${TORSION_VERSION}
+                                             SOVERSION ${TORSION_SOVERSION})
     set_target_properties(torsion_static PROPERTIES OUTPUT_NAME torsion)
   endif()
 
@@ -405,14 +412,16 @@ else()
   endif()
 
   if(UNIX)
-    set(LIBS "")
-    set(PACKAGE_VERSION "0.0.0")
-    set_target_properties(torsion PROPERTIES VERSION 0.0.0 SOVERSION 0)
-    set(includedir ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_INCLUDEDIR})
-    set(libdir ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR})
     set(prefix ${CMAKE_INSTALL_PREFIX})
-    configure_file(libtorsion.pc.in libtorsion.pc @ONLY)
+    set(libdir ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR})
+    set(includedir ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_INCLUDEDIR})
+    set(PACKAGE_VERSION "${TORSION_PKG_VERSION}")
+    set(LIBS "")
 
+    configure_file(libtorsion.pc.in libtorsion.pc @ONLY)
+  endif()
+
+  if(UNIX)
     install(DIRECTORY include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
     install(FILES LICENSE DESTINATION ${CMAKE_INSTALL_DOCDIR})
     install(FILES ${PROJECT_BINARY_DIR}/libtorsion.pc
@@ -434,6 +443,8 @@ string(TOUPPER "${CMAKE_BUILD_TYPE}" _build_type)
 
 message(STATUS "Build Options:
 
+   TORSION_PKG_VERSION:  ${TORSION_PKG_VERSION}
+   TORSION_LIB_VERSION:  ${TORSION_LIB_VERSION}
    CMAKE_MULTI_CONFIG:   ${TORSION_MULTI_CONFIG}
    CMAKE_BUILD_TYPE:     ${CMAKE_BUILD_TYPE}
    CMAKE_INSTALL_PREFIX: ${CMAKE_INSTALL_PREFIX}

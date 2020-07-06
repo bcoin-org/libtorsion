@@ -4,6 +4,8 @@ PTHREAD_LIBS ?= -lpthread
 ENABLE_COVERAGE ?= 0
 ENABLE_DEBUG ?= 0
 ENABLE_RNG ?= 1
+VERSION = 0.0.0
+CURRENT = 0
 SO = so
 
 ifeq ($(shell uname -s), Darwin)
@@ -95,6 +97,8 @@ OUTPUT := libtorsion.$(SO)    \
           torsion_test        \
           torsion_test_static
 
+DEST_SO := $(DESTDIR)$(PREFIX)/lib/libtorsion.$(SO)
+
 all: $(OUTPUT)
 
 %.o: %.c
@@ -122,7 +126,9 @@ install: $(OUTPUT)
 	install -d $(DESTDIR)$(PREFIX)/lib
 	install -d $(DESTDIR)$(PREFIX)/include/torsion
 	install -d $(DESTDIR)$(PREFIX)/share/licenses
-	install -m 755 libtorsion.$(SO) $(DESTDIR)$(PREFIX)/lib/
+	install -m 755 libtorsion.$(SO) $(DEST_SO).$(VERSION)
+	ln -sr $(DEST_SO).$(VERSION) $(DEST_SO).$(CURRENT)
+	ln -sr $(DEST_SO).$(CURRENT) $(DEST_SO)
 	install -m 644 libtorsion.a $(DESTDIR)$(PREFIX)/lib/
 	install -m 644 include/torsion/*.h $(DESTDIR)$(PREFIX)/include/torsion/
 	install -m 644 LICENSE $(DESTDIR)$(PREFIX)/share/licenses/

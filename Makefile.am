@@ -150,7 +150,7 @@ else !EMSCRIPTEN
 lib_LTLIBRARIES = libtorsion.la
 libtorsion_la_SOURCES = $(torsion_sources)
 libtorsion_la_CFLAGS = -DTORSION_BUILD
-libtorsion_la_LDFLAGS = -no-undefined -version-info 0:0:0
+libtorsion_la_LDFLAGS = -no-undefined -version-info @TORSION_LIB_VERSION@
 libtorsion_la_LIBADD =
 
 noinst_PROGRAMS += torsion_bench

@@ -1,5 +1,6 @@
 AC_PREREQ(2.59)
 AC_INIT([libtorsion], [0.0.0], [https://github.com/bcoin-org/libtorsion/issues])
+TORSION_LIB_VERSION=0:0:0
 AC_CONFIG_AUX_DIR([build-aux])
 AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_SRCDIR([include/torsion/ecc.h])
@@ -224,6 +225,10 @@ if test x"$enable_verify" = x"yes"; then
   AC_DEFINE(TORSION_VERIFY)
 fi
 
+AS_VAR_SET(TORSION_PKG_VERSION, [AC_PACKAGE_VERSION])
+AC_SUBST(TORSION_PKG_VERSION)
+AC_SUBST(TORSION_LIB_VERSION)
+
 AC_SUBST(PTHREAD_CFLAGS)
 AC_SUBST(PTHREAD_LIBS)
 
@@ -239,6 +244,9 @@ AC_OUTPUT
 
 echo ""
 echo "Build Options:"
+echo ""
+echo "  pkg version  = $TORSION_PKG_VERSION"
+echo "  lib version  = $TORSION_LIB_VERSION"
 echo ""
 echo "  asm          = $enable_asm (support=$has_asm)"
 echo "  coverage     = $enable_coverage"
