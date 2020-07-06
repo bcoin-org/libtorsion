@@ -23,9 +23,7 @@ COMMON_CFLAGS = -std=c89                         \
                 -I./include                      \
                 -O3
 
-ifeq ($(ENABLE_DEBUG), 1)
-COMMON_CFLAGS += -g
-endif
+COMMON_LIBS = -L. -ltorsion
 
 LIB_SOURCES = src/aead.c      \
               src/asn1.c      \
@@ -57,35 +55,36 @@ LIB_LIBS =
 
 BENCH_SOURCES = test/bench.c test/hrtime.c
 BENCH_CFLAGS := $(COMMON_CFLAGS) $(CFLAGS)
-BENCH_LIBS = -L. -ltorsion
+BENCH_LIBS := $(COMMON_LIBS)
 
 TEST_SOURCES = test/test.c
 TEST_CFLAGS := $(COMMON_CFLAGS) -DTORSION_HAVE_FORK $(CFLAGS)
-TEST_LIBS = -L. -ltorsion
+TEST_LIBS := $(COMMON_LIBS)
+TEST_LIBS_A := $(COMMON_LIBS)
 
 CTIME_SOURCES = test/ctime.c
 CTIME_CFLAGS := $(COMMON_CFLAGS) $(CFLAGS)
-CTIME_LIBS = -L. -ltorsion
+CTIME_LIBS := $(COMMON_LIBS)
 
 ifeq ($(ENABLE_COVERAGE), 1)
 LIB_CFLAGS += -DTORSION_COVERAGE
 LIB_CFLAGS += -O0 --coverage
 LIB_LIBS += -lgcov
-BENCH_LIBS += -lgcov
-TEST_LIBS += -lgcov
+TEST_LIBS_A += -lgcov
 endif
 
 ifeq ($(ENABLE_DEBUG), 1)
-LIB_CFLAGS += -DTORSION_DEBUG
+LIB_CFLAGS += -g -DTORSION_DEBUG
+TEST_CFLAGS += -g
 endif
 
 ifeq ($(ENABLE_RNG), 1)
-BENCH_CFLAGS += -DTORSION_HAVE_RNG
 TEST_SOURCES += test/thread.c
 TEST_CFLAGS += -DTORSION_HAVE_RNG
 TEST_CFLAGS += -DTORSION_HAVE_THREADS
 TEST_CFLAGS += $(PTHREAD_CFLAGS)
 TEST_LIBS += $(PTHREAD_LIBS)
+TEST_LIBS_A += $(PTHREAD_LIBS)
 endif
 
 OUTPUT := libtorsion.$(SO)    \
@@ -105,14 +104,14 @@ libtorsion.$(SO): $(LIB_OBJECTS)
 libtorsion.a: $(LIB_OBJECTS)
 	$(AR) rcs $@ $^
 
-torsion_bench: libtorsion.a $(TEST_SOURCES)
-	$(CC) -o $@ -static $(BENCH_CFLAGS) $(BENCH_SOURCES) $(BENCH_LIBS)
+torsion_bench: libtorsion.$(SO) $(TEST_SOURCES)
+	$(CC) -o $@ $(BENCH_CFLAGS) $(BENCH_SOURCES) $(BENCH_LIBS)
 
 torsion_test: libtorsion.$(SO) $(TEST_SOURCES)
 	$(CC) -o $@ $(TEST_CFLAGS) $(TEST_SOURCES) $(TEST_LIBS)
 
 torsion_test_static: libtorsion.a $(TEST_SOURCES)
-	$(CC) -o $@ -static $(TEST_CFLAGS) $(TEST_SOURCES) $(TEST_LIBS)
+	$(CC) -o $@ -static $(TEST_CFLAGS) $(TEST_SOURCES) $(TEST_LIBS_A)
 
 torsion_ctime: libtorsion.$(SO) $(CTIME_SOURCES)
 	$(CC) -o $@ $(CTIME_CFLAGS) $(CTIME_SOURCES) $(CTIME_LIBS)
@@ -127,7 +126,7 @@ install: $(OUTPUT)
 	install -m 644 LICENSE $(DESTDIR)$(PREFIX)/share/licenses/
 
 bench: torsion_bench
-	@./torsion_bench
+	@LD_LIBRARY_PATH=. ./torsion_bench
 
 test: torsion_test
 	@LD_LIBRARY_PATH=. ./torsion_test
