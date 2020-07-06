@@ -15,7 +15,9 @@ endif()
 option(TORSION_ENABLE_ASM "Use inline x86-64 assembly if available" ON)
 option(TORSION_ENABLE_COVERAGE "Enable coverage" OFF)
 option(TORSION_ENABLE_CRT "Enable chinese remainder theorem for RSA" OFF)
-option(TORSION_ENABLE_DEBUG "Enable debug build" OFF)
+if(NOT MSVC)
+  option(TORSION_ENABLE_DEBUG "Enable debug build" OFF)
+endif()
 option(TORSION_ENABLE_INT128 "Use __int128 if available" ON)
 option(TORSION_ENABLE_LIBSECP256K1 "Enable libsecp256k1 field element backend" OFF)
 option(TORSION_ENABLE_RNG "Enable RNG" ON)
@@ -25,13 +27,16 @@ option(TORSION_ENABLE_VERIFY "Enable scalar bounds checks" OFF)
 if(MSVC)
   # CMake defaults for windows:
   #
-  #   CMAKE_CFLAGS: /DWIN32 /D_WINDOWS /W3
-  #   CMAKE_CFLAGS_RELEASE: /MD /O2 /Ob2 /DNDEBUG
-  #   CMAKE_CFLAGS_DEBUG: /MDd /Zi /Ob0 /Od /RTC1
+  #   CMAKE_C_FLAGS: /DWIN32 /D_WINDOWS /W3
+  #   CMAKE_C_FLAGS_RELEASE: /MD /O2 /Ob2 /DNDEBUG
+  #   CMAKE_C_FLAGS_DEBUG: /MDd /Zi /Ob0 /Od /RTC1
   #
   # For this reason, we don't mess with optimization
   # levels here.  We assume the person building will
-  # pass `--config [build-type]` when building.
+  # pass `--config [build-type]` when building. e.g.
+  #
+  #   $ cmake --build . --config Release
+  set(CMAKE_C_FLAGS_DEBUG "/MDd /Zi /O2 /Ob2 /DTORSION_DEBUG")
   check_c_compiler_flag(/wd4146 TORSION_HAS_WMINUS_UNSIGNED)
   check_c_compiler_flag(/wd4244 TORSION_HAS_WCONV_DATA_LOSS1)
   check_c_compiler_flag(/wd4267 TORSION_HAS_WCONV_DATA_LOSS2)
@@ -39,9 +44,9 @@ if(MSVC)
 else()
   # CMake defaults for unix:
   #
-  #   CMAKE_CFLAGS:
-  #   CMAKE_CFLAGS_DEBUG: -g
-  #   CMAKE_CFLAGS_RELEASE: -O3 -NDEBUG
+  #   CMAKE_C_FLAGS:
+  #   CMAKE_C_FLAGS_DEBUG: -g
+  #   CMAKE_C_FLAGS_RELEASE: -O3 -NDEBUG
   #
   # For Makefiles, -DCMAKE_BUILD_TYPE=[build-type]
   # must be passed on the command line for any of
@@ -206,7 +211,7 @@ if(TORSION_ENABLE_TLS AND TORSION_HAS_TLS)
 endif()
 
 if(TORSION_ENABLE_VERIFY)
-  if(NOT TORSION_ENABLE_DEBUG)
+  if(NOT MSVC AND NOT TORSION_ENABLE_DEBUG)
     message(FATAL_ERROR "scalar bounds verification for testing only")
   endif()
   list(APPEND torsion_defines TORSION_VERIFY)
@@ -322,7 +327,7 @@ if(EMSCRIPTEN)
   set_target_properties(torsion_bench PROPERTIES LINK_FLAGS "${torsion_emflags}")
   target_include_directories(torsion_bench PRIVATE ${PROJECT_SOURCE_DIR}/include)
 
-  if(TORSION_ENABLE_DEBUG)
+  if(MSVC OR TORSION_ENABLE_DEBUG)
     add_executable(torsion_test ${torsion_sources} test/test.c)
     target_compile_definitions(torsion_test PRIVATE ${torsion_defines} __wasi__)
     target_compile_options(torsion_test PRIVATE ${torsion_cflags})
@@ -348,24 +353,30 @@ else()
     set(test_libs Threads::Threads)
   endif()
 
-  add_library(torsion SHARED ${torsion_sources})
-  target_compile_definitions(torsion PRIVATE ${torsion_defines} TORSION_BUILD)
-  target_compile_options(torsion PRIVATE ${torsion_lib_cflags})
+  add_library(torsion_o OBJECT ${torsion_sources})
+  target_compile_definitions(torsion_o PRIVATE ${torsion_defines} TORSION_BUILD)
+  target_compile_options(torsion_o PRIVATE ${torsion_lib_cflags})
+  target_include_directories(torsion_o PRIVATE ${PROJECT_SOURCE_DIR}/include)
+  set_property(TARGET torsion_o PROPERTY POSITION_INDEPENDENT_CODE 1)
+
+  add_library(torsion SHARED $<TARGET_OBJECTS:torsion_o>)
   target_include_directories(torsion PUBLIC ${PROJECT_SOURCE_DIR}/include)
   target_link_options(torsion PRIVATE ${torsion_lib_ldflags})
 
-  add_library(torsion_a STATIC ${torsion_sources})
-  target_compile_definitions(torsion_a PRIVATE ${torsion_defines})
-  target_compile_options(torsion_a PRIVATE ${torsion_lib_cflags})
+  add_library(torsion_a STATIC $<TARGET_OBJECTS:torsion_o>)
   target_include_directories(torsion_a PUBLIC ${PROJECT_SOURCE_DIR}/include)
   target_link_options(torsion_a PRIVATE ${torsion_lib_ldflags})
+
+  if(NOT WIN32)
+    set_target_properties(torsion_a PROPERTIES OUTPUT_NAME torsion)
+  endif()
 
   add_executable(torsion_bench test/bench.c test/hrtime.c)
   target_compile_definitions(torsion_bench PRIVATE ${torsion_defines})
   target_compile_options(torsion_bench PRIVATE ${torsion_cflags})
   target_link_libraries(torsion_bench ${torsion_lib})
 
-  if(TORSION_ENABLE_DEBUG OR TORSION_ENABLE_COVERAGE)
+  if(MSVC OR TORSION_ENABLE_DEBUG OR TORSION_ENABLE_COVERAGE)
     add_executable(torsion_test test/test.c test/thread.c)
     target_compile_definitions(torsion_test PRIVATE ${torsion_defines})
     target_compile_options(torsion_test PRIVATE ${torsion_cflags})
