@@ -21,23 +21,12 @@ else()
   set(CMAKE_C_STANDARD 90)
 endif()
 
-if(${CMAKE_VERSION} VERSION_LESS "3.9.0")
-  set(TORSION_MULTI_CONFIG 0)
-  if(CMAKE_CONFIGURATION_TYPES)
-    set(TORSION_MULTI_CONFIG 1)
-  endif()
-else()
-  get_property(TORSION_MULTI_CONFIG GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
-endif()
-
 option(TORSION_ENABLE_ASM "Use inline x86-64 assembly if available" ON)
 option(TORSION_ENABLE_COVERAGE "Enable coverage" OFF)
 option(TORSION_ENABLE_CRT "Enable chinese remainder theorem for RSA" OFF)
-if(NOT TORSION_MULTI_CONFIG AND NOT EMSCRIPTEN)
-  option(TORSION_ENABLE_DEBUG "Enable debug build" OFF)
-endif()
+option(TORSION_ENABLE_DEBUG "Enable debug build" OFF)
 option(TORSION_ENABLE_INT128 "Use __int128 if available" ON)
-option(TORSION_ENABLE_LIBSECP256K1 "Enable libsecp256k1 field element backend" OFF)
+option(TORSION_ENABLE_LIBSECP256K1 "Use libsecp256k1 field element backend" OFF)
 option(TORSION_ENABLE_RNG "Enable RNG" ON)
 option(TORSION_ENABLE_TLS "Enable TLS" ON)
 option(TORSION_ENABLE_VERIFY "Enable scalar bounds checks" OFF)
@@ -71,10 +60,8 @@ else()
   # the defaults to have an effect. We assume that
   # CMAKE_BUILD_TYPE is empty and pick debug and
   # optimization flags ourselves.
-  if(TORSION_MULTI_CONFIG OR CMAKE_BUILD_TYPE)
-    set(CMAKE_C_FLAGS_DEBUG "-DTORSION_DEBUG")
-    set(CMAKE_C_FLAGS_RELEASE "")
-  endif()
+  set(CMAKE_C_FLAGS_DEBUG "-g -DTORSION_DEBUG")
+  set(CMAKE_C_FLAGS_RELEASE "")
   check_c_compiler_flag(-g TORSION_HAS_G)
   check_c_compiler_flag(-pedantic TORSION_HAS_PEDANTIC)
   check_c_compiler_flag(-Wall TORSION_HAS_WALL)
@@ -232,9 +219,6 @@ if(TORSION_ENABLE_TLS AND TORSION_HAS_TLS)
 endif()
 
 if(TORSION_ENABLE_VERIFY)
-  if(NOT TORSION_MULTI_CONFIG AND NOT TORSION_ENABLE_DEBUG)
-    message(FATAL_ERROR "scalar bounds verification for testing only")
-  endif()
   list(APPEND torsion_defines TORSION_VERIFY)
 endif()
 
@@ -358,7 +342,7 @@ else()
   if(TORSION_ENABLE_COVERAGE)
     list(APPEND torsion_cflags_ -O0)
     list(APPEND torsion_cflags_ --coverage)
-    list(APPEND torsion_libs -lgcov)
+    list(APPEND torsion_libs gcov)
   endif()
 
   if(TORSION_HAS_THREADS)
@@ -406,7 +390,7 @@ else()
   target_link_libraries(torsion_test_static torsion_static ${test_libs})
   add_test(NAME test_static COMMAND torsion_test_static)
 
-  if(TORSION_HAS_VALGRIND AND NOT TORSION_ENABLE_DEBUG)
+  if(TORSION_HAS_VALGRIND)
     add_executable(torsion_ctime test/ctime.c)
     target_link_libraries(torsion_ctime torsion)
   endif()
@@ -417,7 +401,6 @@ else()
     set(includedir ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_INCLUDEDIR})
     set(PACKAGE_VERSION "${TORSION_PKG_VERSION}")
     set(LIBS "")
-
     configure_file(libtorsion.pc.in libtorsion.pc @ONLY)
   endif()
 
@@ -445,7 +428,6 @@ message(STATUS "Build Options:
 
    TORSION_PKG_VERSION:  ${TORSION_PKG_VERSION}
    TORSION_LIB_VERSION:  ${TORSION_LIB_VERSION}
-   CMAKE_MULTI_CONFIG:   ${TORSION_MULTI_CONFIG}
    CMAKE_BUILD_TYPE:     ${CMAKE_BUILD_TYPE}
    CMAKE_INSTALL_PREFIX: ${CMAKE_INSTALL_PREFIX}
    CMAKE_SYSTEM_NAME:    ${CMAKE_SYSTEM_NAME}

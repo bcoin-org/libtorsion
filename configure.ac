@@ -50,7 +50,7 @@ AC_ARG_ENABLE(int128,
   [enable_int128=yes])
 
 AC_ARG_ENABLE(libsecp256k1,
-  AS_HELP_STRING([--enable-libsecp256k1],[enable libsecp256k1 field element backend [default=no]]),
+  AS_HELP_STRING([--enable-libsecp256k1],[use libsecp256k1 field element backend [default=no]]),
   [enable_libsecp256k1=$enableval],
   [enable_libsecp256k1=no])
 
@@ -219,9 +219,6 @@ if test x"$enable_tls" = x"yes" -a x"$has_tls" = x"yes"; then
 fi
 
 if test x"$enable_verify" = x"yes"; then
-  if test x"$enable_debug" != x"yes"; then
-    AC_MSG_ERROR([scalar bounds verification for testing only])
-  fi
   AC_DEFINE(TORSION_VERIFY)
 fi
 
@@ -234,7 +231,7 @@ AC_SUBST(PTHREAD_LIBS)
 
 AM_CONDITIONAL([EMSCRIPTEN], [test x"$EMSCRIPTEN" != x""])
 AM_CONDITIONAL([ENABLE_COVERAGE], [test x"$enable_coverage" = x"yes"])
-AM_CONDITIONAL([ENABLE_CTIME], [test x"$has_valgrind" = x"yes" -a x"$enable_debug" != x"yes"])
+AM_CONDITIONAL([ENABLE_CTIME], [test x"$has_valgrind" = x"yes"])
 AM_CONDITIONAL([ENABLE_RNG], [test x"$enable_rng" = x"yes"])
 AM_CONDITIONAL([ENABLE_THREADS], [test x"$has_threads" = x"yes"])
 
