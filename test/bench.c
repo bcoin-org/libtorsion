@@ -247,19 +247,19 @@ bench_sha256(drbg_t *rng) {
  * Benchmark Registry
  */
 
-#define TORSION_BENCH(name) { #name, bench_ ## name }
-
 static const struct {
   const char *name;
   void (*run)(drbg_t *);
 } torsion_benches[] = {
-  TORSION_BENCH(ecdsa_pubkey_create),
-  TORSION_BENCH(ecdsa_derive),
-  TORSION_BENCH(ecdsa),
-  TORSION_BENCH(ecdh),
-  TORSION_BENCH(eddsa),
-  TORSION_BENCH(hash),
-  TORSION_BENCH(sha256)
+#define B(name) { #name, bench_ ## name }
+  B(ecdsa_pubkey_create),
+  B(ecdsa_derive),
+  B(ecdsa),
+  B(ecdh),
+  B(eddsa),
+  B(hash),
+  B(sha256)
+#undef B
 };
 
 /*

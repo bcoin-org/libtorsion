@@ -209,7 +209,7 @@ hex_parse(unsigned char *out, size_t len, const char *str) {
  */
 
 static void
-test_aead(drbg_t *unused) {
+test_aead_chachapoly(drbg_t *unused) {
   static unsigned char input[8192];
   static unsigned char aad[128];
   static unsigned char key[32];
@@ -282,103 +282,11 @@ test_aead(drbg_t *unused) {
 }
 
 /*
- * ARC4
- */
-
-static void
-test_arc4(drbg_t *unused) {
-  static const unsigned char expect[32] = {
-    0x42, 0x83, 0x06, 0x31, 0x1d, 0xd2, 0x34, 0x98,
-    0x51, 0x3a, 0x18, 0x7c, 0x36, 0x4c, 0x03, 0xc0,
-    0x56, 0x7b, 0x5c, 0x82, 0x94, 0x70, 0x29, 0xfa,
-    0x1d, 0x26, 0x24, 0x9f, 0x86, 0x25, 0x1a, 0xa0
-  };
-
-  unsigned char key[32];
-  unsigned char msg[32];
-  unsigned char data[32];
-  arc4_t ctx;
-  size_t i;
-
-  (void)unused;
-
-  for (i = 0; i < 32; i++) {
-    key[i] = i + 10;
-    msg[i] = i + 20;
-  }
-
-  memcpy(data, msg, 32);
-
-  arc4_init(&ctx, key, 32);
-
-  for (i = 0; i < 1000; i++)
-    arc4_crypt(&ctx, data, data, 32);
-
-  ASSERT(memcmp(data, expect, 32) == 0);
-
-  arc4_init(&ctx, key, 32);
-
-  for (i = 0; i < 1000; i++)
-    arc4_crypt(&ctx, data, data, 32);
-
-  ASSERT(memcmp(data, msg, 32) == 0);
-}
-
-/*
- * ChaCha20
- */
-
-static void
-test_chacha20(drbg_t *unused) {
-  unsigned char key[32];
-  unsigned char nonce[24];
-  unsigned char input[4096];
-  unsigned char output[4096];
-  unsigned char data[4096];
-  chacha20_t ctx;
-  unsigned int i;
-
-  (void)unused;
-
-  for (i = 0; i < ARRAY_SIZE(chacha20_vectors); i++) {
-    size_t key_len = sizeof(key);
-    size_t nonce_len = sizeof(nonce);
-    unsigned int counter = chacha20_vectors[i].counter;
-    size_t input_len = sizeof(input);
-    size_t output_len = sizeof(output);
-    size_t data_len;
-
-    printf("  - ChaCha20 vector #%u\n", i + 1);
-
-    hex_decode(key, &key_len, chacha20_vectors[i].key);
-    hex_decode(nonce, &nonce_len, chacha20_vectors[i].nonce);
-    hex_decode(input, &input_len, chacha20_vectors[i].input);
-    hex_decode(output, &output_len, chacha20_vectors[i].output);
-
-    ASSERT(input_len == output_len);
-
-    data_len = input_len;
-
-    memcpy(data, input, input_len);
-
-    chacha20_init(&ctx, key, key_len, nonce, nonce_len, counter);
-    chacha20_crypt(&ctx, data, data, data_len);
-
-    ASSERT(memcmp(data, output, output_len) == 0);
-
-    chacha20_init(&ctx, key, key_len, nonce, nonce_len, counter);
-    chacha20_crypt(&ctx, data, data, data_len);
-
-    ASSERT(memcmp(data, input, input_len) == 0);
-  }
-}
-
-/*
  * Cipher
  */
 
 static void
-test_ciphers(drbg_t *unused) {
+test_cipher_contexts(drbg_t *unused) {
   unsigned char key[32];
   unsigned char iv[CIPHER_MAX_BLOCK_SIZE];
   unsigned char expect[CIPHER_MAX_BLOCK_SIZE];
@@ -553,7 +461,7 @@ test_cipher_aead(drbg_t *unused) {
  */
 
 static void
-test_hash_drbg(drbg_t *unused) {
+test_drbg_hash(drbg_t *unused) {
   unsigned char entropy[256];
   unsigned char reseed[256];
   unsigned char add1[256];
@@ -594,7 +502,7 @@ test_hash_drbg(drbg_t *unused) {
 }
 
 static void
-test_hmac_drbg(drbg_t *unused) {
+test_drbg_hmac(drbg_t *unused) {
   unsigned char entropy[256];
   unsigned char reseed[256];
   unsigned char add1[256];
@@ -635,7 +543,7 @@ test_hmac_drbg(drbg_t *unused) {
 }
 
 static void
-test_ctr_drbg(drbg_t *unused) {
+test_drbg_ctr(drbg_t *unused) {
   unsigned char entropy[256];
   unsigned char pers[256];
   unsigned char reseed[256];
@@ -687,7 +595,7 @@ test_ctr_drbg(drbg_t *unused) {
  */
 
 static void
-test_dsa(drbg_t *unused) {
+test_dsa_vectors(drbg_t *unused) {
   unsigned char params[DSA_MAX_PARAMS_SIZE];
   unsigned char priv[DSA_MAX_PRIV_SIZE];
   unsigned char pub[DSA_MAX_PUB_SIZE];
@@ -840,7 +748,7 @@ test_dsa_keygen(drbg_t *rng) {
  */
 
 static void
-test_ecdsa(drbg_t *unused) {
+test_ecdsa_vectors(drbg_t *unused) {
   unsigned char priv[ECDSA_MAX_PRIV_SIZE];
   unsigned char pub[ECDSA_MAX_PUB_SIZE];
   unsigned char tweak[ECDSA_MAX_PRIV_SIZE];
@@ -1185,7 +1093,7 @@ test_ecdsa_svdw(drbg_t *unused) {
 }
 
 static void
-test_schnorr_legacy(drbg_t *unused) {
+test_schnorr_legacy_vectors(drbg_t *unused) {
   wei_curve_t *ec = wei_curve_create(WEI_CURVE_SECP256K1);
   wei_scratch_t *scratch = wei_scratch_create(ec, 10);
   unsigned char priv[32];
@@ -1306,7 +1214,7 @@ test_schnorr_legacy_random(drbg_t *rng) {
 }
 
 static void
-test_schnorr(drbg_t *unused) {
+test_schnorr_vectors(drbg_t *unused) {
   wei_curve_t *ec = wei_curve_create(WEI_CURVE_SECP256K1);
   wei_scratch_t *scratch = wei_scratch_create(ec, 10);
   unsigned char priv[32];
@@ -1664,7 +1572,7 @@ test_ecdh_elligator2(drbg_t *unused) {
 }
 
 static void
-test_eddsa(drbg_t *unused) {
+test_eddsa_vectors(drbg_t *unused) {
   unsigned char priv[EDDSA_MAX_PRIV_SIZE];
   unsigned char scalar[EDWARDS_MAX_SCALAR_SIZE];
   unsigned char prefix[EDDSA_MAX_PREFIX_SIZE];
@@ -1999,7 +1907,7 @@ test_eddsa_elligator2(drbg_t *unused) {
  */
 
 static void
-test_base16(drbg_t *unused) {
+test_encoding_base16(drbg_t *unused) {
   /* https://tools.ietf.org/html/rfc4648#section-10 */
   static const char *vectors[7][2] = {
     {"", ""},
@@ -2077,7 +1985,7 @@ test_base16(drbg_t *unused) {
 }
 
 static void
-test_base32(drbg_t *unused) {
+test_encoding_base32(drbg_t *unused) {
   /* https://tools.ietf.org/html/rfc4648#section-10 */
   static const char *vectors[7][2] = {
     {"", ""},
@@ -2135,7 +2043,7 @@ test_base32(drbg_t *unused) {
 }
 
 static void
-test_base58(drbg_t *unused) {
+test_encoding_base58(drbg_t *unused) {
   static const char *vectors[13][2] = {
     {"", ""},
     {"61", "2g"},
@@ -2183,7 +2091,7 @@ test_base58(drbg_t *unused) {
 }
 
 static void
-test_base64(drbg_t *unused) {
+test_encoding_base64(drbg_t *unused) {
   /* https://tools.ietf.org/html/rfc4648#section-10 */
   static const char *vectors[8][2] = {
     {"", ""},
@@ -2281,7 +2189,7 @@ test_base64(drbg_t *unused) {
 }
 
 static void
-test_bech32(drbg_t *unused) {
+test_encoding_bech32(drbg_t *unused) {
   static const char *valid[6][2] = {
     {
       "BC1QW508D6QEJXTDG4Y5R3ZARVARY0C5XW7KV8F3T4",
@@ -2377,7 +2285,7 @@ test_bech32(drbg_t *unused) {
 }
 
 static void
-test_cash32(drbg_t *unused) {
+test_encoding_cash32(drbg_t *unused) {
   struct {
     unsigned int type;
     const char *addr;
@@ -2494,7 +2402,7 @@ test_cash32(drbg_t *unused) {
  */
 
 static void
-test_hash(drbg_t *unused) {
+test_hash_digest(drbg_t *unused) {
   unsigned char iv[256];
   unsigned char expect[HASH_MAX_OUTPUT_SIZE];
   unsigned char out[HASH_MAX_OUTPUT_SIZE];
@@ -2530,7 +2438,7 @@ test_hash(drbg_t *unused) {
 }
 
 static void
-test_hmac(drbg_t *unused) {
+test_hash_hmac(drbg_t *unused) {
   unsigned char data[256];
   unsigned char key[256];
   unsigned char expect[HASH_MAX_OUTPUT_SIZE];
@@ -2563,208 +2471,121 @@ test_hmac(drbg_t *unused) {
 }
 
 /*
+ * IES
+ */
+
+static void
+test_ies_secretbox(drbg_t *unused) {
+  static const unsigned char expect1[80] = {
+    0x84, 0x42, 0xbc, 0x31, 0x3f, 0x46, 0x26, 0xf1, 0x35, 0x9e, 0x3b, 0x50,
+    0x12, 0x2b, 0x6c, 0xe6, 0xfe, 0x66, 0xdd, 0xfe, 0x7d, 0x39, 0xd1, 0x4e,
+    0x63, 0x7e, 0xb4, 0xfd, 0x5b, 0x45, 0xbe, 0xad, 0xab, 0x55, 0x19, 0x8d,
+    0xf6, 0xab, 0x53, 0x68, 0x43, 0x97, 0x92, 0xa2, 0x3c, 0x87, 0xdb, 0x70,
+    0xac, 0xb6, 0x15, 0x6d, 0xc5, 0xef, 0x95, 0x7a, 0xc0, 0x4f, 0x62, 0x76,
+    0xcf, 0x60, 0x93, 0xb8, 0x4b, 0xe7, 0x7f, 0xf0, 0x84, 0x9c, 0xc3, 0x3e,
+    0x34, 0xb7, 0x25, 0x4d, 0x5a, 0x8f, 0x65, 0xad
+  };
+
+  static const unsigned char expect2[80] = {
+    0x78, 0xea, 0x30, 0xb1, 0x9d, 0x23, 0x41, 0xeb, 0xbd, 0xba, 0x54, 0x18,
+    0x0f, 0x82, 0x1e, 0xec, 0x26, 0x5c, 0xf8, 0x63, 0x12, 0x54, 0x9b, 0xea,
+    0x8a, 0x37, 0x65, 0x2a, 0x8b, 0xb9, 0x4f, 0x07, 0xb7, 0x8a, 0x73, 0xed,
+    0x17, 0x08, 0x08, 0x5e, 0x6d, 0xdd, 0x0e, 0x94, 0x3b, 0xbd, 0xeb, 0x87,
+    0x55, 0x07, 0x9a, 0x37, 0xeb, 0x31, 0xd8, 0x61, 0x63, 0xce, 0x24, 0x11,
+    0x64, 0xa4, 0x76, 0x29, 0xc0, 0x53, 0x9f, 0x33, 0x0b, 0x49, 0x14, 0xcd,
+    0x13, 0x5b, 0x38, 0x55, 0xbc, 0x2a, 0x2d, 0xfc
+  };
+
+  mont_curve_t *ec = mont_curve_create(MONT_CURVE_X25519);
+  unsigned char priv1[32];
+  unsigned char priv2[32];
+  unsigned char pub1[32];
+  unsigned char secret[32];
+  unsigned char key[32];
+  unsigned char nonce[24];
+  unsigned char msg[64];
+  unsigned char sealed[SECRETBOX_SEAL_SIZE(64)];
+  unsigned char opened[64];
+
+  (void)unused;
+
+  ASSERT(sizeof(sealed) == 80);
+
+  /* Raw. */
+  memset(key, 1, sizeof(key));
+  memset(nonce, 2, sizeof(nonce));
+  memset(msg, 3, sizeof(msg));
+
+  secretbox_seal(sealed, msg, sizeof(msg), key, nonce);
+
+  ASSERT(secretbox_open(opened, sealed, sizeof(sealed), key, nonce));
+
+  ASSERT(memcmp(sealed, expect1, sizeof(expect1)) == 0);
+  ASSERT(memcmp(opened, msg, sizeof(msg)) == 0);
+
+  /* crypto_secretbox_xsalsa20poly1305 */
+  memset(priv1, 1, sizeof(priv1));
+  memset(priv2, 2, sizeof(priv1));
+  memset(msg, 3, sizeof(msg));
+  memset(nonce, 4, sizeof(nonce));
+
+  ecdh_pubkey_create(ec, pub1, priv1);
+
+  ASSERT(ecdh_derive(ec, secret, pub1, priv2));
+
+  secretbox_derive(key, secret);
+  secretbox_seal(sealed, msg, sizeof(msg), key, nonce);
+
+  ASSERT(secretbox_open(opened, sealed, sizeof(sealed), key, nonce));
+
+  ASSERT(memcmp(sealed, expect2, sizeof(expect2)) == 0);
+  ASSERT(memcmp(opened, msg, sizeof(msg)) == 0);
+
+  mont_curve_destroy(ec);
+}
+
+static void
+test_ies_secretbox_random(drbg_t *rng) {
+  unsigned char sealed[SECRETBOX_SEAL_SIZE(128)];
+  unsigned char opened[128];
+  unsigned char msg[128];
+  unsigned char key[32];
+  unsigned char nonce[24];
+  size_t i, len, last;
+
+  drbg_generate(rng, key, 32);
+  drbg_generate(rng, nonce, 24);
+
+  for (len = 0; len < 128; len += 17) {
+    drbg_generate(rng, msg, len);
+
+    secretbox_seal(sealed, msg, len, key, nonce);
+
+    if (len > 0) {
+      ASSERT(memcmp(sealed, msg, len) != 0);
+      ASSERT(memcmp(sealed + 16, msg, len) != 0);
+    }
+
+    ASSERT(secretbox_open(opened, sealed, len + 16, key, nonce));
+
+    last = len + 16;
+  }
+
+  for (i = 0; i < last; i++) {
+    sealed[i] ^= 0x20;
+    ASSERT(!secretbox_open(opened, sealed, last, key, nonce));
+    sealed[i] ^= 0x20;
+  }
+
+  ASSERT(secretbox_open(opened, sealed, last, key, nonce));
+}
+
+/*
  * KDF
  */
 
 static void
-test_eb2k(drbg_t *unused) {
-  unsigned char salt[64];
-  unsigned char key[64];
-  unsigned char iv[64];
-  unsigned char out1[64];
-  unsigned char out2[64];
-  unsigned int i;
-
-  (void)unused;
-
-  for (i = 0; i < ARRAY_SIZE(eb2k_vectors); i++) {
-    const unsigned char *pass = (const unsigned char *)eb2k_vectors[i].pass;
-    size_t pass_len = strlen(eb2k_vectors[i].pass);
-    size_t salt_len = sizeof(salt);
-    size_t key_len = sizeof(key);
-    size_t iv_len = sizeof(iv);
-
-    printf("  - EB2K vector #%u (%s)\n", i + 1, pass);
-
-    hex_decode(salt, &salt_len, eb2k_vectors[i].salt);
-    hex_decode(key, &key_len, eb2k_vectors[i].key);
-    hex_decode(iv, &iv_len, eb2k_vectors[i].iv);
-
-    ASSERT(sizeof(out1) >= key_len);
-    ASSERT(sizeof(out2) >= iv_len);
-
-    ASSERT(eb2k_derive(out1, out2, HASH_MD5, pass, pass_len,
-                       salt, salt_len, key_len, iv_len));
-
-    ASSERT(memcmp(out1, key, key_len) == 0);
-    ASSERT(memcmp(out2, iv, iv_len) == 0);
-  }
-}
-
-static void
-test_hkdf(drbg_t *unused) {
-  unsigned char ikm[128];
-  unsigned char salt[128];
-  unsigned char info[128];
-  unsigned char prk[HASH_MAX_OUTPUT_SIZE];
-  unsigned char okm[128];
-  unsigned char out[128];
-  unsigned int i;
-
-  (void)unused;
-
-  for (i = 0; i < ARRAY_SIZE(hkdf_vectors); i++) {
-    int type = hkdf_vectors[i].type;
-    size_t size = hash_output_size(type);
-    size_t ikm_len = sizeof(ikm);
-    size_t salt_len = sizeof(salt);
-    size_t info_len = sizeof(info);
-    size_t len = hkdf_vectors[i].len;
-
-    ASSERT(size != 0);
-    ASSERT(sizeof(okm) >= len);
-    ASSERT(sizeof(out) >= len);
-
-    printf("  - HKDF vector #%u (%s)\n", i + 1, hkdf_vectors[i].okm);
-
-    hex_decode(ikm, &ikm_len, hkdf_vectors[i].ikm);
-    hex_decode(salt, &salt_len, hkdf_vectors[i].salt);
-    hex_decode(info, &info_len, hkdf_vectors[i].info);
-    hex_parse(prk, size, hkdf_vectors[i].prk);
-    hex_parse(okm, len, hkdf_vectors[i].okm);
-
-    ASSERT(hkdf_extract(out, type, ikm, ikm_len, salt, salt_len));
-    ASSERT(memcmp(out, prk, size) == 0);
-
-    ASSERT(hkdf_expand(out, type, prk, info, info_len, len));
-    ASSERT(memcmp(out, okm, len) == 0);
-  }
-}
-
-static void
-test_pbkdf2(drbg_t *unused) {
-  unsigned char pass[256];
-  unsigned char salt[256];
-  unsigned char expect[256];
-  unsigned char out[256];
-  unsigned int i;
-
-  (void)unused;
-
-  for (i = 0; i < ARRAY_SIZE(pbkdf2_vectors); i++) {
-    int type = pbkdf2_vectors[i].type;
-    size_t pass_len = sizeof(pass);
-    size_t salt_len = sizeof(salt);
-    unsigned int iter = pbkdf2_vectors[i].iter;
-    size_t len = pbkdf2_vectors[i].len;
-
-    ASSERT(sizeof(expect) >= len);
-    ASSERT(sizeof(out) >= len);
-
-    printf("  - PBKDF2 vector #%u (%s)\n", i + 1, pbkdf2_vectors[i].expect);
-
-    hex_decode(pass, &pass_len, pbkdf2_vectors[i].pass);
-    hex_decode(salt, &salt_len, pbkdf2_vectors[i].salt);
-    hex_parse(expect, len, pbkdf2_vectors[i].expect);
-
-    ASSERT(pbkdf2_derive(out, type, pass, pass_len, salt, salt_len, iter, len));
-    ASSERT(memcmp(out, expect, len) == 0);
-  }
-}
-
-static void
-test_scrypt(drbg_t *unused) {
-  static const unsigned char expect1[64] = {
-    0x77, 0xd6, 0x57, 0x62, 0x38, 0x65, 0x7b, 0x20, 0x3b, 0x19, 0xca, 0x42,
-    0xc1, 0x8a, 0x04, 0x97, 0xf1, 0x6b, 0x48, 0x44, 0xe3, 0x07, 0x4a, 0xe8,
-    0xdf, 0xdf, 0xfa, 0x3f, 0xed, 0xe2, 0x14, 0x42, 0xfc, 0xd0, 0x06, 0x9d,
-    0xed, 0x09, 0x48, 0xf8, 0x32, 0x6a, 0x75, 0x3a, 0x0f, 0xc8, 0x1f, 0x17,
-    0xe8, 0xd3, 0xe0, 0xfb, 0x2e, 0x0d, 0x36, 0x28, 0xcf, 0x35, 0xe2, 0x0c,
-    0x38, 0xd1, 0x89, 0x06
-  };
-
-  static const unsigned char pass2[] = "password";
-  static const unsigned char salt2[] = "NaCl";
-  static const unsigned char expect2[64] = {
-    0xfd, 0xba, 0xbe, 0x1c, 0x9d, 0x34, 0x72, 0x00, 0x78, 0x56, 0xe7, 0x19,
-    0x0d, 0x01, 0xe9, 0xfe, 0x7c, 0x6a, 0xd7, 0xcb, 0xc8, 0x23, 0x78, 0x30,
-    0xe7, 0x73, 0x76, 0x63, 0x4b, 0x37, 0x31, 0x62, 0x2e, 0xaf, 0x30, 0xd9,
-    0x2e, 0x22, 0xa3, 0x88, 0x6f, 0xf1, 0x09, 0x27, 0x9d, 0x98, 0x30, 0xda,
-    0xc7, 0x27, 0xaf, 0xb9, 0x4a, 0x83, 0xee, 0x6d, 0x83, 0x60, 0xcb, 0xdf,
-    0xa2, 0xcc, 0x06, 0x40
-  };
-
-  static const unsigned char pass3[] = "pleaseletmein";
-  static const unsigned char salt3[] = "SodiumChloride";
-  static const unsigned char expect3[64] = {
-    0x70, 0x23, 0xbd, 0xcb, 0x3a, 0xfd, 0x73, 0x48, 0x46, 0x1c, 0x06, 0xcd,
-    0x81, 0xfd, 0x38, 0xeb, 0xfd, 0xa8, 0xfb, 0xba, 0x90, 0x4f, 0x8e, 0x3e,
-    0xa9, 0xb5, 0x43, 0xf6, 0x54, 0x5d, 0xa1, 0xf2, 0xd5, 0x43, 0x29, 0x55,
-    0x61, 0x3f, 0x0f, 0xcf, 0x62, 0xd4, 0x97, 0x05, 0x24, 0x2a, 0x9a, 0xf9,
-    0xe6, 0x1e, 0x85, 0xdc, 0x0d, 0x65, 0x1e, 0x40, 0xdf, 0xcf, 0x01, 0x7b,
-    0x45, 0x57, 0x58, 0x87
-  };
-
-  unsigned char out[64];
-
-  (void)unused;
-
-  ASSERT(scrypt_derive(out, NULL, 0, NULL, 0, 16, 1, 1, 64));
-  ASSERT(memcmp(out, expect1, 64) == 0);
-
-  ASSERT(scrypt_derive(out, pass2, sizeof(pass2) - 1,
-                            salt2, sizeof(salt2) - 1, 1024, 8, 16, 64));
-
-  ASSERT(memcmp(out, expect2, 64) == 0);
-
-  ASSERT(scrypt_derive(out, pass3, sizeof(pass3) - 1,
-                            salt3, sizeof(salt3) - 1, 16384, 8, 1, 64));
-
-  ASSERT(memcmp(out, expect3, 64) == 0);
-}
-
-static void
-test_pgpdf(drbg_t *unused) {
-  static unsigned char expect1[32] = {
-    0xc3, 0xab, 0x8f, 0xf1, 0x37, 0x20, 0xe8, 0xad, 0x90, 0x47, 0xdd, 0x39,
-    0x46, 0x6b, 0x3c, 0x89, 0x74, 0xe5, 0x92, 0xc2, 0xfa, 0x38, 0x3d, 0x4a,
-    0x39, 0x60, 0x71, 0x4c, 0xae, 0xf0, 0xc4, 0xf2
-  };
-
-  static unsigned char expect2[32] = {
-    0xe6, 0x1e, 0x5b, 0xe4, 0x15, 0x6e, 0x2b, 0x48, 0xae, 0x4e, 0xec, 0xf3,
-    0x80, 0xc3, 0x33, 0x5e, 0x64, 0xd5, 0x21, 0xb0, 0x71, 0x4c, 0x55, 0xdd,
-    0x15, 0x75, 0xe6, 0x08, 0x24, 0x59, 0xc4, 0xf3
-  };
-
-  static unsigned char expect3[32] = {
-    0x06, 0x61, 0x52, 0x30, 0xc1, 0x8f, 0x78, 0x5f, 0xf4, 0x95, 0x93, 0x43,
-    0xae, 0xba, 0x16, 0xff, 0x26, 0x8d, 0x11, 0x18, 0x89, 0xbc, 0x65, 0xa2,
-    0xbc, 0xae, 0xb8, 0xa9, 0xea, 0xad, 0x37, 0xfd
-  };
-
-  static const unsigned char pass[] = "foobar";
-  static size_t pass_len = sizeof(pass) - 1;
-  static const unsigned char salt[] = "salty!";
-  static size_t salt_len = sizeof(salt) - 1;
-  unsigned char out[32];
-
-  (void)unused;
-
-  ASSERT(pgpdf_derive_simple(out, HASH_SHA256, pass, pass_len, 32));
-  ASSERT(memcmp(out, expect1, 32) == 0);
-
-  ASSERT(pgpdf_derive_salted(out, HASH_SHA256, pass, pass_len,
-                             salt, salt_len, 32));
-  ASSERT(memcmp(out, expect2, 32) == 0);
-
-  ASSERT(pgpdf_derive_iterated(out, HASH_SHA256, pass, pass_len,
-                               salt, salt_len, 100, 32));
-  ASSERT(memcmp(out, expect3, 32) == 0);
-}
-
-static void
-test_bcrypt(drbg_t *unused) {
+test_kdf_bcrypt(drbg_t *unused) {
   static const struct {
     const char *pass;
     unsigned int rounds;
@@ -2826,7 +2647,7 @@ test_bcrypt(drbg_t *unused) {
 }
 
 static void
-test_bcrypt_pbkdf(drbg_t *unused) {
+test_kdf_bcrypt_pbkdf(drbg_t *unused) {
   static const unsigned char pass[] = "foo";
 
   static const unsigned char salt[] = {
@@ -2849,22 +2670,209 @@ test_bcrypt_pbkdf(drbg_t *unused) {
   ASSERT(memcmp(out, expect, 48) == 0);
 }
 
-/*
- * MPI
- */
+static void
+test_kdf_eb2k(drbg_t *unused) {
+  unsigned char salt[64];
+  unsigned char key[64];
+  unsigned char iv[64];
+  unsigned char out1[64];
+  unsigned char out2[64];
+  unsigned int i;
+
+  (void)unused;
+
+  for (i = 0; i < ARRAY_SIZE(eb2k_vectors); i++) {
+    const unsigned char *pass = (const unsigned char *)eb2k_vectors[i].pass;
+    size_t pass_len = strlen(eb2k_vectors[i].pass);
+    size_t salt_len = sizeof(salt);
+    size_t key_len = sizeof(key);
+    size_t iv_len = sizeof(iv);
+
+    printf("  - EB2K vector #%u (%s)\n", i + 1, pass);
+
+    hex_decode(salt, &salt_len, eb2k_vectors[i].salt);
+    hex_decode(key, &key_len, eb2k_vectors[i].key);
+    hex_decode(iv, &iv_len, eb2k_vectors[i].iv);
+
+    ASSERT(sizeof(out1) >= key_len);
+    ASSERT(sizeof(out2) >= iv_len);
+
+    ASSERT(eb2k_derive(out1, out2, HASH_MD5, pass, pass_len,
+                       salt, salt_len, key_len, iv_len));
+
+    ASSERT(memcmp(out1, key, key_len) == 0);
+    ASSERT(memcmp(out2, iv, iv_len) == 0);
+  }
+}
 
 static void
-test_mpi_primes(drbg_t *unused) {
-  /* TODO */
+test_kdf_hkdf(drbg_t *unused) {
+  unsigned char ikm[128];
+  unsigned char salt[128];
+  unsigned char info[128];
+  unsigned char prk[HASH_MAX_OUTPUT_SIZE];
+  unsigned char okm[128];
+  unsigned char out[128];
+  unsigned int i;
+
   (void)unused;
+
+  for (i = 0; i < ARRAY_SIZE(hkdf_vectors); i++) {
+    int type = hkdf_vectors[i].type;
+    size_t size = hash_output_size(type);
+    size_t ikm_len = sizeof(ikm);
+    size_t salt_len = sizeof(salt);
+    size_t info_len = sizeof(info);
+    size_t len = hkdf_vectors[i].len;
+
+    ASSERT(size != 0);
+    ASSERT(sizeof(okm) >= len);
+    ASSERT(sizeof(out) >= len);
+
+    printf("  - HKDF vector #%u (%s)\n", i + 1, hkdf_vectors[i].okm);
+
+    hex_decode(ikm, &ikm_len, hkdf_vectors[i].ikm);
+    hex_decode(salt, &salt_len, hkdf_vectors[i].salt);
+    hex_decode(info, &info_len, hkdf_vectors[i].info);
+    hex_parse(prk, size, hkdf_vectors[i].prk);
+    hex_parse(okm, len, hkdf_vectors[i].okm);
+
+    ASSERT(hkdf_extract(out, type, ikm, ikm_len, salt, salt_len));
+    ASSERT(memcmp(out, prk, size) == 0);
+
+    ASSERT(hkdf_expand(out, type, prk, info, info_len, len));
+    ASSERT(memcmp(out, okm, len) == 0);
+  }
+}
+
+static void
+test_kdf_pbkdf2(drbg_t *unused) {
+  unsigned char pass[256];
+  unsigned char salt[256];
+  unsigned char expect[256];
+  unsigned char out[256];
+  unsigned int i;
+
+  (void)unused;
+
+  for (i = 0; i < ARRAY_SIZE(pbkdf2_vectors); i++) {
+    int type = pbkdf2_vectors[i].type;
+    size_t pass_len = sizeof(pass);
+    size_t salt_len = sizeof(salt);
+    unsigned int iter = pbkdf2_vectors[i].iter;
+    size_t len = pbkdf2_vectors[i].len;
+
+    ASSERT(sizeof(expect) >= len);
+    ASSERT(sizeof(out) >= len);
+
+    printf("  - PBKDF2 vector #%u (%s)\n", i + 1, pbkdf2_vectors[i].expect);
+
+    hex_decode(pass, &pass_len, pbkdf2_vectors[i].pass);
+    hex_decode(salt, &salt_len, pbkdf2_vectors[i].salt);
+    hex_parse(expect, len, pbkdf2_vectors[i].expect);
+
+    ASSERT(pbkdf2_derive(out, type, pass, pass_len, salt, salt_len, iter, len));
+    ASSERT(memcmp(out, expect, len) == 0);
+  }
+}
+
+static void
+test_kdf_pgpdf(drbg_t *unused) {
+  static unsigned char expect1[32] = {
+    0xc3, 0xab, 0x8f, 0xf1, 0x37, 0x20, 0xe8, 0xad, 0x90, 0x47, 0xdd, 0x39,
+    0x46, 0x6b, 0x3c, 0x89, 0x74, 0xe5, 0x92, 0xc2, 0xfa, 0x38, 0x3d, 0x4a,
+    0x39, 0x60, 0x71, 0x4c, 0xae, 0xf0, 0xc4, 0xf2
+  };
+
+  static unsigned char expect2[32] = {
+    0xe6, 0x1e, 0x5b, 0xe4, 0x15, 0x6e, 0x2b, 0x48, 0xae, 0x4e, 0xec, 0xf3,
+    0x80, 0xc3, 0x33, 0x5e, 0x64, 0xd5, 0x21, 0xb0, 0x71, 0x4c, 0x55, 0xdd,
+    0x15, 0x75, 0xe6, 0x08, 0x24, 0x59, 0xc4, 0xf3
+  };
+
+  static unsigned char expect3[32] = {
+    0x06, 0x61, 0x52, 0x30, 0xc1, 0x8f, 0x78, 0x5f, 0xf4, 0x95, 0x93, 0x43,
+    0xae, 0xba, 0x16, 0xff, 0x26, 0x8d, 0x11, 0x18, 0x89, 0xbc, 0x65, 0xa2,
+    0xbc, 0xae, 0xb8, 0xa9, 0xea, 0xad, 0x37, 0xfd
+  };
+
+  static const unsigned char pass[] = "foobar";
+  static size_t pass_len = sizeof(pass) - 1;
+  static const unsigned char salt[] = "salty!";
+  static size_t salt_len = sizeof(salt) - 1;
+  unsigned char out[32];
+
+  (void)unused;
+
+  ASSERT(pgpdf_derive_simple(out, HASH_SHA256, pass, pass_len, 32));
+  ASSERT(memcmp(out, expect1, 32) == 0);
+
+  ASSERT(pgpdf_derive_salted(out, HASH_SHA256, pass, pass_len,
+                             salt, salt_len, 32));
+  ASSERT(memcmp(out, expect2, 32) == 0);
+
+  ASSERT(pgpdf_derive_iterated(out, HASH_SHA256, pass, pass_len,
+                               salt, salt_len, 100, 32));
+  ASSERT(memcmp(out, expect3, 32) == 0);
+}
+
+static void
+test_kdf_scrypt(drbg_t *unused) {
+  static const unsigned char expect1[64] = {
+    0x77, 0xd6, 0x57, 0x62, 0x38, 0x65, 0x7b, 0x20, 0x3b, 0x19, 0xca, 0x42,
+    0xc1, 0x8a, 0x04, 0x97, 0xf1, 0x6b, 0x48, 0x44, 0xe3, 0x07, 0x4a, 0xe8,
+    0xdf, 0xdf, 0xfa, 0x3f, 0xed, 0xe2, 0x14, 0x42, 0xfc, 0xd0, 0x06, 0x9d,
+    0xed, 0x09, 0x48, 0xf8, 0x32, 0x6a, 0x75, 0x3a, 0x0f, 0xc8, 0x1f, 0x17,
+    0xe8, 0xd3, 0xe0, 0xfb, 0x2e, 0x0d, 0x36, 0x28, 0xcf, 0x35, 0xe2, 0x0c,
+    0x38, 0xd1, 0x89, 0x06
+  };
+
+  static const unsigned char pass2[] = "password";
+  static const unsigned char salt2[] = "NaCl";
+  static const unsigned char expect2[64] = {
+    0xfd, 0xba, 0xbe, 0x1c, 0x9d, 0x34, 0x72, 0x00, 0x78, 0x56, 0xe7, 0x19,
+    0x0d, 0x01, 0xe9, 0xfe, 0x7c, 0x6a, 0xd7, 0xcb, 0xc8, 0x23, 0x78, 0x30,
+    0xe7, 0x73, 0x76, 0x63, 0x4b, 0x37, 0x31, 0x62, 0x2e, 0xaf, 0x30, 0xd9,
+    0x2e, 0x22, 0xa3, 0x88, 0x6f, 0xf1, 0x09, 0x27, 0x9d, 0x98, 0x30, 0xda,
+    0xc7, 0x27, 0xaf, 0xb9, 0x4a, 0x83, 0xee, 0x6d, 0x83, 0x60, 0xcb, 0xdf,
+    0xa2, 0xcc, 0x06, 0x40
+  };
+
+  static const unsigned char pass3[] = "pleaseletmein";
+  static const unsigned char salt3[] = "SodiumChloride";
+  static const unsigned char expect3[64] = {
+    0x70, 0x23, 0xbd, 0xcb, 0x3a, 0xfd, 0x73, 0x48, 0x46, 0x1c, 0x06, 0xcd,
+    0x81, 0xfd, 0x38, 0xeb, 0xfd, 0xa8, 0xfb, 0xba, 0x90, 0x4f, 0x8e, 0x3e,
+    0xa9, 0xb5, 0x43, 0xf6, 0x54, 0x5d, 0xa1, 0xf2, 0xd5, 0x43, 0x29, 0x55,
+    0x61, 0x3f, 0x0f, 0xcf, 0x62, 0xd4, 0x97, 0x05, 0x24, 0x2a, 0x9a, 0xf9,
+    0xe6, 0x1e, 0x85, 0xdc, 0x0d, 0x65, 0x1e, 0x40, 0xdf, 0xcf, 0x01, 0x7b,
+    0x45, 0x57, 0x58, 0x87
+  };
+
+  unsigned char out[64];
+
+  (void)unused;
+
+  ASSERT(scrypt_derive(out, NULL, 0, NULL, 0, 16, 1, 1, 64));
+  ASSERT(memcmp(out, expect1, 64) == 0);
+
+  ASSERT(scrypt_derive(out, pass2, sizeof(pass2) - 1,
+                            salt2, sizeof(salt2) - 1, 1024, 8, 16, 64));
+
+  ASSERT(memcmp(out, expect2, 64) == 0);
+
+  ASSERT(scrypt_derive(out, pass3, sizeof(pass3) - 1,
+                            salt3, sizeof(salt3) - 1, 16384, 8, 1, 64));
+
+  ASSERT(memcmp(out, expect3, 64) == 0);
 }
 
 /*
- * Poly1305
+ * MAC
  */
 
 static void
-test_poly1305(drbg_t *unused) {
+test_mac_poly1305(drbg_t *unused) {
   unsigned char key[32];
   unsigned char msg[8192];
   unsigned char tag[16];
@@ -2890,6 +2898,40 @@ test_poly1305(drbg_t *unused) {
     ASSERT(torsion_memequal(mac, tag, 16));
     ASSERT(memcmp(mac, tag, 16) == 0);
   }
+}
+
+static void
+test_mac_siphash(drbg_t *unused) {
+  static const uint32_t v32 = UINT32_C(0x9dcb553a);
+  static const uint64_t v64 = UINT64_C(0x73b4e2ae9316f6b2);
+  unsigned char msg[32];
+  unsigned char key[16];
+  size_t i;
+
+  (void)unused;
+
+  for (i = 0; i < 32; i++)
+    msg[i] = i;
+
+  for (i = 0; i < 16; i++)
+    key[i] = i + 32;
+
+  ASSERT(siphash_sum(msg, 32, key) == UINT64_C(10090947469682793545));
+  ASSERT(siphash_mod(msg, 32, key, v64) == UINT64_C(4560894765423557143));
+  ASSERT((uint32_t)siphash128_sum(v32, key) == UINT32_C(828368916));
+  ASSERT(siphash128_sum(v64, key) == UINT64_C(620914895672640125));
+  ASSERT((uint32_t)siphash256_sum(v32, msg) == UINT32_C(3909845928));
+  ASSERT(siphash256_sum(v64, msg) == UINT64_C(16928650368383018294));
+}
+
+/*
+ * MPI
+ */
+
+static void
+test_mpi_primes(drbg_t *unused) {
+  /* TODO */
+  (void)unused;
 }
 
 /*
@@ -3120,7 +3162,7 @@ test_rand_fork_safety(drbg_t *unused) {
  */
 
 static void
-test_rsa(drbg_t *unused) {
+test_rsa_vectors(drbg_t *unused) {
   static unsigned char priv[RSA_MAX_PRIV_SIZE];
   static unsigned char pub[RSA_MAX_PUB_SIZE];
   static unsigned char msg[HASH_MAX_OUTPUT_SIZE];
@@ -3338,11 +3380,95 @@ test_rsa_random(drbg_t *rng) {
 }
 
 /*
- * Salsa20
+ * Stream
  */
 
 static void
-test_salsa20(drbg_t *unused) {
+test_stream_arc4(drbg_t *unused) {
+  static const unsigned char expect[32] = {
+    0x42, 0x83, 0x06, 0x31, 0x1d, 0xd2, 0x34, 0x98,
+    0x51, 0x3a, 0x18, 0x7c, 0x36, 0x4c, 0x03, 0xc0,
+    0x56, 0x7b, 0x5c, 0x82, 0x94, 0x70, 0x29, 0xfa,
+    0x1d, 0x26, 0x24, 0x9f, 0x86, 0x25, 0x1a, 0xa0
+  };
+
+  unsigned char key[32];
+  unsigned char msg[32];
+  unsigned char data[32];
+  arc4_t ctx;
+  size_t i;
+
+  (void)unused;
+
+  for (i = 0; i < 32; i++) {
+    key[i] = i + 10;
+    msg[i] = i + 20;
+  }
+
+  memcpy(data, msg, 32);
+
+  arc4_init(&ctx, key, 32);
+
+  for (i = 0; i < 1000; i++)
+    arc4_crypt(&ctx, data, data, 32);
+
+  ASSERT(memcmp(data, expect, 32) == 0);
+
+  arc4_init(&ctx, key, 32);
+
+  for (i = 0; i < 1000; i++)
+    arc4_crypt(&ctx, data, data, 32);
+
+  ASSERT(memcmp(data, msg, 32) == 0);
+}
+
+static void
+test_stream_chacha20(drbg_t *unused) {
+  unsigned char key[32];
+  unsigned char nonce[24];
+  unsigned char input[4096];
+  unsigned char output[4096];
+  unsigned char data[4096];
+  chacha20_t ctx;
+  unsigned int i;
+
+  (void)unused;
+
+  for (i = 0; i < ARRAY_SIZE(chacha20_vectors); i++) {
+    size_t key_len = sizeof(key);
+    size_t nonce_len = sizeof(nonce);
+    unsigned int counter = chacha20_vectors[i].counter;
+    size_t input_len = sizeof(input);
+    size_t output_len = sizeof(output);
+    size_t data_len;
+
+    printf("  - ChaCha20 vector #%u\n", i + 1);
+
+    hex_decode(key, &key_len, chacha20_vectors[i].key);
+    hex_decode(nonce, &nonce_len, chacha20_vectors[i].nonce);
+    hex_decode(input, &input_len, chacha20_vectors[i].input);
+    hex_decode(output, &output_len, chacha20_vectors[i].output);
+
+    ASSERT(input_len == output_len);
+
+    data_len = input_len;
+
+    memcpy(data, input, input_len);
+
+    chacha20_init(&ctx, key, key_len, nonce, nonce_len, counter);
+    chacha20_crypt(&ctx, data, data, data_len);
+
+    ASSERT(memcmp(data, output, output_len) == 0);
+
+    chacha20_init(&ctx, key, key_len, nonce, nonce_len, counter);
+    chacha20_crypt(&ctx, data, data, data_len);
+
+    ASSERT(memcmp(data, input, input_len) == 0);
+  }
+}
+
+static void
+test_stream_salsa20(drbg_t *unused) {
   /* https://github.com/golang/crypto/blob/master/salsa20/salsa20_test.go */
   struct {
     unsigned char key[32];
@@ -3450,7 +3576,7 @@ test_salsa20(drbg_t *unused) {
 }
 
 static void
-test_xsalsa20(drbg_t *unused) {
+test_stream_xsalsa20(drbg_t *unused) {
   /* https://github.com/golang/crypto/blob/master/salsa20/salsa20_test.go */
   static const unsigned char input[] = "Hello world!";
   static const unsigned char nonce[] = "24-byte nonce for xsalsa";
@@ -3472,149 +3598,11 @@ test_xsalsa20(drbg_t *unused) {
 }
 
 /*
- * Secretbox
- */
-
-static void
-test_secretbox(drbg_t *unused) {
-  static const unsigned char expect1[80] = {
-    0x84, 0x42, 0xbc, 0x31, 0x3f, 0x46, 0x26, 0xf1, 0x35, 0x9e, 0x3b, 0x50,
-    0x12, 0x2b, 0x6c, 0xe6, 0xfe, 0x66, 0xdd, 0xfe, 0x7d, 0x39, 0xd1, 0x4e,
-    0x63, 0x7e, 0xb4, 0xfd, 0x5b, 0x45, 0xbe, 0xad, 0xab, 0x55, 0x19, 0x8d,
-    0xf6, 0xab, 0x53, 0x68, 0x43, 0x97, 0x92, 0xa2, 0x3c, 0x87, 0xdb, 0x70,
-    0xac, 0xb6, 0x15, 0x6d, 0xc5, 0xef, 0x95, 0x7a, 0xc0, 0x4f, 0x62, 0x76,
-    0xcf, 0x60, 0x93, 0xb8, 0x4b, 0xe7, 0x7f, 0xf0, 0x84, 0x9c, 0xc3, 0x3e,
-    0x34, 0xb7, 0x25, 0x4d, 0x5a, 0x8f, 0x65, 0xad
-  };
-
-  static const unsigned char expect2[80] = {
-    0x78, 0xea, 0x30, 0xb1, 0x9d, 0x23, 0x41, 0xeb, 0xbd, 0xba, 0x54, 0x18,
-    0x0f, 0x82, 0x1e, 0xec, 0x26, 0x5c, 0xf8, 0x63, 0x12, 0x54, 0x9b, 0xea,
-    0x8a, 0x37, 0x65, 0x2a, 0x8b, 0xb9, 0x4f, 0x07, 0xb7, 0x8a, 0x73, 0xed,
-    0x17, 0x08, 0x08, 0x5e, 0x6d, 0xdd, 0x0e, 0x94, 0x3b, 0xbd, 0xeb, 0x87,
-    0x55, 0x07, 0x9a, 0x37, 0xeb, 0x31, 0xd8, 0x61, 0x63, 0xce, 0x24, 0x11,
-    0x64, 0xa4, 0x76, 0x29, 0xc0, 0x53, 0x9f, 0x33, 0x0b, 0x49, 0x14, 0xcd,
-    0x13, 0x5b, 0x38, 0x55, 0xbc, 0x2a, 0x2d, 0xfc
-  };
-
-  mont_curve_t *ec = mont_curve_create(MONT_CURVE_X25519);
-  unsigned char priv1[32];
-  unsigned char priv2[32];
-  unsigned char pub1[32];
-  unsigned char secret[32];
-  unsigned char key[32];
-  unsigned char nonce[24];
-  unsigned char msg[64];
-  unsigned char sealed[SECRETBOX_SEAL_SIZE(64)];
-  unsigned char opened[64];
-
-  (void)unused;
-
-  ASSERT(sizeof(sealed) == 80);
-
-  /* Raw. */
-  memset(key, 1, sizeof(key));
-  memset(nonce, 2, sizeof(nonce));
-  memset(msg, 3, sizeof(msg));
-
-  secretbox_seal(sealed, msg, sizeof(msg), key, nonce);
-
-  ASSERT(secretbox_open(opened, sealed, sizeof(sealed), key, nonce));
-
-  ASSERT(memcmp(sealed, expect1, sizeof(expect1)) == 0);
-  ASSERT(memcmp(opened, msg, sizeof(msg)) == 0);
-
-  /* crypto_secretbox_xsalsa20poly1305 */
-  memset(priv1, 1, sizeof(priv1));
-  memset(priv2, 2, sizeof(priv1));
-  memset(msg, 3, sizeof(msg));
-  memset(nonce, 4, sizeof(nonce));
-
-  ecdh_pubkey_create(ec, pub1, priv1);
-
-  ASSERT(ecdh_derive(ec, secret, pub1, priv2));
-
-  secretbox_derive(key, secret);
-  secretbox_seal(sealed, msg, sizeof(msg), key, nonce);
-
-  ASSERT(secretbox_open(opened, sealed, sizeof(sealed), key, nonce));
-
-  ASSERT(memcmp(sealed, expect2, sizeof(expect2)) == 0);
-  ASSERT(memcmp(opened, msg, sizeof(msg)) == 0);
-
-  mont_curve_destroy(ec);
-}
-
-static void
-test_secretbox_random(drbg_t *rng) {
-  unsigned char sealed[SECRETBOX_SEAL_SIZE(128)];
-  unsigned char opened[128];
-  unsigned char msg[128];
-  unsigned char key[32];
-  unsigned char nonce[24];
-  size_t i, len, last;
-
-  drbg_generate(rng, key, 32);
-  drbg_generate(rng, nonce, 24);
-
-  for (len = 0; len < 128; len += 17) {
-    drbg_generate(rng, msg, len);
-
-    secretbox_seal(sealed, msg, len, key, nonce);
-
-    if (len > 0) {
-      ASSERT(memcmp(sealed, msg, len) != 0);
-      ASSERT(memcmp(sealed + 16, msg, len) != 0);
-    }
-
-    ASSERT(secretbox_open(opened, sealed, len + 16, key, nonce));
-
-    last = len + 16;
-  }
-
-  for (i = 0; i < last; i++) {
-    sealed[i] ^= 0x20;
-    ASSERT(!secretbox_open(opened, sealed, last, key, nonce));
-    sealed[i] ^= 0x20;
-  }
-
-  ASSERT(secretbox_open(opened, sealed, last, key, nonce));
-}
-
-/*
- * Siphash
- */
-
-static void
-test_siphash(drbg_t *unused) {
-  static const uint32_t v32 = UINT32_C(0x9dcb553a);
-  static const uint64_t v64 = UINT64_C(0x73b4e2ae9316f6b2);
-  unsigned char msg[32];
-  unsigned char key[16];
-  size_t i;
-
-  (void)unused;
-
-  for (i = 0; i < 32; i++)
-    msg[i] = i;
-
-  for (i = 0; i < 16; i++)
-    key[i] = i + 32;
-
-  ASSERT(siphash_sum(msg, 32, key) == UINT64_C(10090947469682793545));
-  ASSERT(siphash_mod(msg, 32, key, v64) == UINT64_C(4560894765423557143));
-  ASSERT((uint32_t)siphash128_sum(v32, key) == UINT32_C(828368916));
-  ASSERT(siphash128_sum(v64, key) == UINT64_C(620914895672640125));
-  ASSERT((uint32_t)siphash256_sum(v32, msg) == UINT32_C(3909845928));
-  ASSERT(siphash256_sum(v64, msg) == UINT64_C(16928650368383018294));
-}
-
-/*
  * Util
  */
 
 static void
-test_cleanse(drbg_t *rng) {
+test_util_cleanse(drbg_t *rng) {
   static const unsigned char zero[32] = {0};
   unsigned char raw[32];
 
@@ -3628,7 +3616,7 @@ test_cleanse(drbg_t *rng) {
 }
 
 static void
-test_memequal(drbg_t *rng) {
+test_util_memequal(drbg_t *rng) {
   unsigned char s1[32];
   unsigned char s2[32];
 
@@ -3644,7 +3632,7 @@ test_memequal(drbg_t *rng) {
 }
 
 static void
-test_murmur3(drbg_t *unused) {
+test_util_murmur3(drbg_t *unused) {
   static const struct {
     const char *str;
     uint32_t seed;
@@ -3688,116 +3676,110 @@ test_murmur3(drbg_t *unused) {
  * Test Registry
  */
 
-#define TORSION_TEST(name) { #name, test_ ## name }
-
 typedef struct torsion_test_s {
   const char *name;
   void (*run)(drbg_t *);
 } torsion_test_t;
 
 static const torsion_test_t torsion_tests[] = {
+#define T(name) { #name, test_ ## name }
   /* AEAD */
-  TORSION_TEST(aead),
-
-  /* ARC4 */
-  TORSION_TEST(arc4),
-
-  /* ChaCha20 */
-  TORSION_TEST(chacha20),
+  T(aead_chachapoly),
 
   /* Cipher */
-  TORSION_TEST(ciphers),
-  TORSION_TEST(cipher_modes),
-  TORSION_TEST(cipher_aead),
+  T(cipher_contexts),
+  T(cipher_modes),
+  T(cipher_aead),
 
   /* DRBG */
-  TORSION_TEST(hash_drbg),
-  TORSION_TEST(hmac_drbg),
-  TORSION_TEST(ctr_drbg),
+  T(drbg_hash),
+  T(drbg_hmac),
+  T(drbg_ctr),
 
   /* DSA */
-  TORSION_TEST(dsa),
-  TORSION_TEST(dsa_keygen),
+  T(dsa_vectors),
+  T(dsa_keygen),
 
   /* ECC */
-  TORSION_TEST(ecc_internal),
-  TORSION_TEST(ecdsa),
-  TORSION_TEST(ecdsa_random),
-  TORSION_TEST(ecdsa_sswu),
-  TORSION_TEST(ecdsa_svdw),
-  TORSION_TEST(schnorr_legacy),
-  TORSION_TEST(schnorr_legacy_random),
-  TORSION_TEST(schnorr),
-  TORSION_TEST(schnorr_random),
-  TORSION_TEST(ecdh_x25519),
-  TORSION_TEST(ecdh_x448),
-  TORSION_TEST(ecdh_random),
-  TORSION_TEST(ecdh_elligator2),
-  TORSION_TEST(eddsa),
-  TORSION_TEST(eddsa_random),
-  TORSION_TEST(eddsa_elligator2),
+  T(ecc_internal),
+  T(ecdsa_vectors),
+  T(ecdsa_random),
+  T(ecdsa_sswu),
+  T(ecdsa_svdw),
+  T(schnorr_legacy_vectors),
+  T(schnorr_legacy_random),
+  T(schnorr_vectors),
+  T(schnorr_random),
+  T(ecdh_x25519),
+  T(ecdh_x448),
+  T(ecdh_random),
+  T(ecdh_elligator2),
+  T(eddsa_vectors),
+  T(eddsa_random),
+  T(eddsa_elligator2),
 
   /* Encoding */
-  TORSION_TEST(base16),
-  TORSION_TEST(base32),
-  TORSION_TEST(base58),
-  TORSION_TEST(base64),
-  TORSION_TEST(bech32),
-  TORSION_TEST(cash32),
+  T(encoding_base16),
+  T(encoding_base32),
+  T(encoding_base58),
+  T(encoding_base64),
+  T(encoding_bech32),
+  T(encoding_cash32),
 
   /* Hash */
-  TORSION_TEST(hash),
-  TORSION_TEST(hmac),
+  T(hash_digest),
+  T(hash_hmac),
+
+  /* IES */
+  T(ies_secretbox),
+  T(ies_secretbox_random),
 
   /* KDF */
-  TORSION_TEST(eb2k),
-  TORSION_TEST(hkdf),
-  TORSION_TEST(pbkdf2),
-  TORSION_TEST(scrypt),
-  TORSION_TEST(pgpdf),
-  TORSION_TEST(bcrypt),
-  TORSION_TEST(bcrypt_pbkdf),
+  T(kdf_bcrypt),
+  T(kdf_bcrypt_pbkdf),
+  T(kdf_eb2k),
+  T(kdf_hkdf),
+  T(kdf_pbkdf2),
+  T(kdf_pgpdf),
+  T(kdf_scrypt),
+
+  /* MAC */
+  T(mac_poly1305),
+  T(mac_siphash),
 
   /* MPI */
-  TORSION_TEST(mpi_primes),
-
-  /* Poly1305 */
-  TORSION_TEST(poly1305),
+  T(mpi_primes),
 
   /* Random */
 #ifdef TORSION_HAVE_RNG
-  TORSION_TEST(rand_rng),
-  TORSION_TEST(rand_getentropy),
-  TORSION_TEST(rand_getrandom),
-  TORSION_TEST(rand_random),
-  TORSION_TEST(rand_uniform),
+  T(rand_rng),
+  T(rand_getentropy),
+  T(rand_getrandom),
+  T(rand_random),
+  T(rand_uniform),
 #ifdef TORSION_HAVE_THREADS
-  TORSION_TEST(rand_thread_safety),
+  T(rand_thread_safety),
 #endif
 #ifdef TORSION_HAVE_FORK
-  TORSION_TEST(rand_fork_safety),
+  T(rand_fork_safety),
 #endif
 #endif /* TORSION_HAVE_RNG */
 
   /* RSA */
-  TORSION_TEST(rsa),
-  TORSION_TEST(rsa_random),
+  T(rsa_vectors),
+  T(rsa_random),
 
-  /* Salsa20 */
-  TORSION_TEST(salsa20),
-  TORSION_TEST(xsalsa20),
-
-  /* Secretbox */
-  TORSION_TEST(secretbox),
-  TORSION_TEST(secretbox_random),
-
-  /* Siphash */
-  TORSION_TEST(siphash),
+  /* Stream */
+  T(stream_arc4),
+  T(stream_chacha20),
+  T(stream_salsa20),
+  T(stream_xsalsa20),
 
   /* Util */
-  TORSION_TEST(cleanse),
-  TORSION_TEST(memequal),
-  TORSION_TEST(murmur3)
+  T(util_cleanse),
+  T(util_memequal),
+  T(util_murmur3)
+#undef T
 };
 
 /*
