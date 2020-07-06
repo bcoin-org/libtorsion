@@ -23,10 +23,6 @@
  *   We have only one part of our ECC code which is variable time:
  *   the ECDSA signing loop. We have code present to explicitly
  *   exclude this.
- *
- *   When using autotools, this test can be run with:
- *
- *     $ libtool --mode=execute valgrind ./torsion_ctime
  */
 
 #include <limits.h>
