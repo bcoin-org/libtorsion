@@ -1,5 +1,9 @@
 #!/bin/sh
 
+# run-wasi.sh - wasi runner for libtorsion
+# Copyright (c) 2020, Christopher Jeffrey (MIT License).
+# https://github.com/bcoin-org/libtorsion
+
 DIR=`dirname "$0"`
 
 exec node                               \

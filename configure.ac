@@ -1,3 +1,7 @@
+dnl configure.ac - autoconf script for libtorsion
+dnl Copyright (c) 2020, Christopher Jeffrey (MIT License).
+dnl https://github.com/bcoin-org/libtorsion
+
 AC_PREREQ(2.59)
 AC_INIT([libtorsion], [0.0.0], [https://github.com/bcoin-org/libtorsion/issues])
 TORSION_LIB_VERSION=0:0:0

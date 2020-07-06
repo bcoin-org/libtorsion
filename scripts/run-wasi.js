@@ -1,3 +1,9 @@
+/*!
+ * run-wasi.js - wasi-runner for libtorsion
+ * Copyright (c) 2020, Christopher Jeffrey (MIT License).
+ * https://github.com/bcoin-org/libtorsion
+ */
+
 'use strict';
 
 const fs = require('fs');

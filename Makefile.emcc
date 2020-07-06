@@ -1,3 +1,7 @@
+# Makefile.emcc - emscripten makefile for libtorsion
+# Copyright (c) 2020, Christopher Jeffrey (MIT License).
+# https://github.com/bcoin-org/libtorsion
+
 CC = emcc
 INITIAL_MEMORY ?= 16777216
 MAX_MEMORY ?= 2147483648

@@ -1,3 +1,7 @@
+# CMakeLists.txt - cmake build for libtorsion
+# Copyright (c) 2020, Christopher Jeffrey (MIT License).
+# https://github.com/bcoin-org/libtorsion
+
 cmake_minimum_required(VERSION 3.4)
 project(libtorsion LANGUAGES C)
 

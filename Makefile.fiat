@@ -1,3 +1,7 @@
+# Makefile.fiat - fiat makefile for libtorsion
+# Copyright (c) 2020, Christopher Jeffrey (MIT License).
+# https://github.com/bcoin-org/libtorsion
+
 FIAT ?= $(HOME)/fiat-crypto
 UNSATURATED := $(FIAT)/src/ExtractionOCaml/unsaturated_solinas
 MONTGOMERY := $(FIAT)/src/ExtractionOCaml/word_by_word_montgomery
