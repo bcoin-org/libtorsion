@@ -10,18 +10,9 @@
 #include <stdio.h>
 #include <string.h>
 
-#include <torsion/aead.h>
 #include <torsion/drbg.h>
-#include <torsion/dsa.h>
 #include <torsion/ecc.h>
-#include <torsion/encoding.h>
 #include <torsion/hash.h>
-#include <torsion/ies.h>
-#include <torsion/kdf.h>
-#include <torsion/mac.h>
-#include <torsion/rsa.h>
-#include <torsion/stream.h>
-#include <torsion/util.h>
 
 #include "hrtime.h"
 #include "utils.h"

@@ -5,7 +5,6 @@
  */
 
 #include <inttypes.h>
-#include <limits.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -38,8 +37,8 @@
 
 #include "utils.h"
 
-#include "data/aead-vectors.h"
 #include "data/chacha20-vectors.h"
+#include "data/chachapoly-vectors.h"
 #include "data/hash-drbg-vectors.h"
 #include "data/hmac-drbg-vectors.h"
 #include "data/ctr-drbg-vectors.h"
@@ -219,25 +218,25 @@ test_aead_chachapoly(drbg_t *unused) {
   static unsigned char output[8192];
   static unsigned char tag[16];
   static unsigned char mac[16];
-  aead_t ctx;
+  chachapoly_t ctx;
   unsigned int i;
 
   (void)unused;
 
-  for (i = 0; i < ARRAY_SIZE(aead_vectors); i++) {
+  for (i = 0; i < ARRAY_SIZE(chachapoly_vectors); i++) {
     size_t input_len = sizeof(input);
     size_t aad_len = sizeof(aad);
     size_t nonce_len = sizeof(nonce);
     size_t raw_len = sizeof(raw);
     size_t data_len, output_len;
 
-    printf("  - AEAD vector #%u\n", i + 1);
+    printf("  - ChaCha20-Poly1305 vector #%u\n", i + 1);
 
-    hex_decode(input, &input_len, aead_vectors[i][0]);
-    hex_decode(aad, &aad_len, aead_vectors[i][1]);
-    hex_parse(key, 32, aead_vectors[i][2]);
-    hex_decode(nonce, &nonce_len, aead_vectors[i][3]);
-    hex_decode(raw, &raw_len, aead_vectors[i][4]);
+    hex_decode(input, &input_len, chachapoly_vectors[i][0]);
+    hex_decode(aad, &aad_len, chachapoly_vectors[i][1]);
+    hex_parse(key, 32, chachapoly_vectors[i][2]);
+    hex_decode(nonce, &nonce_len, chachapoly_vectors[i][3]);
+    hex_decode(raw, &raw_len, chachapoly_vectors[i][4]);
 
     ASSERT(raw_len >= 16);
 
@@ -248,33 +247,33 @@ test_aead_chachapoly(drbg_t *unused) {
     memcpy(output, raw, output_len);
     memcpy(tag, raw + output_len, 16);
 
-    aead_init(&ctx, key, nonce, nonce_len);
-    aead_aad(&ctx, aad, aad_len);
-    aead_encrypt(&ctx, data, data, data_len);
+    chachapoly_init(&ctx, key, nonce, nonce_len);
+    chachapoly_aad(&ctx, aad, aad_len);
+    chachapoly_encrypt(&ctx, data, data, data_len);
 
     ASSERT(memcmp(data, output, output_len) == 0);
 
-    aead_final(&ctx, mac);
+    chachapoly_final(&ctx, mac);
 
     ASSERT(memcmp(mac, tag, 16) == 0);
     ASSERT(torsion_memequal(mac, tag, 16));
 
-    aead_init(&ctx, key, nonce, nonce_len);
-    aead_aad(&ctx, aad, aad_len);
-    aead_auth(&ctx, data, data_len);
+    chachapoly_init(&ctx, key, nonce, nonce_len);
+    chachapoly_aad(&ctx, aad, aad_len);
+    chachapoly_auth(&ctx, data, data_len);
 
-    aead_final(&ctx, mac);
+    chachapoly_final(&ctx, mac);
 
     ASSERT(memcmp(mac, tag, 16) == 0);
     ASSERT(torsion_memequal(mac, tag, 16));
 
-    aead_init(&ctx, key, nonce, nonce_len);
-    aead_aad(&ctx, aad, aad_len);
-    aead_decrypt(&ctx, data, data, data_len);
+    chachapoly_init(&ctx, key, nonce, nonce_len);
+    chachapoly_aad(&ctx, aad, aad_len);
+    chachapoly_decrypt(&ctx, data, data, data_len);
 
     ASSERT(memcmp(data, input, input_len) == 0);
 
-    aead_final(&ctx, mac);
+    chachapoly_final(&ctx, mac);
 
     ASSERT(memcmp(mac, tag, 16) == 0);
     ASSERT(torsion_memequal(mac, tag, 16));

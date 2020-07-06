@@ -7,7 +7,7 @@ typedef struct eb2k_vector_s {
   const char *iv;
 } eb2k_vector_t;
 
-static const eb2k_vector_t eb2k_vectors[9] = {
+static const eb2k_vector_t eb2k_vectors[] = {
   {
     "1234567890",
     "286e37f0b031c0d2c72c674b116e5342",

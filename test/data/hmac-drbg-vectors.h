@@ -7,7 +7,7 @@ typedef struct hmac_drbg_vector_s {
   const char *expect;
 } hmac_drbg_vector_t;
 
-static const hmac_drbg_vector_t hmac_drbg_vectors[1200] = {
+static const hmac_drbg_vector_t hmac_drbg_vectors[] = {
   {
     HASH_SHA1,
     "79349bbf7cdda5799557866621c913831146733abf8c35c8",

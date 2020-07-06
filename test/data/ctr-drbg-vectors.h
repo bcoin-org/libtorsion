@@ -10,7 +10,7 @@ typedef struct ctr_drbg_vector_s {
   const char *expect;
 } ctr_drbg_vector_t;
 
-static const ctr_drbg_vector_t ctr_drbg_vectors[1440] = {
+static const ctr_drbg_vector_t ctr_drbg_vectors[] = {
   {
     128,
     0,

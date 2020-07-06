@@ -7,7 +7,7 @@ typedef struct cipher_mode_vector_s {
   const char *output;
 } cipher_mode_vector_t;
 
-static const cipher_mode_vector_t cipher_mode_vectors[462] = {
+static const cipher_mode_vector_t cipher_mode_vectors[] = {
   {
     CIPHER_AES128,
     CIPHER_MODE_RAW,

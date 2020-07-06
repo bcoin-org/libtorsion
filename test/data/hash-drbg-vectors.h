@@ -7,7 +7,7 @@ typedef struct hash_drbg_vector_s {
   const char *expect;
 } hash_drbg_vector_t;
 
-static const hash_drbg_vector_t hash_drbg_vectors[1200] = {
+static const hash_drbg_vector_t hash_drbg_vectors[] = {
   {
     HASH_SHA1,
     "1610b828ccd27de08ceea032a20e9208492cf1709242f6b5",

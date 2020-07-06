@@ -9,7 +9,7 @@ typedef struct cipher_aead_vector_s {
   const char *tag;
 } cipher_aead_vector_t;
 
-static const cipher_aead_vector_t cipher_aead_vectors[108] = {
+static const cipher_aead_vector_t cipher_aead_vectors[] = {
   {
     CIPHER_AES128,
     CIPHER_MODE_GCM,

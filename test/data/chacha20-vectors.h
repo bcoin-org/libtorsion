@@ -6,7 +6,7 @@ typedef struct chacha20_vector_s {
   const char *output;
 } chacha20_vector_t;
 
-static const chacha20_vector_t chacha20_vectors[108] = {
+static const chacha20_vector_t chacha20_vectors[] = {
   {
     "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
     "000000000000004a00000000",

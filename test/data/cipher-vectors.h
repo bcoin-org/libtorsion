@@ -5,7 +5,7 @@ typedef struct cipher_vector_s {
   const char *expect;
 } cipher_vector_t;
 
-static const cipher_vector_t cipher_vectors[105] = {
+static const cipher_vector_t cipher_vectors[] = {
   {
     CIPHER_AES128,
     "ced0d7d8c39f0a2961e0d701c8bc19b7",

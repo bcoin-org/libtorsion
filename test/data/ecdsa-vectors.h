@@ -21,7 +21,7 @@ typedef struct ecdsa_vector_s {
   const char *secret;
 } ecdsa_vector_t;
 
-static const ecdsa_vector_t ecdsa_vectors[96] = {
+static const ecdsa_vector_t ecdsa_vectors[] = {
   {
     WEI_CURVE_P192,
     "c13adfb74988e252935955a23630441e4439d9868967eda0",

@@ -7,7 +7,7 @@ typedef struct pbkdf2_vector_s {
   const char *expect;
 } pbkdf2_vector_t;
 
-static const pbkdf2_vector_t pbkdf2_vectors[40] = {
+static const pbkdf2_vector_t pbkdf2_vectors[] = {
   {
     HASH_SHA1,
     "b68883069eb3fe219e62ca6cbfbedbaf37e1896ce71db611f1592b661c08f30632122efa891547991bf3111f33871cba68854a80f13977f458ced1d1a57ab3c28ac8cbd5fae4ff91966750f938ab1d01f66ed88127ebbcc934ee4406d70039655a",

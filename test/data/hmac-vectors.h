@@ -5,7 +5,7 @@ typedef struct hmac_vector_s {
   const char *expect;
 } hmac_vector_t;
 
-static const hmac_vector_t hmac_vectors[160] = {
+static const hmac_vector_t hmac_vectors[] = {
   {
     HASH_BLAKE2B_160,
     "32cad3f73fa50d37a8754291580144dc91012ebe0a71e16894ebf823de3cca002b0bd98f93",

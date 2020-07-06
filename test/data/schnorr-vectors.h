@@ -8,7 +8,7 @@ typedef struct schnorr_vector_s {
   const char *comment;
 } schnorr_vector_t;
 
-static const schnorr_vector_t schnorr_vectors[15] = {
+static const schnorr_vector_t schnorr_vectors[] = {
   {
     "0000000000000000000000000000000000000000000000000000000000000003",
     "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",

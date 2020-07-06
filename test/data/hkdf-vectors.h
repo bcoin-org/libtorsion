@@ -8,7 +8,7 @@ typedef struct hkdf_vector_s {
   const char *okm;
 } hkdf_vector_t;
 
-static const hkdf_vector_t hkdf_vectors[7] = {
+static const hkdf_vector_t hkdf_vectors[] = {
   {
     HASH_SHA256,
     "0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b",

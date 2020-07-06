@@ -4,7 +4,7 @@ typedef struct hash_vector_s {
   const char *expect;
 } hash_vector_t;
 
-static const hash_vector_t hash_vectors[192] = {
+static const hash_vector_t hash_vectors[] = {
   {
     HASH_BLAKE2B_160,
     "",

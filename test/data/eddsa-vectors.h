@@ -25,7 +25,7 @@ typedef struct eddsa_vector_s {
   const char *montsecret;
 } eddsa_vector_t;
 
-static const eddsa_vector_t eddsa_vectors[64] = {
+static const eddsa_vector_t eddsa_vectors[] = {
   {
     EDWARDS_CURVE_ED25519,
     "b0be5831d7aef8ddcb5cd44a2c070b211e1e67b4f2afa5fd69c8df79e3b3fc06",

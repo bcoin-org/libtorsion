@@ -7,7 +7,7 @@ typedef struct schnorr_legacy_vector_s {
   const char *comment;
 } schnorr_legacy_vector_t;
 
-static const schnorr_legacy_vector_t schnorr_legacy_vectors[16] = {
+static const schnorr_legacy_vector_t schnorr_legacy_vectors[] = {
   {
     "0000000000000000000000000000000000000000000000000000000000000001",
     "0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
