@@ -53,7 +53,7 @@ endif
 
 LIB_OBJECTS := $(subst .c,.o,$(LIB_SOURCES))
 LIB_CFLAGS := $(COMMON_CFLAGS) -DTORSION_BUILD $(CFLAGS)
-LIB_LDFLAGS =
+LIB_LIBS =
 
 BENCH_SOURCES = test/bench.c test/hrtime.c
 BENCH_CFLAGS := $(COMMON_CFLAGS) $(CFLAGS)
@@ -70,7 +70,9 @@ CTIME_LIBS = -L. -ltorsion
 ifeq ($(ENABLE_COVERAGE), 1)
 LIB_CFLAGS += -DTORSION_COVERAGE
 LIB_CFLAGS += -O0 --coverage
-LIB_LDFLAGS += --coverage
+LIB_LIBS += -lgcov
+BENCH_LIBS += -lgcov
+TEST_LIBS += -lgcov
 endif
 
 ifeq ($(ENABLE_DEBUG), 1)
@@ -98,7 +100,7 @@ all: $(OUTPUT)
 	$(CC) -o $@ -c -fPIC $(LIB_CFLAGS) $<
 
 libtorsion.$(SO): $(LIB_OBJECTS)
-	$(CC) -o $@ -shared -fPIC $(LIB_LDFLAGS) $^
+	$(CC) -o $@ -shared -fPIC $^ $(LIB_LIBS)
 
 libtorsion.a: $(LIB_OBJECTS)
 	$(AR) rcs $@ $^

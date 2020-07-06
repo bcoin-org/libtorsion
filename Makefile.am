@@ -152,11 +152,6 @@ libtorsion_la_SOURCES = $(torsion_sources)
 libtorsion_la_CFLAGS = -DTORSION_BUILD
 libtorsion_la_LDFLAGS = -no-undefined -version-info 0:0:0
 
-if ENABLE_COVERAGE
-libtorsion_la_CFLAGS += -O0 --coverage
-libtorsion_la_LDFLAGS += --coverage
-endif
-
 noinst_PROGRAMS += torsion_bench
 torsion_bench_SOURCES = $(bench_sources)
 torsion_bench_LDFLAGS = -static
@@ -181,6 +176,13 @@ torsion_test_static_SOURCES = $(torsion_test_SOURCES)
 torsion_test_static_CFLAGS = $(torsion_test_CFLAGS)
 torsion_test_static_LDFLAGS = -static
 torsion_test_static_LDADD = $(torsion_test_LDADD)
+
+if ENABLE_COVERAGE
+libtorsion_la_CFLAGS += -O0 --coverage
+libtorsion_la_LDFLAGS += --coverage
+torsion_bench_LDADD += -lgcov
+torsion_test_static_LDADD += -lgcov
+endif
 
 if ENABLE_CTIME
 noinst_PROGRAMS += torsion_ctime
