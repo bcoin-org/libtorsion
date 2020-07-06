@@ -171,10 +171,10 @@ endif
 
 TESTS += torsion_test_static
 noinst_PROGRAMS += torsion_test_static
-torsion_test_static_SOURCES = $(torsion_test_SOURCES)
-torsion_test_static_CFLAGS = $(torsion_test_CFLAGS)
+torsion_test_static_SOURCES := $(torsion_test_SOURCES)
+torsion_test_static_CFLAGS := $(torsion_test_CFLAGS)
 torsion_test_static_LDFLAGS = -static
-torsion_test_static_LDADD = $(torsion_test_LDADD)
+torsion_test_static_LDADD := $(torsion_test_LDADD)
 
 if ENABLE_COVERAGE
 libtorsion_la_CFLAGS += -O0 --coverage
