@@ -23,7 +23,9 @@ COMMON_CFLAGS = -std=c89                         \
                 -I./include                      \
                 -O3
 
-COMMON_LIBS = -L. -ltorsion
+COMMON_LIBS := -Wl,-rpath,$(shell pwd) libtorsion.$(SO)
+
+COMMON_LIBS_A = libtorsion.a
 
 LIB_SOURCES = src/aead.c      \
               src/asn1.c      \
@@ -60,7 +62,7 @@ BENCH_LIBS := $(COMMON_LIBS)
 TEST_SOURCES = test/test.c
 TEST_CFLAGS := $(COMMON_CFLAGS) -DTORSION_HAVE_FORK $(CFLAGS)
 TEST_LIBS := $(COMMON_LIBS)
-TEST_LIBS_A := $(COMMON_LIBS)
+TEST_LIBS_A := $(COMMON_LIBS_A)
 
 CTIME_SOURCES = test/ctime.c
 CTIME_CFLAGS := $(COMMON_CFLAGS) $(CFLAGS)
@@ -111,7 +113,7 @@ torsion_test: libtorsion.$(SO) $(TEST_SOURCES)
 	$(CC) -o $@ $(TEST_CFLAGS) $(TEST_SOURCES) $(TEST_LIBS)
 
 torsion_test_static: libtorsion.a $(TEST_SOURCES)
-	$(CC) -o $@ -static $(TEST_CFLAGS) $(TEST_SOURCES) $(TEST_LIBS_A)
+	$(CC) -o $@ $(TEST_CFLAGS) $(TEST_SOURCES) $(TEST_LIBS_A)
 
 torsion_ctime: libtorsion.$(SO) $(CTIME_SOURCES)
 	$(CC) -o $@ $(CTIME_CFLAGS) $(CTIME_SOURCES) $(CTIME_LIBS)
@@ -126,10 +128,10 @@ install: $(OUTPUT)
 	install -m 644 LICENSE $(DESTDIR)$(PREFIX)/share/licenses/
 
 bench: torsion_bench
-	@LD_LIBRARY_PATH=. ./torsion_bench
+	@./torsion_bench
 
 test: torsion_test
-	@LD_LIBRARY_PATH=. ./torsion_test
+	@./torsion_test
 
 test_static: torsion_test_static
 	@./torsion_test_static
@@ -137,7 +139,7 @@ test_static: torsion_test_static
 check: test test_static
 
 ctime: torsion_ctime
-	@LD_LIBRARY_PATH=. valgrind ./torsion_ctime
+	@valgrind ./torsion_ctime
 
 clean:
 	rm -f $(LIB_OBJECTS) $(OUTPUT) torsion_ctime

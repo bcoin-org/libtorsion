@@ -155,12 +155,14 @@ libtorsion_la_LIBADD =
 
 noinst_PROGRAMS += torsion_bench
 torsion_bench_SOURCES = $(bench_sources)
+torsion_bench_LDFLAGS = -no-install
 torsion_bench_LDADD = libtorsion.la
 
 TESTS += torsion_test
 noinst_PROGRAMS += torsion_test
 torsion_test_SOURCES = $(test_sources)
 torsion_test_CFLAGS =
+torsion_test_LDFLAGS = -no-install
 torsion_test_LDADD = libtorsion.la
 
 if ENABLE_THREADS
@@ -185,6 +187,7 @@ endif
 if ENABLE_CTIME
 noinst_PROGRAMS += torsion_ctime
 torsion_ctime_SOURCES = test/ctime.c
+torsion_ctime_LDFLAGS = -no-install
 torsion_ctime_LDADD = libtorsion.la
 endif
 
