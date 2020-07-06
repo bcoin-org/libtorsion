@@ -3837,6 +3837,8 @@ run_test(const torsion_test_t *test, drbg_t *rng, int child) {
   }
 #endif
 
+  (void)child;
+
   test->run(rng);
 
   return 1;
