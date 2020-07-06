@@ -2,6 +2,12 @@ ACLOCAL_AMFLAGS = -I m4
 
 AM_CPPFLAGS = -I$(top_srcdir)/include
 
+CLEANFILES =
+EXTRA_DIST = LICENSE README.md
+
+TESTS =
+noinst_PROGRAMS =
+
 include_HEADERS = include/torsion/aead.h      \
                   include/torsion/cipher.h    \
                   include/torsion/common.h    \
@@ -109,12 +115,6 @@ endif
 
 bench_sources = test/bench.c test/hrtime.c
 test_sources = test/test.c
-
-CLEANFILES =
-EXTRA_DIST = LICENSE README.md
-
-TESTS =
-noinst_PROGRAMS =
 
 if EMSCRIPTEN
 torsion_emflags = -s WASM=1                       \
