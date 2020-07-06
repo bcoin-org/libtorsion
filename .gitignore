@@ -25,7 +25,6 @@ build-aux/
 config.log
 config.status
 configure
-ctime-test
 libtool
 libtorsion.pc
 m4/libtool.m4
@@ -34,6 +33,7 @@ m4/ltoptions.m4
 m4/ltsugar.m4
 m4/ltversion.m4
 torsion_bench
+torsion_ctime
 torsion_test
 torsion_test_a
 torsion_bench.js
