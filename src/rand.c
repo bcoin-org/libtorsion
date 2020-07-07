@@ -67,10 +67,23 @@ sha512_update_tsc(sha512_t *hash) {
 }
 
 /*
+ * Structs
+ */
+
+typedef struct rng_s {
+  uint64_t key[4];
+  uint64_t zero;
+  uint64_t nonce;
+  uint32_t pool[16];
+  size_t pos;
+  int rdrand;
+} rng_t;
+
+/*
  * RNG
  */
 
-int
+static int
 rng_init(rng_t *rng) {
   unsigned char seed[64];
   sha512_t hash;
@@ -129,7 +142,7 @@ rng_init(rng_t *rng) {
   return 1;
 }
 
-void
+static void
 rng_generate(rng_t *rng, void *dst, size_t size) {
   unsigned char *key = (unsigned char *)rng->key;
   unsigned char *nonce = (unsigned char *)&rng->nonce;
@@ -168,7 +181,7 @@ rng_generate(rng_t *rng, void *dst, size_t size) {
   torsion_cleanse(&ctx, sizeof(ctx));
 }
 
-uint32_t
+static uint32_t
 rng_random(rng_t *rng) {
   if ((rng->pos & 15) == 0) {
     rng_generate(rng, rng->pool, 64);
@@ -178,7 +191,7 @@ rng_random(rng_t *rng) {
   return rng->pool[rng->pos++];
 }
 
-uint32_t
+static uint32_t
 rng_uniform(rng_t *rng, uint32_t max) {
   /* See: http://www.pcg-random.org/posts/bounded-rands.html */
   uint32_t x, r;
@@ -249,7 +262,7 @@ rng_global_init(void) {
 }
 
 /*
- * Global API
+ * Random
  */
 
 int
@@ -284,7 +297,7 @@ torsion_getrandom(void *dst, size_t size) {
 }
 
 int
-torsion_random(uint32_t *out) {
+torsion_random(uint32_t *num) {
   rng_global_lock();
 
   if (!rng_global_init()) {
@@ -292,7 +305,7 @@ torsion_random(uint32_t *out) {
     return 0;
   }
 
-  *out = rng_random(&rng_state.rng);
+  *num = rng_random(&rng_state.rng);
 
   rng_global_unlock();
 
@@ -300,7 +313,7 @@ torsion_random(uint32_t *out) {
 }
 
 int
-torsion_uniform(uint32_t *out, uint32_t max) {
+torsion_uniform(uint32_t *num, uint32_t max) {
   rng_global_lock();
 
   if (!rng_global_init()) {
@@ -308,7 +321,7 @@ torsion_uniform(uint32_t *out, uint32_t max) {
     return 0;
   }
 
-  *out = rng_uniform(&rng_state.rng, max);
+  *num = rng_uniform(&rng_state.rng, max);
 
   rng_global_unlock();
 

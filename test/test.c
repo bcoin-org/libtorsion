@@ -2966,37 +2966,6 @@ looks_random(const void *data, size_t size) {
 }
 
 static void
-test_rand_rng(drbg_t *unused) {
-  uint32_t data[65536 / 4];
-  rng_t rng;
-  size_t i;
-
-  (void)unused;
-
-  ASSERT(rng_init(&rng));
-
-  rng_generate(&rng, data, sizeof(data));
-
-  ASSERT(looks_random(data, sizeof(data)));
-
-  for (i = 0; i < ARRAY_SIZE(data); i++)
-    data[i] = rng_random(&rng);
-
-  ASSERT(looks_random(data, sizeof(data)));
-
-  for (i = 0; i < ARRAY_SIZE(data); i++) {
-    uint32_t hi = rng_uniform(&rng, 0x10000);
-    uint32_t lo = rng_uniform(&rng, 0x10000);
-
-    ASSERT(hi < 0x10000 && lo < 0x10000);
-
-    data[i] = (hi << 16) | lo;
-  }
-
-  ASSERT(looks_random(data, sizeof(data)));
-}
-
-static void
 test_rand_getentropy(drbg_t *unused) {
   uint32_t data[65536 / 4];
   size_t i;
@@ -3766,7 +3735,6 @@ static const torsion_test_t torsion_tests[] = {
 
   /* Random */
 #ifdef TORSION_HAVE_RNG
-  T(rand_rng),
   T(rand_getentropy),
   T(rand_getrandom),
   T(rand_random),
