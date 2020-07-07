@@ -165,10 +165,20 @@ static const char *hash_names[32] = {
 static void
 drbg_init_rand(drbg_t *rng) {
   unsigned char entropy[ENTROPY_SIZE];
+#ifdef TORSION_HAVE_FORK
+  pid_t pid = getpid();
+#endif
   size_t i;
 
   for (i = 0; i < ENTROPY_SIZE; i++)
     entropy[i] = rand();
+
+#ifdef TORSION_HAVE_FORK
+  ASSERT(sizeof(pid) <= ENTROPY_SIZE);
+
+  for (i = 0; i < sizeof(pid); i++)
+    entropy[i] ^= ((unsigned char *)&pid)[i];
+#endif
 
   drbg_init(rng, HASH_SHA256, entropy, ENTROPY_SIZE);
 }
