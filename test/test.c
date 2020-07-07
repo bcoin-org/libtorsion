@@ -3086,10 +3086,13 @@ test_rand_thread_safety(drbg_t *unused) {
   memset(&x1, 0, sizeof(x1));
   memset(&x2, 0, sizeof(x2));
 
-  if (!torsion_is_reentrant()) {
+  if (!torsion_reentrancy()) {
     printf("  - Skipping RNG test (not reentrant).\n");
     return;
   }
+
+  printf("  - Testing reentrancy (%s)\n",
+         torsion_reentrancy() == 1 ? "tls" : "pthread");
 
   ASSERT(torsion_thread_create(t1, NULL, thread_random, (void *)&x1) == 0);
   ASSERT(torsion_thread_create(t2, NULL, thread_random, (void *)&x2) == 0);
@@ -3104,14 +3107,16 @@ test_rand_thread_safety(drbg_t *unused) {
 
   ASSERT(x0.ptr && x1.ptr && x2.ptr);
 
-  ASSERT(x0.ptr != x1.ptr);
-  ASSERT(x0.ptr != x2.ptr);
+  if (torsion_reentrancy() == 1) {
+    ASSERT(x0.ptr != x1.ptr);
+    ASSERT(x0.ptr != x2.ptr);
 
-  ASSERT(x1.ptr != x0.ptr);
-  ASSERT(x1.ptr != x2.ptr);
+    ASSERT(x1.ptr != x0.ptr);
+    ASSERT(x1.ptr != x2.ptr);
 
-  ASSERT(x2.ptr != x0.ptr);
-  ASSERT(x2.ptr != x1.ptr);
+    ASSERT(x2.ptr != x0.ptr);
+    ASSERT(x2.ptr != x1.ptr);
+  }
 
   ASSERT(memcmp(x0.data, x1.data, 32) != 0);
   ASSERT(memcmp(x0.data, x2.data, 32) != 0);

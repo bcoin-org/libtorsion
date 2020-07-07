@@ -58,7 +58,7 @@ rng_uniform(rng_t *rng, uint32_t max);
  */
 
 TORSION_EXTERN int
-torsion_is_reentrant(void);
+torsion_reentrancy(void);
 
 TORSION_EXTERN int
 torsion_getentropy(void *dst, size_t size);
