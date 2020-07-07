@@ -1423,11 +1423,11 @@ fe_set_word(const prime_field_t *fe, fe_t r, uint32_t word) {
     if (fe->endian == 1) {
       tmp[fe->size - 4] = (word >> 24) & 0xff;
       tmp[fe->size - 3] = (word >> 16) & 0xff;
-      tmp[fe->size - 2] = (word >> 8) & 0xff;
-      tmp[fe->size - 1] = word & 0xff;
+      tmp[fe->size - 2] = (word >>  8) & 0xff;
+      tmp[fe->size - 1] = (word >>  0) & 0xff;
     } else {
-      tmp[0] = word & 0xff;
-      tmp[1] = (word >> 8) & 0xff;
+      tmp[0] = (word >>  0) & 0xff;
+      tmp[1] = (word >>  8) & 0xff;
       tmp[2] = (word >> 16) & 0xff;
       tmp[3] = (word >> 24) & 0xff;
     }
