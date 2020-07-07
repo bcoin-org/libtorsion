@@ -169,18 +169,6 @@ xge_print(const edwards_t *ec, const xge_t *p) {
  * Helpers
  */
 
-static size_t
-stupid_bit_length(uint32_t x) {
-  size_t b = 0;
-
-  while (x != 0) {
-    b += 1;
-    x >>= 1;
-  }
-
-  return b;
-}
-
 static int
 stupid_bytes_zero(const unsigned char *a, size_t size) {
   while (size--) {
@@ -486,20 +474,6 @@ test_lt(drbg_t *rng) {
       ASSERT(bytes_lt(b, a, 32, -1) == (revcmp(b, a, 32) < 0));
     }
   }
-}
-
-static void
-test_bitlen(void) {
-  uint32_t i;
-
-  printf("  - Bit length sanity check.\n");
-
-  for (i = 0; i <= UINT16_MAX; i++)
-    ASSERT(bit_length(i) == stupid_bit_length(i));
-
-  ASSERT(bit_length((1ul << 24) - 1ul) == 24);
-  ASSERT(bit_length(1ul << 24) == 25);
-  ASSERT(bit_length(UINT32_MAX) == 32);
 }
 
 /*
@@ -1868,7 +1842,6 @@ test_ecc_internal(drbg_t *rng) {
   /* Utils */
   test_zero(rng);
   test_lt(rng);
-  test_bitlen();
 
   /* ECC */
   test_wei_points_p256(rng);
