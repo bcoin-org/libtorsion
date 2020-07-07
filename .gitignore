@@ -17,6 +17,7 @@
 .dirstamp
 CMakeCache.txt
 CMakeFiles/
+DartConfiguration.tcl
 Makefile
 Makefile.in
 aclocal.m4
