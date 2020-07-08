@@ -157,7 +157,7 @@ libtorsion_la_CFLAGS = -DTORSION_BUILD
 libtorsion_la_LDFLAGS = -no-undefined -version-info @TORSION_LIB_VERSION@
 libtorsion_la_LIBADD =
 
-if ENABLE_LIBTHREADS
+if ENABLE_PTHREAD
 libtorsion_la_CFLAGS += @PTHREAD_CFLAGS@
 libtorsion_la_LIBADD += @PTHREAD_LIBS@
 endif
