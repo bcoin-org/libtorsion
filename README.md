@@ -86,7 +86,7 @@ int main(void) {
 Compile with:
 
 ``` bash
-$ gcc -o example -ltorsion example.c
+$ gcc -o example example.c -ltorsion
 ```
 
 ## Contribution and License Agreement
