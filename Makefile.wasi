@@ -18,7 +18,6 @@ COMMON_CFLAGS := --target=$(TARGET)               \
                  -Wall                            \
                  -Wextra                          \
                  -Wcast-align                     \
-                 -Wno-declaration-after-statement \
                  -Wno-implicit-fallthrough        \
                  -Wno-long-long                   \
                  -Wno-overlength-strings          \

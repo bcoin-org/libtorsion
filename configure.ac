@@ -89,7 +89,6 @@ fi
 CC_CHECK_CFLAGS_APPEND([-Wall])
 CC_CHECK_CFLAGS_APPEND([-Wextra])
 CC_CHECK_CFLAGS_APPEND([-Wcast-align])
-CC_CHECK_CFLAGS_APPEND([-Wno-declaration-after-statement])
 CC_CHECK_CFLAGS_APPEND([-Wno-implicit-fallthrough])
 CC_CHECK_CFLAGS_APPEND([-Wno-long-long])
 CC_CHECK_CFLAGS_APPEND([-Wno-overlength-strings])
