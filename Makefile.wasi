@@ -11,26 +11,25 @@ MAX_MEMORY ?= 2147483648
 STACK_SIZE ?= 5242880
 ENABLE_RNG ?= 1
 
-COMMON_CFLAGS := --target=$(TARGET)        \
-                 --sysroot=$(SYSROOT)      \
-                 -flto                     \
-                 -std=gnu11                \
-                 -Wall                     \
-                 -Wextra                   \
-                 -Wcast-align              \
-                 -Wno-implicit-fallthrough \
-                 -Wshadow                  \
-                 -I./include               \
+COMMON_CFLAGS := --target=$(TARGET)               \
+                 --sysroot=$(SYSROOT)             \
+                 -std=c89                         \
+                 -pedantic                        \
+                 -Wall                            \
+                 -Wextra                          \
+                 -Wcast-align                     \
+                 -Wno-declaration-after-statement \
+                 -Wno-implicit-fallthrough        \
+                 -Wno-long-long                   \
+                 -Wno-overlength-strings          \
+                 -Wshadow                         \
+                 -I./include                      \
                  -O3
 
 COMMON_LDFLAGS := -Wl,--allow-undefined                  \
-                  -Wl,--strip-debug                      \
-                  -Wl,--gc-sections                      \
                   -Wl,--initial-memory=$(INITIAL_MEMORY) \
                   -Wl,--max-memory=$(MAX_MEMORY)         \
-                  -Wl,-z -Wl,stack-size=$(STACK_SIZE)    \
-                  -Wl,--lto-O3                           \
-                  -Wl,-O3
+                  -Wl,-z -Wl,stack-size=$(STACK_SIZE)
 
 COMMON_SOURCES = src/aead.c      \
                  src/asn1.c      \
