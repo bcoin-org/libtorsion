@@ -3,8 +3,8 @@
 # https://github.com/bcoin-org/libtorsion
 
 FIAT ?= $(HOME)/fiat-crypto
-UNSATURATED := $(FIAT)/src/ExtractionOCaml/unsaturated_solinas
-MONTGOMERY := $(FIAT)/src/ExtractionOCaml/word_by_word_montgomery
+UNSAT := $(FIAT)/src/ExtractionOCaml/unsaturated_solinas
+MONT := $(FIAT)/src/ExtractionOCaml/word_by_word_montgomery
 
 OUTPUT = src/fields/p192_32.h      \
          src/fields/p192_64.h      \
@@ -26,16 +26,29 @@ OUTPUT = src/fields/p192_32.h      \
          src/fields/p251_64.h      \
          src/fields/.fiat-head
 
-FUNCS = carry_mul         \
-        carry_square      \
-        carry_scmul121666 \
-        carry             \
-        add               \
-        sub               \
-        opp               \
-        selectznz         \
-        to_bytes          \
-        from_bytes
+U_FUNCS = carry_mul    \
+          carry_square \
+          carry        \
+          add          \
+          sub          \
+          opp          \
+          selectznz    \
+          to_bytes     \
+          from_bytes
+
+U_FUNCS_25519 := $(U_FUNCS) carry_scmul121666
+
+M_FUNCS = mul             \
+          square          \
+          add             \
+          sub             \
+          opp             \
+          from_montgomery \
+          to_montgomery   \
+          nonzero         \
+          selectznz       \
+          to_bytes        \
+          from_bytes
 
 AFTER = sed -i 's;$(FIAT);;g' $@;                            \
         sed -i 's/unsigned __int128/torsion_uint128_t/g' $@; \
@@ -45,96 +58,96 @@ AFTER = sed -i 's;$(FIAT);;g' $@;                            \
 all: $(OUTPUT)
 
 # 2^192 - 2^64 - 1
-src/fields/p192_32.h: $(UNSATURATED)
-	$(UNSATURATED) --static p192 9 '2^192 - 2^64 - 1' 32 > $@
+src/fields/p192_32.h: $(UNSAT)
+	$(UNSAT) --static p192 32 9 '2^192 - 2^64 - 1' $(U_FUNCS) > $@
 	$(AFTER)
 
-src/fields/p192_64.h: $(UNSATURATED)
-	$(UNSATURATED) --static p192 4 '2^192 - 2^64 - 1' 64 > $@
+src/fields/p192_64.h: $(UNSAT)
+	$(UNSAT) --static p192 64 4 '2^192 - 2^64 - 1' $(U_FUNCS) > $@
 	$(AFTER)
 
 # 2^224 - 2^96 + 1
-src/fields/p224_32.h: $(MONTGOMERY)
-	$(MONTGOMERY) --static p224 '2^224 - 2^96 + 1' 32 > $@
+src/fields/p224_32.h: $(MONT)
+	$(MONT) --static p224 32 '2^224 - 2^96 + 1' $(M_FUNCS) > $@
 	$(AFTER)
 
-src/fields/p224_64.h: $(MONTGOMERY)
-	$(MONTGOMERY) --static p224 '2^224 - 2^96 + 1' 64 > $@
+src/fields/p224_64.h: $(MONT)
+	$(MONT) --static p224 64 '2^224 - 2^96 + 1' $(M_FUNCS) > $@
 	$(AFTER)
 
 # 2^256 - 2^224 + 2^192 + 2^96 - 1
-src/fields/p256_32.h: $(MONTGOMERY)
-	$(MONTGOMERY) --static p256 '2^256 - 2^224 + 2^192 + 2^96 - 1' 32 > $@
+src/fields/p256_32.h: $(MONT)
+	$(MONT) --static p256 32 '2^256 - 2^224 + 2^192 + 2^96 - 1' $(M_FUNCS) > $@
 	$(AFTER)
 
-src/fields/p256_64.h: $(MONTGOMERY)
-	$(MONTGOMERY) --static p256 '2^256 - 2^224 + 2^192 + 2^96 - 1' 64 > $@
+src/fields/p256_64.h: $(MONT)
+	$(MONT) --static p256 64 '2^256 - 2^224 + 2^192 + 2^96 - 1' $(M_FUNCS) > $@
 	$(AFTER)
 
 # 2^384 - 2^128 - 2^96 + 2^32 - 1
-src/fields/p384_32.h: $(MONTGOMERY)
-	$(MONTGOMERY) --static p384 '2^384 - 2^128 - 2^96 + 2^32 - 1' 32 > $@
+src/fields/p384_32.h: $(MONT)
+	$(MONT) --static p384 32 '2^384 - 2^128 - 2^96 + 2^32 - 1' $(M_FUNCS) > $@
 	$(AFTER)
 
-src/fields/p384_64.h: $(MONTGOMERY)
-	$(MONTGOMERY) --static p384 '2^384 - 2^128 - 2^96 + 2^32 - 1' 64 > $@
+src/fields/p384_64.h: $(MONT)
+	$(MONT) --static p384 64 '2^384 - 2^128 - 2^96 + 2^32 - 1' $(M_FUNCS) > $@
 	$(AFTER)
 
 # 2^521 - 1
-src/fields/p521_32.h: $(UNSATURATED)
-	$(UNSATURATED) --static p521 19 '2^521 - 1' 32 > $@
+src/fields/p521_32.h: $(UNSAT)
+	$(UNSAT) --static p521 32 19 '2^521 - 1' $(U_FUNCS) > $@
 	$(AFTER)
 
-src/fields/p521_64.h: $(UNSATURATED)
-	$(UNSATURATED) --static p521 9 '2^521 - 1' 64 > $@
+src/fields/p521_64.h: $(UNSAT)
+	$(UNSAT) --static p521 64 9 '2^521 - 1' $(U_FUNCS) > $@
 	$(AFTER)
 
 # 2^256 - 2^32 - 977
-src/fields/secp256k1_32.h: $(MONTGOMERY)
-	$(MONTGOMERY) --static secp256k1 '2^256 - 2^32 - 977' 32 > $@
+src/fields/secp256k1_32.h: $(MONT)
+	$(MONT) --static secp256k1 32 '2^256 - 2^32 - 977' $(M_FUNCS) > $@
 	$(AFTER)
 
-src/fields/secp256k1_64.h: $(MONTGOMERY)
-	$(MONTGOMERY) --static secp256k1 '2^256 - 2^32 - 977' 64 > $@
+src/fields/secp256k1_64.h: $(MONT)
+	$(MONT) --static secp256k1 64 '2^256 - 2^32 - 977' $(M_FUNCS) > $@
 	$(AFTER)
 
 # 2^256 - 2^32 - 977 (faster for GCC, slower for clang)
-# src/fields/secp256k1_32.h: $(UNSATURATED)
-# 	$(UNSATURATED) --static secp256k1 12 '2^256 - 2^32 - 977' 32 > $@
+# src/fields/secp256k1_32.h: $(UNSAT)
+# 	$(UNSAT) --static secp256k1 32 12 '2^256 - 2^32 - 977' $(U_FUNCS) > $@
 # 	$(AFTER)
 
-# src/fields/secp256k1_64.h: $(UNSATURATED)
-# 	$(UNSATURATED) --static secp256k1 8 '2^256 - 2^32 - 977' 64 > $@
+# src/fields/secp256k1_64.h: $(UNSAT)
+# 	$(UNSAT) --static secp256k1 64 8 '2^256 - 2^32 - 977' $(U_FUNCS) > $@
 # 	$(AFTER)
 
 # 2^255 - 19
-src/fields/p25519_32.h: $(UNSATURATED)
-	$(UNSATURATED) --static p25519 10 '2^255 - 19' 32 $(FUNCS) > $@
+src/fields/p25519_32.h: $(UNSAT)
+	$(UNSAT) --static p25519 32 10 '2^255 - 19' $(U_FUNCS_25519) > $@
 	$(AFTER)
 
-src/fields/p25519_64.h: $(UNSATURATED)
-	$(UNSATURATED) --static p25519 5 '2^255 - 19' 64 $(FUNCS) > $@
+src/fields/p25519_64.h: $(UNSAT)
+	$(UNSAT) --static p25519 64 5 '2^255 - 19' $(U_FUNCS_25519) > $@
 	$(AFTER)
 
 # 2^448 - 2^224 - 1
-src/fields/p448_32.h: $(UNSATURATED)
-	$(UNSATURATED) --static p448 18 '2^448 - 2^224 - 1' 32 > $@
+src/fields/p448_32.h: $(UNSAT)
+	$(UNSAT) --static p448 32 18 '2^448 - 2^224 - 1' $(U_FUNCS) > $@
 	$(AFTER)
 
-src/fields/p448_64.h: $(UNSATURATED)
-	$(UNSATURATED) --static p448 8 '2^448 - 2^224 - 1' 64 > $@
+src/fields/p448_64.h: $(UNSAT)
+	$(UNSAT) --static p448 64 8 '2^448 - 2^224 - 1' $(U_FUNCS) > $@
 	$(AFTER)
 
 # 2^251 - 9
-src/fields/p251_32.h: $(UNSATURATED)
-	$(UNSATURATED) --static p251 10 '2^251 - 9' 32 > $@
+src/fields/p251_32.h: $(UNSAT)
+	$(UNSAT) --static p251 32 10 '2^251 - 9' $(U_FUNCS) > $@
 	$(AFTER)
 
-src/fields/p251_64.h: $(UNSATURATED)
-	$(UNSATURATED) --static p251 5 '2^251 - 9' 64 > $@
+src/fields/p251_64.h: $(UNSAT)
+	$(UNSAT) --static p251 64 5 '2^251 - 9' $(U_FUNCS) > $@
 	$(AFTER)
 
-src/fields/.fiat-head: $(UNSATURATED) $(MONTGOMERY)
+src/fields/.fiat-head: $(UNSAT) $(MONT)
 	(cd $(FIAT) && git rev-parse HEAD) > $@
 
 clean:
