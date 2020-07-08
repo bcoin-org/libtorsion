@@ -29,6 +29,12 @@ COMMON_CFLAGS = -std=c89                         \
                 -I./include                      \
                 -O3
 
+ifeq ($(ENABLE_RNG), 1)
+ifeq ($(shell uname -s), Darwin)
+COMMON_CFLAGS += -mmacosx-version-min=10.7
+endif
+endif
+
 COMMON_LIBS := -Wl,-rpath,$(shell pwd) libtorsion.$(SO)
 
 COMMON_LIBS_A = libtorsion.a
