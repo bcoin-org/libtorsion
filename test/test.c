@@ -3045,8 +3045,7 @@ thread_random(void *ptr) {
 
 static void
 test_rand_thread_safety(drbg_t *unused) {
-  torsion_thread_t *t1 = torsion_thread_alloc();
-  torsion_thread_t *t2 = torsion_thread_alloc();
+  torsion_thread_t *t1, *t2;
   rng_res_t x0, x1, x2;
 
   (void)unused;
@@ -3062,6 +3061,9 @@ test_rand_thread_safety(drbg_t *unused) {
 
   printf("  - Testing reentrancy (%s)\n",
          torsion_reentrancy() == 1 ? "tls" : "pthread");
+
+  t1 = torsion_thread_alloc();
+  t2 = torsion_thread_alloc();
 
   ASSERT(torsion_thread_create(t1, NULL, thread_random, (void *)&x1) == 0);
   ASSERT(torsion_thread_create(t2, NULL, thread_random, (void *)&x2) == 0);
