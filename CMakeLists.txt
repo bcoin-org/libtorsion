@@ -80,33 +80,33 @@ else()
   check_c_compiler_flag(-O3 TORSION_HAS_O3)
 endif()
 
-check_c_source_compiles("
+check_c_source_compiles([=[
 #include <stdint.h>
 #if defined(__EMSCRIPTEN__) || defined(__wasm__)
-#  error \"cannot use inline asm with wasm\"
+#  error "cannot use inline asm with wasm"
 #endif
 #if !defined(__amd64__) && !defined(__x86_64__)
-#  error \"not an x64 platform\"
+#  error "not an x64 platform"
 #endif
 int main(void) {
   uint32_t stream[8], state[8];
   __asm__ __volatile__(
-    \"movups (%%rsi), %%xmm0;\"
-    \"movups 16(%%rsi), %%xmm1;\"
-    \"pxor %%xmm1, %%xmm0;\"
-    \"movups %%xmm0,(%%rdi);\"
-    \"movups %%xmm1,16(%%rdi);\"
+    "movups (%%rsi), %%xmm0;"
+    "movups 16(%%rsi), %%xmm1;"
+    "pxor %%xmm1, %%xmm0;"
+    "movups %%xmm0,(%%rdi);"
+    "movups %%xmm1,16(%%rdi);"
     :
-    : \"D\" (stream), \"S\" (state)
-    : \"xmm0\", \"xmm1\", \"cc\", \"memory\"
+    : "D" (stream), "S" (state)
+    : "xmm0", "xmm1", "cc", "memory"
   );
   return 0;
 }
-" TORSION_HAS_ASM)
+]=] TORSION_HAS_ASM)
 
-check_c_source_compiles("
+check_c_source_compiles([=[
 #if defined(__EMSCRIPTEN__) || defined(__wasm__)
-#  error \"cannot use __int128 with wasm\"
+#  error "cannot use __int128 with wasm"
 #endif
 typedef char check_64bit_t[sizeof(void *) == 8 ? 1 : -1];
 typedef signed __int128 int128_t;
@@ -118,9 +118,9 @@ int main(void) {
   r >>= 65;
   return r & 1;
 }
-" TORSION_HAS_INT128)
+]=] TORSION_HAS_INT128)
 
-check_c_source_compiles("
+check_c_source_compiles([=[
 #if defined(__EMSCRIPTEN__) || defined(__wasm__)
 #  define TLS
 #elif defined(_WIN32) && !defined(__MINGW32__)
@@ -133,7 +133,7 @@ int main(void) {
   value = 1;
   return 0;
 }
-" TORSION_HAS_TLS)
+]=] TORSION_HAS_TLS)
 
 set(TORSION_HAS_THREADS OFF)
 
@@ -149,9 +149,9 @@ if(NOT EMSCRIPTEN)
   endif()
 endif()
 
-check_c_source_compiles("
+check_c_source_compiles([=[
 #if defined(__EMSCRIPTEN__) || defined(__wasm__)
-#  error \"cannot use fork with wasm\"
+#  error "cannot use fork with wasm"
 #endif
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -171,7 +171,7 @@ int main(void) {
   WEXITSTATUS(status);
   return 0;
 }
-" TORSION_HAS_FORK)
+]=] TORSION_HAS_FORK)
 
 check_include_file(valgrind/memcheck.h TORSION_HAS_VALGRIND)
 
@@ -361,7 +361,7 @@ else()
     if(NOT TORSION_ENABLE_TLS OR NOT TORSION_HAS_TLS)
       list(APPEND torsion_defines TORSION_HAVE_PTHREAD)
       list(APPEND torsion_libs Threads::Threads)
-      list(APPEND pkgconf_libs -lpthread)
+      list(APPEND pkgconf_libs ${CMAKE_THREAD_LIBS_INIT})
     endif()
   endif()
 
