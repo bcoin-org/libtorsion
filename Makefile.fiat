@@ -45,96 +45,96 @@ AFTER = sed -i 's;$(FIAT);;g' $@;                            \
 all: $(OUTPUT)
 
 # 2^192 - 2^64 - 1
-src/fields/p192_32.h:
+src/fields/p192_32.h: $(UNSATURATED)
 	$(UNSATURATED) --static p192 9 '2^192 - 2^64 - 1' 32 > $@
 	$(AFTER)
 
-src/fields/p192_64.h:
+src/fields/p192_64.h: $(UNSATURATED)
 	$(UNSATURATED) --static p192 4 '2^192 - 2^64 - 1' 64 > $@
 	$(AFTER)
 
 # 2^224 - 2^96 + 1
-src/fields/p224_32.h:
+src/fields/p224_32.h: $(MONTGOMERY)
 	$(MONTGOMERY) --static p224 '2^224 - 2^96 + 1' 32 > $@
 	$(AFTER)
 
-src/fields/p224_64.h:
+src/fields/p224_64.h: $(MONTGOMERY)
 	$(MONTGOMERY) --static p224 '2^224 - 2^96 + 1' 64 > $@
 	$(AFTER)
 
 # 2^256 - 2^224 + 2^192 + 2^96 - 1
-src/fields/p256_32.h:
+src/fields/p256_32.h: $(MONTGOMERY)
 	$(MONTGOMERY) --static p256 '2^256 - 2^224 + 2^192 + 2^96 - 1' 32 > $@
 	$(AFTER)
 
-src/fields/p256_64.h:
+src/fields/p256_64.h: $(MONTGOMERY)
 	$(MONTGOMERY) --static p256 '2^256 - 2^224 + 2^192 + 2^96 - 1' 64 > $@
 	$(AFTER)
 
 # 2^384 - 2^128 - 2^96 + 2^32 - 1
-src/fields/p384_32.h:
+src/fields/p384_32.h: $(MONTGOMERY)
 	$(MONTGOMERY) --static p384 '2^384 - 2^128 - 2^96 + 2^32 - 1' 32 > $@
 	$(AFTER)
 
-src/fields/p384_64.h:
+src/fields/p384_64.h: $(MONTGOMERY)
 	$(MONTGOMERY) --static p384 '2^384 - 2^128 - 2^96 + 2^32 - 1' 64 > $@
 	$(AFTER)
 
 # 2^521 - 1
-src/fields/p521_32.h:
+src/fields/p521_32.h: $(UNSATURATED)
 	$(UNSATURATED) --static p521 19 '2^521 - 1' 32 > $@
 	$(AFTER)
 
-src/fields/p521_64.h:
+src/fields/p521_64.h: $(UNSATURATED)
 	$(UNSATURATED) --static p521 9 '2^521 - 1' 64 > $@
 	$(AFTER)
 
 # 2^256 - 2^32 - 977
-src/fields/secp256k1_32.h:
+src/fields/secp256k1_32.h: $(MONTGOMERY)
 	$(MONTGOMERY) --static secp256k1 '2^256 - 2^32 - 977' 32 > $@
 	$(AFTER)
 
-src/fields/secp256k1_64.h:
+src/fields/secp256k1_64.h: $(MONTGOMERY)
 	$(MONTGOMERY) --static secp256k1 '2^256 - 2^32 - 977' 64 > $@
 	$(AFTER)
 
 # 2^256 - 2^32 - 977 (faster for GCC, slower for clang)
-# src/fields/secp256k1_32.h:
+# src/fields/secp256k1_32.h: $(UNSATURATED)
 # 	$(UNSATURATED) --static secp256k1 12 '2^256 - 2^32 - 977' 32 > $@
 # 	$(AFTER)
 
-# src/fields/secp256k1_64.h:
+# src/fields/secp256k1_64.h: $(UNSATURATED)
 # 	$(UNSATURATED) --static secp256k1 8 '2^256 - 2^32 - 977' 64 > $@
 # 	$(AFTER)
 
 # 2^255 - 19
-src/fields/p25519_32.h:
+src/fields/p25519_32.h: $(UNSATURATED)
 	$(UNSATURATED) --static p25519 10 '2^255 - 19' 32 $(FUNCS) > $@
 	$(AFTER)
 
-src/fields/p25519_64.h:
+src/fields/p25519_64.h: $(UNSATURATED)
 	$(UNSATURATED) --static p25519 5 '2^255 - 19' 64 $(FUNCS) > $@
 	$(AFTER)
 
 # 2^448 - 2^224 - 1
-src/fields/p448_32.h:
+src/fields/p448_32.h: $(UNSATURATED)
 	$(UNSATURATED) --static p448 18 '2^448 - 2^224 - 1' 32 > $@
 	$(AFTER)
 
-src/fields/p448_64.h:
+src/fields/p448_64.h: $(UNSATURATED)
 	$(UNSATURATED) --static p448 8 '2^448 - 2^224 - 1' 64 > $@
 	$(AFTER)
 
 # 2^251 - 9
-src/fields/p251_32.h:
+src/fields/p251_32.h: $(UNSATURATED)
 	$(UNSATURATED) --static p251 10 '2^251 - 9' 32 > $@
 	$(AFTER)
 
-src/fields/p251_64.h:
+src/fields/p251_64.h: $(UNSATURATED)
 	$(UNSATURATED) --static p251 5 '2^251 - 9' 64 > $@
 	$(AFTER)
 
-src/fields/.fiat-head:
+src/fields/.fiat-head: $(UNSATURATED) $(MONTGOMERY)
 	(cd $(FIAT) && git rev-parse HEAD) > $@
 
 clean:
