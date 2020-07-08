@@ -58,6 +58,11 @@ AC_ARG_ENABLE(libsecp256k1,
   [enable_libsecp256k1=$enableval],
   [enable_libsecp256k1=no])
 
+AC_ARG_ENABLE(pthread,
+  AS_HELP_STRING([--enable-pthread],[use pthread as a fallback for tls [default=yes]]),
+  [enable_pthread=$enableval],
+  [enable_pthread=yes])
+
 AC_ARG_ENABLE(rng,
   AS_HELP_STRING([--enable-rng],[enable rng [default=yes]]),
   [enable_rng=$enableval],
@@ -210,6 +215,14 @@ if test x"$enable_libsecp256k1" = x"yes"; then
   AC_DEFINE(TORSION_USE_LIBSECP256K1)
 fi
 
+if test x"$enable_pthread" = x"yes" -a x"$has_threads" = x"yes"; then
+  if test x"$enable_tls" != x"yes" -o x"$has_tls" != x"yes"; then
+    AC_DEFINE(TORSION_HAVE_PTHREAD)
+    AC_SUBST(LIBS, [$PTHREAD_LIBS])
+    enable_libthreads=yes
+  fi
+fi
+
 if test x"$enable_rng" = x"yes"; then
   AC_DEFINE(TORSION_HAVE_RNG)
 fi
@@ -236,6 +249,7 @@ AC_SUBST(PTHREAD_LIBS)
 AM_CONDITIONAL([EMSCRIPTEN], [test x"$EMSCRIPTEN" != x""])
 AM_CONDITIONAL([ENABLE_COVERAGE], [test x"$enable_coverage" = x"yes"])
 AM_CONDITIONAL([ENABLE_CTIME], [test x"$has_valgrind" = x"yes"])
+AM_CONDITIONAL([ENABLE_LIBTHREADS], [test x"$enable_libthreads" = x"yes"])
 AM_CONDITIONAL([ENABLE_RNG], [test x"$enable_rng" = x"yes"])
 AM_CONDITIONAL([ENABLE_THREADS], [test x"$has_threads" = x"yes"])
 

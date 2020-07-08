@@ -157,6 +157,11 @@ libtorsion_la_CFLAGS = -DTORSION_BUILD
 libtorsion_la_LDFLAGS = -no-undefined -version-info @TORSION_LIB_VERSION@
 libtorsion_la_LIBADD =
 
+if ENABLE_LIBTHREADS
+libtorsion_la_CFLAGS += @PTHREAD_CFLAGS@
+libtorsion_la_LIBADD += @PTHREAD_LIBS@
+endif
+
 noinst_PROGRAMS += torsion_bench
 torsion_bench_SOURCES = $(bench_sources)
 torsion_bench_LDFLAGS = -no-install
