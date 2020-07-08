@@ -400,8 +400,8 @@ else()
   add_test(NAME test_static COMMAND torsion_test_static)
 
   if(TORSION_HAS_VALGRIND)
-    add_executable(torsion_ctime test/ctime.c)
-    target_link_libraries(torsion_ctime torsion)
+    add_executable(torsion_ctgrind test/ctgrind.c)
+    target_link_libraries(torsion_ctgrind torsion)
   endif()
 
   if(UNIX)

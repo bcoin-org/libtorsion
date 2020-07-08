@@ -75,9 +75,9 @@ TEST_CFLAGS := $(COMMON_CFLAGS) -DTORSION_HAVE_FORK $(CFLAGS)
 TEST_LIBS := $(COMMON_LIBS)
 TEST_LIBS_A := $(COMMON_LIBS_A)
 
-CTIME_SOURCES = test/ctime.c
-CTIME_CFLAGS := $(COMMON_CFLAGS) $(CFLAGS)
-CTIME_LIBS := $(COMMON_LIBS)
+CTGRIND_SOURCES = test/ctgrind.c
+CTGRIND_CFLAGS := $(COMMON_CFLAGS) $(CFLAGS)
+CTGRIND_LIBS := $(COMMON_LIBS)
 
 ifeq ($(ENABLE_COVERAGE), 1)
 LIB_CFLAGS += -DTORSION_COVERAGE
@@ -129,8 +129,8 @@ torsion_test: libtorsion.$(SO) $(TEST_SOURCES)
 torsion_test_static: libtorsion.a $(TEST_SOURCES)
 	$(CC) -o $@ $(TEST_CFLAGS) $(TEST_SOURCES) $(TEST_LIBS_A)
 
-torsion_ctime: libtorsion.$(SO) $(CTIME_SOURCES)
-	$(CC) -o $@ $(CTIME_CFLAGS) $(CTIME_SOURCES) $(CTIME_LIBS)
+torsion_ctgrind: libtorsion.$(SO) $(CTGRIND_SOURCES)
+	$(CC) -o $@ $(CTGRIND_CFLAGS) $(CTGRIND_SOURCES) $(CTGRIND_LIBS)
 
 install: $(OUTPUT)
 	install -d $(DESTDIR)$(PREFIX)/lib
@@ -154,10 +154,10 @@ test_static: torsion_test_static
 
 check: test test_static
 
-ctime: torsion_ctime
-	@valgrind ./torsion_ctime
+ctgrind: torsion_ctgrind
+	@valgrind ./torsion_ctgrind
 
 clean:
-	rm -f $(LIB_OBJECTS) $(OUTPUT) torsion_ctime
+	rm -f $(LIB_OBJECTS) $(OUTPUT) torsion_ctgrind
 
-.PHONY: all install bench test test_static check ctime clean
+.PHONY: all install bench test test_static check ctgrind clean

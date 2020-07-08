@@ -1,5 +1,5 @@
 /*!
- * ctime.c - valgrind constant-time test
+ * ctgrind.c - constant-time valgrind test
  *
  * Idea taken from the libsecp256k1 tests:
  *   https://github.com/bitcoin-core/secp256k1/commit/3d23022

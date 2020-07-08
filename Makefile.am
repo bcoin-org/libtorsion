@@ -193,11 +193,11 @@ libtorsion_la_LIBADD += -lgcov
 torsion_test_static_LDADD += -lgcov
 endif
 
-if ENABLE_CTIME
-noinst_PROGRAMS += torsion_ctime
-torsion_ctime_SOURCES = test/ctime.c
-torsion_ctime_LDFLAGS = -no-install
-torsion_ctime_LDADD = libtorsion.la
+if ENABLE_CTGRIND
+noinst_PROGRAMS += torsion_ctgrind
+torsion_ctgrind_SOURCES = test/ctgrind.c
+torsion_ctgrind_LDFLAGS = -no-install
+torsion_ctgrind_LDADD = libtorsion.la
 endif
 
 pkgconfigdir = $(libdir)/pkgconfig
