@@ -90,11 +90,11 @@ check_c_source_compiles([=[
 int main(void) {
   uint32_t stream[8], state[8];
   __asm__ __volatile__(
-    "movups (%%rsi), %%xmm0;"
-    "movups 16(%%rsi), %%xmm1;"
-    "pxor %%xmm1, %%xmm0;"
-    "movups %%xmm0,(%%rdi);"
-    "movups %%xmm1,16(%%rdi);"
+    "movups (%%rsi), %%xmm0\\n"
+    "movups 16(%%rsi), %%xmm1\\n"
+    "pxor %%xmm1, %%xmm0\\n"
+    "movups %%xmm0,(%%rdi)\\n"
+    "movups %%xmm1,16(%%rdi)\\n"
     :
     : "D" (stream), "S" (state)
     : "xmm0", "xmm1", "cc", "memory"
