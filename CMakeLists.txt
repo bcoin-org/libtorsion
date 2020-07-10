@@ -80,6 +80,19 @@ else()
 endif()
 
 check_c_source_compiles([=[
+#if defined(__EMSCRIPTEN__) || defined(__wasm__)
+#  error "cannot use inline asm with wasm"
+#endif
+int main(void) {
+  unsigned char ptr[32];
+  int x = 0;
+  __asm__ ("" : "+r" (x) ::);
+  __asm__ __volatile__("" :: "r" (ptr) : "memory");
+  return x;
+}
+]=] TORSION_HAS_ASM)
+
+check_c_source_compiles([=[
 #include <stdint.h>
 #if defined(__EMSCRIPTEN__) || defined(__wasm__)
 #  error "cannot use inline asm with wasm"
@@ -101,7 +114,7 @@ int main(void) {
   );
   return 0;
 }
-]=] TORSION_HAS_ASM)
+]=] TORSION_HAS_ASM_X64)
 
 check_c_source_compiles([=[
 #if defined(__EMSCRIPTEN__) || defined(__wasm__)
@@ -177,6 +190,10 @@ check_include_file(valgrind/memcheck.h TORSION_HAS_VALGRIND)
 list(APPEND torsion_defines TORSION_HAVE_CONFIG)
 
 if(TORSION_ENABLE_ASM AND TORSION_HAS_ASM)
+  list(APPEND torsion_defines TORSION_HAVE_ASM)
+endif()
+
+if(TORSION_ENABLE_ASM AND TORSION_HAS_ASM_X64)
   list(APPEND torsion_defines TORSION_HAVE_ASM_X64)
 endif()
 

@@ -95,6 +95,18 @@ CC_CHECK_CFLAGS_APPEND([-Wno-overlength-strings])
 CC_CHECK_CFLAGS_APPEND([-Wshadow])
 CC_CHECK_CFLAGS_APPEND([-O3])
 
+AC_MSG_CHECKING(for inline asm support)
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[]],[[
+#if defined(__EMSCRIPTEN__) || defined(__wasm__)
+#  error "cannot use inline asm with wasm"
+#endif
+unsigned char ptr[32];
+int x = 0;
+__asm__ ("" : "+r" (x) ::);
+__asm__ __volatile__("" :: "r" (ptr) : "memory");
+]])],[has_asm=yes],[has_asm=no])
+AC_MSG_RESULT([$has_asm])
+
 AC_MSG_CHECKING(for x86_64 inline asm support)
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <stdint.h>]],[[
 #if defined(__EMSCRIPTEN__) || defined(__wasm__)
@@ -114,8 +126,8 @@ __asm__ __volatile__(
   : "D" (stream), "S" (state)
   : "xmm0", "xmm1", "cc", "memory"
 );
-]])],[has_asm=yes],[has_asm=no])
-AC_MSG_RESULT([$has_asm])
+]])],[has_asm_x64=yes],[has_asm_x64=no])
+AC_MSG_RESULT([$has_asm_x64])
 
 AC_MSG_CHECKING(for int128 support)
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
@@ -183,6 +195,10 @@ AC_CHECK_HEADER([valgrind/memcheck.h], [has_valgrind=yes], [has_valgrind=no], []
 AC_DEFINE(TORSION_HAVE_CONFIG)
 
 if test x"$enable_asm" = x"yes" -a x"$has_asm" = x"yes"; then
+  AC_DEFINE(TORSION_HAVE_ASM)
+fi
+
+if test x"$enable_asm" = x"yes" -a x"$has_asm_x64" = x"yes"; then
   AC_DEFINE(TORSION_HAVE_ASM_X64)
 fi
 
@@ -263,6 +279,7 @@ echo "  pkg version  = $TORSION_PKG_VERSION"
 echo "  lib version  = $TORSION_LIB_VERSION"
 echo ""
 echo "  asm          = $enable_asm (support=$has_asm)"
+echo "  asm_x64      = $enable_asm (support=$has_asm_x64)"
 echo "  coverage     = $enable_coverage"
 echo "  crt          = $enable_crt"
 echo "  debug        = $enable_debug"

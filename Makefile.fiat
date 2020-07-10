@@ -50,9 +50,11 @@ M_FUNCS = mul             \
           to_bytes        \
           from_bytes
 
-AFTER = sed -i 's;$(FIAT);;g' $@;                            \
-        sed -i 's/unsigned __int128/torsion_uint128_t/g' $@; \
-        sed -i 's/signed __int128/torsion_int128_t/g' $@;    \
+AFTER = sed -i 's;$(FIAT);;g' $@;                               \
+        sed -i 's/unsigned __int128/torsion_uint128_t/g' $@;    \
+        sed -i 's/signed __int128/torsion_int128_t/g' $@;       \
+        sed -i 's/x2 & arg3/fiat_barrier(x2) \& arg3/g' $@;     \
+        sed -i 's/(~x2) & arg2/fiat_barrier(~x2) \& arg2/g' $@; \
         sed -i '$$ d' $@;
 
 all: $(OUTPUT)
