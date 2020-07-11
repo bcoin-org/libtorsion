@@ -63,26 +63,26 @@ noinst_HEADERS = src/asn1.h                         \
                  src/mpi.h                          \
                  src/subgroups.h                    \
                  src/tls.h                          \
-                 test/data/chacha20-vectors.h       \
-                 test/data/chachapoly-vectors.h     \
-                 test/data/cipher-aead-vectors.h    \
-                 test/data/cipher-mode-vectors.h    \
-                 test/data/cipher-vectors.h         \
-                 test/data/ctr-drbg-vectors.h       \
-                 test/data/dsa-vectors.h            \
-                 test/data/eb2k-vectors.h           \
-                 test/data/ecdsa-vectors.h          \
-                 test/data/eddsa-vectors.h          \
-                 test/data/hash-drbg-vectors.h      \
-                 test/data/hash-vectors.h           \
-                 test/data/hkdf-vectors.h           \
-                 test/data/hmac-drbg-vectors.h      \
-                 test/data/hmac-vectors.h           \
-                 test/data/pbkdf2-vectors.h         \
-                 test/data/poly1305-vectors.h       \
-                 test/data/rsa-vectors.h            \
-                 test/data/schnorr-legacy-vectors.h \
-                 test/data/schnorr-vectors.h        \
+                 test/data/chacha20_vectors.h       \
+                 test/data/chachapoly_vectors.h     \
+                 test/data/cipher_aead_vectors.h    \
+                 test/data/cipher_mode_vectors.h    \
+                 test/data/cipher_vectors.h         \
+                 test/data/ctr_drbg_vectors.h       \
+                 test/data/dsa_vectors.h            \
+                 test/data/eb2k_vectors.h           \
+                 test/data/ecdsa_vectors.h          \
+                 test/data/eddsa_vectors.h          \
+                 test/data/hash_drbg_vectors.h      \
+                 test/data/hash_vectors.h           \
+                 test/data/hkdf_vectors.h           \
+                 test/data/hmac_drbg_vectors.h      \
+                 test/data/hmac_vectors.h           \
+                 test/data/pbkdf2_vectors.h         \
+                 test/data/poly1305_vectors.h       \
+                 test/data/rsa_vectors.h            \
+                 test/data/schnorr_legacy_vectors.h \
+                 test/data/schnorr_vectors.h        \
                  test/ecc_internal.h                \
                  test/hrtime.h                      \
                  test/thread.h                      \
