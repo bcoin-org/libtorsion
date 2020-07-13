@@ -253,8 +253,7 @@ prefix ## _barrier(type x) {          \
 #define TORSION_BARRIER(type, prefix) \
 static TORSION_INLINE type            \
 prefix ## _barrier(type x) {          \
-  volatile type y = x;                \
-  return y;                           \
+  return x;                           \
 }
 #endif
 
