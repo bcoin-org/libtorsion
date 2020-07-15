@@ -214,17 +214,17 @@ static const unsigned long __torsion_endian_check TORSION_UNUSED = 1;
 #endif
 
 /* Allow some overrides (for testing). */
-#ifdef TORSION_FORCE_32BIT
-#  undef TORSION_HAVE_ASM_X64
-#  undef TORSION_HAVE_INT128
-#endif
-
 #ifdef TORSION_NO_ASM
 #  undef TORSION_HAVE_ASM
 #  undef TORSION_HAVE_ASM_X64
 #endif
 
 #ifdef TORSION_NO_INT128
+#  undef TORSION_HAVE_INT128
+#endif
+
+#ifdef TORSION_FORCE_32BIT
+#  undef TORSION_HAVE_ASM_X64
 #  undef TORSION_HAVE_INT128
 #endif
 
