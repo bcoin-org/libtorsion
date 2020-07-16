@@ -429,7 +429,7 @@
 #  endif
 #elif defined(__ANDROID__)
 /* Bionic has builtin pthread support. */
-#  include <sys/types.h>
+#  include <sys/types.h> /* <sys/cdefs.h> */
 #  ifdef __BIONIC__
 #    define TORSION_HAVE_PTHREAD
 #  endif
