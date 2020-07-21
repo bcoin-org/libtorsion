@@ -15,7 +15,7 @@ include(GNUInstallDirs)
 
 set(TORSION_WASM 0)
 
-if(EMSCRIPTEN OR CMAKE_SYSTEM_NAME STREQUAL "Wasm")
+if(EMSCRIPTEN OR WASI_SDK_PREFIX)
   if(CMAKE_C_FLAGS STREQUAL "-v")
     set(CMAKE_C_FLAGS "")
   endif()

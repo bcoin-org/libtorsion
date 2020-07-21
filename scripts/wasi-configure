@@ -11,8 +11,8 @@ shift
 
 mkdir -p "$PREFIX"
 
-cp -f "$WASI_SDK/share/misc/config.guess" $DIR/../build-aux/config.guess
-cp -f "$WASI_SDK/share/misc/config.sub" $DIR/../build-aux/config.sub
+cp -f "$WASI_SDK/share/misc/config.guess" "$DIR/../build-aux/config.guess"
+cp -f "$WASI_SDK/share/misc/config.sub" "$DIR/../build-aux/config.sub"
 
 exec "$CONFIGURE" --prefix="$PREFIX"                            \
                   --with-sysroot="$WASI_SDK/share/wasi-sysroot" \
