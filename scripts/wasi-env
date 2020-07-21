@@ -1,0 +1,30 @@
+#!/bin/sh
+
+# Partially based on:
+# https://github.com/jedisct1/libsodium/blob/master/dist-build/wasm32-wasi.sh
+
+if test -n "$WASI_SDK"; then
+  echo > /dev/null
+elif test -d /opt/wasi-sdk; then
+  WASI_SDK=/opt/wasi-sdk
+elif test -d /opt/local/wasi-sdk; then
+  WASI_SDK=/opt/local/wasi-sdk
+elif test -d "$HOME/wasi-sdk"; then
+  WASI_SDK="$HOME/wasi-sdk"
+else
+  echo 'WASI SDK not found!' >& 2
+  exit 1
+fi
+
+export WASI="$WASI_SDK"
+export PREFIX="`pwd`/wasm32-wasi"
+export PATH="$WASI_SDK/bin:$PATH"
+export CC="clang"
+export CXX="clang++"
+export LD="wasm-ld"
+export NM="llvm-nm"
+export AR="llvm-ar"
+export RANLIB="llvm-ranlib"
+export STRIP="llvm-strip"
+export CFLAGS="--target=wasm32-wasi --sysroot=${WASI_SDK}/share/wasi-sysroot"
+export LDFLAGS="-Wl,--no-threads"

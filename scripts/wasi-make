@@ -1,0 +1,14 @@
+#!/bin/sh
+
+set -e
+
+DIR=`dirname "$0"`
+MAKE=$1
+
+source "$DIR/wasi-env"
+
+shift
+
+mkdir -p "$PREFIX"
+
+exec "$MAKE" "$@"

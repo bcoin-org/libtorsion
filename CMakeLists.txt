@@ -11,18 +11,34 @@ set(TORSION_LIB_VERSION 0:0:0)
 include(cmake/AppendCCompilerFlag.cmake)
 include(CheckIncludeFile)
 include(CTest)
+include(GNUInstallDirs)
+
+set(TORSION_WASM 0)
+
+if(EMSCRIPTEN OR CMAKE_SYSTEM_NAME STREQUAL "Wasm")
+  if(CMAKE_C_FLAGS STREQUAL "-v")
+    set(CMAKE_C_FLAGS "")
+  endif()
+  set(TORSION_WASM 1)
+endif()
 
 if(EMSCRIPTEN)
-  set(CMAKE_C_VISIBILITY_PRESET default)
   set(CMAKE_C_STANDARD_REQUIRED ON)
   set(CMAKE_C_EXTENSIONS ON)
   set(CMAKE_C_STANDARD 11)
 else()
-  include(GNUInstallDirs)
-  set(CMAKE_C_VISIBILITY_PRESET hidden)
   set(CMAKE_C_STANDARD_REQUIRED ON)
   set(CMAKE_C_EXTENSIONS OFF)
   set(CMAKE_C_STANDARD 90)
+endif()
+
+if(NOT TORSION_WASM)
+  set(CMAKE_C_VISIBILITY_PRESET hidden)
+  set(CMAKE_OSX_DEPLOYMENT_TARGET 10.7)
+endif()
+
+if(NOT CMAKE_CONFIGURATION_TYPES AND NOT CMAKE_BUILD_TYPE)
+  set(CMAKE_BUILD_TYPE "Release")
 endif()
 
 option(TORSION_ENABLE_ASM "Use inline x86-64 assembly if available" ON)
@@ -35,10 +51,6 @@ option(TORSION_ENABLE_PTHREAD "Use pthread as a fallback for TLS" ON)
 option(TORSION_ENABLE_RNG "Enable RNG" ON)
 option(TORSION_ENABLE_TLS "Enable TLS" ON)
 option(TORSION_ENABLE_VERIFY "Enable scalar bounds checks" OFF)
-
-if(NOT CMAKE_CONFIGURATION_TYPES AND NOT CMAKE_BUILD_TYPE)
-  set(CMAKE_BUILD_TYPE "Release")
-endif()
 
 set(torsion_cflags)
 
@@ -135,7 +147,7 @@ int main(void) {
 
 set(TORSION_HAS_THREADS OFF)
 
-if(NOT EMSCRIPTEN)
+if(NOT TORSION_WASM)
   if(WIN32)
     set(TORSION_HAS_THREADS ON)
   else()
@@ -177,6 +189,14 @@ set(torsion_defines)
 
 list(APPEND torsion_defines TORSION_HAVE_CONFIG)
 
+if(WIN32 AND NOT TORSION_WASM)
+  list(APPEND torsion_defines _WIN32_WINNT=0x0600)
+endif()
+
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND NOT TORSION_WASM)
+  list(APPEND torsion_defines _POSIX_C_SOURCE=200112)
+endif()
+
 if(TORSION_ENABLE_ASM AND TORSION_HAS_ASM)
   list(APPEND torsion_defines TORSION_HAVE_ASM)
 endif()
@@ -186,8 +206,8 @@ if(TORSION_ENABLE_ASM AND TORSION_HAS_ASM_X64)
 endif()
 
 if(TORSION_ENABLE_COVERAGE)
-  if(EMSCRIPTEN)
-    message(FATAL_ERROR "coverage not supported with emscripten")
+  if(TORSION_WASM)
+    message(FATAL_ERROR "coverage not supported with wasm")
   endif()
   list(APPEND torsion_defines TORSION_COVERAGE)
 endif()
@@ -258,58 +278,64 @@ if(TORSION_ENABLE_RNG)
   list(APPEND torsion_sources src/rand.c)
 endif()
 
-if(EMSCRIPTEN)
+set(torsion_includes ${PROJECT_SOURCE_DIR}/include)
+
+if(TORSION_WASM)
   set(CMAKE_EXECUTABLE_SUFFIX ".wasm")
 
-  set(torsion_emflags
-      -s WASM=1
-      -s STANDALONE_WASM=1
-      -s WASM_BIGINT=1
-      -s ALLOW_MEMORY_GROWTH=1
-      -s INITIAL_MEMORY=16777216
-      -s MAXIMUM_MEMORY=2147483648
-      -s TOTAL_STACK=5242880
-      -s ERROR_ON_UNDEFINED_SYMBOLS=0
-      -s WARN_ON_UNDEFINED_SYMBOLS=0)
+  if(EMSCRIPTEN)
+    set(torsion_ldflags
+        "SHELL:-s WASM=1"
+        "SHELL:-s STANDALONE_WASM=1"
+        "SHELL:-s WASM_BIGINT=1"
+        "SHELL:-s ALLOW_MEMORY_GROWTH=1"
+        "SHELL:-s INITIAL_MEMORY=16777216"
+        "SHELL:-s MAXIMUM_MEMORY=2147483648"
+        "SHELL:-s TOTAL_STACK=5242880"
+        "SHELL:-s ERROR_ON_UNDEFINED_SYMBOLS=0"
+        "SHELL:-s WARN_ON_UNDEFINED_SYMBOLS=0")
 
-  set(torsion_emexports -s EXPORTED_FUNCTIONS=@etc/exports.json)
+    set(torsion_sources_lib etc/empty.c)
+    set(torsion_ldflags_lib "SHELL:-s EXPORTED_FUNCTIONS=@etc/exports.json")
 
-  string(REPLACE ";" " " torsion_emflags "${torsion_emflags}")
-  string(REPLACE ";" " " torsion_emexports "${torsion_emexports}")
+    list(APPEND torsion_defines __wasi__)
+  else()
+    set(torsion_ldflags
+        -Wl,--allow-undefined
+        -Wl,--initial-memory=16777216
+        -Wl,--max-memory=2147483648
+        -Wl,-z -Wl,stack-size=5242880)
 
-  add_executable(torsion ${torsion_sources})
-  target_compile_definitions(torsion PRIVATE ${torsion_defines}
-                             __wasi__ TORSION_BUILD)
-  target_compile_options(torsion PRIVATE ${torsion_cflags})
-  set_target_properties(torsion PROPERTIES LINK_FLAGS
-                        "${torsion_emflags} ${torsion_emexports}")
-  target_include_directories(torsion PRIVATE ${PROJECT_SOURCE_DIR}/include)
+    set(torsion_sources_lib etc/crt1-reactor.c etc/main.c)
+    set(torsion_ldflags_lib -Wl,--export-all)
+  endif()
 
-  add_executable(torsion_bench ${torsion_sources} test/bench.c test/hrtime.c)
-  target_compile_definitions(torsion_bench PRIVATE ${torsion_defines} __wasi__)
-  target_compile_options(torsion_bench PRIVATE ${torsion_cflags})
-  set_target_properties(torsion_bench PROPERTIES LINK_FLAGS
-                        "${torsion_emflags}")
-  target_include_directories(torsion_bench PRIVATE
-                             ${PROJECT_SOURCE_DIR}/include)
+  add_library(torsion_o OBJECT ${torsion_sources})
+  target_compile_definitions(torsion_o PUBLIC ${torsion_defines}
+                                       PRIVATE TORSION_BUILD)
+  target_compile_options(torsion_o PUBLIC ${torsion_cflags})
+  target_include_directories(torsion_o PUBLIC ${torsion_includes})
+  target_link_options(torsion_o INTERFACE ${torsion_ldflags})
 
-  add_executable(torsion_test ${torsion_sources} test/test.c)
-  target_compile_definitions(torsion_test PRIVATE ${torsion_defines}
-                             __wasi__ TORSION_DEBUG)
-  target_compile_options(torsion_test PRIVATE -g ${torsion_cflags})
-  set_target_properties(torsion_test PROPERTIES LINK_FLAGS "${torsion_emflags}")
-  target_include_directories(torsion_test PRIVATE ${PROJECT_SOURCE_DIR}/include)
-  add_test(NAME test_wasm COMMAND ./scripts/run-wasi.sh torsion_test.wasm)
+  add_executable(torsion ${torsion_sources_lib})
+  target_link_options(torsion PRIVATE ${torsion_ldflags_lib})
+  target_link_libraries(torsion torsion_o)
+
+  add_executable(torsion_bench test/bench.c test/hrtime.c)
+  target_link_libraries(torsion_bench torsion_o)
+
+  add_executable(torsion_test test/test.c)
+  target_link_libraries(torsion_test torsion_o)
+  add_test(NAME test_wasm COMMAND ./scripts/wasi-run torsion_test.wasm)
 else()
-  set(torsion_cflags_ ${torsion_cflags})
+  set(torsion_cflags_o ${torsion_cflags})
   set(torsion_libs)
   set(pkgconf_libs)
   set(test_sources test/test.c)
   set(test_libs)
 
   if(TORSION_ENABLE_COVERAGE)
-    list(APPEND torsion_cflags_ -O0)
-    list(APPEND torsion_cflags_ --coverage)
+    list(APPEND torsion_cflags_o -O0 --coverage)
     list(APPEND torsion_libs gcov)
   endif()
 
@@ -330,21 +356,20 @@ else()
 
   add_library(torsion_o OBJECT ${torsion_sources})
   target_compile_definitions(torsion_o PRIVATE ${torsion_defines} TORSION_BUILD)
-  target_compile_options(torsion_o PRIVATE ${torsion_cflags_})
-  target_include_directories(torsion_o PRIVATE ${PROJECT_SOURCE_DIR}/include)
+  target_compile_options(torsion_o PRIVATE ${torsion_cflags_o})
+  target_include_directories(torsion_o PRIVATE ${torsion_includes})
   set_property(TARGET torsion_o PROPERTY POSITION_INDEPENDENT_CODE 1)
 
   add_library(torsion SHARED $<TARGET_OBJECTS:torsion_o>)
   target_compile_definitions(torsion INTERFACE ${torsion_defines})
   target_compile_options(torsion INTERFACE ${torsion_cflags})
-  target_include_directories(torsion INTERFACE ${PROJECT_SOURCE_DIR}/include)
+  target_include_directories(torsion INTERFACE ${torsion_includes})
   target_link_libraries(torsion PRIVATE ${torsion_libs})
 
   add_library(torsion_static STATIC $<TARGET_OBJECTS:torsion_o>)
   target_compile_definitions(torsion_static INTERFACE ${torsion_defines})
   target_compile_options(torsion_static INTERFACE ${torsion_cflags})
-  target_include_directories(torsion_static INTERFACE
-                             ${PROJECT_SOURCE_DIR}/include)
+  target_include_directories(torsion_static INTERFACE ${torsion_includes})
   target_link_libraries(torsion_static INTERFACE ${torsion_libs})
 
   if(UNIX)

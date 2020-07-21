@@ -47,4 +47,5 @@ torsion_bench.js
 torsion_test.js
 torsion.js
 vgcore.*
+wasm32-wasi/
 x64/

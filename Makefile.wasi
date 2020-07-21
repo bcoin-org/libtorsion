@@ -2,13 +2,14 @@
 # Copyright (c) 2020, Christopher Jeffrey (MIT License).
 # https://github.com/bcoin-org/libtorsion
 
-SDK ?= /opt/wasi-sdk
-CC := $(SDK)/bin/clang
-SYSROOT := $(SDK)/share/wasi-sysroot
+WASI ?= /opt/wasi-sdk
+CC := $(WASI)/bin/clang
+SYSROOT := $(WASI)/share/wasi-sysroot
 TARGET = wasm32-wasi
 INITIAL_MEMORY ?= 16777216
 MAX_MEMORY ?= 2147483648
 STACK_SIZE ?= 5242880
+ENABLE_DEBUG ?= 1
 ENABLE_RNG ?= 1
 
 COMMON_CFLAGS := --target=$(TARGET)               \
@@ -25,7 +26,8 @@ COMMON_CFLAGS := --target=$(TARGET)               \
                  -I./include                      \
                  -O3
 
-COMMON_LDFLAGS := -Wl,--allow-undefined                  \
+COMMON_LDFLAGS := -Wl,--no-threads                       \
+                  -Wl,--allow-undefined                  \
                   -Wl,--initial-memory=$(INITIAL_MEMORY) \
                   -Wl,--max-memory=$(MAX_MEMORY)         \
                   -Wl,-z -Wl,stack-size=$(STACK_SIZE)
@@ -54,6 +56,8 @@ COMMON_SOURCES += src/entropy/env.c \
                   src/rand.c
 endif
 
+COMMON_OBJECTS := $(subst .c,.o,$(COMMON_SOURCES))
+
 # Note: We have to add an empty main function
 # and link our _initialize function manually
 # until reactor support is widely available
@@ -64,17 +68,22 @@ endif
 # See: https://github.com/llvm/llvm-project/commit/d496437
 #      https://reviews.llvm.org/D62922
 
-LIB_SOURCES := $(COMMON_SOURCES) etc/crt1-reactor.c etc/main.c
+LIB_SOURCES := $(COMMON_OBJECTS) etc/crt1-reactor.c etc/main.c
 LIB_CFLAGS := $(COMMON_CFLAGS) -DTORSION_BUILD $(CFLAGS)
 LIB_LDFLAGS := $(COMMON_LDFLAGS) -Wl,--export-all
 
-BENCH_SOURCES := $(COMMON_SOURCES) test/bench.c test/hrtime.c
+BENCH_SOURCES := $(COMMON_OBJECTS) test/bench.c test/hrtime.c
 BENCH_CFLAGS := $(COMMON_CFLAGS) $(CFLAGS)
 BENCH_LDFLAGS := $(COMMON_LDFLAGS)
 
-TEST_SOURCES := $(COMMON_SOURCES) test/test.c
-TEST_CFLAGS := -g $(COMMON_CFLAGS) -DTORSION_DEBUG $(CFLAGS)
+TEST_SOURCES := $(COMMON_OBJECTS) test/test.c
+TEST_CFLAGS := $(COMMON_CFLAGS) $(CFLAGS)
 TEST_LDFLAGS := $(COMMON_LDFLAGS)
+
+ifeq ($(ENABLE_DEBUG), 1)
+LIB_CFLAGS += -g -DTORSION_DEBUG
+TEST_CFLAGS += -g
+endif
 
 ifeq ($(ENABLE_RNG), 1)
 BENCH_CFLAGS += -DTORSION_HAVE_RNG
@@ -84,6 +93,9 @@ endif
 OUTPUT = torsion.wasm torsion_bench.wasm torsion_test.wasm
 
 all: $(OUTPUT)
+
+%.o: %.c
+	$(CC) -o $@ -c $(LIB_CFLAGS) $<
 
 torsion.wasm: $(LIB_SOURCES)
 	$(CC) -o $@ $(LIB_CFLAGS) $(LIB_LDFLAGS) $^
@@ -95,10 +107,10 @@ torsion_test.wasm: $(TEST_SOURCES)
 	$(CC) -o $@ $(TEST_CFLAGS) $(TEST_LDFLAGS) $^
 
 bench: torsion_bench.wasm
-	@./scripts/run-wasi.sh $^
+	@./scripts/wasi-run $^
 
 test: torsion_test.wasm
-	@./scripts/run-wasi.sh $^
+	@./scripts/wasi-run $^
 
 check: test
 

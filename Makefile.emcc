@@ -6,6 +6,7 @@ CC = emcc
 INITIAL_MEMORY ?= 16777216
 MAX_MEMORY ?= 2147483648
 STACK_SIZE ?= 5242880
+ENABLE_DEBUG ?= 1
 ENABLE_RNG ?= 1
 
 COMMON_CFLAGS = -std=gnu11                \
@@ -27,6 +28,10 @@ COMMON_LDFLAGS := -s WASM=1                           \
                   -s TOTAL_STACK=$(STACK_SIZE)        \
                   -s ERROR_ON_UNDEFINED_SYMBOLS=0     \
                   -s WARN_ON_UNDEFINED_SYMBOLS=0
+
+ifeq ($(ENABLE_DEBUG), 1)
+COMMON_CFLAGS += -g -DTORSION_DEBUG
+endif
 
 COMMON_SOURCES = src/aead.c      \
                  src/asn1.c      \
@@ -52,16 +57,18 @@ COMMON_SOURCES += src/entropy/env.c \
                   src/rand.c
 endif
 
-LIB_SOURCES := $(COMMON_SOURCES)
+COMMON_OBJECTS := $(subst .c,.o,$(COMMON_SOURCES))
+
+LIB_SOURCES := $(COMMON_OBJECTS)
 LIB_CFLAGS := $(COMMON_CFLAGS) -DTORSION_BUILD $(CFLAGS)
 LIB_LDFLAGS := $(COMMON_LDFLAGS) -s EXPORTED_FUNCTIONS=@etc/exports.json
 
-BENCH_SOURCES := $(COMMON_SOURCES) test/bench.c test/hrtime.c
+BENCH_SOURCES := $(COMMON_OBJECTS) test/bench.c test/hrtime.c
 BENCH_CFLAGS := $(COMMON_CFLAGS) $(CFLAGS)
 BENCH_LDFLAGS := $(COMMON_LDFLAGS)
 
-TEST_SOURCES := $(COMMON_SOURCES) test/test.c
-TEST_CFLAGS := -g $(COMMON_CFLAGS) -DTORSION_DEBUG $(CFLAGS)
+TEST_SOURCES := $(COMMON_OBJECTS) test/test.c
+TEST_CFLAGS := $(COMMON_CFLAGS) $(CFLAGS)
 TEST_LDFLAGS := $(COMMON_LDFLAGS)
 
 ifeq ($(ENABLE_RNG), 1)
@@ -73,6 +80,9 @@ OUTPUT = torsion.wasm torsion_bench.wasm torsion_test.wasm
 
 all: $(OUTPUT)
 
+%.o: %.c
+	$(CC) -o $@ -c $(LIB_CFLAGS) $<
+
 torsion.wasm: $(LIB_SOURCES)
 	$(CC) -o $@ $(LIB_CFLAGS) $(LIB_LDFLAGS) $^
 
@@ -83,10 +93,10 @@ torsion_test.wasm: $(TEST_SOURCES)
 	$(CC) -o $@ $(TEST_CFLAGS) $(TEST_LDFLAGS) $^
 
 bench: torsion_bench.wasm
-	@./scripts/run-wasi.sh $^
+	@./scripts/wasi-run $^
 
 test: torsion_test.wasm
-	@./scripts/run-wasi.sh $^
+	@./scripts/wasi-run $^
 
 check: test
 

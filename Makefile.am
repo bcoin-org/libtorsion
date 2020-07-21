@@ -120,10 +120,13 @@ endif
 bench_sources = test/bench.c test/hrtime.c
 test_sources = test/test.c
 
-if EMSCRIPTEN
-LOG_COMPILER = ./scripts/run-wasi.sh
+if WASM
+LOG_COMPILER = ./scripts/wasi-run
 
-torsion_emflags = -s WASM=1                       \
+torsion_objects := $(subst .c,.o,$(torsion_sources))
+
+if EMSCRIPTEN
+torsion_ldflags = -s WASM=1                       \
                   -s STANDALONE_WASM=1            \
                   -s WASM_BIGINT=1                \
                   -s ALLOW_MEMORY_GROWTH=1        \
@@ -133,24 +136,36 @@ torsion_emflags = -s WASM=1                       \
                   -s ERROR_ON_UNDEFINED_SYMBOLS=0 \
                   -s WARN_ON_UNDEFINED_SYMBOLS=0
 
-torsion_emexports = -s EXPORTED_FUNCTIONS=@etc/exports.json
+torsion_sources_lib = etc/empty.c
+torsion_ldflags_lib = -s EXPORTED_FUNCTIONS=@etc/exports.json
+
+CFLAGS += -D__wasi__ -DTORSION_BUILD
+else
+torsion_ldflags = -Wl,--allow-undefined         \
+                  -Wl,--initial-memory=16777216 \
+                  -Wl,--max-memory=2147483648   \
+                  -Wl,-z -Wl,stack-size=5242880
+
+torsion_sources_lib = etc/crt1-reactor.c etc/main.c
+torsion_ldflags_lib = -Wl,--export-all
+endif
 
 noinst_PROGRAMS += torsion.wasm
-torsion_wasm_SOURCES = $(torsion_sources)
-torsion_wasm_CFLAGS = -D__wasi__ -DTORSION_BUILD
-torsion_wasm_LDFLAGS = $(torsion_emflags) $(torsion_emexports)
+torsion_wasm_SOURCES = $(torsion_sources_lib)
+torsion_wasm_LDADD = $(torsion_objects)
+torsion_wasm_LDFLAGS = $(torsion_ldflags) $(torsion_ldflags_lib)
 
 noinst_PROGRAMS += torsion_bench.wasm
-torsion_bench_wasm_SOURCES = $(torsion_sources) $(bench_sources)
-torsion_bench_wasm_CFLAGS = -D__wasi__
-torsion_bench_wasm_LDFLAGS = $(torsion_emflags)
+torsion_bench_wasm_SOURCES = $(bench_sources)
+torsion_bench_wasm_LDADD = $(torsion_objects)
+torsion_bench_wasm_LDFLAGS = $(torsion_ldflags)
 
 TESTS += torsion_test.wasm
 noinst_PROGRAMS += torsion_test.wasm
-torsion_test_wasm_SOURCES = $(torsion_sources) $(test_sources)
-torsion_test_wasm_CFLAGS = -g -D__wasi__ -DTORSION_DEBUG
-torsion_test_wasm_LDFLAGS = $(torsion_emflags)
-else !EMSCRIPTEN
+torsion_test_wasm_SOURCES = $(test_sources)
+torsion_test_wasm_LDADD = $(torsion_objects)
+torsion_test_wasm_LDFLAGS = $(torsion_ldflags)
+else !WASM
 lib_LTLIBRARIES = libtorsion.la
 libtorsion_la_SOURCES = $(torsion_sources)
 libtorsion_la_CFLAGS = -DTORSION_BUILD
@@ -202,4 +217,4 @@ endif
 
 pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA = libtorsion.pc
-endif !EMSCRIPTEN
+endif !WASM

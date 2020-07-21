@@ -28,6 +28,12 @@ if test x"$ac_cv_prog_cc_c89" = x"no"; then
   AC_MSG_ERROR([CC does not support ANSI C89])
 fi
 
+if test x"$EMSCRIPTEN" != x"" -o x"$WASI" != x""; then
+  WASM=yes
+else
+  WASM=no
+fi
+
 AC_ARG_ENABLE(asm,
   AS_HELP_STRING([--enable-asm],[use inline x86-64 assembly if available [default=yes]]),
   [enable_asm=$enableval],
@@ -83,7 +89,6 @@ if test x"$EMSCRIPTEN" != x""; then
 else
   CC_CHECK_CFLAGS_APPEND([-std=c89])
   CC_CHECK_CFLAGS_APPEND([-pedantic])
-  CC_CHECK_CFLAGS_APPEND([-fvisibility=hidden])
 fi
 
 CC_CHECK_CFLAGS_APPEND([-Wall])
@@ -94,6 +99,16 @@ CC_CHECK_CFLAGS_APPEND([-Wno-long-long])
 CC_CHECK_CFLAGS_APPEND([-Wno-overlength-strings])
 CC_CHECK_CFLAGS_APPEND([-Wshadow])
 CC_CHECK_CFLAGS_APPEND([-O3])
+
+if test x"$WASM" != x"yes"; then
+  CC_CHECK_CFLAGS_APPEND([-fvisibility=hidden])
+
+  AS_CASE([$host_os], [darwin*],
+    [CC_CHECK_CFLAGS_APPEND([-mmacosx-version-min=10.7])], [])
+
+  AS_CASE([$host_os], [linux*],
+    [CFLAGS="$CFLAGS -D_POSIX_C_SOURCE=200112"], [])
+fi
 
 AC_MSG_CHECKING(for inline asm support)
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[]],[[
@@ -160,7 +175,7 @@ value = 1;
 ]])],[has_tls=yes],[has_tls=no])
 AC_MSG_RESULT([$has_tls])
 
-if test x"$EMSCRIPTEN" = x""; then
+if test x"$WASM" != x"yes"; then
   AX_PTHREAD([has_threads=yes], [has_threads=no])
 else
   has_threads=no
@@ -203,8 +218,8 @@ if test x"$enable_asm" = x"yes" -a x"$has_asm_x64" = x"yes"; then
 fi
 
 if test x"$enable_coverage" = x"yes"; then
-  if test x"$EMSCRIPTEN" != x""; then
-    AC_MSG_ERROR([coverage not supported with emscripten])
+  if test x"$EMSCRIPTEN" != x"" -o x"$WASI" != x""; then
+    AC_MSG_ERROR([coverage not supported with wasm])
   fi
   AC_DEFINE(TORSION_COVERAGE)
 fi
@@ -267,6 +282,7 @@ AM_CONDITIONAL([ENABLE_CTGRIND], [test x"$has_valgrind" = x"yes"])
 AM_CONDITIONAL([ENABLE_PTHREAD], [test x"$pthread_fallback" = x"yes"])
 AM_CONDITIONAL([ENABLE_RNG], [test x"$enable_rng" = x"yes"])
 AM_CONDITIONAL([ENABLE_THREADS], [test x"$has_threads" = x"yes"])
+AM_CONDITIONAL([WASM], [test x"$WASM" = x"yes"])
 
 AC_CONFIG_FILES([Makefile libtorsion.pc])
 
