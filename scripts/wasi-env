@@ -1,7 +1,11 @@
 #!/bin/sh
 
+# wasi-env - wasi environment for make
+# Copyright (c) 2020, Christopher Jeffrey (MIT License).
+# https://github.com/bcoin-org/libtorsion
+#
 # Partially based on:
-# https://github.com/jedisct1/libsodium/blob/master/dist-build/wasm32-wasi.sh
+#   https://github.com/jedisct1/libsodium/blob/master/dist-build/wasm32-wasi.sh
 
 if test -n "$WASI_SDK"; then
   echo > /dev/null

@@ -1,5 +1,9 @@
 #!/bin/sh
 
+# wasi-cmake - wasi wrapper for cmake
+# Copyright (c) 2020, Christopher Jeffrey (MIT License).
+# https://github.com/bcoin-org/libtorsion
+
 set -e
 
 CMAKE=$1
