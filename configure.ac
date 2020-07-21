@@ -153,8 +153,8 @@ typedef char check_64bit_t[sizeof(void *) == 8 ? 1 : -1];
 typedef signed __int128 int128_t;
 typedef unsigned __int128 uint128_t;
 ]],[[
-uint128_t r;
-r = ((uint128_t)1) << 64;
+uint128_t r = 1;
+r <<= 64;
 r *= 113;
 r >>= 65;
 ]])],[has_int128=yes],[has_int128=no])
