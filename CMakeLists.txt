@@ -57,10 +57,10 @@ set(torsion_cflags)
 if(MSVC)
   set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} /DTORSION_DEBUG")
 
-  append_c_compiler_flag(torsion_cflags /wd4146)
-  append_c_compiler_flag(torsion_cflags /wd4244)
-  append_c_compiler_flag(torsion_cflags /wd4267)
-  append_c_compiler_flag(torsion_cflags /wd4334)
+  append_c_compiler_flag(torsion_cflags /wd4146
+                                        /wd4244
+                                        /wd4267
+                                        /wd4334)
 else()
   set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -DTORSION_DEBUG")
 
@@ -68,13 +68,13 @@ else()
     append_c_compiler_flag(torsion_cflags -pedantic)
   endif()
 
-  append_c_compiler_flag(torsion_cflags -Wall)
-  append_c_compiler_flag(torsion_cflags -Wextra)
-  append_c_compiler_flag(torsion_cflags -Wcast-align)
-  append_c_compiler_flag(torsion_cflags -Wno-implicit-fallthrough)
-  append_c_compiler_flag(torsion_cflags -Wno-long-long)
-  append_c_compiler_flag(torsion_cflags -Wno-overlength-strings)
-  append_c_compiler_flag(torsion_cflags -Wshadow)
+  append_c_compiler_flag(torsion_cflags -Wall
+                                        -Wextra
+                                        -Wcast-align
+                                        -Wno-implicit-fallthrough
+                                        -Wno-long-long
+                                        -Wno-overlength-strings
+                                        -Wshadow)
 endif()
 
 check_c_source_compiles([=[
@@ -253,29 +253,28 @@ if(TORSION_ENABLE_VERIFY)
   list(APPEND torsion_defines TORSION_VERIFY)
 endif()
 
-set(torsion_sources
-    src/aead.c
-    src/asn1.c
-    src/cipher.c
-    src/ecc.c
-    src/encoding.c
-    src/drbg.c
-    src/dsa.c
-    src/hash.c
-    src/ies.c
-    src/internal.c
-    src/kdf.c
-    src/mac.c
-    src/mpi.c
-    src/rsa.c
-    src/stream.c
-    src/util.c)
+set(torsion_sources src/aead.c
+                    src/asn1.c
+                    src/cipher.c
+                    src/ecc.c
+                    src/encoding.c
+                    src/drbg.c
+                    src/dsa.c
+                    src/hash.c
+                    src/ies.c
+                    src/internal.c
+                    src/kdf.c
+                    src/mac.c
+                    src/mpi.c
+                    src/rsa.c
+                    src/stream.c
+                    src/util.c)
 
 if(TORSION_ENABLE_RNG)
-  list(APPEND torsion_sources src/entropy/env.c)
-  list(APPEND torsion_sources src/entropy/hw.c)
-  list(APPEND torsion_sources src/entropy/sys.c)
-  list(APPEND torsion_sources src/rand.c)
+  list(APPEND torsion_sources src/entropy/env.c
+                              src/entropy/hw.c
+                              src/entropy/sys.c
+                              src/rand.c)
 endif()
 
 set(torsion_includes ${PROJECT_SOURCE_DIR}/include)
@@ -284,27 +283,25 @@ if(TORSION_WASM)
   set(CMAKE_EXECUTABLE_SUFFIX ".wasm")
 
   if(EMSCRIPTEN)
-    set(torsion_ldflags
-        "SHELL:-s WASM=1"
-        "SHELL:-s STANDALONE_WASM=1"
-        "SHELL:-s WASM_BIGINT=1"
-        "SHELL:-s ALLOW_MEMORY_GROWTH=1"
-        "SHELL:-s INITIAL_MEMORY=16777216"
-        "SHELL:-s MAXIMUM_MEMORY=2147483648"
-        "SHELL:-s TOTAL_STACK=5242880"
-        "SHELL:-s ERROR_ON_UNDEFINED_SYMBOLS=0"
-        "SHELL:-s WARN_ON_UNDEFINED_SYMBOLS=0")
+    set(torsion_ldflags "SHELL:-s WASM=1"
+                        "SHELL:-s STANDALONE_WASM=1"
+                        "SHELL:-s WASM_BIGINT=1"
+                        "SHELL:-s ALLOW_MEMORY_GROWTH=1"
+                        "SHELL:-s INITIAL_MEMORY=16777216"
+                        "SHELL:-s MAXIMUM_MEMORY=2147483648"
+                        "SHELL:-s TOTAL_STACK=5242880"
+                        "SHELL:-s ERROR_ON_UNDEFINED_SYMBOLS=0"
+                        "SHELL:-s WARN_ON_UNDEFINED_SYMBOLS=0")
 
     set(torsion_sources_lib etc/empty.c)
     set(torsion_ldflags_lib "SHELL:-s EXPORTED_FUNCTIONS=@etc/exports.json")
 
     list(APPEND torsion_defines __wasi__)
   else()
-    set(torsion_ldflags
-        -Wl,--allow-undefined
-        -Wl,--initial-memory=16777216
-        -Wl,--max-memory=2147483648
-        -Wl,-z -Wl,stack-size=5242880)
+    set(torsion_ldflags -Wl,--allow-undefined
+                        -Wl,--initial-memory=16777216
+                        -Wl,--max-memory=2147483648
+                        -Wl,-z -Wl,stack-size=5242880)
 
     set(torsion_sources_lib etc/crt1-reactor.c etc/main.c)
     set(torsion_ldflags_lib -Wl,--export-all)
