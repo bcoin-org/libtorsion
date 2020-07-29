@@ -6,8 +6,12 @@ CC = emcc
 INITIAL_MEMORY ?= 16777216
 MAX_MEMORY ?= 2147483648
 STACK_SIZE ?= 5242880
-ENABLE_DEBUG ?= 1
+ENABLE_DEBUG ?= 0
 ENABLE_RNG ?= 1
+
+#
+# CFLAGS
+#
 
 COMMON_CFLAGS = -std=gnu11                \
                 -Wall                     \
@@ -19,6 +23,14 @@ COMMON_CFLAGS = -std=gnu11                \
                 -D__wasi__                \
                 -O3
 
+ifeq ($(ENABLE_DEBUG), 1)
+COMMON_CFLAGS += -g
+endif
+
+#
+# LDFLAGS
+#
+
 COMMON_LDFLAGS := -s WASM=1                           \
                   -s STANDALONE_WASM=1                \
                   -s WASM_BIGINT=1                    \
@@ -29,9 +41,9 @@ COMMON_LDFLAGS := -s WASM=1                           \
                   -s ERROR_ON_UNDEFINED_SYMBOLS=0     \
                   -s WARN_ON_UNDEFINED_SYMBOLS=0
 
-ifeq ($(ENABLE_DEBUG), 1)
-COMMON_CFLAGS += -g -DTORSION_DEBUG
-endif
+#
+# Sources/Objects
+#
 
 COMMON_SOURCES = src/aead.c      \
                  src/asn1.c      \
@@ -50,31 +62,58 @@ COMMON_SOURCES = src/aead.c      \
                  src/stream.c    \
                  src/util.c
 
+RNG_SOURCES = src/entropy/env.c \
+              src/entropy/hw.c  \
+              src/entropy/sys.c \
+              src/rand.c
+
 ifeq ($(ENABLE_RNG), 1)
-COMMON_SOURCES += src/entropy/env.c \
-                  src/entropy/hw.c  \
-                  src/entropy/sys.c \
-                  src/rand.c
+COMMON_SOURCES += $(RNG_SOURCES)
 endif
 
 COMMON_OBJECTS := $(subst .c,.o,$(COMMON_SOURCES))
 
+#
+# Library
+#
+
 LIB_SOURCES := $(COMMON_OBJECTS)
 LIB_CFLAGS := $(COMMON_CFLAGS) -DTORSION_BUILD $(CFLAGS)
-LIB_LDFLAGS := $(COMMON_LDFLAGS) -s EXPORTED_FUNCTIONS=@etc/exports.json
+LIB_LDFLAGS := $(COMMON_LDFLAGS)                       \
+               -s EXPORTED_FUNCTIONS=@etc/exports.json \
+               $(LDFLAGS)
+
+ifeq ($(ENABLE_DEBUG), 1)
+LIB_CFLAGS += -DTORSION_DEBUG
+endif
+
+#
+# Benchmarks
+#
 
 BENCH_SOURCES := $(COMMON_OBJECTS) test/bench.c test/hrtime.c
 BENCH_CFLAGS := $(COMMON_CFLAGS) $(CFLAGS)
-BENCH_LDFLAGS := $(COMMON_LDFLAGS)
-
-TEST_SOURCES := $(COMMON_OBJECTS) test/test.c
-TEST_CFLAGS := $(COMMON_CFLAGS) $(CFLAGS)
-TEST_LDFLAGS := $(COMMON_LDFLAGS)
+BENCH_LDFLAGS := $(COMMON_LDFLAGS) $(LDFLAGS)
 
 ifeq ($(ENABLE_RNG), 1)
 BENCH_CFLAGS += -DTORSION_HAVE_RNG
+endif
+
+#
+# Tests
+#
+
+TEST_SOURCES := $(COMMON_OBJECTS) test/test.c
+TEST_CFLAGS := $(COMMON_CFLAGS) $(CFLAGS)
+TEST_LDFLAGS := $(COMMON_LDFLAGS) $(LDFLAGS)
+
+ifeq ($(ENABLE_RNG), 1)
 TEST_CFLAGS += -DTORSION_HAVE_RNG
 endif
+
+#
+# Rules
+#
 
 OUTPUT = torsion.wasm torsion_bench.wasm torsion_test.wasm
 
@@ -101,6 +140,6 @@ test: torsion_test.wasm
 check: test
 
 clean:
-	rm -f $(OUTPUT)
+	rm -f $(COMMON_OBJECTS) $(OUTPUT)
 
 .PHONY: all bench test check clean

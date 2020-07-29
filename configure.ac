@@ -218,9 +218,11 @@ if test x"$enable_asm" = x"yes" -a x"$has_asm_x64" = x"yes"; then
 fi
 
 if test x"$enable_coverage" = x"yes"; then
-  if test x"$EMSCRIPTEN" != x"" -o x"$WASI" != x""; then
+  if test x"$WASM" = x"yes"; then
     AC_MSG_ERROR([coverage not supported with wasm])
   fi
+  CFLAGS="$CFLAGS -O0 --coverage"
+  LDFLAGS="$LDFLAGS --coverage"
   AC_DEFINE(TORSION_COVERAGE)
 fi
 
@@ -276,8 +278,10 @@ AC_SUBST(TORSION_LIB_VERSION)
 AC_SUBST(PTHREAD_CFLAGS)
 AC_SUBST(PTHREAD_LIBS)
 
+AC_SUBST(SYSROOT)
+AC_SUBST(TARGET)
+
 AM_CONDITIONAL([EMSCRIPTEN], [test x"$EMSCRIPTEN" != x""])
-AM_CONDITIONAL([ENABLE_COVERAGE], [test x"$enable_coverage" = x"yes"])
 AM_CONDITIONAL([ENABLE_CTGRIND], [test x"$has_valgrind" = x"yes"])
 AM_CONDITIONAL([ENABLE_PTHREAD], [test x"$pthread_fallback" = x"yes"])
 AM_CONDITIONAL([ENABLE_RNG], [test x"$enable_rng" = x"yes"])

@@ -121,38 +121,52 @@ bench_sources = test/bench.c test/hrtime.c
 test_sources = test/test.c
 
 if WASM
+INITIAL_MEMORY ?= 16777216
+MAX_MEMORY ?= 2147483648
+STACK_SIZE ?= 5242880
 LOG_COMPILER = ./scripts/wasi-run
 
 torsion_objects := $(subst .c,.o,$(torsion_sources))
 
 if EMSCRIPTEN
-torsion_ldflags = -s WASM=1                       \
-                  -s STANDALONE_WASM=1            \
-                  -s WASM_BIGINT=1                \
-                  -s ALLOW_MEMORY_GROWTH=1        \
-                  -s INITIAL_MEMORY=16777216      \
-                  -s MAXIMUM_MEMORY=2147483648    \
-                  -s TOTAL_STACK=5242880          \
-                  -s ERROR_ON_UNDEFINED_SYMBOLS=0 \
+torsion_ldflags = -s WASM=1                           \
+                  -s STANDALONE_WASM=1                \
+                  -s WASM_BIGINT=1                    \
+                  -s ALLOW_MEMORY_GROWTH=1            \
+                  -s INITIAL_MEMORY=$(INITIAL_MEMORY) \
+                  -s MAXIMUM_MEMORY=$(MAX_MEMORY)     \
+                  -s TOTAL_STACK=$(STACK_SIZE)        \
+                  -s ERROR_ON_UNDEFINED_SYMBOLS=0     \
                   -s WARN_ON_UNDEFINED_SYMBOLS=0
 
-torsion_sources_lib = etc/empty.c
+torsion_objects_lib =
 torsion_ldflags_lib = -s EXPORTED_FUNCTIONS=@etc/exports.json
 
 CFLAGS += -D__wasi__ -DTORSION_BUILD
 else
-torsion_ldflags = -Wl,--allow-undefined         \
-                  -Wl,--initial-memory=16777216 \
-                  -Wl,--max-memory=2147483648   \
-                  -Wl,-z -Wl,stack-size=5242880
+torsion_ldflags = -Wl,--allow-undefined                  \
+                  -Wl,--initial-memory=$(INITIAL_MEMORY) \
+                  -Wl,--max-memory=$(MAX_MEMORY)         \
+                  -Wl,-z -Wl,stack-size=$(STACK_SIZE)
 
-torsion_sources_lib = etc/crt1-reactor.c etc/main.c
-torsion_ldflags_lib = -Wl,--export-all
+# Note: We have to manually choose crt1-reactor.o
+# until reactor support is widely available via:
+#
+#   -mexec-model=reactor
+#
+# See: https://github.com/llvm/llvm-project/commit/d496437
+#      https://reviews.llvm.org/D62922
+torsion_objects_lib = $(SYSROOT)/lib/$(TARGET)/crt1-reactor.o
+torsion_ldflags_lib = -nostartfiles           \
+                      -Wl,--entry=_initialize \
+                      -Wl,--export-dynamic    \
+                      -Wl,--export=malloc     \
+                      -Wl,--export=free
 endif
 
 noinst_PROGRAMS += torsion.wasm
-torsion_wasm_SOURCES = $(torsion_sources_lib)
-torsion_wasm_LDADD = $(torsion_objects)
+torsion_wasm_SOURCES =
+torsion_wasm_LDADD = $(torsion_objects) $(torsion_objects_lib)
 torsion_wasm_LDFLAGS = $(torsion_ldflags) $(torsion_ldflags_lib)
 
 noinst_PROGRAMS += torsion_bench.wasm
@@ -201,12 +215,6 @@ torsion_test_static_SOURCES := $(torsion_test_SOURCES)
 torsion_test_static_CFLAGS := $(torsion_test_CFLAGS)
 torsion_test_static_LDFLAGS = -static
 torsion_test_static_LDADD := $(torsion_test_LDADD)
-
-if ENABLE_COVERAGE
-libtorsion_la_CFLAGS += -O0 --coverage
-libtorsion_la_LIBADD += -lgcov
-torsion_test_static_LDADD += -lgcov
-endif
 
 if ENABLE_CTGRIND
 noinst_PROGRAMS += torsion_ctgrind

@@ -52,7 +52,14 @@ option(TORSION_ENABLE_RNG "Enable RNG" ON)
 option(TORSION_ENABLE_TLS "Enable TLS" ON)
 option(TORSION_ENABLE_VERIFY "Enable scalar bounds checks" OFF)
 
+if(TORSION_WASM)
+  set(TORSION_INITIAL_MEMORY "16777216" CACHE STRING "WASM initial memory")
+  set(TORSION_MAX_MEMORY "2147483648" CACHE STRING "WASM maximum memory")
+  set(TORSION_STACK_SIZE "5242880" CACHE STRING "WASM stack size")
+endif()
+
 set(torsion_cflags)
+set(torsion_ldflags)
 
 if(MSVC)
   set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} /DTORSION_DEBUG")
@@ -209,6 +216,8 @@ if(TORSION_ENABLE_COVERAGE)
   if(TORSION_WASM)
     message(FATAL_ERROR "coverage not supported with wasm")
   endif()
+  list(APPEND torsion_cflags -O0 --coverage)
+  list(APPEND torsion_ldflags --coverage)
   list(APPEND torsion_defines TORSION_COVERAGE)
 endif()
 
@@ -279,6 +288,13 @@ endif()
 
 set(torsion_includes ${PROJECT_SOURCE_DIR}/include)
 
+if(NOT COMMAND target_link_options)
+  # Fallback for cmake < 3.13.
+  function(target_link_options)
+    target_link_libraries(${ARGV})
+  endfunction()
+endif()
+
 if(TORSION_WASM)
   set(CMAKE_EXECUTABLE_SUFFIX ".wasm")
 
@@ -287,24 +303,36 @@ if(TORSION_WASM)
                         "SHELL:-s STANDALONE_WASM=1"
                         "SHELL:-s WASM_BIGINT=1"
                         "SHELL:-s ALLOW_MEMORY_GROWTH=1"
-                        "SHELL:-s INITIAL_MEMORY=16777216"
-                        "SHELL:-s MAXIMUM_MEMORY=2147483648"
-                        "SHELL:-s TOTAL_STACK=5242880"
+                        "SHELL:-s INITIAL_MEMORY=${TORSION_INITIAL_MEMORY}"
+                        "SHELL:-s MAXIMUM_MEMORY=${TORSION_MAX_MEMORY}"
+                        "SHELL:-s TOTAL_STACK=${TORSION_STACK_SIZE}"
                         "SHELL:-s ERROR_ON_UNDEFINED_SYMBOLS=0"
                         "SHELL:-s WARN_ON_UNDEFINED_SYMBOLS=0")
 
-    set(torsion_sources_lib etc/empty.c)
+    set(torsion_sources_lib "")
     set(torsion_ldflags_lib "SHELL:-s EXPORTED_FUNCTIONS=@etc/exports.json")
 
     list(APPEND torsion_defines __wasi__)
   else()
     set(torsion_ldflags -Wl,--allow-undefined
-                        -Wl,--initial-memory=16777216
-                        -Wl,--max-memory=2147483648
-                        -Wl,-z -Wl,stack-size=5242880)
+                        -Wl,--initial-memory=${TORSION_INITIAL_MEMORY}
+                        -Wl,--max-memory=${TORSION_MAX_MEMORY}
+                        -Wl,-z -Wl,stack-size=${TORSION_STACK_SIZE})
 
-    set(torsion_sources_lib etc/crt1-reactor.c etc/main.c)
-    set(torsion_ldflags_lib -Wl,--export-all)
+    # Note: We have to manually choose crt1-reactor.o
+    # until reactor support is widely available via:
+    #
+    #   -mexec-model=reactor
+    #
+    # See: https://github.com/llvm/llvm-project/commit/d496437
+    #      https://reviews.llvm.org/D62922
+    set(torsion_syslib ${CMAKE_SYSROOT}/lib/${CMAKE_C_COMPILER_TARGET})
+    set(torsion_sources_lib ${torsion_syslib}/crt1-reactor.o)
+    set(torsion_ldflags_lib -nostartfiles
+                            -Wl,--entry=_initialize
+                            -Wl,--export-dynamic
+                            -Wl,--export=malloc
+                            -Wl,--export=free)
   endif()
 
   add_library(torsion_o OBJECT ${torsion_sources})
@@ -316,25 +344,19 @@ if(TORSION_WASM)
 
   add_executable(torsion ${torsion_sources_lib})
   target_link_options(torsion PRIVATE ${torsion_ldflags_lib})
-  target_link_libraries(torsion torsion_o)
+  target_link_libraries(torsion PRIVATE torsion_o)
 
   add_executable(torsion_bench test/bench.c test/hrtime.c)
-  target_link_libraries(torsion_bench torsion_o)
+  target_link_libraries(torsion_bench PRIVATE torsion_o)
 
   add_executable(torsion_test test/test.c)
-  target_link_libraries(torsion_test torsion_o)
+  target_link_libraries(torsion_test PRIVATE torsion_o)
   add_test(NAME test_wasm COMMAND ./scripts/wasi-run torsion_test.wasm)
 else()
-  set(torsion_cflags_o ${torsion_cflags})
   set(torsion_libs)
   set(pkgconf_libs)
   set(test_sources test/test.c)
   set(test_libs)
-
-  if(TORSION_ENABLE_COVERAGE)
-    list(APPEND torsion_cflags_o -O0 --coverage)
-    list(APPEND torsion_libs gcov)
-  endif()
 
   if(TORSION_ENABLE_PTHREAD AND TORSION_HAS_THREADS AND NOT WIN32)
     if(NOT TORSION_ENABLE_TLS OR NOT TORSION_HAS_TLS)
@@ -353,20 +375,22 @@ else()
 
   add_library(torsion_o OBJECT ${torsion_sources})
   target_compile_definitions(torsion_o PRIVATE ${torsion_defines} TORSION_BUILD)
-  target_compile_options(torsion_o PRIVATE ${torsion_cflags_o})
+  target_compile_options(torsion_o PRIVATE ${torsion_cflags})
   target_include_directories(torsion_o PRIVATE ${torsion_includes})
-  set_property(TARGET torsion_o PROPERTY POSITION_INDEPENDENT_CODE 1)
+  set_property(TARGET torsion_o PROPERTY POSITION_INDEPENDENT_CODE ON)
 
   add_library(torsion SHARED $<TARGET_OBJECTS:torsion_o>)
   target_compile_definitions(torsion INTERFACE ${torsion_defines})
   target_compile_options(torsion INTERFACE ${torsion_cflags})
   target_include_directories(torsion INTERFACE ${torsion_includes})
+  target_link_options(torsion PRIVATE ${torsion_ldflags})
   target_link_libraries(torsion PRIVATE ${torsion_libs})
 
   add_library(torsion_static STATIC $<TARGET_OBJECTS:torsion_o>)
   target_compile_definitions(torsion_static INTERFACE ${torsion_defines})
   target_compile_options(torsion_static INTERFACE ${torsion_cflags})
   target_include_directories(torsion_static INTERFACE ${torsion_includes})
+  target_link_options(torsion_static INTERFACE ${torsion_ldflags})
   target_link_libraries(torsion_static INTERFACE ${torsion_libs})
 
   if(UNIX)
@@ -378,19 +402,19 @@ else()
   endif()
 
   add_executable(torsion_bench test/bench.c test/hrtime.c)
-  target_link_libraries(torsion_bench torsion)
+  target_link_libraries(torsion_bench PRIVATE torsion)
 
   add_executable(torsion_test ${test_sources})
-  target_link_libraries(torsion_test torsion ${test_libs})
+  target_link_libraries(torsion_test PRIVATE torsion ${test_libs})
   add_test(NAME test_shared COMMAND torsion_test)
 
   add_executable(torsion_test_static ${test_sources})
-  target_link_libraries(torsion_test_static torsion_static ${test_libs})
+  target_link_libraries(torsion_test_static PRIVATE torsion_static ${test_libs})
   add_test(NAME test_static COMMAND torsion_test_static)
 
   if(TORSION_HAS_VALGRIND)
     add_executable(torsion_ctgrind test/ctgrind.c)
-    target_link_libraries(torsion_ctgrind torsion)
+    target_link_libraries(torsion_ctgrind PRIVATE torsion)
   endif()
 
   if(UNIX)

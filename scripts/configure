@@ -1,0 +1,23 @@
+#!/bin/sh
+
+# configure - script for configuring .in files
+# Copyright (c) 2020, Christopher Jeffrey (MIT License).
+# https://github.com/bcoin-org/libtorsion
+
+# Usage: ./configure [in-file] [out-file] [key]=[val] ...
+
+inp="$1"
+out="$2"
+
+shift
+shift
+
+txt=`cat "$inp"`
+
+for arg in "$@"; do
+  key=`echo "$arg" | cut -d '=' -f 1`
+  val=`echo "$arg" | cut -d '=' -f 2`
+  txt=`echo "$txt" | sed "s;@$key@;$val;g"`
+done
+
+echo "$txt" > "$out"

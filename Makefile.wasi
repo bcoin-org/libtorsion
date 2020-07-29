@@ -9,28 +9,44 @@ TARGET = wasm32-wasi
 INITIAL_MEMORY ?= 16777216
 MAX_MEMORY ?= 2147483648
 STACK_SIZE ?= 5242880
-ENABLE_DEBUG ?= 1
+ENABLE_DEBUG ?= 0
 ENABLE_RNG ?= 1
 
-COMMON_CFLAGS := --target=$(TARGET)               \
-                 --sysroot=$(SYSROOT)             \
-                 -std=c89                         \
-                 -pedantic                        \
-                 -Wall                            \
-                 -Wextra                          \
-                 -Wcast-align                     \
-                 -Wno-implicit-fallthrough        \
-                 -Wno-long-long                   \
-                 -Wno-overlength-strings          \
-                 -Wshadow                         \
-                 -I./include                      \
+#
+# CFLAGS
+#
+
+COMMON_CFLAGS := --target=$(TARGET)        \
+                 --sysroot=$(SYSROOT)      \
+                 -std=c89                  \
+                 -pedantic                 \
+                 -Wall                     \
+                 -Wextra                   \
+                 -Wcast-align              \
+                 -Wno-implicit-fallthrough \
+                 -Wno-long-long            \
+                 -Wno-overlength-strings   \
+                 -Wshadow                  \
+                 -I./include               \
                  -O3
 
-COMMON_LDFLAGS := -Wl,--no-threads                       \
-                  -Wl,--allow-undefined                  \
+ifeq ($(ENABLE_DEBUG), 1)
+COMMON_CFLAGS += -g
+endif
+
+#
+# LDFLAGS
+#
+
+COMMON_LDFLAGS := -Wl,--allow-undefined                  \
                   -Wl,--initial-memory=$(INITIAL_MEMORY) \
                   -Wl,--max-memory=$(MAX_MEMORY)         \
-                  -Wl,-z -Wl,stack-size=$(STACK_SIZE)
+                  -Wl,-z -Wl,stack-size=$(STACK_SIZE)    \
+                  -Wl,--no-threads
+
+#
+# Sources/Objects
+#
 
 COMMON_SOURCES = src/aead.c      \
                  src/asn1.c      \
@@ -49,46 +65,69 @@ COMMON_SOURCES = src/aead.c      \
                  src/stream.c    \
                  src/util.c
 
+RNG_SOURCES = src/entropy/env.c \
+              src/entropy/hw.c  \
+              src/entropy/sys.c \
+              src/rand.c
+
 ifeq ($(ENABLE_RNG), 1)
-COMMON_SOURCES += src/entropy/env.c \
-                  src/entropy/hw.c  \
-                  src/entropy/sys.c \
-                  src/rand.c
+COMMON_SOURCES += $(RNG_SOURCES)
 endif
 
 COMMON_OBJECTS := $(subst .c,.o,$(COMMON_SOURCES))
 
-# Note: We have to add an empty main function
-# and link our _initialize function manually
-# until reactor support is widely available
-# via:
+#
+# Library
+#
+
+# Note: We have to manually choose crt1-reactor.o
+# until reactor support is widely available via:
 #
 #   -mexec-model=reactor
 #
 # See: https://github.com/llvm/llvm-project/commit/d496437
 #      https://reviews.llvm.org/D62922
-
-LIB_SOURCES := $(COMMON_OBJECTS) etc/crt1-reactor.c etc/main.c
+LIB_SOURCES := $(COMMON_OBJECTS) $(SYSROOT)/lib/$(TARGET)/crt1-reactor.o
 LIB_CFLAGS := $(COMMON_CFLAGS) -DTORSION_BUILD $(CFLAGS)
-LIB_LDFLAGS := $(COMMON_LDFLAGS) -Wl,--export-all
+LIB_LDFLAGS := $(COMMON_LDFLAGS)       \
+               -nostartfiles           \
+               -Wl,--entry=_initialize \
+               -Wl,--export-dynamic    \
+               -Wl,--export=malloc     \
+               -Wl,--export=free       \
+               $(LDFLAGS)
+
+ifeq ($(ENABLE_DEBUG), 1)
+LIB_CFLAGS += -DTORSION_DEBUG
+endif
+
+#
+# Benchmarks
+#
 
 BENCH_SOURCES := $(COMMON_OBJECTS) test/bench.c test/hrtime.c
 BENCH_CFLAGS := $(COMMON_CFLAGS) $(CFLAGS)
-BENCH_LDFLAGS := $(COMMON_LDFLAGS)
-
-TEST_SOURCES := $(COMMON_OBJECTS) test/test.c
-TEST_CFLAGS := $(COMMON_CFLAGS) $(CFLAGS)
-TEST_LDFLAGS := $(COMMON_LDFLAGS)
-
-ifeq ($(ENABLE_DEBUG), 1)
-LIB_CFLAGS += -g -DTORSION_DEBUG
-TEST_CFLAGS += -g
-endif
+BENCH_LDFLAGS := $(COMMON_LDFLAGS) $(LDFLAGS)
 
 ifeq ($(ENABLE_RNG), 1)
 BENCH_CFLAGS += -DTORSION_HAVE_RNG
+endif
+
+#
+# Tests
+#
+
+TEST_SOURCES := $(COMMON_OBJECTS) test/test.c
+TEST_CFLAGS := $(COMMON_CFLAGS) $(CFLAGS)
+TEST_LDFLAGS := $(COMMON_LDFLAGS) $(LDFLAGS)
+
+ifeq ($(ENABLE_RNG), 1)
 TEST_CFLAGS += -DTORSION_HAVE_RNG
 endif
+
+#
+# Rules
+#
 
 OUTPUT = torsion.wasm torsion_bench.wasm torsion_test.wasm
 
@@ -115,6 +154,6 @@ test: torsion_test.wasm
 check: test
 
 clean:
-	rm -f $(OUTPUT)
+	rm -f $(COMMON_OBJECTS) $(OUTPUT)
 
 .PHONY: all bench test check clean

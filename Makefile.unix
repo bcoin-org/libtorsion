@@ -3,29 +3,35 @@
 # https://github.com/bcoin-org/libtorsion
 
 PREFIX ?= /usr/local
-PTHREAD_CFLAGS ?=
+PTHREAD_CFLAGS ?= -D_REENTRANT
 PTHREAD_LIBS ?= -lpthread
 ENABLE_COVERAGE ?= 0
 ENABLE_DEBUG ?= 0
 ENABLE_RNG ?= 1
-VERSION = 0.0.0
-CURRENT = 0
+ENABLE_TLS ?= 1
+PKG_VER = 0.0.0
+VER = 0.0.0
+CUR = 0
 SO = so
 
 ifeq ($(shell uname -s), Darwin)
 SO = dylib
 endif
 
-COMMON_CFLAGS = -std=c89                         \
-                -pedantic                        \
-                -Wall                            \
-                -Wextra                          \
-                -Wcast-align                     \
-                -Wno-implicit-fallthrough        \
-                -Wno-long-long                   \
-                -Wno-overlength-strings          \
-                -Wshadow                         \
-                -I./include                      \
+#
+# CFLAGS
+#
+
+COMMON_CFLAGS = -std=c89                  \
+                -pedantic                 \
+                -Wall                     \
+                -Wextra                   \
+                -Wcast-align              \
+                -Wno-implicit-fallthrough \
+                -Wno-long-long            \
+                -Wno-overlength-strings   \
+                -Wshadow                  \
+                -I./include               \
                 -O3
 
 ifeq ($(shell uname -s), Darwin)
@@ -36,9 +42,34 @@ ifeq ($(shell uname -s), Linux)
 COMMON_CFLAGS += -D_POSIX_C_SOURCE=200112
 endif
 
-COMMON_LIBS := -Wl,-rpath,$(shell pwd) libtorsion.$(SO)
+ifeq ($(ENABLE_COVERAGE), 1)
+COMMON_CFLAGS += -O0 --coverage
+endif
 
+ifeq ($(ENABLE_DEBUG), 1)
+COMMON_CFLAGS += -g
+endif
+
+#
+# LDFLAGS
+#
+
+COMMON_LDFLAGS =
+
+ifeq ($(ENABLE_COVERAGE), 1)
+COMMON_LDFLAGS += --coverage
+endif
+
+#
+# LIBS
+#
+
+COMMON_LIBS := -Wl,-rpath,$(shell pwd) libtorsion.$(SO).$(VER)
 COMMON_LIBS_A = libtorsion.a
+
+#
+# Library
+#
 
 LIB_SOURCES = src/aead.c      \
               src/asn1.c      \
@@ -57,44 +88,59 @@ LIB_SOURCES = src/aead.c      \
               src/stream.c    \
               src/util.c
 
-ifeq ($(ENABLE_RNG), 1)
-LIB_SOURCES += src/entropy/env.c \
-               src/entropy/hw.c  \
-               src/entropy/sys.c \
-               src/rand.c
-endif
+RNG_SOURCES = src/entropy/env.c \
+              src/entropy/hw.c  \
+              src/entropy/sys.c \
+              src/rand.c
 
-LIB_OBJECTS := $(subst .c,.o,$(LIB_SOURCES))
 LIB_CFLAGS := $(COMMON_CFLAGS) -DTORSION_BUILD $(CFLAGS)
+LIB_LDFLAGS := $(COMMON_LDFLAGS) -Wl,-soname,libtorsion.$(SO).$(CUR) $(LDFLAGS)
 LIB_LIBS =
-
-BENCH_SOURCES = test/bench.c test/hrtime.c
-BENCH_CFLAGS := $(COMMON_CFLAGS) $(CFLAGS)
-BENCH_LIBS := $(COMMON_LIBS)
-
-TEST_SOURCES = test/test.c
-TEST_CFLAGS := $(COMMON_CFLAGS) -DTORSION_HAVE_FORK $(CFLAGS)
-TEST_LIBS := $(COMMON_LIBS)
-TEST_LIBS_A := $(COMMON_LIBS_A)
-
-CTGRIND_SOURCES = test/ctgrind.c
-CTGRIND_CFLAGS := $(COMMON_CFLAGS) $(CFLAGS)
-CTGRIND_LIBS := $(COMMON_LIBS)
 
 ifeq ($(ENABLE_COVERAGE), 1)
 LIB_CFLAGS += -DTORSION_COVERAGE
-LIB_CFLAGS += -O0 --coverage
-LIB_LIBS += -lgcov
-TEST_LIBS_A += -lgcov
 endif
 
 ifeq ($(ENABLE_DEBUG), 1)
-LIB_CFLAGS += -g -DTORSION_DEBUG
-TEST_CFLAGS += -g
+LIB_CFLAGS += -DTORSION_DEBUG
 endif
 
 ifeq ($(ENABLE_RNG), 1)
+LIB_SOURCES += $(RNG_SOURCES)
+ifeq ($(ENABLE_TLS), 0)
+LIB_CFLAGS += -DTORSION_NO_TLS
+LIB_CFLAGS += -DTORSION_HAVE_PTHREAD
+LIB_CFLAGS += $(PTHREAD_CFLAGS)
+LIB_LIBS += $(PTHREAD_LIBS)
+endif
+endif
+
+LIB_OBJECTS := $(subst .c,.o,$(LIB_SOURCES))
+
+#
+# Benchmarks
+#
+
+BENCH_SOURCES = test/bench.c test/hrtime.c
+BENCH_CFLAGS := $(COMMON_CFLAGS) $(CFLAGS)
+BENCH_LDFLAGS := $(COMMON_LDFLAGS) $(LDFLAGS)
+BENCH_LIBS := $(COMMON_LIBS)
+
+ifeq ($(ENABLE_RNG), 1)
 BENCH_CFLAGS += -DTORSION_HAVE_RNG
+endif
+
+#
+# Tests
+#
+
+TEST_SOURCES = test/test.c
+TEST_CFLAGS := $(COMMON_CFLAGS) -DTORSION_HAVE_FORK $(CFLAGS)
+TEST_LDFLAGS := $(COMMON_LDFLAGS) $(LDFLAGS)
+TEST_LIBS := $(COMMON_LIBS)
+TEST_LIBS_A := $(COMMON_LIBS_A)
+
+ifeq ($(ENABLE_RNG), 1)
 TEST_SOURCES += test/thread.c
 TEST_CFLAGS += -DTORSION_HAVE_RNG
 TEST_CFLAGS += -DTORSION_HAVE_THREADS
@@ -103,47 +149,79 @@ TEST_LIBS += $(PTHREAD_LIBS)
 TEST_LIBS_A += $(PTHREAD_LIBS)
 endif
 
-OUTPUT := libtorsion.$(SO)    \
-          libtorsion.a        \
-          torsion_bench       \
-          torsion_test        \
-          torsion_test_static
+#
+# CT Grind
+#
 
-DEST_SO := $(DESTDIR)$(PREFIX)/lib/libtorsion.$(SO)
+CTG_SOURCES = test/ctgrind.c
+CTG_CFLAGS := $(COMMON_CFLAGS) $(CFLAGS)
+CTG_LDFLAGS := $(COMMON_LDFLAGS) $(LDFLAGS)
+CTG_LIBS := $(COMMON_LIBS)
+
+#
+# Rules
+#
+
+OUTPUT := libtorsion.$(SO).$(VER) \
+          libtorsion.$(SO).$(CUR) \
+          libtorsion.$(SO)        \
+          libtorsion.a            \
+          torsion_bench           \
+          torsion_test            \
+          torsion_test_static     \
+          libtorsion.pc
+
+CONFIG := prefix=$(PREFIX)                    \
+          libdir=\$${exec_prefix}/lib         \
+          includedir=\$${exec_prefix}/include \
+          PACKAGE_VERSION=$(PKG_VER)          \
+          LIBS=$(LIB_LIBS)
+
+INSTDIR := $(DESTDIR)$(PREFIX)
 
 all: $(OUTPUT)
 
 %.o: %.c
 	$(CC) -o $@ -c -fPIC $(LIB_CFLAGS) $<
 
-libtorsion.$(SO): $(LIB_OBJECTS)
-	$(CC) -o $@ -shared -fPIC $^ $(LIB_LIBS)
+libtorsion.$(SO).$(VER): $(LIB_OBJECTS)
+	$(CC) -o $@ -shared -fPIC $(LIB_LDFLAGS) $^ $(LIB_LIBS)
+
+libtorsion.$(SO).$(CUR): libtorsion.$(SO).$(VER)
+	ln -s $^ $@
+
+libtorsion.$(SO): libtorsion.$(SO).$(CUR)
+	ln -s $^ $@
 
 libtorsion.a: $(LIB_OBJECTS)
 	$(AR) rcs $@ $^
 
-torsion_bench: libtorsion.$(SO) $(TEST_SOURCES)
-	$(CC) -o $@ $(BENCH_CFLAGS) $(BENCH_SOURCES) $(BENCH_LIBS)
+torsion_bench: $(BENCH_SOURCES) libtorsion.$(SO)
+	$(CC) -o $@ $(BENCH_CFLAGS) $(BENCH_LDFLAGS) $(BENCH_SOURCES) $(BENCH_LIBS)
 
-torsion_test: libtorsion.$(SO) $(TEST_SOURCES)
-	$(CC) -o $@ $(TEST_CFLAGS) $(TEST_SOURCES) $(TEST_LIBS)
+torsion_test: $(TEST_SOURCES) libtorsion.$(SO)
+	$(CC) -o $@ $(TEST_CFLAGS) $(TEST_LDFLAGS) $(TEST_SOURCES) $(TEST_LIBS)
 
-torsion_test_static: libtorsion.a $(TEST_SOURCES)
-	$(CC) -o $@ $(TEST_CFLAGS) $(TEST_SOURCES) $(TEST_LIBS_A)
+torsion_test_static: $(TEST_SOURCES) libtorsion.a
+	$(CC) -o $@ $(TEST_CFLAGS) $(TEST_LDFLAGS) $(TEST_SOURCES) $(TEST_LIBS_A)
 
-torsion_ctgrind: libtorsion.$(SO) $(CTGRIND_SOURCES)
-	$(CC) -o $@ $(CTGRIND_CFLAGS) $(CTGRIND_SOURCES) $(CTGRIND_LIBS)
+torsion_ctgrind: $(CTG_SOURCES) libtorsion.$(SO)
+	$(CC) -o $@ $(CTG_CFLAGS) $(CTG_LDFLAGS) $(CTG_SOURCES) $(CTG_LIBS)
+
+libtorsion.pc: libtorsion.pc.in
+	./scripts/configure $^ $@ $(CONFIG)
 
 install: $(OUTPUT)
-	install -d $(DESTDIR)$(PREFIX)/lib
-	install -d $(DESTDIR)$(PREFIX)/include/torsion
-	install -d $(DESTDIR)$(PREFIX)/share/licenses
-	install -m 755 libtorsion.$(SO) $(DEST_SO).$(VERSION)
-	ln -sr $(DEST_SO).$(VERSION) $(DEST_SO).$(CURRENT)
-	ln -sr $(DEST_SO).$(CURRENT) $(DEST_SO)
-	install -m 644 libtorsion.a $(DESTDIR)$(PREFIX)/lib/
-	install -m 644 include/torsion/*.h $(DESTDIR)$(PREFIX)/include/torsion/
-	install -m 644 LICENSE $(DESTDIR)$(PREFIX)/share/licenses/
+	install -d $(INSTDIR)/lib/pkgconfig
+	install -d $(INSTDIR)/include/torsion
+	install -d $(INSTDIR)/share/licenses/libtorsion
+	install -m 755 libtorsion.$(SO).$(VER) $(INSTDIR)/lib/
+	(cd $(INSTDIR)/lib && ln -s libtorsion.$(SO).$(VER) libtorsion.$(SO).$(CUR))
+	(cd $(INSTDIR)/lib && ln -s libtorsion.$(SO).$(CUR) libtorsion.$(SO))
+	install -m 644 libtorsion.a $(INSTDIR)/lib/
+	install -m 644 libtorsion.pc $(INSTDIR)/lib/pkgconfig/
+	install -m 644 include/torsion/*.h $(INSTDIR)/include/torsion/
+	install -m 644 LICENSE $(INSTDIR)/share/licenses/libtorsion/
 
 bench: torsion_bench
 	@./torsion_bench

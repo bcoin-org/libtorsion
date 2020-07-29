@@ -21,14 +21,16 @@ else
 fi
 
 export WASI="$WASI_SDK"
-export PREFIX="`pwd`/wasm32-wasi"
+export TARGET='wasm32-wasi'
+export SYSROOT="$WASI_SDK/share/wasi-sysroot"
+export PREFIX="`pwd`/$TARGET"
 export PATH="$WASI_SDK/bin:$PATH"
-export CC="clang"
-export CXX="clang++"
-export LD="wasm-ld"
-export NM="llvm-nm"
-export AR="llvm-ar"
-export RANLIB="llvm-ranlib"
-export STRIP="llvm-strip"
-export CFLAGS="--target=wasm32-wasi --sysroot=${WASI_SDK}/share/wasi-sysroot"
-export LDFLAGS="-Wl,--no-threads"
+export CC='clang'
+export CXX='clang++'
+export LD='wasm-ld'
+export NM='llvm-nm'
+export AR='llvm-ar'
+export RANLIB='llvm-ranlib'
+export STRIP='llvm-strip'
+export CFLAGS="--target=$TARGET --sysroot=$SYSROOT"
+export LDFLAGS='-Wl,--no-threads'
