@@ -9,6 +9,7 @@ set(TORSION_PKG_VERSION 0.0.0)
 set(TORSION_LIB_VERSION 0:0:0)
 
 include(cmake/AppendCCompilerFlag.cmake)
+include(cmake/TargetLinkOptions.cmake)
 include(CheckIncludeFile)
 include(CTest)
 include(GNUInstallDirs)
@@ -287,13 +288,6 @@ if(TORSION_ENABLE_RNG)
 endif()
 
 set(torsion_includes ${PROJECT_SOURCE_DIR}/include)
-
-if(NOT COMMAND target_link_options)
-  # Fallback for cmake < 3.13.
-  function(target_link_options)
-    target_link_libraries(${ARGV})
-  endfunction()
-endif()
 
 if(TORSION_WASM)
   set(CMAKE_EXECUTABLE_SUFFIX ".wasm")
