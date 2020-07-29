@@ -42,6 +42,7 @@ COMMON_LDFLAGS := -Wl,--allow-undefined                  \
                   -Wl,--initial-memory=$(INITIAL_MEMORY) \
                   -Wl,--max-memory=$(MAX_MEMORY)         \
                   -Wl,-z -Wl,stack-size=$(STACK_SIZE)    \
+                  -Wl,--stack-first                      \
                   -Wl,--no-threads
 
 #

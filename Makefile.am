@@ -147,7 +147,8 @@ else
 torsion_ldflags = -Wl,--allow-undefined                  \
                   -Wl,--initial-memory=$(INITIAL_MEMORY) \
                   -Wl,--max-memory=$(MAX_MEMORY)         \
-                  -Wl,-z -Wl,stack-size=$(STACK_SIZE)
+                  -Wl,-z -Wl,stack-size=$(STACK_SIZE)    \
+                  -Wl,--stack-first
 
 # Note: We have to manually choose crt1-reactor.o
 # until reactor support is widely available via:

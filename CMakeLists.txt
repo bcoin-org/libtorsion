@@ -311,7 +311,8 @@ if(TORSION_WASM)
     set(torsion_ldflags -Wl,--allow-undefined
                         -Wl,--initial-memory=${TORSION_INITIAL_MEMORY}
                         -Wl,--max-memory=${TORSION_MAX_MEMORY}
-                        -Wl,-z -Wl,stack-size=${TORSION_STACK_SIZE})
+                        -Wl,-z -Wl,stack-size=${TORSION_STACK_SIZE}
+                        -Wl,--stack-first)
 
     # Note: We have to manually choose crt1-reactor.o
     # until reactor support is widely available via:
