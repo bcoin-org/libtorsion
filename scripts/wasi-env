@@ -37,6 +37,7 @@ export NM='llvm-nm'
 export AR='llvm-ar'
 export RANLIB='llvm-ranlib'
 export STRIP='llvm-strip'
+export OBJDUMP='llvm-objdump'
 export CFLAGS="--target=$WASI_TARGET --sysroot=$WASI_SYSROOT"
 export CXXFLAGS="$CFLAGS -std=c++11"
 export LDFLAGS='-Wl,--no-threads'
