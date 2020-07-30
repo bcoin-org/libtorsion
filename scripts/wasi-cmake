@@ -6,13 +6,6 @@
 
 set -e
 
-DIR=`dirname "$0"`
-DIR=`cd "$DIR" && pwd`
-
-CMAKE="$1"
-
-shift
-
 if test -n "$WASI"; then
   WASI=`cd "$WASI" && pwd`
 elif test -d /opt/wasi-sdk; then
@@ -23,6 +16,13 @@ else
   echo 'WASI SDK not found!' >& 2
   exit 1
 fi
+
+DIR=`dirname "$0"`
+DIR=`cd "$DIR" && pwd`
+
+CMAKE="$1"
+
+shift
 
 exec "$CMAKE" -G 'Unix Makefiles'                                       \
               -DCMAKE_TOOLCHAIN_FILE="$WASI/share/cmake/wasi-sdk.cmake" \
