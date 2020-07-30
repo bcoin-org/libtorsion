@@ -6,6 +6,9 @@
 
 set -e
 
+DIR=`dirname "$0"`
+DIR=`cd "$DIR" && pwd`
+
 CMAKE="$1"
 
 shift
@@ -29,6 +32,6 @@ fi
 
 exec "$CMAKE" -G 'Unix Makefiles'                                       \
               -DCMAKE_TOOLCHAIN_FILE="$WASI/share/cmake/wasi-sdk.cmake" \
-              -DCMAKE_CROSSCOMPILING_EMULATOR="`pwd`/scripts/wasi-run"  \
+              -DCMAKE_CROSSCOMPILING_EMULATOR="$DIR/wasi-run"           \
               -DWASI_SDK_PREFIX="$WASI"                                 \
               "$@"
