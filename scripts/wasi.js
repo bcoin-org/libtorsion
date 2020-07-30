@@ -8,24 +8,22 @@
 
 const fs = require('fs');
 const {WASI} = require('wasi');
-const code = fs.readFileSync(process.argv[2])
-const args = process.argv.slice(3);
 
-args.unshift('wasi');
+if (process.argv.length < 3) {
+  console.error('Usage: $ wasi-run [file] [args]');
+  process.exit(1);
+}
+
+const code = fs.readFileSync(process.argv[2])
+const module_ = new WebAssembly.Module(code);
 
 const wasi = new WASI({
-  args,
+  args: process.argv.slice(2),
   env: process.env
 });
 
-const info = {
-  env: {
-    emscripten_notify_memory_growth: (memoryIndex) => {}
-  },
+const instance = new WebAssembly.Instance(module_, {
   wasi_snapshot_preview1: wasi.wasiImport
-};
-
-const module_ = new WebAssembly.Module(code);
-const instance = new WebAssembly.Instance(module_, info);
+});
 
 wasi.start(instance);

@@ -4,10 +4,23 @@
 # Copyright (c) 2020, Christopher Jeffrey (MIT License).
 # https://github.com/bcoin-org/libtorsion
 
+set -e
+
 DIR=`dirname "$0"`
 
-exec node --no-warnings                         \
-          --experimental-wasi-unstable-preview1 \
-          --experimental-wasm-bigint            \
-          "$DIR/wasi.js"                        \
-          "$@"
+if test -n "$NODEJS"; then
+  true
+elif type nodejs > /dev/null 2>& 1; then
+  NODEJS=nodejs
+elif type node > /dev/null 2>& 1; then
+  NODEJS=node
+else
+  echo 'Node.js not found!' >& 2
+  exit 1
+fi
+
+exec "$NODEJS" --no-warnings                         \
+               --experimental-wasm-bigint            \
+               --experimental-wasi-unstable-preview1 \
+               "$DIR/wasi.js"                        \
+               "$@"
