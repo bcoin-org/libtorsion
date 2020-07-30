@@ -466,7 +466,9 @@ sha512_write_perfdata(sha512_t *hash, size_t max) {
 
   if (ret == ERROR_SUCCESS) {
     sha512_write_data(hash, data, nread);
+#ifdef SecureZeroMemory
     SecureZeroMemory(data, nread);
+#endif
   }
 
   if (data)

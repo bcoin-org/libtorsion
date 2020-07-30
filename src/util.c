@@ -7,6 +7,9 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <string.h>
+#ifdef _WIN32
+#include <windows.h>
+#endif
 #include <torsion/util.h>
 #include "bio.h"
 #include "internal.h"
@@ -22,18 +25,9 @@
  *   http://www.daemonology.net/blog/2014-09-04-how-to-zero-a-buffer.html
  */
 
-#undef HAVE_SECUREZEROMEMORY
-
-#if defined(__EMSCRIPTEN__) || defined(__wasm__)
-/* Not supported with emscripten/wasm. */
-#elif defined(_WIN32)
-#  include <windows.h>
-#  define HAVE_SECUREZEROMEMORY
-#endif
-
 void
 torsion_cleanse(void *ptr, size_t len) {
-#if defined(HAVE_SECUREZEROMEMORY)
+#if defined(_WIN32) && defined(SecureZeroMemory)
   if (len > 0)
     SecureZeroMemory(ptr, len);
 #elif defined(TORSION_HAVE_ASM)
@@ -47,8 +41,6 @@ torsion_cleanse(void *ptr, size_t len) {
     memset_ptr(ptr, 0, len);
 #endif
 }
-
-#undef HAVE_SECUREZEROMEMORY
 
 /*
  * Memequal
