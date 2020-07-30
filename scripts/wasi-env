@@ -1,30 +1,35 @@
 #!/bin/sh
 
-# wasi-env - wasi environment for make
+# wasi-env - wasi environment for configure/make
 # Copyright (c) 2020, Christopher Jeffrey (MIT License).
 # https://github.com/bcoin-org/libtorsion
 #
 # Partially based on:
 #   https://github.com/jedisct1/libsodium/blob/master/dist-build/wasm32-wasi.sh
 
-if test -n "$WASI_SDK"; then
-  echo > /dev/null
+if test -n "$WASI"; then
+  WASI=`cd "$WASI" && pwd`
 elif test -d /opt/wasi-sdk; then
-  WASI_SDK=/opt/wasi-sdk
+  WASI=/opt/wasi-sdk
 elif test -d /opt/local/wasi-sdk; then
-  WASI_SDK=/opt/local/wasi-sdk
+  WASI=/opt/local/wasi-sdk
+elif test -d /usr/lib/wasi-sdk; then
+  WASI=/usr/lib/wasi-sdk
+elif test -d /usr/local/lib/wasi-sdk; then
+  WASI=/usr/local/lib/wasi-sdk
 elif test -d "$HOME/wasi-sdk"; then
-  WASI_SDK="$HOME/wasi-sdk"
+  WASI="$HOME/wasi-sdk"
 else
   echo 'WASI SDK not found!' >& 2
   exit 1
 fi
 
-export WASI="$WASI_SDK"
-export TARGET='wasm32-wasi'
-export SYSROOT="$WASI_SDK/share/wasi-sysroot"
-export PREFIX="`pwd`/$TARGET"
-export PATH="$WASI_SDK/bin:$PATH"
+WASI_TARGET='wasm32-wasi'
+WASI_SYSROOT="$WASI/share/wasi-sysroot"
+
+export WASI="$WASI"
+export PREFIX="`pwd`/$WASI_TARGET"
+export PATH="$WASI/bin:$PATH"
 export CC='clang'
 export CXX='clang++'
 export LD='wasm-ld'
@@ -32,5 +37,6 @@ export NM='llvm-nm'
 export AR='llvm-ar'
 export RANLIB='llvm-ranlib'
 export STRIP='llvm-strip'
-export CFLAGS="--target=$TARGET --sysroot=$SYSROOT"
+export CFLAGS="--target=$WASI_TARGET --sysroot=$WASI_SYSROOT"
+export CXXFLAGS="$CFLAGS -std=c++11"
 export LDFLAGS='-Wl,--no-threads'

@@ -49,21 +49,21 @@ COMMON_LDFLAGS := -Wl,--allow-undefined                  \
 # Sources/Objects
 #
 
-COMMON_SOURCES = src/aead.c      \
-                 src/asn1.c      \
-                 src/cipher.c    \
-                 src/ecc.c       \
-                 src/encoding.c  \
-                 src/drbg.c      \
-                 src/dsa.c       \
-                 src/hash.c      \
-                 src/ies.c       \
-                 src/internal.c  \
-                 src/kdf.c       \
-                 src/mac.c       \
-                 src/mpi.c       \
-                 src/rsa.c       \
-                 src/stream.c    \
+COMMON_SOURCES = src/aead.c     \
+                 src/asn1.c     \
+                 src/cipher.c   \
+                 src/ecc.c      \
+                 src/encoding.c \
+                 src/drbg.c     \
+                 src/dsa.c      \
+                 src/hash.c     \
+                 src/ies.c      \
+                 src/internal.c \
+                 src/kdf.c      \
+                 src/mac.c      \
+                 src/mpi.c      \
+                 src/rsa.c      \
+                 src/stream.c   \
                  src/util.c
 
 RNG_SOURCES = src/entropy/env.c \
@@ -155,6 +155,6 @@ test: torsion_test.wasm
 check: test
 
 clean:
-	rm -f $(COMMON_OBJECTS) $(OUTPUT)
+	$(RM) $(COMMON_OBJECTS) $(OUTPUT)
 
 .PHONY: all bench test check clean

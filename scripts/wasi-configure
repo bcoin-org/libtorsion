@@ -6,19 +6,26 @@
 
 set -e
 
-DIR=`dirname "$0"`
-CONFIGURE=$1
+. "`dirname "$0"`/wasi-env"
 
-source "$DIR/wasi-env"
+CONFIGURE="$1"
 
 shift
 
 mkdir -p "$PREFIX"
 
-cp -f "$WASI_SDK/share/misc/config.guess" "$DIR/../build-aux/config.guess"
-cp -f "$WASI_SDK/share/misc/config.sub" "$DIR/../build-aux/config.sub"
+BUILDDIR=.
 
-exec "$CONFIGURE" --prefix="$PREFIX"                            \
-                  --with-sysroot="$WASI_SDK/share/wasi-sysroot" \
-                  --host=wasm32-wasi                            \
+if test -d ./build-aux; then
+  BUILDDIR=./build-aux
+fi
+
+if test -f $BUILDDIR/config.guess; then
+  cp -f "$WASI/share/misc/config.guess" $BUILDDIR/config.guess
+  cp -f "$WASI/share/misc/config.sub" $BUILDDIR/config.sub
+fi
+
+exec "$CONFIGURE" --prefix="$PREFIX"             \
+                  --with-sysroot="$WASI_SYSROOT" \
+                  --host="$WASI_TARGET"          \
                   "$@"

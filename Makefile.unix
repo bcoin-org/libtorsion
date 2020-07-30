@@ -71,21 +71,21 @@ COMMON_LIBS_A = libtorsion.a
 # Library
 #
 
-LIB_SOURCES = src/aead.c      \
-              src/asn1.c      \
-              src/cipher.c    \
-              src/ecc.c       \
-              src/encoding.c  \
-              src/drbg.c      \
-              src/dsa.c       \
-              src/hash.c      \
-              src/ies.c       \
-              src/internal.c  \
-              src/kdf.c       \
-              src/mac.c       \
-              src/mpi.c       \
-              src/rsa.c       \
-              src/stream.c    \
+LIB_SOURCES = src/aead.c     \
+              src/asn1.c     \
+              src/cipher.c   \
+              src/ecc.c      \
+              src/encoding.c \
+              src/drbg.c     \
+              src/dsa.c      \
+              src/hash.c     \
+              src/ies.c      \
+              src/internal.c \
+              src/kdf.c      \
+              src/mac.c      \
+              src/mpi.c      \
+              src/rsa.c      \
+              src/stream.c   \
               src/util.c
 
 RNG_SOURCES = src/entropy/env.c \
@@ -95,7 +95,7 @@ RNG_SOURCES = src/entropy/env.c \
 
 LIB_CFLAGS := $(COMMON_CFLAGS) -DTORSION_BUILD $(CFLAGS)
 LIB_LDFLAGS := $(COMMON_LDFLAGS) -Wl,-soname,libtorsion.$(SO).$(CUR) $(LDFLAGS)
-LIB_LIBS =
+LIB_LIBS := $(LIBS)
 
 ifeq ($(ENABLE_COVERAGE), 1)
 LIB_CFLAGS += -DTORSION_COVERAGE
@@ -124,7 +124,7 @@ LIB_OBJECTS := $(subst .c,.o,$(LIB_SOURCES))
 BENCH_SOURCES = test/bench.c test/hrtime.c
 BENCH_CFLAGS := $(COMMON_CFLAGS) $(CFLAGS)
 BENCH_LDFLAGS := $(COMMON_LDFLAGS) $(LDFLAGS)
-BENCH_LIBS := $(COMMON_LIBS)
+BENCH_LIBS := $(COMMON_LIBS) $(LIBS)
 
 ifeq ($(ENABLE_RNG), 1)
 BENCH_CFLAGS += -DTORSION_HAVE_RNG
@@ -137,8 +137,8 @@ endif
 TEST_SOURCES = test/test.c
 TEST_CFLAGS := $(COMMON_CFLAGS) -DTORSION_HAVE_FORK $(CFLAGS)
 TEST_LDFLAGS := $(COMMON_LDFLAGS) $(LDFLAGS)
-TEST_LIBS := $(COMMON_LIBS)
-TEST_LIBS_A := $(COMMON_LIBS_A)
+TEST_LIBS := $(COMMON_LIBS) $(LIBS)
+TEST_LIBS_A := $(COMMON_LIBS_A) $(LIBS)
 
 ifeq ($(ENABLE_RNG), 1)
 TEST_SOURCES += test/thread.c
@@ -156,7 +156,7 @@ endif
 CTG_SOURCES = test/ctgrind.c
 CTG_CFLAGS := $(COMMON_CFLAGS) $(CFLAGS)
 CTG_LDFLAGS := $(COMMON_LDFLAGS) $(LDFLAGS)
-CTG_LIBS := $(COMMON_LIBS)
+CTG_LIBS := $(COMMON_LIBS) $(LIBS)
 
 #
 # Rules
@@ -238,6 +238,6 @@ ctgrind: torsion_ctgrind
 	@valgrind ./torsion_ctgrind
 
 clean:
-	rm -f $(LIB_OBJECTS) $(OUTPUT) torsion_ctgrind
+	$(RM) $(LIB_OBJECTS) $(OUTPUT) torsion_ctgrind
 
 .PHONY: all install bench test test_static check ctgrind clean

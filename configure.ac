@@ -4,7 +4,7 @@ dnl https://github.com/bcoin-org/libtorsion
 
 AC_PREREQ(2.59)
 AC_INIT([libtorsion], [0.0.0], [https://github.com/bcoin-org/libtorsion/issues])
-TORSION_LIB_VERSION=0:0:0
+LIB_VERSION=0:0:0
 AC_CONFIG_AUX_DIR([build-aux])
 AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_SRCDIR([include/torsion/ecc.h])
@@ -35,52 +35,52 @@ else
 fi
 
 AC_ARG_ENABLE(asm,
-  AS_HELP_STRING([--enable-asm],[use inline x86-64 assembly if available [default=yes]]),
+  AS_HELP_STRING([--enable-asm], [use inline x86-64 assembly if available [default=yes]]),
   [enable_asm=$enableval],
   [enable_asm=yes])
 
 AC_ARG_ENABLE(coverage,
-  AS_HELP_STRING([--enable-coverage],[enable coverage [default=no]]),
+  AS_HELP_STRING([--enable-coverage], [enable coverage [default=no]]),
   [enable_coverage=$enableval],
   [enable_coverage=no])
 
 AC_ARG_ENABLE(crt,
-  AS_HELP_STRING([--enable-crt],[enable chinese remainder theorem for RSA [default=no]]),
+  AS_HELP_STRING([--enable-crt], [enable chinese remainder theorem for RSA [default=no]]),
   [enable_crt=$enableval],
   [enable_crt=no])
 
 AC_ARG_ENABLE(debug,
-  AS_HELP_STRING([--enable-debug],[enable tests [default=no]]),
+  AS_HELP_STRING([--enable-debug], [enable tests [default=no]]),
   [enable_debug=$enableval],
   [enable_debug=no])
 
 AC_ARG_ENABLE(int128,
-  AS_HELP_STRING([--enable-int128],[use __int128 if available [default=yes]]),
+  AS_HELP_STRING([--enable-int128], [use __int128 if available [default=yes]]),
   [enable_int128=$enableval],
   [enable_int128=yes])
 
 AC_ARG_ENABLE(libsecp256k1,
-  AS_HELP_STRING([--enable-libsecp256k1],[use libsecp256k1 field element backend [default=no]]),
+  AS_HELP_STRING([--enable-libsecp256k1], [use libsecp256k1 field element backend [default=no]]),
   [enable_libsecp256k1=$enableval],
   [enable_libsecp256k1=no])
 
 AC_ARG_ENABLE(pthread,
-  AS_HELP_STRING([--enable-pthread],[use pthread as a fallback for tls [default=yes]]),
+  AS_HELP_STRING([--enable-pthread], [use pthread as a fallback for tls [default=yes]]),
   [enable_pthread=$enableval],
   [enable_pthread=yes])
 
 AC_ARG_ENABLE(rng,
-  AS_HELP_STRING([--enable-rng],[enable rng [default=yes]]),
+  AS_HELP_STRING([--enable-rng], [enable rng [default=yes]]),
   [enable_rng=$enableval],
   [enable_rng=yes])
 
 AC_ARG_ENABLE(tls,
-  AS_HELP_STRING([--enable-tls],[enable tls [default=yes]]),
+  AS_HELP_STRING([--enable-tls], [enable tls [default=yes]]),
   [enable_tls=$enableval],
   [enable_tls=yes])
 
 AC_ARG_ENABLE(verify,
-  AS_HELP_STRING([--enable-verify],[enable scalar bounds checks [default=no]]),
+  AS_HELP_STRING([--enable-verify], [enable scalar bounds checks [default=no]]),
   [enable_verify=$enableval],
   [enable_verify=no])
 
@@ -111,7 +111,7 @@ if test x"$WASM" != x"yes"; then
 fi
 
 AC_MSG_CHECKING(for inline asm support)
-AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[]],[[
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[]], [[
 #if defined(__EMSCRIPTEN__) || defined(__wasm__)
 #  error "cannot use inline asm with wasm"
 #endif
@@ -119,11 +119,11 @@ unsigned char ptr[32];
 int x = 0;
 __asm__ ("" : "+r" (x) ::);
 __asm__ __volatile__("" :: "r" (ptr) : "memory");
-]])],[has_asm=yes],[has_asm=no])
+]])], [has_asm=yes], [has_asm=no])
 AC_MSG_RESULT([$has_asm])
 
 AC_MSG_CHECKING(for x86_64 inline asm support)
-AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <stdint.h>]],[[
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <stdint.h>]], [[
 #if defined(__EMSCRIPTEN__) || defined(__wasm__)
 #  error "cannot use inline asm with wasm"
 #endif
@@ -141,7 +141,7 @@ __asm__ __volatile__(
   : "D" (stream), "S" (state)
   : "xmm0", "xmm1", "cc", "memory"
 );
-]])],[has_asm_x64=yes],[has_asm_x64=no])
+]])], [has_asm_x64=yes], [has_asm_x64=no])
 AC_MSG_RESULT([$has_asm_x64])
 
 AC_MSG_CHECKING(for int128 support)
@@ -152,12 +152,12 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
 typedef char check_64bit_t[sizeof(void *) == 8 ? 1 : -1];
 typedef signed __int128 int128_t;
 typedef unsigned __int128 uint128_t;
-]],[[
+]], [[
 uint128_t r = 1;
 r <<= 64;
 r *= 113;
 r >>= 65;
-]])],[has_int128=yes],[has_int128=no])
+]])], [has_int128=yes], [has_int128=no])
 AC_MSG_RESULT([$has_int128])
 
 AC_MSG_CHECKING(for tls support)
@@ -170,9 +170,9 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
 #  define TLS __thread
 #endif
 static TLS int value;
-]],[[
+]], [[
 value = 1;
-]])],[has_tls=yes],[has_tls=no])
+]])], [has_tls=yes], [has_tls=no])
 AC_MSG_RESULT([$has_tls])
 
 if test x"$WASM" != x"yes"; then
@@ -189,7 +189,7 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
-]],[[
+]], [[
 unsigned char data[32];
 int pfds[2];
 int status;
@@ -202,7 +202,7 @@ close(pfds[0]);
 waitpid(pid, &status, 0);
 WIFEXITED(status);
 WEXITSTATUS(status);
-]])],[has_fork=yes],[has_fork=no])
+]])], [has_fork=yes], [has_fork=no])
 AC_MSG_RESULT([$has_fork])
 
 AC_CHECK_HEADER([valgrind/memcheck.h], [has_valgrind=yes], [has_valgrind=no], [])
@@ -271,22 +271,23 @@ if test x"$enable_verify" = x"yes"; then
   AC_DEFINE(TORSION_VERIFY)
 fi
 
-AS_VAR_SET(TORSION_PKG_VERSION, [AC_PACKAGE_VERSION])
-AC_SUBST(TORSION_PKG_VERSION)
-AC_SUBST(TORSION_LIB_VERSION)
+AS_VAR_SET(PKG_VERSION, [AC_PACKAGE_VERSION])
+
+AC_SUBST(PKG_VERSION)
+AC_SUBST(LIB_VERSION)
 
 AC_SUBST(PTHREAD_CFLAGS)
 AC_SUBST(PTHREAD_LIBS)
 
-AC_SUBST(SYSROOT)
-AC_SUBST(TARGET)
+AC_SUBST(WASI)
 
 AM_CONDITIONAL([EMSCRIPTEN], [test x"$EMSCRIPTEN" != x""])
 AM_CONDITIONAL([ENABLE_CTGRIND], [test x"$has_valgrind" = x"yes"])
 AM_CONDITIONAL([ENABLE_PTHREAD], [test x"$pthread_fallback" = x"yes"])
 AM_CONDITIONAL([ENABLE_RNG], [test x"$enable_rng" = x"yes"])
 AM_CONDITIONAL([ENABLE_THREADS], [test x"$has_threads" = x"yes"])
-AM_CONDITIONAL([WASM], [test x"$WASM" = x"yes"])
+AM_CONDITIONAL([NATIVE], [test x"$WASM" != x"yes"])
+AM_CONDITIONAL([WASI], [test x"$WASI" != x""])
 
 AC_CONFIG_FILES([Makefile libtorsion.pc])
 
@@ -295,8 +296,8 @@ AC_OUTPUT
 echo ""
 echo "Build Options:"
 echo ""
-echo "  pkg version  = $TORSION_PKG_VERSION"
-echo "  lib version  = $TORSION_LIB_VERSION"
+echo "  pkg version  = $PKG_VERSION"
+echo "  lib version  = $LIB_VERSION"
 echo ""
 echo "  asm          = $enable_asm (support=$has_asm)"
 echo "  asm_x64      = $enable_asm (support=$has_asm_x64)"

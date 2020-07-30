@@ -153,6 +153,6 @@ src/fields/.fiat-head: $(UNSAT) $(MONT)
 	(cd $(FIAT) && git rev-parse HEAD) > $@
 
 clean:
-	rm -f $(OUTPUT)
+	$(RM) $(OUTPUT)
 
 .PHONY: all clean

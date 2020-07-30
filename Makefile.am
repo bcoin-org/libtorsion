@@ -4,27 +4,27 @@
 
 ACLOCAL_AMFLAGS = -I m4
 
-AM_CPPFLAGS = -I$(top_srcdir)/include
-
 CLEANFILES =
 EXTRA_DIST = LICENSE README.md
 
-TESTS =
 noinst_PROGRAMS =
+noinst_LIBRARIES =
+lib_LTLIBRARIES =
+TESTS =
 
-include_HEADERS = include/torsion/aead.h      \
-                  include/torsion/cipher.h    \
-                  include/torsion/common.h    \
-                  include/torsion/drbg.h      \
-                  include/torsion/dsa.h       \
-                  include/torsion/ecc.h       \
-                  include/torsion/encoding.h  \
-                  include/torsion/hash.h      \
-                  include/torsion/ies.h       \
-                  include/torsion/kdf.h       \
-                  include/torsion/mac.h       \
-                  include/torsion/rsa.h       \
-                  include/torsion/stream.h    \
+include_HEADERS = include/torsion/aead.h     \
+                  include/torsion/cipher.h   \
+                  include/torsion/common.h   \
+                  include/torsion/drbg.h     \
+                  include/torsion/dsa.h      \
+                  include/torsion/ecc.h      \
+                  include/torsion/encoding.h \
+                  include/torsion/hash.h     \
+                  include/torsion/ies.h      \
+                  include/torsion/kdf.h      \
+                  include/torsion/mac.h      \
+                  include/torsion/rsa.h      \
+                  include/torsion/stream.h   \
                   include/torsion/util.h
 
 noinst_HEADERS = src/asn1.h                         \
@@ -93,57 +93,98 @@ include_HEADERS += include/torsion/rand.h
 noinst_HEADERS += src/entropy/entropy.h
 endif
 
-torsion_sources = src/aead.c      \
-                  src/asn1.c      \
-                  src/cipher.c    \
-                  src/ecc.c       \
-                  src/encoding.c  \
-                  src/drbg.c      \
-                  src/dsa.c       \
-                  src/hash.c      \
-                  src/ies.c       \
-                  src/internal.c  \
-                  src/kdf.c       \
-                  src/mac.c       \
-                  src/mpi.c       \
-                  src/rsa.c       \
-                  src/stream.c    \
+torsion_sources = src/aead.c     \
+                  src/asn1.c     \
+                  src/cipher.c   \
+                  src/ecc.c      \
+                  src/encoding.c \
+                  src/drbg.c     \
+                  src/dsa.c      \
+                  src/hash.c     \
+                  src/ies.c      \
+                  src/internal.c \
+                  src/kdf.c      \
+                  src/mac.c      \
+                  src/mpi.c      \
+                  src/rsa.c      \
+                  src/stream.c   \
                   src/util.c
 
+rng_sources = src/entropy/env.c \
+              src/entropy/hw.c  \
+              src/entropy/sys.c \
+              src/rand.c
+
 if ENABLE_RNG
-torsion_sources += src/entropy/env.c
-torsion_sources += src/entropy/hw.c
-torsion_sources += src/entropy/sys.c
-torsion_sources += src/rand.c
+torsion_sources += $(rng_sources)
 endif
+
+torsion_cflags = -I$(top_srcdir)/include
 
 bench_sources = test/bench.c test/hrtime.c
 test_sources = test/test.c
 
-if WASM
+#
+# Emscripten
+#
+
+if EMSCRIPTEN
 INITIAL_MEMORY ?= 16777216
 MAX_MEMORY ?= 2147483648
 STACK_SIZE ?= 5242880
-LOG_COMPILER = ./scripts/wasi-run
+ENVIRONMENT ?= node
+LOG_COMPILER = node
 
-torsion_objects := $(subst .c,.o,$(torsion_sources))
+torsion_objects = $(libtorsion_a_OBJECTS)
 
-if EMSCRIPTEN
-torsion_ldflags = -s WASM=1                           \
-                  -s STANDALONE_WASM=1                \
-                  -s WASM_BIGINT=1                    \
+torsion_ldflags = -s SINGLE_FILE=1                    \
+                  -s ASSERTIONS=0                     \
+                  -s NODEJS_CATCH_EXIT=0              \
+                  -s NODEJS_CATCH_REJECTION=0         \
                   -s ALLOW_MEMORY_GROWTH=1            \
                   -s INITIAL_MEMORY=$(INITIAL_MEMORY) \
                   -s MAXIMUM_MEMORY=$(MAX_MEMORY)     \
                   -s TOTAL_STACK=$(STACK_SIZE)        \
-                  -s ERROR_ON_UNDEFINED_SYMBOLS=0     \
-                  -s WARN_ON_UNDEFINED_SYMBOLS=0
+                  -s ENVIRONMENT=$(ENVIRONMENT)
 
-torsion_objects_lib =
 torsion_ldflags_lib = -s EXPORTED_FUNCTIONS=@etc/exports.json
 
-CFLAGS += -D__wasi__ -DTORSION_BUILD
-else
+noinst_LIBRARIES += libtorsion.a
+libtorsion_a_SOURCES = $(torsion_sources)
+libtorsion_a_CFLAGS = $(torsion_cflags) -DTORSION_BUILD
+
+noinst_PROGRAMS += torsion.js
+torsion_js_SOURCES =
+torsion_js_LDADD = $(torsion_objects)
+torsion_js_LDFLAGS = $(torsion_ldflags) $(torsion_ldflags_lib)
+
+noinst_PROGRAMS += torsion_bench.js
+torsion_bench_js_SOURCES = $(bench_sources)
+torsion_bench_js_CFLAGS = $(torsion_cflags)
+torsion_bench_js_LDADD = $(torsion_objects)
+torsion_bench_js_LDFLAGS = $(torsion_ldflags)
+
+TESTS += torsion_test.js
+noinst_PROGRAMS += torsion_test.js
+torsion_test_js_SOURCES = $(test_sources)
+torsion_test_js_CFLAGS = $(torsion_cflags)
+torsion_test_js_LDADD = $(torsion_objects)
+torsion_test_js_LDFLAGS = $(torsion_ldflags)
+endif
+
+#
+# WASI
+#
+
+if WASI
+INITIAL_MEMORY ?= 16777216
+MAX_MEMORY ?= 2147483648
+STACK_SIZE ?= 5242880
+LOG_COMPILER = $(top_srcdir)/scripts/wasi-run
+WASI_SYSROOT = $(WASI)/share/wasi-sysroot
+
+torsion_objects = $(libtorsion_a_OBJECTS)
+
 torsion_ldflags = -Wl,--allow-undefined                  \
                   -Wl,--initial-memory=$(INITIAL_MEMORY) \
                   -Wl,--max-memory=$(MAX_MEMORY)         \
@@ -157,13 +198,16 @@ torsion_ldflags = -Wl,--allow-undefined                  \
 #
 # See: https://github.com/llvm/llvm-project/commit/d496437
 #      https://reviews.llvm.org/D62922
-torsion_objects_lib = $(SYSROOT)/lib/$(TARGET)/crt1-reactor.o
+torsion_objects_lib = $(WASI_SYSROOT)/lib/$(host_alias)/crt1-reactor.o
 torsion_ldflags_lib = -nostartfiles           \
                       -Wl,--entry=_initialize \
                       -Wl,--export-dynamic    \
                       -Wl,--export=malloc     \
                       -Wl,--export=free
-endif
+
+noinst_LIBRARIES += libtorsion.a
+libtorsion_a_SOURCES = $(torsion_sources)
+libtorsion_a_CFLAGS = $(torsion_cflags) -DTORSION_BUILD
 
 noinst_PROGRAMS += torsion.wasm
 torsion_wasm_SOURCES =
@@ -172,19 +216,27 @@ torsion_wasm_LDFLAGS = $(torsion_ldflags) $(torsion_ldflags_lib)
 
 noinst_PROGRAMS += torsion_bench.wasm
 torsion_bench_wasm_SOURCES = $(bench_sources)
+torsion_bench_wasm_CFLAGS = $(torsion_cflags)
 torsion_bench_wasm_LDADD = $(torsion_objects)
 torsion_bench_wasm_LDFLAGS = $(torsion_ldflags)
 
 TESTS += torsion_test.wasm
 noinst_PROGRAMS += torsion_test.wasm
 torsion_test_wasm_SOURCES = $(test_sources)
+torsion_test_wasm_CFLAGS = $(torsion_cflags)
 torsion_test_wasm_LDADD = $(torsion_objects)
 torsion_test_wasm_LDFLAGS = $(torsion_ldflags)
-else !WASM
-lib_LTLIBRARIES = libtorsion.la
+endif
+
+#
+# Native
+#
+
+if NATIVE
+lib_LTLIBRARIES += libtorsion.la
 libtorsion_la_SOURCES = $(torsion_sources)
-libtorsion_la_CFLAGS = -DTORSION_BUILD
-libtorsion_la_LDFLAGS = -no-undefined -version-info @TORSION_LIB_VERSION@
+libtorsion_la_CFLAGS = $(torsion_cflags) -DTORSION_BUILD
+libtorsion_la_LDFLAGS = -no-undefined -version-info @LIB_VERSION@
 libtorsion_la_LIBADD =
 
 if ENABLE_PTHREAD
@@ -194,13 +246,14 @@ endif
 
 noinst_PROGRAMS += torsion_bench
 torsion_bench_SOURCES = $(bench_sources)
+torsion_bench_CFLAGS = $(torsion_cflags)
 torsion_bench_LDFLAGS = -no-install
 torsion_bench_LDADD = libtorsion.la
 
 TESTS += torsion_test
 noinst_PROGRAMS += torsion_test
 torsion_test_SOURCES = $(test_sources)
-torsion_test_CFLAGS =
+torsion_test_CFLAGS = $(torsion_cflags)
 torsion_test_LDFLAGS = -no-install
 torsion_test_LDADD = libtorsion.la
 
@@ -212,18 +265,19 @@ endif
 
 TESTS += torsion_test_static
 noinst_PROGRAMS += torsion_test_static
-torsion_test_static_SOURCES := $(torsion_test_SOURCES)
-torsion_test_static_CFLAGS := $(torsion_test_CFLAGS)
+torsion_test_static_SOURCES = $(torsion_test_SOURCES)
+torsion_test_static_CFLAGS = $(torsion_test_CFLAGS)
 torsion_test_static_LDFLAGS = -static
-torsion_test_static_LDADD := $(torsion_test_LDADD)
+torsion_test_static_LDADD = $(torsion_test_LDADD)
 
 if ENABLE_CTGRIND
 noinst_PROGRAMS += torsion_ctgrind
 torsion_ctgrind_SOURCES = test/ctgrind.c
+torsion_ctgrind_CFLAGS = $(torsion_cflags)
 torsion_ctgrind_LDFLAGS = -no-install
 torsion_ctgrind_LDADD = libtorsion.la
 endif
 
 pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA = libtorsion.pc
-endif !WASM
+endif

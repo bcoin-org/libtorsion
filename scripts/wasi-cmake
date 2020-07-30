@@ -6,25 +6,29 @@
 
 set -e
 
-CMAKE=$1
-DIR=`dirname "$0"`
+CMAKE="$1"
 
 shift
 
-if test -n "$WASI_SDK"; then
-  echo > /dev/null
+if test -n "$WASI"; then
+  WASI=`cd "$WASI" && pwd`
 elif test -d /opt/wasi-sdk; then
-  WASI_SDK=/opt/wasi-sdk
+  WASI=/opt/wasi-sdk
 elif test -d /opt/local/wasi-sdk; then
-  WASI_SDK=/opt/local/wasi-sdk
+  WASI=/opt/local/wasi-sdk
+elif test -d /usr/lib/wasi-sdk; then
+  WASI=/usr/lib/wasi-sdk
+elif test -d /usr/local/lib/wasi-sdk; then
+  WASI=/usr/local/lib/wasi-sdk
 elif test -d "$HOME/wasi-sdk"; then
-  WASI_SDK="$HOME/wasi-sdk"
+  WASI="$HOME/wasi-sdk"
 else
   echo 'WASI SDK not found!' >& 2
   exit 1
 fi
 
-exec "$CMAKE" -G 'Unix Makefiles'                                           \
-              -DCMAKE_TOOLCHAIN_FILE="$WASI_SDK/share/cmake/wasi-sdk.cmake" \
-              -DWASI_SDK_PREFIX="$WASI_SDK"                                 \
+exec "$CMAKE" -G 'Unix Makefiles'                                       \
+              -DCMAKE_TOOLCHAIN_FILE="$WASI/share/cmake/wasi-sdk.cmake" \
+              -DCMAKE_CROSSCOMPILING_EMULATOR="`pwd`/scripts/wasi-run"  \
+              -DWASI_SDK_PREFIX="$WASI"                                 \
               "$@"

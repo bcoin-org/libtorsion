@@ -6,10 +6,9 @@
 
 set -e
 
-DIR=`dirname "$0"`
-MAKE=$1
+. "`dirname "$0"`/wasi-env"
 
-source "$DIR/wasi-env"
+MAKE="$1"
 
 shift
 

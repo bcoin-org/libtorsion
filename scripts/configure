@@ -6,6 +6,10 @@
 
 # Usage: ./configure [in-file] [out-file] [key]=[val] ...
 
+set -e
+
+test $# -ge 2
+
 inp="$1"
 out="$2"
 

@@ -59,6 +59,10 @@ if(TORSION_WASM)
   set(TORSION_STACK_SIZE "5242880" CACHE STRING "WASM stack size")
 endif()
 
+if(EMSCRIPTEN)
+  set(TORSION_ENVIRONMENT "node" CACHE STRING "Emscripten environment")
+endif()
+
 set(torsion_cflags)
 set(torsion_ldflags)
 
@@ -290,24 +294,26 @@ endif()
 set(torsion_includes ${PROJECT_SOURCE_DIR}/include)
 
 if(TORSION_WASM)
-  set(CMAKE_EXECUTABLE_SUFFIX ".wasm")
-
   if(EMSCRIPTEN)
-    set(torsion_ldflags "SHELL:-s WASM=1"
-                        "SHELL:-s STANDALONE_WASM=1"
-                        "SHELL:-s WASM_BIGINT=1"
+    # CMAKE_CROSSCOMPILING_EMULATOR is mistakenly quoted by emcmake.
+    string(REPLACE "\"" "" CMAKE_CROSSCOMPILING_EMULATOR
+           "${CMAKE_CROSSCOMPILING_EMULATOR}")
+
+    set(torsion_ldflags "SHELL:-s SINGLE_FILE=1"
+                        "SHELL:-s ASSERTIONS=0"
+                        "SHELL:-s NODEJS_CATCH_EXIT=0"
+                        "SHELL:-s NODEJS_CATCH_REJECTION=0"
                         "SHELL:-s ALLOW_MEMORY_GROWTH=1"
                         "SHELL:-s INITIAL_MEMORY=${TORSION_INITIAL_MEMORY}"
                         "SHELL:-s MAXIMUM_MEMORY=${TORSION_MAX_MEMORY}"
                         "SHELL:-s TOTAL_STACK=${TORSION_STACK_SIZE}"
-                        "SHELL:-s ERROR_ON_UNDEFINED_SYMBOLS=0"
-                        "SHELL:-s WARN_ON_UNDEFINED_SYMBOLS=0")
+                        "SHELL:-s ENVIRONMENT=${TORSION_ENVIRONMENT}")
 
     set(torsion_sources_lib "")
     set(torsion_ldflags_lib "SHELL:-s EXPORTED_FUNCTIONS=@etc/exports.json")
-
-    list(APPEND torsion_defines __wasi__)
   else()
+    set(CMAKE_EXECUTABLE_SUFFIX ".wasm")
+
     set(torsion_ldflags -Wl,--allow-undefined
                         -Wl,--initial-memory=${TORSION_INITIAL_MEMORY}
                         -Wl,--max-memory=${TORSION_MAX_MEMORY}
@@ -346,7 +352,7 @@ if(TORSION_WASM)
 
   add_executable(torsion_test test/test.c)
   target_link_libraries(torsion_test PRIVATE torsion_o)
-  add_test(NAME test_wasm COMMAND ./scripts/wasi-run torsion_test.wasm)
+  add_test(NAME test_wasm COMMAND torsion_test)
 else()
   set(torsion_libs)
   set(pkgconf_libs)
