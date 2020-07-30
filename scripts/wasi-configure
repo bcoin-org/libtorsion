@@ -10,6 +10,8 @@ set -e
 
 CONFIGURE="$1"
 
+test -x "$CONFIGURE"
+
 shift
 
 mkdir -p "$PREFIX"
