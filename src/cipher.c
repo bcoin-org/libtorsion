@@ -5422,7 +5422,8 @@ pkcs7_unpad(unsigned char *dst,
     res &= ((i - end) >> 31) | (((ch ^ left) - 1) >> 31);
   }
 
-  memcpy(dst, src, size);
+  for (i = 0; i < size; i++)
+    dst[i] = src[i];
 
   *len = end & -res;
 
