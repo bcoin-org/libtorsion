@@ -433,7 +433,7 @@ EM_JS(unsigned short, js_random_get, (unsigned char *dst, unsigned long len), {
   }
 
   return 1;
-});
+})
 #endif
 
 /*
