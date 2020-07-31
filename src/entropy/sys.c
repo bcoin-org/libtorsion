@@ -244,6 +244,9 @@ uint16_t
 cloudabi_sys_random_get(void *buf, size_t buf_len);
 #elif defined(__EMSCRIPTEN__)
 #  include <emscripten.h> /* EM_JS */
+#  ifndef EM_JS
+#    include <uuid/uuid.h> /* uuid_generate */
+#  endif
 #elif defined(__wasi__)
 uint16_t
 __wasi_random_get(uint8_t *buf, size_t buf_len) __attribute__((
@@ -272,9 +275,6 @@ __wasi_random_get(uint8_t *buf, size_t buf_len) __attribute__((
 #    include <AvailabilityMacros.h>
 #    if MAC_OS_X_VERSION_MAX_ALLOWED >= 101200 /* 10.12 (2016) */
 #      include <sys/random.h> /* getentropy */
-#      ifdef __GNUC__
-#        pragma GCC diagnostic ignored "-Waddress"
-#      endif
 #      define HAVE_GETENTROPY
 #    endif
 #    define DEV_RANDOM_NAME "/dev/random"
@@ -331,6 +331,9 @@ __wasi_random_get(uint8_t *buf, size_t buf_len) __attribute__((
 #  else
 #    define DEV_RANDOM_NAME "/dev/urandom"
 #  endif
+#  ifdef __GNUC__
+#    pragma GCC diagnostic ignored "-Waddress"
+#  endif
 #  ifndef S_ISNAM
 #    define S_ISNAM(x) 0
 #  endif
@@ -383,7 +386,7 @@ torsion_open(const char *name, int flags) {
  * Emscripten Entropy
  */
 
-#ifdef __EMSCRIPTEN__
+#ifdef EM_JS
 EM_JS(unsigned short, js_random_get, (unsigned char *dst, unsigned long len), {
   if (ENVIRONMENT_IS_NODE) {
     var crypto = module.require('crypto');
@@ -479,8 +482,27 @@ torsion_callrand(void *dst, size_t size) {
   return 1;
 #if defined(__CloudABI__)
   return cloudabi_sys_random_get(dst, size) == 0;
-#elif defined(__EMSCRIPTEN__)
+#elif defined(EM_JS)
   return js_random_get((uint8_t *)dst, size) == 0;
+#elif defined(__EMSCRIPTEN__)
+  unsigned char *data = (unsigned char *)dst;
+  unsigned char uuid[16];
+  size_t max = 14;
+
+  while (size > 0) {
+    if (max > size)
+      max = size;
+
+    uuid_generate(uuid);
+
+    uuid[6] = uuid[14];
+    uuid[8] = uuid[15];
+
+    data += max;
+    size -= max;
+  }
+
+  return 1;
 #elif defined(__wasi__)
   return __wasi_random_get((uint8_t *)dst, size) == 0;
 #elif defined(HAVE_GETRANDOM)
