@@ -23,15 +23,9 @@ if(EMSCRIPTEN OR WASI_SDK_PREFIX)
   set(TORSION_WASM 1)
 endif()
 
-if(EMSCRIPTEN)
-  set(CMAKE_C_STANDARD_REQUIRED ON)
-  set(CMAKE_C_EXTENSIONS ON)
-  set(CMAKE_C_STANDARD 11)
-else()
-  set(CMAKE_C_STANDARD_REQUIRED ON)
-  set(CMAKE_C_EXTENSIONS OFF)
-  set(CMAKE_C_STANDARD 90)
-endif()
+set(CMAKE_C_STANDARD_REQUIRED ON)
+set(CMAKE_C_EXTENSIONS OFF)
+set(CMAKE_C_STANDARD 90)
 
 if(NOT TORSION_WASM)
   set(CMAKE_C_VISIBILITY_PRESET hidden)
@@ -76,11 +70,8 @@ if(MSVC)
 else()
   set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -DTORSION_DEBUG")
 
-  if(NOT EMSCRIPTEN)
-    append_c_compiler_flag(torsion_cflags -pedantic)
-  endif()
-
-  append_c_compiler_flag(torsion_cflags -Wall
+  append_c_compiler_flag(torsion_cflags -pedantic
+                                        -Wall
                                         -Wextra
                                         -Wcast-align
                                         -Wno-implicit-fallthrough

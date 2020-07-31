@@ -84,13 +84,8 @@ AC_ARG_ENABLE(verify,
   [enable_verify=$enableval],
   [enable_verify=no])
 
-if test x"$EMSCRIPTEN" != x""; then
-  CC_CHECK_CFLAGS_APPEND([-std=gnu11])
-else
-  CC_CHECK_CFLAGS_APPEND([-std=c89])
-  CC_CHECK_CFLAGS_APPEND([-pedantic])
-fi
-
+CC_CHECK_CFLAGS_APPEND([-std=c89])
+CC_CHECK_CFLAGS_APPEND([-pedantic])
 CC_CHECK_CFLAGS_APPEND([-Wall])
 CC_CHECK_CFLAGS_APPEND([-Wextra])
 CC_CHECK_CFLAGS_APPEND([-Wcast-align])
