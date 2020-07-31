@@ -567,63 +567,6 @@ torsion_callrand(void *dst, size_t size) {
 }
 
 /*
- * Random UUID (Linux)
- */
-
-#ifdef HAVE_SYSCTL_UUID
-struct torsion__sysctl_args {
-  int *name;
-  int nlen;
-  void *oldval;
-  size_t *oldlenp;
-  void *newval;
-  size_t newlen;
-  unsigned long unused[4];
-};
-
-static int
-torsion_uuidrand(void *dst, size_t size) {
-  /* Called if we cannot open /dev/urandom (idea from libuv). */
-  static int name[3] = {1, 40, 6}; /* kern.random.uuid */
-  struct torsion__sysctl_args args;
-  unsigned char *data = dst;
-  size_t max = 14;
-  char uuid[16];
-  size_t nread;
-
-  while (size > 0) {
-    nread = sizeof(uuid);
-
-    memset(&args, 0, sizeof(args));
-
-    args.name = name;
-    args.nlen = 3;
-    args.oldval = uuid;
-    args.oldlenp = &nread;
-
-    if (syscall(SYS__sysctl, &args) == -1)
-      return 0;
-
-    if (nread != sizeof(uuid))
-      return 0;
-
-    uuid[6] = uuid[14];
-    uuid[8] = uuid[15];
-
-    if (max > size)
-      max = size;
-
-    memcpy(data, uuid, max);
-
-    data += max;
-    size -= max;
-  }
-
-  return 1;
-}
-#endif /* HAVE_SYSCTL_UUID */
-
-/*
  * Device Entropy
  */
 
@@ -703,6 +646,63 @@ fail:
   return 0;
 #endif /* DEV_RANDOM_NAME */
 }
+
+/*
+ * Random UUID (Linux)
+ */
+
+#ifdef HAVE_SYSCTL_UUID
+struct torsion__sysctl_args {
+  int *name;
+  int nlen;
+  void *oldval;
+  size_t *oldlenp;
+  void *newval;
+  size_t newlen;
+  unsigned long unused[4];
+};
+
+static int
+torsion_uuidrand(void *dst, size_t size) {
+  /* Called if we cannot open /dev/urandom (idea from libuv). */
+  static int name[3] = {1, 40, 6}; /* kern.random.uuid */
+  struct torsion__sysctl_args args;
+  unsigned char *data = dst;
+  size_t max = 14;
+  char uuid[16];
+  size_t nread;
+
+  while (size > 0) {
+    nread = sizeof(uuid);
+
+    memset(&args, 0, sizeof(args));
+
+    args.name = name;
+    args.nlen = 3;
+    args.oldval = uuid;
+    args.oldlenp = &nread;
+
+    if (syscall(SYS__sysctl, &args) == -1)
+      return 0;
+
+    if (nread != sizeof(uuid))
+      return 0;
+
+    uuid[6] = uuid[14];
+    uuid[8] = uuid[15];
+
+    if (max > size)
+      max = size;
+
+    memcpy(data, uuid, max);
+
+    data += max;
+    size -= max;
+  }
+
+  return 1;
+}
+#endif /* HAVE_SYSCTL_UUID */
 
 /*
  * PID (exposed for a fork-aware RNG)
