@@ -3029,14 +3029,11 @@ typedef struct rng_res_s {
   unsigned char data[32];
 } rng_res_t;
 
-uintptr_t
-__torsion_rng_global_addr(void);
-
 static void *
 thread_random(void *ptr) {
   rng_res_t *obj = ptr;
 
-  obj->ptr = __torsion_rng_global_addr();
+  obj->ptr = torsion_randomaddr();
 
   ASSERT(torsion_getrandom(obj->data, 32));
 
@@ -3045,6 +3042,7 @@ thread_random(void *ptr) {
 
 static void
 test_rand_thread_safety(drbg_t *unused) {
+  const char *name = NULL;
   torsion_thread_t *t1, *t2;
   rng_res_t x0, x1, x2;
 
@@ -3054,13 +3052,22 @@ test_rand_thread_safety(drbg_t *unused) {
   memset(&x1, 0, sizeof(x1));
   memset(&x2, 0, sizeof(x2));
 
-  if (!torsion_reentrancy()) {
-    printf("  - Skipping RNG test (not reentrant).\n");
-    return;
+  switch (torsion_reentrancy()) {
+    case TORSION_REENT_NONE:
+      printf("  - Skipping RNG test (not reentrant).\n");
+      return;
+    case TORSION_REENT_TLS:
+      name = "TLS";
+      break;
+    case TORSION_REENT_MUTEX:
+      name = "MUTEX";
+      break;
+    default:
+      ASSERT(0);
+      break;
   }
 
-  printf("  - Testing reentrancy (%s)\n",
-         torsion_reentrancy() == 1 ? "tls" : "pthread");
+  printf("  - Testing reentrancy (%s)\n", name);
 
   t1 = torsion_thread_alloc();
   t2 = torsion_thread_alloc();
@@ -3078,7 +3085,7 @@ test_rand_thread_safety(drbg_t *unused) {
 
   ASSERT(x0.ptr && x1.ptr && x2.ptr);
 
-  if (torsion_reentrancy() == 1) {
+  if (torsion_reentrancy() == TORSION_REENT_TLS) {
     ASSERT(x0.ptr != x1.ptr);
     ASSERT(x0.ptr != x2.ptr);
 
