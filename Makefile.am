@@ -135,8 +135,6 @@ STACK_SIZE ?= 5242880
 ENVIRONMENT ?= node
 LOG_COMPILER = node
 
-torsion_objects = $(libtorsion_a_OBJECTS)
-
 torsion_ldflags = -s SINGLE_FILE=1                    \
                   -s ASSERTIONS=0                     \
                   -s NODEJS_CATCH_EXIT=0              \
@@ -147,29 +145,24 @@ torsion_ldflags = -s SINGLE_FILE=1                    \
                   -s TOTAL_STACK=$(STACK_SIZE)        \
                   -s ENVIRONMENT=$(ENVIRONMENT)
 
-torsion_ldflags_lib = -s EXPORTED_FUNCTIONS=@etc/exports.json
-
-noinst_LIBRARIES += libtorsion.a
-libtorsion_a_SOURCES = $(torsion_sources)
-libtorsion_a_CFLAGS = $(torsion_cflags) -DTORSION_BUILD
-
 noinst_PROGRAMS += torsion.js
-torsion_js_SOURCES =
-torsion_js_LDADD = $(torsion_objects)
-torsion_js_LDFLAGS = $(torsion_ldflags) $(torsion_ldflags_lib)
+torsion_js_SOURCES = $(torsion_sources)
+torsion_js_CFLAGS = $(torsion_cflags) -DTORSION_BUILD
+torsion_js_LDFLAGS = $(torsion_ldflags) -s EXPORTED_FUNCTIONS=@etc/exports.json
 
 noinst_PROGRAMS += torsion_bench.js
 torsion_bench_js_SOURCES = $(bench_sources)
 torsion_bench_js_CFLAGS = $(torsion_cflags)
-torsion_bench_js_LDADD = $(torsion_objects)
+torsion_bench_js_LDADD = $(torsion_js_OBJECTS)
 torsion_bench_js_LDFLAGS = $(torsion_ldflags)
 
-TESTS += torsion_test.js
 noinst_PROGRAMS += torsion_test.js
 torsion_test_js_SOURCES = $(test_sources)
 torsion_test_js_CFLAGS = $(torsion_cflags)
-torsion_test_js_LDADD = $(torsion_objects)
+torsion_test_js_LDADD = $(torsion_js_OBJECTS)
 torsion_test_js_LDFLAGS = $(torsion_ldflags)
+
+TESTS += torsion_test.js
 endif
 
 #
@@ -182,8 +175,6 @@ MAX_MEMORY ?= 2147483648
 STACK_SIZE ?= 5242880
 LOG_COMPILER = $(top_srcdir)/scripts/wasi-run
 WASI_SYSROOT = $(WASI)/share/wasi-sysroot
-
-torsion_objects = $(libtorsion_a_OBJECTS)
 
 torsion_ldflags = -Wl,--allow-undefined                  \
                   -Wl,--initial-memory=$(INITIAL_MEMORY) \
@@ -198,34 +189,30 @@ torsion_ldflags = -Wl,--allow-undefined                  \
 #
 # See: https://github.com/llvm/llvm-project/commit/d496437
 #      https://reviews.llvm.org/D62922
-torsion_objects_lib = $(WASI_SYSROOT)/lib/$(host_alias)/crt1-reactor.o
-torsion_ldflags_lib = -nostartfiles           \
-                      -Wl,--entry=_initialize \
-                      -Wl,--export-dynamic    \
-                      -Wl,--export=malloc     \
-                      -Wl,--export=free
-
-noinst_LIBRARIES += libtorsion.a
-libtorsion_a_SOURCES = $(torsion_sources)
-libtorsion_a_CFLAGS = $(torsion_cflags) -DTORSION_BUILD
-
 noinst_PROGRAMS += torsion.wasm
-torsion_wasm_SOURCES =
-torsion_wasm_LDADD = $(torsion_objects) $(torsion_objects_lib)
-torsion_wasm_LDFLAGS = $(torsion_ldflags) $(torsion_ldflags_lib)
+torsion_wasm_SOURCES = $(torsion_sources)
+torsion_wasm_CFLAGS = $(torsion_cflags) -DTORSION_BUILD
+torsion_wasm_LDADD = $(WASI_SYSROOT)/lib/$(host_alias)/crt1-reactor.o
+torsion_wasm_LDFLAGS = $(torsion_ldflags)      \
+                       -nostartfiles           \
+                       -Wl,--entry=_initialize \
+                       -Wl,--export-dynamic    \
+                       -Wl,--export=malloc     \
+                       -Wl,--export=free
 
 noinst_PROGRAMS += torsion_bench.wasm
 torsion_bench_wasm_SOURCES = $(bench_sources)
 torsion_bench_wasm_CFLAGS = $(torsion_cflags)
-torsion_bench_wasm_LDADD = $(torsion_objects)
+torsion_bench_wasm_LDADD = $(torsion_wasm_OBJECTS)
 torsion_bench_wasm_LDFLAGS = $(torsion_ldflags)
 
-TESTS += torsion_test.wasm
 noinst_PROGRAMS += torsion_test.wasm
 torsion_test_wasm_SOURCES = $(test_sources)
 torsion_test_wasm_CFLAGS = $(torsion_cflags)
-torsion_test_wasm_LDADD = $(torsion_objects)
+torsion_test_wasm_LDADD = $(torsion_wasm_OBJECTS)
 torsion_test_wasm_LDFLAGS = $(torsion_ldflags)
+
+TESTS += torsion_test.wasm
 endif
 
 #
@@ -250,7 +237,6 @@ torsion_bench_CFLAGS = $(torsion_cflags)
 torsion_bench_LDFLAGS = -no-install
 torsion_bench_LDADD = libtorsion.la
 
-TESTS += torsion_test
 noinst_PROGRAMS += torsion_test
 torsion_test_SOURCES = $(test_sources)
 torsion_test_CFLAGS = $(torsion_cflags)
@@ -263,7 +249,6 @@ torsion_test_CFLAGS += @PTHREAD_CFLAGS@
 torsion_test_LDADD += @PTHREAD_LIBS@
 endif
 
-TESTS += torsion_test_static
 noinst_PROGRAMS += torsion_test_static
 torsion_test_static_SOURCES = $(torsion_test_SOURCES)
 torsion_test_static_CFLAGS = $(torsion_test_CFLAGS)
@@ -280,4 +265,7 @@ endif
 
 pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA = libtorsion.pc
+
+TESTS += torsion_test
+TESTS += torsion_test_static
 endif
