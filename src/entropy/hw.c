@@ -189,16 +189,14 @@ torsion_hrtime(void) {
 
   return time;
 #elif defined(__wasi__)
-#ifdef TORSION_WASM_BIGINT
-  uint64_t time;
+  uint64_t time = 0;
 
+#ifdef TORSION_WASM_BIGINT
   if (__wasi_clock_time_get(__WASI_CLOCKID_MONOTONIC, 0, &time) != 0)
     abort();
+#endif
 
   return time;
-#else
-  return 0;
-#endif
 #elif defined(__EMSCRIPTEN__)
   return emscripten_get_now() * 1000000.0;
 #elif defined(__wasm__)
