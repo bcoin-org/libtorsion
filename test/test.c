@@ -3054,7 +3054,7 @@ test_rand_getrandom_deflate(drbg_t *unused) {
 
   free(data);
 }
-#endif
+#endif /* TORSION_HAVE_ZLIB */
 
 static void
 test_rand_random(drbg_t *unused) {
