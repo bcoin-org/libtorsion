@@ -200,7 +200,23 @@ WEXITSTATUS(status);
 ]])], [has_fork=yes], [has_fork=no])
 AC_MSG_RESULT([$has_fork])
 
-AC_CHECK_HEADER([valgrind/memcheck.h], [has_valgrind=yes], [has_valgrind=no], [])
+has_valgrind=no
+has_zlib=no
+
+if test x"$WASM" != x"yes"; then
+  AC_CHECK_HEADER([valgrind/memcheck.h],
+                  [has_valgrind=yes],
+                  [has_valgrind=no],
+                  [])
+
+  if test x"$enable_rng" = x"yes"; then
+    AC_CHECK_HEADER([zlib.h], [has_zlib_h=yes], [has_zlib_h=no], [])
+
+    if test x"$has_zlib_h" = x"yes"; then
+      AC_CHECK_LIB(z, compress2, [has_zlib=yes], [has_zlib=no])
+    fi
+  fi
+fi
 
 AC_DEFINE(TORSION_HAVE_CONFIG)
 
@@ -266,6 +282,10 @@ if test x"$enable_verify" = x"yes"; then
   AC_DEFINE(TORSION_VERIFY)
 fi
 
+if test x"$has_zlib" = x"yes"; then
+  AC_DEFINE(TORSION_HAVE_ZLIB)
+fi
+
 AS_VAR_SET(PKG_VERSION, [AC_PACKAGE_VERSION])
 
 AC_SUBST(PKG_VERSION)
@@ -281,6 +301,7 @@ AM_CONDITIONAL([ENABLE_CTGRIND], [test x"$has_valgrind" = x"yes"])
 AM_CONDITIONAL([ENABLE_PTHREAD], [test x"$pthread_fallback" = x"yes"])
 AM_CONDITIONAL([ENABLE_RNG], [test x"$enable_rng" = x"yes"])
 AM_CONDITIONAL([ENABLE_THREADS], [test x"$has_threads" = x"yes"])
+AM_CONDITIONAL([ENABLE_ZLIB], [test x"$has_zlib" = x"yes"])
 AM_CONDITIONAL([NATIVE], [test x"$WASM" != x"yes"])
 AM_CONDITIONAL([WASI], [test x"$WASI" != x""])
 
@@ -309,6 +330,7 @@ echo "  tls          = $enable_tls (support=$has_tls)"
 echo "  valgrind     = $has_valgrind"
 echo "  verify       = $enable_verify"
 echo "  wasi         = $WASI"
+echo "  zlib         = $has_zlib"
 echo ""
 echo "  CC           = $CC"
 echo "  CFLAGS       = $CFLAGS"

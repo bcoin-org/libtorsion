@@ -249,6 +249,10 @@ torsion_test_CFLAGS += @PTHREAD_CFLAGS@
 torsion_test_LDADD += @PTHREAD_LIBS@
 endif
 
+if ENABLE_ZLIB
+torsion_test_LDADD += -lz
+endif
+
 noinst_PROGRAMS += torsion_test_static
 torsion_test_static_SOURCES = $(torsion_test_SOURCES)
 torsion_test_static_CFLAGS = $(torsion_test_CFLAGS)

@@ -14,6 +14,9 @@
 #include <sys/wait.h>
 #include <unistd.h>
 #endif
+#ifdef TORSION_HAVE_ZLIB
+#include <zlib.h>
+#endif
 
 #include <torsion/aead.h>
 #include <torsion/drbg.h>
@@ -2955,6 +2958,8 @@ looks_random(const void *data, size_t size) {
   uint64_t avg;
   size_t i, j;
 
+  ASSERT(size != 0);
+
   for (i = 0; i < size; i++) {
     for (j = 0; j < 8; j++)
       sum += (raw[i] >> j) & 1;
@@ -2967,7 +2972,7 @@ looks_random(const void *data, size_t size) {
 
 static void
 test_rand_getentropy(drbg_t *unused) {
-  uint32_t data[65536 / 4];
+  unsigned char data[16384];
   size_t i;
 
   (void)unused;
@@ -2980,7 +2985,7 @@ test_rand_getentropy(drbg_t *unused) {
 
 static void
 test_rand_getrandom(drbg_t *unused) {
-  uint32_t data[65536 / 4];
+  unsigned char data[16384];
   size_t i;
 
   (void)unused;
@@ -2990,6 +2995,66 @@ test_rand_getrandom(drbg_t *unused) {
     ASSERT(looks_random(data, sizeof(data)));
   }
 }
+
+#ifdef TORSION_HAVE_ZLIB
+static size_t
+rand_deflate_perc(const void *data, size_t size) {
+  size_t len = compressBound(size);
+  unsigned char *buf = malloc(len);
+
+  ASSERT(size != 0);
+  ASSERT(buf != NULL);
+  ASSERT(compress2(buf, &len, data, size, 5) == Z_OK);
+
+  free(buf);
+
+  return (len * 100) / size;
+}
+
+static void
+test_rand_deflate_sanity(drbg_t *unused) {
+  size_t size = (size_t)4 << 20;
+  unsigned char *data = malloc(size);
+
+  (void)unused;
+
+  ASSERT(data != NULL);
+
+  memset(data, 0xaa, size);
+
+  ASSERT(rand_deflate_perc(data, size) <= 1);
+
+  free(data);
+}
+
+static void
+test_rand_getentropy_deflate(drbg_t *unused) {
+  size_t size = (size_t)4 << 20;
+  unsigned char *data = malloc(size);
+
+  (void)unused;
+
+  ASSERT(data != NULL);
+  ASSERT(torsion_getentropy(data, size));
+  ASSERT(rand_deflate_perc(data, size) >= 99);
+
+  free(data);
+}
+
+static void
+test_rand_getrandom_deflate(drbg_t *unused) {
+  size_t size = (size_t)4 << 20;
+  unsigned char *data = malloc(size);
+
+  (void)unused;
+
+  ASSERT(data != NULL);
+  ASSERT(torsion_getrandom(data, size));
+  ASSERT(rand_deflate_perc(data, size) >= 99);
+
+  free(data);
+}
+#endif
 
 static void
 test_rand_random(drbg_t *unused) {
@@ -3746,6 +3811,11 @@ static const torsion_test_t torsion_tests[] = {
 #ifdef TORSION_HAVE_RNG
   T(rand_getentropy),
   T(rand_getrandom),
+#ifdef TORSION_HAVE_ZLIB
+  T(rand_deflate_sanity),
+  T(rand_getentropy_deflate),
+  T(rand_getrandom_deflate),
+#endif
   T(rand_random),
   T(rand_uniform),
 #ifdef TORSION_HAVE_THREADS

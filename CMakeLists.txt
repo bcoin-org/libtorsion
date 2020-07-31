@@ -11,6 +11,7 @@ set(TORSION_LIB_VERSION 0:0:0)
 include(cmake/AppendCCompilerFlag.cmake)
 include(cmake/TargetLinkOptions.cmake)
 include(CheckIncludeFile)
+include(CheckLibraryExists)
 include(CTest)
 include(GNUInstallDirs)
 
@@ -186,7 +187,18 @@ int main(void) {
 }
 ]=] TORSION_HAS_FORK)
 
-check_include_file(valgrind/memcheck.h TORSION_HAS_VALGRIND)
+set(TORSION_HAS_VALGRIND)
+set(TORSION_HAS_ZLIB)
+
+if(NOT TORSION_WASM AND NOT WIN32)
+  check_include_file(valgrind/memcheck.h TORSION_HAS_VALGRIND)
+  if(TORSION_ENABLE_RNG)
+    check_include_file(zlib.h TORSION_HAS_ZLIB_H)
+    if (TORSION_HAS_ZLIB_H)
+      check_library_exists(z compress2 "" TORSION_HAS_ZLIB)
+    endif()
+  endif()
+endif()
 
 set(torsion_defines)
 
@@ -256,6 +268,10 @@ endif()
 
 if(TORSION_ENABLE_VERIFY)
   list(APPEND torsion_defines TORSION_VERIFY)
+endif()
+
+if(TORSION_HAS_ZLIB)
+  list(APPEND torsion_defines TORSION_HAVE_ZLIB)
 endif()
 
 set(torsion_sources src/aead.c
@@ -363,6 +379,10 @@ else()
     if(NOT WIN32)
       list(APPEND test_libs Threads::Threads)
     endif()
+  endif()
+
+  if(TORSION_HAS_ZLIB)
+    list(APPEND test_libs z)
   endif()
 
   add_library(torsion_o OBJECT ${torsion_sources})
