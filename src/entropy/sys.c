@@ -244,9 +244,6 @@ uint16_t
 cloudabi_sys_random_get(void *buf, size_t buf_len);
 #elif defined(__EMSCRIPTEN__)
 #  include <emscripten.h> /* EM_JS */
-#  ifndef EM_JS
-#    include <uuid/uuid.h> /* uuid_generate */
-#  endif
 #elif defined(__wasi__)
 uint16_t
 __wasi_random_get(uint8_t *buf, size_t buf_len) __attribute__((
@@ -386,7 +383,7 @@ torsion_open(const char *name, int flags) {
  * Emscripten Entropy
  */
 
-#ifdef EM_JS
+#ifdef __EMSCRIPTEN__
 EM_JS(unsigned short, js_random_get, (unsigned char *dst, unsigned long len), {
   if (ENVIRONMENT_IS_NODE) {
     var crypto = module.require('crypto');
@@ -482,27 +479,8 @@ torsion_callrand(void *dst, size_t size) {
   return 1;
 #elif defined(__CloudABI__)
   return cloudabi_sys_random_get(dst, size) == 0;
-#elif defined(EM_JS)
-  return js_random_get((uint8_t *)dst, size) == 0;
 #elif defined(__EMSCRIPTEN__)
-  unsigned char *data = (unsigned char *)dst;
-  unsigned char uuid[16];
-  size_t max = 14;
-
-  while (size > 0) {
-    if (max > size)
-      max = size;
-
-    uuid_generate(uuid);
-
-    uuid[6] = uuid[14];
-    uuid[8] = uuid[15];
-
-    data += max;
-    size -= max;
-  }
-
-  return 1;
+  return js_random_get((uint8_t *)dst, size) == 0;
 #elif defined(__wasi__)
   return __wasi_random_get((uint8_t *)dst, size) == 0;
 #elif defined(HAVE_GETRANDOM)
