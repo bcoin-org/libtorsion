@@ -480,7 +480,7 @@ torsion_callrand(void *dst, size_t size) {
 #elif defined(__Fuchsia__)
   zx_cprng_draw(dst, size);
   return 1;
-#if defined(__CloudABI__)
+#elif defined(__CloudABI__)
   return cloudabi_sys_random_get(dst, size) == 0;
 #elif defined(EM_JS)
   return js_random_get((uint8_t *)dst, size) == 0;
