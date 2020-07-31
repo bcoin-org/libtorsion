@@ -79,13 +79,7 @@
 #undef HAVE_GETSID
 #undef HAVE_OS_IPHONE
 
-#if defined(__CloudABI__)
-/* Could gather static entropy from filesystem in the future. */
-#elif defined(__wasi__)
-/* Could gather static entropy from args/env in the future. */
-#elif defined(__EMSCRIPTEN__) || defined(__wasm__)
-/* No reliable entropy sources available for emscripten/wasm. */
-#elif defined(_WIN32)
+#if defined(_WIN32)
 #  include <winsock2.h> /* required by iphlpapi.h */
 #  include <iphlpapi.h> /* GetAdaptersAddresses */
 #  include <psapi.h> /* GetProcessMemoryInfo */
@@ -99,6 +93,12 @@
 /* Unsupported. */
 #elif defined(__Fuchsia__)
 /* Unsupported. */
+#elif defined(__CloudABI__)
+/* Could gather static entropy from filesystem in the future. */
+#elif defined(__EMSCRIPTEN__)
+/* No reliable entropy sources available for emscripten. */
+#elif defined(__wasi__)
+/* Could gather static entropy from args/env in the future. */
 #elif defined(__unix) || defined(__unix__)     \
   || (defined(__APPLE__) && defined(__MACH__))
 #  include <sys/types.h> /* open */

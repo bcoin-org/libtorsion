@@ -214,23 +214,7 @@
 #undef HAVE_GETPID
 #undef DEV_RANDOM_NAME
 
-#if defined(__CloudABI__)
-uint16_t
-cloudabi_sys_random_get(void *buf, size_t buf_len);
-#elif defined(__wasi__)
-/* Could call getentropy(3) directly with wasi-libc,
-   but this is unsupported by emscripten's libc. */
-uint16_t
-__wasi_random_get(uint8_t *buf, size_t buf_len) __attribute__((
-  __import_module__("wasi_snapshot_preview1"),
-  __import_name__("random_get"),
-  __warn_unused_result__
-));
-#elif defined(__EMSCRIPTEN__)
-#  include <emscripten.h> /* EM_JS */
-#elif defined(__wasm__)
-/* No entropy sources for plain wasm. */
-#elif defined(_WIN32)
+#if defined(_WIN32)
 #  include <windows.h> /* _WIN32_WINNT */
 #  if defined(_MSC_VER) && _MSC_VER > 1500 /* VS 2008 */ \
    && defined(_WIN32_WINNT) && _WIN32_WINNT >= 0x0600 /* >= Vista (2007) */
@@ -255,6 +239,18 @@ RtlGenRandom(PVOID RandomBuffer, ULONG RandomBufferLength);
 #  endif
 #elif defined(__Fuchsia__)
 #  include <zircon/syscalls.h>
+#elif defined(__CloudABI__)
+uint16_t
+cloudabi_sys_random_get(void *buf, size_t buf_len);
+#elif defined(__EMSCRIPTEN__)
+#  include <emscripten.h> /* EM_JS */
+#elif defined(__wasi__)
+uint16_t
+__wasi_random_get(uint8_t *buf, size_t buf_len) __attribute__((
+  __import_module__("wasi_snapshot_preview1"),
+  __import_name__("random_get"),
+  __warn_unused_result__
+));
 #elif defined(__unix) || defined(__unix__)     \
   || (defined(__APPLE__) && defined(__MACH__))
 #  include <sys/types.h> /* open */
@@ -442,15 +438,7 @@ EM_JS(unsigned short, js_random_get, (unsigned char *dst, unsigned long len), {
 
 static int
 torsion_callrand(void *dst, size_t size) {
-#if defined(__CloudABI__)
-  return cloudabi_sys_random_get(dst, size) == 0;
-#elif defined(__wasi__)
-  return __wasi_random_get((uint8_t *)dst, size) == 0;
-#elif defined(__EMSCRIPTEN__)
-  return js_random_get((uint8_t *)dst, size) == 0;
-#elif defined(__wasm__)
-  return 0;
-#elif defined(HAVE_BCRYPTGENRANDOM) /* _WIN32 */
+#if defined(HAVE_BCRYPTGENRANDOM) /* _WIN32 */
   return BCryptGenRandom(NULL, (PUCHAR)dst, (ULONG)size,
                          BCRYPT_USE_SYSTEM_PREFERRED_RNG) == STATUS_SUCCESS;
 #elif defined(_WIN32)
@@ -489,6 +477,12 @@ torsion_callrand(void *dst, size_t size) {
 #elif defined(__Fuchsia__)
   zx_cprng_draw(dst, size);
   return 1;
+#if defined(__CloudABI__)
+  return cloudabi_sys_random_get(dst, size) == 0;
+#elif defined(__EMSCRIPTEN__)
+  return js_random_get((uint8_t *)dst, size) == 0;
+#elif defined(__wasi__)
+  return __wasi_random_get((uint8_t *)dst, size) == 0;
 #elif defined(HAVE_GETRANDOM)
   unsigned char *data = (unsigned char *)dst;
   size_t max = 256;

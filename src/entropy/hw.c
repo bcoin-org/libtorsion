@@ -100,30 +100,7 @@
 #undef HAVE_INLINE_ASM
 #undef HAVE_CPUID
 
-#if defined(__CloudABI__)
-uint16_t
-cloudabi_sys_clock_time_get(uint32_t clock_id,
-                            uint64_t precision,
-                            uint64_t *time);
-#  define CLOUDABI_CLOCK_MONOTONIC 1
-#elif defined(__wasi__)
-#  ifdef TORSION_WASM_BIGINT
-/* Requires --experimental-wasm-bigint at the moment. */
-uint16_t
-__wasi_clock_time_get(uint32_t clock_id,
-                      uint64_t precision,
-                      uint64_t *time) __attribute__((
-  __import_module__("wasi_snapshot_preview1"),
-  __import_name__("clock_time_get"),
-  __warn_unused_result__
-));
-#    define __WASI_CLOCKID_MONOTONIC 1
-#  endif
-#elif defined(__EMSCRIPTEN__)
-#  include <emscripten.h> /* emscripten_get_now */
-#elif defined(__wasm__)
-/* No hardware entropy for plain wasm. */
-#elif defined(_WIN32)
+#if defined(_WIN32)
 #  include <windows.h> /* _WIN32_WINNT, QueryPerformance{Counter,Frequency} */
 #  if defined(_WIN32_WINNT) && _WIN32_WINNT >= 0x0501 /* >= Windows XP */
 #    pragma comment(lib, "kernel32.lib")
@@ -143,6 +120,27 @@ __wasi_clock_time_get(uint32_t clock_id,
 #  include <time.h> /* clock_gettime */
 #elif defined(__Fuchsia__)
 #  include <zircon/syscalls.h> /* zx_clock_get_monotonic */
+#elif defined(__CloudABI__)
+uint16_t
+cloudabi_sys_clock_time_get(uint32_t clock_id,
+                            uint64_t precision,
+                            uint64_t *time);
+#  define CLOUDABI_CLOCK_MONOTONIC 1
+#elif defined(__EMSCRIPTEN__)
+#  include <emscripten.h> /* emscripten_get_now */
+#elif defined(__wasi__)
+#  ifdef TORSION_WASM_BIGINT
+/* Requires --experimental-wasm-bigint at the moment. */
+uint16_t
+__wasi_clock_time_get(uint32_t clock_id,
+                      uint64_t precision,
+                      uint64_t *time) __attribute__((
+  __import_module__("wasi_snapshot_preview1"),
+  __import_name__("clock_time_get"),
+  __warn_unused_result__
+));
+#    define __WASI_CLOCKID_MONOTONIC 1
+#  endif
 #elif defined(__unix) || defined(__unix__)
 #  include <time.h> /* clock_gettime */
 #  include <unistd.h> /* _POSIX_VERSION */
@@ -181,27 +179,7 @@ __wasi_clock_time_get(uint32_t clock_id,
 
 uint64_t
 torsion_hrtime(void) {
-#if defined(__CloudABI__)
-  uint64_t time;
-
-  if (cloudabi_sys_clock_time_get(CLOUDABI_CLOCK_MONOTONIC, 0, &time) != 0)
-    abort();
-
-  return time;
-#elif defined(__wasi__)
-  uint64_t time = 0;
-
-#ifdef TORSION_WASM_BIGINT
-  if (__wasi_clock_time_get(__WASI_CLOCKID_MONOTONIC, 0, &time) != 0)
-    abort();
-#endif
-
-  return time;
-#elif defined(__EMSCRIPTEN__)
-  return emscripten_get_now() * 1000000.0;
-#elif defined(__wasm__)
-  return 0;
-#elif defined(HAVE_QPC) /* _WIN32 */
+#if defined(HAVE_QPC) /* _WIN32 */
   static unsigned int scale = 1000000000;
   LARGE_INTEGER freq, ctr;
   double scaled, result;
@@ -261,6 +239,24 @@ torsion_hrtime(void) {
   return (uint64_t)ts.tv_sec * 1000000000 + (uint64_t)ts.tv_nsec;
 #elif defined(__Fuchsia__)
   return zx_clock_get_monotonic();
+#elif defined(__CloudABI__)
+  uint64_t time;
+
+  if (cloudabi_sys_clock_time_get(CLOUDABI_CLOCK_MONOTONIC, 0, &time) != 0)
+    abort();
+
+  return time;
+#elif defined(__EMSCRIPTEN__)
+  return emscripten_get_now() * 1000000.0;
+#elif defined(__wasi__)
+  uint64_t time = 0;
+
+#ifdef TORSION_WASM_BIGINT
+  if (__wasi_clock_time_get(__WASI_CLOCKID_MONOTONIC, 0, &time) != 0)
+    abort();
+#endif
+
+  return time;
 #elif defined(HAVE_CLOCK_GETTIME)
   struct timespec ts;
 
