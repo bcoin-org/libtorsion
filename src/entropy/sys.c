@@ -227,7 +227,7 @@ __wasi_random_get(uint8_t *buf, size_t buf_len) __attribute__((
   __warn_unused_result__
 ));
 #elif defined(__EMSCRIPTEN__)
-#  include <emscripten.h> /* EM_ASM_INT */
+#  include <emscripten.h> /* EM_JS */
 #elif defined(__wasm__)
 /* No entropy sources for plain wasm. */
 #elif defined(_WIN32)
@@ -384,6 +384,59 @@ torsion_open(const char *name, int flags) {
 #endif
 
 /*
+ * Emscripten Entropy
+ */
+
+#ifdef __EMSCRIPTEN__
+EM_JS(unsigned short, js_random_get, (unsigned char *dst, unsigned long len), {
+  if (ENVIRONMENT_IS_NODE) {
+    var crypto = module.require('crypto');
+    var buf = Buffer.from(HEAPU8.buffer, dst, len);
+
+    try {
+      crypto.randomFillSync(buf, 0, len);
+    } catch (e) {
+      return 1;
+    }
+
+    return 0;
+  }
+
+  if (ENVIRONMENT_IS_WEB || ENVIRONMENT_IS_WORKER) {
+    var global = ENVIRONMENT_IS_WORKER ? self : window;
+    var crypto = global.crypto || global.msCrypto;
+    var max = 65536;
+
+    if (!crypto || !crypto.getRandomValues)
+      return 1;
+
+    while (len > 0) {
+      if (max > len)
+        max = len;
+
+      var buf = HEAPU8.subarray(dst, dst + max);
+
+      crypto.getRandomValues(buf);
+
+      dst += max;
+      len -= max;
+    }
+
+    return 0;
+  }
+
+  if (ENVIRONMENT_IS_SHELL) {
+    while (len--)
+      HEAPU8[dst++] = Math.floor(Math.random() * 0x100);
+
+    return 0;
+  }
+
+  return 1;
+});
+#endif
+
+/*
  * Syscall Entropy
  */
 
@@ -394,58 +447,7 @@ torsion_callrand(void *dst, size_t size) {
 #elif defined(__wasi__)
   return __wasi_random_get((uint8_t *)dst, size) == 0;
 #elif defined(__EMSCRIPTEN__)
-  if (size > (size_t)INT_MAX)
-    return 0;
-
-  return EM_ASM_INT({
-    try {
-      var ptr = $0;
-      var len = $1;
-
-      if (ENVIRONMENT_IS_NODE) {
-        var crypto = module.require('crypto');
-        var buf = Buffer.from(HEAPU8.buffer, ptr, len);
-
-        crypto.randomFillSync(buf, 0, len);
-
-        return 1;
-      }
-
-      if (ENVIRONMENT_IS_WEB || ENVIRONMENT_IS_WORKER) {
-        var global = ENVIRONMENT_IS_WORKER ? self : window;
-        var crypto = global.crypto || global.msCrypto;
-        var max = 65536;
-
-        if (!crypto || !crypto.getRandomValues)
-          return 0;
-
-        while (len > 0) {
-          if (max > len)
-            max = len;
-
-          var buf = HEAPU8.subarray(ptr, ptr + max);
-
-          crypto.getRandomValues(buf);
-
-          ptr += max;
-          len -= max;
-        }
-
-        return 1;
-      }
-
-      if (ENVIRONMENT_IS_SHELL) {
-        while (len--)
-          HEAPU8[ptr++] = Math.floor(Math.random() * 0x100);
-
-        return 1;
-      }
-    } catch (e) {
-      ;
-    }
-
-    return 0;
-  }, dst, size);
+  return js_random_get((uint8_t *)dst, size) == 0;
 #elif defined(__wasm__)
   return 0;
 #elif defined(HAVE_BCRYPTGENRANDOM) /* _WIN32 */
