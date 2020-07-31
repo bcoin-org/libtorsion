@@ -30,26 +30,10 @@
  *   https://github.com/floodyberry/poly1305-donna/blob/master/poly1305-donna-64.h
  */
 
-typedef struct poly1305_internal_s {
-#if defined(TORSION_HAVE_INT128)
-  uint64_t r[3];
-  uint64_t h[3];
-  uint64_t pad[2];
-#else
-  uint32_t r[5];
-  uint32_t h[5];
-  uint32_t pad[4];
-#endif
-  unsigned char block[16];
-  size_t size;
-} poly1305_internal_t;
-
-STATIC_ASSERT(sizeof(poly1305_t) >= sizeof(poly1305_internal_t));
-
 void
 poly1305_init(poly1305_t *ctx, const unsigned char *key) {
-  poly1305_internal_t *st = (poly1305_internal_t *)ctx;
 #if defined(TORSION_HAVE_INT128)
+  struct poly1305_64_s *st = &ctx->state.u64;
   uint64_t t0 = read64le(key + 0);
   uint64_t t1 = read64le(key + 8);
 
@@ -67,8 +51,10 @@ poly1305_init(poly1305_t *ctx, const unsigned char *key) {
   st->pad[0] = read64le(key + 16);
   st->pad[1] = read64le(key + 24);
 
-  st->size = 0;
+  ctx->size = 0;
 #else /* TORSION_HAVE_INT128 */
+  struct poly1305_32_s *st = &ctx->state.u32;
+
   /* r &= 0xffffffc0ffffffc0ffffffc0fffffff */
   st->r[0] = (read32le(key +  0) >> 0) & 0x3ffffff;
   st->r[1] = (read32le(key +  3) >> 2) & 0x3ffff03;
@@ -89,15 +75,16 @@ poly1305_init(poly1305_t *ctx, const unsigned char *key) {
   st->pad[2] = read32le(key + 24);
   st->pad[3] = read32le(key + 28);
 
-  st->size = 0;
+  ctx->size = 0;
 #endif /* TORSION_HAVE_INT128 */
 }
 
 static void
-poly1305_blocks(poly1305_internal_t *st,
+poly1305_blocks(poly1305_t *ctx,
                 const unsigned char *data,
                 size_t len, int final) {
 #if defined(TORSION_HAVE_INT128)
+  struct poly1305_64_s *st = &ctx->state.u64;
   uint64_t hibit = final ? 0 : (UINT64_C(1) << 40); /* 1 << 128 */
   uint64_t r0 = st->r[0];
   uint64_t r1 = st->r[1];
@@ -164,6 +151,7 @@ poly1305_blocks(poly1305_internal_t *st,
   st->h[1] = h1;
   st->h[2] = h2;
 #else /* TORSION_HAVE_INT128 */
+  struct poly1305_32_s *st = &ctx->state.u32;
   uint32_t hibit = final ? 0 : (UINT32_C(1) << 24); /* 1 << 128 */
   uint32_t r0 = st->r[0];
   uint32_t r1 = st->r[1];
@@ -260,37 +248,36 @@ poly1305_blocks(poly1305_internal_t *st,
 
 void
 poly1305_update(poly1305_t *ctx, const unsigned char *data, size_t len) {
-  poly1305_internal_t *st = (poly1305_internal_t *)ctx;
   size_t i;
 
   /* Handle leftover. */
-  if (st->size > 0) {
-    size_t want = 16 - st->size;
+  if (ctx->size > 0) {
+    size_t want = 16 - ctx->size;
 
     if (want > len)
       want = len;
 
     for (i = 0; i < want; i++)
-      st->block[st->size + i] = data[i];
+      ctx->block[ctx->size + i] = data[i];
 
     len -= want;
     data += want;
 
-    st->size += want;
+    ctx->size += want;
 
-    if (st->size < 16)
+    if (ctx->size < 16)
       return;
 
-    poly1305_blocks(st, st->block, 16, 0);
+    poly1305_blocks(ctx, ctx->block, 16, 0);
 
-    st->size = 0;
+    ctx->size = 0;
   }
 
   /* Process full blocks. */
   if (len >= 16) {
     size_t want = len & ~15;
 
-    poly1305_blocks(st, data, want, 0);
+    poly1305_blocks(ctx, data, want, 0);
 
     data += want;
     len -= want;
@@ -299,30 +286,30 @@ poly1305_update(poly1305_t *ctx, const unsigned char *data, size_t len) {
   /* Store leftover. */
   if (len > 0) {
     for (i = 0; i < len; i++)
-      st->block[st->size + i] = data[i];
+      ctx->block[ctx->size + i] = data[i];
 
-    st->size += len;
+    ctx->size += len;
   }
 }
 
 void
 poly1305_final(poly1305_t *ctx, unsigned char *mac) {
-  poly1305_internal_t *st = (poly1305_internal_t *)ctx;
 #if defined(TORSION_HAVE_INT128)
+  struct poly1305_64_s *st = &ctx->state.u64;
   uint64_t h0, h1, h2, c;
   uint64_t g0, g1, g2;
   uint64_t t0, t1;
 
   /* Process the remaining block. */
-  if (st->size > 0) {
-    size_t i = st->size;
+  if (ctx->size > 0) {
+    size_t i = ctx->size;
 
-    st->block[i++] = 1;
+    ctx->block[i++] = 1;
 
     for (; i < 16; i++)
-      st->block[i] = 0;
+      ctx->block[i] = 0;
 
-    poly1305_blocks(st, st->block, 16, 1);
+    poly1305_blocks(ctx, ctx->block, 16, 1);
   }
 
   /* fully carry h */
@@ -396,21 +383,22 @@ poly1305_final(poly1305_t *ctx, unsigned char *mac) {
   write64le(mac + 0, h0);
   write64le(mac + 8, h1);
 #else /* TORSION_HAVE_INT128 */
+  struct poly1305_32_s *st = &ctx->state.u32;
   uint32_t h0, h1, h2, h3, h4, c;
   uint32_t g0, g1, g2, g3, g4;
   uint32_t mask;
   uint64_t f;
 
   /* Process the remaining block. */
-  if (st->size > 0) {
-    size_t i = st->size;
+  if (ctx->size > 0) {
+    size_t i = ctx->size;
 
-    st->block[i++] = 1;
+    ctx->block[i++] = 1;
 
     for (; i < 16; i++)
-      st->block[i] = 0;
+      ctx->block[i] = 0;
 
-    poly1305_blocks(st, st->block, 16, 1);
+    poly1305_blocks(ctx, ctx->block, 16, 1);
   }
 
   /* Fully carry h. */
