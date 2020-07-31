@@ -120,7 +120,7 @@ __wasi_clock_time_get(uint32_t clock_id,
 #    define __WASI_CLOCKID_MONOTONIC 1
 #  endif
 #elif defined(__EMSCRIPTEN__)
-#  include <emscripten.h> /* EM_ASM_INT */
+#  include <emscripten.h> /* emscripten_get_now */
 #elif defined(__wasm__)
 /* No hardware entropy for plain wasm. */
 #elif defined(_WIN32)
@@ -200,38 +200,7 @@ torsion_hrtime(void) {
   return 0;
 #endif
 #elif defined(__EMSCRIPTEN__)
-  uint32_t sec, nsec;
-
-  /* Note: we could call emscripten_get_now(), but it
-     unfortunately returns a double in milliseconds. */
-  int ret = EM_ASM_INT({
-    try {
-      if (typeof process !== 'undefined' && process
-          && typeof process.hrtime === 'function') {
-        var times = process.hrtime();
-
-        HEAPU32[$0 >>> 2] = times[0];
-        HEAPU32[$1 >>> 2] = times[1];
-
-        return 1;
-      }
-
-      var now = Date.now ? Date.now() : +new Date();
-      var ms = now % 1000;
-
-      HEAPU32[$0 >>> 2] = (now - ms) / 1000;
-      HEAPU32[$1 >>> 2] = ms * 1e6;
-
-      return 1;
-    } catch (e) {
-      return 0;
-    }
-  }, (void *)&sec, (void *)&nsec);
-
-  if (ret != 1)
-    abort();
-
-  return (uint64_t)sec * 1000000000 + (uint64_t)nsec;
+  return emscripten_get_now() * 1000000.0;
 #elif defined(__wasm__)
   return 0;
 #elif defined(HAVE_QPC) /* _WIN32 */

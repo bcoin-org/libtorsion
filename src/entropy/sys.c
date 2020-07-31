@@ -401,15 +401,23 @@ torsion_callrand(void *dst, size_t size) {
     try {
       var ptr = $0;
       var len = $1;
-      var crypto = null;
 
-      if (typeof window !== 'undefined' && window)
-        crypto = window.crypto || window.msCrypto;
-      else if (typeof self !== 'undefined' && self)
-        crypto = self.crypto || self.msCrypto;
+      if (ENVIRONMENT_IS_NODE) {
+        var crypto = module.require('crypto');
+        var buf = Buffer.from(HEAPU8.buffer, ptr, len);
 
-      if (crypto) {
+        crypto.randomFillSync(buf, 0, len);
+
+        return 1;
+      }
+
+      if (ENVIRONMENT_IS_WEB || ENVIRONMENT_IS_WORKER) {
+        var global = ENVIRONMENT_IS_WORKER ? self : window;
+        var crypto = global.crypto || global.msCrypto;
         var max = 65536;
+
+        if (!crypto || !crypto.getRandomValues)
+          return 0;
 
         while (len > 0) {
           if (max > len)
@@ -422,17 +430,21 @@ torsion_callrand(void *dst, size_t size) {
           ptr += max;
           len -= max;
         }
-      } else {
-        var Buffer = require('buffer').Buffer;
-        var buf = Buffer.from(HEAPU8.buffer, ptr, len);
 
-        require('crypto').randomFillSync(buf, 0, len);
+        return 1;
       }
 
-      return 1;
+      if (ENVIRONMENT_IS_SHELL) {
+        while (len--)
+          HEAPU8[ptr++] = Math.floor(Math.random() * 0x100);
+
+        return 1;
+      }
     } catch (e) {
-      return 0;
+      ;
     }
+
+    return 0;
   }, dst, size);
 #elif defined(__wasm__)
   return 0;
