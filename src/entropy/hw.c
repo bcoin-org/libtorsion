@@ -58,10 +58,10 @@
  *   - gettimeofday (unix legacy)
  *   - cloudabi_sys_clock_time_get (cloud abi)
  *   - __wasi_clock_time_get (wasi)
- *   - Date.now, process.hrtime (wasm, asm.js)
+ *   - emscripten_get_now (emscripten)
  *
  * Note that the only clocks which do not have nanosecond
- * precision are `_ftime`, `gettimeofday`, and `Date.now`.
+ * precision are `_ftime` and `gettimeofday`.
  *
  * If no OS clocks are present, we fall back to standard
  * C89 time functions (i.e. time(2)).
