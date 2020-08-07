@@ -415,7 +415,7 @@
 #endif
 
 #ifdef TORSION_TLS_BOTH
-#  if defined(_WIN32)
+#  if defined(_WIN32) && !defined(__MINGW32__)
 #    define TORSION_TLS_MSVC
 #  else
 #    define TORSION_TLS_GNUC
@@ -456,6 +456,8 @@
 /* Allow overrides (for testing). */
 #ifdef TORSION_NO_TLS
 #  undef TORSION_HAVE_TLS
+#  undef TORSION_TLS
+#  define TORSION_TLS
 #endif
 
 #ifdef TORSION_NO_PTHREAD
