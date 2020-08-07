@@ -181,7 +181,7 @@ CONFIG := prefix=$(PREFIX)                    \
           libdir=\$${exec_prefix}/lib         \
           includedir=\$${exec_prefix}/include \
           PACKAGE_VERSION=$(PKG_VER)          \
-          LIBS=$(LIB_LIBS)
+          LIBS='$(LIB_LIBS)'
 
 INSTDIR := $(DESTDIR)$(PREFIX)
 
