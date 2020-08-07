@@ -2,15 +2,16 @@ dnl configure.ac - autoconf script for libtorsion
 dnl Copyright (c) 2020, Christopher Jeffrey (MIT License).
 dnl https://github.com/bcoin-org/libtorsion
 
-AC_PREREQ(2.59)
+dnl
+dnl Initialization
+dnl
+
+AC_PREREQ(2.64)
 AC_INIT([libtorsion], [0.0.0], [https://github.com/bcoin-org/libtorsion/issues])
 LIB_VERSION=0:0:0
 AC_CONFIG_AUX_DIR([build-aux])
 AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_SRCDIR([include/torsion/ecc.h])
-m4_include([m4/attributes.m4])
-m4_include([m4/as_case.m4])
-m4_include([m4/ax_pthread.m4])
 AM_INIT_AUTOMAKE([foreign subdir-objects])
 : ${CFLAGS=""}
 AC_CANONICAL_HOST
@@ -24,257 +25,363 @@ AC_PROG_LIBTOOL
 m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
 LT_INIT
 
-if test x"$ac_cv_prog_cc_c89" = x"no"; then
+dnl
+dnl Sanity Checks
+dnl
+
+AS_IF([test x"$ac_cv_prog_cc_c89" = x"no"], [
   AC_MSG_ERROR([CC does not support ANSI C89])
-fi
+])
 
-if test x"$EMSCRIPTEN" != x"" -o x"$WASI" != x""; then
-  WASM=yes
-else
-  WASM=no
-fi
+AC_CHECK_DEFINE([__EMSCRIPTEN__], [
+  AS_IF([test x"$EMSCRIPTEN" = x""], [
+    AC_MSG_ERROR([./configure must be run with emconfigure])
+  ])
+], [
+  AS_IF([test x"$EMSCRIPTEN" != x""], [
+    AC_MSG_WARN([EMSCRIPTEN env var set but environment is not emscripten])
+    AS_UNSET(EMSCRIPTEN)
+  ])
+])
 
-AC_ARG_ENABLE(asm,
-  AS_HELP_STRING([--enable-asm], [use inline x86-64 assembly if available [default=yes]]),
+AC_CHECK_DEFINE([__wasi__], [
+  AS_IF([test x"$WASI" = x""], [
+    AC_MSG_ERROR([./configure must be run with ./scripts/wasi-configure])
+  ])
+], [
+  AS_IF([test x"$WASI" != x""], [
+    AC_MSG_WARN([WASI env var set but environment is not wasi])
+    AS_UNSET(WASI)
+  ])
+])
+
+AS_IF([test x"$EMSCRIPTEN" != x"" -o x"$WASI" != x""], [WASM=yes], [WASM=no])
+
+dnl
+dnl Options
+dnl
+
+AC_ARG_ENABLE(
+  asm,
+  AS_HELP_STRING([--enable-asm],
+                 [use inline x86-64 assembly if available [default=yes]]),
   [enable_asm=$enableval],
-  [enable_asm=yes])
+  [enable_asm=yes]
+)
 
-AC_ARG_ENABLE(coverage,
-  AS_HELP_STRING([--enable-coverage], [enable coverage [default=no]]),
+AC_ARG_ENABLE(
+  coverage,
+  AS_HELP_STRING([--enable-coverage],
+                 [enable coverage [default=no]]),
   [enable_coverage=$enableval],
-  [enable_coverage=no])
+  [enable_coverage=no]
+)
 
-AC_ARG_ENABLE(crt,
-  AS_HELP_STRING([--enable-crt], [enable chinese remainder theorem for RSA [default=no]]),
+AC_ARG_ENABLE(
+  crt,
+  AS_HELP_STRING([--enable-crt],
+                 [enable chinese remainder theorem for RSA [default=no]]),
   [enable_crt=$enableval],
-  [enable_crt=no])
+  [enable_crt=no]
+)
 
-AC_ARG_ENABLE(debug,
-  AS_HELP_STRING([--enable-debug], [enable tests [default=no]]),
+AC_ARG_ENABLE(
+  debug,
+  AS_HELP_STRING([--enable-debug],
+                 [enable debug build [default=no]]),
   [enable_debug=$enableval],
-  [enable_debug=no])
+  [enable_debug=no]
+)
 
-AC_ARG_ENABLE(int128,
-  AS_HELP_STRING([--enable-int128], [use __int128 if available [default=yes]]),
+AC_ARG_ENABLE(
+  int128,
+  AS_HELP_STRING([--enable-int128],
+                 [use __int128 if available [default=yes]]),
   [enable_int128=$enableval],
-  [enable_int128=yes])
+  [enable_int128=yes]
+)
 
-AC_ARG_ENABLE(libsecp256k1,
-  AS_HELP_STRING([--enable-libsecp256k1], [use libsecp256k1 field element backend [default=no]]),
+AC_ARG_ENABLE(
+  libsecp256k1,
+  AS_HELP_STRING([--enable-libsecp256k1],
+                 [use libsecp256k1 field element backend [default=no]]),
   [enable_libsecp256k1=$enableval],
-  [enable_libsecp256k1=no])
+  [enable_libsecp256k1=no]
+)
 
-AC_ARG_ENABLE(pthread,
-  AS_HELP_STRING([--enable-pthread], [use pthread as a fallback for tls [default=yes]]),
+AC_ARG_ENABLE(
+  pthread,
+  AS_HELP_STRING([--enable-pthread],
+                 [use pthread as a fallback for tls [default=yes]]),
   [enable_pthread=$enableval],
-  [enable_pthread=yes])
+  [enable_pthread=yes]
+)
 
-AC_ARG_ENABLE(rng,
-  AS_HELP_STRING([--enable-rng], [enable rng [default=yes]]),
+AC_ARG_ENABLE(
+  rng,
+  AS_HELP_STRING([--enable-rng],
+                 [enable rng [default=yes]]),
   [enable_rng=$enableval],
-  [enable_rng=yes])
+  [enable_rng=yes]
+)
 
-AC_ARG_ENABLE(tls,
-  AS_HELP_STRING([--enable-tls], [enable tls [default=yes]]),
+AC_ARG_ENABLE(
+  tls,
+  AS_HELP_STRING([--enable-tls],
+                 [enable tls [default=yes]]),
   [enable_tls=$enableval],
-  [enable_tls=yes])
+  [enable_tls=yes]
+)
 
-AC_ARG_ENABLE(verify,
-  AS_HELP_STRING([--enable-verify], [enable scalar bounds checks [default=no]]),
+AC_ARG_ENABLE(
+  verify,
+  AS_HELP_STRING([--enable-verify],
+                 [enable scalar bounds checks [default=no]]),
   [enable_verify=$enableval],
-  [enable_verify=no])
+  [enable_verify=no]
+)
 
-CC_CHECK_CFLAGS_APPEND([-std=c89])
-CC_CHECK_CFLAGS_APPEND([-pedantic])
-CC_CHECK_CFLAGS_APPEND([-Wall])
-CC_CHECK_CFLAGS_APPEND([-Wextra])
-CC_CHECK_CFLAGS_APPEND([-Wcast-align])
-CC_CHECK_CFLAGS_APPEND([-Wno-implicit-fallthrough])
-CC_CHECK_CFLAGS_APPEND([-Wno-long-long])
-CC_CHECK_CFLAGS_APPEND([-Wno-overlength-strings])
-CC_CHECK_CFLAGS_APPEND([-Wshadow])
-CC_CHECK_CFLAGS_APPEND([-O3])
+dnl
+dnl Flags
+dnl
 
-if test x"$WASM" != x"yes"; then
-  CC_CHECK_CFLAGS_APPEND([-fvisibility=hidden])
+AX_CHECK_COMPILE_FLAG([-std=c89], [CFLAGS="$CFLAGS -std=c89"])
+AX_CHECK_COMPILE_FLAG([-pedantic], [CFLAGS="$CFLAGS -pedantic"])
+AX_CHECK_COMPILE_FLAG([-Wall], [CFLAGS="$CFLAGS -Wall"])
+AX_CHECK_COMPILE_FLAG([-Wextra], [CFLAGS="$CFLAGS -Wextra"])
+AX_CHECK_COMPILE_FLAG([-Wcast-align], [CFLAGS="$CFLAGS -Wcast-align"])
+AX_CHECK_COMPILE_FLAG([-Wno-implicit-fallthrough],
+                      [CFLAGS="$CFLAGS -Wno-implicit-fallthrough"])
+AX_CHECK_COMPILE_FLAG([-Wno-long-long], [CFLAGS="$CFLAGS -Wno-long-long"])
+AX_CHECK_COMPILE_FLAG([-Wno-overlength-strings],
+                      [CFLAGS="$CFLAGS -Wno-overlength-strings"])
+AX_CHECK_COMPILE_FLAG([-Wshadow], [CFLAGS="$CFLAGS -Wshadow"])
+AX_CHECK_COMPILE_FLAG([-O3], [CFLAGS="$CFLAGS -O3"])
 
-  AS_CASE([$host_os], [darwin*],
-    [CC_CHECK_CFLAGS_APPEND([-mmacosx-version-min=10.7])], [])
+AS_IF([test x"$WASM" != x"yes"], [
+  AX_CHECK_COMPILE_FLAG([-fvisibility=hidden],
+                        [CFLAGS="$CFLAGS -fvisibility=hidden"])
 
-  AS_CASE([$host_os], [linux*],
-    [CFLAGS="$CFLAGS -D_POSIX_C_SOURCE=200112"], [])
-fi
+  AS_CASE([$host_os], [darwin*], [
+    AX_CHECK_COMPILE_FLAG([-mmacosx-version-min=10.7],
+                          [CFLAGS="$CFLAGS -mmacosx-version-min=10.7"])
+  ])
+
+  AS_CASE([$host_os], [linux*], [CFLAGS="$CFLAGS -D_POSIX_C_SOURCE=200112"])
+])
+
+dnl
+dnl Feature Testing
+dnl
 
 AC_MSG_CHECKING(for inline asm support)
-AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[]], [[
-unsigned char ptr[32];
-int x = 0;
-__asm__ ("" : "+r" (x) ::);
-__asm__ __volatile__("" :: "r" (ptr) : "memory");
-]])], [has_asm=yes], [has_asm=no])
+AC_COMPILE_IFELSE([
+  AC_LANG_PROGRAM([[]], [[
+    unsigned char ptr[32];
+    int x = 0;
+    __asm__ ("" : "+r" (x) ::);
+    __asm__ __volatile__("" :: "r" (ptr) : "memory");
+  ]])
+], [
+  has_asm=yes
+], [
+  has_asm=no
+])
 AC_MSG_RESULT([$has_asm])
 
 AC_MSG_CHECKING(for x86_64 inline asm support)
-AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <stdint.h>]], [[
+AC_COMPILE_IFELSE([
+  AC_LANG_PROGRAM([[
 #if !defined(__amd64__) && !defined(__x86_64__)
 #  error "not an x64 platform"
 #endif
-uint32_t stream[8], state[8];
-__asm__ __volatile__(
-  "movups (%%rsi), %%xmm0\n"
-  "movups 16(%%rsi), %%xmm1\n"
-  "pxor %%xmm1, %%xmm0\n"
-  "movups %%xmm0,(%%rdi)\n"
-  "movups %%xmm1,16(%%rdi)\n"
-  :
-  : "D" (stream), "S" (state)
-  : "xmm0", "xmm1", "cc", "memory"
-);
-]])], [has_asm_x64=yes], [has_asm_x64=no])
+#include <stdint.h>
+  ]], [[
+    uint32_t stream[8], state[8];
+    __asm__ __volatile__(
+      "movups (%%rsi), %%xmm0\n"
+      "movups 16(%%rsi), %%xmm1\n"
+      "pxor %%xmm1, %%xmm0\n"
+      "movups %%xmm0,(%%rdi)\n"
+      "movups %%xmm1,16(%%rdi)\n"
+      :
+      : "D" (stream), "S" (state)
+      : "xmm0", "xmm1", "cc", "memory"
+    );
+  ]])
+], [
+  has_asm_x64=yes
+], [
+  has_asm_x64=no
+])
 AC_MSG_RESULT([$has_asm_x64])
 
 AC_MSG_CHECKING(for int128 support)
-AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+AC_COMPILE_IFELSE([
+  AC_LANG_PROGRAM([[
 #ifndef __wasm__
-typedef char check_64bit_t[sizeof(void *) == 8 ? 1 : -1];
+    typedef char check_64bit_t[sizeof(void *) == 8 ? 1 : -1];
 #endif
-typedef signed __int128 int128_t;
-typedef unsigned __int128 uint128_t;
-]], [[
-uint128_t r = 1;
-r <<= 64;
-r *= 113;
-r >>= 65;
-]])], [has_int128=yes], [has_int128=no])
+    typedef signed __int128 int128_t;
+    typedef unsigned __int128 uint128_t;
+  ]], [[
+    uint128_t r = 1;
+    r <<= 64;
+    r *= 113;
+    r >>= 65;
+    r &= 1;
+  ]])
+], [
+  has_int128=yes
+], [
+  has_int128=no
+])
 AC_MSG_RESULT([$has_int128])
 
 AC_MSG_CHECKING(for tls support)
-AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+AC_COMPILE_IFELSE([
+  AC_LANG_PROGRAM([[
 #if defined(_WIN32) && !defined(__MINGW32__)
 #  define TLS __declspec(thread)
 #else
 #  define TLS __thread
 #endif
-static TLS int value;
-]], [[
-value = 1;
-]])], [has_tls=yes], [has_tls=no])
+    static TLS int value;
+  ]], [[
+    value = 1;
+  ]])
+], [
+  has_tls=yes
+], [
+  has_tls=no
+])
 AC_MSG_RESULT([$has_tls])
 
-if test x"$WASM" != x"yes"; then
-  AX_PTHREAD([has_threads=yes], [has_threads=no])
-else
-  has_threads=no
-fi
+has_threads=no
+
+AS_IF([test x"$WASM" != x"yes"], [
+  AX_PTHREAD([has_threads=yes])
+])
 
 AC_MSG_CHECKING(for fork support)
-AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+AC_COMPILE_IFELSE([
+  AC_LANG_PROGRAM([[
 #if defined(__EMSCRIPTEN__) || defined(__wasm__)
 #  error "cannot use fork with wasm"
 #endif
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
-]], [[
-unsigned char data[32];
-int pfds[2];
-int status;
-pid_t pid;
-pipe(pfds);
-pid = fork();
-close(pfds[1]);
-read(pfds[0], data, 32);
-close(pfds[0]);
-waitpid(pid, &status, 0);
-WIFEXITED(status);
-WEXITSTATUS(status);
-]])], [has_fork=yes], [has_fork=no])
+  ]], [[
+    unsigned char data[32];
+    int pfds[2];
+    int status;
+    pid_t pid;
+    pipe(pfds);
+    pid = fork();
+    close(pfds[1]);
+    read(pfds[0], data, 32);
+    close(pfds[0]);
+    waitpid(pid, &status, 0);
+    WIFEXITED(status);
+    WEXITSTATUS(status);
+  ]])
+], [
+  has_fork=yes
+], [
+  has_fork=no
+])
 AC_MSG_RESULT([$has_fork])
 
 has_valgrind=no
 has_zlib=no
 
-if test x"$WASM" != x"yes"; then
-  AC_CHECK_HEADER([valgrind/memcheck.h],
-                  [has_valgrind=yes],
-                  [has_valgrind=no],
-                  [])
+AS_IF([test x"$WASM" != x"yes"], [
+  AC_CHECK_HEADER([valgrind/memcheck.h], [has_valgrind=yes])
 
-  if test x"$enable_rng" = x"yes"; then
-    AC_CHECK_HEADER([zlib.h], [has_zlib_h=yes], [has_zlib_h=no], [])
+  AS_IF([test x"$enable_rng" = x"yes"], [
+    AC_CHECK_HEADER([zlib.h], [
+      AC_CHECK_LIB(z, compress2, [has_zlib=yes])
+    ])
+  ])
+])
 
-    if test x"$has_zlib_h" = x"yes"; then
-      AC_CHECK_LIB(z, compress2, [has_zlib=yes], [has_zlib=no])
-    fi
-  fi
-fi
+dnl
+dnl Defines
+dnl
 
 AC_DEFINE(TORSION_HAVE_CONFIG)
 
-if test x"$enable_asm" = x"yes" -a x"$has_asm" = x"yes"; then
+AS_IF([test x"$enable_asm" = x"yes" -a x"$has_asm" = x"yes"], [
   AC_DEFINE(TORSION_HAVE_ASM)
-fi
+])
 
-if test x"$enable_asm" = x"yes" -a x"$has_asm_x64" = x"yes"; then
+AS_IF([test x"$enable_asm" = x"yes" -a x"$has_asm_x64" = x"yes"], [
   AC_DEFINE(TORSION_HAVE_ASM_X64)
-fi
+])
 
-if test x"$enable_coverage" = x"yes"; then
-  if test x"$WASM" = x"yes"; then
+AS_IF([test x"$enable_coverage" = x"yes"], [
+  AS_IF([test x"$WASM" = x"yes"], [
     AC_MSG_ERROR([coverage not supported with wasm])
-  fi
+  ])
   CFLAGS="$CFLAGS -O0 --coverage"
   AC_DEFINE(TORSION_COVERAGE)
-fi
+])
 
-if test x"$enable_crt" = x"yes"; then
+AS_IF([test x"$enable_crt" = x"yes"], [
   AC_DEFINE(TORSION_USE_CRT)
-fi
+])
 
-if test x"$enable_debug" = x"yes"; then
-  CC_CHECK_CFLAGS_APPEND([-g])
+AS_IF([test x"$enable_debug" = x"yes"], [
+  AX_CHECK_COMPILE_FLAG([-g], [CFLAGS="$CFLAGS -g"])
   AC_DEFINE(TORSION_DEBUG)
-fi
+])
 
-if test x"$has_fork" = x"yes"; then
+AS_IF([test x"$has_fork" = x"yes"], [
   AC_DEFINE(TORSION_HAVE_FORK)
-fi
+])
 
-if test x"$enable_int128" = x"yes" -a x"$has_int128" = x"yes"; then
+AS_IF([test x"$enable_int128" = x"yes" -a x"$has_int128" = x"yes"], [
   AC_DEFINE(TORSION_HAVE_INT128)
-fi
+])
 
-if test x"$enable_libsecp256k1" = x"yes"; then
+AS_IF([test x"$enable_libsecp256k1" = x"yes"], [
   AC_DEFINE(TORSION_USE_LIBSECP256K1)
-fi
+])
 
-if test x"$enable_pthread" = x"yes" -a x"$has_threads" = x"yes"; then
-  if test x"$enable_tls" != x"yes" -o x"$has_tls" != x"yes"; then
+pthread_fallback=no
+
+AS_IF([test x"$enable_pthread" = x"yes" -a x"$has_threads" = x"yes"], [
+  AS_IF([test x"$enable_tls" != x"yes" -o x"$has_tls" != x"yes"], [
     AC_DEFINE(TORSION_HAVE_PTHREAD)
     AC_SUBST(LIBS, [$PTHREAD_LIBS])
     pthread_fallback=yes
-  fi
-fi
+  ])
+])
 
-if test x"$enable_rng" = x"yes"; then
+AS_IF([test x"$enable_rng" = x"yes"], [
   AC_DEFINE(TORSION_HAVE_RNG)
-fi
+])
 
-if test x"$has_threads" = x"yes"; then
+AS_IF([test x"$has_threads" = x"yes"], [
   AC_DEFINE(TORSION_HAVE_THREADS)
-fi
+])
 
-if test x"$enable_tls" = x"yes" -a x"$has_tls" = x"yes"; then
+AS_IF([test x"$enable_tls" = x"yes" -a x"$has_tls" = x"yes"], [
   AC_DEFINE(TORSION_HAVE_TLS)
-fi
+])
 
-if test x"$enable_verify" = x"yes"; then
+AS_IF([test x"$enable_verify" = x"yes"], [
   AC_DEFINE(TORSION_VERIFY)
-fi
+])
 
-if test x"$has_zlib" = x"yes"; then
+AS_IF([test x"$has_zlib" = x"yes"], [
   AC_DEFINE(TORSION_HAVE_ZLIB)
-fi
+])
+
+dnl
+dnl Configuration
+dnl
 
 AS_VAR_SET(PKG_VERSION, [AC_PACKAGE_VERSION])
 
@@ -297,32 +404,36 @@ AM_CONDITIONAL([WASI], [test x"$WASI" != x""])
 
 AC_CONFIG_FILES([Makefile libtorsion.pc])
 
+dnl
+dnl Output
+dnl
+
 AC_OUTPUT
 
-echo ""
-echo "Build Options:"
-echo ""
-echo "  pkg version  = $PKG_VERSION"
-echo "  lib version  = $LIB_VERSION"
-echo ""
-echo "  asm          = $enable_asm (support=$has_asm)"
-echo "  asm_x64      = $enable_asm (support=$has_asm_x64)"
-echo "  coverage     = $enable_coverage"
-echo "  crt          = $enable_crt"
-echo "  debug        = $enable_debug"
-echo "  emscripten   = $EMSCRIPTEN"
-echo "  fork         = $has_fork"
-echo "  int128       = $enable_int128 (support=$has_int128)"
-echo "  libsecp256k1 = $enable_libsecp256k1"
-echo "  rng          = $enable_rng"
-echo "  threads      = $has_threads"
-echo "  tls          = $enable_tls (support=$has_tls)"
-echo "  valgrind     = $has_valgrind"
-echo "  verify       = $enable_verify"
-echo "  wasi         = $WASI"
-echo "  zlib         = $has_zlib"
-echo ""
-echo "  CC           = $CC"
-echo "  CFLAGS       = $CFLAGS"
-echo "  LDFLAGS      = $LDFLAGS"
-echo ""
+AC_MSG_NOTICE([Build Options:
+
+  pkg version  = $PKG_VERSION
+  lib version  = $LIB_VERSION
+
+  asm          = $enable_asm (support=$has_asm)
+  asm_x64      = $enable_asm (support=$has_asm_x64)
+  coverage     = $enable_coverage
+  crt          = $enable_crt
+  debug        = $enable_debug
+  emscripten   = $EMSCRIPTEN
+  fork         = $has_fork
+  int128       = $enable_int128 (support=$has_int128)
+  libsecp256k1 = $enable_libsecp256k1
+  rng          = $enable_rng
+  threads      = $has_threads
+  tls          = $enable_tls (support=$has_tls)
+  valgrind     = $has_valgrind
+  verify       = $enable_verify
+  wasi         = $WASI
+  zlib         = $has_zlib
+
+  CC           = $CC
+  CPPFLAGS     = $CPPFLAGS
+  CFLAGS       = $CFLAGS
+  LDFLAGS      = $LDFLAGS
+])

@@ -92,10 +92,10 @@ int main(void) {
 ]=] TORSION_HAS_ASM)
 
 check_c_source_compiles([=[
-#include <stdint.h>
 #if !defined(__amd64__) && !defined(__x86_64__)
 #  error "not an x64 platform"
 #endif
+#include <stdint.h>
 int main(void) {
   uint32_t stream[8], state[8];
   __asm__ __volatile__(
