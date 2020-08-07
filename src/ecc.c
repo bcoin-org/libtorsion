@@ -4531,7 +4531,7 @@ wei_sswui(const wei_t *ec, fe_t u, const wge_t *p, unsigned int hint) {
   const prime_field_t *fe = &ec->fe;
   fe_t a2x2, abx2, b23, axb, c, n0, n1, d0, d1;
   unsigned int r = hint & 3;
-  unsigned s0, s1;
+  unsigned int s0, s1;
 
   fe_sqr(fe, n0, ec->a);
   fe_sqr(fe, n1, p->x);
