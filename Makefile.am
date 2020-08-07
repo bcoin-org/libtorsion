@@ -192,7 +192,7 @@ torsion_ldflags = -Wl,--allow-undefined                  \
 noinst_PROGRAMS += torsion.wasm
 torsion_wasm_SOURCES = $(torsion_sources)
 torsion_wasm_CFLAGS = $(torsion_cflags) -DTORSION_BUILD
-torsion_wasm_LDADD = $(WASI_SYSROOT)/lib/$(host_alias)/crt1-reactor.o
+torsion_wasm_LDADD = $(WASI_SYSROOT)/lib/$(host_cpu)-wasi/crt1-reactor.o
 torsion_wasm_LDFLAGS = $(torsion_ldflags)      \
                        -nostartfiles           \
                        -Wl,--entry=_initialize \
