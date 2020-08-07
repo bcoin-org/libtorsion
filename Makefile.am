@@ -2,15 +2,22 @@
 # Copyright (c) 2020, Christopher Jeffrey (MIT License).
 # https://github.com/bcoin-org/libtorsion
 
+#
+# Initialization
+#
+
 ACLOCAL_AMFLAGS = -I m4
 
 CLEANFILES =
 EXTRA_DIST = LICENSE README.md
 
 noinst_PROGRAMS =
-noinst_LIBRARIES =
 lib_LTLIBRARIES =
 TESTS =
+
+#
+# Headers
+#
 
 include_HEADERS = include/torsion/aead.h     \
                   include/torsion/cipher.h   \
@@ -92,6 +99,10 @@ if ENABLE_RNG
 include_HEADERS += include/torsion/rand.h
 noinst_HEADERS += src/entropy/entropy.h
 endif
+
+#
+# Sources & Flags
+#
 
 torsion_sources = src/aead.c     \
                   src/asn1.c     \
