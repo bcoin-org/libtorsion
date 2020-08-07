@@ -560,7 +560,7 @@ torsion_callrand(void *dst, size_t size) {
 
 static int
 torsion_devrand(void *dst, size_t size) {
-#ifdef DEV_RANDOM_NAME
+#if defined(DEV_RANDOM_NAME)
   unsigned char *data = (unsigned char *)dst;
   struct stat st;
   ssize_t nread;
@@ -628,11 +628,11 @@ fail:
   close(fd);
 
   return size == 0;
-#else /* DEV_RANDOM_NAME */
+#else /* !DEV_RANDOM_NAME */
   (void)dst;
   (void)size;
   return 0;
-#endif /* DEV_RANDOM_NAME */
+#endif /* !DEV_RANDOM_NAME */
 }
 
 /*
@@ -698,7 +698,7 @@ torsion_uuidrand(void *dst, size_t size) {
 
 uint64_t
 torsion_getpid(void) {
-#ifdef HAVE_GETPID
+#if defined(HAVE_GETPID)
   return (uint64_t)getpid();
 #else
   return 0;

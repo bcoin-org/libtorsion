@@ -137,7 +137,7 @@
 #  define TORSION_UNUSED
 #endif
 
-#ifdef __GNUC__
+#if defined(__GNUC__)
 #  define TORSION_EXTENSION __extension__
 #else
 #  define TORSION_EXTENSION

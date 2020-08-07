@@ -15,7 +15,7 @@
 #endif
 
 struct torsion_thread_s {
-#ifdef _WIN32
+#if defined(_WIN32)
   HANDLE handle;
 #else
   pthread_t handle;
@@ -62,7 +62,7 @@ torsion_thread_create(struct torsion_thread_s *thread,
                       const torsion_thread_attr_t *attr,
                       torsion_thread_start_f *start_routine,
                       void *arg) {
-#ifdef _WIN32
+#if defined(_WIN32)
   torsion_thread_args_t *args;
 
   if (attr != NULL)
@@ -94,7 +94,7 @@ torsion_thread_create(struct torsion_thread_s *thread,
 
 int
 torsion_thread_join(struct torsion_thread_s *thread, void **retval) {
-#ifdef _WIN32
+#if defined(_WIN32)
   if (retval != NULL)
     return -1;
 

@@ -18,7 +18,7 @@
 #if defined(_WIN32)
 #  include <windows.h> /* QueryPerformance{Counter,Frequency} */
 #  pragma comment(lib, "kernel32.lib")
-#else /* _WIN32 */
+#else /* !_WIN32 */
 #  include <time.h> /* clock_gettime, time */
 #  ifndef CLOCK_MONOTONIC
 #    if defined(__unix) || defined(__unix__)     \
@@ -27,7 +27,7 @@
 #      define HAVE_GETTIMEOFDAY
 #    endif
 #  endif
-#endif /* _WIN32 */
+#endif /* !_WIN32 */
 
 uint64_t
 torsion_hrtime(void) {

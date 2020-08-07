@@ -52,7 +52,7 @@ poly1305_init(poly1305_t *ctx, const unsigned char *key) {
   st->pad[1] = read64le(key + 24);
 
   ctx->size = 0;
-#else /* TORSION_HAVE_INT128 */
+#else /* !TORSION_HAVE_INT128 */
   struct poly1305_32_s *st = &ctx->state.u32;
 
   /* r &= 0xffffffc0ffffffc0ffffffc0fffffff */
@@ -76,7 +76,7 @@ poly1305_init(poly1305_t *ctx, const unsigned char *key) {
   st->pad[3] = read32le(key + 28);
 
   ctx->size = 0;
-#endif /* TORSION_HAVE_INT128 */
+#endif /* !TORSION_HAVE_INT128 */
 }
 
 static void
@@ -150,7 +150,7 @@ poly1305_blocks(poly1305_t *ctx,
   st->h[0] = h0;
   st->h[1] = h1;
   st->h[2] = h2;
-#else /* TORSION_HAVE_INT128 */
+#else /* !TORSION_HAVE_INT128 */
   struct poly1305_32_s *st = &ctx->state.u32;
   uint32_t hibit = final ? 0 : (UINT32_C(1) << 24); /* 1 << 128 */
   uint32_t r0 = st->r[0];
@@ -243,7 +243,7 @@ poly1305_blocks(poly1305_t *ctx,
   st->h[2] = h2;
   st->h[3] = h3;
   st->h[4] = h4;
-#endif /* TORSION_HAVE_INT128 */
+#endif /* !TORSION_HAVE_INT128 */
 }
 
 void
@@ -382,7 +382,7 @@ poly1305_final(poly1305_t *ctx, unsigned char *mac) {
 
   write64le(mac + 0, h0);
   write64le(mac + 8, h1);
-#else /* TORSION_HAVE_INT128 */
+#else /* !TORSION_HAVE_INT128 */
   struct poly1305_32_s *st = &ctx->state.u32;
   uint32_t h0, h1, h2, h3, h4, c;
   uint32_t g0, g1, g2, g3, g4;
@@ -484,7 +484,7 @@ poly1305_final(poly1305_t *ctx, unsigned char *mac) {
   write32le(mac +  4, h1);
   write32le(mac +  8, h2);
   write32le(mac + 12, h3);
-#endif /* TORSION_HAVE_INT128 */
+#endif /* !TORSION_HAVE_INT128 */
 }
 
 /*

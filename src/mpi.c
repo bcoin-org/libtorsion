@@ -106,7 +106,7 @@ enum mpz_div_round_mode { MP_DIV_FLOOR, MP_DIV_CEIL, MP_DIV_TRUNC };
  * See: https://gmplib.org/repo/gmp-6.2/file/tip/longlong.h#l1044
  */
 
-#ifdef MPI_USE_ASM
+#if defined(MPI_USE_ASM)
 
 #define MP_CLZ(count, x) do { \
   uint64_t __cbtmp;           \
@@ -156,7 +156,7 @@ enum mpz_div_round_mode { MP_DIV_FLOOR, MP_DIV_CEIL, MP_DIV_TRUNC };
       "rm" ((uint64_t)(v))         \
   )
 
-#else /* MPI_USE_ASM */
+#else /* !MPI_USE_ASM */
 
 #define MP_CLZ(count, x) do {                                      \
   mp_limb_t __clz_x = (x);                                         \
@@ -191,13 +191,13 @@ enum mpz_div_round_mode { MP_DIV_FLOOR, MP_DIV_CEIL, MP_DIV_TRUNC };
   (sl) = __x;                                      \
 } while (0)
 
-#ifdef MP_HAS_WIDE
+#if defined(MP_HAS_WIDE)
 #define MP_UMUL_PPMM(w1, w0, u, v) do {     \
   mp_wide_t __ww = (mp_wide_t)(u) * (v);    \
   (w0) = (mp_limb_t)__ww;                   \
   (w1) = (mp_limb_t)(__ww >> MP_LIMB_BITS); \
 } while (0)
-#else
+#else /* !MP_HAS_WIDE */
 #define MP_UMUL_PPMM(w1, w0, u, v) do {                                    \
   mp_limb_t __x0, __x1, __x2, __x3;                                        \
   unsigned __ul, __vl, __uh, __vh;                                         \
@@ -222,9 +222,9 @@ enum mpz_div_round_mode { MP_DIV_FLOOR, MP_DIV_CEIL, MP_DIV_TRUNC };
   (w1) = __x3 + (__x1 >> (MP_LIMB_BITS / 2));                              \
   (w0) = (__x1 << (MP_LIMB_BITS / 2)) + (__x0 & MP_LLIMB_MASK);            \
 } while (0)
-#endif
+#endif /* !MP_HAS_WIDE */
 
-#endif /* MPI_USE_ASM */
+#endif /* !MPI_USE_ASM */
 
 #define MP_UDIV_QRNND_PREINV(q, r, nh, nl, d, di) do {       \
   mp_limb_t _qh, _ql, _r, _mask;                             \
@@ -489,7 +489,7 @@ mpn_cleanse(mp_ptr xp, mp_size_t xn) {
 
 void
 mpn_copyi(mp_ptr d, mp_srcptr s, mp_size_t n) {
-#ifdef MPI_USE_ASM
+#if defined(MPI_USE_ASM)
   /* From:
    * https://gmplib.org/repo/gmp-6.2/file/tip/mpn/x86_64/copyi.asm
    *
@@ -548,7 +548,7 @@ mpn_copyi(mp_ptr d, mp_srcptr s, mp_size_t n) {
 
 void
 mpn_copyd(mp_ptr d, mp_srcptr s, mp_size_t n) {
-#ifdef MPI_USE_ASM
+#if defined(MPI_USE_ASM)
   /* From:
    * https://gmplib.org/repo/gmp-6.2/file/tip/mpn/x86_64/copyd.asm
    *
@@ -788,7 +788,7 @@ mpn_cmp4(mp_srcptr ap, mp_size_t an, mp_srcptr bp, mp_size_t bn) {
 
 mp_limb_t
 mpn_add_1(mp_ptr rp, mp_srcptr ap, mp_size_t n, mp_limb_t b) {
-#ifdef MPI_USE_ASM
+#if defined(MPI_USE_ASM)
   AORS_1("addq", "adcq")
   return b;
 #else
@@ -811,7 +811,7 @@ mpn_add_1(mp_ptr rp, mp_srcptr ap, mp_size_t n, mp_limb_t b) {
 
 mp_limb_t
 mpn_add_n(mp_ptr rp, mp_srcptr ap, mp_srcptr bp, mp_size_t n) {
-#ifdef MPI_USE_ASM
+#if defined(MPI_USE_ASM)
   mp_limb_t cy;
   AORS_N("adcq")
   return cy;
@@ -853,7 +853,7 @@ mpn_add(mp_ptr rp, mp_srcptr ap, mp_size_t an, mp_srcptr bp, mp_size_t bn) {
 
 mp_limb_t
 mpn_sub_1(mp_ptr rp, mp_srcptr ap, mp_size_t n, mp_limb_t b) {
-#ifdef MPI_USE_ASM
+#if defined(MPI_USE_ASM)
   AORS_1("subq", "sbbq")
   return b;
 #else
@@ -877,7 +877,7 @@ mpn_sub_1(mp_ptr rp, mp_srcptr ap, mp_size_t n, mp_limb_t b) {
 
 mp_limb_t
 mpn_sub_n(mp_ptr rp, mp_srcptr ap, mp_srcptr bp, mp_size_t n) {
-#ifdef MPI_USE_ASM
+#if defined(MPI_USE_ASM)
   mp_limb_t cy;
   AORS_N("sbbq")
   return cy;
@@ -918,7 +918,7 @@ mpn_sub(mp_ptr rp, mp_srcptr ap, mp_size_t an, mp_srcptr bp, mp_size_t bn) {
 
 mp_limb_t
 mpn_mul_1(mp_ptr rp, mp_srcptr up, mp_size_t n, mp_limb_t vl) {
-#ifdef MPI_USE_ASM
+#if defined(MPI_USE_ASM)
   /* From:
    * https://gmplib.org/repo/gmp-6.2/file/tip/mpn/x86_64/mul_1.asm
    *
@@ -1179,7 +1179,7 @@ mpn_mul_1(mp_ptr rp, mp_srcptr up, mp_size_t n, mp_limb_t vl) {
 
 mp_limb_t
 mpn_addmul_1(mp_ptr rp, mp_srcptr up, mp_size_t n, mp_limb_t vl) {
-#ifdef MPI_USE_ASM
+#if defined(MPI_USE_ASM)
   mp_limb_t cy;
   AORSMUL_1("addq")
   return cy;
@@ -1209,7 +1209,7 @@ mpn_addmul_1(mp_ptr rp, mp_srcptr up, mp_size_t n, mp_limb_t vl) {
 
 mp_limb_t
 mpn_submul_1(mp_ptr rp, mp_srcptr up, mp_size_t n, mp_limb_t vl) {
-#ifdef MPI_USE_ASM
+#if defined(MPI_USE_ASM)
   mp_limb_t cy;
   AORSMUL_1("subq")
   return cy;
@@ -1334,7 +1334,7 @@ mpn_sqr_diag_addlsh1(mp_ptr rp, mp_srcptr tp, mp_srcptr up, mp_size_t n) {
 
 void
 mpn_sqr(mp_ptr rp, mp_srcptr up, mp_size_t n) {
-#ifdef MPI_USE_ASM
+#if defined(MPI_USE_ASM)
   /* https://gmplib.org/repo/gmp-6.2/file/tip/mpn/generic/sqr_basecase.c */
   ASSERT(n >= 1);
   ASSERT(!MPN_OVERLAP_P(rp, 2 * n, up, n));
@@ -1845,7 +1845,7 @@ mpn_quorem(mp_ptr qp, mp_ptr rp,
 
 mp_limb_t
 mpn_lshift(mp_ptr rp, mp_srcptr up, mp_size_t n, unsigned int cnt) {
-#ifdef MPI_USE_ASM
+#if defined(MPI_USE_ASM)
   /* From:
    * https://gmplib.org/repo/gmp-6.2/file/tip/mpn/x86_64/lshift.asm
    *
@@ -2018,7 +2018,7 @@ mpn_lshift(mp_ptr rp, mp_srcptr up, mp_size_t n, unsigned int cnt) {
 
 mp_limb_t
 mpn_rshift(mp_ptr rp, mp_srcptr up, mp_size_t n, unsigned int cnt) {
-#ifdef MPI_USE_ASM
+#if defined(MPI_USE_ASM)
   /* From:
    * https://gmplib.org/repo/gmp-6.2/file/tip/mpn/x86_64/rshift.asm
    *

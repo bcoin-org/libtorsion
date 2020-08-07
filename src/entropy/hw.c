@@ -335,9 +335,9 @@ torsion_has_cpuid(void) {
   );
 
   return ((ax ^ bx) >> 21) & 1;
-#else /* __i386__ */
+#else /* !__i386__ */
   return 1;
-#endif /* __i386__ */
+#endif /* !__i386__ */
 #else
   return 0;
 #endif
@@ -381,13 +381,13 @@ torsion_cpuid(uint32_t *a,
       : "0" (leaf), "2" (subleaf)
     );
   }
-#else /* __i386__ */
+#else /* !__i386__ */
   __asm__ __volatile__(
     "cpuid\n"
     : "=a" (*a), "=b" (*b), "=c" (*c), "=d" (*d)
     : "0" (leaf), "2" (subleaf)
   );
-#endif /* __i386__ */
+#endif /* !__i386__ */
 #else
   (void)leaf;
   (void)subleaf;
@@ -447,7 +447,7 @@ torsion_rdrand(void) {
   }
 
   return ((uint64_t)hi << 32) | lo;
-#else /* _M_IX86 */
+#else /* !_M_IX86 */
   unsigned __int64 r;
   int i;
 
@@ -457,7 +457,7 @@ torsion_rdrand(void) {
   }
 
   return r;
-#endif /* _M_IX86 */
+#endif /* !_M_IX86 */
 #elif defined(HAVE_CPUID)
 #if defined(__i386__)
   /* Borrowed from Bitcoin Core. */
@@ -492,7 +492,7 @@ torsion_rdrand(void) {
   }
 
   return ((uint64_t)hi << 32) | lo;
-#else /* __i386__ */
+#else /* !__i386__ */
   /* Borrowed from Bitcoin Core. */
   uint8_t ok;
   uint64_t r;
@@ -512,7 +512,7 @@ torsion_rdrand(void) {
   }
 
   return r;
-#endif /* __i386__ */
+#endif /* !__i386__ */
 #else
   return 0;
 #endif
@@ -543,7 +543,7 @@ torsion_rdseed(void) {
   }
 
   return ((uint64_t)hi << 32) | lo;
-#else /* _M_IX86 */
+#else /* !_M_IX86 */
   unsigned __int64 r;
 
   for (;;) {
@@ -556,7 +556,7 @@ torsion_rdseed(void) {
   }
 
   return r;
-#endif /* _M_IX86 */
+#endif /* !_M_IX86 */
 #elif defined(HAVE_CPUID)
 #if defined(__i386__)
   /* Borrowed from Bitcoin Core. */
@@ -594,7 +594,7 @@ torsion_rdseed(void) {
   }
 
   return ((uint64_t)hi << 32) | lo;
-#else /* __i386__ */
+#else /* !__i386__ */
   /* Borrowed from Bitcoin Core. */
   uint64_t r;
   uint8_t ok;
@@ -615,7 +615,7 @@ torsion_rdseed(void) {
   }
 
   return r;
-#endif /* __i386__ */
+#endif /* !__i386__ */
 #else
   return 0;
 #endif

@@ -150,7 +150,7 @@
 #include "internal.h"
 #include "mpi.h"
 
-#ifdef TORSION_HAVE_INT128
+#if defined(TORSION_HAVE_INT128)
 typedef uint64_t fe_word_t;
 #define FIELD_WORD_BITS 64
 #define MAX_FIELD_WORDS 9

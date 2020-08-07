@@ -254,7 +254,20 @@
  * [8] https://groups.google.com/forum/?_escaped_fragment_=topic/android-ndk/cf9_f1SLXls
  */
 
-#ifndef TORSION_HAVE_CONFIG
+#if defined(TORSION_HAVE_CONFIG)
+
+/* Pick thread-local keyword. */
+#if defined(TORSION_HAVE_TLS)
+#  if defined(_WIN32) && !defined(__MINGW32__)
+#    define TORSION_TLS __declspec(thread)
+#  else
+#    define TORSION_TLS __thread
+#  endif
+#else
+#  define TORSION_TLS
+#endif
+
+#else /* !TORSION_HAVE_CONFIG */
 
 #ifndef __has_extension
 #  define __has_extension(x) 0
@@ -402,7 +415,7 @@
 #endif
 
 #ifdef TORSION_TLS_BOTH
-#  ifdef _WIN32
+#  if defined(_WIN32)
 #    define TORSION_TLS_MSVC
 #  else
 #    define TORSION_TLS_GNUC
@@ -449,19 +462,6 @@
 #  undef TORSION_HAVE_PTHREAD
 #endif
 
-#else /* TORSION_HAVE_CONFIG */
-
-/* Pick thread-local keyword. */
-#ifdef TORSION_HAVE_TLS
-#  if defined(_WIN32) && !defined(__MINGW32__)
-#    define TORSION_TLS __declspec(thread)
-#  else
-#    define TORSION_TLS __thread
-#  endif
-#else
-#  define TORSION_TLS
-#endif
-
-#endif /* TORSION_HAVE_CONFIG */
+#endif /* !TORSION_HAVE_CONFIG */
 
 #endif /* _TORSION_TLS_H */

@@ -543,7 +543,7 @@ sha512_write_static_env(sha512_t *hash) {
   sha512_write_ptr(hash, &environ);
 #endif
 
-#ifdef _WIN32
+#if defined(_WIN32)
   /* System information. */
   {
     SYSTEM_INFO info;
@@ -676,7 +676,7 @@ sha512_write_static_env(sha512_t *hash) {
   /* Process/Thread ID. */
   sha512_write_int(hash, GetCurrentProcessId());
   sha512_write_int(hash, GetCurrentThreadId());
-#else /* _WIN32 */
+#else /* !_WIN32 */
   /* UNIX kernel information. */
   {
     struct utsname name;
@@ -898,12 +898,12 @@ sha512_write_static_env(sha512_t *hash) {
   sha512_write_int(hash, geteuid());
   sha512_write_int(hash, getgid());
   sha512_write_int(hash, getegid());
-#endif /* _WIN32 */
+#endif /* !_WIN32 */
 }
 
 static void
 sha512_write_dynamic_env(sha512_t *hash) {
-#ifdef _WIN32
+#if defined(_WIN32)
   /* System time. */
   {
     FILETIME ftime;
@@ -1002,7 +1002,7 @@ sha512_write_dynamic_env(sha512_t *hash) {
   /* Performance data. */
   sha512_write_perfdata(hash, 10000000);
 #endif
-#else /* _WIN32 */
+#else /* !_WIN32 */
   /* System time. */
   {
     struct timeval tv;
@@ -1100,7 +1100,7 @@ sha512_write_dynamic_env(sha512_t *hash) {
 #endif
 #endif /* CTL_VM */
 #endif /* HAVE_SYSCTL */
-#endif /* _WIN32 */
+#endif /* !_WIN32 */
 
   /* High-resolution time. */
   sha512_write_int(hash, torsion_hrtime());
@@ -1121,7 +1121,7 @@ sha512_write_dynamic_env(sha512_t *hash) {
 
 int
 torsion_envrand(unsigned char *seed) {
-#ifdef HAVE_MANUAL_ENTROPY
+#if defined(HAVE_MANUAL_ENTROPY)
   sha512_t hash;
   sha512_init(&hash);
   sha512_write_ptr(&hash, seed);
