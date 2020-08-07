@@ -238,19 +238,13 @@ RtlGenRandom(PVOID RandomBuffer, ULONG RandomBufferLength);
 #    define HAVE_RANDBYTES
 #  endif
 #elif defined(__Fuchsia__)
-#  include <zircon/syscalls.h>
+#  include <zircon/syscalls.h> /* zx_cprng_draw */
 #elif defined(__CloudABI__)
-uint16_t
-cloudabi_sys_random_get(void *buf, size_t buf_len);
+#  include <cloudabi_syscalls.h> /* cloudabi_sys_random_get */
 #elif defined(__EMSCRIPTEN__)
 #  include <emscripten.h> /* EM_JS */
 #elif defined(__wasi__)
-uint16_t
-__wasi_random_get(uint8_t *buf, size_t buf_len) __attribute__((
-  __import_module__("wasi_snapshot_preview1"),
-  __import_name__("random_get"),
-  __warn_unused_result__
-));
+#  include <wasi/api.h> /* __wasi_random_get */
 #elif defined(__unix) || defined(__unix__)     \
   || (defined(__APPLE__) && defined(__MACH__))
 #  include <sys/types.h> /* open */

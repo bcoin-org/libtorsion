@@ -56,7 +56,7 @@
  *   - zx_clock_get_monotonic (fuchsia)
  *   - clock_gettime (unix)
  *   - gettimeofday (unix legacy)
- *   - cloudabi_sys_clock_time_get (cloud abi)
+ *   - cloudabi_sys_clock_time_get (cloudabi)
  *   - __wasi_clock_time_get (wasi)
  *   - emscripten_get_now (emscripten)
  *
@@ -121,23 +121,11 @@
 #elif defined(__Fuchsia__)
 #  include <zircon/syscalls.h> /* zx_clock_get_monotonic */
 #elif defined(__CloudABI__)
-uint16_t
-cloudabi_sys_clock_time_get(uint32_t clock_id,
-                            uint64_t precision,
-                            uint64_t *time);
-#  define CLOUDABI_CLOCK_MONOTONIC 1
+#  include <cloudabi_syscalls.h> /* cloudabi_sys_clock_time_get */
 #elif defined(__EMSCRIPTEN__)
 #  include <emscripten.h> /* emscripten_get_now */
 #elif defined(__wasi__)
-uint16_t
-__wasi_clock_time_get(uint32_t clock_id,
-                      uint64_t precision,
-                      uint64_t *time) __attribute__((
-  __import_module__("wasi_snapshot_preview1"),
-  __import_name__("clock_time_get"),
-  __warn_unused_result__
-));
-#  define __WASI_CLOCKID_MONOTONIC 1
+#  include <wasi/api.h> /* __wasi_clock_time_get */
 #elif defined(__unix) || defined(__unix__)
 #  include <time.h> /* clock_gettime */
 #  include <unistd.h> /* _POSIX_VERSION */
