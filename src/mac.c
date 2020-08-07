@@ -500,7 +500,7 @@ poly1305_final(poly1305_t *ctx, unsigned char *mac) {
 #undef HAVE_UMULH
 
 #if defined(_MSC_VER) && _MSC_VER >= 1400 /* VS 2005 */
-#  if defined(_M_X64) || defined(_M_AMD64)
+#  if defined(_M_AMD64) || defined(_M_X64)
 #    include <intrin.h>
 #    pragma intrinsic(__umulh)
 #    define HAVE_UMULH
