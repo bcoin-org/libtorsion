@@ -224,7 +224,6 @@ if test x"$enable_coverage" = x"yes"; then
     AC_MSG_ERROR([coverage not supported with wasm])
   fi
   CFLAGS="$CFLAGS -O0 --coverage"
-  LDFLAGS="$LDFLAGS --coverage"
   AC_DEFINE(TORSION_COVERAGE)
 fi
 

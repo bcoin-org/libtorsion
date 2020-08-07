@@ -386,7 +386,7 @@ else()
   target_compile_definitions(torsion INTERFACE ${torsion_defines})
   target_compile_options(torsion INTERFACE ${torsion_cflags})
   target_include_directories(torsion INTERFACE ${torsion_includes})
-  target_link_options(torsion PRIVATE ${torsion_ldflags})
+  target_link_options(torsion PUBLIC ${torsion_ldflags})
   target_link_libraries(torsion PRIVATE ${torsion_libs})
 
   add_library(torsion_static STATIC $<TARGET_OBJECTS:torsion_o>)
