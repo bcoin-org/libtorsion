@@ -312,7 +312,7 @@ poly1305_final(poly1305_t *ctx, unsigned char *mac) {
     poly1305_blocks(ctx, ctx->block, 16, 1);
   }
 
-  /* fully carry h */
+  /* Fully carry h. */
   h0 = st->h[0];
   h1 = st->h[1];
   h2 = st->h[2];
