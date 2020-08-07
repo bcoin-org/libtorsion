@@ -15,7 +15,7 @@ Used as the backend for [bcrypto].
 - Constant time, stack-based, and so on.
 - Expose a simple opaque API which accepts all arguments in wire format
   (this eases implementation for language bindings, wasm, and other ffis).
-- Dependency-less (aside from a vendored fork of mini-gmp).
+- Dependency-less (aside from an optimized fork of mini-gmp).
 
 ## Current Features
 
@@ -86,7 +86,7 @@ int main(void) {
 Compile with:
 
 ``` bash
-$ gcc -o example example.c -ltorsion
+$ cc -o example example.c -ltorsion
 ```
 
 ## Contribution and License Agreement
