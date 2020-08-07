@@ -110,7 +110,7 @@
 #  include <unistd.h> /* stat, read, close, gethostname */
 #  include <time.h> /* clock_gettime */
 #  ifdef __linux__
-#    ifdef __GLIBC_PREREQ
+#    if defined(__GLIBC_PREREQ)
 #      define TORSION_GLIBC_PREREQ(maj, min) __GLIBC_PREREQ(maj, min)
 #    else
 #      define TORSION_GLIBC_PREREQ(maj, min) 0
@@ -1132,8 +1132,8 @@ torsion_envrand(unsigned char *seed) {
   sha512_write_tsc(&hash);
   sha512_final(&hash, seed);
   return 1;
-#else
+#else /* !HAVE_MANUAL_ENTROPY */
   (void)seed;
   return 0;
-#endif /* HAVE_MANUAL_ENTROPY */
+#endif /* !HAVE_MANUAL_ENTROPY */
 }
