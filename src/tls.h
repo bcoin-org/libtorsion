@@ -303,9 +303,7 @@
 #endif
 
 /* Detect TLS support. */
-#if defined(__EMSCRIPTEN__) || defined(__wasm__)
-#  define TORSION_TLS_NONE
-#elif defined(__DMC__)
+#if defined(__DMC__)
 #  if defined(_M_IX86) && __DMC__ >= 0x843 /* 8.43 (2005) */
 #    define TORSION_TLS_MSVC
 #  endif
@@ -412,10 +410,7 @@
 #endif
 
 /* Pick thread-local keyword. */
-#if defined(TORSION_TLS_NONE)
-#  define TORSION_HAVE_TLS
-#  define TORSION_TLS
-#elif defined(TORSION_TLS_MSVC)
+#if defined(TORSION_TLS_MSVC)
 #  define TORSION_HAVE_TLS
 #  define TORSION_TLS __declspec(thread)
 #elif defined(TORSION_TLS_GNUC)
@@ -431,8 +426,6 @@
 /* Fall back to pthread if available. */
 #if defined(TORSION_HAVE_PTHREAD)
 /* Already have pthread. */
-#elif defined(__EMSCRIPTEN__) || defined(__wasm__)
-/* No pthreads on wasm/emscripten. */
 #elif defined(__APPLE__) && defined(__MACH__)
 /* Apple binaries link to libSystem (which exposes pthread). */
 #  include <AvailabilityMacros.h>
@@ -460,9 +453,7 @@
 
 /* Pick thread-local keyword. */
 #ifdef TORSION_HAVE_TLS
-#  if defined(__EMSCRIPTEN__) || defined(__wasm__)
-#    define TORSION_TLS
-#  elif defined(_WIN32) && !defined(__MINGW32__)
+#  if defined(_WIN32) && !defined(__MINGW32__)
 #    define TORSION_TLS __declspec(thread)
 #  else
 #    define TORSION_TLS __thread

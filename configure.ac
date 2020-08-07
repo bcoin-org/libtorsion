@@ -107,9 +107,6 @@ fi
 
 AC_MSG_CHECKING(for inline asm support)
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[]], [[
-#if defined(__EMSCRIPTEN__) || defined(__wasm__)
-#  error "cannot use inline asm with wasm"
-#endif
 unsigned char ptr[32];
 int x = 0;
 __asm__ ("" : "+r" (x) ::);
@@ -119,9 +116,6 @@ AC_MSG_RESULT([$has_asm])
 
 AC_MSG_CHECKING(for x86_64 inline asm support)
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <stdint.h>]], [[
-#if defined(__EMSCRIPTEN__) || defined(__wasm__)
-#  error "cannot use inline asm with wasm"
-#endif
 #if !defined(__amd64__) && !defined(__x86_64__)
 #  error "not an x64 platform"
 #endif
@@ -141,10 +135,9 @@ AC_MSG_RESULT([$has_asm_x64])
 
 AC_MSG_CHECKING(for int128 support)
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-#if defined(__EMSCRIPTEN__) || defined(__wasm__)
-#  error "cannot use __int128 with wasm"
-#endif
+#ifndef __wasm__
 typedef char check_64bit_t[sizeof(void *) == 8 ? 1 : -1];
+#endif
 typedef signed __int128 int128_t;
 typedef unsigned __int128 uint128_t;
 ]], [[
@@ -157,9 +150,7 @@ AC_MSG_RESULT([$has_int128])
 
 AC_MSG_CHECKING(for tls support)
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-#if defined(__EMSCRIPTEN__) || defined(__wasm__)
-#  define TLS
-#elif defined(_WIN32) && !defined(__MINGW32__)
+#if defined(_WIN32) && !defined(__MINGW32__)
 #  define TLS __declspec(thread)
 #else
 #  define TLS __thread

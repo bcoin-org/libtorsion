@@ -153,9 +153,7 @@ __wasi_clock_time_get(uint32_t clock_id,
 #  include <time.h> /* time */
 #endif
 
-#if defined(__EMSCRIPTEN__) || defined(__wasm__)
-/* No inline assembly or intrinsics for emscripten/wasm. */
-#elif defined(_MSC_VER) && _MSC_VER >= 1900 /* VS 2015 */
+#if defined(_MSC_VER) && _MSC_VER >= 1900 /* VS 2015 */
 #  if defined(_M_IX86) || defined(_M_AMD64) || defined(_M_X64)
 #    include <intrin.h> /* __cpuidex, __rdtsc */
 #    include <immintrin.h> /* _rd{rand,seed}{32,64}_step */
