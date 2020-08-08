@@ -11,6 +11,7 @@ ENABLE_RNG ?= 1
 ENABLE_TLS ?= 1
 ENABLE_ZLIB ?= 0
 PKG_VER = 0.0.0
+PKG_NAME := libtorsion-$(PKG_VER)
 VER = 0.0.0
 CUR = 0
 SO = so
@@ -183,6 +184,15 @@ CONFIG := prefix=$(PREFIX)                    \
           PACKAGE_VERSION=$(PKG_VER)          \
           LIBS='$(LIB_LIBS)'
 
+DIST = include          \
+       scripts          \
+       src              \
+       test             \
+       libtorsion.pc.in \
+       LICENSE          \
+       Makefile.unix    \
+       README.md
+
 INSTDIR := $(DESTDIR)$(PREFIX)
 
 all: $(OUTPUT)
@@ -217,18 +227,6 @@ torsion_ctgrind: $(CTG_SOURCES) libtorsion.$(SO)
 libtorsion.pc: libtorsion.pc.in
 	./scripts/configure $^ $@ $(CONFIG)
 
-install: $(OUTPUT)
-	install -d $(INSTDIR)/lib/pkgconfig
-	install -d $(INSTDIR)/include/torsion
-	install -d $(INSTDIR)/share/licenses/libtorsion
-	install -m 755 libtorsion.$(SO).$(VER) $(INSTDIR)/lib/
-	(cd $(INSTDIR)/lib && ln -s libtorsion.$(SO).$(VER) libtorsion.$(SO).$(CUR))
-	(cd $(INSTDIR)/lib && ln -s libtorsion.$(SO).$(CUR) libtorsion.$(SO))
-	install -m 644 libtorsion.a $(INSTDIR)/lib/
-	install -m 644 libtorsion.pc $(INSTDIR)/lib/pkgconfig/
-	install -m 644 include/torsion/*.h $(INSTDIR)/include/torsion/
-	install -m 644 LICENSE $(INSTDIR)/share/licenses/libtorsion/
-
 bench: torsion_bench
 	@./torsion_bench
 
@@ -246,4 +244,39 @@ ctgrind: torsion_ctgrind
 clean:
 	$(RM) $(LIB_OBJECTS) $(OUTPUT) torsion_ctgrind
 
-.PHONY: all install bench test test_static check ctgrind clean
+clean-dist:
+	rm -rf $(PKG_NAME) $(PKG_NAME).tar.gz
+
+clean-package:
+	rm -rf $(PKG_NAME)-bin $(PKG_NAME)-bin.tar.gz
+
+install: $(OUTPUT)
+	install -d $(INSTDIR)/lib/pkgconfig
+	install -d $(INSTDIR)/include/torsion
+	install -d $(INSTDIR)/share/doc/libtorsion
+	install -d $(INSTDIR)/share/licenses/libtorsion
+	install -m 755 libtorsion.$(SO).$(VER) $(INSTDIR)/lib/
+	(cd $(INSTDIR)/lib && ln -s libtorsion.$(SO).$(VER) libtorsion.$(SO).$(CUR))
+	(cd $(INSTDIR)/lib && ln -s libtorsion.$(SO).$(CUR) libtorsion.$(SO))
+	install -m 644 libtorsion.a $(INSTDIR)/lib/
+	install -m 644 libtorsion.pc $(INSTDIR)/lib/pkgconfig/
+	install -m 644 include/torsion/*.h $(INSTDIR)/include/torsion/
+	install -m 644 LICENSE $(INSTDIR)/share/licenses/libtorsion/
+	install -m 644 README.md $(INSTDIR)/share/doc/libtorsion/
+
+dist: clean clean-dist
+	mkdir $(PKG_NAME)
+	for f in $(DIST); do cp -r $$f $(PKG_NAME)/; done
+	mv $(PKG_NAME)/Makefile.unix $(PKG_NAME)/Makefile
+	tar chof - $(PKG_NAME) | gzip --best -c > $(PKG_NAME).tar.gz
+	rm -rf $(PKG_NAME)
+
+package: INSTDIR := $(PKG_NAME)-bin
+package: clean-package install
+	tar chof - $(PKG_NAME)-bin | gzip --best -c > $(PKG_NAME)-bin.tar.gz
+	rm -rf $(PKG_NAME)-bin
+
+distclean: clean clean-dist clean-package
+
+.PHONY: all bench test test_static check ctgrind clean \
+        clean-dist clean-package install dist package distclean

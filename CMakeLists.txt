@@ -8,6 +8,14 @@ project(libtorsion LANGUAGES C)
 set(TORSION_PKG_VERSION 0.0.0)
 set(TORSION_LIB_VERSION 0:0:0)
 
+set(CPACK_PACKAGE_VERSION_MAJOR 0)
+set(CPACK_PACKAGE_VERSION_MINOR 0)
+set(CPACK_PACKAGE_VERSION_PATCH 0)
+set(CPACK_PACKAGE_VENDOR bcoin-org)
+set(CPACK_RESOURCE_FILE_LICENSE ${PROJECT_SOURCE_DIR}/LICENSE)
+set(CPACK_RESOURCE_FILE_README ${PROJECT_SOURCE_DIR}/README.md)
+set(CPACK_PACKAGE_FILE_NAME "${PROJECT_NAME}-${TORSION_PKG_VERSION}")
+
 include(cmake/AppendCCompilerFlag.cmake)
 include(cmake/TargetLinkOptions.cmake)
 include(CheckIncludeFile)
@@ -22,6 +30,10 @@ if(EMSCRIPTEN OR WASI_SDK_PREFIX)
     set(CMAKE_C_FLAGS "")
   endif()
   set(TORSION_WASM 1)
+endif()
+
+if(NOT TORSION_WASM)
+  include(CPack)
 endif()
 
 set(CMAKE_C_STANDARD_REQUIRED ON)
@@ -431,16 +443,20 @@ else()
 
   if(UNIX)
     install(DIRECTORY include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
-    install(FILES LICENSE DESTINATION ${CMAKE_INSTALL_DOCDIR})
+    install(FILES LICENSE
+            DESTINATION ${CMAKE_INSTALL_DATADIR}/licenses/${PROJECT_NAME})
+    install(FILES README.md DESTINATION ${CMAKE_INSTALL_DOCDIR})
     install(FILES ${PROJECT_BINARY_DIR}/libtorsion.pc
             DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig)
     install(TARGETS torsion LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
     install(TARGETS torsion_static ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
+    add_custom_target(dist COMMAND ${CMAKE_MAKE_PROGRAM} package_source)
   endif()
 
   if(WIN32)
     install(DIRECTORY include/ DESTINATION include)
     install(FILES LICENSE DESTINATION .)
+    install(FILES README.md DESTINATION .)
     install(TARGETS torsion torsion_static
             RUNTIME DESTINATION lib/$<CONFIG>
             ARCHIVE DESTINATION lib/$<CONFIG>)

@@ -383,9 +383,6 @@ dnl
 dnl Configuration
 dnl
 
-AS_VAR_SET(PKG_VERSION, [AC_PACKAGE_VERSION])
-
-AC_SUBST(PKG_VERSION)
 AC_SUBST(LIB_VERSION)
 
 AC_SUBST(PTHREAD_CFLAGS)
@@ -411,9 +408,6 @@ dnl
 AC_OUTPUT
 
 AC_MSG_NOTICE([Build Options:
-
-  pkg version  = $PKG_VERSION
-  lib version  = $LIB_VERSION
 
   asm          = $enable_asm (support=$has_asm)
   asm_x64      = $enable_asm (support=$has_asm_x64)

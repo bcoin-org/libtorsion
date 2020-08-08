@@ -8,12 +8,12 @@
 
 ACLOCAL_AMFLAGS = -I m4
 
-CLEANFILES =
-EXTRA_DIST = LICENSE README.md
-
 noinst_PROGRAMS =
 lib_LTLIBRARIES =
 TESTS =
+
+licensedir = $(datadir)/licenses/$(PACKAGE_NAME)
+pkgconfigdir = $(libdir)/pkgconfig
 
 #
 # Headers
@@ -278,9 +278,27 @@ torsion_ctgrind_LDFLAGS = -no-install
 torsion_ctgrind_LDADD = libtorsion.la
 endif
 
-pkgconfigdir = $(libdir)/pkgconfig
+dist_doc_DATA = README.md
+dist_license_DATA = LICENSE
 pkgconfig_DATA = libtorsion.pc
 
 TESTS += torsion_test
 TESTS += torsion_test_static
+endif
+
+#
+# Packaging
+#
+
+if NATIVE
+# Add a `package` target, similar to CMake/CPack.
+torsion_distname = libtorsion-$(PACKAGE_VERSION)-bin
+torsion_destdir = $(abs_top_builddir)/$(torsion_distname)
+torsion_tarname = $(torsion_distname).tar.gz
+
+package: all
+	rm -rf $(torsion_tarname) $(torsion_destdir)
+	$(MAKE) $(AM_MAKEFLAGS) install 'DESTDIR=$(torsion_destdir)' prefix=/
+	tar chof - $(torsion_distname) | gzip --best -c > $(torsion_tarname)
+	rm -rf $(torsion_destdir)
 endif
