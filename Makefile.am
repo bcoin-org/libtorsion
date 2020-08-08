@@ -287,18 +287,19 @@ TESTS += torsion_test_static
 endif
 
 #
-# Packaging
+# Custom Targets
 #
 
 if NATIVE
 # Add a `package` target, similar to CMake/CPack.
-torsion_distname = libtorsion-$(PACKAGE_VERSION)-bin
-torsion_destdir = $(abs_top_builddir)/$(torsion_distname)
-torsion_tarname = $(torsion_distname).tar.gz
+torsion_distdir = $(distdir)-bin
+torsion_abs_distdir = $(abs_top_builddir)/$(torsion_distdir)
+torsion_tarname = $(PACKAGE)-$(VERSION)-bin.tar.gz
+torsion_tar_czf = $(am__tar) | eval GZIP= gzip $(GZIP_ENV) -c
 
 package: all
-	rm -rf $(torsion_tarname) $(torsion_destdir)
-	$(MAKE) $(AM_MAKEFLAGS) install 'DESTDIR=$(torsion_destdir)' prefix=/
-	tar chof - $(torsion_distname) | gzip --best -c > $(torsion_tarname)
-	rm -rf $(torsion_destdir)
+	rm -rf $(torsion_tarname) $(torsion_abs_distdir)
+	$(MAKE) $(AM_MAKEFLAGS) install 'DESTDIR=$(torsion_abs_distdir)' prefix=/
+	tardir=$(torsion_distdir) && $(torsion_tar_czf) > $(torsion_tarname)
+	rm -rf $(torsion_abs_distdir)
 endif
