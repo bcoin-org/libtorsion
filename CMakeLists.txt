@@ -29,6 +29,7 @@ include(cmake/TargetLinkOptions.cmake)
 include(CTest)
 
 if(NOT TORSION_WASM)
+  include(cmake/AddDistTarget.cmake)
   include(CheckIncludeFile)
   include(CheckLibraryExists)
   include(CPack)
@@ -452,35 +453,16 @@ else()
   endif()
 
   if(UNIX)
-    set(torsion_distname ${PROJECT_NAME}-${PROJECT_VERSION})
-    set(torsion_fullname ${PROJECT_SOURCE_DIR}/${torsion_distname})
-    set(torsion_tarname ${PROJECT_BINARY_DIR}/${torsion_distname}.tar)
-    set(torsion_dist cmake
-                     etc
-                     include
-                     scripts
-                     src
-                     test
-                     CMakeLists.txt
-                     libtorsion.pc.in
-                     LICENSE
-                     README.md)
-
-    add_custom_target(dist COMMAND rm -rf ${torsion_distname}
-                                          ${torsion_tarname}
-                                          ${torsion_tarname}.gz
-                           COMMAND mkdir ${torsion_distname}
-                           COMMAND cp -r ${torsion_dist} ${torsion_distname}/
-                           COMMAND tar chof ${torsion_tarname}
-                                            ${torsion_distname}
-                           COMMAND gzip --best ${torsion_tarname}
-                           COMMAND rm -rf ${torsion_distname}
-                           WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
-
-    add_custom_target(distclean COMMAND ${CMAKE_MAKE_PROGRAM} clean
-                                COMMAND rm -rf ${torsion_fullname}
-                                               ${torsion_tarname}
-                                               ${torsion_tarname}.gz)
+    add_dist_target(dist distclean cmake
+                                   etc
+                                   include
+                                   scripts
+                                   src
+                                   test
+                                   CMakeLists.txt
+                                   libtorsion.pc.in
+                                   LICENSE
+                                   README.md)
   endif()
 
   if(WIN32)
