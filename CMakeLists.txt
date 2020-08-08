@@ -16,13 +16,6 @@ set(CPACK_RESOURCE_FILE_LICENSE ${PROJECT_SOURCE_DIR}/LICENSE)
 set(CPACK_RESOURCE_FILE_README ${PROJECT_SOURCE_DIR}/README.md)
 set(CPACK_PACKAGE_FILE_NAME "${PROJECT_NAME}-${TORSION_PKG_VERSION}")
 
-include(cmake/AppendCCompilerFlag.cmake)
-include(cmake/TargetLinkOptions.cmake)
-include(CheckIncludeFile)
-include(CheckLibraryExists)
-include(CTest)
-include(GNUInstallDirs)
-
 set(TORSION_WASM 0)
 
 if(EMSCRIPTEN OR WASI_SDK_PREFIX)
@@ -32,8 +25,15 @@ if(EMSCRIPTEN OR WASI_SDK_PREFIX)
   set(TORSION_WASM 1)
 endif()
 
+include(cmake/AppendCCompilerFlag.cmake)
+include(cmake/TargetLinkOptions.cmake)
+include(CTest)
+
 if(NOT TORSION_WASM)
+  include(CheckIncludeFile)
+  include(CheckLibraryExists)
   include(CPack)
+  include(GNUInstallDirs)
 endif()
 
 set(CMAKE_C_STANDARD_REQUIRED ON)

@@ -280,7 +280,7 @@ endif
 
 dist_doc_DATA = README.md
 dist_license_DATA = LICENSE
-pkgconfig_DATA = libtorsion.pc
+dist_pkgconfig_DATA = libtorsion.pc
 
 TESTS += torsion_test
 TESTS += torsion_test_static
