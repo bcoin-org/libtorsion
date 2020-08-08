@@ -453,16 +453,16 @@ else()
   endif()
 
   if(UNIX)
-    add_dist_target(dist distclean cmake
-                                   etc
-                                   include
-                                   scripts
-                                   src
-                                   test
-                                   CMakeLists.txt
-                                   libtorsion.pc.in
-                                   LICENSE
-                                   README.md)
+    add_dist_target(dist cmake
+                         etc
+                         include
+                         scripts
+                         src
+                         test
+                         CMakeLists.txt
+                         libtorsion.pc.in
+                         LICENSE
+                         README.md)
   endif()
 
   if(WIN32)
