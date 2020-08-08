@@ -3,26 +3,25 @@
 # https://github.com/bcoin-org/libtorsion
 
 cmake_minimum_required(VERSION 3.4)
-project(libtorsion LANGUAGES C)
+project(libtorsion VERSION 0.0.0 LANGUAGES C)
 
-set(TORSION_PKG_VERSION 0.0.0)
 set(TORSION_LIB_VERSION 0:0:0)
 
-set(CPACK_PACKAGE_VERSION_MAJOR 0)
-set(CPACK_PACKAGE_VERSION_MINOR 0)
-set(CPACK_PACKAGE_VERSION_PATCH 0)
 set(CPACK_PACKAGE_VENDOR bcoin-org)
 set(CPACK_RESOURCE_FILE_LICENSE ${PROJECT_SOURCE_DIR}/LICENSE)
 set(CPACK_RESOURCE_FILE_README ${PROJECT_SOURCE_DIR}/README.md)
-set(CPACK_PACKAGE_FILE_NAME "${PROJECT_NAME}-${TORSION_PKG_VERSION}")
+set(CPACK_PACKAGE_FILE_NAME "${PROJECT_NAME}-${PROJECT_VERSION}-bin")
 
-set(TORSION_WASM 0)
-
-if(EMSCRIPTEN OR WASI_SDK_PREFIX)
+if(WASI_SDK_PREFIX)
   if(CMAKE_C_FLAGS STREQUAL "-v")
     set(CMAKE_C_FLAGS "")
   endif()
+endif()
+
+if(EMSCRIPTEN OR WASI_SDK_PREFIX)
   set(TORSION_WASM 1)
+else()
+  set(TORSION_WASM 0)
 endif()
 
 include(cmake/AppendCCompilerFlag.cmake)
@@ -436,7 +435,7 @@ else()
     set(prefix ${CMAKE_INSTALL_PREFIX})
     set(libdir ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR})
     set(includedir ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_INCLUDEDIR})
-    set(PACKAGE_VERSION "${TORSION_PKG_VERSION}")
+    set(PACKAGE_VERSION "${PROJECT_VERSION}")
     string(REPLACE ";" " " LIBS "${pkgconf_libs}")
     configure_file(libtorsion.pc.in libtorsion.pc @ONLY)
   endif()
@@ -450,13 +449,43 @@ else()
             DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig)
     install(TARGETS torsion LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
     install(TARGETS torsion_static ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
-    add_custom_target(dist COMMAND ${CMAKE_MAKE_PROGRAM} package_source)
+  endif()
+
+  if(UNIX)
+    set(torsion_distname ${PROJECT_NAME}-${PROJECT_VERSION})
+    set(torsion_fullname ${PROJECT_SOURCE_DIR}/${torsion_distname})
+    set(torsion_tarname ${PROJECT_BINARY_DIR}/${torsion_distname}.tar)
+    set(torsion_dist cmake
+                     etc
+                     include
+                     scripts
+                     src
+                     test
+                     CMakeLists.txt
+                     libtorsion.pc.in
+                     LICENSE
+                     README.md)
+
+    add_custom_target(dist COMMAND rm -rf ${torsion_distname}
+                                          ${torsion_tarname}
+                                          ${torsion_tarname}.gz
+                           COMMAND mkdir ${torsion_distname}
+                           COMMAND cp -r ${torsion_dist} ${torsion_distname}/
+                           COMMAND tar chof ${torsion_tarname}
+                                            ${torsion_distname}
+                           COMMAND gzip --best ${torsion_tarname}
+                           COMMAND rm -rf ${torsion_distname}
+                           WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
+
+    add_custom_target(distclean COMMAND ${CMAKE_MAKE_PROGRAM} clean
+                                COMMAND rm -rf ${torsion_fullname}
+                                               ${torsion_tarname}
+                                               ${torsion_tarname}.gz)
   endif()
 
   if(WIN32)
     install(DIRECTORY include/ DESTINATION include)
-    install(FILES LICENSE DESTINATION .)
-    install(FILES README.md DESTINATION .)
+    install(FILES LICENSE README.md DESTINATION .)
     install(TARGETS torsion torsion_static
             RUNTIME DESTINATION lib/$<CONFIG>
             ARCHIVE DESTINATION lib/$<CONFIG>)
@@ -467,7 +496,7 @@ string(TOUPPER "${CMAKE_BUILD_TYPE}" _build_type)
 
 message(STATUS "Build Options:
 
-   TORSION_PKG_VERSION:  ${TORSION_PKG_VERSION}
+   PROJECT_VERSION:      ${PROJECT_VERSION}
    TORSION_LIB_VERSION:  ${TORSION_LIB_VERSION}
    CMAKE_BUILD_TYPE:     ${CMAKE_BUILD_TYPE}
    CMAKE_INSTALL_PREFIX: ${CMAKE_INSTALL_PREFIX}

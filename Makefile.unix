@@ -266,7 +266,7 @@ install: $(OUTPUT)
 
 dist: clean clean-dist
 	mkdir $(PKG_NAME)
-	for f in $(DIST); do cp -r $$f $(PKG_NAME)/; done
+	cp -r $(DIST) $(PKG_NAME)/
 	mv $(PKG_NAME)/Makefile.unix $(PKG_NAME)/Makefile
 	tar chof - $(PKG_NAME) | gzip --best -c > $(PKG_NAME).tar.gz
 	rm -rf $(PKG_NAME)
