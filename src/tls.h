@@ -79,7 +79,7 @@
  * Digital Mars C/C++:
  *
  * - Supports TLS via __declspec(thread) (32 bit only)[35].
- * - TLS supported since at least 2005 (8.42n)[36].
+ * - TLS supported since at least 2001 (8.22)[36].
  *
  * ARM CC:
  *
@@ -106,6 +106,8 @@
  * NWCC:
  *
  * - TLS supported via __thread[44].
+ * - TLS first implemented in NWCC 0.7.5 (2008).
+ *   See develop/oldnews/NEWS-0.7.5.
  *
  * Metrowerks C:
  *
@@ -179,8 +181,8 @@
  * [32] https://www.ibm.com/support/pages/node/318521#6
  * [33] http://docs.embarcadero.com/products/rad_studio/delphiAndcpp2009/HelpUpdate2/EN/html/devwin32/threadsusingthreadlocalvariables_xml.html
  * [34] http://docwiki.embarcadero.com/RADStudio/Sydney/en/Declspec(thread)
- * [35] https://digitalmars.com/ctg/ctgLanguageImplementation.html#declspec
- * [36] https://www.digitalmars.com/d/archives/c++/setjmp_longjmp_code_crashing_5923.html
+ * [35] https://web.archive.org/web/20010222185824/https://www.digitalmars.com/ctg/ctgLanguageImplementation.html
+ * [36] https://digitalmars.com/changelog.html#new822
  * [37] https://developer.arm.com/docs/dui0472/latest/compiler-specific-features/__declspecthread
  * [38] https://developer.arm.com/docs/dui0491/g/compiler-specific-features/__declspec-attributes
  * [39] https://lists.gnu.org/archive/html/bug-gnulib/2019-06/msg00063.html
@@ -325,21 +327,20 @@
 
 /* Detect TLS support. */
 #if defined(__DMC__)
-#  if defined(_M_IX86) && __DMC__ >= 0x843 /* 8.43 (2005) */
+#  if defined(_M_IX86) && __DMC__ >= 0x822 /* 8.22 (2001) */
 #    define TORSION_TLS_MSVC
-#  endif
-#elif defined(__HP_aCC)
-#  if _HP_aCC >= 55502 /* A.05.55.02 (2004) */
-#    define TORSION_TLS_GNUC
 #  endif
 #elif defined(__HP_cc)
+#  if _HP_cc >= 55502 /* A.05.55.02 (2004) */
+#    define TORSION_TLS_GNUC
+#  endif
 #  define TORSION_TLS_GNUC
 #elif defined(__WATCOMC__)
-#  if __WATCOMC__ >= 1200 /* 12.0 (11.0c released in 2002) */
+#  if __WATCOMC__ >= 1200 /* Open Watcom 1.0 (2003) */
 #    define TORSION_TLS_MSVC
 #  endif
-#elif defined(__DCC__) && defined(__VERSION_NUMBER__)
-#  if __VERSION_NUMBER__ >= 5600 /* 5.6 (2007) */
+#elif defined(__DCC__)
+#  if defined(__VERSION_NUMBER__) && __VERSION_NUMBER__ >= 5600 /* 5.6 (2007) */
 #    define TORSION_TLS_GNUC
 #  endif
 #elif defined(__PCC__)
@@ -347,7 +348,7 @@
 #    define TORSION_TLS_GNUC
 #  endif
 #elif defined(__NWCC__)
-#  define TORSION_TLS_GNUC
+#  define TORSION_TLS_GNUC /* 0.7.5 (2008) */
 #elif defined(__MWERKS__)
 #  if defined(__INTEL__) && __INTEL__ && __MWERKS__ >= 0x2000 /* CW Pro 2 (1997) */
 #    define TORSION_TLS_MSVC
@@ -364,14 +365,14 @@
 #  elif __INTEL_COMPILER >= 800 /* 8.0.0 (2003) */
 #    define TORSION_TLS_BOTH
 #  endif
-#elif defined(__clang__) && defined(__clang_major__)
+#elif defined(__clang__)
 #  if defined(__apple_build_version__)
 #    if defined(TORSION__APPLE_OS) && __apple_build_version__ >= 8000038 /* 800.0.38 (2016) */
 #      define TORSION_TLS_GNUC
 #    endif
 #  elif __has_extension(c_thread_local) /* 3.4 (late 2013) */
 #    if defined(__ANDROID__)
-#      if __clang_major__ >= 5 /* 5.0 (2017) */
+#      if defined(__clang_major__) && __clang_major__ >= 5 /* 5.0 (2017) */
 #        define TORSION_TLS_GNUC
 #      endif
 #    else
@@ -381,17 +382,17 @@
 #elif defined(__xlC__)
 /* Newer XL C versions are based on clang and should be caught above. */
 #  if defined(__linux__)
-#    if __xlC__ >= 0x0800 /* 8.0.0 */
+#    if __xlC__ >= 0x0800 /* 8.0.0 (unknown) */
 #      define TORSION_TLS_GNUC
 #    endif
 #  elif defined(_AIX)
-#    if __xlC__ >= 0x0A01 /* 10.1.0 */
+#    if __xlC__ >= 0x0A01 /* 10.1.0 (2008) */
 #      define TORSION_TLS_GNUC
 #    endif
 #  endif
-#elif defined(__CC_ARM) && defined(__ARMCC_VERSION)
+#elif defined(__CC_ARM)
 /* Newer ARM CC versions are based on clang and should be caught above. */
-#  if __ARMCC_VERSION >= 510000 /* 5.1 */
+#  if defined(__ARMCC_VERSION) && __ARMCC_VERSION >= 510000 /* 5.1 (2011) */
 #    define TORSION_TLS_BOTH
 #  endif
 #elif defined(__BORLANDC__)
