@@ -52,6 +52,20 @@
  *   https://docs.oracle.com/cd/E88353_01/html/E37841/getrandom-2.html
  *   https://docs.oracle.com/cd/E36784_01/html/E36884/random-7d.html
  *
+ * IBM i (PASE):
+ *   https://www.ibm.com/support/knowledgecenter/en/ssw_ibm_i_71/rzalf/rzalf.pdf
+ *
+ * AIX:
+ *   https://www.ibm.com/support/knowledgecenter/ssw_aix_71/filesreference/random.html
+ *
+ * Haiku:
+ *   No official documentation for /dev/random.
+ *
+ * Redox:
+ *   https://github.com/redox-os/randd/blob/2f0ad18/src/main.rs
+ *   https://github.com/redox-os/relibc/blob/a6fffd3/src/platform/redox/mod.rs#L559
+ *   https://github.com/redox-os/relibc/commit/a6fffd3
+ *
  * VxWorks:
  *   https://docs.windriver.com/bundle/vxworks_7_application_core_os_sr0630-enus/page/CORE/randomNumGenLib.html
  *
@@ -73,6 +87,8 @@
  *   https://emscripten.org/docs/api_reference/emscripten.h.html
  *   https://developer.mozilla.org/en-US/docs/Web/API/Crypto/getRandomValues
  *   https://nodejs.org/api/crypto.html#crypto_crypto_randomfillsync_buffer_offset_size
+ *   https://github.com/emscripten-core/emscripten/blob/7c3ced6/src/library_uuid.js#L31
+ *   https://github.com/emscripten-core/emscripten/blob/32e1d73/system/include/uuid/uuid.h
  */
 
 /**
@@ -157,13 +173,25 @@
  *   Fallback: /dev/random
  *   Support: getrandom(2) added in Solaris 11.3 (2015) (SunOS 5.11.3).
  *
+ * IBM i (PASE):
+ *   Source: /dev/urandom
+ *   Fallback: none
+ *
+ * AIX:
+ *   Source: /dev/random
+ *   Fallback: none
+ *
  * Haiku:
  *   Source: /dev/random
  *   Fallback: none
  *
+ * Redox:
+ *   Source: rand:
+ *   Fallback: none
+ *
  * Unix:
  *   Source: /dev/urandom
- *   Fallback: none
+ *   Fallback: /dev/random
  *
  * VxWorks:
  *   Source: randABytes (after polling randSecure)
@@ -206,13 +234,15 @@
 #include "entropy.h"
 
 #undef HAVE_BCRYPTGENRANDOM
-#undef HAVE_RANDBYTES
+#undef HAVE_RANDABYTES
 #undef HAVE_GETRANDOM
 #undef HAVE_SYSCTL_UUID
 #undef HAVE_GETENTROPY
 #undef HAVE_SYSCTL_ARND
+#undef HAVE_DEV_RANDOM
 #undef HAVE_GETPID
 #undef DEV_RANDOM_NAME
+#undef ALT_RANDOM_NAME
 
 #if defined(_WIN32)
 #  include <windows.h> /* _WIN32_WINNT */
@@ -235,7 +265,7 @@ RtlGenRandom(PVOID RandomBuffer, ULONG RandomBufferLength);
 #  if defined(_WRS_VXWORKS_MAJOR) && _WRS_VXWORKS_MAJOR >= 7 /* 7 (2016) */
 #    include <randomNumGen.h> /* randABytes, randSecure */
 #    include <taskLib.h> /* taskDelay */
-#    define HAVE_RANDBYTES
+#    define HAVE_RANDABYTES
 #  endif
 #elif defined(__Fuchsia__) || defined(__fuchsia__)
 #  include <zircon/syscalls.h> /* zx_cprng_draw */
@@ -317,10 +347,17 @@ RtlGenRandom(PVOID RandomBuffer, ULONG RandomBufferLength);
 #      define HAVE_GETRANDOM
 #    endif
 #    define DEV_RANDOM_NAME "/dev/random"
+#  elif defined(__PASE__)
+#    define DEV_RANDOM_NAME "/dev/urandom"
+#  elif defined(_AIX)
+#    define DEV_RANDOM_NAME "/dev/random"
 #  elif defined(__HAIKU__)
 #    define DEV_RANDOM_NAME "/dev/random"
+#  elif defined(__redox__)
+#    define DEV_RANDOM_NAME "rand:"
 #  else
 #    define DEV_RANDOM_NAME "/dev/urandom"
+#    define ALT_RANDOM_NAME "/dev/random"
 #  endif
 #  ifdef __GNUC__
 #    pragma GCC diagnostic ignored "-Waddress"
@@ -328,6 +365,7 @@ RtlGenRandom(PVOID RandomBuffer, ULONG RandomBufferLength);
 #  ifndef S_ISNAM
 #    define S_ISNAM(x) 0
 #  endif
+#  define HAVE_DEV_RANDOM
 #  define HAVE_GETPID
 #endif
 
@@ -335,7 +373,7 @@ RtlGenRandom(PVOID RandomBuffer, ULONG RandomBufferLength);
  * Helpers
  */
 
-#ifdef DEV_RANDOM_NAME
+#ifdef HAVE_DEV_RANDOM
 static int
 torsion_open(const char *name, int flags) {
   int fd, r;
@@ -371,7 +409,7 @@ torsion_open(const char *name, int flags) {
 
   return fd;
 }
-#endif
+#endif /* HAVE_DEV_RANDOM */
 
 /*
  * Emscripten Entropy
@@ -424,7 +462,7 @@ EM_JS(unsigned short, js_random_get, (unsigned char *dst, unsigned long len), {
 
   return 1;
 })
-#endif
+#endif /* __EMSCRIPTEN__ */
 
 /*
  * Syscall Entropy
@@ -437,7 +475,7 @@ torsion_callrand(void *dst, size_t size) {
                          BCRYPT_USE_SYSTEM_PREFERRED_RNG) == STATUS_SUCCESS;
 #elif defined(_WIN32)
   return RtlGenRandom((PVOID)dst, (ULONG)size) == TRUE;
-#elif defined(HAVE_RANDBYTES) /* __vxworks */
+#elif defined(HAVE_RANDABYTES) /* __vxworks */
   unsigned char *data = (unsigned char *)dst;
   size_t max = (size_t)INT_MAX;
   int ret;
@@ -558,9 +596,9 @@ torsion_callrand(void *dst, size_t size) {
  * Device Entropy
  */
 
+#ifdef HAVE_DEV_RANDOM
 static int
-torsion_devrand(void *dst, size_t size) {
-#if defined(DEV_RANDOM_NAME)
+torsion_devrand(const char *name, void *dst, size_t size) {
   unsigned char *data = (unsigned char *)dst;
   struct stat st;
   ssize_t nread;
@@ -597,7 +635,7 @@ torsion_devrand(void *dst, size_t size) {
 #endif
 
   do {
-    fd = torsion_open(DEV_RANDOM_NAME, O_RDONLY);
+    fd = torsion_open(name, O_RDONLY);
   } while (fd == -1 && errno == EINTR);
 
   if (fd == -1)
@@ -628,12 +666,8 @@ fail:
   close(fd);
 
   return size == 0;
-#else /* !DEV_RANDOM_NAME */
-  (void)dst;
-  (void)size;
-  return 0;
-#endif /* !DEV_RANDOM_NAME */
 }
+#endif /* HAVE_DEV_RANDOM */
 
 /*
  * Random UUID (Linux)
@@ -717,8 +751,15 @@ torsion_sysrand(void *dst, size_t size) {
   if (torsion_callrand(dst, size))
     return 1;
 
-  if (torsion_devrand(dst, size))
+#ifdef DEV_RANDOM_NAME
+  if (torsion_devrand(DEV_RANDOM_NAME, dst, size))
     return 1;
+#endif
+
+#ifdef ALT_RANDOM_NAME
+  if (torsion_devrand(ALT_RANDOM_NAME, dst, size))
+    return 1;
+#endif
 
 #ifdef HAVE_SYSCTL_UUID
   if (torsion_uuidrand(dst, size))
