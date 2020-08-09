@@ -120,19 +120,22 @@
  *   CodeWarrior 7 (again, _not_ CW Pro).
  * - Notable as this is the earliest TLS support
  *   mentioned by this document.
+ * - The QuickTime header files suggest that
+ *   `__declspec` itself was only usable after
+ *   CodeWarrior Pro 2 (1997) was released[46].
  *
  * CompCert:
  *
- * - TLS not yet supported[46].
+ * - TLS not yet supported[47].
  *
  * Portable C Compiler:
  *
- * - TLS supported via __thread and #pragma tls[47].
- * - TLS first implemented in 1.0.0[48][49].
+ * - TLS supported via __thread and #pragma tls[48].
+ * - TLS first implemented in 1.0.0[49][50].
  *
  * C11:
  *
- * - C11 specifies support for _Thread_local[50].
+ * - C11 specifies support for _Thread_local[51].
  * - Support can be tested by checking both:
  *
  *     __STDC_VERSION__ >= 201112L
@@ -140,7 +143,7 @@
  *
  *   However, some compilers do not define STDC_NO_THREADS
  *   or do not define it directly (in particular, Intel C
- *   versions less than 18.0.0[51]).
+ *   versions less than 18.0.0[52]).
  *
  * [1] https://gcc.gnu.org/onlinedocs/gcc-3.3.1/gcc/Thread-Local.html
  * [2] https://github.com/gcc-mirror/gcc/commit/8893239dc4ed32bd3bb4e00d6e43b859554ab82a
@@ -187,12 +190,13 @@
  * [43] http://read.pudn.com/downloads259/doc/1193608/wr_compiler_error_messages_reference_5.6.pdf
  * [44] http://nwcc.sourceforge.net/features.html
  * [45] http://index-of.co.uk/C++/CodeWarrior%20C%20and%20C++%20and%20Assembly%20Language%20Reference.pdf
- * [46] https://github.com/AbsInt/CompCert/issues/268
- * [47] https://github.com/IanHarvey/pcc/blob/master/cc/ccom/gcc_compat.c#L261
- * [48] https://github.com/IanHarvey/pcc/commit/e2ad48a
- * [49] https://github.com/IanHarvey/pcc/commit/109a8ee
- * [50] https://en.cppreference.com/w/c/keyword/_Thread_local
- * [51] https://software.intel.com/en-us/forums/intel-c-compiler/topic/721059
+ * [46] https://github.com/OPK/xpwn/blob/master/idevice/QuicktimeSDK/CIncludes/ConditionalMacros.h
+ * [47] https://github.com/AbsInt/CompCert/issues/268
+ * [48] https://github.com/IanHarvey/pcc/blob/master/cc/ccom/gcc_compat.c#L261
+ * [49] https://github.com/IanHarvey/pcc/commit/e2ad48a
+ * [50] https://github.com/IanHarvey/pcc/commit/109a8ee
+ * [51] https://en.cppreference.com/w/c/keyword/_Thread_local
+ * [52] https://software.intel.com/en-us/forums/intel-c-compiler/topic/721059
  */
 
 /* Apple Quirks
@@ -345,7 +349,7 @@
 #elif defined(__NWCC__)
 #  define TORSION_TLS_GNUC
 #elif defined(__MWERKS__)
-#  if defined(__INTEL__) && __INTEL__ && __MWERKS__ >= 0x0710 /* CW 7.1 (1995) */
+#  if defined(__INTEL__) && __INTEL__ && __MWERKS__ >= 0x2000 /* CW Pro 2 (1997) */
 #    define TORSION_TLS_MSVC
 #  endif
 #elif defined(__SUNPRO_C)
