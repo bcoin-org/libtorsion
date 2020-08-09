@@ -363,6 +363,8 @@ if(TORSION_WASM)
   add_executable(torsion_test test/test.c)
   target_link_libraries(torsion_test PRIVATE torsion_o)
   add_test(NAME test_wasm COMMAND torsion_test)
+
+  add_custom_target(check COMMAND ${CMAKE_MAKE_PROGRAM} test)
 else()
   set(torsion_libs)
   set(pkgconf_libs)
@@ -453,6 +455,7 @@ else()
   endif()
 
   if(UNIX)
+    add_custom_target(check COMMAND ${CMAKE_MAKE_PROGRAM} test)
     add_dist_target(dist cmake
                          etc
                          include
