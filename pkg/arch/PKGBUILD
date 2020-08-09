@@ -1,0 +1,31 @@
+# PKGBUILD - pkgbuild file for libtorsion
+# Copyright (c) 2020, Christopher Jeffrey (MIT License).
+# https://github.com/bcoin-org/libtorsion
+
+pkgname=libtorsion-git
+pkgver=0.0.0
+pkgrel=0
+pkgdesc='C crypto library'
+arch=('x86_64')
+url='https://github.com/bcoin-org/libtorsion'
+license=('MIT')
+depends=('glibc')
+makedepends=('git' 'cmake' 'make' 'gcc')
+source=('git+https://github.com/bcoin-org/libtorsion.git')
+sha512sums=('SKIP')
+
+build() {
+  cd ${pkgname%-git}
+  cmake .
+  make
+}
+
+check() {
+  cd ${pkgname%-git}
+  make test
+}
+
+package() {
+  cd ${pkgname%-git}
+  make DESTDIR="$pkgdir" install
+}
