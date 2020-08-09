@@ -5,11 +5,17 @@
  *
  * Resources:
  *   https://en.wikipedia.org/wiki/Time_Stamp_Counter
+ *   https://en.wikipedia.org/wiki/CPUID
  *   https://en.wikipedia.org/wiki/RDRAND
  *
  * Windows:
- *   https://docs.microsoft.com/en-us/windows/win32/api/sysinfoapi/nf-sysinfoapi-getsystemtimeasfiletime
  *   https://docs.microsoft.com/en-us/cpp/intrinsics/rdtsc
+ *   https://docs.microsoft.com/en-us/cpp/intrinsics/cpuid-cpuidex
+ *   https://software.intel.com/sites/landingpage/IntrinsicsGuide/#text=_rdrand32_step
+ *   https://software.intel.com/sites/landingpage/IntrinsicsGuide/#text=_rdrand64_step
+ *   https://docs.microsoft.com/en-us/windows/win32/api/profileapi/nf-profileapi-queryperformancecounter
+ *   https://docs.microsoft.com/en-us/windows/win32/api/profileapi/nf-profileapi-queryperformancefrequency
+ *   https://docs.microsoft.com/en-us/windows/win32/api/sysinfoapi/nf-sysinfoapi-getsystemtimeasfiletime
  *
  * Unix:
  *   http://man7.org/linux/man-pages/man2/gettimeofday.2.html
@@ -37,6 +43,10 @@
  *   https://www.felixcloutier.com/x86/rdtsc
  *   https://www.felixcloutier.com/x86/rdrand
  *   https://www.felixcloutier.com/x86/rdseed
+ *
+ * POWER9/POWER10 (darn):
+ *   https://www.docdroid.net/tWT7hjD/powerisa-v30-pdf
+ *   https://openpowerfoundation.org/?resource_lib=power-isa-version-3-0
  */
 
 /**
@@ -78,7 +88,11 @@
  * be backdoored in some way. This is not an issue as we only
  * use hardware entropy to supplement our full entropy pool.
  *
- * For non-x86 hardware, torsion_rdrand and torsion_rdseed are
+ * On POWER9 and POWER10, the `darn` (Deliver A Random Number)
+ * instruction is available. We have `torsion_rdrand` return
+ * the output of `darn` if this is the case.
+ *
+ * For other hardware, torsion_rdrand and torsion_rdseed are
  * no-ops returning zero. torsion_has_rd{rand,seed} MUST be
  * checked before calling torsion_rd{rand,seed}.
  */
@@ -100,6 +114,7 @@
 #undef HAVE_RDTSC
 #undef HAVE_INLINE_ASM
 #undef HAVE_CPUID
+#undef HAVE_DARN
 
 #if defined(_WIN32)
 #  include <windows.h> /* QueryPerformanceCounter, GetSystemTimeAsFileTime */
@@ -151,6 +166,8 @@
 #  define HAVE_INLINE_ASM
 #  if defined(__i386__) || defined(__amd64__) || defined(__x86_64__)
 #    define HAVE_CPUID
+#  elif defined(__powerpc64__) && (defined(_ARCH_PWR9) || defined(_ARCH_PWR10))
+#    define HAVE_DARN
 #  endif
 #endif
 
@@ -412,6 +429,9 @@ torsion_has_rdrand(void) {
   torsion_cpuid(&eax, &ebx, &ecx, &edx, 1, 0);
 
   return (ecx >> 30) & 1;
+#elif defined(HAVE_DARN)
+  /* We have `darn` masquerade as `rdrand`. */
+  return 1;
 #else
   return 0;
 #endif
@@ -514,6 +534,27 @@ torsion_rdrand(void) {
 
   return r;
 #endif /* !__i386__ */
+#elif defined(HAVE_DARN)
+  uint64_t r = 0;
+  int i;
+
+  for (i = 0; i < 10; i++) {
+    /* Note that `darn %0, 1` can be spelled out as:
+     *
+     *   .long (0x7c0005e6 | (%0 << 21) | (1 << 16))
+     *
+     * The above was taken from the linux kernel
+     * (after stripping out a load of preprocessor).
+     */
+    __asm__ __volatile__("darn %0, 1\n" : "=r" (r));
+
+    if (r != UINT64_MAX)
+      break;
+
+    r = 0;
+  }
+
+  return r;
 #else
   return 0;
 #endif
@@ -628,7 +669,7 @@ torsion_rdseed(void) {
 
 int
 torsion_hwrand(void *dst, size_t size) {
-#if defined(HAVE_CPUIDEX) || defined(HAVE_CPUID)
+#if defined(HAVE_CPUIDEX) || defined(HAVE_CPUID) || defined(HAVE_DARN)
   unsigned char *data = (unsigned char *)dst;
   int has_rdrand = torsion_has_rdrand();
   int has_rdseed = torsion_has_rdseed();
