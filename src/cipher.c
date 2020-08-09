@@ -7369,6 +7369,9 @@ cipher_stream_init(cipher_stream_t *ctx,
       goto fail;
 
     key_len /= 2;
+
+    if (torsion_memequal(key, key + key_len, key_len))
+      goto fail;
   }
 
   if (!cipher_init(&ctx->cipher, type, key, key_len))
