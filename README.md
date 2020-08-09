@@ -1,5 +1,7 @@
 # libtorsion
 
+![CMake](https://github.com/bcoin-org/libtorsion/workflows/CMake/badge.svg)
+
 Crypto library in C, primarily for EC. Still semi-experimental.
 
 Used as the backend for [bcrypto].
