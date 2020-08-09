@@ -331,7 +331,7 @@
 #    define TORSION_TLS_MSVC
 #  endif
 #elif defined(__HP_cc)
-#  if _HP_cc >= 55502 /* A.05.55.02 (2004) */
+#  if __HP_cc >= 55502 /* A.05.55.02 (2004) */
 #    define TORSION_TLS_GNUC
 #  endif
 #  define TORSION_TLS_GNUC
