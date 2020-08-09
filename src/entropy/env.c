@@ -91,7 +91,7 @@
 #  define HAVE_MANUAL_ENTROPY
 #elif defined(__vxworks)
 /* Unsupported. */
-#elif defined(__Fuchsia__)
+#elif defined(__Fuchsia__) || defined(__fuchsia__)
 /* Unsupported. */
 #elif defined(__CloudABI__)
 /* Could gather static entropy from filesystem in the future. */

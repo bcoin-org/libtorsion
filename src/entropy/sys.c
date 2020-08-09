@@ -237,7 +237,7 @@ RtlGenRandom(PVOID RandomBuffer, ULONG RandomBufferLength);
 #    include <taskLib.h> /* taskDelay */
 #    define HAVE_RANDBYTES
 #  endif
-#elif defined(__Fuchsia__)
+#elif defined(__Fuchsia__) || defined(__fuchsia__)
 #  include <zircon/syscalls.h> /* zx_cprng_draw */
 #elif defined(__CloudABI__)
 #  include <cloudabi_syscalls.h> /* cloudabi_sys_random_get */
@@ -468,7 +468,7 @@ torsion_callrand(void *dst, size_t size) {
   }
 
   return 1;
-#elif defined(__Fuchsia__)
+#elif defined(__Fuchsia__) || defined(__fuchsia__)
   zx_cprng_draw(dst, size);
   return 1;
 #elif defined(__CloudABI__)

@@ -8,8 +8,8 @@
  *   https://en.wikipedia.org/wiki/RDRAND
  *
  * Windows:
- *   https://docs.microsoft.com/en-us/cpp/c-runtime-library/reference/ftime-ftime32-ftime64?view=vs-2019
- *   https://docs.microsoft.com/en-us/cpp/intrinsics/rdtsc?view=vs-2019
+ *   https://docs.microsoft.com/en-us/windows/win32/api/sysinfoapi/nf-sysinfoapi-getsystemtimeasfiletime
+ *   https://docs.microsoft.com/en-us/cpp/intrinsics/rdtsc
  *
  * Unix:
  *   http://man7.org/linux/man-pages/man2/gettimeofday.2.html
@@ -50,7 +50,7 @@
  * For non-x86 hardware, we fallback to whatever system clocks
  * are available. This includes:
  *
- *   - QueryPerformanceCounter, _ftime (win32)
+ *   - QueryPerformanceCounter, GetSystemTimeAsFileTime (win32)
  *   - mach_absolute_time (apple)
  *   - clock_gettime (vxworks)
  *   - zx_clock_get_monotonic (fuchsia)
@@ -61,14 +61,14 @@
  *   - emscripten_get_now (emscripten)
  *
  * Note that the only clocks which do not have nanosecond
- * precision are `_ftime` and `gettimeofday`.
+ * precision are `GetSystemTimeAsFileTime` and `gettimeofday`.
  *
  * If no OS clocks are present, we fall back to standard
  * C89 time functions (i.e. time(2)).
  *
  * Furthermore, QueryPerformance{Counter,Frequency} may fail
  * on Windows 2000. For this reason, we require Windows XP or
- * above (otherwise we fall back to _ftime).
+ * above (otherwise we fall back to GetSystemTimeAsFileTime).
  *
  * The CPUID instruction can serve as good source of "static"
  * entropy for seeding (see env.c).
@@ -95,30 +95,27 @@
 
 #undef HAVE_QPC
 #undef HAVE_CLOCK_GETTIME
+#undef HAVE_GETTIMEOFDAY
 #undef HAVE_CPUIDEX
 #undef HAVE_RDTSC
 #undef HAVE_INLINE_ASM
 #undef HAVE_CPUID
 
 #if defined(_WIN32)
-#  include <windows.h> /* _WIN32_WINNT, QueryPerformance{Counter,Frequency} */
-#  if defined(_WIN32_WINNT) && _WIN32_WINNT >= 0x0501 /* >= Windows XP */
-#    pragma comment(lib, "kernel32.lib")
+#  include <windows.h> /* QueryPerformanceCounter, GetSystemTimeAsFileTime */
+#  pragma comment(lib, "kernel32.lib")
+#  if defined(_WIN32_WINNT) && _WIN32_WINNT >= 0x0501 /* Windows XP */
 #    define HAVE_QPC
-#  else
-#    include <sys/timeb.h> /* _timeb, _ftime */
-#    ifdef __BORLANDC__
-#      define _timeb timeb
-#      define _ftime ftime
-#    endif
-#    pragma warning(disable: 4996) /* deprecation warning */
 #  endif
 #elif defined(__APPLE__) && defined(__MACH__)
 #  include <mach/mach.h> /* KERN_SUCCESS */
 #  include <mach/mach_time.h> /* mach_timebase_info, mach_absolute_time */
 #elif defined(__vxworks)
-#  include <time.h> /* clock_gettime */
-#elif defined(__Fuchsia__)
+#  include <time.h> /* clock_gettime, time */
+#  if defined(CLOCK_REALTIME) && defined(CLOCK_MONOTONIC)
+#    define HAVE_CLOCK_GETTIME
+#  endif
+#elif defined(__Fuchsia__) || defined(__fuchsia__)
 #  include <zircon/syscalls.h> /* zx_clock_get_monotonic */
 #elif defined(__CloudABI__)
 #  include <cloudabi_syscalls.h> /* cloudabi_sys_clock_time_get */
@@ -136,6 +133,7 @@
 #  endif
 #  ifndef HAVE_CLOCK_GETTIME
 #    include <sys/time.h> /* gettimeofday */
+#    define HAVE_GETTIMEOFDAY
 #  endif
 #else
 #  include <time.h> /* time */
@@ -190,19 +188,29 @@ torsion_hrtime(void) {
 
   return (uint64_t)result;
 #elif defined(_WIN32)
-  /* We could convert GetSystemTimeAsFileTime into
-   * unix time like libuv[1], but we opt for the
-   * simpler `_ftime()` call a la libsodium[2].
+  /* There was no reliable nanosecond precision
+   * time available on Windows prior to XP. We
+   * borrow some more code from libuv[1] in order
+   * to convert NT time to unix time. Note that the
+   * libuv code was originally based on postgres[2].
+   *
+   * NT's epoch[3] begins on January 1st, 1601: 369
+   * years earlier than the unix epoch.
    *
    * [1] https://github.com/libuv/libuv/blob/7967448/src/win/util.c#L1942
-   * [2] https://github.com/jedisct1/libsodium/blob/d54f072/src/
-   *     libsodium/randombytes/internal/randombytes_internal_random.c#L140
+   * [2] https://doxygen.postgresql.org/gettimeofday_8c_source.html
+   * [3] https://en.wikipedia.org/wiki/Epoch_(computing)
    */
-  struct _timeb tb;
+  static const uint64_t epoch = UINT64_C(116444736000000000);
+  ULARGE_INTEGER ul;
+  FILETIME ft;
 
-  _ftime(&tb);
+  GetSystemTimeAsFileTime(&ft);
 
-  return (uint64_t)tb.time * 1000000000 + (uint64_t)tb.millitm * 1000000;
+  ul.LowPart = ft.dwLowDateTime;
+  ul.HighPart = ft.dwHighDateTime;
+
+  return (uint64_t)(ul.QuadPart - epoch) * 100;
 #elif defined(__APPLE__) && defined(__MACH__)
   mach_timebase_info_data_t info;
 
@@ -213,14 +221,7 @@ torsion_hrtime(void) {
     abort();
 
   return mach_absolute_time() * info.numer / info.denom;
-#elif defined(__vxworks)
-  struct timespec ts;
-
-  if (clock_gettime(CLOCK_REALTIME, &ts) != 0)
-    abort();
-
-  return (uint64_t)ts.tv_sec * 1000000000 + (uint64_t)ts.tv_nsec;
-#elif defined(__Fuchsia__)
+#elif defined(__Fuchsia__) || defined(__fuchsia__)
   return zx_clock_get_monotonic();
 #elif defined(__CloudABI__)
   uint64_t ts;
@@ -250,7 +251,7 @@ torsion_hrtime(void) {
   }
 
   return (uint64_t)ts.tv_sec * 1000000000 + (uint64_t)ts.tv_nsec;
-#elif defined(__unix) || defined(__unix__)
+#elif defined(HAVE_GETTIMEOFDAY)
   struct timeval tv;
 
   if (gettimeofday(&tv, NULL) != 0)
