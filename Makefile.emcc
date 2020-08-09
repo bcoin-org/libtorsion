@@ -121,9 +121,11 @@ endif
 
 OUTPUT = torsion.js torsion_bench.js torsion_test.js
 
+HEADERS := $(shell find . -name '*.h')
+
 all: $(OUTPUT)
 
-%.o: %.c
+%.o: %.c $(HEADERS)
 	$(CC) -o $@ -c $(LIB_CFLAGS) $<
 
 torsion.js: $(LIB_SOURCES)

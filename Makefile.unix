@@ -178,6 +178,8 @@ OUTPUT := libtorsion.$(SO).$(VER) \
           torsion_test_static     \
           libtorsion.pc
 
+HEADERS := $(shell find . -name '*.h')
+
 CONFIG := prefix=$(PREFIX)                    \
           libdir=\$${exec_prefix}/lib         \
           includedir=\$${exec_prefix}/include \
@@ -197,7 +199,7 @@ INSTDIR := $(DESTDIR)$(PREFIX)
 
 all: $(OUTPUT)
 
-%.o: %.c
+%.o: %.c $(HEADERS)
 	$(CC) -o $@ -c -fPIC $(LIB_CFLAGS) $<
 
 libtorsion.$(SO).$(VER): $(LIB_OBJECTS)
