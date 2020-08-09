@@ -163,7 +163,7 @@
  * [23] https://community.intel.com/t5/Intel-C-Compiler/Thread-local-storage-support-on-Windows/td-p/949321
  * [24] https://community.intel.com/t5/Intel-C-Compiler/thread-local-storage-linking-problems/td-p/932631
  * [25] https://community.intel.com/t5/Intel-C-Compiler/Mach-O-thread-local-storage/td-p/948267
- * [26] https://docs.microsoft.com/en-us/cpp/c-language/thread-local-storage?view=vs-2019
+ * [26] https://docs.microsoft.com/en-us/cpp/c-language/thread-local-storage
  * [27] https://github.com/snaewe/loki-lib/commit/7d8e59abc8f48785d564ddabab5ba3f01cd24444
  * [28] http://www.simkin.co.uk/Docs/cpp/api/skGeneral_8h-source.html
  * [29] https://docs.oracle.com/cd/E18659_01/html/821-1383/bkaeg.html
