@@ -217,7 +217,7 @@
 #if defined(_WIN32)
 #  include <windows.h> /* _WIN32_WINNT */
 #  if defined(_MSC_VER) && _MSC_VER > 1500 /* VS 2008 */ \
-   && defined(_WIN32_WINNT) && _WIN32_WINNT >= 0x0600 /* >= Vista (2007) */
+   && defined(_WIN32_WINNT) && _WIN32_WINNT >= 0x0600 /* Vista (2007) */
 #    include <bcrypt.h> /* BCryptGenRandom */
 #    ifndef STATUS_SUCCESS
 #      define STATUS_SUCCESS ((NTSTATUS)0)
