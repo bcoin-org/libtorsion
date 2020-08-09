@@ -53,6 +53,10 @@
  *   from 2009 suggests it existed in VS .NET 2002 (7.0).
  * - Another project dating from 1996-2003 suggests
  *   TLS was supported in Visual Studio 6.0 (1998)[28].
+ * - Usage of TLS appears on the MSDN Library CD for
+ *   Visual Studio 6.0 (1998). The author of the code
+ *   samples claims to have written them in 1995. This
+ *   means TLS would have been supported in MSVC 4.0.
  *
  * Sun Pro C / Sun Studio / Solaris Studio:
  *
@@ -392,7 +396,7 @@
 #    define TORSION_TLS_BOTH
 #  endif
 #elif defined(_MSC_VER)
-#  if _MSC_VER >= 1300 /* VS .NET 2002 (7.0) */
+#  if _MSC_VER >= 1200 /* Visual Studio 6.0 (1998) */
 #    define TORSION_TLS_MSVC
 #  endif
 #elif defined(__GNUC__) && defined(__GNUC_MINOR__)
