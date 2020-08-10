@@ -11,6 +11,7 @@ MAX_MEMORY ?= 2147483648
 STACK_SIZE ?= 5242880
 ENABLE_DEBUG ?= 0
 ENABLE_RNG ?= 1
+ENABLE_TESTS ?= 1
 
 #
 # CFLAGS
@@ -130,7 +131,12 @@ endif
 # Rules
 #
 
-OUTPUT = torsion.wasm torsion_bench.wasm torsion_test.wasm
+OUTPUT = torsion.wasm
+TESTS = torsion_bench.wasm torsion_test.wasm
+
+ifeq ($(ENABLE_TESTS), 1)
+OUTPUT += $(TESTS)
+endif
 
 HEADERS := $(shell find . -name '*.h')
 
@@ -157,6 +163,6 @@ test: torsion_test.wasm
 check: test
 
 clean:
-	$(RM) $(COMMON_OBJECTS) $(OUTPUT)
+	$(RM) $(COMMON_OBJECTS) $(OUTPUT) $(TESTS)
 
 .PHONY: all bench test check clean

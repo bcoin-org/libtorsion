@@ -8,6 +8,7 @@ PTHREAD_LIBS ?= -lpthread
 ENABLE_COVERAGE ?= 0
 ENABLE_DEBUG ?= 0
 ENABLE_RNG ?= 1
+ENABLE_TESTS ?= 1
 ENABLE_TLS ?= 1
 ENABLE_ZLIB ?= 0
 PKG_VER = 0.0.0
@@ -173,10 +174,15 @@ OUTPUT := libtorsion.$(SO).$(VER) \
           libtorsion.$(SO).$(CUR) \
           libtorsion.$(SO)        \
           libtorsion.a            \
-          torsion_bench           \
-          torsion_test            \
-          torsion_test_static     \
           libtorsion.pc
+
+TESTS = torsion_bench       \
+        torsion_test        \
+        torsion_test_static
+
+ifeq ($(ENABLE_TESTS), 1)
+OUTPUT += $(TESTS)
+endif
 
 HEADERS := $(shell find . -name '*.h')
 
@@ -230,21 +236,21 @@ libtorsion.pc: libtorsion.pc.in
 	./scripts/configure $^ $@ $(CONFIG)
 
 bench: torsion_bench
-	@./torsion_bench
+	@./$^
 
 test: torsion_test
-	@./torsion_test
+	@./$^
 
 test_static: torsion_test_static
-	@./torsion_test_static
+	@./$^
 
 check: test test_static
 
 ctgrind: torsion_ctgrind
-	@valgrind ./torsion_ctgrind
+	@valgrind ./$^
 
 clean:
-	$(RM) $(LIB_OBJECTS) $(OUTPUT) torsion_ctgrind
+	$(RM) $(LIB_OBJECTS) $(OUTPUT) $(TESTS) torsion_ctgrind
 
 clean-dist:
 	rm -rf $(PKG_NAME) $(PKG_NAME).tar.gz

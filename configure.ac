@@ -126,6 +126,14 @@ AC_ARG_ENABLE(
 )
 
 AC_ARG_ENABLE(
+  tests,
+  AS_HELP_STRING([--enable-tests],
+                 [enable tests [default=yes]]),
+  [enable_tests=$enableval],
+  [enable_tests=yes]
+)
+
+AC_ARG_ENABLE(
   tls,
   AS_HELP_STRING([--enable-tls],
                  [enable tls [default=yes]]),
@@ -394,6 +402,7 @@ AM_CONDITIONAL([EMSCRIPTEN], [test x"$EMSCRIPTEN" != x""])
 AM_CONDITIONAL([ENABLE_CTGRIND], [test x"$has_valgrind" = x"yes"])
 AM_CONDITIONAL([ENABLE_PTHREAD], [test x"$pthread_fallback" = x"yes"])
 AM_CONDITIONAL([ENABLE_RNG], [test x"$enable_rng" = x"yes"])
+AM_CONDITIONAL([ENABLE_TESTS], [test x"$enable_tests" = x"yes"])
 AM_CONDITIONAL([ENABLE_THREADS], [test x"$has_threads" = x"yes"])
 AM_CONDITIONAL([ENABLE_ZLIB], [test x"$has_zlib" = x"yes"])
 AM_CONDITIONAL([NATIVE], [test x"$WASM" != x"yes"])
@@ -420,6 +429,7 @@ AC_MSG_NOTICE([Build Options:
   libsecp256k1 = $enable_libsecp256k1
   rng          = $enable_rng
   threads      = $has_threads
+  tests        = $enable_tests
   tls          = $enable_tls (support=$has_tls)
   valgrind     = $has_valgrind
   verify       = $enable_verify

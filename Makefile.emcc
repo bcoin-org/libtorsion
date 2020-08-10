@@ -10,6 +10,7 @@ STACK_SIZE ?= 5242880
 ENVIRONMENT ?= node
 ENABLE_DEBUG ?= 0
 ENABLE_RNG ?= 1
+ENABLE_TESTS ?= 1
 
 #
 # CFLAGS
@@ -119,7 +120,12 @@ endif
 # Rules
 #
 
-OUTPUT = torsion.js torsion_bench.js torsion_test.js
+OUTPUT = torsion.js
+TESTS = torsion_bench.js torsion_test.js
+
+ifeq ($(ENABLE_TESTS), 1)
+OUTPUT += $(TESTS)
+endif
 
 HEADERS := $(shell find . -name '*.h')
 
@@ -146,6 +152,6 @@ test: torsion_test.js
 check: test
 
 clean:
-	$(RM) $(COMMON_OBJECTS) $(OUTPUT)
+	$(RM) $(COMMON_OBJECTS) $(OUTPUT) $(TESTS)
 
 .PHONY: all bench test check clean

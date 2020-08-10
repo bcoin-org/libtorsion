@@ -161,6 +161,7 @@ torsion_js_SOURCES = $(torsion_sources)
 torsion_js_CFLAGS = $(torsion_cflags) -DTORSION_BUILD
 torsion_js_LDFLAGS = $(torsion_ldflags) -s EXPORTED_FUNCTIONS=@etc/exports.json
 
+if ENABLE_TESTS
 noinst_PROGRAMS += torsion_bench.js
 torsion_bench_js_SOURCES = $(bench_sources)
 torsion_bench_js_CFLAGS = $(torsion_cflags)
@@ -172,9 +173,15 @@ torsion_test_js_SOURCES = $(test_sources)
 torsion_test_js_CFLAGS = $(torsion_cflags)
 torsion_test_js_LDADD = $(torsion_js_OBJECTS)
 torsion_test_js_LDFLAGS = $(torsion_ldflags)
-
 TESTS += torsion_test.js
-endif
+
+bench: torsion_bench.js
+	@node $^
+
+test: torsion_test.js
+	@node $^
+endif ENABLE_TESTS
+endif EMSCRIPTEN
 
 #
 # WASI
@@ -211,6 +218,7 @@ torsion_wasm_LDFLAGS = $(torsion_ldflags)      \
                        -Wl,--export=malloc     \
                        -Wl,--export=free
 
+if ENABLE_TESTS
 noinst_PROGRAMS += torsion_bench.wasm
 torsion_bench_wasm_SOURCES = $(bench_sources)
 torsion_bench_wasm_CFLAGS = $(torsion_cflags)
@@ -222,9 +230,15 @@ torsion_test_wasm_SOURCES = $(test_sources)
 torsion_test_wasm_CFLAGS = $(torsion_cflags)
 torsion_test_wasm_LDADD = $(torsion_wasm_OBJECTS)
 torsion_test_wasm_LDFLAGS = $(torsion_ldflags)
-
 TESTS += torsion_test.wasm
-endif
+
+bench: torsion_bench.wasm
+	@./scripts/wasi-run $^
+
+test: torsion_test.wasm
+	@./scripts/wasi-run $^
+endif ENABLE_TESTS
+endif WASI
 
 #
 # Native
@@ -242,6 +256,23 @@ libtorsion_la_CFLAGS += @PTHREAD_CFLAGS@
 libtorsion_la_LIBADD += @PTHREAD_LIBS@
 endif
 
+dist_doc_DATA = README.md
+dist_license_DATA = LICENSE
+pkgconfig_DATA = libtorsion.pc
+
+# Add a `package` target, similar to CMake/CPack.
+torsion_distdir = $(distdir)-bin
+torsion_abs_distdir = $(abs_top_builddir)/$(torsion_distdir)
+torsion_tarname = $(PACKAGE)-$(VERSION)-bin.tar.gz
+torsion_tar_czf = $(am__tar) | eval GZIP= gzip $(GZIP_ENV) -c
+
+package: all
+	rm -rf $(torsion_tarname) $(torsion_distdir)
+	$(MAKE) $(AM_MAKEFLAGS) install 'DESTDIR=$(torsion_abs_distdir)' prefix=/
+	tardir=$(torsion_distdir) && $(torsion_tar_czf) > $(torsion_tarname)
+	rm -rf $(torsion_distdir)
+
+if ENABLE_TESTS
 noinst_PROGRAMS += torsion_bench
 torsion_bench_SOURCES = $(bench_sources)
 torsion_bench_CFLAGS = $(torsion_cflags)
@@ -253,6 +284,7 @@ torsion_test_SOURCES = $(test_sources)
 torsion_test_CFLAGS = $(torsion_cflags)
 torsion_test_LDFLAGS = -no-install
 torsion_test_LDADD = libtorsion.la
+TESTS += torsion_test
 
 if ENABLE_THREADS
 torsion_test_SOURCES += test/thread.c
@@ -269,6 +301,7 @@ torsion_test_static_SOURCES = $(torsion_test_SOURCES)
 torsion_test_static_CFLAGS = $(torsion_test_CFLAGS)
 torsion_test_static_LDFLAGS = -static
 torsion_test_static_LDADD = $(torsion_test_LDADD)
+TESTS += torsion_test_static
 
 if ENABLE_CTGRIND
 noinst_PROGRAMS += torsion_ctgrind
@@ -278,28 +311,18 @@ torsion_ctgrind_LDFLAGS = -no-install
 torsion_ctgrind_LDADD = libtorsion.la
 endif
 
-dist_doc_DATA = README.md
-dist_license_DATA = LICENSE
-pkgconfig_DATA = libtorsion.pc
+bench: torsion_bench
+	@./$^
 
-TESTS += torsion_test
-TESTS += torsion_test_static
+test: torsion_test
+	@./$^
+
+test_static: torsion_test_static
+	@./$^
+
+if ENABLE_CTGRIND
+ctgrind: torsion_ctgrind
+	@./libtool --mode=execute valgrind ./$^
 endif
-
-#
-# Custom Targets
-#
-
-if NATIVE
-# Add a `package` target, similar to CMake/CPack.
-torsion_distdir = $(distdir)-bin
-torsion_abs_distdir = $(abs_top_builddir)/$(torsion_distdir)
-torsion_tarname = $(PACKAGE)-$(VERSION)-bin.tar.gz
-torsion_tar_czf = $(am__tar) | eval GZIP= gzip $(GZIP_ENV) -c
-
-package: all
-	rm -rf $(torsion_tarname) $(torsion_abs_distdir)
-	$(MAKE) $(AM_MAKEFLAGS) install 'DESTDIR=$(torsion_abs_distdir)' prefix=/
-	tardir=$(torsion_distdir) && $(torsion_tar_czf) > $(torsion_tarname)
-	rm -rf $(torsion_abs_distdir)
-endif
+endif ENABLE_TESTS
+endif NATIVE

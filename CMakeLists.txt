@@ -7,10 +7,17 @@ project(libtorsion VERSION 0.0.0 LANGUAGES C)
 
 set(TORSION_LIB_VERSION 0:0:0)
 
+if(PROJECT_NAME STREQUAL CMAKE_PROJECT_NAME)
+  set(TORSION_ROOT_PROJECT 1)
+else()
+  set(TORSION_ROOT_PROJECT 0)
+endif()
+
 set(CPACK_PACKAGE_VENDOR bcoin-org)
 set(CPACK_RESOURCE_FILE_LICENSE ${PROJECT_SOURCE_DIR}/LICENSE)
 set(CPACK_RESOURCE_FILE_README ${PROJECT_SOURCE_DIR}/README.md)
 set(CPACK_PACKAGE_FILE_NAME "${PROJECT_NAME}-${PROJECT_VERSION}-bin")
+set(CPACK_SOURCE_PACKAGE_FILE_NAME "${PROJECT_NAME}-${PROJECT_VERSION}")
 
 if(WASI_SDK_PREFIX)
   if(CMAKE_C_FLAGS STREQUAL "-v")
@@ -357,19 +364,25 @@ if(TORSION_WASM)
   target_link_options(torsion PRIVATE ${torsion_ldflags_lib})
   target_link_libraries(torsion PRIVATE torsion_o)
 
-  add_executable(torsion_bench test/bench.c test/hrtime.c)
-  target_link_libraries(torsion_bench PRIVATE torsion_o)
+  if(BUILD_TESTING)
+    add_executable(torsion_bench test/bench.c test/hrtime.c)
+    target_link_libraries(torsion_bench PRIVATE torsion_o)
 
-  add_executable(torsion_test test/test.c)
-  target_link_libraries(torsion_test PRIVATE torsion_o)
-  add_test(NAME test_wasm COMMAND torsion_test)
+    add_executable(torsion_test test/test.c)
+    target_link_libraries(torsion_test PRIVATE torsion_o)
+    add_test(NAME test_wasm COMMAND torsion_test)
 
-  add_custom_target(check COMMAND ${CMAKE_MAKE_PROGRAM} test)
+    if(TORSION_ROOT_PROJECT AND CMAKE_GENERATOR STREQUAL "Unix Makefiles")
+      add_custom_target(bench COMMAND ${CMAKE_CROSSCOMPILING_EMULATOR}
+                                      torsion_bench.${CMAKE_EXECUTABLE_SUFFIX}
+                              WORKING_DIRECTORY ${PROJECT_BINARY_DIR}
+                              DEPENDS torsion_bench)
+      add_custom_target(check COMMAND ${CMAKE_MAKE_PROGRAM} test)
+    endif()
+  endif()
 else()
   set(torsion_libs)
   set(pkgconf_libs)
-  set(test_sources test/test.c)
-  set(test_libs)
 
   if(TORSION_ENABLE_PTHREAD AND TORSION_HAS_THREADS AND NOT WIN32)
     if(NOT TORSION_ENABLE_TLS OR NOT TORSION_HAS_TLS)
@@ -377,17 +390,6 @@ else()
       list(APPEND torsion_libs Threads::Threads)
       list(APPEND pkgconf_libs ${CMAKE_THREAD_LIBS_INIT})
     endif()
-  endif()
-
-  if(TORSION_HAS_THREADS)
-    list(APPEND test_sources test/thread.c)
-    if(NOT WIN32)
-      list(APPEND test_libs Threads::Threads)
-    endif()
-  endif()
-
-  if(TORSION_HAS_ZLIB)
-    list(APPEND test_libs z)
   endif()
 
   add_library(torsion_o OBJECT ${torsion_sources})
@@ -418,22 +420,6 @@ else()
     set_target_properties(torsion_static PROPERTIES OUTPUT_NAME torsion)
   endif()
 
-  add_executable(torsion_bench test/bench.c test/hrtime.c)
-  target_link_libraries(torsion_bench PRIVATE torsion)
-
-  add_executable(torsion_test ${test_sources})
-  target_link_libraries(torsion_test PRIVATE torsion ${test_libs})
-  add_test(NAME test_shared COMMAND torsion_test)
-
-  add_executable(torsion_test_static ${test_sources})
-  target_link_libraries(torsion_test_static PRIVATE torsion_static ${test_libs})
-  add_test(NAME test_static COMMAND torsion_test_static)
-
-  if(TORSION_HAS_VALGRIND)
-    add_executable(torsion_ctgrind test/ctgrind.c)
-    target_link_libraries(torsion_ctgrind PRIVATE torsion)
-  endif()
-
   if(UNIX)
     set(prefix ${CMAKE_INSTALL_PREFIX})
     set(libdir ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR})
@@ -454,26 +440,67 @@ else()
     install(TARGETS torsion_static ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
   endif()
 
-  if(UNIX)
-    add_custom_target(check COMMAND ${CMAKE_MAKE_PROGRAM} test)
-    add_dist_target(dist cmake
-                         etc
-                         include
-                         scripts
-                         src
-                         test
-                         CMakeLists.txt
-                         libtorsion.pc.in
-                         LICENSE
-                         README.md)
-  endif()
-
   if(WIN32)
     install(DIRECTORY include/ DESTINATION include)
     install(FILES LICENSE README.md DESTINATION .)
     install(TARGETS torsion torsion_static
             RUNTIME DESTINATION lib/$<CONFIG>
             ARCHIVE DESTINATION lib/$<CONFIG>)
+  endif()
+
+  add_dist_target(cmake
+                  etc
+                  include
+                  scripts
+                  src
+                  test
+                  CMakeLists.txt
+                  libtorsion.pc.in
+                  LICENSE
+                  README.md)
+
+  if(BUILD_TESTING)
+    set(test_sources test/test.c)
+    set(test_libs)
+
+    if(TORSION_HAS_THREADS)
+      list(APPEND test_sources test/thread.c)
+      if(NOT WIN32)
+        list(APPEND test_libs Threads::Threads)
+      endif()
+    endif()
+
+    if(TORSION_HAS_ZLIB)
+      list(APPEND test_libs z)
+    endif()
+
+    add_executable(torsion_bench test/bench.c test/hrtime.c)
+    target_link_libraries(torsion_bench PRIVATE torsion)
+
+    add_executable(torsion_test ${test_sources})
+    target_link_libraries(torsion_test PRIVATE torsion ${test_libs})
+    add_test(NAME test_shared COMMAND torsion_test)
+
+    add_executable(torsion_test_static ${test_sources})
+    target_link_libraries(torsion_test_static PRIVATE torsion_static
+                                                      ${test_libs})
+    add_test(NAME test_static COMMAND torsion_test_static)
+
+    if(TORSION_HAS_VALGRIND)
+      add_executable(torsion_ctgrind test/ctgrind.c)
+      target_link_libraries(torsion_ctgrind PRIVATE torsion)
+    endif()
+
+    if(TORSION_ROOT_PROJECT AND CMAKE_GENERATOR STREQUAL "Unix Makefiles")
+      add_custom_target(bench COMMAND torsion_bench)
+      add_custom_target(check COMMAND ${CMAKE_MAKE_PROGRAM} test)
+
+      if(TORSION_HAS_VALGRIND)
+        add_custom_target(ctgrind COMMAND valgrind ./torsion_ctgrind
+                                  WORKING_DIRECTORY ${PROJECT_BINARY_DIR}
+                                  DEPENDS torsion_ctgrind)
+      endif()
+    endif()
   endif()
 endif()
 
