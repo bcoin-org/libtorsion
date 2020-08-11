@@ -30,7 +30,7 @@ dnl Sanity Checks
 dnl
 
 AS_IF([test x"$ac_cv_prog_cc_c89" = x"no"], [
-  AC_MSG_ERROR([CC does not support ANSI C89])
+  AC_MSG_ERROR([CC does not support C89])
 ])
 
 AC_CHECK_DEFINE([__EMSCRIPTEN__], [
@@ -55,7 +55,7 @@ AC_CHECK_DEFINE([__wasi__], [
   ])
 ])
 
-AS_IF([test x"$EMSCRIPTEN" != x"" -o x"$WASI" != x""], [WASM=yes], [WASM=no])
+AS_IF([test x"$EMSCRIPTEN $WASI" != x" "], [WASM=yes], [WASM=no])
 
 dnl
 dnl Options
@@ -136,7 +136,7 @@ AC_ARG_ENABLE(
 AC_ARG_ENABLE(
   tls,
   AS_HELP_STRING([--enable-tls],
-                 [enable tls [default=yes]]),
+                 [enable thread-local storage [default=yes]]),
   [enable_tls=$enableval],
   [enable_tls=yes]
 )
@@ -178,133 +178,149 @@ AS_IF([test x"$WASM" != x"yes"], [
   AS_CASE([$host_os], [linux*], [CFLAGS="$CFLAGS -D_POSIX_C_SOURCE=200112"])
 ])
 
+AS_IF([test x"$enable_coverage" = x"yes"], [
+  CFLAGS="$CFLAGS -O0 --coverage"
+])
+
+AS_IF([test x"$enable_debug" = x"yes"], [
+  AX_CHECK_COMPILE_FLAG([-g], [CFLAGS="$CFLAGS -g"])
+])
+
 dnl
 dnl Feature Testing
 dnl
 
-AC_MSG_CHECKING(for inline asm support)
-AC_COMPILE_IFELSE([
-  AC_LANG_PROGRAM([[]], [[
-    unsigned char ptr[32];
-    int x = 0;
-    __asm__ ("" : "+r" (x) ::);
-    __asm__ __volatile__("" :: "r" (ptr) : "memory");
-  ]])
-], [
-  has_asm=yes
-], [
-  has_asm=no
-])
-AC_MSG_RESULT([$has_asm])
-
-AC_MSG_CHECKING(for x86_64 inline asm support)
-AC_COMPILE_IFELSE([
-  AC_LANG_PROGRAM([[
-#if !defined(__amd64__) && !defined(__x86_64__)
-#  error "not an x64 platform"
-#endif
-#include <stdint.h>
-  ]], [[
-    uint32_t stream[8], state[8];
-    __asm__ __volatile__(
-      "movups (%%rsi), %%xmm0\n"
-      "movups 16(%%rsi), %%xmm1\n"
-      "pxor %%xmm1, %%xmm0\n"
-      "movups %%xmm0,(%%rdi)\n"
-      "movups %%xmm1,16(%%rdi)\n"
-      :
-      : "D" (stream), "S" (state)
-      : "xmm0", "xmm1", "cc", "memory"
-    );
-  ]])
-], [
-  has_asm_x64=yes
-], [
-  has_asm_x64=no
-])
-AC_MSG_RESULT([$has_asm_x64])
-
-AC_MSG_CHECKING(for int128 support)
-AC_COMPILE_IFELSE([
-  AC_LANG_PROGRAM([[
-#ifndef __wasm__
-    typedef char check_64bit_t[sizeof(void *) == 8 ? 1 : -1];
-#endif
-    typedef signed __int128 int128_t;
-    typedef unsigned __int128 uint128_t;
-  ]], [[
-    uint128_t r = 1;
-    r <<= 64;
-    r *= 113;
-    r >>= 65;
-    r &= 1;
-  ]])
-], [
-  has_int128=yes
-], [
-  has_int128=no
-])
-AC_MSG_RESULT([$has_int128])
-
-AC_MSG_CHECKING(for tls support)
-AC_COMPILE_IFELSE([
-  AC_LANG_PROGRAM([[
-#if defined(_WIN32) && !defined(__MINGW32__)
-#  define TLS __declspec(thread)
-#else
-#  define TLS __thread
-#endif
-    static TLS int value;
-  ]], [[
-    value = 1;
-  ]])
-], [
-  has_tls=yes
-], [
-  has_tls=no
-])
-AC_MSG_RESULT([$has_tls])
-
-has_threads=no
-
-AS_IF([test x"$WASM" != x"yes"], [
-  AX_PTHREAD([has_threads=yes])
-])
-
-AC_MSG_CHECKING(for fork support)
-AC_COMPILE_IFELSE([
-  AC_LANG_PROGRAM([[
-#if defined(__EMSCRIPTEN__) || defined(__wasm__)
-#  error "cannot use fork with wasm"
-#endif
-#include <sys/types.h>
-#include <sys/wait.h>
-#include <unistd.h>
-  ]], [[
-    unsigned char data[32];
-    int pfds[2];
-    int status;
-    pid_t pid;
-    pipe(pfds);
-    pid = fork();
-    close(pfds[1]);
-    read(pfds[0], data, 32);
-    close(pfds[0]);
-    waitpid(pid, &status, 0);
-    WIFEXITED(status);
-    WEXITSTATUS(status);
-  ]])
-], [
-  has_fork=yes
-], [
-  has_fork=no
-])
-AC_MSG_RESULT([$has_fork])
-
+has_asm=no
+has_asm_x64=no
+has_int128=no
+has_fork=no
+has_pthread=no
+has_tls=no
+has_tls_fallback=no
 has_valgrind=no
 has_zlib=no
 
-AS_IF([test x"$WASM" != x"yes"], [
+AS_IF([test x"$enable_asm" = x"yes"], [
+  AC_MSG_CHECKING(for inline asm support)
+  AC_COMPILE_IFELSE([
+    AC_LANG_PROGRAM([[]], [[
+      unsigned char ptr[32];
+      int x = 0;
+      __asm__ ("" : "+r" (x) ::);
+      __asm__ __volatile__("" :: "r" (ptr) : "memory");
+    ]])
+  ], [
+    has_asm=yes
+  ])
+  AC_MSG_RESULT([$has_asm])
+])
+
+AS_IF([test x"$enable_asm" = x"yes"], [
+  AC_MSG_CHECKING(for x86_64 inline asm support)
+  AC_COMPILE_IFELSE([
+    AC_LANG_PROGRAM([[
+      #if !defined(__amd64__) && !defined(__x86_64__)
+      #  error "not an x64 platform"
+      #endif
+      #include <stdint.h>
+    ]], [[
+      uint32_t stream[8], state[8];
+      __asm__ __volatile__(
+        "movups (%%rsi), %%xmm0\n"
+        "movups 16(%%rsi), %%xmm1\n"
+        "pxor %%xmm1, %%xmm0\n"
+        "movups %%xmm0,(%%rdi)\n"
+        "movups %%xmm1,16(%%rdi)\n"
+        :
+        : "D" (stream), "S" (state)
+        : "xmm0", "xmm1", "cc", "memory"
+      );
+    ]])
+  ], [
+    has_asm_x64=yes
+  ])
+  AC_MSG_RESULT([$has_asm_x64])
+])
+
+AS_IF([test x"$enable_tests" = x"yes" -a x"$WASM" != x"yes"], [
+  AC_MSG_CHECKING(for fork support)
+  AC_COMPILE_IFELSE([
+    AC_LANG_PROGRAM([[
+      #include <sys/types.h>
+      #include <sys/wait.h>
+      #include <unistd.h>
+    ]], [[
+      unsigned char data[32];
+      int pfds[2];
+      int status;
+      pid_t pid;
+      pipe(pfds);
+      pid = fork();
+      close(pfds[1]);
+      read(pfds[0], data, 32);
+      close(pfds[0]);
+      waitpid(pid, &status, 0);
+      WIFEXITED(status);
+      WEXITSTATUS(status);
+    ]])
+  ], [
+    has_fork=yes
+  ])
+  AC_MSG_RESULT([$has_fork])
+])
+
+AS_IF([test x"$enable_int128" = x"yes"], [
+  AC_MSG_CHECKING(for int128 support)
+  AC_COMPILE_IFELSE([
+    AC_LANG_PROGRAM([[
+      #ifndef __wasm__
+      typedef char check_64bit_t[sizeof(void *) == 8 ? 1 : -1];
+      #endif
+      typedef signed __int128 int128_t;
+      typedef unsigned __int128 uint128_t;
+    ]], [[
+      uint128_t r = 1;
+      r <<= 64;
+      r *= 113;
+      r >>= 65;
+      r &= 1;
+    ]])
+  ], [
+    has_int128=yes
+  ])
+  AC_MSG_RESULT([$has_int128])
+])
+
+AS_IF([test x"$enable_pthread" = x"yes" -a x"$WASM" != x"yes"], [
+  AX_PTHREAD([
+    has_pthread=yes
+  ])
+])
+
+AS_IF([test x"$enable_tls" = x"yes"], [
+  AC_MSG_CHECKING(for tls support)
+  AC_COMPILE_IFELSE([
+    AC_LANG_PROGRAM([[
+      #if defined(_WIN32) && !defined(__MINGW32__)
+      #  define TLS __declspec(thread)
+      #else
+      #  define TLS __thread
+      #endif
+      static TLS int value;
+    ]], [[
+      value = 1;
+    ]])
+  ], [
+    has_tls=yes
+  ])
+  AC_MSG_RESULT([$has_tls])
+])
+
+AS_IF([test x"$has_tls" != x"yes"], [
+  has_tls_fallback=$has_pthread
+])
+
+AS_IF([test x"$enable_tests" = x"yes" -a x"$WASM" != x"yes"], [
   AC_CHECK_HEADER([valgrind/memcheck.h], [has_valgrind=yes])
 
   AS_IF([test x"$enable_rng" = x"yes"], [
@@ -320,19 +336,15 @@ dnl
 
 AC_DEFINE(TORSION_HAVE_CONFIG)
 
-AS_IF([test x"$enable_asm" = x"yes" -a x"$has_asm" = x"yes"], [
+AS_IF([test x"$has_asm" = x"yes"], [
   AC_DEFINE(TORSION_HAVE_ASM)
 ])
 
-AS_IF([test x"$enable_asm" = x"yes" -a x"$has_asm_x64" = x"yes"], [
+AS_IF([test x"$has_asm_x64" = x"yes"], [
   AC_DEFINE(TORSION_HAVE_ASM_X64)
 ])
 
 AS_IF([test x"$enable_coverage" = x"yes"], [
-  AS_IF([test x"$WASM" = x"yes"], [
-    AC_MSG_ERROR([coverage not supported with wasm])
-  ])
-  CFLAGS="$CFLAGS -O0 --coverage"
   AC_DEFINE(TORSION_COVERAGE)
 ])
 
@@ -341,7 +353,6 @@ AS_IF([test x"$enable_crt" = x"yes"], [
 ])
 
 AS_IF([test x"$enable_debug" = x"yes"], [
-  AX_CHECK_COMPILE_FLAG([-g], [CFLAGS="$CFLAGS -g"])
   AC_DEFINE(TORSION_DEBUG)
 ])
 
@@ -349,7 +360,7 @@ AS_IF([test x"$has_fork" = x"yes"], [
   AC_DEFINE(TORSION_HAVE_FORK)
 ])
 
-AS_IF([test x"$enable_int128" = x"yes" -a x"$has_int128" = x"yes"], [
+AS_IF([test x"$has_int128" = x"yes"], [
   AC_DEFINE(TORSION_HAVE_INT128)
 ])
 
@@ -357,26 +368,20 @@ AS_IF([test x"$enable_libsecp256k1" = x"yes"], [
   AC_DEFINE(TORSION_USE_LIBSECP256K1)
 ])
 
-pthread_fallback=no
-
-AS_IF([test x"$enable_pthread" = x"yes" -a x"$has_threads" = x"yes"], [
-  AS_IF([test x"$enable_tls" != x"yes" -o x"$has_tls" != x"yes"], [
-    AC_DEFINE(TORSION_HAVE_PTHREAD)
-    AC_SUBST(LIBS, [$PTHREAD_LIBS])
-    pthread_fallback=yes
-  ])
+AS_IF([test x"$has_pthread" = x"yes"], [
+  AC_DEFINE(TORSION_HAVE_THREADS)
 ])
 
 AS_IF([test x"$enable_rng" = x"yes"], [
   AC_DEFINE(TORSION_HAVE_RNG)
 ])
 
-AS_IF([test x"$has_threads" = x"yes"], [
-  AC_DEFINE(TORSION_HAVE_THREADS)
+AS_IF([test x"$has_tls" = x"yes"], [
+  AC_DEFINE(TORSION_HAVE_TLS)
 ])
 
-AS_IF([test x"$enable_tls" = x"yes" -a x"$has_tls" = x"yes"], [
-  AC_DEFINE(TORSION_HAVE_TLS)
+AS_IF([test x"$has_tls_fallback" = x"yes"], [
+  AC_DEFINE(TORSION_HAVE_PTHREAD)
 ])
 
 AS_IF([test x"$enable_verify" = x"yes"], [
@@ -391,19 +396,19 @@ dnl
 dnl Configuration
 dnl
 
+AS_IF([test x"$has_tls_fallback" = x"yes"], [
+  AC_SUBST(LIBS_PRIVATE, ["$PTHREAD_LIBS $PTHREAD_CFLAGS"])
+])
+
 AC_SUBST(LIB_VERSION)
-
-AC_SUBST(PTHREAD_CFLAGS)
-AC_SUBST(PTHREAD_LIBS)
-
 AC_SUBST(WASI)
 
 AM_CONDITIONAL([EMSCRIPTEN], [test x"$EMSCRIPTEN" != x""])
 AM_CONDITIONAL([ENABLE_CTGRIND], [test x"$has_valgrind" = x"yes"])
-AM_CONDITIONAL([ENABLE_PTHREAD], [test x"$pthread_fallback" = x"yes"])
+AM_CONDITIONAL([ENABLE_PTHREAD], [test x"$has_pthread" = x"yes"])
 AM_CONDITIONAL([ENABLE_RNG], [test x"$enable_rng" = x"yes"])
 AM_CONDITIONAL([ENABLE_TESTS], [test x"$enable_tests" = x"yes"])
-AM_CONDITIONAL([ENABLE_THREADS], [test x"$has_threads" = x"yes"])
+AM_CONDITIONAL([ENABLE_TLS_FALLBACK], [test x"$has_tls_fallback" = x"yes"])
 AM_CONDITIONAL([ENABLE_ZLIB], [test x"$has_zlib" = x"yes"])
 AM_CONDITIONAL([NATIVE], [test x"$WASM" != x"yes"])
 AM_CONDITIONAL([WASI], [test x"$WASI" != x""])
@@ -418,19 +423,20 @@ AC_OUTPUT
 
 AC_MSG_NOTICE([Build Options:
 
-  asm          = $enable_asm (support=$has_asm)
-  asm_x64      = $enable_asm (support=$has_asm_x64)
+  asm          = $has_asm
+  asm_x64      = $has_asm_x64
   coverage     = $enable_coverage
   crt          = $enable_crt
   debug        = $enable_debug
   emscripten   = $EMSCRIPTEN
   fork         = $has_fork
-  int128       = $enable_int128 (support=$has_int128)
+  int128       = $has_int128
   libsecp256k1 = $enable_libsecp256k1
+  pthread      = $has_pthread
   rng          = $enable_rng
-  threads      = $has_threads
   tests        = $enable_tests
-  tls          = $enable_tls (support=$has_tls)
+  tls          = $has_tls
+  tls fallback = $has_tls_fallback
   valgrind     = $has_valgrind
   verify       = $enable_verify
   wasi         = $WASI

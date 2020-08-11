@@ -2,38 +2,85 @@
 # Copyright (c) 2020, Christopher Jeffrey (MIT License).
 # https://github.com/bcoin-org/libtorsion
 
+#
+# Initialization
+#
+
 cmake_minimum_required(VERSION 3.4)
 project(libtorsion VERSION 0.0.0 LANGUAGES C)
 
-set(TORSION_LIB_VERSION 0:0:0)
+set(TORSION_LIBVERSION 0.0.0)
 
-if(PROJECT_NAME STREQUAL CMAKE_PROJECT_NAME)
-  set(TORSION_ROOT_PROJECT 1)
-else()
-  set(TORSION_ROOT_PROJECT 0)
+if(NOT CMAKE_CONFIGURATION_TYPES AND NOT CMAKE_BUILD_TYPE)
+  set(CMAKE_BUILD_TYPE "Release")
 endif()
 
-if(WASI_SDK_PREFIX)
-  if(CMAKE_C_FLAGS STREQUAL "-v")
-    set(CMAKE_C_FLAGS "")
-  endif()
-endif()
-
-if(EMSCRIPTEN OR WASI_SDK_PREFIX)
-  set(TORSION_WASM 1)
-else()
-  set(TORSION_WASM 0)
-endif()
+#
+# Includes
+#
 
 include(cmake/AppendCCompilerFlag.cmake)
 include(cmake/TargetLinkOptions.cmake)
+include(CheckIncludeFile)
+include(CheckLibraryExists)
+include(CheckSymbolExists)
 include(CTest)
+include(GNUInstallDirs)
 
-if(NOT TORSION_WASM)
-  include(CheckIncludeFile)
-  include(CheckLibraryExists)
-  include(GNUInstallDirs)
+#
+# Early Checks
+#
+
+set(TORSION_ROOT 0)
+set(TORSION_MAKE 0)
+set(TORSION_WASM 0)
+
+if(PROJECT_NAME STREQUAL CMAKE_PROJECT_NAME)
+  set(TORSION_ROOT 1)
 endif()
+
+if(CMAKE_GENERATOR STREQUAL "Unix Makefiles")
+  set(TORSION_MAKE 1)
+endif()
+
+check_symbol_exists(__EMSCRIPTEN__ "" TORSION_EMSCRIPTEN)
+check_symbol_exists(__wasi__ "" TORSION_WASI)
+
+if(TORSION_EMSCRIPTEN OR TORSION_WASI)
+  set(TORSION_WASM 1)
+endif()
+
+#
+# Options
+#
+
+option(TORSION_ENABLE_ASM "Use inline x86-64 assembly if available" ON)
+option(TORSION_ENABLE_COVERAGE "Enable coverage" OFF)
+option(TORSION_ENABLE_CRT "Enable chinese remainder theorem for RSA" OFF)
+option(TORSION_ENABLE_DEBUG "Enable debug build" OFF)
+option(TORSION_ENABLE_INT128 "Use __int128 if available" ON)
+option(TORSION_ENABLE_LIBSECP256K1 "Use libsecp256k1 field element backend" OFF)
+option(TORSION_ENABLE_PTHREAD "Use pthread as a fallback for TLS" ON)
+option(TORSION_ENABLE_RNG "Enable RNG" ON)
+option(TORSION_ENABLE_TLS "Enable thread-local storage" ON)
+option(TORSION_ENABLE_VERIFY "Enable scalar bounds checks" OFF)
+
+if(TORSION_WASM)
+  set(TORSION_INITIAL_MEMORY "16777216" CACHE STRING "WASM initial memory")
+  set(TORSION_MAX_MEMORY "2147483648" CACHE STRING "WASM maximum memory")
+  set(TORSION_STACK_SIZE "5242880" CACHE STRING "WASM stack size")
+endif()
+
+if(TORSION_EMSCRIPTEN)
+  set(TORSION_ENVIRONMENT "node" CACHE STRING "Emscripten environment")
+endif()
+
+#
+# Flags
+#
+
+set(torsion_cflags)
+set(torsion_ldflags)
 
 set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_C_EXTENSIONS OFF)
@@ -44,33 +91,9 @@ if(NOT TORSION_WASM)
   set(CMAKE_OSX_DEPLOYMENT_TARGET 10.7)
 endif()
 
-if(NOT CMAKE_CONFIGURATION_TYPES AND NOT CMAKE_BUILD_TYPE)
-  set(CMAKE_BUILD_TYPE "Release")
+if(TORSION_WASI AND CMAKE_C_FLAGS STREQUAL "-v")
+  set(CMAKE_C_FLAGS "")
 endif()
-
-option(TORSION_ENABLE_ASM "Use inline x86-64 assembly if available" ON)
-option(TORSION_ENABLE_COVERAGE "Enable coverage" OFF)
-option(TORSION_ENABLE_CRT "Enable chinese remainder theorem for RSA" OFF)
-option(TORSION_ENABLE_DEBUG "Enable debug build" OFF)
-option(TORSION_ENABLE_INT128 "Use __int128 if available" ON)
-option(TORSION_ENABLE_LIBSECP256K1 "Use libsecp256k1 field element backend" OFF)
-option(TORSION_ENABLE_PTHREAD "Use pthread as a fallback for TLS" ON)
-option(TORSION_ENABLE_RNG "Enable RNG" ON)
-option(TORSION_ENABLE_TLS "Enable TLS" ON)
-option(TORSION_ENABLE_VERIFY "Enable scalar bounds checks" OFF)
-
-if(TORSION_WASM)
-  set(TORSION_INITIAL_MEMORY "16777216" CACHE STRING "WASM initial memory")
-  set(TORSION_MAX_MEMORY "2147483648" CACHE STRING "WASM maximum memory")
-  set(TORSION_STACK_SIZE "5242880" CACHE STRING "WASM stack size")
-endif()
-
-if(EMSCRIPTEN)
-  set(TORSION_ENVIRONMENT "node" CACHE STRING "Emscripten environment")
-endif()
-
-set(torsion_cflags)
-set(torsion_ldflags)
 
 if(MSVC)
   append_c_compiler_flag(torsion_cflags /wd4146
@@ -88,115 +111,162 @@ else()
                                         -Wshadow)
 endif()
 
-check_c_source_compiles([=[
-int main(void) {
-  unsigned char ptr[32];
-  int x = 0;
-  __asm__ ("" : "+r" (x) ::);
-  __asm__ __volatile__("" :: "r" (ptr) : "memory");
-  return x;
-}
-]=] TORSION_HAS_ASM)
+if(TORSION_ENABLE_COVERAGE)
+  list(APPEND torsion_cflags -O0 --coverage)
+  list(APPEND torsion_ldflags --coverage)
+endif()
 
-check_c_source_compiles([=[
-#if !defined(__amd64__) && !defined(__x86_64__)
-#  error "not an x64 platform"
-#endif
-#include <stdint.h>
-int main(void) {
-  uint32_t stream[8], state[8];
-  __asm__ __volatile__(
-    "movups (%%rsi), %%xmm0\\n"
-    "movups 16(%%rsi), %%xmm1\\n"
-    "pxor %%xmm1, %%xmm0\\n"
-    "movups %%xmm0,(%%rdi)\\n"
-    "movups %%xmm1,16(%%rdi)\\n"
-    :
-    : "D" (stream), "S" (state)
-    : "xmm0", "xmm1", "cc", "memory"
-  );
-  return 0;
-}
-]=] TORSION_HAS_ASM_X64)
-
-check_c_source_compiles([=[
-#ifndef __wasm__
-typedef char check_64bit_t[sizeof(void *) == 8 ? 1 : -1];
-#endif
-typedef signed __int128 int128_t;
-typedef unsigned __int128 uint128_t;
-int main(void) {
-  uint128_t r = 1;
-  r <<= 64;
-  r *= 113;
-  r >>= 65;
-  return r & 1;
-}
-]=] TORSION_HAS_INT128)
-
-check_c_source_compiles([=[
-#if defined(_WIN32) && !defined(__MINGW32__)
-#  define TLS __declspec(thread)
-#else
-#  define TLS __thread
-#endif
-static TLS int value;
-int main(void) {
-  value = 1;
-  return 0;
-}
-]=] TORSION_HAS_TLS)
-
-set(TORSION_HAS_THREADS OFF)
-
-if(NOT TORSION_WASM)
-  if(WIN32)
-    set(TORSION_HAS_THREADS ON)
+if(TORSION_ENABLE_DEBUG)
+  if(MSVC)
+    append_c_compiler_flag(torsion_cflags /Zi)
   else()
-    set(THREADS_PREFER_PTHREAD_FLAG ON)
-    find_package(Threads)
-    if(CMAKE_USE_PTHREADS_INIT)
-      set(TORSION_HAS_THREADS ON)
-    endif()
+    append_c_compiler_flag(torsion_cflags -g)
   endif()
 endif()
 
-check_c_source_compiles([=[
-#if defined(__EMSCRIPTEN__) || defined(__wasm__)
-#  error "cannot use fork with wasm"
-#endif
-#include <sys/types.h>
-#include <sys/wait.h>
-#include <unistd.h>
-int main(void) {
-  unsigned char data[32];
-  int pfds[2];
-  int status;
-  pid_t pid;
-  pipe(pfds);
-  pid = fork();
-  close(pfds[1]);
-  read(pfds[0], data, 32);
-  close(pfds[0]);
-  waitpid(pid, &status, 0);
-  WIFEXITED(status);
-  WEXITSTATUS(status);
-  return 0;
-}
-]=] TORSION_HAS_FORK)
+#
+# Feature Testing
+#
 
-set(TORSION_HAS_VALGRIND)
-set(TORSION_HAS_ZLIB)
+if(TORSION_ENABLE_ASM)
+  check_c_source_compiles([=[
+    int main(void) {
+      unsigned char ptr[32];
+      int x = 0;
+      __asm__ ("" : "+r" (x) ::);
+      __asm__ __volatile__("" :: "r" (ptr) : "memory");
+      return x;
+    }
+  ]=] TORSION_HAS_ASM)
+else()
+  set(TORSION_HAS_ASM)
+endif()
 
-if(NOT TORSION_WASM AND NOT WIN32)
-  check_include_file(valgrind/memcheck.h TORSION_HAS_VALGRIND)
-  if(TORSION_ENABLE_RNG)
+if(TORSION_ENABLE_ASM)
+  check_c_source_compiles([=[
+    #if !defined(__amd64__) && !defined(__x86_64__)
+    #  error "not an x64 platform"
+    #endif
+    #include <stdint.h>
+    int main(void) {
+      uint32_t stream[8], state[8];
+      __asm__ __volatile__(
+        "movups (%%rsi), %%xmm0\\n"
+        "movups 16(%%rsi), %%xmm1\\n"
+        "pxor %%xmm1, %%xmm0\\n"
+        "movups %%xmm0,(%%rdi)\\n"
+        "movups %%xmm1,16(%%rdi)\\n"
+        :
+        : "D" (stream), "S" (state)
+        : "xmm0", "xmm1", "cc", "memory"
+      );
+      return 0;
+    }
+  ]=] TORSION_HAS_ASM_X64)
+else()
+  set(TORSION_HAS_ASM_X64)
+endif()
+
+if(BUILD_TESTING AND NOT TORSION_WASM)
+  check_c_source_compiles([=[
+    #include <sys/types.h>
+    #include <sys/wait.h>
+    #include <unistd.h>
+    int main(void) {
+      unsigned char data[32];
+      int pfds[2];
+      int status;
+      pid_t pid;
+      pipe(pfds);
+      pid = fork();
+      close(pfds[1]);
+      read(pfds[0], data, 32);
+      close(pfds[0]);
+      waitpid(pid, &status, 0);
+      WIFEXITED(status);
+      WEXITSTATUS(status);
+      return 0;
+    }
+  ]=] TORSION_HAS_FORK)
+else()
+  set(TORSION_HAS_FORK)
+endif()
+
+if(TORSION_ENABLE_INT128)
+  check_c_source_compiles([=[
+    #ifndef __wasm__
+    typedef char check_64bit_t[sizeof(void *) == 8 ? 1 : -1];
+    #endif
+    typedef signed __int128 int128_t;
+    typedef unsigned __int128 uint128_t;
+    int main(void) {
+      uint128_t r = 1;
+      r <<= 64;
+      r *= 113;
+      r >>= 65;
+      return r & 1;
+    }
+  ]=] TORSION_HAS_INT128)
+else()
+  set(TORSION_HAS_INT128)
+endif()
+
+if(TORSION_ENABLE_PTHREAD AND NOT TORSION_WASM)
+  set(THREADS_PREFER_PTHREAD_FLAG ON)
+
+  find_package(Threads)
+
+  set(TORSION_HAS_PTHREAD ${CMAKE_USE_PTHREADS_INIT})
+else()
+  set(TORSION_HAS_PTHREAD 0)
+endif()
+
+if(TORSION_ENABLE_TLS)
+  check_c_source_compiles([=[
+    #if defined(_WIN32) && !defined(__MINGW32__)
+    #  define TLS __declspec(thread)
+    #else
+    #  define TLS __thread
+    #endif
+    static TLS int value;
+    int main(void) {
+      value = 1;
+      return 0;
+    }
+  ]=] TORSION_HAS_TLS)
+else()
+  set(TORSION_HAS_TLS)
+endif()
+
+if(NOT TORSION_HAS_TLS)
+  set(TORSION_HAS_TLS_FALLBACK ${TORSION_HAS_PTHREAD})
+else()
+  set(TORSION_HAS_TLS_FALLBACK 0)
+endif()
+
+set(TORSION_HAS_VALGRIND 0)
+set(TORSION_HAS_ZLIB 0)
+
+if(BUILD_TESTING AND NOT TORSION_WASM AND NOT WIN32)
+  check_include_file(valgrind/memcheck.h TORSION_HAS_MEMCHECK_H)
+
+  if(TORSION_HAS_MEMCHECK_H)
+    set(TORSION_HAS_VALGRIND 1)
+  endif()
+
+  if (TORSION_ENABLE_RNG)
     check_include_file(zlib.h TORSION_HAS_ZLIB_H)
-    if (TORSION_HAS_ZLIB_H)
-      check_library_exists(z compress2 "" TORSION_HAS_ZLIB)
+    check_library_exists(z compress2 "" TORSION_HAS_ZLIB_A)
+
+    if(TORSION_HAS_ZLIB_H AND TORSION_HAS_ZLIB_A)
+      set(TORSION_HAS_ZLIB 1)
     endif()
   endif()
 endif()
+
+#
+# Defines
+#
 
 set(torsion_defines)
 
@@ -210,20 +280,15 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND NOT TORSION_WASM)
   list(APPEND torsion_defines _POSIX_C_SOURCE=200112)
 endif()
 
-if(TORSION_ENABLE_ASM AND TORSION_HAS_ASM)
+if(TORSION_HAS_ASM)
   list(APPEND torsion_defines TORSION_HAVE_ASM)
 endif()
 
-if(TORSION_ENABLE_ASM AND TORSION_HAS_ASM_X64)
+if(TORSION_HAS_ASM_X64)
   list(APPEND torsion_defines TORSION_HAVE_ASM_X64)
 endif()
 
 if(TORSION_ENABLE_COVERAGE)
-  if(TORSION_WASM)
-    message(FATAL_ERROR "coverage not supported with wasm")
-  endif()
-  list(APPEND torsion_cflags -O0 --coverage)
-  list(APPEND torsion_ldflags --coverage)
   list(APPEND torsion_defines TORSION_COVERAGE)
 endif()
 
@@ -232,11 +297,6 @@ if(TORSION_ENABLE_CRT)
 endif()
 
 if(TORSION_ENABLE_DEBUG)
-  if(MSVC)
-    append_c_compiler_flag(torsion_cflags /Zi)
-  else()
-    append_c_compiler_flag(torsion_cflags -g)
-  endif()
   list(APPEND torsion_defines TORSION_DEBUG)
 else()
   list(APPEND torsion_defines $<$<CONFIG:Debug>:TORSION_DEBUG>)
@@ -246,7 +306,7 @@ if(TORSION_HAS_FORK)
   list(APPEND torsion_defines TORSION_HAVE_FORK)
 endif()
 
-if(TORSION_ENABLE_INT128 AND TORSION_HAS_INT128)
+if(TORSION_HAS_INT128)
   list(APPEND torsion_defines TORSION_HAVE_INT128)
 endif()
 
@@ -258,12 +318,16 @@ if(TORSION_ENABLE_RNG)
   list(APPEND torsion_defines TORSION_HAVE_RNG)
 endif()
 
-if(TORSION_HAS_THREADS)
+if(TORSION_HAS_PTHREAD OR WIN32)
   list(APPEND torsion_defines TORSION_HAVE_THREADS)
 endif()
 
-if(TORSION_ENABLE_TLS AND TORSION_HAS_TLS)
+if(TORSION_HAS_TLS)
   list(APPEND torsion_defines TORSION_HAVE_TLS)
+endif()
+
+if(TORSION_HAS_TLS_FALLBACK)
+  list(APPEND torsion_defines TORSION_HAVE_PTHREAD)
 endif()
 
 if(TORSION_ENABLE_VERIFY)
@@ -273,6 +337,10 @@ endif()
 if(TORSION_HAS_ZLIB)
   list(APPEND torsion_defines TORSION_HAVE_ZLIB)
 endif()
+
+#
+# Targets
+#
 
 set(torsion_sources src/aead.c
                     src/asn1.c
@@ -291,17 +359,19 @@ set(torsion_sources src/aead.c
                     src/stream.c
                     src/util.c)
 
+set(rng_sources src/entropy/env.c
+                src/entropy/hw.c
+                src/entropy/sys.c
+                src/rand.c)
+
 if(TORSION_ENABLE_RNG)
-  list(APPEND torsion_sources src/entropy/env.c
-                              src/entropy/hw.c
-                              src/entropy/sys.c
-                              src/rand.c)
+  list(APPEND torsion_sources ${rng_sources})
 endif()
 
 set(torsion_includes ${PROJECT_SOURCE_DIR}/include)
 
 if(TORSION_WASM)
-  if(EMSCRIPTEN)
+  if(TORSION_EMSCRIPTEN)
     # CMAKE_CROSSCOMPILING_EMULATOR is mistakenly quoted by emcmake.
     string(REPLACE "\"" "" CMAKE_CROSSCOMPILING_EMULATOR
            "${CMAKE_CROSSCOMPILING_EMULATOR}")
@@ -362,7 +432,7 @@ if(TORSION_WASM)
     target_link_libraries(torsion_test PRIVATE torsion_o)
     add_test(NAME test_wasm COMMAND torsion_test)
 
-    if(TORSION_ROOT_PROJECT AND CMAKE_GENERATOR STREQUAL "Unix Makefiles")
+    if(TORSION_ROOT AND TORSION_MAKE)
       add_custom_target(bench COMMAND ${CMAKE_CROSSCOMPILING_EMULATOR}
                                       $<TARGET_FILE:torsion_bench>
                               DEPENDS torsion_bench)
@@ -373,12 +443,9 @@ else()
   set(torsion_libs)
   set(pkgconf_libs)
 
-  if(TORSION_ENABLE_PTHREAD AND TORSION_HAS_THREADS AND NOT WIN32)
-    if(NOT TORSION_ENABLE_TLS OR NOT TORSION_HAS_TLS)
-      list(APPEND torsion_defines TORSION_HAVE_PTHREAD)
-      list(APPEND torsion_libs Threads::Threads)
-      list(APPEND pkgconf_libs ${CMAKE_THREAD_LIBS_INIT})
-    endif()
+  if(TORSION_HAS_TLS_FALLBACK)
+    list(APPEND torsion_libs Threads::Threads)
+    list(APPEND pkgconf_libs ${CMAKE_THREAD_LIBS_INIT})
   endif()
 
   add_library(torsion_o OBJECT ${torsion_sources})
@@ -402,19 +469,20 @@ else()
   target_link_libraries(torsion_static INTERFACE ${torsion_libs})
 
   if(UNIX)
-    string(REPLACE ":" "." TORSION_VERSION "${TORSION_LIB_VERSION}")
-    string(REGEX MATCH "^[0-9]+" TORSION_SOVERSION "${TORSION_LIB_VERSION}")
-    set_target_properties(torsion PROPERTIES VERSION ${TORSION_VERSION}
+    string(REGEX MATCH "^[0-9]+" TORSION_SOVERSION "${TORSION_LIBVERSION}")
+    set_target_properties(torsion PROPERTIES VERSION ${TORSION_LIBVERSION}
                                              SOVERSION ${TORSION_SOVERSION})
     set_target_properties(torsion_static PROPERTIES OUTPUT_NAME torsion)
   endif()
 
   if(UNIX)
     set(prefix ${CMAKE_INSTALL_PREFIX})
-    set(libdir ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR})
-    set(includedir ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_INCLUDEDIR})
-    set(PACKAGE_VERSION "${PROJECT_VERSION}")
-    string(REPLACE ";" " " LIBS "${pkgconf_libs}")
+    set(exec_prefix \${prefix})
+    set(libdir \${exec_prefix}/${CMAKE_INSTALL_LIBDIR})
+    set(includedir \${prefix}/${CMAKE_INSTALL_INCLUDEDIR})
+    set(PACKAGE_NAME ${PROJECT_NAME})
+    set(PACKAGE_VERSION ${PROJECT_VERSION})
+    string(REPLACE ";" " " LIBS_PRIVATE "${pkgconf_libs}")
     configure_file(libtorsion.pc.in libtorsion.pc @ONLY)
   endif()
 
@@ -441,7 +509,7 @@ else()
     set(test_sources test/test.c)
     set(test_libs)
 
-    if(TORSION_HAS_THREADS)
+    if(TORSION_HAS_PTHREAD OR WIN32)
       list(APPEND test_sources test/thread.c)
       if(NOT WIN32)
         list(APPEND test_libs Threads::Threads)
@@ -469,7 +537,7 @@ else()
       target_link_libraries(torsion_ctgrind PRIVATE torsion)
     endif()
 
-    if(TORSION_ROOT_PROJECT AND CMAKE_GENERATOR STREQUAL "Unix Makefiles")
+    if(TORSION_ROOT AND TORSION_MAKE)
       add_custom_target(bench COMMAND torsion_bench)
       add_custom_target(check COMMAND ${CMAKE_MAKE_PROGRAM} test)
 
@@ -482,18 +550,21 @@ else()
   endif()
 endif()
 
-string(TOUPPER "${CMAKE_BUILD_TYPE}" _build_type)
+#
+# Output
+#
+
+string(TOUPPER "${CMAKE_BUILD_TYPE}" torsion_build_type)
 
 message(STATUS "Build Options:
 
-   PROJECT_VERSION:      ${PROJECT_VERSION}
-   TORSION_LIB_VERSION:  ${TORSION_LIB_VERSION}
    CMAKE_BUILD_TYPE:     ${CMAKE_BUILD_TYPE}
    CMAKE_INSTALL_PREFIX: ${CMAKE_INSTALL_PREFIX}
    CMAKE_SYSTEM_NAME:    ${CMAKE_SYSTEM_NAME}
    CMAKE_C_COMPILER:     ${CMAKE_C_COMPILER}
-   CMAKE_C_FLAGS:        ${CMAKE_C_FLAGS_${_build_type}} ${CMAKE_C_FLAGS}
+   CMAKE_C_FLAGS:        ${CMAKE_C_FLAGS_${torsion_build_type}} ${CMAKE_C_FLAGS}
    torsion_cflags:       ${torsion_cflags}
+   torsion_ldflags:      ${torsion_ldflags}
    torsion_defines:      ${torsion_defines}
    torsion_libs:         ${torsion_libs}
 ")

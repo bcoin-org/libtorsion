@@ -1,12 +1,13 @@
 prefix=@prefix@
-exec_prefix=${prefix}
+exec_prefix=@exec_prefix@
 libdir=@libdir@
 includedir=@includedir@
 
-Name: libtorsion
+Name: @PACKAGE_NAME@
 Version: @PACKAGE_VERSION@
 Description: C crypto library.
 URL: https://github.com/bcoin-org/libtorsion
 
-Libs: -L${libdir} -ltorsion @LIBS@
+Libs: -L${libdir} -ltorsion
+Libs.private: @LIBS_PRIVATE@
 Cflags: -I${includedir}

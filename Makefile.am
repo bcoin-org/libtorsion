@@ -251,7 +251,7 @@ libtorsion_la_CFLAGS = $(torsion_cflags) -DTORSION_BUILD
 libtorsion_la_LDFLAGS = -no-undefined -version-info @LIB_VERSION@
 libtorsion_la_LIBADD =
 
-if ENABLE_PTHREAD
+if ENABLE_TLS_FALLBACK
 libtorsion_la_CFLAGS += @PTHREAD_CFLAGS@
 libtorsion_la_LIBADD += @PTHREAD_LIBS@
 endif
@@ -274,7 +274,7 @@ torsion_test_LDFLAGS = -no-install
 torsion_test_LDADD = libtorsion.la
 TESTS += torsion_test
 
-if ENABLE_THREADS
+if ENABLE_PTHREAD
 torsion_test_SOURCES += test/thread.c
 torsion_test_CFLAGS += @PTHREAD_CFLAGS@
 torsion_test_LDADD += @PTHREAD_LIBS@

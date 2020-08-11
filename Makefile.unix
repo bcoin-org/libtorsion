@@ -11,8 +11,8 @@ ENABLE_RNG ?= 1
 ENABLE_TESTS ?= 1
 ENABLE_TLS ?= 1
 ENABLE_ZLIB ?= 0
+PKG_NAME := libtorsion
 PKG_VER = 0.0.0
-PKG_NAME := libtorsion-$(PKG_VER)
 VER = 0.0.0
 CUR = 0
 SO = so
@@ -186,11 +186,13 @@ endif
 
 HEADERS := $(shell find . -name '*.h')
 
-CONFIG := prefix=$(PREFIX)                    \
-          libdir=\$${exec_prefix}/lib         \
-          includedir=\$${exec_prefix}/include \
-          PACKAGE_VERSION=$(PKG_VER)          \
-          LIBS='$(LIB_LIBS)'
+CONFIG := prefix=$(PREFIX)               \
+          exec_prefix=\$${prefix}        \
+          libdir=\$${exec_prefix}/lib    \
+          includedir=\$${prefix}/include \
+          PACKAGE_NAME=$(PKG_NAME)       \
+          PACKAGE_VERSION=$(PKG_VER)     \
+          LIBS_PRIVATE='$(LIB_LIBS)'
 
 INSTDIR := $(DESTDIR)$(PREFIX)
 
