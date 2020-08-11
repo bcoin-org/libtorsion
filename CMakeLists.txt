@@ -73,15 +73,11 @@ set(torsion_cflags)
 set(torsion_ldflags)
 
 if(MSVC)
-  set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} /DTORSION_DEBUG")
-
   append_c_compiler_flag(torsion_cflags /wd4146
                                         /wd4244
                                         /wd4267
                                         /wd4334)
 else()
-  set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -DTORSION_DEBUG")
-
   append_c_compiler_flag(torsion_cflags -pedantic
                                         -Wall
                                         -Wextra
@@ -242,6 +238,8 @@ if(TORSION_ENABLE_DEBUG)
     append_c_compiler_flag(torsion_cflags -g)
   endif()
   list(APPEND torsion_defines TORSION_DEBUG)
+else()
+  list(APPEND torsion_defines $<$<CONFIG:Debug>:TORSION_DEBUG>)
 endif()
 
 if(TORSION_HAS_FORK)
@@ -366,8 +364,7 @@ if(TORSION_WASM)
 
     if(TORSION_ROOT_PROJECT AND CMAKE_GENERATOR STREQUAL "Unix Makefiles")
       add_custom_target(bench COMMAND ${CMAKE_CROSSCOMPILING_EMULATOR}
-                                      torsion_bench.${CMAKE_EXECUTABLE_SUFFIX}
-                              WORKING_DIRECTORY ${PROJECT_BINARY_DIR}
+                                      $<TARGET_FILE:torsion_bench>
                               DEPENDS torsion_bench)
       add_custom_target(check COMMAND ${CMAKE_MAKE_PROGRAM} test)
     endif()
@@ -477,8 +474,8 @@ else()
       add_custom_target(check COMMAND ${CMAKE_MAKE_PROGRAM} test)
 
       if(TORSION_HAS_VALGRIND)
-        add_custom_target(ctgrind COMMAND valgrind ./torsion_ctgrind
-                                  WORKING_DIRECTORY ${PROJECT_BINARY_DIR}
+        add_custom_target(ctgrind COMMAND valgrind
+                                          $<TARGET_FILE:torsion_ctgrind>
                                   DEPENDS torsion_ctgrind)
       endif()
     endif()
