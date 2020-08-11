@@ -61,7 +61,7 @@ get_description() {
   while IFS= read -r line; do
     case $state in
       0)
-        if echo "$line" | grep -q "^# ${tag}$"; then
+        if echo "$line" | grep -q "^## ${tag}$"; then
           state=1
         fi
       ;;
@@ -73,7 +73,7 @@ get_description() {
         state=2
       ;;
       2)
-        if echo "$line" | grep -q '^# v[0-9]'; then
+        if echo "$line" | grep -q '^## v[0-9]'; then
           break
         fi
         echo -n "${line}\n" | sed 's/"/\\"/g'
@@ -109,7 +109,7 @@ EOF
   github_post "$url" application/json --data-raw "$body" \
     | jq .upload_url                                     \
     | tr -d '"'                                          \
-    | cut -d '?' -f 1
+    | cut -d '{' -f 1
 }
 
 github_upload() {
