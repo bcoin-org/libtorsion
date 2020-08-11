@@ -13,12 +13,6 @@ else()
   set(TORSION_ROOT_PROJECT 0)
 endif()
 
-set(CPACK_PACKAGE_VENDOR bcoin-org)
-set(CPACK_RESOURCE_FILE_LICENSE ${PROJECT_SOURCE_DIR}/LICENSE)
-set(CPACK_RESOURCE_FILE_README ${PROJECT_SOURCE_DIR}/README.md)
-set(CPACK_PACKAGE_FILE_NAME "${PROJECT_NAME}-${PROJECT_VERSION}-bin")
-set(CPACK_SOURCE_PACKAGE_FILE_NAME "${PROJECT_NAME}-${PROJECT_VERSION}")
-
 if(WASI_SDK_PREFIX)
   if(CMAKE_C_FLAGS STREQUAL "-v")
     set(CMAKE_C_FLAGS "")
@@ -36,10 +30,8 @@ include(cmake/TargetLinkOptions.cmake)
 include(CTest)
 
 if(NOT TORSION_WASM)
-  include(cmake/AddDistTarget.cmake)
   include(CheckIncludeFile)
   include(CheckLibraryExists)
-  include(CPack)
   include(GNUInstallDirs)
 endif()
 
@@ -447,17 +439,6 @@ else()
             RUNTIME DESTINATION lib/$<CONFIG>
             ARCHIVE DESTINATION lib/$<CONFIG>)
   endif()
-
-  add_dist_target(cmake
-                  etc
-                  include
-                  scripts
-                  src
-                  test
-                  CMakeLists.txt
-                  libtorsion.pc.in
-                  LICENSE
-                  README.md)
 
   if(BUILD_TESTING)
     set(test_sources test/test.c)

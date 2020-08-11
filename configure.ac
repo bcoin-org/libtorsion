@@ -12,7 +12,7 @@ LIB_VERSION=0:0:0
 AC_CONFIG_AUX_DIR([build-aux])
 AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_SRCDIR([include/torsion/ecc.h])
-AM_INIT_AUTOMAKE([foreign subdir-objects])
+AM_INIT_AUTOMAKE([foreign subdir-objects no-dist])
 : ${CFLAGS=""}
 AC_CANONICAL_HOST
 AC_ENABLE_SHARED

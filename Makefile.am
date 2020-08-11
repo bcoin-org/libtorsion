@@ -260,18 +260,6 @@ dist_doc_DATA = README.md
 dist_license_DATA = LICENSE
 pkgconfig_DATA = libtorsion.pc
 
-# Add a `package` target, similar to CMake/CPack.
-torsion_distdir = $(distdir)-bin
-torsion_abs_distdir = $(abs_top_builddir)/$(torsion_distdir)
-torsion_tarname = $(PACKAGE)-$(VERSION)-bin.tar.gz
-torsion_tar_czf = $(am__tar) | eval GZIP= gzip $(GZIP_ENV) -c
-
-package: all
-	rm -rf $(torsion_tarname) $(torsion_distdir)
-	$(MAKE) $(AM_MAKEFLAGS) install 'DESTDIR=$(torsion_abs_distdir)' prefix=/
-	tardir=$(torsion_distdir) && $(torsion_tar_czf) > $(torsion_tarname)
-	rm -rf $(torsion_distdir)
-
 if ENABLE_TESTS
 noinst_PROGRAMS += torsion_bench
 torsion_bench_SOURCES = $(bench_sources)

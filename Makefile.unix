@@ -192,15 +192,6 @@ CONFIG := prefix=$(PREFIX)                    \
           PACKAGE_VERSION=$(PKG_VER)          \
           LIBS='$(LIB_LIBS)'
 
-DIST = include          \
-       scripts          \
-       src              \
-       test             \
-       libtorsion.pc.in \
-       LICENSE          \
-       Makefile.unix    \
-       README.md
-
 INSTDIR := $(DESTDIR)$(PREFIX)
 
 all: $(OUTPUT)
@@ -252,12 +243,6 @@ ctgrind: torsion_ctgrind
 clean:
 	$(RM) $(LIB_OBJECTS) $(OUTPUT) $(TESTS) torsion_ctgrind
 
-clean-dist:
-	rm -rf $(PKG_NAME) $(PKG_NAME).tar.gz
-
-clean-package:
-	rm -rf $(PKG_NAME)-bin $(PKG_NAME)-bin.tar.gz
-
 install: $(OUTPUT)
 	install -d $(INSTDIR)/lib/pkgconfig
 	install -d $(INSTDIR)/include/torsion
@@ -272,19 +257,4 @@ install: $(OUTPUT)
 	install -m 644 LICENSE $(INSTDIR)/share/licenses/libtorsion/
 	install -m 644 README.md $(INSTDIR)/share/doc/libtorsion/
 
-dist: clean clean-dist
-	mkdir $(PKG_NAME)
-	cp -r $(DIST) $(PKG_NAME)/
-	mv $(PKG_NAME)/Makefile.unix $(PKG_NAME)/Makefile
-	tar chof - $(PKG_NAME) | gzip --best -c > $(PKG_NAME).tar.gz
-	rm -rf $(PKG_NAME)
-
-package: INSTDIR := $(PKG_NAME)-bin
-package: clean-package install
-	tar chof - $(PKG_NAME)-bin | gzip --best -c > $(PKG_NAME)-bin.tar.gz
-	rm -rf $(PKG_NAME)-bin
-
-distclean: clean clean-dist clean-package
-
-.PHONY: all bench test test_static check ctgrind clean \
-        clean-dist clean-package install dist package distclean
+.PHONY: all bench test test_static check ctgrind clean install
