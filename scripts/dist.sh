@@ -11,9 +11,11 @@ OWNER='bcoin-org'
 CHECK='include/torsion/ecc.h'
 TOKEN=
 
-type git > /dev/null 2>& 1
 type curl > /dev/null 2>& 1
+type git > /dev/null 2>& 1
+type gpg > /dev/null 2>& 1
 type jq > /dev/null 2>& 1
+type sha256sum > /dev/null 2>& 1
 
 test -d .git
 test -f "$CHECK"
@@ -76,7 +78,7 @@ get_description() {
         if echo "$line" | grep -q '^## v[0-9]'; then
           break
         fi
-        echo -n "${line}\n" | sed 's/"/\\"/g'
+        echo -n "${line}\n" | sed -e 's/"/\\"/g'
       ;;
     esac
   done < CHANGELOG.md
@@ -130,9 +132,10 @@ github_upload() {
 
 archive_main() {
   local tag="$1"
+  local tgz=$(dist_archive "$tag" tar.gz)
+  local zip=$(dist_archive "$tag" zip)
 
-  dist_archive "$tag" tar.gz > /dev/null
-  dist_archive "$tag" zip > /dev/null
+  sha256sum "$tgz" "$zip" > sha256sums.txt
 }
 
 publish_main() {
@@ -143,10 +146,13 @@ publish_main() {
 
   test -n "$url"
 
+  sha256sum "$tgz" "$zip" > sha256sums.txt
+
   github_upload "$tgz" "$url" application/gzip
   github_upload "${tgz}.asc" "$url" text/plain
   github_upload "$zip" "$url" application/zip
   github_upload "${zip}.asc" "$url" text/plain
+  github_upload sha256sums.txt "$url" text/plain
 }
 
 clean_main() {
@@ -154,6 +160,7 @@ clean_main() {
   rm -f ${REPO}-*.tar.gz.asc
   rm -f ${REPO}-*.zip
   rm -f ${REPO}-*.zip.asc
+  rm -f sha256sums.txt
 }
 
 main() {
@@ -172,7 +179,9 @@ main() {
 
   if test -z "$tag"; then
     tag=$(git tag -l 'v*' --sort v:refname | tail -n 1)
-  elif ! git rev-parse "$tag" > /dev/null 2>& 1; then
+  fi
+
+  if ! git rev-parse "$tag" > /dev/null 2>& 1; then
     echo 'Invalid tag.' >& 2
     exit 1
   fi
