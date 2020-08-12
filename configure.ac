@@ -6,13 +6,13 @@ dnl
 dnl Initialization
 dnl
 
-AC_PREREQ(2.64)
+AC_PREREQ([2.64])
 AC_INIT([libtorsion], [0.0.0], [https://github.com/bcoin-org/libtorsion/issues])
 LIB_VERSION=0:0:0
 AC_CONFIG_AUX_DIR([build-aux])
 AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_SRCDIR([include/torsion/ecc.h])
-AM_INIT_AUTOMAKE([foreign subdir-objects no-dist])
+AM_INIT_AUTOMAKE([1.11 foreign subdir-objects no-dist])
 : ${CFLAGS=""}
 AC_CANONICAL_HOST
 AC_ENABLE_SHARED
@@ -23,6 +23,7 @@ AC_PROG_CC_C89
 m4_ifdef([AM_PROG_AR], [AM_PROG_AR])
 AC_PROG_LIBTOOL
 m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
+LT_PREREQ([2.2.8])
 LT_INIT
 
 dnl
@@ -293,13 +294,36 @@ AS_IF([test x"$enable_int128" = x"yes"], [
 
 AS_IF([test x"$enable_pthread" = x"yes" -a x"$WASM" != x"yes"], [
   AX_PTHREAD([
-    has_pthread=yes
+    AC_MSG_CHECKING(for pthread mutex support)
+
+    torsion_save_CFLAGS="$CFLAGS"
+    torsion_save_LIBS="$LIBS"
+
+    CFLAGS="$CFLAGS $PTHREAD_CFLAGS"
+    LIBS="$PTHREAD_LIBS $LIBS"
+
+    AC_LINK_IFELSE([
+      AC_LANG_PROGRAM([[
+        #include <pthread.h>
+        static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+      ]], [[
+        pthread_mutex_lock(&mutex);
+        pthread_mutex_unlock(&mutex);
+      ]])
+    ], [
+      has_pthread=yes
+    ])
+
+    CFLAGS="$torsion_save_CFLAGS"
+    LIBS="$torsion_save_LIBS"
+
+    AC_MSG_RESULT([$has_pthread])
   ])
 ])
 
 AS_IF([test x"$enable_tls" = x"yes"], [
-  AC_MSG_CHECKING(for tls support)
-  AC_COMPILE_IFELSE([
+  AC_MSG_CHECKING(for thread-local storage support)
+  AC_LINK_IFELSE([
     AC_LANG_PROGRAM([[
       #if defined(_WIN32) && !defined(__MINGW32__)
       #  define TLS __declspec(thread)
