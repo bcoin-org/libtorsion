@@ -21,6 +21,7 @@ endif()
 
 include(cmake/AppendCCompilerFlag.cmake)
 include(cmake/TargetLinkOptions.cmake)
+include(CheckCSourceCompiles)
 include(CheckIncludeFile)
 include(CheckLibraryExists)
 include(CheckSymbolExists)
