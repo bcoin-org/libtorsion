@@ -2,6 +2,10 @@
 # Copyright (c) 2020, Christopher Jeffrey (MIT License).
 # https://github.com/bcoin-org/libtorsion
 
+#
+# Initialization
+#
+
 WASI ?= /opt/wasi-sdk
 CC := $(WASI)/bin/clang
 SYSROOT := $(WASI)/share/wasi-sysroot

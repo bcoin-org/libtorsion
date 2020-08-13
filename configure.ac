@@ -2,29 +2,32 @@ dnl configure.ac - autoconf script for libtorsion
 dnl Copyright (c) 2020, Christopher Jeffrey (MIT License).
 dnl https://github.com/bcoin-org/libtorsion
 
+m4_define(TORSION_PKG_VERSION, 0.0.0)
+m4_define(TORSION_ABI_VERSION, 0:0:0)
+
 dnl
 dnl Initialization
 dnl
 
 AC_PREREQ([2.64])
-AC_INIT([libtorsion], [0.0.0], [https://github.com/bcoin-org/libtorsion/issues])
-LIB_VERSION=0:0:0
+AC_INIT([libtorsion], [m4_substr(TORSION_PKG_VERSION, 0)],
+        [https://github.com/bcoin-org/libtorsion/issues])
 AC_CONFIG_AUX_DIR([build-aux])
 AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_SRCDIR([include/torsion/ecc.h])
-AM_INIT_AUTOMAKE([1.11 foreign subdir-objects no-dist])
-: ${CFLAGS=""}
 AC_CANONICAL_HOST
-AC_ENABLE_SHARED
-AC_ENABLE_STATIC
+AC_LANG_ASSERT(C)
+: ${CFLAGS=""}
 AC_PROG_CC
-AM_PROG_CC_C_O
 AC_PROG_CC_C89
+
+AM_INIT_AUTOMAKE([1.11 foreign subdir-objects no-dist])
+AM_PROG_CC_C_O
 m4_ifdef([AM_PROG_AR], [AM_PROG_AR])
-AC_PROG_LIBTOOL
-m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
+AM_SILENT_RULES([yes])
+
 LT_PREREQ([2.2.8])
-LT_INIT
+LT_INIT([shared static])
 
 dnl
 dnl Sanity Checks
@@ -420,11 +423,12 @@ dnl
 dnl Configuration
 dnl
 
+AC_SUBST(ABI_VERSION, [TORSION_ABI_VERSION])
+
 AS_IF([test x"$has_tls_fallback" = x"yes"], [
   AC_SUBST(LIBS_PRIVATE, ["$PTHREAD_LIBS $PTHREAD_CFLAGS"])
 ])
 
-AC_SUBST(LIB_VERSION)
 AC_SUBST(WASI)
 
 AM_CONDITIONAL([EMSCRIPTEN], [test x"$EMSCRIPTEN" != x""])

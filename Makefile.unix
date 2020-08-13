@@ -2,6 +2,13 @@
 # Copyright (c) 2020, Christopher Jeffrey (MIT License).
 # https://github.com/bcoin-org/libtorsion
 
+PKG_VERSION = 0.0.0
+ABI_VERSION = 0:0:0
+
+#
+# Initialization
+#
+
 PREFIX ?= /usr/local
 PTHREAD_CFLAGS ?= -D_REENTRANT
 PTHREAD_LIBS ?= -lpthread
@@ -11,10 +18,9 @@ ENABLE_RNG ?= 1
 ENABLE_TESTS ?= 1
 ENABLE_TLS ?= 1
 ENABLE_ZLIB ?= 0
-PKG_NAME := libtorsion
-PKG_VER = 0.0.0
-VER = 0.0.0
-CUR = 0
+
+VER := $(subst :,.,$(ABI_VERSION))
+CUR := $(word 1,$(subst :, ,$(ABI_VERSION)))
 SO = so
 
 ifeq ($(shell uname -s), Darwin)
@@ -190,8 +196,8 @@ CONFIG := prefix=$(PREFIX)               \
           exec_prefix=\$${prefix}        \
           libdir=\$${exec_prefix}/lib    \
           includedir=\$${prefix}/include \
-          PACKAGE_NAME=$(PKG_NAME)       \
-          PACKAGE_VERSION=$(PKG_VER)     \
+          PACKAGE_NAME=libtorsion        \
+          PACKAGE_VERSION=$(PKG_VERSION) \
           LIBS_PRIVATE='$(LIB_LIBS)'
 
 INSTDIR := $(DESTDIR)$(PREFIX)
