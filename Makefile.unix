@@ -192,13 +192,13 @@ endif
 
 HEADERS := $(shell find . -name '*.h')
 
-CONFIG := prefix=$(PREFIX)               \
-          exec_prefix=\$${prefix}        \
-          libdir=\$${exec_prefix}/lib    \
-          includedir=\$${prefix}/include \
-          PACKAGE_NAME=libtorsion        \
-          PACKAGE_VERSION=$(PKG_VERSION) \
-          LIBS_PRIVATE='$(LIB_LIBS)'
+CONFIG := -e 's;@prefix@;$(PREFIX);g'               \
+          -e 's;@exec_prefix@;$${prefix};g'         \
+          -e 's;@libdir@;$${exec_prefix}/lib;g'     \
+          -e 's;@includedir@;$${prefix}/include;g'  \
+          -e 's;@PACKAGE_NAME@;libtorsion;g'        \
+          -e 's;@PACKAGE_VERSION@;$(PKG_VERSION);g' \
+          -e 's;@LIBS_PRIVATE@;$(LIB_LIBS);g'
 
 INSTDIR := $(DESTDIR)$(PREFIX)
 
@@ -232,7 +232,7 @@ torsion_ctgrind: $(CTG_SOURCES) libtorsion.$(SO)
 	$(CC) -o $@ $(CTG_CFLAGS) $(CTG_LDFLAGS) $(CTG_SOURCES) $(CTG_LIBS)
 
 libtorsion.pc: libtorsion.pc.in
-	./scripts/configure $^ $@ $(CONFIG)
+	sed $(CONFIG) < $^ > $@
 
 bench: torsion_bench
 	@./$^
