@@ -435,9 +435,7 @@ if(TORSION_WASM)
     add_test(NAME test_wasm COMMAND torsion_test)
 
     if(TORSION_ROOT AND TORSION_MAKE)
-      add_custom_target(bench COMMAND ${CMAKE_CROSSCOMPILING_EMULATOR}
-                                      $<TARGET_FILE:torsion_bench>
-                              DEPENDS torsion_bench)
+      add_custom_target(bench COMMAND torsion_bench)
       add_custom_target(check COMMAND ${CMAKE_MAKE_PROGRAM} test)
     endif()
   endif()
