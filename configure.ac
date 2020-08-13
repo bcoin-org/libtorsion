@@ -116,7 +116,7 @@ AC_ARG_ENABLE(
 AC_ARG_ENABLE(
   pthread,
   AS_HELP_STRING([--enable-pthread],
-                 [use pthread as a fallback for tls [default=yes]]),
+                 [use pthread as a fallback for TLS [default=yes]]),
   [enable_pthread=$enableval],
   [enable_pthread=yes]
 )
@@ -124,7 +124,7 @@ AC_ARG_ENABLE(
 AC_ARG_ENABLE(
   rng,
   AS_HELP_STRING([--enable-rng],
-                 [enable rng [default=yes]]),
+                 [enable RNG [default=yes]]),
   [enable_rng=$enableval],
   [enable_rng=yes]
 )
