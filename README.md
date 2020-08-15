@@ -1,6 +1,6 @@
 # libtorsion
 
-![CMake](https://github.com/bcoin-org/libtorsion/workflows/CMake/badge.svg)
+![cmake](https://github.com/bcoin-org/libtorsion/workflows/cmake/badge.svg)
 
 Crypto library in C, primarily for EC. Still semi-experimental.
 
