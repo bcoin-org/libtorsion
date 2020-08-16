@@ -24,12 +24,12 @@ CUR := $(word 1,$(subst :, ,$(ABI_VERSION)))
 
 ifeq ($(shell uname -s), Darwin)
 SO = dylib
-SO_VER = $(VER).$(SO)
-SO_CUR = $(CUR).$(SO)
+SO_VER := $(VER).$(SO)
+SO_CUR := $(CUR).$(SO)
 else
 SO = so
-SO_VER = $(SO).$(VER)
-SO_CUR = $(SO).$(CUR)
+SO_VER := $(SO).$(VER)
+SO_CUR := $(SO).$(CUR)
 endif
 
 #
