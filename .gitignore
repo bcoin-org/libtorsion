@@ -1,6 +1,7 @@
 *.a
 *.cmake
 *.dir
+*.dylib
 *.filters
 *.gcda
 *.gcno
