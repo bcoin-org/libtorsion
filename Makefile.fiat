@@ -3,9 +3,9 @@
 # https://github.com/bcoin-org/libtorsion
 
 FIAT ?= $(HOME)/fiat-crypto
+SAT := $(FIAT)/src/ExtractionOCaml/saturated_solinas
 UNSAT := $(FIAT)/src/ExtractionOCaml/unsaturated_solinas
 MONT := $(FIAT)/src/ExtractionOCaml/word_by_word_montgomery
-SED ?= sed
 
 OUTPUT = src/fields/p192_32.h      \
          src/fields/p192_64.h      \
@@ -51,12 +51,13 @@ M_FUNCS = mul             \
           to_bytes        \
           from_bytes
 
-AFTER = $(SED) -i 's;$(FIAT);;g' $@;                               \
-        $(SED) -i 's/unsigned __int128/torsion_uint128_t/g' $@;    \
-        $(SED) -i 's/signed __int128/torsion_int128_t/g' $@;       \
-        $(SED) -i 's/x2 & arg3/fiat_barrier(x2) \& arg3/g' $@;     \
-        $(SED) -i 's/(~x2) & arg2/fiat_barrier(~x2) \& arg2/g' $@; \
-        $(SED) -i '$$ d' $@;
+AFTER = sed -e 's;$(FIAT);;g'                               \
+            -e 's/unsigned __int128/torsion_uint128_t/g'    \
+            -e 's/signed __int128/torsion_int128_t/g'       \
+            -e 's/x2 & arg3/fiat_barrier(x2) \& arg3/g'     \
+            -e 's/(~x2) & arg2/fiat_barrier(~x2) \& arg2/g' \
+            -e '$$ d' < $@ > $@.tmp;                        \
+        mv -f $@.tmp $@;
 
 all: $(OUTPUT)
 
@@ -154,6 +155,6 @@ src/fields/.fiat-head: $(UNSAT) $(MONT)
 	(cd $(FIAT) && git rev-parse HEAD) > $@
 
 clean:
-	$(RM) $(OUTPUT)
+	$(RM) $(OUTPUT) $(subst .h,.h.tmp,$(OUTPUT))
 
 .PHONY: all clean
