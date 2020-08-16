@@ -21,10 +21,15 @@ ENABLE_ZLIB ?= 0
 
 VER := $(subst :,.,$(ABI_VERSION))
 CUR := $(word 1,$(subst :, ,$(ABI_VERSION)))
-SO = so
 
 ifeq ($(shell uname -s), Darwin)
 SO = dylib
+SO_VER = $(VER).$(SO)
+SO_CUR = $(CUR).$(SO)
+else
+SO = so
+SO_VER = $(SO).$(VER)
+SO_CUR = $(SO).$(CUR)
 endif
 
 #
@@ -73,7 +78,7 @@ endif
 # LIBS
 #
 
-COMMON_LIBS := -Wl,-rpath,$(shell pwd) libtorsion.$(SO).$(VER)
+COMMON_LIBS := -Wl,-rpath,$(shell pwd) libtorsion.$(SO_VER)
 COMMON_LIBS_A = libtorsion.a
 
 #
@@ -103,7 +108,7 @@ RNG_SOURCES = src/entropy/env.c \
               src/rand.c
 
 LIB_CFLAGS := $(COMMON_CFLAGS) -DTORSION_BUILD $(CFLAGS)
-LIB_LDFLAGS := $(COMMON_LDFLAGS) -Wl,-soname,libtorsion.$(SO).$(CUR) $(LDFLAGS)
+LIB_LDFLAGS := $(COMMON_LDFLAGS) -Wl,-soname,libtorsion.$(SO_CUR) $(LDFLAGS)
 LIB_LIBS := $(LIBS)
 
 ifeq ($(ENABLE_COVERAGE), 1)
@@ -176,10 +181,10 @@ CTG_LIBS := $(COMMON_LIBS) $(LIBS)
 # Rules
 #
 
-OUTPUT := libtorsion.$(SO).$(VER) \
-          libtorsion.$(SO).$(CUR) \
-          libtorsion.$(SO)        \
-          libtorsion.a            \
+OUTPUT := libtorsion.$(SO_VER) \
+          libtorsion.$(SO_CUR) \
+          libtorsion.$(SO)     \
+          libtorsion.a         \
           libtorsion.pc
 
 TESTS = torsion_bench       \
@@ -207,13 +212,13 @@ all: $(OUTPUT)
 %.o: %.c $(HEADERS)
 	$(CC) -o $@ -c -fPIC $(LIB_CFLAGS) $<
 
-libtorsion.$(SO).$(VER): $(LIB_OBJECTS)
+libtorsion.$(SO_VER): $(LIB_OBJECTS)
 	$(CC) -o $@ -shared -fPIC $(LIB_LDFLAGS) $^ $(LIB_LIBS)
 
-libtorsion.$(SO).$(CUR): libtorsion.$(SO).$(VER)
+libtorsion.$(SO_CUR): libtorsion.$(SO_VER)
 	ln -s $^ $@
 
-libtorsion.$(SO): libtorsion.$(SO).$(CUR)
+libtorsion.$(SO): libtorsion.$(SO_CUR)
 	ln -s $^ $@
 
 libtorsion.a: $(LIB_OBJECTS)
@@ -256,9 +261,9 @@ install: $(OUTPUT)
 	install -d $(INSTDIR)/include/torsion
 	install -d $(INSTDIR)/share/doc/libtorsion
 	install -d $(INSTDIR)/share/licenses/libtorsion
-	install -m 755 libtorsion.$(SO).$(VER) $(INSTDIR)/lib/
-	(cd $(INSTDIR)/lib && ln -s libtorsion.$(SO).$(VER) libtorsion.$(SO).$(CUR))
-	(cd $(INSTDIR)/lib && ln -s libtorsion.$(SO).$(CUR) libtorsion.$(SO))
+	install -m 755 libtorsion.$(SO_VER) $(INSTDIR)/lib/
+	(cd $(INSTDIR)/lib && ln -s libtorsion.$(SO_VER) libtorsion.$(SO_CUR))
+	(cd $(INSTDIR)/lib && ln -s libtorsion.$(SO_CUR) libtorsion.$(SO))
 	install -m 644 libtorsion.a $(INSTDIR)/lib/
 	install -m 644 libtorsion.pc $(INSTDIR)/lib/pkgconfig/
 	install -m 644 include/torsion/*.h $(INSTDIR)/include/torsion/
