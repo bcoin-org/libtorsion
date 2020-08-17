@@ -27,6 +27,7 @@ Debug/
 Makefile
 Makefile.in
 Release/
+Testing/
 aclocal.m4
 autom4te.cache/
 build-aux/
