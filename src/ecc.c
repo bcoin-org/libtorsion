@@ -9837,6 +9837,7 @@ schnorr_legacy_verify(const wei_t *ec,
    *   - Let `r` and `s` be signature elements.
    *   - Let `A` be a valid group element.
    *   - r^3 + a * r + b is square in F(p).
+   *   - sqrt(r^3 + a * r + b) is square in F(p).
    *   - r < p, s < n.
    *   - R != O.
    *
@@ -9919,6 +9920,7 @@ schnorr_legacy_verify_batch(const wei_t *ec,
    *   - Let `A` be a valid group element.
    *   - Let `i` be the batch item index.
    *   - r^3 + a * r + b is square in F(p).
+   *   - sqrt(r^3 + a * r + b) is square in F(p).
    *   - r < p, s < n.
    *   - a1 = 1 mod n.
    *
@@ -10687,8 +10689,10 @@ schnorr_verify(const wei_t *ec,
    *   - Let `m` be a 32-byte array.
    *   - Let `r` and `s` be signature elements.
    *   - Let `x` be a field element.
-   *   - r^3 + a * r + b is even in F(p).
-   *   - x^3 + a * x + b is even in F(p).
+   *   - r^3 + a * r + b is square in F(p).
+   *   - x^3 + a * x + b is square in F(p).
+   *   - sqrt(r^3 + a * r + b) is even in F(p).
+   *   - sqrt(x^3 + a * x + b) is even in F(p).
    *   - r < p, s < n, x < p.
    *   - R != O.
    *
@@ -10758,8 +10762,10 @@ schnorr_verify_batch(const wei_t *ec,
    *   - Let `r` and `s` be signature elements.
    *   - Let `x` be a field element.
    *   - Let `i` be the batch item index.
-   *   - r^3 + a * r + b is even in F(p).
-   *   - x^3 + a * x + b is even in F(p).
+   *   - r^3 + a * r + b is square in F(p).
+   *   - x^3 + a * x + b is square in F(p).
+   *   - sqrt(r^3 + a * r + b) is even in F(p).
+   *   - sqrt(x^3 + a * x + b) is even in F(p).
    *   - r < p, s < n, x < p.
    *   - a1 = 1 mod n.
    *
