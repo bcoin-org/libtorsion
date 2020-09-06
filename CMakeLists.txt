@@ -538,14 +538,40 @@ else()
       target_link_libraries(torsion_ctgrind PRIVATE torsion)
     endif()
 
+    find_program(TORSION_VALGRIND valgrind)
+
+    if(TORSION_VALGRIND)
+      if(TORSION_HAS_VALGRIND)
+        add_test(NAME test_ctgrind COMMAND ${TORSION_VALGRIND}
+                                            --leak-check=full
+                                            --error-exitcode=1
+                                           $<TARGET_FILE:torsion_ctgrind>)
+      endif()
+
+      add_test(NAME test_valgrind COMMAND ${TORSION_VALGRIND}
+                                          --leak-check=full
+                                          --error-exitcode=1
+                                          $<TARGET_FILE:torsion_test>)
+    endif()
+
     if(TORSION_ROOT AND TORSION_MAKE)
       add_custom_target(bench COMMAND torsion_bench)
       add_custom_target(check COMMAND ${CMAKE_MAKE_PROGRAM} test)
 
-      if(TORSION_HAS_VALGRIND)
-        add_custom_target(ctgrind COMMAND valgrind
-                                          $<TARGET_FILE:torsion_ctgrind>
-                                  DEPENDS torsion_ctgrind)
+      if(TORSION_VALGRIND)
+        if(TORSION_HAS_VALGRIND)
+          add_custom_target(ctgrind COMMAND ${TORSION_VALGRIND}
+                                            --leak-check=full
+                                            --error-exitcode=1
+                                            $<TARGET_FILE:torsion_ctgrind>
+                                    DEPENDS torsion_ctgrind)
+        endif()
+
+        add_custom_target(valgrind COMMAND ${TORSION_VALGRIND}
+                                           --leak-check=full
+                                           --error-exitcode=1
+                                           $<TARGET_FILE:torsion_test>
+                                   DEPENDS torsion_test)
       endif()
     endif()
   endif()

@@ -248,10 +248,13 @@ test: torsion_test
 test_static: torsion_test_static
 	@./$^
 
-check: test test_static
-
 ctgrind: torsion_ctgrind
-	@valgrind ./$^
+	@valgrind --leak-check=full --error-exitcode=1 ./$^
+
+valgrind: torsion_test
+	@valgrind --leak-check=full --error-exitcode=1 ./$^
+
+check: test test_static valgrind
 
 clean:
 	$(RM) $(LIB_OBJECTS) $(OUTPUT) $(TESTS) torsion_ctgrind
@@ -270,4 +273,4 @@ install: $(OUTPUT)
 	install -m 644 LICENSE $(INSTDIR)/share/licenses/libtorsion/
 	install -m 644 README.md $(INSTDIR)/share/doc/libtorsion/
 
-.PHONY: all bench test test_static check ctgrind clean install
+.PHONY: all bench test test_static ctgrind valgrind check clean install

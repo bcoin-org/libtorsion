@@ -310,7 +310,11 @@ test_static: torsion_test_static
 
 if ENABLE_CTGRIND
 ctgrind: torsion_ctgrind
-	@./libtool --mode=execute valgrind ./$^
+	@./libtool --mode=execute valgrind --leak-check=full --error-exitcode=1 ./$^
 endif
+
+valgrind: torsion_test
+	@./libtool --mode=execute valgrind --leak-check=full --error-exitcode=1 ./$^
+
 endif ENABLE_TESTS
 endif NATIVE
