@@ -1,5 +1,5 @@
 /*!
- * hrtime.c - high-resolution time for libtorsion tests
+ * hrtime.c - high-resolution time for libtorsion benchmarks
  * Copyright (c) 2020, Christopher Jeffrey (MIT License).
  * https://github.com/bcoin-org/libtorsion
  */

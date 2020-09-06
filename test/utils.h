@@ -1,5 +1,5 @@
 /*!
- * testutil.h - test utils for libtorsion
+ * utils.h - test utils for libtorsion
  * Copyright (c) 2020, Christopher Jeffrey (MIT License).
  * https://github.com/bcoin-org/libtorsion
  */
