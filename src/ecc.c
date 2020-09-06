@@ -2195,7 +2195,7 @@ wge_is_even(const wei_t *ec, const wge_t *p) {
   return (fe_is_odd(&ec->fe, p->y) ^ 1) & (p->inf ^ 1);
 }
 
-TORSION_UNUSED static int
+static int
 wge_equal_x(const wei_t *ec, const wge_t *p, const fe_t x) {
   return fe_equal(&ec->fe, p->x, x) & (p->inf ^ 1);
 }
@@ -10058,9 +10058,8 @@ schnorr_legacy_verify_batch(const wei_t *ec,
 
 int
 schnorr_support(const wei_t *ec) {
-  /* [BIP340] "Footnotes". */
-  /* Must be congruent to 3 mod 4. */
-  return (ec->fe.p[0] & 3) == 3;
+  /* Must be prime order. */
+  return ec->h == 1;
 }
 
 size_t
@@ -10455,19 +10454,19 @@ schnorr_hash_aux(const wei_t *ec,
   if (ec->hash == HASH_SHA256) {
     sha256_t *sha = &hash.ctx.sha256;
 
-    sha->state[0] = 0x5d74a872;
-    sha->state[1] = 0xd57064d4;
-    sha->state[2] = 0x89495bec;
-    sha->state[3] = 0x910f46f5;
-    sha->state[4] = 0xcbc6fd3e;
-    sha->state[5] = 0xaf05d9d0;
-    sha->state[6] = 0xcb781ce6;
-    sha->state[7] = 0x062930ac;
+    sha->state[0] = 0x24dd3219;
+    sha->state[1] = 0x4eba7e70;
+    sha->state[2] = 0xca0fabb9;
+    sha->state[3] = 0x0fa3166d;
+    sha->state[4] = 0x3afbe4b1;
+    sha->state[5] = 0x4c44df97;
+    sha->state[6] = 0x4aac2739;
+    sha->state[7] = 0x249e850a;
     sha->size = 64;
 
     hash.type = HASH_SHA256;
   } else {
-    schnorr_hash_init(&hash, ec->hash, "BIP340/aux");
+    schnorr_hash_init(&hash, ec->hash, "BIP0340/aux");
   }
 
   hash_update(&hash, aux, 32);
@@ -10507,19 +10506,19 @@ schnorr_hash_nonce(const wei_t *ec, sc_t k,
   if (ec->hash == HASH_SHA256) {
     sha256_t *sha = &hash.ctx.sha256;
 
-    sha->state[0] = 0xa96e75cb;
-    sha->state[1] = 0x74f9f0ac;
-    sha->state[2] = 0xc49e3c98;
-    sha->state[3] = 0x202f99ba;
-    sha->state[4] = 0x8946a616;
-    sha->state[5] = 0x4accf415;
-    sha->state[6] = 0x86e335c3;
-    sha->state[7] = 0x48d0a072;
+    sha->state[0] = 0x46615b35;
+    sha->state[1] = 0xf4bfbff7;
+    sha->state[2] = 0x9f8dc671;
+    sha->state[3] = 0x83627ab3;
+    sha->state[4] = 0x60217180;
+    sha->state[5] = 0x57358661;
+    sha->state[6] = 0x21a29e54;
+    sha->state[7] = 0x68b07b4c;
     sha->size = 64;
 
     hash.type = HASH_SHA256;
   } else {
-    schnorr_hash_init(&hash, ec->hash, "BIP340/nonce");
+    schnorr_hash_init(&hash, ec->hash, "BIP0340/nonce");
   }
 
   hash_update(&hash, secret, sc->size);
@@ -10557,19 +10556,19 @@ schnorr_hash_challenge(const wei_t *ec, sc_t e,
   if (ec->hash == HASH_SHA256) {
     sha256_t *sha = &hash.ctx.sha256;
 
-    sha->state[0] = 0x71985ac9;
-    sha->state[1] = 0x198317a2;
-    sha->state[2] = 0x60b6e581;
-    sha->state[3] = 0x54c109b6;
-    sha->state[4] = 0x64bac2fd;
-    sha->state[5] = 0x91231de2;
-    sha->state[6] = 0x7301ebde;
-    sha->state[7] = 0x87635f83;
+    sha->state[0] = 0x9cecba11;
+    sha->state[1] = 0x23925381;
+    sha->state[2] = 0x11679112;
+    sha->state[3] = 0xd1627e0f;
+    sha->state[4] = 0x97c87550;
+    sha->state[5] = 0x003cc765;
+    sha->state[6] = 0x90f61164;
+    sha->state[7] = 0x33e9b66a;
     sha->size = 64;
 
     hash.type = HASH_SHA256;
   } else {
-    schnorr_hash_init(&hash, ec->hash, "BIP340/challenge");
+    schnorr_hash_init(&hash, ec->hash, "BIP0340/challenge");
   }
 
   hash_update(&hash, R, fe->size);
@@ -10607,12 +10606,12 @@ schnorr_sign(const wei_t *ec,
    *   A = G * a
    *   a = -a mod n, if y(A) is not even
    *   x = x(A)
-   *   t = a xor H("BIP340/aux", d)
-   *   k = H("BIP340/nonce", t, x, m) mod n
+   *   t = a xor H("BIP0340/aux", d)
+   *   k = H("BIP0340/nonce", t, x, m) mod n
    *   R = G * k
-   *   k = -k mod n, if y(R) is not square
+   *   k = -k mod n, if y(R) is not even
    *   r = x(R)
-   *   e = H("BIP340/challenge", r, x, m) mod n
+   *   e = H("BIP0340/challenge", r, x, m) mod n
    *   s = (k + e * a) mod n
    *   S = (r, s)
    *
@@ -10647,7 +10646,7 @@ schnorr_sign(const wei_t *ec,
 
   wei_mul_g(ec, &R, k);
 
-  sc_neg_cond(sc, k, k, wge_is_square(ec, &R) ^ 1);
+  sc_neg_cond(sc, k, k, wge_is_even(ec, &R) ^ 1);
 
   ret &= wge_export_x(ec, Rraw, &R);
 
@@ -10688,7 +10687,7 @@ schnorr_verify(const wei_t *ec,
    *   - Let `m` be a 32-byte array.
    *   - Let `r` and `s` be signature elements.
    *   - Let `x` be a field element.
-   *   - r^3 + a * r + b is square in F(p).
+   *   - r^3 + a * r + b is even in F(p).
    *   - x^3 + a * x + b is even in F(p).
    *   - r < p, s < n, x < p.
    *   - R != O.
@@ -10697,25 +10696,16 @@ schnorr_verify(const wei_t *ec,
    *
    *   R = (r, sqrt(r^3 + a * r + b))
    *   A = (x, sqrt(x^3 + a * x + b))
-   *   e = H("BIP340/challenge", r, x, m) mod n
+   *   e = H("BIP0340/challenge", r, x, m) mod n
    *   R == G * s - A * e
    *
    * We can skip a square root with:
    *
    *   A = (x, sqrt(x^3 + a * x + b))
-   *   e = H("BIP340/challenge", r, x, m) mod n
+   *   e = H("BIP0340/challenge", r, x, m) mod n
    *   R = G * s - A * e
-   *   y(R) is square
+   *   y(R) is even
    *   x(R) == r
-   *
-   * We can also avoid affinization by
-   * replacing the two assertions with:
-   *
-   *   (y(R) * z(R) mod p) is square
-   *   x(R) == r * z(R)^2 mod p
-   *
-   * Furthermore, squareness can be calculated
-   * with a variable time Jacobi symbol algorithm.
    */
   const prime_field_t *fe = &ec->fe;
   const scalar_field_t *sc = &ec->sc;
@@ -10723,8 +10713,7 @@ schnorr_verify(const wei_t *ec,
   const unsigned char *sraw = sig + fe->size;
   fe_t r;
   sc_t s, e;
-  wge_t A;
-  jge_t R;
+  wge_t A, R;
 
   if (!fe_import(fe, r, Rraw))
     return 0;
@@ -10739,12 +10728,12 @@ schnorr_verify(const wei_t *ec,
 
   sc_neg(sc, e, e);
 
-  wei_jmul_double_var(ec, &R, s, &A, e);
+  wei_mul_double_var(ec, &R, s, &A, e);
 
-  if (!jge_is_square_var(ec, &R))
+  if (!wge_is_even(ec, &R))
     return 0;
 
-  if (!jge_equal_x(ec, &R, r))
+  if (!wge_equal_x(ec, &R, r))
     return 0;
 
   return 1;
@@ -10769,7 +10758,7 @@ schnorr_verify_batch(const wei_t *ec,
    *   - Let `r` and `s` be signature elements.
    *   - Let `x` be a field element.
    *   - Let `i` be the batch item index.
-   *   - r^3 + a * r + b is square in F(p).
+   *   - r^3 + a * r + b is even in F(p).
    *   - x^3 + a * x + b is even in F(p).
    *   - r < p, s < n, x < p.
    *   - a1 = 1 mod n.
@@ -10778,7 +10767,7 @@ schnorr_verify_batch(const wei_t *ec,
    *
    *   Ri = (ri, sqrt(ri^3 + a * ri + b))
    *   Ai = (xi, sqrt(xi^3 + a * xi + b))
-   *   ei = H("BIP340/challenge", ri, xi, mi) mod n
+   *   ei = H("BIP0340/challenge", ri, xi, mi) mod n
    *   ai = random integer in [1,n-1]
    *   lhs = si * ai + ... mod n
    *   rhs = Ri * ai + Ai * (ei * ai mod n) + ...
@@ -10839,7 +10828,7 @@ schnorr_verify_batch(const wei_t *ec,
     if (!sc_import(sc, s, sraw))
       return 0;
 
-    if (!wge_import_square(ec, &R, Rraw))
+    if (!wge_import_even(ec, &R, Rraw))
       return 0;
 
     if (!wge_import_even(ec, &A, pub))
