@@ -416,7 +416,7 @@ typedef struct wei_def_s {
   const endo_def_t *endo;
 } wei_def_t;
 
-struct wei_scratch_s {
+typedef struct wei_scratch_s {
   size_t size;
   jge_t *wnd;
   jge_t **wnds;
@@ -424,7 +424,7 @@ struct wei_scratch_s {
   int **nafs;
   wge_t *points;
   sc_t *coeffs;
-};
+} wei__scratch_t;
 
 /*
  * Montgomery
@@ -537,7 +537,7 @@ typedef struct edwards_def_s {
   const subgroup_def_t *torsion;
 } edwards_def_t;
 
-struct edwards_scratch_s {
+typedef struct edwards_scratch_s {
   size_t size;
   xge_t *wnd;
   xge_t **wnds;
@@ -545,7 +545,7 @@ struct edwards_scratch_s {
   int **nafs;
   xge_t *points;
   sc_t *coeffs;
-};
+} edwards__scratch_t;
 
 /*
  * Helpers
@@ -4219,7 +4219,7 @@ wei_jmul_multi_normal_var(const wei_t *ec,
                           const wge_t *points,
                           const sc_t *coeffs,
                           size_t len,
-                          struct wei_scratch_s *scratch) {
+                          wei__scratch_t *scratch) {
   /* Multiple point multiplication, also known
    * as "Shamir's trick" (with interleaved NAFs).
    *
@@ -4305,7 +4305,7 @@ wei_jmul_multi_endo_var(const wei_t *ec,
                         const wge_t *points,
                         const sc_t *coeffs,
                         size_t len,
-                        struct wei_scratch_s *scratch) {
+                        wei__scratch_t *scratch) {
   /* Multiple point multiplication, also known
    * as "Shamir's trick" (with interleaved NAFs).
    *
@@ -4383,7 +4383,7 @@ wei_jmul_multi_var(const wei_t *ec,
                    const wge_t *points,
                    const sc_t *coeffs,
                    size_t len,
-                   struct wei_scratch_s *scratch) {
+                   wei__scratch_t *scratch) {
   if (ec->endo)
     wei_jmul_multi_endo_var(ec, r, k0, points, coeffs, len, scratch);
   else
@@ -4397,7 +4397,7 @@ wei_mul_multi_var(const wei_t *ec,
                   const wge_t *points,
                   const sc_t *coeffs,
                   size_t len,
-                  struct wei_scratch_s *scratch) {
+                  wei__scratch_t *scratch) {
   jge_t j;
   wei_jmul_multi_var(ec, &j, k0, points, coeffs, len, scratch);
   jge_to_wge_var(ec, r, &j);
@@ -6810,7 +6810,7 @@ edwards_mul_multi_var(const edwards_t *ec,
                       const xge_t *points,
                       const sc_t *coeffs,
                       size_t len,
-                      struct edwards_scratch_s *scratch) {
+                      edwards__scratch_t *scratch) {
   /* Multiple point multiplication, also known
    * as "Shamir's trick" (with interleaved NAFs).
    *
@@ -8459,9 +8459,9 @@ wei_curve_field_bits(const wei_t *ec) {
   return ec->fe.bits;
 }
 
-struct wei_scratch_s *
+wei__scratch_t *
 wei_scratch_create(const wei_t *ec, size_t size) {
-  struct wei_scratch_s *scratch = checked_malloc(sizeof(struct wei_scratch_s));
+  wei__scratch_t *scratch = checked_malloc(sizeof(wei__scratch_t));
   size_t length = ec->endo ? size : size / 2;
   size_t bits = ec->endo ? ec->sc.endo_bits : ec->sc.bits;
   size_t i;
@@ -8484,7 +8484,7 @@ wei_scratch_create(const wei_t *ec, size_t size) {
 }
 
 void
-wei_scratch_destroy(const wei_t *ec, struct wei_scratch_s *scratch) {
+wei_scratch_destroy(const wei_t *ec, wei__scratch_t *scratch) {
   (void)ec;
 
   if (scratch != NULL) {
@@ -8594,10 +8594,9 @@ edwards_curve_field_bits(const edwards_t *ec) {
   return ec->fe.bits;
 }
 
-struct edwards_scratch_s *
+edwards__scratch_t *
 edwards_scratch_create(const edwards_t *ec, size_t size) {
-  struct edwards_scratch_s *scratch =
-    checked_malloc(sizeof(struct edwards_scratch_s));
+  edwards__scratch_t *scratch = checked_malloc(sizeof(edwards__scratch_t));
   size_t length = size / 2;
   size_t bits = ec->sc.bits;
   size_t i;
@@ -8620,8 +8619,7 @@ edwards_scratch_create(const edwards_t *ec, size_t size) {
 }
 
 void
-edwards_scratch_destroy(const edwards_t *ec,
-                        struct edwards_scratch_s *scratch) {
+edwards_scratch_destroy(const edwards_t *ec, edwards__scratch_t *scratch) {
   (void)ec;
 
   if (scratch != NULL) {
@@ -9907,7 +9905,7 @@ schnorr_legacy_verify_batch(const wei_t *ec,
                             const unsigned char *const *pubs,
                             const size_t *pub_lens,
                             size_t len,
-                            struct wei_scratch_s *scratch) {
+                            wei__scratch_t *scratch) {
   /* Schnorr Batch Verification.
    *
    * [SCHNORR] "Batch Verification".
@@ -10750,7 +10748,7 @@ schnorr_verify_batch(const wei_t *ec,
                      const unsigned char *const *sigs,
                      const unsigned char *const *pubs,
                      size_t len,
-                     struct wei_scratch_s *scratch) {
+                     wei__scratch_t *scratch) {
   /* Schnorr Batch Verification.
    *
    * [BIP340] "Batch Verification".
@@ -12177,7 +12175,7 @@ eddsa_verify_batch(const edwards_t *ec,
                    int ph,
                    const unsigned char *ctx,
                    size_t ctx_len,
-                   struct edwards_scratch_s *scratch) {
+                   edwards__scratch_t *scratch) {
   /* EdDSA Batch Verification.
    *
    * [EDDSA] Page 16, Section 5.
