@@ -9223,17 +9223,17 @@ ecdsa_reduce(const wei_t *ec, sc_t r,
   /* Note that the message length is not secret. */
   if (msg_len * 8 > sc->bits) {
     size_t shift = msg_len * 8 - sc->bits;
-    unsigned char mask = (1 << shift) - 1;
-    unsigned char cy = 0;
+    unsigned int mask = (1 << shift) - 1;
+    unsigned int cy = 0;
     size_t i;
 
     ASSERT(shift > 0);
     ASSERT(shift < 8);
 
     for (i = 0; i < sc->size; i++) {
-      unsigned char ch = tmp[i];
+      unsigned int ch = tmp[i];
 
-      tmp[i] = (cy << (8 - shift)) | (ch >> shift);
+      tmp[i] = ((cy << (8 - shift)) | (ch >> shift)) & 0xff;
       cy = ch & mask;
     }
   }

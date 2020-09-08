@@ -609,10 +609,10 @@ hkdf_expand(unsigned char *out,
             size_t len) {
   size_t hash_size = hash_output_size(type);
   unsigned char prev[HASH_MAX_OUTPUT_SIZE];
-  unsigned char ctr = 0;
   size_t prev_len = 0;
   hmac_t pmac, hmac;
   size_t i, blocks;
+  uint8_t ctr = 0;
 
   if (!hash_has_backend(type))
     return 0;
