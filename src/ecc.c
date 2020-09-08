@@ -1792,7 +1792,7 @@ scalar_field_init(scalar_field_t *sc, const scalar_def_t *def, int endian) {
   sc->endo_bits = (def->bits + 1) / 2 + 1;
   sc->shift = sc->limbs * 2 + 2;
 
-  /* Deserialize order into GMP limbs. */
+  /* Deserialize order into limbs. */
   mpn_import(sc->n, MAX_REDUCE_LIMBS, def->n, sc->size, 1);
 
   /* Keep a raw representation for byte comparisons. */
@@ -1868,7 +1868,7 @@ prime_field_init(prime_field_t *fe, const prime_def_t *def, int endian) {
   if ((fe->bits & 7) != 0)
     fe->mask = (1 << (fe->bits & 7)) - 1;
 
-  /* Deserialize prime into GMP limbs. */
+  /* Deserialize prime into limbs. */
   mpn_import(fe->p, MAX_REDUCE_LIMBS, def->p, fe->size, 1);
 
   /* Keep a raw representation for byte comparisons. */
