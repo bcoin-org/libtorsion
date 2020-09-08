@@ -376,7 +376,8 @@ bcrypt_pbkdf(unsigned char *key,
         out[j] ^= tmpout[j];
     }
 
-    amt = amt < keylen ? amt : keylen;
+    if (amt > keylen)
+      amt = keylen;
 
     for (i = 0; i < amt; i++) {
       dest = i * stride + (count - 1);
