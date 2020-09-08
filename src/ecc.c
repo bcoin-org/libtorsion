@@ -2592,7 +2592,7 @@ jge_zero(const wei_t *ec, jge_t *r) {
   fe_zero(fe, r->z);
 }
 
-TORSION_UNUSED static void
+static void
 jge_cleanse(const wei_t *ec, jge_t *r) {
   const prime_field_t *fe = &ec->fe;
 
