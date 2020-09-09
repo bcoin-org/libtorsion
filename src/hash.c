@@ -843,7 +843,6 @@ keccak_permute(keccak_t *ctx) {
     "pxor %%xmm9, %%xmm11\n"
 
     ".align 16\n"
-
     "1:\n"
 
     "pshufd $0x4e, %%xmm11, %%xmm11\n"
@@ -2557,8 +2556,8 @@ sha256_transform(sha256_t *ctx, const unsigned char *chunk) {
     "movl 24(%%rdi), %%r11d\n"
     "movl 28(%%rdi), %%r12d\n"
     "xorq %%r14, %%r14\n"
-    ".align 16\n"
 
+    ".align 16\n"
     "1:\n"
 
     "movl (%%rsi, %%r14, 4), %%r15d\n"
@@ -4027,8 +4026,8 @@ sha512_transform(sha512_t *ctx, const unsigned char *chunk) {
     "movq 48(%%rdi), %%r11\n"
     "movq 56(%%rdi), %%r12\n"
     "xorq %%r14, %%r14\n"
-    ".align 16\n"
 
+    ".align 16\n"
     "1:\n"
 
     "movq (%%rsi, %%r14, 8), %%r15\n"
