@@ -1266,7 +1266,10 @@ sc_random(const scalar_field_t *sc, sc_t k, drbg_t *rng) {
 
 static void
 fe_zero(const prime_field_t *fe, fe_t r) {
-  memset(r, 0, fe->words * sizeof(fe_word_t));
+  size_t i = fe->words;
+
+  while (i--)
+    r[i] = 0;
 }
 
 static void
