@@ -1785,7 +1785,7 @@ fe_random(const prime_field_t *fe, fe_t x, drbg_t *rng) {
 static void
 scalar_field_init(scalar_field_t *sc, const scalar_def_t *def, int endian) {
   /* Scalar field using Barrett reduction. */
-  memset(sc, 0, sizeof(scalar_field_t));
+  memset(sc, 0, sizeof(*sc));
 
   /* Field constants. */
   sc->endian = endian;
@@ -1856,7 +1856,7 @@ scalar_field_init(scalar_field_t *sc, const scalar_def_t *def, int endian) {
 static void
 prime_field_init(prime_field_t *fe, const prime_def_t *def, int endian) {
   /* Prime field using a fiat backend. */
-  memset(fe, 0, sizeof(prime_field_t));
+  memset(fe, 0, sizeof(*fe));
 
   /* Field constants. */
   fe->endian = endian;
@@ -3668,7 +3668,7 @@ wei_init(wei_t *ec, const wei_def_t *def) {
   unsigned int i;
   fe_t m3;
 
-  memset(ec, 0, sizeof(wei_t));
+  memset(ec, 0, sizeof(*ec));
 
   ec->hash = def->hash;
   ec->h = def->h;
@@ -5502,7 +5502,7 @@ mont_init(mont_t *ec, const mont_def_t *def) {
   scalar_field_t *sc = &ec->sc;
   unsigned int i;
 
-  memset(ec, 0, sizeof(mont_t));
+  memset(ec, 0, sizeof(*ec));
 
   ec->h = def->h;
 
@@ -6505,7 +6505,7 @@ edwards_init(edwards_t *ec, const edwards_def_t *def) {
   scalar_field_t *sc = &ec->sc;
   unsigned int i;
 
-  memset(ec, 0, sizeof(edwards_t));
+  memset(ec, 0, sizeof(*ec));
 
   ec->hash = def->hash;
   ec->context = def->context;

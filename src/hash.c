@@ -82,7 +82,7 @@ blake2b_init(blake2b_t *ctx,
   CHECK(outlen >= 1 && outlen <= 64);
   CHECK(keylen <= 64);
 
-  memset(ctx, 0, sizeof(blake2b_t));
+  memset(ctx, 0, sizeof(*ctx));
 
   ctx->outlen = outlen;
 
@@ -286,7 +286,7 @@ blake2s_init(blake2s_t *ctx,
   CHECK(outlen >= 1 && outlen <= 32);
   CHECK(keylen <= 32);
 
-  memset(ctx, 0, sizeof(blake2s_t));
+  memset(ctx, 0, sizeof(*ctx));
 
   ctx->outlen = outlen;
 
@@ -624,7 +624,7 @@ gost94_sum(gost94_t *ctx, const uint8_t m[32]) {
 
 void
 gost94_init(gost94_t *ctx) {
-  memset(ctx, 0, sizeof(gost94_t));
+  memset(ctx, 0, sizeof(*ctx));
 }
 
 static void
@@ -1436,7 +1436,7 @@ static const uint8_t md2_S[256] = {
 
 void
 md2_init(md2_t *ctx) {
-  memset(ctx, 0, sizeof(md2_t));
+  memset(ctx, 0, sizeof(*ctx));
 }
 
 static void
@@ -6464,7 +6464,7 @@ static const unsigned char whirlpool_P[64] = {
 
 void
 whirlpool_init(whirlpool_t *ctx) {
-  memset(ctx, 0, sizeof(whirlpool_t));
+  memset(ctx, 0, sizeof(*ctx));
 }
 
 static void
