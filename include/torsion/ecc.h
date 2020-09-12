@@ -87,7 +87,6 @@ extern "C" {
 #define schnorr_legacy_verify torsion_schnorr_legacy_verify
 #define schnorr_legacy_verify_batch torsion_schnorr_legacy_verify_batch
 
-#define schnorr_support torsion_schnorr_support
 #define schnorr_privkey_size torsion_schnorr_privkey_size
 #define schnorr_pubkey_size torsion_schnorr_pubkey_size
 #define schnorr_sig_size torsion_schnorr_sig_size
@@ -633,9 +632,6 @@ schnorr_legacy_verify_batch(const wei_curve_t *ec,
 /*
  * Schnorr
  */
-
-TORSION_EXTERN int
-schnorr_support(const wei_curve_t *ec);
 
 TORSION_EXTERN size_t
 schnorr_privkey_size(const wei_curve_t *ec);

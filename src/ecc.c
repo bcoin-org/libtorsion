@@ -10076,38 +10076,6 @@ schnorr_legacy_verify_batch(const wei_t *ec,
  * Schnorr
  */
 
-int
-schnorr_support(const wei_t *ec) {
-  /* Legacy function from earlier drafts which
-   * relied on the square root formula of:
-   *
-   *   x^((p + 1) / 4) mod p
-   *
-   * This required the prime to be congruent
-   * to 3 mod 4. Computing a square root with
-   * no sign adjustment using this formula
-   * always results in a quadratic residue.
-   *
-   * Earlier iterations of BIP-340 relied on
-   * this assumption for pubkey encoding as
-   * well as the encoding of the signature's
-   * R value[1].
-   *
-   * The latest draft now uses evenness as
-   * the tiebreaker instead of quadratic
-   * residuosity[2][3]. In order to maintain
-   * ABI compatibility, this function was
-   * not removed and modified to return true
-   * unconditionally.
-   *
-   * [1] [SCHNORR] "Footnotes".
-   * [2] https://github.com/sipa/bips/pull/192
-   * [3] https://github.com/sipa/bips/pull/210
-   */
-  (void)ec;
-  return 1;
-}
-
 size_t
 schnorr_privkey_size(const wei_t *ec) {
   return ec->sc.size;
