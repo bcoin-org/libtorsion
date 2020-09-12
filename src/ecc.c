@@ -1314,12 +1314,10 @@ fe_import_be(const prime_field_t *fe, fe_t r, const unsigned char *raw) {
 }
 
 static int
-fe_import_wide(const prime_field_t *fe,
-               fe_t r,
-               const unsigned char *raw,
-               size_t len) {
+fe_import_wide(const prime_field_t *fe, fe_t r,
+               const unsigned char *raw, size_t len) {
   unsigned char tmp[MAX_FIELD_SIZE];
-  int ret = 1;
+  int ret;
 
   if (fe->endian == 1) {
     while (len > 0 && raw[0] == 0x00) {
@@ -1327,9 +1325,10 @@ fe_import_wide(const prime_field_t *fe,
       raw += 1;
     }
 
-    ret &= (len <= fe->size);
-
-    len *= ret;
+    if (len > fe->size) {
+      fe_zero(fe, r);
+      return 0;
+    }
 
     memset(tmp, 0x00, fe->size - len);
 
@@ -1339,9 +1338,10 @@ fe_import_wide(const prime_field_t *fe,
     while (len > 0 && raw[len - 1] == 0x00)
       len -= 1;
 
-    ret &= (len <= fe->size);
-
-    len *= ret;
+    if (len > fe->size) {
+      fe_zero(fe, r);
+      return 0;
+    }
 
     if (len > 0)
       memcpy(tmp, raw, len);
@@ -1351,7 +1351,7 @@ fe_import_wide(const prime_field_t *fe,
     torsion_abort(); /* LCOV_EXCL_LINE */
   }
 
-  ret &= fe_import(fe, r, tmp);
+  ret = fe_import(fe, r, tmp);
 
   cleanse(tmp, fe->size);
 
@@ -8706,12 +8706,13 @@ ecdsa_privkey_generate(const wei_t *ec,
                        const unsigned char *entropy) {
   const scalar_field_t *sc = &ec->sc;
   drbg_t rng;
+  sc_t a;
 
   drbg_init(&rng, HASH_SHA256, entropy, ENTROPY_SIZE);
 
-  do {
-    drbg_generate(&rng, out, sc->size);
-  } while (!ecdsa_privkey_verify(ec, out));
+  sc_random(sc, a, &rng);
+  sc_export(sc, out, a);
+  sc_cleanse(sc, a);
 
   cleanse(&rng, sizeof(rng));
 }
@@ -8720,9 +8721,12 @@ int
 ecdsa_privkey_verify(const wei_t *ec, const unsigned char *priv) {
   const scalar_field_t *sc = &ec->sc;
   int ret = 1;
+  sc_t a;
 
-  ret &= bytes_zero(priv, sc->size) ^ 1;
-  ret &= bytes_lt(priv, sc->raw, sc->size, sc->endian);
+  ret &= sc_import(sc, a, priv);
+  ret &= sc_is_zero(sc, a) ^ 1;
+
+  sc_cleanse(sc, a);
 
   return ret;
 }
@@ -8733,12 +8737,13 @@ ecdsa_privkey_export(const wei_t *ec,
                      const unsigned char *priv) {
   const scalar_field_t *sc = &ec->sc;
   int ret = 1;
-  size_t i;
+  sc_t a;
 
-  ret &= ecdsa_privkey_verify(ec, priv);
+  ret &= sc_import(sc, a, priv);
+  ret &= sc_is_zero(sc, a) ^ 1;
 
-  for (i = 0; i < sc->size; i++)
-    out[i] = priv[i];
+  sc_export(sc, out, a);
+  sc_cleanse(sc, a);
 
   return ret;
 }
@@ -8751,24 +8756,28 @@ ecdsa_privkey_import(const wei_t *ec,
   const scalar_field_t *sc = &ec->sc;
   unsigned char key[MAX_SCALAR_SIZE];
   int ret = 1;
+  sc_t a;
 
   while (len > 0 && bytes[0] == 0x00) {
     len -= 1;
     bytes += 1;
   }
 
-  ret &= (len <= sc->size);
-
-  len *= ret;
+  if (len > sc->size) {
+    memset(out, 0x00, sc->size);
+    return 0;
+  }
 
   memset(key, 0x00, sc->size - len);
 
   if (len > 0)
     memcpy(key + sc->size - len, bytes, len);
 
-  ret &= ecdsa_privkey_verify(ec, key);
+  ret &= sc_import(sc, a, key);
+  ret &= sc_is_zero(sc, a) ^ 1;
 
-  memcpy(out, key, sc->size);
+  sc_export(sc, out, a);
+  sc_cleanse(sc, a);
 
   cleanse(key, sc->size);
 
@@ -10976,14 +10985,14 @@ ecdh_privkey_import(const mont_t *ec,
                     size_t len) {
   const scalar_field_t *sc = &ec->sc;
   unsigned char key[MAX_SCALAR_SIZE];
-  int ret = 1;
 
   while (len > 0 && bytes[len - 1] == 0x00)
     len -= 1;
 
-  ret &= (len <= sc->size);
-
-  len *= ret;
+  if (len > sc->size) {
+    memset(out, 0x00, sc->size);
+    return 0;
+  }
 
   if (len > 0)
     memcpy(key, bytes, len);
@@ -10993,7 +11002,7 @@ ecdh_privkey_import(const mont_t *ec,
 
   cleanse(key, sc->size);
 
-  return ret;
+  return 1;
 }
 
 void
