@@ -731,7 +731,9 @@ TORSION_EXTERN int
 schnorr_pubkey_import(const wei_curve_t *ec,
                       unsigned char *out,
                       const unsigned char *x_raw,
-                      size_t x_len);
+                      size_t x_len,
+                      const unsigned char *y_raw,
+                      size_t y_len);
 
 TORSION_EXTERN int
 schnorr_pubkey_tweak_add(const wei_curve_t *ec,
@@ -869,7 +871,9 @@ TORSION_EXTERN int
 ecdh_pubkey_import(const mont_curve_t *ec,
                    unsigned char *out,
                    const unsigned char *x_raw,
-                   size_t x_len);
+                   size_t x_len,
+                   const unsigned char *y_raw,
+                   size_t y_len);
 
 TORSION_EXTERN int
 ecdh_pubkey_is_small(const mont_curve_t *ec, const unsigned char *pub);

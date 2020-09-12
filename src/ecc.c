@@ -5014,7 +5014,7 @@ mge_set_x(const mont_t *ec, mge_t *r, const fe_t x, int sign) {
   return ret;
 }
 
-TORSION_UNUSED static int
+static int
 mge_set_xy(const mont_t *ec, mge_t *r, const fe_t x, const fe_t y) {
   const prime_field_t *fe = &ec->fe;
   int ret = mont_validate_xy(ec, x, y);
@@ -10331,16 +10331,25 @@ int
 schnorr_pubkey_import(const wei_t *ec,
                       unsigned char *out,
                       const unsigned char *x_raw,
-                      size_t x_len) {
+                      size_t x_len,
+                      const unsigned char *y_raw,
+                      size_t y_len) {
   const prime_field_t *fe = &ec->fe;
   int has_x = (x_len > 0);
-  fe_t x;
-  wge_t A;
+  int has_y = (y_len > 0);
   int ret = 1;
+  fe_t x, y;
+  wge_t A;
 
   ret &= has_x;
   ret &= fe_import_wide(fe, x, x_raw, x_len);
-  ret &= wge_set_x(ec, &A, x, 0);
+  ret &= fe_import_wide(fe, y, y_raw, y_len);
+
+  if (has_x && has_y)
+    ret &= wge_set_xy(ec, &A, x, y);
+  else
+    ret &= wge_set_x(ec, &A, x, -1);
+
   ret &= wge_export_x(ec, out, &A);
 
   return ret;
@@ -11177,17 +11186,26 @@ int
 ecdh_pubkey_import(const mont_t *ec,
                    unsigned char *out,
                    const unsigned char *x_raw,
-                   size_t x_len) {
+                   size_t x_len,
+                   const unsigned char *y_raw,
+                   size_t y_len) {
   const prime_field_t *fe = &ec->fe;
   int has_x = (x_len > 0);
-  fe_t x;
-  pge_t A;
+  int has_y = (y_len > 0);
   int ret = 1;
+  fe_t x, y;
+  mge_t A;
 
   ret &= has_x;
   ret &= fe_import_wide(fe, x, x_raw, x_len);
-  ret &= pge_set_x(ec, &A, x);
-  ret &= pge_export(ec, out, &A);
+  ret &= fe_import_wide(fe, y, y_raw, y_len);
+
+  if (has_x && has_y)
+    ret &= mge_set_xy(ec, &A, x, y);
+  else
+    ret &= mge_set_x(ec, &A, x, -1);
+
+  ret &= mge_export(ec, out, &A);
 
   return ret;
 }
