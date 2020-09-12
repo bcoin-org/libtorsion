@@ -1296,12 +1296,7 @@ test_schnorr_random(drbg_t *rng) {
 
   for (i = 0; i < ARRAY_SIZE(wei_curves); i++) {
     const char *id = wei_curves[i];
-    wei_curve_t *ec;
-
-    if (i == WEI_CURVE_P224)
-      continue;
-
-    ec = wei_curve_create(i);
+    wei_curve_t *ec = wei_curve_create(i);
 
     printf("  - %s\n", id);
 
