@@ -10515,7 +10515,10 @@ schnorr_hash_nonce(const wei_t *ec, sc_t k,
 
   STATIC_ASSERT(MAX_SCALAR_SIZE >= HASH_MAX_OUTPUT_SIZE);
 
-  schnorr_hash_aux(ec, secret, scalar, aux);
+  if (aux != NULL)
+    schnorr_hash_aux(ec, secret, scalar, aux);
+  else
+    memcpy(secret, scalar, sc->size);
 
   if (sc->size > hash_size) {
     off = sc->size - hash_size;
