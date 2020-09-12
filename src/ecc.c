@@ -1314,8 +1314,8 @@ fe_import_be(const prime_field_t *fe, fe_t r, const unsigned char *raw) {
 }
 
 static int
-fe_import_wide(const prime_field_t *fe, fe_t r,
-               const unsigned char *raw, size_t len) {
+fe_import_pad(const prime_field_t *fe, fe_t r,
+              const unsigned char *raw, size_t len) {
   unsigned char tmp[MAX_FIELD_SIZE];
   int ret;
 
@@ -9038,8 +9038,8 @@ ecdsa_pubkey_import(const wei_t *ec,
   wge_t A;
 
   ret &= has_x;
-  ret &= fe_import_wide(fe, x, x_raw, x_len);
-  ret &= fe_import_wide(fe, y, y_raw, y_len);
+  ret &= fe_import_pad(fe, x, x_raw, x_len);
+  ret &= fe_import_pad(fe, y, y_raw, y_len);
 
   if (has_x && has_y)
     ret &= wge_set_xy(ec, &A, x, y);
@@ -10319,8 +10319,8 @@ schnorr_pubkey_import(const wei_t *ec,
   wge_t A;
 
   ret &= has_x;
-  ret &= fe_import_wide(fe, x, x_raw, x_len);
-  ret &= fe_import_wide(fe, y, y_raw, y_len);
+  ret &= fe_import_pad(fe, x, x_raw, x_len);
+  ret &= fe_import_pad(fe, y, y_raw, y_len);
 
   if (has_x && has_y)
     ret &= wge_set_xy(ec, &A, x, y);
@@ -11177,8 +11177,8 @@ ecdh_pubkey_import(const mont_t *ec,
   mge_t A;
 
   ret &= has_x;
-  ret &= fe_import_wide(fe, x, x_raw, x_len);
-  ret &= fe_import_wide(fe, y, y_raw, y_len);
+  ret &= fe_import_pad(fe, x, x_raw, x_len);
+  ret &= fe_import_pad(fe, y, y_raw, y_len);
 
   if (has_x && has_y)
     ret &= mge_set_xy(ec, &A, x, y);
@@ -11644,8 +11644,8 @@ eddsa_pubkey_import(const edwards_t *ec,
   int ret = 1;
 
   ret &= has_x | has_y;
-  ret &= fe_import_wide(fe, x, x_raw, x_len);
-  ret &= fe_import_wide(fe, y, y_raw, y_len);
+  ret &= fe_import_pad(fe, x, x_raw, x_len);
+  ret &= fe_import_pad(fe, y, y_raw, y_len);
 
   if (has_x && has_y)
     ret &= xge_set_xy(ec, &A, x, y);
