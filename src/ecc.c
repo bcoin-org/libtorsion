@@ -11363,15 +11363,20 @@ eddsa_privkey_import(const edwards_t *ec,
                      const unsigned char *bytes,
                      size_t len) {
   const prime_field_t *fe = &ec->fe;
+  unsigned char key[MAX_FIELD_SIZE + 1];
   int ret = 1;
-  size_t i;
 
   ret &= (len == fe->adj_size);
 
   len *= ret;
 
-  for (i = 0; i < len; i++)
-    out[i] = bytes[i];
+  if (len > 0)
+    memcpy(key, bytes, len);
+
+  memset(key + len, 0x00, fe->adj_size - len);
+  memcpy(out, key, fe->adj_size);
+
+  cleanse(key, fe->adj_size);
 
   return ret;
 }
