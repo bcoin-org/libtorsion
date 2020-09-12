@@ -1313,6 +1313,51 @@ fe_import_be(const prime_field_t *fe, fe_t r, const unsigned char *raw) {
   return fe_import(fe, r, raw);
 }
 
+static int
+fe_import_wide(const prime_field_t *fe,
+               fe_t r,
+               const unsigned char *raw,
+               size_t len) {
+  unsigned char tmp[MAX_FIELD_SIZE];
+  int ret = 1;
+
+  if (fe->endian == 1) {
+    while (len > 0 && raw[0] == 0x00) {
+      len -= 1;
+      raw += 1;
+    }
+
+    ret &= (len <= fe->size);
+
+    len *= ret;
+
+    memset(tmp, 0x00, fe->size - len);
+
+    if (len > 0)
+      memcpy(tmp + fe->size - len, raw, len);
+  } else if (fe->endian == -1) {
+    while (len > 0 && raw[len - 1] == 0x00)
+      len -= 1;
+
+    ret &= (len <= fe->size);
+
+    len *= ret;
+
+    if (len > 0)
+      memcpy(tmp, raw, len);
+
+    memset(tmp + len, 0x00, fe->size - len);
+  } else {
+    torsion_abort(); /* LCOV_EXCL_LINE */
+  }
+
+  ret &= fe_import(fe, r, tmp);
+
+  cleanse(tmp, fe->size);
+
+  return ret;
+}
+
 static void
 fe_export(const prime_field_t *fe, unsigned char *raw, const fe_t a) {
   if (fe->from_montgomery) {
@@ -8977,43 +9022,15 @@ ecdsa_pubkey_import(const wei_t *ec,
                     int sign,
                     int compact) {
   const prime_field_t *fe = &ec->fe;
-  unsigned char xp[MAX_FIELD_SIZE];
-  unsigned char yp[MAX_FIELD_SIZE];
   int has_x = (x_len > 0);
   int has_y = (y_len > 0);
   int ret = 1;
   fe_t x, y;
   wge_t A;
 
-  while (x_len > 0 && x_raw[0] == 0x00) {
-    x_len -= 1;
-    x_raw += 1;
-  }
-
-  while (y_len > 0 && y_raw[0] == 0x00) {
-    y_len -= 1;
-    y_raw += 1;
-  }
-
-  ret &= (x_len <= fe->size);
-  ret &= (y_len <= fe->size);
-
-  x_len *= ret;
-  y_len *= ret;
-
-  memset(xp, 0x00, fe->size - x_len);
-
-  if (x_len > 0)
-    memcpy(xp + fe->size - x_len, x_raw, x_len);
-
-  memset(yp, 0x00, fe->size - y_len);
-
-  if (y_len > 0)
-    memcpy(yp + fe->size - y_len, y_raw, y_len);
-
   ret &= has_x;
-  ret &= fe_import(fe, x, xp);
-  ret &= fe_import(fe, y, yp);
+  ret &= fe_import_wide(fe, x, x_raw, x_len);
+  ret &= fe_import_wide(fe, y, y_raw, y_len);
 
   if (has_x && has_y)
     ret &= wge_set_xy(ec, &A, x, y);
@@ -10316,27 +10333,14 @@ schnorr_pubkey_import(const wei_t *ec,
                       const unsigned char *x_raw,
                       size_t x_len) {
   const prime_field_t *fe = &ec->fe;
-  unsigned char xp[MAX_FIELD_SIZE];
   int has_x = (x_len > 0);
+  fe_t x;
   wge_t A;
   int ret = 1;
 
-  while (x_len > 0 && x_raw[0] == 0x00) {
-    x_len -= 1;
-    x_raw += 1;
-  }
-
-  ret &= (x_len <= fe->size);
-
-  x_len *= ret;
-
-  memset(xp, 0x00, fe->size - x_len);
-
-  if (x_len > 0)
-    memcpy(xp + fe->size - x_len, x_raw, x_len);
-
   ret &= has_x;
-  ret &= wge_import_even(ec, &A, xp);
+  ret &= fe_import_wide(fe, x, x_raw, x_len);
+  ret &= wge_set_x(ec, &A, x, 0);
   ret &= wge_export_x(ec, out, &A);
 
   return ret;
@@ -11175,25 +11179,14 @@ ecdh_pubkey_import(const mont_t *ec,
                    const unsigned char *x_raw,
                    size_t x_len) {
   const prime_field_t *fe = &ec->fe;
-  unsigned char xp[MAX_FIELD_SIZE];
   int has_x = (x_len > 0);
+  fe_t x;
   pge_t A;
   int ret = 1;
 
-  while (x_len > 0 && x_raw[x_len - 1] == 0x00)
-    x_len -= 1;
-
-  ret &= (x_len <= fe->size);
-
-  x_len *= ret;
-
-  if (x_len > 0)
-    memcpy(xp, x_raw, x_len);
-
-  memset(xp + x_len, 0x00, fe->size - x_len);
-
   ret &= has_x;
-  ret &= pge_import(ec, &A, xp);
+  ret &= fe_import_wide(fe, x, x_raw, x_len);
+  ret &= pge_set_x(ec, &A, x);
   ret &= pge_export(ec, out, &A);
 
   return ret;
@@ -11646,39 +11639,15 @@ eddsa_pubkey_import(const edwards_t *ec,
                     size_t y_len,
                     int sign) {
   const prime_field_t *fe = &ec->fe;
-  unsigned char xp[MAX_FIELD_SIZE];
-  unsigned char yp[MAX_FIELD_SIZE];
   int has_x = (x_len > 0);
   int has_y = (y_len > 0);
   fe_t x, y;
   xge_t A;
   int ret = 1;
 
-  while (x_len > 0 && x_raw[x_len - 1] == 0x00)
-    x_len -= 1;
-
-  while (y_len > 0 && y_raw[y_len - 1] == 0x00)
-    y_len -= 1;
-
-  ret &= (x_len <= fe->size);
-  ret &= (y_len <= fe->size);
-
-  x_len *= ret;
-  y_len *= ret;
-
-  if (x_len > 0)
-    memcpy(xp, x_raw, x_len);
-
-  memset(xp + x_len, 0x00, fe->size - x_len);
-
-  if (y_len > 0)
-    memcpy(yp, y_raw, y_len);
-
-  memset(yp + y_len, 0x00, fe->size - y_len);
-
   ret &= has_x | has_y;
-  ret &= fe_import(fe, x, xp);
-  ret &= fe_import(fe, y, yp);
+  ret &= fe_import_wide(fe, x, x_raw, x_len);
+  ret &= fe_import_wide(fe, y, y_raw, y_len);
 
   if (has_x && has_y)
     ret &= xge_set_xy(ec, &A, x, y);
