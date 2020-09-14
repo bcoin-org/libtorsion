@@ -2735,7 +2735,6 @@ jge_equal(const wei_t *ec, const jge_t *a, const jge_t *b) {
 TORSION_UNUSED static int
 jge_is_square(const wei_t *ec, const jge_t *p) {
   /* [SCHNORR] "Optimizations". */
-  /* [BIP340] "Optimizations". */
   const prime_field_t *fe = &ec->fe;
   fe_t yz;
 
@@ -2748,7 +2747,6 @@ jge_is_square(const wei_t *ec, const jge_t *p) {
 static int
 jge_is_square_var(const wei_t *ec, const jge_t *p) {
   /* [SCHNORR] "Optimizations". */
-  /* [BIP340] "Optimizations". */
   const prime_field_t *fe = &ec->fe;
   fe_t yz;
 
@@ -2763,7 +2761,6 @@ jge_is_square_var(const wei_t *ec, const jge_t *p) {
 static int
 jge_equal_x(const wei_t *ec, const jge_t *p, const fe_t x) {
   /* [SCHNORR] "Optimizations". */
-  /* [BIP340] "Optimizations". */
   const prime_field_t *fe = &ec->fe;
   fe_t xz;
 
