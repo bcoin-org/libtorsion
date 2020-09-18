@@ -1034,7 +1034,7 @@ static int
 sc_invert(const scalar_field_t *sc, sc_t r, const sc_t a) {
   int ret = sc_is_zero(sc, a) ^ 1;
 
-  if (sc->invert) {
+  if (sc->invert != NULL) {
     /* Fast inversion chain. */
     sc->invert(sc, r, a);
   } else {
@@ -1313,7 +1313,7 @@ fe_import(const prime_field_t *fe, fe_t r, const unsigned char *raw) {
   fe->from_bytes(r, tmp);
 
   /* Montgomerize/carry. */
-  if (fe->to_montgomery)
+  if (fe->to_montgomery != NULL)
     fe->to_montgomery(r, r);
   else
     fe->carry(r, r);
@@ -1380,7 +1380,7 @@ fe_import_pad(const prime_field_t *fe, fe_t r,
 
 static void
 fe_export(const prime_field_t *fe, unsigned char *raw, const fe_t a) {
-  if (fe->from_montgomery) {
+  if (fe->from_montgomery != NULL) {
     fe_t b;
 
     /* Demontgomerize. */
@@ -1495,7 +1495,7 @@ fe_set_sc(const prime_field_t *fe,
 
 static void
 fe_set_word(const prime_field_t *fe, fe_t r, uint32_t word) {
-  if (fe->from_montgomery) {
+  if (fe->from_montgomery != NULL) {
     unsigned char tmp[MAX_FIELD_SIZE];
 
     memset(tmp, 0x00, fe->size);
@@ -1527,7 +1527,7 @@ static int
 fe_is_zero(const prime_field_t *fe, const fe_t a) {
   fe_word_t z = 0;
 
-  if (fe->nonzero) {
+  if (fe->nonzero != NULL) {
     fe->nonzero(&z, a);
 
     z = (z >> 1) | (z & 1);
@@ -1549,7 +1549,7 @@ fe_equal(const prime_field_t *fe, const fe_t a, const fe_t b) {
   fe_word_t z = 0;
   size_t i;
 
-  if (fe->from_montgomery) {
+  if (fe->from_montgomery != NULL) {
     for (i = 0; i < fe->words; i++)
       z |= a[i] ^ b[i];
 
@@ -1572,7 +1572,7 @@ static int
 fe_is_odd(const prime_field_t *fe, const fe_t a) {
   int sign;
 
-  if (fe->from_montgomery) {
+  if (fe->from_montgomery != NULL) {
     fe_t tmp;
 
     fe->from_montgomery(tmp, a);
@@ -1593,7 +1593,7 @@ static void
 fe_neg(const prime_field_t *fe, fe_t r, const fe_t a) {
   fe->opp(r, a);
 
-  if (fe->carry)
+  if (fe->carry != NULL)
     fe->carry(r, r);
 }
 
@@ -1613,7 +1613,7 @@ static void
 fe_add(const prime_field_t *fe, fe_t r, const fe_t a, const fe_t b) {
   fe->add(r, a, b);
 
-  if (fe->carry)
+  if (fe->carry != NULL)
     fe->carry(r, r);
 }
 
@@ -1621,7 +1621,7 @@ static void
 fe_sub(const prime_field_t *fe, fe_t r, const fe_t a, const fe_t b) {
   fe->sub(r, a, b);
 
-  if (fe->carry)
+  if (fe->carry != NULL)
     fe->carry(r, r);
 }
 
@@ -1710,7 +1710,7 @@ static int
 fe_invert(const prime_field_t *fe, fe_t r, const fe_t a) {
   int ret = fe_is_zero(fe, a) ^ 1;
 
-  if (fe->invert) {
+  if (fe->invert != NULL) {
     /* Fast inversion chain. */
     fe->invert(r, a);
   } else {
@@ -1730,7 +1730,7 @@ static int
 fe_sqrt(const prime_field_t *fe, fe_t r, const fe_t a) {
   int ret;
 
-  if (fe->sqrt) {
+  if (fe->sqrt != NULL) {
     /* Fast square root chain. */
     ret = fe->sqrt(r, a);
   } else {
@@ -1789,7 +1789,7 @@ static int
 fe_is_square(const prime_field_t *fe, const fe_t a) {
   int ret;
 
-  if (fe->sqrt && fe->bits != 224) {
+  if (fe->sqrt != NULL && fe->bits != 224) {
     /* Fast square root chain. */
     fe_t tmp;
     ret = fe->sqrt(tmp, a);
@@ -1821,7 +1821,7 @@ static int
 fe_isqrt(const prime_field_t *fe, fe_t r, const fe_t u, const fe_t v) {
   int ret = 1;
 
-  if (fe->isqrt) {
+  if (fe->isqrt != NULL) {
     /* Fast inverse square root chain. */
     ret &= fe->isqrt(r, u, v);
   } else {
@@ -3814,7 +3814,7 @@ wei_init(wei_t *ec, const wei_def_t *def) {
     ec->torsion[i].inf = def->torsion[i].inf;
   }
 
-  if (def->endo) {
+  if (def->endo != NULL) {
     ec->endo = 1;
 
     fe_import(fe, ec->beta, def->endo->beta);
@@ -5748,7 +5748,7 @@ static void
 mont_mul_a24(const mont_t *ec, fe_t r, const fe_t a) {
   const prime_field_t *fe = &ec->fe;
 
-  if (fe->scmul_121666)
+  if (fe->scmul_121666 != NULL)
     fe->scmul_121666(r, a);
   else
     fe_mul(fe, r, a, ec->a24);
@@ -9557,7 +9557,7 @@ ecdsa_sign_internal(const wei_t *ec,
     ok &= wge_is_zero(ec, &R) ^ 1;
     ok &= sc_is_zero(sc, r) ^ 1;
 
-    if (redefine)
+    if (redefine != NULL)
       redefine(&ok, sizeof(ok));
   } while (UNLIKELY(!ok));
 
@@ -9898,8 +9898,8 @@ schnorr_legacy_sign(const wei_t *ec,
   unsigned char *sraw = sig + fe->size;
   unsigned char Araw[MAX_FIELD_SIZE + 1];
   sc_t a, k, e, s;
-  int ret = 1;
   wge_t A, R;
+  int ret = 1;
 
   ret &= sc_import(sc, a, priv);
   ret &= sc_is_zero(sc, a) ^ 1;
