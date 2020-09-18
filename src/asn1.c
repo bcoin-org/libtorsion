@@ -412,8 +412,10 @@ size_t
 asn1_write_dumb(unsigned char *data, size_t pos, const mpz_t n) {
   size_t size = mpz_bytelen(n);
 
+  CHECK(size <= 0xffff);
+
   data[pos++] = size >> 8;
-  data[pos++] = size;
+  data[pos++] = size & 0xff;
 
   mpz_export(data + pos, n, size, 1);
 
