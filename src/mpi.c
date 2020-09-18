@@ -685,102 +685,102 @@ mpn_cmp4(mp_srcptr ap, mp_size_t an, mp_srcptr bp, mp_size_t bn) {
  *   %rdx = vp (r8)
  *   %rcx = n (r9)
  */
-#define AORS_N(ADCSBB)                      \
-  __asm__ __volatile__(                     \
-    "movl $0, %%eax\n"                      \
-    "testl %%ecx, %%ecx\n"                  \
-    "jle 7f\n" /* exit */                   \
-                                            \
-    "movl %%ecx, %%eax\n"                   \
-    "shrq $2, %%rcx\n"                      \
-    "andl $3, %%eax\n"                      \
-    "jrcxz 1f\n" /* lt4 */                  \
-                                            \
-    "movq (%%rsi), %%r8\n"                  \
-    "movq 8(%%rsi), %%r9\n"                 \
-    "decq %%rcx\n"                          \
-    "jmp 5f\n" /* mid */                    \
-                                            \
-    "1:\n" /* lt4 */                        \
-    "decl %%eax\n"                          \
-    "movq (%%rsi), %%r8\n"                  \
-    "jnz 2f\n" /* 2 */                      \
-    ADCSBB " (%%rdx), %%r8\n"               \
-    "movq %%r8, (%%rdi)\n"                  \
-    "adcl %%eax, %%eax\n"                   \
-    "jmp 7f\n" /* exit */                   \
-                                            \
-    "2:\n" /* 2 */                          \
-    "decl %%eax\n"                          \
-    "movq 8(%%rsi), %%r9\n"                 \
-    "jnz 3f\n" /* 3 */                      \
-    ADCSBB " (%%rdx), %%r8\n"               \
-    ADCSBB " 8(%%rdx), %%r9\n"              \
-    "movq %%r8, (%%rdi)\n"                  \
-    "movq %%r9, 8(%%rdi)\n"                 \
-    "adcl %%eax, %%eax\n"                   \
-    "jmp 7f\n" /* exit */                   \
-                                            \
-    "3:\n" /* 3 */                          \
-    "movq 16(%%rsi), %%r10\n"               \
-    ADCSBB " (%%rdx), %%r8\n"               \
-    ADCSBB " 8(%%rdx), %%r9\n"              \
-    ADCSBB " 16(%%rdx), %%r10\n"            \
-    "movq %%r8, (%%rdi)\n"                  \
-    "movq %%r9, 8(%%rdi)\n"                 \
-    "movq %%r10, 16(%%rdi)\n"               \
-    "setc %%al\n"                           \
-    "jmp 7f\n" /* exit */                   \
-                                            \
-    ".align 16\n"                           \
-    "4:\n" /* top */                        \
-    ADCSBB " (%%rdx), %%r8\n"               \
-    ADCSBB " 8(%%rdx), %%r9\n"              \
-    ADCSBB " 16(%%rdx), %%r10\n"            \
-    ADCSBB " 24(%%rdx), %%r11\n"            \
-    "movq %%r8, (%%rdi)\n"                  \
-    "leaq 32(%%rsi), %%rsi\n"               \
-    "movq %%r9, 8(%%rdi)\n"                 \
-    "movq %%r10, 16(%%rdi)\n"               \
-    "decq %%rcx\n"                          \
-    "movq %%r11, 24(%%rdi)\n"               \
-    "leaq 32(%%rdx), %%rdx\n"               \
-    "movq (%%rsi), %%r8\n"                  \
-    "movq 8(%%rsi), %%r9\n"                 \
-    "leaq 32(%%rdi), %%rdi\n"               \
-    "5:\n" /* mid */                        \
-    "movq 16(%%rsi), %%r10\n"               \
-    "movq 24(%%rsi), %%r11\n"               \
-    "jnz 4b\n" /* top */                    \
-                                            \
-    "6:\n" /* end */                        \
-    "leaq 32(%%rsi), %%rsi\n"               \
-    ADCSBB " (%%rdx), %%r8\n"               \
-    ADCSBB " 8(%%rdx), %%r9\n"              \
-    ADCSBB " 16(%%rdx), %%r10\n"            \
-    ADCSBB " 24(%%rdx), %%r11\n"            \
-    "leaq 32(%%rdx), %%rdx\n"               \
-    "movq %%r8, (%%rdi)\n"                  \
-    "movq %%r9, 8(%%rdi)\n"                 \
-    "movq %%r10, 16(%%rdi)\n"               \
-    "movq %%r11, 24(%%rdi)\n"               \
-    "leaq 32(%%rdi), %%rdi\n"               \
-                                            \
-    "incl %%eax\n"                          \
-    "decl %%eax\n"                          \
-    "jnz 1b\n" /* lt4 */                    \
-    "adcl %%eax, %%eax\n"                   \
-    "7:\n" /* exit */                       \
-    "movq $0, %q0\n"                        \
-    "movb %%al, %q0\n"                      \
-    : "=m" (cy),                            \
-      "+D" (rp), "+S" (ap),                 \
-      "+d" (bp), "+c" (n)                   \
-    :                                       \
-    : "al", "eax", "ebx",                   \
-      "rax", "rbx", "r8", "r9",             \
-      "r10", "r11", "cc", "memory"          \
-  );                                        \
+#define AORS_N(ADCSBB)             \
+  __asm__ __volatile__(            \
+    "movl $0, %%eax\n"             \
+    "testl %%ecx, %%ecx\n"         \
+    "jle 7f\n" /* exit */          \
+                                   \
+    "movl %%ecx, %%eax\n"          \
+    "shrq $2, %%rcx\n"             \
+    "andl $3, %%eax\n"             \
+    "jrcxz 1f\n" /* lt4 */         \
+                                   \
+    "movq (%%rsi), %%r8\n"         \
+    "movq 8(%%rsi), %%r9\n"        \
+    "decq %%rcx\n"                 \
+    "jmp 5f\n" /* mid */           \
+                                   \
+    "1:\n" /* lt4 */               \
+    "decl %%eax\n"                 \
+    "movq (%%rsi), %%r8\n"         \
+    "jnz 2f\n" /* 2 */             \
+    ADCSBB " (%%rdx), %%r8\n"      \
+    "movq %%r8, (%%rdi)\n"         \
+    "adcl %%eax, %%eax\n"          \
+    "jmp 7f\n" /* exit */          \
+                                   \
+    "2:\n" /* 2 */                 \
+    "decl %%eax\n"                 \
+    "movq 8(%%rsi), %%r9\n"        \
+    "jnz 3f\n" /* 3 */             \
+    ADCSBB " (%%rdx), %%r8\n"      \
+    ADCSBB " 8(%%rdx), %%r9\n"     \
+    "movq %%r8, (%%rdi)\n"         \
+    "movq %%r9, 8(%%rdi)\n"        \
+    "adcl %%eax, %%eax\n"          \
+    "jmp 7f\n" /* exit */          \
+                                   \
+    "3:\n" /* 3 */                 \
+    "movq 16(%%rsi), %%r10\n"      \
+    ADCSBB " (%%rdx), %%r8\n"      \
+    ADCSBB " 8(%%rdx), %%r9\n"     \
+    ADCSBB " 16(%%rdx), %%r10\n"   \
+    "movq %%r8, (%%rdi)\n"         \
+    "movq %%r9, 8(%%rdi)\n"        \
+    "movq %%r10, 16(%%rdi)\n"      \
+    "setc %%al\n"                  \
+    "jmp 7f\n" /* exit */          \
+                                   \
+    ".align 16\n"                  \
+    "4:\n" /* top */               \
+    ADCSBB " (%%rdx), %%r8\n"      \
+    ADCSBB " 8(%%rdx), %%r9\n"     \
+    ADCSBB " 16(%%rdx), %%r10\n"   \
+    ADCSBB " 24(%%rdx), %%r11\n"   \
+    "movq %%r8, (%%rdi)\n"         \
+    "leaq 32(%%rsi), %%rsi\n"      \
+    "movq %%r9, 8(%%rdi)\n"        \
+    "movq %%r10, 16(%%rdi)\n"      \
+    "decq %%rcx\n"                 \
+    "movq %%r11, 24(%%rdi)\n"      \
+    "leaq 32(%%rdx), %%rdx\n"      \
+    "movq (%%rsi), %%r8\n"         \
+    "movq 8(%%rsi), %%r9\n"        \
+    "leaq 32(%%rdi), %%rdi\n"      \
+    "5:\n" /* mid */               \
+    "movq 16(%%rsi), %%r10\n"      \
+    "movq 24(%%rsi), %%r11\n"      \
+    "jnz 4b\n" /* top */           \
+                                   \
+    "6:\n" /* end */               \
+    "leaq 32(%%rsi), %%rsi\n"      \
+    ADCSBB " (%%rdx), %%r8\n"      \
+    ADCSBB " 8(%%rdx), %%r9\n"     \
+    ADCSBB " 16(%%rdx), %%r10\n"   \
+    ADCSBB " 24(%%rdx), %%r11\n"   \
+    "leaq 32(%%rdx), %%rdx\n"      \
+    "movq %%r8, (%%rdi)\n"         \
+    "movq %%r9, 8(%%rdi)\n"        \
+    "movq %%r10, 16(%%rdi)\n"      \
+    "movq %%r11, 24(%%rdi)\n"      \
+    "leaq 32(%%rdi), %%rdi\n"      \
+                                   \
+    "incl %%eax\n"                 \
+    "decl %%eax\n"                 \
+    "jnz 1b\n" /* lt4 */           \
+    "adcl %%eax, %%eax\n"          \
+    "7:\n" /* exit */              \
+    "movq $0, %q0\n"               \
+    "movb %%al, %q0\n"             \
+    : "=m" (cy),                   \
+      "+D" (rp), "+S" (ap),        \
+      "+d" (bp), "+c" (n)          \
+    :                              \
+    : "al", "eax", "ebx",          \
+      "rax", "rbx", "r8", "r9",    \
+      "r10", "r11", "cc", "memory" \
+  );                               \
 
 /*
  * Addition
