@@ -4943,10 +4943,11 @@ wei_point_to_uniform(const wei_t *ec,
 static void
 wei_point_from_hash(const wei_t *ec, wge_t *p, const unsigned char *bytes) {
   /* [H2EC] "Roadmap". */
+  const prime_field_t *fe = &ec->fe;
   wge_t p1, p2;
 
   wei_point_from_uniform(ec, &p1, bytes);
-  wei_point_from_uniform(ec, &p2, bytes + ec->fe.size);
+  wei_point_from_uniform(ec, &p2, bytes + fe->size);
 
   wge_add(ec, p, &p1, &p2);
 
@@ -6040,10 +6041,11 @@ mont_point_to_uniform(const mont_t *ec,
 static void
 mont_point_from_hash(const mont_t *ec, mge_t *p, const unsigned char *bytes) {
   /* [H2EC] "Roadmap". */
+  const prime_field_t *fe = &ec->fe;
   mge_t p1, p2;
 
   mont_point_from_uniform(ec, &p1, bytes);
-  mont_point_from_uniform(ec, &p2, bytes + ec->fe.size);
+  mont_point_from_uniform(ec, &p2, bytes + fe->size);
 
   mge_add(ec, p, &p1, &p2);
 
@@ -7245,10 +7247,11 @@ static void
 edwards_point_from_hash(const edwards_t *ec, xge_t *p,
                         const unsigned char *bytes) {
   /* [H2EC] "Roadmap". */
+  const prime_field_t *fe = &ec->fe;
   xge_t p1, p2;
 
   edwards_point_from_uniform(ec, &p1, bytes);
-  edwards_point_from_uniform(ec, &p2, bytes + ec->fe.size);
+  edwards_point_from_uniform(ec, &p2, bytes + fe->size);
 
   xge_add(ec, p, &p1, &p2);
 
@@ -11702,6 +11705,7 @@ eddsa_pubkey_to_hash(const edwards_t *ec,
 int
 eddsa_pubkey_verify(const edwards_t *ec, const unsigned char *pub) {
   xge_t A;
+
   return xge_import(ec, &A, pub);
 }
 
