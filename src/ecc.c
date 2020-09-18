@@ -226,7 +226,7 @@ typedef struct scalar_field_s {
   size_t endo_bits;
   mp_size_t shift;
   mp_limb_t n[MAX_REDUCE_LIMBS];
-  unsigned char mask;
+  unsigned int mask;
   unsigned char raw[MAX_SCALAR_SIZE];
   mp_limb_t nh[MAX_REDUCE_LIMBS];
   mp_limb_t m[MAX_REDUCE_LIMBS];
@@ -276,7 +276,7 @@ typedef struct prime_field_s {
   size_t adj_size;
   mp_limb_t p[MAX_REDUCE_LIMBS];
   mp_size_t limbs;
-  unsigned char mask;
+  unsigned int mask;
   unsigned char raw[MAX_FIELD_SIZE];
   fe_add_f *add;
   fe_sub_f *sub;
@@ -2154,12 +2154,14 @@ wge_export(const wei_t *ec,
 
   if (compact) {
     raw[0] = 0x02 | fe_is_odd(fe, p->y);
+
     fe_export(fe, raw + 1, p->x);
 
     if (len != NULL)
       *len = 1 + fe->size;
   } else {
     raw[0] = 0x04;
+
     fe_export(fe, raw + 1, p->x);
     fe_export(fe, raw + 1 + fe->size, p->y);
 

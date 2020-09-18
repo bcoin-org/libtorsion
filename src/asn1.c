@@ -210,7 +210,7 @@ fail:
 
 int
 asn1_read_version(const unsigned char **data, size_t *len,
-                  unsigned char version, int strict) {
+                  unsigned int version, int strict) {
   int ret = 0;
   mpz_t n;
 
@@ -309,7 +309,7 @@ asn1_size_mpz(const mpz_t n) {
 }
 
 size_t
-asn1_size_version(unsigned char version) {
+asn1_size_version(unsigned int version) {
   (void)version;
   return 3;
 }
@@ -401,10 +401,13 @@ asn1_write_mpz(unsigned char *data, size_t pos, const mpz_t n) {
 }
 
 size_t
-asn1_write_version(unsigned char *data, size_t pos, unsigned char version) {
+asn1_write_version(unsigned char *data, size_t pos, unsigned int version) {
+  CHECK(version <= 0xff);
+
   data[pos++] = 0x02;
   data[pos++] = 0x01;
   data[pos++] = version;
+
   return pos;
 }
 
