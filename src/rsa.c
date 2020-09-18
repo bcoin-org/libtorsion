@@ -1224,7 +1224,7 @@ get_digest_info(const unsigned char **data, size_t *len, int type) {
     return 1;
   }
 
-  if (type < 0 || type > HASH_MAX)
+  if (type < 0 || (size_t)type > ARRAY_SIZE(digest_info))
     return 0;
 
   info = digest_info[type];
