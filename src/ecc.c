@@ -6154,11 +6154,12 @@ xge_validate(const edwards_t *ec, const xge_t *p) {
   fe_mul(fe, rhs, rhs, ec->d);
   fe_add(fe, rhs, rhs, z4);
 
-  fe_mul(fe, x2, p->t, p->z);
-  fe_mul(fe, y2, p->x, p->y);
+  ret &= fe_equal(fe, lhs, rhs);
+
+  fe_mul(fe, lhs, p->t, p->z);
+  fe_mul(fe, rhs, p->x, p->y);
 
   ret &= fe_equal(fe, lhs, rhs);
-  ret &= fe_equal(fe, x2, y2);
   ret &= fe_is_zero(fe, p->z) ^ 1;
 
   return ret;
