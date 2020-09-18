@@ -3720,10 +3720,6 @@ jge_jsf_points_var(const wei_t *ec, jge_t *out,
 static void
 jge_jsf_points_endo_var(const wei_t *ec, jge_t *out, const wge_t *p1) {
   wge_t p2, p3;
-  jge_t j1;
-
-  /* P -> J. */
-  jge_set_wge(ec, &j1, p1);
 
   /* Split point. */
   wge_endo_beta(ec, &p2, p1);
@@ -3734,7 +3730,7 @@ jge_jsf_points_endo_var(const wei_t *ec, jge_t *out, const wge_t *p1) {
   /* Create comb for JSF. */
   jge_set_wge(ec, &out[0], p1); /* 1 */
   jge_set_wge(ec, &out[1], &p3); /* 3 */
-  jge_mixed_sub_var(ec, &out[2], &j1, &p2); /* 5 */
+  jge_mixed_sub_var(ec, &out[2], &out[0], &p2); /* 5 */
   jge_set_wge(ec, &out[3], &p2); /* 7 */
 }
 
