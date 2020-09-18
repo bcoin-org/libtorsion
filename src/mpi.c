@@ -2387,7 +2387,6 @@ mpn_jacobi(mp_srcptr xp, mp_size_t xs,
   mp_ptr ap = &scratch[0 * yn];
   mp_ptr bp = &scratch[1 * yn];
   mp_size_t an, bn, bits;
-  mp_limb_t bmod8;
   int j = 1;
 
   if (yn == 0 || (yp[0] & 1) == 0)
@@ -2407,9 +2406,7 @@ mpn_jacobi(mp_srcptr xp, mp_size_t xs,
     ASSERT(bn > 0);
 
     if (bits & 1) {
-      bmod8 = bp[0] & 7;
-
-      if (bmod8 == 3 || bmod8 == 5)
+      if ((bp[0] & 7) == 3 || (bp[0] & 7) == 5)
         j = -j;
     }
 
@@ -2423,9 +2420,7 @@ mpn_jacobi(mp_srcptr xp, mp_size_t xs,
     MPN_SUB(ap, an, bp, bn);
     MPN_RSHIFT(ap, an, 1);
 
-    bmod8 = bp[0] & 7;
-
-    if (bmod8 == 3 || bmod8 == 5)
+    if ((bp[0] & 7) == 3 || (bp[0] & 7) == 5)
       j = -j;
   }
 
