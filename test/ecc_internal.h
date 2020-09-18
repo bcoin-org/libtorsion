@@ -521,12 +521,13 @@ test_wei_points_p256(drbg_t *rng) {
   wei_randomize(ec, entropy);
 
   wge_set(ec, &g, &ec->g);
-  wge_to_jge(ec, &jg, &ec->g);
+
+  jge_set_wge(ec, &jg, &ec->g);
 
   ASSERT(wge_import(ec, &p, g_raw, 33));
 
-  wge_to_jge(ec, &jp, &p);
-  wge_to_jge(ec, &jq, &ec->g);
+  jge_set_wge(ec, &jp, &p);
+  jge_set_wge(ec, &jq, &ec->g);
 
   ASSERT(wge_validate(ec, &p));
   ASSERT(jge_validate(ec, &jp));
@@ -537,8 +538,8 @@ test_wei_points_p256(drbg_t *rng) {
   ASSERT(wge_import(ec, &q, g2_raw, 33));
   ASSERT(wge_import(ec, &r, g3_raw, 33));
 
-  wge_to_jge(ec, &jq, &q);
-  wge_to_jge(ec, &jr, &r);
+  jge_set_wge(ec, &jq, &q);
+  jge_set_wge(ec, &jr, &r);
 
   wge_dbl_var(ec, &p, &ec->g);
 
@@ -578,7 +579,7 @@ test_wei_points_p256(drbg_t *rng) {
   ASSERT(!jge_is_zero(ec, &jq));
   ASSERT(!jge_is_zero(ec, &jr));
 
-  jge_to_wge(ec, &p, &jp);
+  wge_set_jge(ec, &p, &jp);
 
   ASSERT(wge_equal(ec, &p, &q));
 
@@ -643,12 +644,13 @@ test_wei_points_p521(drbg_t *rng) {
   wei_randomize(ec, entropy);
 
   wge_set(ec, &g, &ec->g);
-  wge_to_jge(ec, &jg, &ec->g);
+
+  jge_set_wge(ec, &jg, &ec->g);
 
   ASSERT(wge_import(ec, &p, g_raw, 67));
 
-  wge_to_jge(ec, &jp, &p);
-  wge_to_jge(ec, &jq, &ec->g);
+  jge_set_wge(ec, &jp, &p);
+  jge_set_wge(ec, &jq, &ec->g);
 
   ASSERT(wge_validate(ec, &p));
   ASSERT(jge_validate(ec, &jp));
@@ -659,8 +661,8 @@ test_wei_points_p521(drbg_t *rng) {
   ASSERT(wge_import(ec, &q, g2_raw, 67));
   ASSERT(wge_import(ec, &r, g3_raw, 67));
 
-  wge_to_jge(ec, &jq, &q);
-  wge_to_jge(ec, &jr, &r);
+  jge_set_wge(ec, &jq, &q);
+  jge_set_wge(ec, &jr, &r);
 
   wge_dbl_var(ec, &p, &ec->g);
 
@@ -700,7 +702,7 @@ test_wei_points_p521(drbg_t *rng) {
   ASSERT(!jge_is_zero(ec, &jq));
   ASSERT(!jge_is_zero(ec, &jr));
 
-  jge_to_wge(ec, &p, &jp);
+  wge_set_jge(ec, &p, &jp);
 
   ASSERT(wge_equal(ec, &p, &q));
 
@@ -753,12 +755,13 @@ test_wei_points_secp256k1(drbg_t *rng) {
   wei_randomize(ec, entropy);
 
   wge_set(ec, &g, &ec->g);
-  wge_to_jge(ec, &jg, &ec->g);
+
+  jge_set_wge(ec, &jg, &ec->g);
 
   ASSERT(wge_import(ec, &p, g_raw, 33));
 
-  wge_to_jge(ec, &jp, &p);
-  wge_to_jge(ec, &jq, &ec->g);
+  jge_set_wge(ec, &jp, &p);
+  jge_set_wge(ec, &jq, &ec->g);
 
   ASSERT(wge_validate(ec, &p));
   ASSERT(jge_validate(ec, &jp));
@@ -769,8 +772,8 @@ test_wei_points_secp256k1(drbg_t *rng) {
   ASSERT(wge_import(ec, &q, g2_raw, 33));
   ASSERT(wge_import(ec, &r, g3_raw, 33));
 
-  wge_to_jge(ec, &jq, &q);
-  wge_to_jge(ec, &jr, &r);
+  jge_set_wge(ec, &jq, &q);
+  jge_set_wge(ec, &jr, &r);
 
   wge_dbl_var(ec, &p, &ec->g);
 
@@ -810,7 +813,7 @@ test_wei_points_secp256k1(drbg_t *rng) {
   ASSERT(!jge_is_zero(ec, &jq));
   ASSERT(!jge_is_zero(ec, &jr));
 
-  jge_to_wge(ec, &p, &jp);
+  wge_set_jge(ec, &p, &jp);
 
   ASSERT(wge_equal(ec, &p, &q));
 
@@ -1410,12 +1413,13 @@ test_mont_points_x25519(void) {
   printf("  - Testing Montgomery group law (X25519).\n");
 
   mge_set(ec, &g, &ec->g);
-  mge_to_pge(ec, &jg, &ec->g);
+
+  pge_set_mge(ec, &jg, &ec->g);
 
   ASSERT(mge_import(ec, &p, g_raw, 0));
 
-  mge_to_pge(ec, &jp, &p);
-  mge_to_pge(ec, &jq, &ec->g);
+  pge_set_mge(ec, &jp, &p);
+  pge_set_mge(ec, &jq, &ec->g);
 
   ASSERT(mge_validate(ec, &p));
   ASSERT(pge_validate(ec, &jp));
@@ -1426,8 +1430,8 @@ test_mont_points_x25519(void) {
   ASSERT(mge_import(ec, &q, g2_raw, 0));
   ASSERT(mge_import(ec, &r, g3_raw, 0));
 
-  mge_to_pge(ec, &jq, &q);
-  mge_to_pge(ec, &jr, &r);
+  pge_set_mge(ec, &jq, &q);
+  pge_set_mge(ec, &jr, &r);
 
   mge_dbl(ec, &p, &ec->g);
 
@@ -1451,7 +1455,7 @@ test_mont_points_x25519(void) {
   ASSERT(!pge_is_zero(ec, &jq));
   ASSERT(!pge_is_zero(ec, &jr));
 
-  pge_to_mge(ec, &p, &jp, 0);
+  mge_set_pge(ec, &p, &jp, 0);
 
   ASSERT(mge_equal(ec, &p, &q));
 
