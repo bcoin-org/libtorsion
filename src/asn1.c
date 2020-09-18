@@ -325,11 +325,13 @@ asn1_write_size(unsigned char *data, size_t pos, size_t size) {
     data[pos++] = size;
   } else {
     /* 0x82 [size-hi] [size-lo] */
-    ASSERT(size <= 0xffff);
+    CHECK(size <= 0xffff);
+
     data[pos++] = 0x82;
     data[pos++] = size >> 8;
     data[pos++] = size & 0xff;
   }
+
   return pos;
 }
 
