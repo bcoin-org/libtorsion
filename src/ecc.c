@@ -2027,7 +2027,7 @@ static void
 jge_mixed_sub_var(const wei_t *ec, jge_t *r, const jge_t *a, const wge_t *b);
 
 static void
-jge_to_wge_all_var(const wei_t *ec, wge_t *out, const jge_t *in, size_t len);
+wge_set_jge_all_var(const wei_t *ec, wge_t *out, const jge_t *in, size_t len);
 
 /*
  * Short Weierstrass Affine Point
@@ -2567,7 +2567,7 @@ wge_sub(const wei_t *ec, wge_t *r, const wge_t *a, const wge_t *b) {
 }
 
 static void
-wge_to_jge(const wei_t *ec, jge_t *r, const wge_t *a) {
+jge_set_wge(const wei_t *ec, jge_t *r, const wge_t *a) {
   const prime_field_t *fe = &ec->fe;
 
   fe_select(fe, r->x, a->x, fe->one, a->inf);
@@ -2584,7 +2584,7 @@ wge_fixed_points_var(const wei_t *ec, wge_t *out, const wge_t *p) {
   size_t i, j;
   jge_t g;
 
-  wge_to_jge(ec, &g, p);
+  jge_set_wge(ec, &g, p);
 
   for (i = 0; i < FIXED_STEPS(sc->bits); i++) {
     jge_t *wnd = &wnds[i * FIXED_SIZE];
@@ -2598,7 +2598,7 @@ wge_fixed_points_var(const wei_t *ec, wge_t *out, const wge_t *p) {
       jge_dbl_var(ec, &g, &g);
   }
 
-  jge_to_wge_all_var(ec, out, wnds, size);
+  wge_set_jge_all_var(ec, out, wnds, size);
 
   free(wnds);
 }
@@ -2612,14 +2612,14 @@ wge_naf_points_var(const wei_t *ec, wge_t *out,
   jge_t j, dbl;
   size_t i;
 
-  wge_to_jge(ec, &j, p);
+  jge_set_wge(ec, &j, p);
   jge_dbl_var(ec, &dbl, &j);
   jge_set(ec, &wnd[0], &j);
 
   for (i = 1; i < size; i++)
     jge_add_var(ec, &wnd[i], &wnd[i - 1], &dbl);
 
-  jge_to_wge_all_var(ec, out, wnd, size);
+  wge_set_jge_all_var(ec, out, wnd, size);
 
   free(wnd);
 }
@@ -2628,10 +2628,10 @@ static void
 wge_jsf_points_var(const wei_t *ec, jge_t *out,
                    const wge_t *p1, const wge_t *p2) {
   /* Create comb for JSF. */
-  wge_to_jge(ec, &out[0], p1); /* 1 */
+  jge_set_wge(ec, &out[0], p1); /* 1 */
   jge_mixed_add_var(ec, &out[1], &out[0], p2); /* 3 */
   jge_mixed_sub_var(ec, &out[2], &out[0], p2); /* 5 */
-  wge_to_jge(ec, &out[3], p2); /* 7 */
+  jge_set_wge(ec, &out[3], p2); /* 7 */
 }
 
 static void
@@ -2649,7 +2649,7 @@ wge_jsf_points_endo_var(const wei_t *ec, jge_t *out, const wge_t *p1) {
   jge_t j1;
 
   /* P -> J. */
-  wge_to_jge(ec, &j1, p1);
+  jge_set_wge(ec, &j1, p1);
 
   /* Split point. */
   wge_endo_beta(ec, &p2, p1);
@@ -2658,10 +2658,10 @@ wge_jsf_points_endo_var(const wei_t *ec, jge_t *out, const wge_t *p1) {
   wge_add_var(ec, &p3, p1, &p2);
 
   /* Create comb for JSF. */
-  wge_to_jge(ec, &out[0], p1); /* 1 */
-  wge_to_jge(ec, &out[1], &p3); /* 3 */
+  jge_set_wge(ec, &out[0], p1); /* 1 */
+  jge_set_wge(ec, &out[1], &p3); /* 3 */
   jge_mixed_sub_var(ec, &out[2], &j1, &p2); /* 5 */
-  wge_to_jge(ec, &out[3], &p2); /* 7 */
+  jge_set_wge(ec, &out[3], &p2); /* 7 */
 }
 
 /*
@@ -3224,7 +3224,7 @@ static void
 jge_mixed_add_var(const wei_t *ec, jge_t *r, const jge_t *a, const wge_t *b) {
   /* O + P = P */
   if (jge_is_zero(ec, a)) {
-    wge_to_jge(ec, r, b);
+    jge_set_wge(ec, r, b);
     return;
   }
 
@@ -3241,7 +3241,7 @@ static void
 jge_mixed_sub_var(const wei_t *ec, jge_t *r, const jge_t *a, const wge_t *b) {
   /* O - P = -P */
   if (jge_is_zero(ec, a)) {
-    wge_to_jge(ec, r, b);
+    jge_set_wge(ec, r, b);
     jge_neg(ec, r, r);
     return;
   }
@@ -3591,7 +3591,7 @@ jge_mixed_sub(const wei_t *ec, jge_t *r, const jge_t *a, const wge_t *b) {
 }
 
 static void
-jge_to_wge(const wei_t *ec, wge_t *r, const jge_t *p) {
+wge_set_jge(const wei_t *ec, wge_t *r, const jge_t *p) {
   /* https://hyperelliptic.org/EFD/g1p/auto-shortw-jacobian.html#scaling-z
    * 1I + 3M + 1S
    */
@@ -3613,7 +3613,7 @@ jge_to_wge(const wei_t *ec, wge_t *r, const jge_t *p) {
 }
 
 static void
-jge_to_wge_var(const wei_t *ec, wge_t *r, const jge_t *p) {
+wge_set_jge_var(const wei_t *ec, wge_t *r, const jge_t *p) {
   /* https://hyperelliptic.org/EFD/g1p/auto-shortw-jacobian.html#scaling-z
    * 1I + 3M + 1S
    */
@@ -3650,7 +3650,7 @@ jge_to_wge_var(const wei_t *ec, wge_t *r, const jge_t *p) {
 }
 
 static void
-jge_to_wge_all_var(const wei_t *ec, wge_t *out, const jge_t *in, size_t len) {
+wge_set_jge_all_var(const wei_t *ec, wge_t *out, const jge_t *in, size_t len) {
   /* Montgomery's trick. */
   const prime_field_t *fe = &ec->fe;
   fe_t acc, z2, z3;
@@ -3725,7 +3725,7 @@ jge_naf_points_var(const wei_t *ec, jge_t *out,
   jge_t dbl;
   size_t i;
 
-  wge_to_jge(ec, &out[0], p);
+  jge_set_wge(ec, &out[0], p);
   jge_dbl_var(ec, &dbl, &out[0]);
 
   for (i = 1; i < size; i++)
@@ -4027,7 +4027,7 @@ wei_mul_g(const wei_t *ec, wge_t *r, const sc_t k) {
 
   wei_jmul_g(ec, &j, k);
 
-  jge_to_wge(ec, r, &j);
+  wge_set_jge(ec, r, &j);
 }
 
 static void
@@ -4045,7 +4045,7 @@ wei_jmul_normal(const wei_t *ec, jge_t *r, const wge_t *p, const sc_t k) {
 
   /* Create window. */
   jge_zero(ec, &wnd[0]);
-  wge_to_jge(ec, &wnd[1], p);
+  jge_set_wge(ec, &wnd[1], p);
 
   for (i = 2; i < WND_SIZE; i += 2) {
     jge_dbl(ec, &wnd[i], &wnd[i / 2]);
@@ -4108,7 +4108,7 @@ wei_jmul_endo(const wei_t *ec, jge_t *r, const wge_t *p, const sc_t k) {
 
   /* Create window. */
   jge_zero(ec, &wnd1[0]);
-  wge_to_jge(ec, &wnd1[1], p);
+  jge_set_wge(ec, &wnd1[1], p);
 
   for (i = 2; i < WND_SIZE; i += 2) {
     jge_dbl(ec, &wnd1[i], &wnd1[i / 2]);
@@ -4175,7 +4175,7 @@ wei_mul(const wei_t *ec, wge_t *r, const wge_t *p, const sc_t k) {
 
   wei_jmul(ec, &j, p, k);
 
-  jge_to_wge(ec, r, &j);
+  wge_set_jge(ec, r, &j);
 }
 
 static void
@@ -4312,7 +4312,7 @@ wei_mul_double_var(const wei_t *ec,
 
   wei_jmul_double_var(ec, &j, k1, p2, k2);
 
-  jge_to_wge_var(ec, r, &j);
+  wge_set_jge_var(ec, r, &j);
 }
 
 static void
@@ -4505,7 +4505,7 @@ wei_mul_multi_var(const wei_t *ec,
 
   wei_jmul_multi_var(ec, &j, k0, points, coeffs, len, scratch);
 
-  jge_to_wge_var(ec, r, &j);
+  wge_set_jge_var(ec, r, &j);
 }
 
 static void
@@ -5302,7 +5302,7 @@ mge_sub(const mont_t *ec, mge_t *r, const mge_t *a, const mge_t *b) {
 }
 
 static void
-mge_to_pge(const mont_t *ec, pge_t *r, const mge_t *a) {
+pge_set_mge(const mont_t *ec, pge_t *r, const mge_t *a) {
   const prime_field_t *fe = &ec->fe;
 
   fe_select(fe, r->x, a->x, fe->one, a->inf);
@@ -5310,7 +5310,7 @@ mge_to_pge(const mont_t *ec, pge_t *r, const mge_t *a) {
 }
 
 static void
-mge_to_xge(const mont_t *ec, xge_t *r, const mge_t *p) {
+xge_set_mge(const mont_t *ec, xge_t *r, const mge_t *p) {
   _mont_to_edwards(&ec->fe, r, p, ec->c, ec->invert, 1);
 }
 
@@ -5544,7 +5544,7 @@ pge_ladder(const mont_t *ec,
 }
 
 static int
-pge_to_mge(const mont_t *ec, mge_t *r, const pge_t *p, int sign) {
+mge_set_pge(const mont_t *ec, mge_t *r, const pge_t *p, int sign) {
   /* https://hyperelliptic.org/EFD/g1p/auto-montgom-xz.html#scaling-scale
    * 1I + 1M
    */
@@ -5837,7 +5837,7 @@ static void
 mont_mul_g(const mont_t *ec, pge_t *r, const sc_t k) {
   pge_t g;
 
-  mge_to_pge(ec, &g, &ec->g);
+  pge_set_mge(ec, &g, &ec->g);
 
   mont_mul(ec, r, &g, k, 1);
 }
@@ -6615,7 +6615,7 @@ xge_jsf_points(const edwards_t *ec, xge_t *out,
 }
 
 static void
-xge_to_mge(const edwards_t *ec, mge_t *r, const xge_t *p) {
+mge_set_xge(const edwards_t *ec, mge_t *r, const xge_t *p) {
   _edwards_to_mont(&ec->fe, r, p, ec->c, ec->invert, 1);
 }
 
@@ -9164,7 +9164,8 @@ ecdsa_pubkey_tweak_add(const wei_t *ec,
   wei_jmul_g(ec, &T, t);
 
   jge_mixed_add(ec, &T, &T, &A);
-  jge_to_wge(ec, &A, &T);
+
+  wge_set_jge(ec, &A, &T);
 
   ret &= wge_export(ec, out, out_len, &A, compact);
 
@@ -9219,7 +9220,7 @@ ecdsa_pubkey_combine(const wei_t *ec,
     jge_mixed_add(ec, &P, &P, &A);
   }
 
-  jge_to_wge(ec, &A, &P);
+  wge_set_jge(ec, &A, &P);
 
   ret &= wge_export(ec, out, out_len, &A, compact);
 
@@ -10436,7 +10437,8 @@ schnorr_pubkey_tweak_add(const wei_t *ec,
   wei_jmul_g(ec, &T, t);
 
   jge_mixed_add(ec, &T, &T, &A);
-  jge_to_wge(ec, &A, &T);
+
+  wge_set_jge(ec, &A, &T);
 
   ret &= wge_export_x(ec, out, &A);
 
@@ -10496,7 +10498,7 @@ schnorr_pubkey_tweak_test(const wei_t *ec,
   jge_mixed_add(ec, &T, &T, &A);
   jge_neg_cond(ec, &T, &T, negated);
 
-  wge_to_jge(ec, &J, &Q);
+  jge_set_wge(ec, &J, &Q);
 
   *result = ret & jge_equal(ec, &T, &J);
 
@@ -10523,7 +10525,7 @@ schnorr_pubkey_combine(const wei_t *ec,
     jge_mixed_add(ec, &P, &P, &A);
   }
 
-  jge_to_wge(ec, &A, &P);
+  wge_set_jge(ec, &A, &P);
 
   ret &= wge_export_x(ec, out, &A);
 
@@ -11135,13 +11137,13 @@ ecdh_pubkey_convert(const mont_t *ec,
     pge_mulh(ec, &P, &P);
     mont_mul(ec, &P, &P, ec->i16, 0);
 
-    ASSERT(pge_to_mge(ec, &A, &P, -1));
+    ASSERT(mge_set_pge(ec, &A, &P, -1));
   } else {
     ret &= mge_import(ec, &A, pub, -1);
   }
 
   /* Convert to Edwards. */
-  mge_to_xge(ec, &e, &A);
+  xge_set_mge(ec, &e, &A);
 
   /* Invert (should never fail). */
   ASSERT(fe_invert(fe, e.z, e.z));
@@ -11199,7 +11201,8 @@ ecdh_pubkey_from_hash(const mont_t *ec,
   pge_t P;
 
   mont_point_from_hash(ec, &A, bytes);
-  mge_to_pge(ec, &P, &A);
+
+  pge_set_mge(ec, &P, &A);
 
   if (pake)
     pge_mulh(ec, &P, &P);
@@ -11626,7 +11629,7 @@ eddsa_pubkey_convert(const edwards_t *ec,
 
   ret &= xge_import(ec, &A, pub);
 
-  xge_to_mge(ec, &p, &A);
+  mge_set_xge(ec, &p, &A);
 
   ret &= p.inf ^ 1;
 
