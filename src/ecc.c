@@ -2010,6 +2010,12 @@ jge_zero(const wei_t *ec, jge_t *r);
 static void
 jge_set(const wei_t *ec, jge_t *r, const jge_t *a);
 
+static int
+jge_is_zero(const wei_t *ec, const jge_t *a);
+
+static int
+jge_is_affine(const wei_t *ec, const jge_t *a);
+
 static void
 jge_dbl_var(const wei_t *ec, jge_t *r, const jge_t *p);
 
@@ -2027,7 +2033,7 @@ static void
 jge_mixed_sub_var(const wei_t *ec, jge_t *r, const jge_t *a, const wge_t *b);
 
 static void
-wge_set_jge_all_var(const wei_t *ec, wge_t *out, const jge_t *in, size_t len);
+jge_set_wge(const wei_t *ec, jge_t *r, const wge_t *a);
 
 /*
  * Short Weierstrass Affine Point
@@ -2567,12 +2573,105 @@ wge_sub(const wei_t *ec, wge_t *r, const wge_t *a, const wge_t *b) {
 }
 
 static void
-jge_set_wge(const wei_t *ec, jge_t *r, const wge_t *a) {
+wge_set_jge(const wei_t *ec, wge_t *r, const jge_t *p) {
+  /* https://hyperelliptic.org/EFD/g1p/auto-shortw-jacobian.html#scaling-z
+   * 1I + 3M + 1S
+   */
   const prime_field_t *fe = &ec->fe;
+  fe_t a, aa;
 
-  fe_select(fe, r->x, a->x, fe->one, a->inf);
-  fe_select(fe, r->y, a->y, fe->one, a->inf);
-  fe_select(fe, r->z, fe->one, fe->zero, a->inf);
+  /* A = 1 / Z1 */
+  r->inf = fe_invert(fe, a, p->z) ^ 1;
+
+  /* AA = A^2 */
+  fe_sqr(fe, aa, a);
+
+  /* X3 = X1 * AA */
+  fe_mul(fe, r->x, p->x, aa);
+
+  /* Y3 = Y1 * AA * A */
+  fe_mul(fe, r->y, p->y, aa);
+  fe_mul(fe, r->y, r->y, a);
+}
+
+static void
+wge_set_jge_var(const wei_t *ec, wge_t *r, const jge_t *p) {
+  /* https://hyperelliptic.org/EFD/g1p/auto-shortw-jacobian.html#scaling-z
+   * 1I + 3M + 1S
+   */
+  const prime_field_t *fe = &ec->fe;
+  fe_t a, aa;
+
+  /* P = O */
+  if (jge_is_zero(ec, p)) {
+    wge_zero(ec, r);
+    return;
+  }
+
+  /* Z = 1 */
+  if (jge_is_affine(ec, p)) {
+    fe_set(fe, r->x, p->x);
+    fe_set(fe, r->y, p->y);
+    r->inf = 0;
+    return;
+  }
+
+  /* A = 1 / Z1 */
+  ASSERT(fe_invert_var(fe, a, p->z));
+
+  /* AA = A^2 */
+  fe_sqr(fe, aa, a);
+
+  /* X3 = X1 * AA */
+  fe_mul(fe, r->x, p->x, aa);
+
+  /* Y3 = Y1 * AA * A */
+  fe_mul(fe, r->y, p->y, aa);
+  fe_mul(fe, r->y, r->y, a);
+  r->inf = 0;
+}
+
+static void
+wge_set_jge_all_var(const wei_t *ec, wge_t *out, const jge_t *in, size_t len) {
+  /* Montgomery's trick. */
+  const prime_field_t *fe = &ec->fe;
+  fe_t acc, z2, z3;
+  size_t i;
+
+  fe_set(fe, acc, fe->one);
+
+  for (i = 0; i < len; i++) {
+    if (fe_is_zero(fe, in[i].z))
+      continue;
+
+    fe_set(fe, out[i].x, acc);
+    fe_mul(fe, acc, acc, in[i].z);
+  }
+
+  ASSERT(fe_invert_var(fe, acc, acc));
+
+  for (i = len; i-- > 0;) {
+    if (fe_is_zero(fe, in[i].z))
+      continue;
+
+    fe_mul(fe, out[i].x, out[i].x, acc);
+    fe_mul(fe, acc, acc, in[i].z);
+  }
+
+  for (i = 0; i < len; i++) {
+    if (fe_is_zero(fe, in[i].z)) {
+      wge_zero(ec, &out[i]);
+      continue;
+    }
+
+    fe_sqr(fe, z2, out[i].x);
+    fe_mul(fe, z3, z2, out[i].x);
+
+    fe_mul(fe, out[i].x, in[i].x, z2);
+    fe_mul(fe, out[i].y, in[i].y, z3);
+
+    out[i].inf = 0;
+  }
 }
 
 static void
@@ -2625,43 +2724,12 @@ wge_naf_points_var(const wei_t *ec, wge_t *out,
 }
 
 static void
-wge_jsf_points_var(const wei_t *ec, jge_t *out,
-                   const wge_t *p1, const wge_t *p2) {
-  /* Create comb for JSF. */
-  jge_set_wge(ec, &out[0], p1); /* 1 */
-  jge_mixed_add_var(ec, &out[1], &out[0], p2); /* 3 */
-  jge_mixed_sub_var(ec, &out[2], &out[0], p2); /* 5 */
-  jge_set_wge(ec, &out[3], p2); /* 7 */
-}
-
-static void
 wge_endo_beta(const wei_t *ec, wge_t *r, const wge_t *p) {
   const prime_field_t *fe = &ec->fe;
 
   fe_mul(fe, r->x, p->x, ec->beta);
   fe_set(fe, r->y, p->y);
   r->inf = p->inf;
-}
-
-static void
-wge_jsf_points_endo_var(const wei_t *ec, jge_t *out, const wge_t *p1) {
-  wge_t p2, p3;
-  jge_t j1;
-
-  /* P -> J. */
-  jge_set_wge(ec, &j1, p1);
-
-  /* Split point. */
-  wge_endo_beta(ec, &p2, p1);
-
-  /* No inversion (Y1 = Y2). */
-  wge_add_var(ec, &p3, p1, &p2);
-
-  /* Create comb for JSF. */
-  jge_set_wge(ec, &out[0], p1); /* 1 */
-  jge_set_wge(ec, &out[1], &p3); /* 3 */
-  jge_mixed_sub_var(ec, &out[2], &j1, &p2); /* 5 */
-  jge_set_wge(ec, &out[3], &p2); /* 7 */
 }
 
 /*
@@ -3591,105 +3659,12 @@ jge_mixed_sub(const wei_t *ec, jge_t *r, const jge_t *a, const wge_t *b) {
 }
 
 static void
-wge_set_jge(const wei_t *ec, wge_t *r, const jge_t *p) {
-  /* https://hyperelliptic.org/EFD/g1p/auto-shortw-jacobian.html#scaling-z
-   * 1I + 3M + 1S
-   */
+jge_set_wge(const wei_t *ec, jge_t *r, const wge_t *a) {
   const prime_field_t *fe = &ec->fe;
-  fe_t a, aa;
 
-  /* A = 1 / Z1 */
-  r->inf = fe_invert(fe, a, p->z) ^ 1;
-
-  /* AA = A^2 */
-  fe_sqr(fe, aa, a);
-
-  /* X3 = X1 * AA */
-  fe_mul(fe, r->x, p->x, aa);
-
-  /* Y3 = Y1 * AA * A */
-  fe_mul(fe, r->y, p->y, aa);
-  fe_mul(fe, r->y, r->y, a);
-}
-
-static void
-wge_set_jge_var(const wei_t *ec, wge_t *r, const jge_t *p) {
-  /* https://hyperelliptic.org/EFD/g1p/auto-shortw-jacobian.html#scaling-z
-   * 1I + 3M + 1S
-   */
-  const prime_field_t *fe = &ec->fe;
-  fe_t a, aa;
-
-  /* P = O */
-  if (jge_is_zero(ec, p)) {
-    wge_zero(ec, r);
-    return;
-  }
-
-  /* Z = 1 */
-  if (jge_is_affine(ec, p)) {
-    fe_set(fe, r->x, p->x);
-    fe_set(fe, r->y, p->y);
-    r->inf = 0;
-    return;
-  }
-
-  /* A = 1 / Z1 */
-  ASSERT(fe_invert_var(fe, a, p->z));
-
-  /* AA = A^2 */
-  fe_sqr(fe, aa, a);
-
-  /* X3 = X1 * AA */
-  fe_mul(fe, r->x, p->x, aa);
-
-  /* Y3 = Y1 * AA * A */
-  fe_mul(fe, r->y, p->y, aa);
-  fe_mul(fe, r->y, r->y, a);
-  r->inf = 0;
-}
-
-static void
-wge_set_jge_all_var(const wei_t *ec, wge_t *out, const jge_t *in, size_t len) {
-  /* Montgomery's trick. */
-  const prime_field_t *fe = &ec->fe;
-  fe_t acc, z2, z3;
-  size_t i;
-
-  fe_set(fe, acc, fe->one);
-
-  for (i = 0; i < len; i++) {
-    if (fe_is_zero(fe, in[i].z))
-      continue;
-
-    fe_set(fe, out[i].x, acc);
-    fe_mul(fe, acc, acc, in[i].z);
-  }
-
-  ASSERT(fe_invert_var(fe, acc, acc));
-
-  for (i = len; i-- > 0;) {
-    if (fe_is_zero(fe, in[i].z))
-      continue;
-
-    fe_mul(fe, out[i].x, out[i].x, acc);
-    fe_mul(fe, acc, acc, in[i].z);
-  }
-
-  for (i = 0; i < len; i++) {
-    if (fe_is_zero(fe, in[i].z)) {
-      wge_zero(ec, &out[i]);
-      continue;
-    }
-
-    fe_sqr(fe, z2, out[i].x);
-    fe_mul(fe, z3, z2, out[i].x);
-
-    fe_mul(fe, out[i].x, in[i].x, z2);
-    fe_mul(fe, out[i].y, in[i].y, z3);
-
-    out[i].inf = 0;
-  }
+  fe_select(fe, r->x, a->x, fe->one, a->inf);
+  fe_select(fe, r->y, a->y, fe->one, a->inf);
+  fe_select(fe, r->z, fe->one, fe->zero, a->inf);
 }
 
 TORSION_UNUSED static int
@@ -3730,6 +3705,37 @@ jge_naf_points_var(const wei_t *ec, jge_t *out,
 
   for (i = 1; i < size; i++)
     jge_add_var(ec, &out[i], &out[i - 1], &dbl);
+}
+
+static void
+jge_jsf_points_var(const wei_t *ec, jge_t *out,
+                   const wge_t *p1, const wge_t *p2) {
+  /* Create comb for JSF. */
+  jge_set_wge(ec, &out[0], p1); /* 1 */
+  jge_mixed_add_var(ec, &out[1], &out[0], p2); /* 3 */
+  jge_mixed_sub_var(ec, &out[2], &out[0], p2); /* 5 */
+  jge_set_wge(ec, &out[3], p2); /* 7 */
+}
+
+static void
+jge_jsf_points_endo_var(const wei_t *ec, jge_t *out, const wge_t *p1) {
+  wge_t p2, p3;
+  jge_t j1;
+
+  /* P -> J. */
+  jge_set_wge(ec, &j1, p1);
+
+  /* Split point. */
+  wge_endo_beta(ec, &p2, p1);
+
+  /* No inversion (Y1 = Y2). */
+  wge_add_var(ec, &p3, p1, &p2);
+
+  /* Create comb for JSF. */
+  jge_set_wge(ec, &out[0], p1); /* 1 */
+  jge_set_wge(ec, &out[1], &p3); /* 3 */
+  jge_mixed_sub_var(ec, &out[2], &j1, &p2); /* 5 */
+  jge_set_wge(ec, &out[3], &p2); /* 7 */
 }
 
 static void
@@ -4260,7 +4266,7 @@ wei_jmul_double_endo_var(const wei_t *ec,
   max = ECC_MAX(max1, max2);
 
   /* Create comb for JSF. */
-  wge_jsf_points_endo_var(ec, wnd3, p2);
+  jge_jsf_points_endo_var(ec, wnd3, p2);
 
   /* Multiply and add. */
   jge_zero(ec, r);
@@ -4348,7 +4354,7 @@ wei_jmul_multi_normal_var(const wei_t *ec,
     size = sc_jsf_var(sc, nafs[i / 2], coeffs[i], coeffs[i + 1]);
 
     /* Create comb for JSF. */
-    wge_jsf_points_var(ec, wnds[i / 2], &points[i], &points[i + 1]);
+    jge_jsf_points_var(ec, wnds[i / 2], &points[i], &points[i + 1]);
 
     /* Calculate max. */
     max = ECC_MAX(max, size);
@@ -4442,7 +4448,7 @@ wei_jmul_multi_endo_var(const wei_t *ec,
     size = sc_jsf_endo_var(sc, nafs[i], k1, k2);
 
     /* Create comb for JSF. */
-    wge_jsf_points_endo_var(ec, wnds[i], &points[i]);
+    jge_jsf_points_endo_var(ec, wnds[i], &points[i]);
 
     /* Calculate max. */
     max = ECC_MAX(max, size);
@@ -5019,8 +5025,8 @@ static int
 mont_validate_x(const mont_t *ec, const fe_t x);
 
 static void
-_mont_to_edwards(const prime_field_t *fe, xge_t *r,
-                 const mge_t *p, const fe_t c,
+_edwards_to_mont(const prime_field_t *fe, mge_t *r,
+                 const xge_t *p, const fe_t c,
                  int invert, int isogeny);
 
 /*
@@ -5301,17 +5307,33 @@ mge_sub(const mont_t *ec, mge_t *r, const mge_t *a, const mge_t *b) {
   mge_add(ec, r, a, &c);
 }
 
-static void
-pge_set_mge(const mont_t *ec, pge_t *r, const mge_t *a) {
+static int
+mge_set_pge(const mont_t *ec, mge_t *r, const pge_t *p, int sign) {
+  /* https://hyperelliptic.org/EFD/g1p/auto-montgom-xz.html#scaling-scale
+   * 1I + 1M
+   */
   const prime_field_t *fe = &ec->fe;
+  int inf, ret;
+  fe_t a, x;
 
-  fe_select(fe, r->x, a->x, fe->one, a->inf);
-  fe_select(fe, r->z, fe->one, fe->zero, a->inf);
+  /* A = 1 / Z1 */
+  inf = fe_invert(fe, a, p->z) ^ 1;
+
+  /* X3 = X1 * A */
+  fe_mul(fe, x, p->x, a);
+
+  /* Computes (0, 0) if infinity. */
+  ret = mge_set_x(ec, r, x, sign);
+
+  /* Handle infinity. */
+  r->inf = inf;
+
+  return ret;
 }
 
 static void
-xge_set_mge(const mont_t *ec, xge_t *r, const mge_t *p) {
-  _mont_to_edwards(&ec->fe, r, p, ec->c, ec->invert, 1);
+mge_set_xge(const edwards_t *ec, mge_t *r, const xge_t *p) {
+  _edwards_to_mont(&ec->fe, r, p, ec->c, ec->invert, 1);
 }
 
 /*
@@ -5543,28 +5565,12 @@ pge_ladder(const mont_t *ec,
   fe_mul(fe, p4->z, p4->z, e);
 }
 
-static int
-mge_set_pge(const mont_t *ec, mge_t *r, const pge_t *p, int sign) {
-  /* https://hyperelliptic.org/EFD/g1p/auto-montgom-xz.html#scaling-scale
-   * 1I + 1M
-   */
+static void
+pge_set_mge(const mont_t *ec, pge_t *r, const mge_t *a) {
   const prime_field_t *fe = &ec->fe;
-  int inf, ret;
-  fe_t a, x;
 
-  /* A = 1 / Z1 */
-  inf = fe_invert(fe, a, p->z) ^ 1;
-
-  /* X3 = X1 * A */
-  fe_mul(fe, x, p->x, a);
-
-  /* Computes (0, 0) if infinity. */
-  ret = mge_set_x(ec, r, x, sign);
-
-  /* Handle infinity. */
-  r->inf = inf;
-
-  return ret;
+  fe_select(fe, r->x, a->x, fe->one, a->inf);
+  fe_select(fe, r->z, fe->one, fe->zero, a->inf);
 }
 
 static void
@@ -6101,8 +6107,8 @@ static int
 edwards_validate_xy(const edwards_t *ec, const fe_t x, const fe_t y);
 
 static void
-_edwards_to_mont(const prime_field_t *fe, mge_t *r,
-                 const xge_t *p, const fe_t c,
+_mont_to_edwards(const prime_field_t *fe, xge_t *r,
+                 const mge_t *p, const fe_t c,
                  int invert, int isogeny);
 
 /*
@@ -6615,8 +6621,8 @@ xge_jsf_points(const edwards_t *ec, xge_t *out,
 }
 
 static void
-mge_set_xge(const edwards_t *ec, mge_t *r, const xge_t *p) {
-  _edwards_to_mont(&ec->fe, r, p, ec->c, ec->invert, 1);
+xge_set_mge(const mont_t *ec, xge_t *r, const mge_t *p) {
+  _mont_to_edwards(&ec->fe, r, p, ec->c, ec->invert, 1);
 }
 
 /*
