@@ -152,6 +152,7 @@ hash_drbg_init(hash_drbg_t *drbg,
     hash_update(&drbg->hash, state, 5);
     hash_update(&drbg->hash, seed, seed_len);
     hash_final(&drbg->hash, output + i * size, size);
+
     state[0] += 1;
   }
 
@@ -165,6 +166,7 @@ hash_drbg_init(hash_drbg_t *drbg,
     hash_update(&drbg->hash, state, 6);
     hash_update(&drbg->hash, drbg->V, length);
     hash_final(&drbg->hash, output + i * size, size);
+
     state[0] += 1;
   }
 
@@ -200,6 +202,7 @@ hash_drbg_reseed(hash_drbg_t *drbg,
     hash_update(&drbg->hash, drbg->V, length);
     hash_update(&drbg->hash, seed, seed_len);
     hash_final(&drbg->hash, output + i * size, size);
+
     state[0] += 1;
   }
 
@@ -213,6 +216,7 @@ hash_drbg_reseed(hash_drbg_t *drbg,
     hash_update(&drbg->hash, state, 6);
     hash_update(&drbg->hash, drbg->V, length);
     hash_final(&drbg->hash, output + i * size, size);
+
     state[0] += 1;
   }
 
