@@ -55,6 +55,9 @@ hmac_drbg_update(hmac_drbg_t *drbg,
     hmac_final(&drbg->kmac, drbg->V);
   }
 
+  /* Zero for struct assignment. */
+  memset(&drbg->kmac, 0, sizeof(drbg->kmac));
+
   hmac_init(&drbg->kmac, drbg->type, drbg->K, drbg->size);
 }
 

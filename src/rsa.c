@@ -1253,6 +1253,9 @@ mgf1xor(int type,
   size_t i = 0;
   size_t j;
 
+  /* Zero for struct assignment. */
+  memset(&cache, 0, sizeof(cache));
+
   hash_init(&cache, type);
   hash_update(&cache, seed, seed_len);
 

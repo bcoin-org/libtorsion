@@ -348,6 +348,9 @@ bcrypt_pbkdf(unsigned char *key,
   sha512_update(&hash, pass, pass_len);
   sha512_final(&hash, sha2pass);
 
+  /* Zero for struct assignment. */
+  memset(&shash, 0, sizeof(shash));
+
   sha512_init(&shash);
   sha512_update(&shash, salt, salt_len);
 
@@ -629,6 +632,9 @@ hkdf_expand(unsigned char *out,
   if (len == 0)
     return 1;
 
+  /* Zero for struct assignment. */
+  memset(&pmac, 0, sizeof(pmac));
+
   hmac_init(&pmac, type, prk, hash_size);
 
   for (i = 0; i < blocks; i++) {
@@ -700,6 +706,10 @@ pbkdf2_derive(unsigned char *out,
 
   if (len == 0)
     return 1;
+
+  /* Zero for struct assignment. */
+  memset(&pmac, 0, sizeof(pmac));
+  memset(&smac, 0, sizeof(smac));
 
   hmac_init(&pmac, type, pass, pass_len);
 
