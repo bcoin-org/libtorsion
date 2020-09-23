@@ -110,7 +110,8 @@ else()
                                         -Wno-implicit-fallthrough
                                         -Wno-long-long
                                         -Wno-overlength-strings
-                                        -Wshadow)
+                                        -Wshadow
+                                        -fno-builtin-memcmp)
 endif()
 
 if(TORSION_ENABLE_COVERAGE)

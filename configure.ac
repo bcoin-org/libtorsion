@@ -168,6 +168,8 @@ AX_CHECK_COMPILE_FLAG([-Wno-long-long], [CFLAGS="$CFLAGS -Wno-long-long"])
 AX_CHECK_COMPILE_FLAG([-Wno-overlength-strings],
                       [CFLAGS="$CFLAGS -Wno-overlength-strings"])
 AX_CHECK_COMPILE_FLAG([-Wshadow], [CFLAGS="$CFLAGS -Wshadow"])
+AX_CHECK_COMPILE_FLAG([-fno-builtin-memcmp],
+                      [CFLAGS="$CFLAGS -fno-builtin-memcmp"])
 AX_CHECK_COMPILE_FLAG([-O3], [CFLAGS="$CFLAGS -O3"])
 
 AS_IF([test x"$WASM" != x"yes"], [
