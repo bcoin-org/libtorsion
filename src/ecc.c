@@ -335,6 +335,7 @@ typedef struct endo_def_s {
   const unsigned char b2[MAX_SCALAR_SIZE];
   const unsigned char g1[MAX_SCALAR_SIZE];
   const unsigned char g2[MAX_SCALAR_SIZE];
+  size_t prec;
 } endo_def_t;
 
 /*
@@ -401,6 +402,7 @@ typedef struct wei_s {
   sc_t g1;
   sc_t g2;
   wge_t wnd_endo[NAF_SIZE_PRE]; /* 19kb */
+  size_t prec;
 } wei_t;
 
 typedef struct wei_def_s {
@@ -935,16 +937,16 @@ sc_mulshift(const scalar_field_t *sc, sc_t r,
   /* r = a * b */
   mpn_mul_n(rp, a, b, sc->limbs);
 
-  /* bit = (r >> 271) & 1 */
+  /* bit = (r >> 383) & 1 */
   bit = mpn_get_bit(rp, rn, shift - 1);
 
-  /* r >>= 256 */
+  /* r >>= 384 */
   rp += limbs;
   rn -= limbs;
 
   ASSERT(rn >= 0);
 
-  /* r >>= 16 */
+  /* r >>= 0 */
   if (left > 0)
     mpn_rshift(rp, rp, rn, left);
 
@@ -3826,6 +3828,8 @@ wei_init(wei_t *ec, const wei_def_t *def) {
 
     for (i = 0; i < NAF_SIZE_PRE; i++)
       wge_endo_beta(ec, &ec->wnd_endo[i], &ec->wnd_naf[i]);
+
+    ec->prec = def->endo->prec;
   }
 }
 
@@ -3927,15 +3931,18 @@ wei_endo_split(const wei_t *ec, sc_t k1, sc_t k2, const sc_t k) {
    * This involves precomputing `g1` and `g2` as:
    *
    *   d = a1 * b2 - b1 * a2
-   *   t = ceil(log2(d+1)) + 16
+   *   t = ceil(log2(d+1)) + p
    *   g1 = round((2^t * b2) / d)
    *   g2 = round((2^t * b1) / d)
    *
-   * Where `d` is equal to `n`.
+   * Where:
+   *
+   *   `p` is the number of precision bits.
+   *   `d` is equal to `n` (the curve order).
    *
    * `c1` and `c2` can then be computed as follows:
    *
-   *   t = ceil(log2(n+1)) + 16
+   *   t = ceil(log2(n+1)) + p
    *   c1 = (k * g1) >> t
    *   c2 = -((k * g2) >> t)
    *   k1 = k - c1 * a1 - c2 * a2
@@ -3948,7 +3955,7 @@ wei_endo_split(const wei_t *ec, sc_t k1, sc_t k2, const sc_t k) {
    *
    * libsecp256k1 modifies the computation further:
    *
-   *   t = ceil(log2(n+1)) + 16
+   *   t = ceil(log2(n+1)) + p
    *   c1 = ((k * g1) >> t) * -b1
    *   c2 = ((k * -g2) >> t) * -b2
    *   k2 = c1 + c2
@@ -3975,8 +3982,8 @@ wei_endo_split(const wei_t *ec, sc_t k1, sc_t k2, const sc_t k) {
   const scalar_field_t *sc = &ec->sc;
   sc_t c1, c2;
 
-  sc_mulshift(sc, c1, k, ec->g1, sc->bits + 16);
-  sc_mulshift(sc, c2, k, ec->g2, sc->bits + 16); /* -g2 */
+  sc_mulshift(sc, c1, k, ec->g1, ec->prec);
+  sc_mulshift(sc, c2, k, ec->g2, ec->prec); /* -g2 */
 
   sc_mul(sc, c1, c1, ec->b1); /* -b1 */
   sc_mul(sc, c2, c2, ec->b2); /* -b2 */
@@ -7970,17 +7977,18 @@ static const endo_def_t endo_secp256k1 = {
     0xd7, 0x65, 0xcd, 0xa8, 0x3d, 0xb1, 0x56, 0x2c
   },
   {
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x30, 0x86,
-    0xd2, 0x21, 0xa7, 0xd4, 0x6b, 0xcd, 0xe8, 0x6c,
-    0x90, 0xe4, 0x92, 0x84, 0xeb, 0x15, 0x3d, 0xab
+    0x30, 0x86, 0xd2, 0x21, 0xa7, 0xd4, 0x6b, 0xcd,
+    0xe8, 0x6c, 0x90, 0xe4, 0x92, 0x84, 0xeb, 0x15,
+    0x3d, 0xaa, 0x8a, 0x14, 0x71, 0xe8, 0xca, 0x7f,
+    0xe8, 0x93, 0x20, 0x9a, 0x45, 0xdb, 0xb0, 0x31
   },
   {
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xe4, 0x43,
-    0x7e, 0xd6, 0x01, 0x0e, 0x88, 0x28, 0x6f, 0x54,
-    0x7f, 0xa9, 0x0a, 0xbf, 0xe4, 0xc4, 0x22, 0x12
-  }
+    0xe4, 0x43, 0x7e, 0xd6, 0x01, 0x0e, 0x88, 0x28,
+    0x6f, 0x54, 0x7f, 0xa9, 0x0a, 0xbf, 0xe4, 0xc4,
+    0x22, 0x12, 0x08, 0xac, 0x9d, 0xf5, 0x06, 0xc6,
+    0x15, 0x71, 0xb4, 0xae, 0x8a, 0xc4, 0x7f, 0x71
+  },
+  384
 };
 
 /*
