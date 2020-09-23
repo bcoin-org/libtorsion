@@ -111,7 +111,7 @@ endif
 # Benchmarks
 #
 
-BENCH_SOURCES := $(COMMON_OBJECTS) test/bench.c test/hrtime.c
+BENCH_SOURCES := $(COMMON_OBJECTS) test/bench.c test/hrtime.c test/utils.c
 BENCH_CFLAGS := $(COMMON_CFLAGS) $(CFLAGS)
 BENCH_LDFLAGS := $(COMMON_LDFLAGS) $(LDFLAGS)
 
@@ -123,7 +123,7 @@ endif
 # Tests
 #
 
-TEST_SOURCES := $(COMMON_OBJECTS) test/test.c
+TEST_SOURCES := $(COMMON_OBJECTS) test/test.c test/utils.c
 TEST_CFLAGS := $(COMMON_CFLAGS) $(CFLAGS)
 TEST_LDFLAGS := $(COMMON_LDFLAGS) $(LDFLAGS)
 

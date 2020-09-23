@@ -135,7 +135,7 @@ LIB_OBJECTS := $(subst .c,.o,$(LIB_SOURCES))
 # Benchmarks
 #
 
-BENCH_SOURCES = test/bench.c test/hrtime.c
+BENCH_SOURCES = test/bench.c test/hrtime.c test/utils.c
 BENCH_CFLAGS := $(COMMON_CFLAGS) $(CFLAGS)
 BENCH_LDFLAGS := $(COMMON_LDFLAGS) $(LDFLAGS)
 BENCH_LIBS := $(COMMON_LIBS) $(LIBS)
@@ -148,7 +148,7 @@ endif
 # Tests
 #
 
-TEST_SOURCES = test/test.c
+TEST_SOURCES = test/test.c test/utils.c
 TEST_CFLAGS := $(COMMON_CFLAGS) -DTORSION_HAVE_FORK $(CFLAGS)
 TEST_LDFLAGS := $(COMMON_LDFLAGS) $(LDFLAGS)
 TEST_LIBS := $(COMMON_LIBS) $(LIBS)
@@ -172,7 +172,7 @@ endif
 # CT Grind
 #
 
-CTG_SOURCES = test/ctgrind.c
+CTG_SOURCES = test/ctgrind.c test/utils.c
 CTG_CFLAGS := $(COMMON_CFLAGS) $(CFLAGS)
 CTG_LDFLAGS := $(COMMON_LDFLAGS) $(LDFLAGS)
 CTG_LIBS := $(COMMON_LIBS) $(LIBS)

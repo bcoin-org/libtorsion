@@ -132,8 +132,8 @@ endif
 
 torsion_cflags = -I$(top_srcdir)/include
 
-bench_sources = test/bench.c test/hrtime.c
-test_sources = test/test.c
+bench_sources = test/bench.c test/hrtime.c test/utils.c
+test_sources = test/test.c test/utils.c
 
 #
 # Emscripten
@@ -293,7 +293,7 @@ TESTS += torsion_test_static
 
 if ENABLE_CTGRIND
 noinst_PROGRAMS += torsion_ctgrind
-torsion_ctgrind_SOURCES = test/ctgrind.c
+torsion_ctgrind_SOURCES = test/ctgrind.c test/utils.c
 torsion_ctgrind_CFLAGS = $(torsion_cflags)
 torsion_ctgrind_LDFLAGS = -no-install
 torsion_ctgrind_LDADD = libtorsion.la

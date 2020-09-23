@@ -217,6 +217,31 @@ hex_parse(unsigned char *out, size_t len, const char *str) {
 }
 
 /*
+ * Memcmp
+ */
+
+static void
+test_memcmp(drbg_t *unused) {
+  static const unsigned char a[4] = {0, 1, 2, 3};
+  static const unsigned char b[4] = {0, 1, 2, 3};
+  static const unsigned char c[4] = {3, 2, 1, 0};
+  static const unsigned char d[4] = {3, 2, 1, 0};
+
+  (void)unused;
+
+  ASSERT(torsion_memcmp(a, b, 4) == 0);
+  ASSERT(torsion_memcmp(c, d, 4) == 0);
+  ASSERT(torsion_memcmp(a, b, 4) >= 0);
+  ASSERT(torsion_memcmp(c, d, 4) >= 0);
+  ASSERT(torsion_memcmp(a, b, 4) <= 0);
+  ASSERT(torsion_memcmp(c, d, 4) <= 0);
+  ASSERT(torsion_memcmp(a, c, 4) != 0);
+  ASSERT(torsion_memcmp(c, a, 4) != 0);
+  ASSERT(torsion_memcmp(a, c, 4) < 0);
+  ASSERT(torsion_memcmp(c, a, 4) > 0);
+}
+
+/*
  * AEAD
  */
 
@@ -264,11 +289,11 @@ test_aead_chachapoly(drbg_t *unused) {
     chachapoly_aad(&ctx, aad, aad_len);
     chachapoly_encrypt(&ctx, data, data, data_len);
 
-    ASSERT(memcmp(data, output, output_len) == 0);
+    ASSERT(torsion_memcmp(data, output, output_len) == 0);
 
     chachapoly_final(&ctx, mac);
 
-    ASSERT(memcmp(mac, tag, 16) == 0);
+    ASSERT(torsion_memcmp(mac, tag, 16) == 0);
     ASSERT(torsion_memequal(mac, tag, 16));
 
     chachapoly_init(&ctx, key, nonce, nonce_len);
@@ -277,18 +302,18 @@ test_aead_chachapoly(drbg_t *unused) {
 
     chachapoly_final(&ctx, mac);
 
-    ASSERT(memcmp(mac, tag, 16) == 0);
+    ASSERT(torsion_memcmp(mac, tag, 16) == 0);
     ASSERT(torsion_memequal(mac, tag, 16));
 
     chachapoly_init(&ctx, key, nonce, nonce_len);
     chachapoly_aad(&ctx, aad, aad_len);
     chachapoly_decrypt(&ctx, data, data, data_len);
 
-    ASSERT(memcmp(data, input, input_len) == 0);
+    ASSERT(torsion_memcmp(data, input, input_len) == 0);
 
     chachapoly_final(&ctx, mac);
 
-    ASSERT(memcmp(mac, tag, 16) == 0);
+    ASSERT(torsion_memcmp(mac, tag, 16) == 0);
     ASSERT(torsion_memequal(mac, tag, 16));
   }
 }
@@ -329,12 +354,12 @@ test_cipher_contexts(drbg_t *unused) {
     for (j = 0; j < 1000; j++)
       cipher_encrypt(&ctx, data, data);
 
-    ASSERT(memcmp(data, expect, size) == 0);
+    ASSERT(torsion_memcmp(data, expect, size) == 0);
 
     for (j = 0; j < 1000; j++)
       cipher_decrypt(&ctx, data, data);
 
-    ASSERT(memcmp(data, iv, size) == 0);
+    ASSERT(torsion_memcmp(data, iv, size) == 0);
   }
 }
 
@@ -377,14 +402,14 @@ test_cipher_modes(drbg_t *unused) {
                                  input, input_len));
 
     ASSERT(len == output_len);
-    ASSERT(memcmp(data, output, len) == 0);
+    ASSERT(torsion_memcmp(data, output, len) == 0);
 
     ASSERT(cipher_static_decrypt(data, &len, type, mode,
                                  key, key_len, iv, iv_len,
                                  output, output_len));
 
     ASSERT(len == input_len);
-    ASSERT(memcmp(data, input, len) == 0);
+    ASSERT(torsion_memcmp(data, input, len) == 0);
   }
 }
 
@@ -443,10 +468,10 @@ test_cipher_aead(drbg_t *unused) {
 
     ASSERT(cipher_stream_final(&ctx, data, &len));
     ASSERT(len == 0);
-    ASSERT(memcmp(data, output, output_len) == 0);
+    ASSERT(torsion_memcmp(data, output, output_len) == 0);
 
     ASSERT(cipher_stream_get_tag(&ctx, mac, &len));
-    ASSERT(len == tag_len && memcmp(mac, tag, tag_len) == 0);
+    ASSERT(len == tag_len && torsion_memcmp(mac, tag, tag_len) == 0);
 
     ASSERT(cipher_stream_init(&ctx, type, mode, 0, key, key_len, iv, iv_len));
 
@@ -464,7 +489,7 @@ test_cipher_aead(drbg_t *unused) {
 
     ASSERT(cipher_stream_final(&ctx, data, &len));
     ASSERT(len == 0);
-    ASSERT(memcmp(data, input, input_len) == 0);
+    ASSERT(torsion_memcmp(data, input, input_len) == 0);
   }
 }
 
@@ -509,7 +534,7 @@ test_drbg_hash(drbg_t *unused) {
     hash_drbg_generate(&drbg, data, data_len, add1, add1_len);
     hash_drbg_generate(&drbg, data, data_len, add2, add2_len);
 
-    ASSERT(memcmp(data, expect, expect_len) == 0);
+    ASSERT(torsion_memcmp(data, expect, expect_len) == 0);
   }
 }
 
@@ -550,7 +575,7 @@ test_drbg_hmac(drbg_t *unused) {
     hmac_drbg_generate(&drbg, data, data_len, add1, add1_len);
     hmac_drbg_generate(&drbg, data, data_len, add2, add2_len);
 
-    ASSERT(memcmp(data, expect, expect_len) == 0);
+    ASSERT(torsion_memcmp(data, expect, expect_len) == 0);
   }
 }
 
@@ -598,7 +623,7 @@ test_drbg_ctr(drbg_t *unused) {
     ctr_drbg_generate(&drbg, data, data_len, add1, add1_len);
     ctr_drbg_generate(&drbg, data, data_len, add2, add2_len);
 
-    ASSERT(memcmp(data, expect, expect_len) == 0);
+    ASSERT(torsion_memcmp(data, expect, expect_len) == 0);
   }
 }
 
@@ -651,17 +676,17 @@ test_dsa_vectors(drbg_t *unused) {
     ASSERT(dsa_params_create(oparams, &olen, priv, priv_len));
     ASSERT(dsa_params_verify(oparams, olen));
     ASSERT(olen == params_len);
-    ASSERT(memcmp(oparams, params, params_len) == 0);
+    ASSERT(torsion_memcmp(oparams, params, params_len) == 0);
 
     ASSERT(dsa_params_create(oparams, &olen, pub, pub_len));
     ASSERT(dsa_params_verify(oparams, olen));
     ASSERT(olen == params_len);
-    ASSERT(memcmp(oparams, params, params_len) == 0);
+    ASSERT(torsion_memcmp(oparams, params, params_len) == 0);
 
     ASSERT(dsa_pubkey_create(opub, &olen, priv, priv_len));
     ASSERT(dsa_pubkey_verify(opub, olen));
     ASSERT(olen == pub_len);
-    ASSERT(memcmp(opub, pub, pub_len) == 0);
+    ASSERT(torsion_memcmp(opub, pub, pub_len) == 0);
 
     qsize = dsa_pubkey_qbits(pub, pub_len) / 8;
 
@@ -669,15 +694,15 @@ test_dsa_vectors(drbg_t *unused) {
 
     ASSERT(dsa_sig_export(oder, &olen, sig, sig_len, qsize));
     ASSERT(olen == der_len);
-    ASSERT(memcmp(oder, der, der_len) == 0);
+    ASSERT(torsion_memcmp(oder, der, der_len) == 0);
 
     ASSERT(dsa_sig_export(oder, &olen, sig, sig_len, 0));
     ASSERT(olen == der_len);
-    ASSERT(memcmp(oder, der, der_len) == 0);
+    ASSERT(torsion_memcmp(oder, der, der_len) == 0);
 
     ASSERT(dsa_sig_import(osig, &olen, der, der_len, qsize));
     ASSERT(olen == sig_len);
-    ASSERT(memcmp(osig, sig, sig_len) == 0);
+    ASSERT(torsion_memcmp(osig, sig, sig_len) == 0);
 
     ASSERT(dsa_verify(msg, msg_len, sig, sig_len, pub, pub_len));
     ASSERT(dsa_sign(osig, &olen, msg, msg_len, priv, priv_len, entropy));
@@ -752,7 +777,7 @@ test_dsa_keygen(drbg_t *rng) {
                     bob_priv, bob_priv_len));
 
   ASSERT(alice_sec_len == bob_sec_len);
-  ASSERT(memcmp(alice_sec, bob_sec, bob_sec_len) == 0);
+  ASSERT(torsion_memcmp(alice_sec, bob_sec, bob_sec_len) == 0);
 }
 
 /*
@@ -835,43 +860,43 @@ test_ecdsa_vectors(drbg_t *unused) {
     ASSERT(ecdsa_privkey_invert(ec, tweakinv, tweak));
 
     ASSERT(ecdsa_pubkey_create(ec, out, &len, priv, 1));
-    ASSERT(len == pub_size && memcmp(out, pub, pub_size) == 0);
+    ASSERT(len == pub_size && torsion_memcmp(out, pub, pub_size) == 0);
 
     ASSERT(ecdsa_privkey_reduce(ec, out, priv, sc_size));
-    ASSERT(memcmp(out, priv, sc_size) == 0);
+    ASSERT(torsion_memcmp(out, priv, sc_size) == 0);
 
     ASSERT(ecdsa_privkey_tweak_add(ec, out, priv, tweak));
-    ASSERT(memcmp(out, privadd, sc_size) == 0);
+    ASSERT(torsion_memcmp(out, privadd, sc_size) == 0);
 
     ASSERT(ecdsa_privkey_tweak_add(ec, out, out, tweakneg));
-    ASSERT(memcmp(out, priv, sc_size) == 0);
+    ASSERT(torsion_memcmp(out, priv, sc_size) == 0);
 
     ASSERT(ecdsa_privkey_tweak_mul(ec, out, priv, tweak));
-    ASSERT(memcmp(out, privmul, sc_size) == 0);
+    ASSERT(torsion_memcmp(out, privmul, sc_size) == 0);
 
     ASSERT(ecdsa_privkey_tweak_mul(ec, out, out, tweakinv));
-    ASSERT(memcmp(out, priv, sc_size) == 0);
+    ASSERT(torsion_memcmp(out, priv, sc_size) == 0);
 
     ASSERT(ecdsa_privkey_negate(ec, out, priv));
-    ASSERT(memcmp(out, privneg, sc_size) == 0);
+    ASSERT(torsion_memcmp(out, privneg, sc_size) == 0);
 
     ASSERT(ecdsa_privkey_invert(ec, out, priv));
-    ASSERT(memcmp(out, privinv, sc_size) == 0);
+    ASSERT(torsion_memcmp(out, privinv, sc_size) == 0);
 
     ASSERT(ecdsa_pubkey_tweak_add(ec, out, &len, pub, pub_size, tweak, 1));
-    ASSERT(len == pub_size && memcmp(out, pubadd, pub_size) == 0);
+    ASSERT(len == pub_size && torsion_memcmp(out, pubadd, pub_size) == 0);
 
     ASSERT(ecdsa_pubkey_tweak_add(ec, out, &len, pubadd, pub_size, tweakneg, 1));
-    ASSERT(len == pub_size && memcmp(out, pub, pub_size) == 0);
+    ASSERT(len == pub_size && torsion_memcmp(out, pub, pub_size) == 0);
 
     ASSERT(ecdsa_pubkey_tweak_mul(ec, out, &len, pub, pub_size, tweak, 1));
-    ASSERT(len == pub_size && memcmp(out, pubmul, pub_size) == 0);
+    ASSERT(len == pub_size && torsion_memcmp(out, pubmul, pub_size) == 0);
 
     ASSERT(ecdsa_pubkey_tweak_mul(ec, out, &len, pubmul, pub_size, tweakinv, 1));
-    ASSERT(len == pub_size && memcmp(out, pub, pub_size) == 0);
+    ASSERT(len == pub_size && torsion_memcmp(out, pub, pub_size) == 0);
 
     ASSERT(ecdsa_pubkey_negate(ec, out, &len, pub, pub_size, 1));
-    ASSERT(len == pub_size && memcmp(out, pubneg, pub_size) == 0);
+    ASSERT(len == pub_size && torsion_memcmp(out, pubneg, pub_size) == 0);
 
     pubs[0] = pub;
     pubs[1] = pub;
@@ -880,7 +905,7 @@ test_ecdsa_vectors(drbg_t *unused) {
     publens[1] = pub_size;
 
     ASSERT(ecdsa_pubkey_combine(ec, out, &len, pubs, publens, 2, 1));
-    ASSERT(len == pub_size && memcmp(out, pubdbl, pub_size) == 0);
+    ASSERT(len == pub_size && torsion_memcmp(out, pubdbl, pub_size) == 0);
 
     pubs[0] = pubdbl;
     pubs[1] = pubneg;
@@ -889,7 +914,7 @@ test_ecdsa_vectors(drbg_t *unused) {
     publens[1] = pub_size;
 
     ASSERT(ecdsa_pubkey_combine(ec, out, &len, pubs, publens, 2, 1));
-    ASSERT(len == pub_size && memcmp(out, pub, pub_size) == 0);
+    ASSERT(len == pub_size && torsion_memcmp(out, pub, pub_size) == 0);
 
     pubs[0] = pub;
     pubs[1] = pubneg;
@@ -900,44 +925,44 @@ test_ecdsa_vectors(drbg_t *unused) {
     publens[2] = upub_size;
 
     ASSERT(ecdsa_pubkey_combine(ec, out, &len, pubs, publens, 3, 1));
-    ASSERT(len == pub_size && memcmp(out, pub, pub_size) == 0);
+    ASSERT(len == pub_size && torsion_memcmp(out, pub, pub_size) == 0);
 
     ASSERT(!ecdsa_pubkey_combine(ec, out, &len, pubs, publens, 2, 1));
 
     ASSERT(ecdsa_pubkey_create(ec, out, &len, priv, 0));
-    ASSERT(len == upub_size && memcmp(out, pubconv, upub_size) == 0);
+    ASSERT(len == upub_size && torsion_memcmp(out, pubconv, upub_size) == 0);
 
     ASSERT(ecdsa_pubkey_convert(ec, out, &len, pub, pub_size, 0));
-    ASSERT(len == upub_size && memcmp(out, pubconv, upub_size) == 0);
+    ASSERT(len == upub_size && torsion_memcmp(out, pubconv, upub_size) == 0);
 
     ASSERT(ecdsa_pubkey_convert(ec, out, &len, pubconv, upub_size, 1));
-    ASSERT(len == pub_size && memcmp(out, pub, pub_size) == 0);
+    ASSERT(len == pub_size && torsion_memcmp(out, pub, pub_size) == 0);
 
     ASSERT(ecdsa_is_low_s(ec, sig));
 
     ASSERT(ecdsa_sig_export(ec, out, &len, sig));
-    ASSERT(len == der_len && memcmp(out, der, der_len) == 0);
+    ASSERT(len == der_len && torsion_memcmp(out, der, der_len) == 0);
 
     ASSERT(ecdsa_sig_import(ec, out, der, der_len));
-    ASSERT(memcmp(out, sig, sig_size) == 0);
+    ASSERT(torsion_memcmp(out, sig, sig_size) == 0);
 
     ASSERT(ecdsa_recover(ec, out, &len, msg, msg_len, sig, param, 1));
-    ASSERT(len == pub_size && memcmp(out, pub, pub_size) == 0);
+    ASSERT(len == pub_size && torsion_memcmp(out, pub, pub_size) == 0);
 
     ASSERT(ecdsa_recover(ec, out, &len, msg, msg_len, sig, param, 0));
-    ASSERT(len == upub_size && memcmp(out, pubconv, upub_size) == 0);
+    ASSERT(len == upub_size && torsion_memcmp(out, pubconv, upub_size) == 0);
 
     ASSERT(ecdsa_derive(ec, out, &len, pub, pub_size, other, 1));
-    ASSERT(len == pub_size && memcmp(out, secret, pub_size) == 0);
+    ASSERT(len == pub_size && torsion_memcmp(out, secret, pub_size) == 0);
 
     ASSERT(ecdsa_derive(ec, out, &len, pubconv, upub_size, other, 1));
-    ASSERT(len == pub_size && memcmp(out, secret, pub_size) == 0);
+    ASSERT(len == pub_size && torsion_memcmp(out, secret, pub_size) == 0);
 
     ASSERT(ecdsa_derive(ec, out, &len, pubhybrid, upub_size, other, 1));
-    ASSERT(len == pub_size && memcmp(out, secret, pub_size) == 0);
+    ASSERT(len == pub_size && torsion_memcmp(out, secret, pub_size) == 0);
 
     ASSERT(ecdsa_sign(ec, out, &flag, msg, msg_len, priv));
-    ASSERT(memcmp(out, sig, sig_size) == 0);
+    ASSERT(torsion_memcmp(out, sig, sig_size) == 0);
     ASSERT(flag == param);
 
     ASSERT(ecdsa_verify(ec, msg, msg_len, sig, pub, pub_size));
@@ -1005,7 +1030,7 @@ test_ecdsa_random(drbg_t *rng) {
       ASSERT(ecdsa_verify(ec, msg, sc_size, sig, pub, pub_len));
       ASSERT(ecdsa_recover(ec, rec, &rec_len, msg, sc_size, sig, param, 1));
       ASSERT(rec_len == pub_len);
-      ASSERT(memcmp(pub, rec, pub_len) == 0);
+      ASSERT(torsion_memcmp(pub, rec, pub_len) == 0);
 
       k = drbg_uniform(rng, sc_size);
 
@@ -1064,9 +1089,9 @@ test_ecdsa_sswu(drbg_t *unused) {
   ecdsa_pubkey_from_uniform(ec, out, &out_len, bytes, 1);
 
   ASSERT(out_len == 33);
-  ASSERT(memcmp(out, expect, 33) == 0);
+  ASSERT(torsion_memcmp(out, expect, 33) == 0);
   ASSERT(ecdsa_pubkey_to_uniform(ec, out, expect, 33, 3));
-  ASSERT(memcmp(out, bytes, 32) == 0);
+  ASSERT(torsion_memcmp(out, bytes, 32) == 0);
 
   wei_curve_destroy(ec);
 }
@@ -1097,9 +1122,9 @@ test_ecdsa_svdw(drbg_t *unused) {
   ecdsa_pubkey_from_uniform(ec, out, &out_len, bytes, 1);
 
   ASSERT(out_len == 33);
-  ASSERT(memcmp(out, expect, 33) == 0);
+  ASSERT(torsion_memcmp(out, expect, 33) == 0);
   ASSERT(ecdsa_pubkey_to_uniform(ec, out, expect, 33, 1));
-  ASSERT(memcmp(out, bytes, 32) == 0);
+  ASSERT(torsion_memcmp(out, bytes, 32) == 0);
 
   wei_curve_destroy(ec);
 }
@@ -1147,9 +1172,9 @@ test_schnorr_legacy_vectors(drbg_t *unused) {
     if (priv_len > 0) {
       ASSERT(schnorr_legacy_privkey_verify(ec, priv));
       ASSERT(schnorr_legacy_pubkey_create(ec, out, &len, priv, 1));
-      ASSERT(len == pub_len && memcmp(out, pub, pub_len) == 0);
+      ASSERT(len == pub_len && torsion_memcmp(out, pub, pub_len) == 0);
       ASSERT(schnorr_legacy_sign(ec, out, msg, 32, priv));
-      ASSERT(memcmp(out, sig, sig_len) == 0);
+      ASSERT(torsion_memcmp(out, sig, sig_len) == 0);
     }
 
     ASSERT(schnorr_legacy_verify(ec, msg, msg_len,
@@ -1271,9 +1296,9 @@ test_schnorr_vectors(drbg_t *unused) {
     if (priv_len > 0) {
       ASSERT(schnorr_privkey_verify(ec, priv));
       ASSERT(schnorr_pubkey_create(ec, out, priv));
-      ASSERT(memcmp(out, pub, pub_len) == 0);
+      ASSERT(torsion_memcmp(out, pub, pub_len) == 0);
       ASSERT(schnorr_sign(ec, out, msg, 32, priv, aux));
-      ASSERT(memcmp(out, sig, sig_len) == 0);
+      ASSERT(torsion_memcmp(out, sig, sig_len) == 0);
     }
 
     ASSERT(schnorr_verify(ec, msg, msg_len, sig, pub) == result);
@@ -1389,7 +1414,7 @@ test_ecdh_x25519(drbg_t *unused) {
     memcpy(k, t, 32);
   }
 
-  ASSERT(memcmp(k, intervals[0], 32) == 0);
+  ASSERT(torsion_memcmp(k, intervals[0], 32) == 0);
 
   for (; i < 1000; i++) {
     ASSERT(ecdh_derive(ec, t, u, k));
@@ -1397,7 +1422,7 @@ test_ecdh_x25519(drbg_t *unused) {
     memcpy(k, t, 32);
   }
 
-  ASSERT(memcmp(k, intervals[1], 32) == 0);
+  ASSERT(torsion_memcmp(k, intervals[1], 32) == 0);
 
 #ifdef TORSION_TEST_SLOW
   for (; i < 1000000; i++) {
@@ -1406,7 +1431,7 @@ test_ecdh_x25519(drbg_t *unused) {
     memcpy(k, t, 32);
   }
 
-  ASSERT(memcmp(k, intervals[2], 32) == 0);
+  ASSERT(torsion_memcmp(k, intervals[2], 32) == 0);
 #endif
 
   ASSERT(ecdh_pubkey_verify(ec, t));
@@ -1477,7 +1502,7 @@ test_ecdh_x448(drbg_t *unused) {
     memcpy(k, t, 56);
   }
 
-  ASSERT(memcmp(k, intervals[0], 56) == 0);
+  ASSERT(torsion_memcmp(k, intervals[0], 56) == 0);
 
   for (; i < 100; i++) {
     ASSERT(ecdh_derive(ec, t, u, k));
@@ -1485,7 +1510,7 @@ test_ecdh_x448(drbg_t *unused) {
     memcpy(k, t, 56);
   }
 
-  ASSERT(memcmp(k, intervals[1], 56) == 0);
+  ASSERT(torsion_memcmp(k, intervals[1], 56) == 0);
 
   for (; i < 1000; i++) {
     ASSERT(ecdh_derive(ec, t, u, k));
@@ -1493,7 +1518,7 @@ test_ecdh_x448(drbg_t *unused) {
     memcpy(k, t, 56);
   }
 
-  ASSERT(memcmp(k, intervals[2], 56) == 0);
+  ASSERT(torsion_memcmp(k, intervals[2], 56) == 0);
 
 #ifdef TORSION_TEST_SLOW
   for (; i < 1000000; i++) {
@@ -1502,7 +1527,7 @@ test_ecdh_x448(drbg_t *unused) {
     memcpy(k, t, 56);
   }
 
-  ASSERT(memcmp(k, intervals[3], 56) == 0);
+  ASSERT(torsion_memcmp(k, intervals[3], 56) == 0);
 #endif
 
   ASSERT(ecdh_pubkey_verify(ec, t));
@@ -1541,7 +1566,7 @@ test_ecdh_random(drbg_t *rng) {
       ASSERT(ecdh_derive(ec, alice_secret, bob_pub, alice_priv));
       ASSERT(ecdh_derive(ec, bob_secret, alice_pub, bob_priv));
 
-      ASSERT(memcmp(alice_secret, bob_secret, fe_size) == 0);
+      ASSERT(torsion_memcmp(alice_secret, bob_secret, fe_size) == 0);
     }
 
     mont_curve_destroy(ec);
@@ -1571,9 +1596,9 @@ test_ecdh_elligator2(drbg_t *unused) {
 
   ecdh_pubkey_from_uniform(ec, out, bytes);
 
-  ASSERT(memcmp(out, expect, 32) == 0);
+  ASSERT(torsion_memcmp(out, expect, 32) == 0);
   ASSERT(ecdh_pubkey_to_uniform(ec, out, expect, 0));
-  ASSERT(memcmp(out, bytes, 32) == 0);
+  ASSERT(torsion_memcmp(out, bytes, 32) == 0);
 
   mont_curve_destroy(ec);
 }
@@ -1668,97 +1693,97 @@ test_eddsa_vectors(drbg_t *unused) {
     eddsa_scalar_invert(ec, tweakinv, tweak);
 
     eddsa_pubkey_create(ec, out, priv);
-    ASSERT(memcmp(out, pub, pub_size) == 0);
+    ASSERT(torsion_memcmp(out, pub, pub_size) == 0);
 
     eddsa_pubkey_from_scalar(ec, out, scalar);
-    ASSERT(memcmp(out, pub, pub_size) == 0);
+    ASSERT(torsion_memcmp(out, pub, pub_size) == 0);
 
     eddsa_privkey_expand(ec, scalar_, prefix_, priv);
-    ASSERT(memcmp(scalar_, scalar, sc_size) == 0);
-    ASSERT(memcmp(prefix_, prefix, pub_size) == 0);
+    ASSERT(torsion_memcmp(scalar_, scalar, sc_size) == 0);
+    ASSERT(torsion_memcmp(prefix_, prefix, pub_size) == 0);
 
     eddsa_scalar_reduce(ec, out, scalar, sc_size);
-    ASSERT(memcmp(out, reduced, sc_size) == 0);
+    ASSERT(torsion_memcmp(out, reduced, sc_size) == 0);
 
     eddsa_scalar_tweak_add(ec, out, scalar, tweak);
-    ASSERT(memcmp(out, privadd, sc_size) == 0);
+    ASSERT(torsion_memcmp(out, privadd, sc_size) == 0);
 
     eddsa_scalar_tweak_add(ec, out, privadd, tweakneg);
-    ASSERT(memcmp(out, reduced, sc_size) == 0);
+    ASSERT(torsion_memcmp(out, reduced, sc_size) == 0);
 
     eddsa_scalar_tweak_mul(ec, out, scalar, tweak);
-    ASSERT(memcmp(out, privmul, sc_size) == 0);
+    ASSERT(torsion_memcmp(out, privmul, sc_size) == 0);
 
     eddsa_scalar_tweak_mul(ec, out, privmul, tweakinv);
-    ASSERT(memcmp(out, reduced, sc_size) == 0);
+    ASSERT(torsion_memcmp(out, reduced, sc_size) == 0);
 
     eddsa_scalar_negate(ec, out, scalar);
-    ASSERT(memcmp(out, privneg, sc_size) == 0);
+    ASSERT(torsion_memcmp(out, privneg, sc_size) == 0);
 
     eddsa_scalar_invert(ec, out, scalar);
-    ASSERT(memcmp(out, privinv, sc_size) == 0);
+    ASSERT(torsion_memcmp(out, privinv, sc_size) == 0);
 
     ASSERT(eddsa_pubkey_tweak_add(ec, out, pub, tweak));
-    ASSERT(memcmp(out, pubadd, pub_size) == 0);
+    ASSERT(torsion_memcmp(out, pubadd, pub_size) == 0);
 
     ASSERT(eddsa_pubkey_tweak_add(ec, out, pubadd, tweakneg));
-    ASSERT(memcmp(out, pub, pub_size) == 0);
+    ASSERT(torsion_memcmp(out, pub, pub_size) == 0);
 
     ASSERT(eddsa_pubkey_tweak_mul(ec, out, pub, tweak));
-    ASSERT(memcmp(out, pubmul, pub_size) == 0);
+    ASSERT(torsion_memcmp(out, pubmul, pub_size) == 0);
 
     ASSERT(eddsa_pubkey_tweak_mul(ec, out, pubmul, tweakinv));
-    ASSERT(memcmp(out, pub, pub_size) == 0);
+    ASSERT(torsion_memcmp(out, pub, pub_size) == 0);
 
     ASSERT(eddsa_pubkey_negate(ec, out, pub));
-    ASSERT(memcmp(out, pubneg, pub_size) == 0);
+    ASSERT(torsion_memcmp(out, pubneg, pub_size) == 0);
 
     pubs[0] = pub;
     pubs[1] = pub;
 
     ASSERT(eddsa_pubkey_combine(ec, out, pubs, 2));
-    ASSERT(memcmp(out, pubdbl, pub_size) == 0);
+    ASSERT(torsion_memcmp(out, pubdbl, pub_size) == 0);
 
     pubs[0] = pubdbl;
     pubs[1] = pubneg;
 
     ASSERT(eddsa_pubkey_combine(ec, out, pubs, 2));
-    ASSERT(memcmp(out, pub, pub_size) == 0);
+    ASSERT(torsion_memcmp(out, pub, pub_size) == 0);
 
     pubs[0] = pub;
     pubs[1] = pubneg;
     pubs[2] = pub;
 
     ASSERT(eddsa_pubkey_combine(ec, out, pubs, 3));
-    ASSERT(memcmp(out, pub, pub_size) == 0);
+    ASSERT(torsion_memcmp(out, pub, pub_size) == 0);
 
     eddsa_privkey_convert(ec, out, priv);
-    ASSERT(memcmp(out, scalar, sc_size) == 0);
+    ASSERT(torsion_memcmp(out, scalar, sc_size) == 0);
 
     ASSERT(eddsa_pubkey_convert(ec, out, pub));
-    ASSERT(memcmp(out, pubconv, fe_size) == 0);
+    ASSERT(torsion_memcmp(out, pubconv, fe_size) == 0);
 
     ASSERT(eddsa_pubkey_combine(ec, out, NULL, 0));
-    ASSERT(memcmp(out, inf, pub_size) == 0);
+    ASSERT(torsion_memcmp(out, inf, pub_size) == 0);
 
     pubs[0] = pub;
     pubs[1] = pubneg;
 
     ASSERT(eddsa_pubkey_combine(ec, out, pubs, 2));
-    ASSERT(memcmp(out, inf, pub_size) == 0);
+    ASSERT(torsion_memcmp(out, inf, pub_size) == 0);
 
     ASSERT(eddsa_derive(ec, out, pub, other));
-    ASSERT(memcmp(out, secret, sc_size) == 0);
+    ASSERT(torsion_memcmp(out, secret, sc_size) == 0);
 
     eddsa_privkey_convert(ec, out, other);
     ASSERT(eddsa_derive_with_scalar(ec, out, pub, out));
-    ASSERT(memcmp(out, secret, sc_size) == 0);
+    ASSERT(torsion_memcmp(out, secret, sc_size) == 0);
 
     eddsa_sign(ec, out, msg, msg_len, priv, ph, NULL, 0);
-    ASSERT(memcmp(out, sig, sig_size) == 0);
+    ASSERT(torsion_memcmp(out, sig, sig_size) == 0);
 
     eddsa_sign_with_scalar(ec, out, msg, msg_len, scalar, prefix, ph, NULL, 0);
-    ASSERT(memcmp(out, sig, sig_size) == 0);
+    ASSERT(torsion_memcmp(out, sig, sig_size) == 0);
 
     msgs[0] = msg;
     pubs[0] = pub;
@@ -1800,13 +1825,13 @@ test_eddsa_vectors(drbg_t *unused) {
                               1, ph, NULL, 0, scratch));
 
     eddsa_sign_tweak_add(ec, out, msg, msg_len, priv, tweak, ph, NULL, 0);
-    ASSERT(memcmp(out, sigadd, sig_size) == 0);
+    ASSERT(torsion_memcmp(out, sigadd, sig_size) == 0);
 
     ASSERT(eddsa_verify(ec, msg, msg_len, sigadd, pubadd, ph, NULL, 0));
     ASSERT(eddsa_verify_single(ec, msg, msg_len, sigadd, pubadd, ph, NULL, 0));
 
     eddsa_sign_tweak_mul(ec, out, msg, msg_len, priv, tweak, ph, NULL, 0);
-    ASSERT(memcmp(out, sigmul, sig_size) == 0);
+    ASSERT(torsion_memcmp(out, sigmul, sig_size) == 0);
 
     ASSERT(eddsa_verify(ec, msg, msg_len, sigmul, pubmul, ph, NULL, 0));
     ASSERT(eddsa_verify_single(ec, msg, msg_len, sigmul, pubmul, ph, NULL, 0));
@@ -1902,9 +1927,9 @@ test_eddsa_elligator2(drbg_t *unused) {
 
   eddsa_pubkey_from_uniform(ec, out, bytes);
 
-  ASSERT(memcmp(out, expect, 32) == 0);
+  ASSERT(torsion_memcmp(out, expect, 32) == 0);
   ASSERT(eddsa_pubkey_to_uniform(ec, out, expect, 0));
-  ASSERT(memcmp(out, bytes, 32) == 0);
+  ASSERT(torsion_memcmp(out, bytes, 32) == 0);
 
   edwards_curve_destroy(ec);
 }
@@ -1959,10 +1984,10 @@ test_encoding_base16(drbg_t *unused) {
 
     ASSERT(base16_test(hex, strlen(hex)));
     ASSERT(base16_decode(buf, &len, hex, strlen(hex)));
-    ASSERT(len == strlen(str) && memcmp(buf, str, len) == 0);
+    ASSERT(len == strlen(str) && torsion_memcmp(buf, str, len) == 0);
 
     base16_encode((char *)buf, &len, (unsigned char *)str, strlen(str));
-    ASSERT(len == strlen(hex) && memcmp(buf, hex, len) == 0);
+    ASSERT(len == strlen(hex) && torsion_memcmp(buf, hex, len) == 0);
   }
 
   for (i = 0; i < ARRAY_SIZE(vectors_le); i++) {
@@ -1973,10 +1998,10 @@ test_encoding_base16(drbg_t *unused) {
 
     ASSERT(base16le_test(hex, strlen(hex)));
     ASSERT(base16le_decode(buf, &len, hex, strlen(hex)));
-    ASSERT(len == strlen(str) && memcmp(buf, str, len) == 0);
+    ASSERT(len == strlen(str) && torsion_memcmp(buf, str, len) == 0);
 
     base16le_encode((char *)buf, &len, (unsigned char *)str, strlen(str));
-    ASSERT(len == strlen(hex) && memcmp(buf, hex, len) == 0);
+    ASSERT(len == strlen(hex) && torsion_memcmp(buf, hex, len) == 0);
   }
 
   for (i = 0; i < ARRAY_SIZE(invalid); i++) {
@@ -2028,10 +2053,10 @@ test_encoding_base32(drbg_t *unused) {
 
     ASSERT(base32_test(b32, strlen(b32), 1));
     ASSERT(base32_decode(buf, &len, b32, strlen(b32), 1));
-    ASSERT(len == strlen(str) && memcmp(buf, str, len) == 0);
+    ASSERT(len == strlen(str) && torsion_memcmp(buf, str, len) == 0);
 
     base32_encode((char *)buf, &len, (unsigned char *)str, strlen(str), 1);
-    ASSERT(len == strlen(b32) && memcmp(buf, b32, len) == 0);
+    ASSERT(len == strlen(b32) && torsion_memcmp(buf, b32, len) == 0);
   }
 
   for (i = 0; i < ARRAY_SIZE(vectors_hex); i++) {
@@ -2042,10 +2067,10 @@ test_encoding_base32(drbg_t *unused) {
 
     ASSERT(base32hex_test(b32, strlen(b32), 1));
     ASSERT(base32hex_decode(buf, &len, b32, strlen(b32), 1));
-    ASSERT(len == strlen(str) && memcmp(buf, str, len) == 0);
+    ASSERT(len == strlen(str) && torsion_memcmp(buf, str, len) == 0);
 
     base32hex_encode((char *)buf, &len, (unsigned char *)str, strlen(str), 1);
-    ASSERT(len == strlen(b32) && memcmp(buf, b32, len) == 0);
+    ASSERT(len == strlen(b32) && torsion_memcmp(buf, b32, len) == 0);
   }
 }
 
@@ -2090,10 +2115,10 @@ test_encoding_base58(drbg_t *unused) {
 
     ASSERT(base58_test(b58, strlen(b58)));
     ASSERT(base58_decode(buf, &len, b58, strlen(b58)));
-    ASSERT(len == dlen && memcmp(buf, data, len) == 0);
+    ASSERT(len == dlen && torsion_memcmp(buf, data, len) == 0);
 
     ASSERT(base58_encode((char *)buf, &len, data, dlen));
-    ASSERT(len == strlen(b58) && memcmp(buf, b58, len) == 0);
+    ASSERT(len == strlen(b58) && torsion_memcmp(buf, b58, len) == 0);
   }
 }
 
@@ -2156,10 +2181,10 @@ test_encoding_base64(drbg_t *unused) {
 
     ASSERT(base64_test(b64, strlen(b64)));
     ASSERT(base64_decode(buf, &len, b64, strlen(b64)));
-    ASSERT(len == strlen(str) && memcmp(buf, str, len) == 0);
+    ASSERT(len == strlen(str) && torsion_memcmp(buf, str, len) == 0);
 
     base64_encode((char *)buf, &len, (unsigned char *)str, strlen(str));
-    ASSERT(len == strlen(b64) && memcmp(buf, b64, len) == 0);
+    ASSERT(len == strlen(b64) && torsion_memcmp(buf, b64, len) == 0);
   }
 
   for (i = 0; i < ARRAY_SIZE(invalid); i++) {
@@ -2179,10 +2204,10 @@ test_encoding_base64(drbg_t *unused) {
 
     ASSERT(base64url_test(b64, strlen(b64)));
     ASSERT(base64url_decode(buf, &len, b64, strlen(b64)));
-    ASSERT(len == strlen(str) && memcmp(buf, str, len) == 0);
+    ASSERT(len == strlen(str) && torsion_memcmp(buf, str, len) == 0);
 
     base64url_encode((char *)buf, &len, (unsigned char *)str, strlen(str));
-    ASSERT(len == strlen(b64) && memcmp(buf, b64, len) == 0);
+    ASSERT(len == strlen(b64) && torsion_memcmp(buf, b64, len) == 0);
   }
 
   for (i = 0; i < ARRAY_SIZE(invalid_url); i++) {
@@ -2271,11 +2296,11 @@ test_encoding_bech32(drbg_t *unused) {
     ASSERT(bech32_test(addr));
     ASSERT(bech32_is(addr));
     ASSERT(bech32_decode(hrp, &version, data, &data_len, addr));
-    ASSERT(strlen(hrp) >= 2 && memcmp(hrp, expect[i], 2) == 0);
+    ASSERT(strlen(hrp) >= 2 && torsion_memcmp(hrp, expect[i], 2) == 0);
     ASSERT(2 + data_len == script_len);
     ASSERT(script[0] == (version ? version + 0x80 : 0));
     ASSERT(script[1] == data_len);
-    ASSERT(memcmp(data, script + 2, data_len) == 0);
+    ASSERT(torsion_memcmp(data, script + 2, data_len) == 0);
 
     ASSERT(bech32_encode(out, hrp, version, data, data_len));
     ASSERT(strcmp(out, expect[i]) == 0);
@@ -2387,7 +2412,7 @@ test_encoding_cash32(drbg_t *unused) {
     ASSERT(cash32_is(addr, prefix));
     ASSERT(cash32_decode(&type, data, &data_len, addr, prefix));
     ASSERT(type == valid[i].type);
-    ASSERT(data_len == hash_len && memcmp(data, hash, hash_len) == 0);
+    ASSERT(data_len == hash_len && torsion_memcmp(data, hash, hash_len) == 0);
 
     ASSERT(cash32_encode(out, prefix, type, data, data_len));
     ASSERT(strcmp(out, addr) == 0);
@@ -2440,7 +2465,7 @@ test_hash_digest(drbg_t *unused) {
       hash_final(&hash, out, size);
     }
 
-    ASSERT(memcmp(out, expect, size) == 0);
+    ASSERT(torsion_memcmp(out, expect, size) == 0);
   }
 }
 
@@ -2473,7 +2498,7 @@ test_hash_hmac(drbg_t *unused) {
     hmac_update(&hmac, data, data_len);
     hmac_final(&hmac, out);
 
-    ASSERT(memcmp(out, expect, size) == 0);
+    ASSERT(torsion_memcmp(out, expect, size) == 0);
   }
 }
 
@@ -2527,8 +2552,8 @@ test_ies_secretbox(drbg_t *unused) {
 
   ASSERT(secretbox_open(opened, sealed, sizeof(sealed), key, nonce));
 
-  ASSERT(memcmp(sealed, expect1, sizeof(expect1)) == 0);
-  ASSERT(memcmp(opened, msg, sizeof(msg)) == 0);
+  ASSERT(torsion_memcmp(sealed, expect1, sizeof(expect1)) == 0);
+  ASSERT(torsion_memcmp(opened, msg, sizeof(msg)) == 0);
 
   /* crypto_secretbox_xsalsa20poly1305 */
   memset(priv1, 1, sizeof(priv1));
@@ -2545,8 +2570,8 @@ test_ies_secretbox(drbg_t *unused) {
 
   ASSERT(secretbox_open(opened, sealed, sizeof(sealed), key, nonce));
 
-  ASSERT(memcmp(sealed, expect2, sizeof(expect2)) == 0);
-  ASSERT(memcmp(opened, msg, sizeof(msg)) == 0);
+  ASSERT(torsion_memcmp(sealed, expect2, sizeof(expect2)) == 0);
+  ASSERT(torsion_memcmp(opened, msg, sizeof(msg)) == 0);
 
   mont_curve_destroy(ec);
 }
@@ -2569,8 +2594,8 @@ test_ies_secretbox_random(drbg_t *rng) {
     secretbox_seal(sealed, msg, len, key, nonce);
 
     if (len > 0) {
-      ASSERT(memcmp(sealed, msg, len) != 0);
-      ASSERT(memcmp(sealed + 16, msg, len) != 0);
+      ASSERT(torsion_memcmp(sealed, msg, len) != 0);
+      ASSERT(torsion_memcmp(sealed + 16, msg, len) != 0);
     }
 
     ASSERT(secretbox_open(opened, sealed, len + 16, key, nonce));
@@ -2674,7 +2699,7 @@ test_kdf_bcrypt_pbkdf(drbg_t *unused) {
   (void)unused;
 
   ASSERT(bcrypt_pbkdf(out, pass, sizeof(pass) - 1, salt, sizeof(salt), 16, 48));
-  ASSERT(memcmp(out, expect, 48) == 0);
+  ASSERT(torsion_memcmp(out, expect, 48) == 0);
 }
 
 static void
@@ -2707,8 +2732,8 @@ test_kdf_eb2k(drbg_t *unused) {
     ASSERT(eb2k_derive(out1, out2, HASH_MD5, pass, pass_len,
                        salt, salt_len, key_len, iv_len));
 
-    ASSERT(memcmp(out1, key, key_len) == 0);
-    ASSERT(memcmp(out2, iv, iv_len) == 0);
+    ASSERT(torsion_memcmp(out1, key, key_len) == 0);
+    ASSERT(torsion_memcmp(out2, iv, iv_len) == 0);
   }
 }
 
@@ -2745,10 +2770,10 @@ test_kdf_hkdf(drbg_t *unused) {
     hex_parse(okm, len, hkdf_vectors[i].okm);
 
     ASSERT(hkdf_extract(out, type, ikm, ikm_len, salt, salt_len));
-    ASSERT(memcmp(out, prk, size) == 0);
+    ASSERT(torsion_memcmp(out, prk, size) == 0);
 
     ASSERT(hkdf_expand(out, type, prk, info, info_len, len));
-    ASSERT(memcmp(out, okm, len) == 0);
+    ASSERT(torsion_memcmp(out, okm, len) == 0);
   }
 }
 
@@ -2779,7 +2804,7 @@ test_kdf_pbkdf2(drbg_t *unused) {
     hex_parse(expect, len, pbkdf2_vectors[i].expect);
 
     ASSERT(pbkdf2_derive(out, type, pass, pass_len, salt, salt_len, iter, len));
-    ASSERT(memcmp(out, expect, len) == 0);
+    ASSERT(torsion_memcmp(out, expect, len) == 0);
   }
 }
 
@@ -2812,15 +2837,15 @@ test_kdf_pgpdf(drbg_t *unused) {
   (void)unused;
 
   ASSERT(pgpdf_derive_simple(out, HASH_SHA256, pass, pass_len, 32));
-  ASSERT(memcmp(out, expect1, 32) == 0);
+  ASSERT(torsion_memcmp(out, expect1, 32) == 0);
 
   ASSERT(pgpdf_derive_salted(out, HASH_SHA256, pass, pass_len,
                              salt, salt_len, 32));
-  ASSERT(memcmp(out, expect2, 32) == 0);
+  ASSERT(torsion_memcmp(out, expect2, 32) == 0);
 
   ASSERT(pgpdf_derive_iterated(out, HASH_SHA256, pass, pass_len,
                                salt, salt_len, 100, 32));
-  ASSERT(memcmp(out, expect3, 32) == 0);
+  ASSERT(torsion_memcmp(out, expect3, 32) == 0);
 }
 
 static void
@@ -2861,17 +2886,17 @@ test_kdf_scrypt(drbg_t *unused) {
   (void)unused;
 
   ASSERT(scrypt_derive(out, NULL, 0, NULL, 0, 16, 1, 1, 64));
-  ASSERT(memcmp(out, expect1, 64) == 0);
+  ASSERT(torsion_memcmp(out, expect1, 64) == 0);
 
   ASSERT(scrypt_derive(out, pass2, sizeof(pass2) - 1,
                             salt2, sizeof(salt2) - 1, 1024, 8, 16, 64));
 
-  ASSERT(memcmp(out, expect2, 64) == 0);
+  ASSERT(torsion_memcmp(out, expect2, 64) == 0);
 
   ASSERT(scrypt_derive(out, pass3, sizeof(pass3) - 1,
                             salt3, sizeof(salt3) - 1, 16384, 8, 1, 64));
 
-  ASSERT(memcmp(out, expect3, 64) == 0);
+  ASSERT(torsion_memcmp(out, expect3, 64) == 0);
 }
 
 /*
@@ -2903,7 +2928,7 @@ test_mac_poly1305(drbg_t *unused) {
     poly1305_final(&ctx, mac);
 
     ASSERT(torsion_memequal(mac, tag, 16));
-    ASSERT(memcmp(mac, tag, 16) == 0);
+    ASSERT(torsion_memcmp(mac, tag, 16) == 0);
   }
 }
 
@@ -3156,14 +3181,14 @@ test_rand_thread_safety(drbg_t *unused) {
     ASSERT(x2.ptr != x1.ptr);
   }
 
-  ASSERT(memcmp(x0.data, x1.data, 32) != 0);
-  ASSERT(memcmp(x0.data, x2.data, 32) != 0);
+  ASSERT(torsion_memcmp(x0.data, x1.data, 32) != 0);
+  ASSERT(torsion_memcmp(x0.data, x2.data, 32) != 0);
 
-  ASSERT(memcmp(x1.data, x0.data, 32) != 0);
-  ASSERT(memcmp(x1.data, x2.data, 32) != 0);
+  ASSERT(torsion_memcmp(x1.data, x0.data, 32) != 0);
+  ASSERT(torsion_memcmp(x1.data, x2.data, 32) != 0);
 
-  ASSERT(memcmp(x2.data, x0.data, 32) != 0);
-  ASSERT(memcmp(x2.data, x1.data, 32) != 0);
+  ASSERT(torsion_memcmp(x2.data, x0.data, 32) != 0);
+  ASSERT(torsion_memcmp(x2.data, x1.data, 32) != 0);
 }
 #endif /* TORSION_HAVE_THREADS */
 
@@ -3204,7 +3229,7 @@ test_rand_fork_safety(drbg_t *unused) {
     exit(0);
   }
 
-  ASSERT(memcmp(ours, theirs, 32) != 0);
+  ASSERT(torsion_memcmp(ours, theirs, 32) != 0);
 }
 #endif /* TORSION_HAVE_FORK */
 #endif /* TORSION_HAVE_RNG */
@@ -3263,12 +3288,12 @@ test_rsa_vectors(drbg_t *unused) {
     ASSERT(rsa_privkey_verify(priv, priv_len));
     ASSERT(rsa_pubkey_verify(pub, pub_len));
     ASSERT(rsa_pubkey_create(out, &len, priv, priv_len));
-    ASSERT(len == pub_len && memcmp(out, pub, pub_len) == 0);
+    ASSERT(len == pub_len && torsion_memcmp(out, pub, pub_len) == 0);
 
     /* RSA-PKCS1v1.5 type 1. */
     ASSERT(rsa_sign(out, &len, hash, msg, msg_len,
                     priv, priv_len, entropy));
-    ASSERT(len == sig1_len && memcmp(out, sig1, sig1_len) == 0);
+    ASSERT(len == sig1_len && torsion_memcmp(out, sig1, sig1_len) == 0);
 
     ASSERT(rsa_verify(hash, msg, msg_len, sig1, sig1_len, pub, pub_len));
 
@@ -3324,22 +3349,22 @@ test_rsa_vectors(drbg_t *unused) {
 
     /* RSA-PKCS1v1.5 type 2. */
     ASSERT(rsa_decrypt(out, &len, ct1, ct1_len, priv, priv_len, entropy));
-    ASSERT(len == msg_len && memcmp(out, msg, msg_len) == 0);
+    ASSERT(len == msg_len && torsion_memcmp(out, msg, msg_len) == 0);
 
     ASSERT(rsa_encrypt(tmp, &len, msg, msg_len, pub, pub_len, entropy));
     ASSERT(rsa_decrypt(out, &len, tmp, len, priv, priv_len, entropy));
-    ASSERT(len == msg_len && memcmp(out, msg, msg_len) == 0);
+    ASSERT(len == msg_len && torsion_memcmp(out, msg, msg_len) == 0);
 
     /* RSA-OAEP. */
     ASSERT(rsa_decrypt_oaep(out, &len, hash, ct2, ct2_len,
                             priv, priv_len, label, sizeof(label), entropy));
-    ASSERT(len == msg_len && memcmp(out, msg, msg_len) == 0);
+    ASSERT(len == msg_len && torsion_memcmp(out, msg, msg_len) == 0);
 
     ASSERT(rsa_encrypt_oaep(tmp, &len, hash, msg, msg_len,
                             pub, pub_len, label, sizeof(label), entropy));
     ASSERT(rsa_decrypt_oaep(out, &len, hash, tmp, len,
                             priv, priv_len, label, sizeof(label), entropy));
-    ASSERT(len == msg_len && memcmp(out, msg, msg_len) == 0);
+    ASSERT(len == msg_len && torsion_memcmp(out, msg, msg_len) == 0);
   }
 }
 
@@ -3383,7 +3408,7 @@ test_rsa_random(drbg_t *rng) {
 
     ASSERT(rsa_encrypt(ct, &ct_len, msg, 32, pub, pub_len, entropy));
     ASSERT(rsa_decrypt(pt, &pt_len, ct, ct_len, priv, priv_len, entropy));
-    ASSERT(pt_len == 32 && memcmp(pt, msg, 32) == 0);
+    ASSERT(pt_len == 32 && torsion_memcmp(pt, msg, 32) == 0);
 
     ct[j] ^= 1;
 
@@ -3422,7 +3447,7 @@ test_rsa_random(drbg_t *rng) {
     ASSERT(rsa_decrypt_oaep(pt, &pt_len, HASH_SHA256, ct, ct_len,
                             priv, priv_len, NULL, 0, entropy));
 
-    ASSERT(pt_len == 32 && memcmp(pt, msg, 32) == 0);
+    ASSERT(pt_len == 32 && torsion_memcmp(pt, msg, 32) == 0);
 
     ct[j] ^= 1;
 
@@ -3464,14 +3489,14 @@ test_stream_arc4(drbg_t *unused) {
   for (i = 0; i < 1000; i++)
     arc4_crypt(&ctx, data, data, 32);
 
-  ASSERT(memcmp(data, expect, 32) == 0);
+  ASSERT(torsion_memcmp(data, expect, 32) == 0);
 
   arc4_init(&ctx, key, 32);
 
   for (i = 0; i < 1000; i++)
     arc4_crypt(&ctx, data, data, 32);
 
-  ASSERT(memcmp(data, msg, 32) == 0);
+  ASSERT(torsion_memcmp(data, msg, 32) == 0);
 }
 
 static void
@@ -3510,12 +3535,12 @@ test_stream_chacha20(drbg_t *unused) {
     chacha20_init(&ctx, key, key_len, nonce, nonce_len, counter);
     chacha20_crypt(&ctx, data, data, data_len);
 
-    ASSERT(memcmp(data, output, output_len) == 0);
+    ASSERT(torsion_memcmp(data, output, output_len) == 0);
 
     chacha20_init(&ctx, key, key_len, nonce, nonce_len, counter);
     chacha20_crypt(&ctx, data, data, data_len);
 
-    ASSERT(memcmp(data, input, input_len) == 0);
+    ASSERT(torsion_memcmp(data, input, input_len) == 0);
   }
 }
 
@@ -3621,7 +3646,7 @@ test_stream_salsa20(drbg_t *unused) {
         xor[k] ^= out[j + k];
     }
 
-    ASSERT(memcmp(xor, expect, 64) == 0);
+    ASSERT(torsion_memcmp(xor, expect, 64) == 0);
   }
 
   free(out);
@@ -3646,7 +3671,7 @@ test_stream_xsalsa20(drbg_t *unused) {
   salsa20_init(&ctx, key, 32, nonce, 24, 0);
   salsa20_crypt(&ctx, data, input, 12);
 
-  ASSERT(memcmp(data, expect, 12) == 0);
+  ASSERT(torsion_memcmp(data, expect, 12) == 0);
 }
 
 /*
@@ -3660,11 +3685,11 @@ test_util_cleanse(drbg_t *rng) {
 
   drbg_generate(rng, raw, 32);
 
-  ASSERT(memcmp(raw, zero, 32) != 0);
+  ASSERT(torsion_memcmp(raw, zero, 32) != 0);
 
   torsion_cleanse(raw, 32);
 
-  ASSERT(memcmp(raw, zero, 32) == 0);
+  ASSERT(torsion_memcmp(raw, zero, 32) == 0);
 }
 
 static void
@@ -3735,6 +3760,9 @@ typedef struct torsion_test_s {
 
 static const torsion_test_t torsion_tests[] = {
 #define T(name) { #name, test_ ## name }
+  /* Memcmp */
+  T(memcmp),
+
   /* AEAD */
   T(aead_chachapoly),
 

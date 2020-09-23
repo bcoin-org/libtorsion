@@ -110,8 +110,7 @@ else()
                                         -Wno-implicit-fallthrough
                                         -Wno-long-long
                                         -Wno-overlength-strings
-                                        -Wshadow
-                                        -fno-builtin-memcmp)
+                                        -Wshadow)
 endif()
 
 if(TORSION_ENABLE_COVERAGE)
@@ -428,10 +427,10 @@ if(TORSION_WASM)
   target_link_libraries(torsion PRIVATE torsion_o)
 
   if(BUILD_TESTING)
-    add_executable(torsion_bench test/bench.c test/hrtime.c)
+    add_executable(torsion_bench test/bench.c test/hrtime.c test/utils.c)
     target_link_libraries(torsion_bench PRIVATE torsion_o)
 
-    add_executable(torsion_test test/test.c)
+    add_executable(torsion_test test/test.c test/utils.c)
     target_link_libraries(torsion_test PRIVATE torsion_o)
     add_test(NAME test_wasm COMMAND torsion_test)
 
@@ -508,7 +507,7 @@ else()
   endif()
 
   if(BUILD_TESTING)
-    set(test_sources test/test.c)
+    set(test_sources test/test.c test/utils.c)
     set(test_libs)
 
     if(TORSION_HAS_PTHREAD OR WIN32)
@@ -522,7 +521,7 @@ else()
       list(APPEND test_libs z)
     endif()
 
-    add_executable(torsion_bench test/bench.c test/hrtime.c)
+    add_executable(torsion_bench test/bench.c test/hrtime.c test/utils.c)
     target_link_libraries(torsion_bench PRIVATE torsion)
 
     add_executable(torsion_test ${test_sources})
@@ -535,7 +534,7 @@ else()
     add_test(NAME test_static COMMAND torsion_test_static)
 
     if(TORSION_HAS_VALGRIND)
-      add_executable(torsion_ctgrind test/ctgrind.c)
+      add_executable(torsion_ctgrind test/ctgrind.c test/utils.c)
       target_link_libraries(torsion_ctgrind PRIVATE torsion)
     endif()
 

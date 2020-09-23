@@ -193,6 +193,29 @@ revcmp(const unsigned char *a, const unsigned char *b, size_t size) {
 }
 
 /*
+ * Memcmp
+ */
+
+static void
+test_memcmp(void) {
+  static const unsigned char a[4] = {0, 1, 2, 3};
+  static const unsigned char b[4] = {0, 1, 2, 3};
+  static const unsigned char c[4] = {3, 2, 1, 0};
+  static const unsigned char d[4] = {3, 2, 1, 0};
+
+  ASSERT(torsion_memcmp(a, b, 4) == 0);
+  ASSERT(torsion_memcmp(c, d, 4) == 0);
+  ASSERT(torsion_memcmp(a, b, 4) >= 0);
+  ASSERT(torsion_memcmp(c, d, 4) >= 0);
+  ASSERT(torsion_memcmp(a, b, 4) <= 0);
+  ASSERT(torsion_memcmp(c, d, 4) <= 0);
+  ASSERT(torsion_memcmp(a, c, 4) != 0);
+  ASSERT(torsion_memcmp(c, a, 4) != 0);
+  ASSERT(torsion_memcmp(a, c, 4) < 0);
+  ASSERT(torsion_memcmp(c, a, 4) > 0);
+}
+
+/*
  * Scalar
  */
 
@@ -250,7 +273,7 @@ test_scalar(void) {
 
     sc_export(sc, raw, r);
 
-    ASSERT(memcmp(raw, expect1, 32) == 0);
+    ASSERT(torsion_memcmp(raw, expect1, 32) == 0);
 
     memcpy(raw, sc->raw, sc->size);
 
@@ -260,7 +283,7 @@ test_scalar(void) {
 
     sc_export(sc, raw, r);
 
-    ASSERT(memcmp(raw, expect2, 32) == 0);
+    ASSERT(torsion_memcmp(raw, expect2, 32) == 0);
 
     wei_curve_destroy(ec);
   }
@@ -319,7 +342,7 @@ test_scalar(void) {
 
     sc_export(sc, raw, r);
 
-    ASSERT(memcmp(raw, expect1, 32) == 0);
+    ASSERT(torsion_memcmp(raw, expect1, 32) == 0);
 
     memcpy(raw, sc->raw, sc->size);
 
@@ -329,7 +352,7 @@ test_scalar(void) {
 
     sc_export(sc, raw, r);
 
-    ASSERT(memcmp(raw, expect2, 32) == 0);
+    ASSERT(torsion_memcmp(raw, expect2, 32) == 0);
 
     edwards_curve_destroy(ec);
   }
@@ -353,7 +376,7 @@ test_scalar(void) {
 
     sc_export(sc, max, r);
 
-    ASSERT(memcmp(max, expect, 32) == 0);
+    ASSERT(torsion_memcmp(max, expect, 32) == 0);
 
     wei_curve_destroy(ec);
   }
@@ -465,8 +488,8 @@ test_lt(drbg_t *rng) {
 
       ASSERT(bytes_lt(a, a, 32, 1) == 0);
       ASSERT(bytes_lt(b, b, 32, 1) == 0);
-      ASSERT(bytes_lt(a, b, 32, 1) == (memcmp(a, b, 32) < 0));
-      ASSERT(bytes_lt(b, a, 32, 1) == (memcmp(b, a, 32) < 0));
+      ASSERT(bytes_lt(a, b, 32, 1) == (torsion_memcmp(a, b, 32) < 0));
+      ASSERT(bytes_lt(b, a, 32, 1) == (torsion_memcmp(b, a, 32) < 0));
 
       ASSERT(bytes_lt(a, a, 32, -1) == 0);
       ASSERT(bytes_lt(b, b, 32, -1) == 0);
@@ -586,7 +609,7 @@ test_wei_points_p256(drbg_t *rng) {
   ASSERT(wge_export(ec, p_raw, &p_size, &p, 1));
   ASSERT(p_size == 33);
 
-  ASSERT(memcmp(p_raw, g2_raw, 33) == 0);
+  ASSERT(torsion_memcmp(p_raw, g2_raw, 33) == 0);
 
   wei_curve_destroy(ec);
 }
@@ -709,7 +732,7 @@ test_wei_points_p521(drbg_t *rng) {
   ASSERT(wge_export(ec, p_raw, &p_size, &p, 1));
   ASSERT(p_size == 67);
 
-  ASSERT(memcmp(p_raw, g2_raw, 67) == 0);
+  ASSERT(torsion_memcmp(p_raw, g2_raw, 67) == 0);
 
   wei_curve_destroy(ec);
 }
@@ -820,7 +843,7 @@ test_wei_points_secp256k1(drbg_t *rng) {
   ASSERT(wge_export(ec, p_raw, &p_size, &p, 1));
   ASSERT(p_size == 33);
 
-  ASSERT(memcmp(p_raw, g2_raw, 33) == 0);
+  ASSERT(torsion_memcmp(p_raw, g2_raw, 33) == 0);
 
   wei_curve_destroy(ec);
 }
@@ -871,7 +894,7 @@ test_wei_mul_g_p256(drbg_t *rng) {
   ASSERT(wge_export(ec, q_raw, &q_size, &q, 1));
   ASSERT(q_size == 33);
 
-  ASSERT(memcmp(q_raw, expect_raw, 33) == 0);
+  ASSERT(torsion_memcmp(q_raw, expect_raw, 33) == 0);
 
   wei_curve_destroy(ec);
 }
@@ -932,7 +955,7 @@ test_wei_mul_p256(drbg_t *rng) {
   ASSERT(wge_export(ec, q_raw, &q_size, &q, 1));
   ASSERT(q_size == 33);
 
-  ASSERT(memcmp(q_raw, expect_raw, 33) == 0);
+  ASSERT(torsion_memcmp(q_raw, expect_raw, 33) == 0);
 
   wei_curve_destroy(ec);
 }
@@ -1001,7 +1024,7 @@ test_wei_double_mul_p256(drbg_t *rng) {
   ASSERT(wge_export(ec, q_raw, &q_size, &q, 1));
   ASSERT(q_size == 33);
 
-  ASSERT(memcmp(q_raw, expect_raw, 33) == 0);
+  ASSERT(torsion_memcmp(q_raw, expect_raw, 33) == 0);
 
   wei_curve_destroy(ec);
 }
@@ -1097,7 +1120,7 @@ test_wei_multi_mul_p256(drbg_t *rng) {
   ASSERT(wge_export(ec, q_raw, &q_size, &q, 1));
   ASSERT(q_size == 33);
 
-  ASSERT(memcmp(q_raw, expect_raw, 33) == 0);
+  ASSERT(torsion_memcmp(q_raw, expect_raw, 33) == 0);
 
   wei_scratch_destroy(ec, scratch);
   wei_curve_destroy(ec);
@@ -1149,7 +1172,7 @@ test_wei_mul_g_secp256k1(drbg_t *rng) {
   ASSERT(wge_export(ec, q_raw, &q_size, &q, 1));
   ASSERT(q_size == 33);
 
-  ASSERT(memcmp(q_raw, expect_raw, 33) == 0);
+  ASSERT(torsion_memcmp(q_raw, expect_raw, 33) == 0);
 
   wei_curve_destroy(ec);
 }
@@ -1210,7 +1233,7 @@ test_wei_mul_secp256k1(drbg_t *rng) {
   ASSERT(wge_export(ec, q_raw, &q_size, &q, 1));
   ASSERT(q_size == 33);
 
-  ASSERT(memcmp(q_raw, expect_raw, 33) == 0);
+  ASSERT(torsion_memcmp(q_raw, expect_raw, 33) == 0);
 
   wei_curve_destroy(ec);
 }
@@ -1279,7 +1302,7 @@ test_wei_double_mul_secp256k1(drbg_t *rng) {
   ASSERT(wge_export(ec, q_raw, &q_size, &q, 1));
   ASSERT(q_size == 33);
 
-  ASSERT(memcmp(q_raw, expect_raw, 33) == 0);
+  ASSERT(torsion_memcmp(q_raw, expect_raw, 33) == 0);
 
   wei_curve_destroy(ec);
 }
@@ -1375,7 +1398,7 @@ test_wei_multi_mul_secp256k1(drbg_t *rng) {
   ASSERT(wge_export(ec, q_raw, &q_size, &q, 1));
   ASSERT(q_size == 33);
 
-  ASSERT(memcmp(q_raw, expect_raw, 33) == 0);
+  ASSERT(torsion_memcmp(q_raw, expect_raw, 33) == 0);
 
   wei_scratch_destroy(ec, scratch);
   wei_curve_destroy(ec);
@@ -1461,7 +1484,7 @@ test_mont_points_x25519(void) {
 
   ASSERT(mge_export(ec, p_raw, &p));
 
-  ASSERT(memcmp(p_raw, g2_raw, 32) == 0);
+  ASSERT(torsion_memcmp(p_raw, g2_raw, 32) == 0);
 
   mont_curve_destroy(ec);
 }
@@ -1566,7 +1589,7 @@ test_edwards_points_ed25519(drbg_t *rng) {
 
   xge_export(ec, p_raw, &p);
 
-  ASSERT(memcmp(p_raw, g2_raw, 32) == 0);
+  ASSERT(torsion_memcmp(p_raw, g2_raw, 32) == 0);
 
   edwards_curve_destroy(ec);
 }
@@ -1614,7 +1637,7 @@ test_edwards_mul_g_ed25519(drbg_t *rng) {
 
   xge_export(ec, q_raw, &q);
 
-  ASSERT(memcmp(q_raw, expect_raw, 32) == 0);
+  ASSERT(torsion_memcmp(q_raw, expect_raw, 32) == 0);
 
   edwards_curve_destroy(ec);
 }
@@ -1671,7 +1694,7 @@ test_edwards_mul_ed25519(drbg_t *rng) {
 
   xge_export(ec, q_raw, &q);
 
-  ASSERT(memcmp(q_raw, expect_raw, 32) == 0);
+  ASSERT(torsion_memcmp(q_raw, expect_raw, 32) == 0);
 
   edwards_curve_destroy(ec);
 }
@@ -1736,7 +1759,7 @@ test_edwards_double_mul_ed25519(drbg_t *rng) {
 
   xge_export(ec, q_raw, &q);
 
-  ASSERT(memcmp(q_raw, expect_raw, 32) == 0);
+  ASSERT(torsion_memcmp(q_raw, expect_raw, 32) == 0);
 
   edwards_curve_destroy(ec);
 }
@@ -1827,7 +1850,7 @@ test_edwards_multi_mul_ed25519(drbg_t *rng) {
 
   xge_export(ec, q_raw, &q);
 
-  ASSERT(memcmp(q_raw, expect_raw, 32) == 0);
+  ASSERT(torsion_memcmp(q_raw, expect_raw, 32) == 0);
 
   edwards_scratch_destroy(ec, scratch);
   edwards_curve_destroy(ec);
@@ -1836,6 +1859,9 @@ test_edwards_multi_mul_ed25519(drbg_t *rng) {
 void
 test_ecc_internal(drbg_t *rng) {
   printf("Testing internal ECC functions...\n");
+
+  /* Memcmp */
+  test_memcmp();
 
   /* Scalar */
   test_scalar();
