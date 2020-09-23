@@ -325,22 +325,7 @@ AS_IF([test x"$enable_pthread" = x"yes" -a x"$WASM" != x"yes"], [
 ])
 
 AS_IF([test x"$enable_tls" = x"yes"], [
-  AC_MSG_CHECKING(for thread-local storage support)
-  AC_LINK_IFELSE([
-    AC_LANG_PROGRAM([[
-      #if defined(_WIN32) && !defined(__MINGW32__)
-      #  define TLS __declspec(thread)
-      #else
-      #  define TLS __thread
-      #endif
-      static TLS int value;
-    ]], [[
-      value = 1;
-    ]])
-  ], [
-    has_tls=yes
-  ])
-  AC_MSG_RESULT([$has_tls])
+  AX_TLS([has_tls=yes], [has_tls=no])
 ])
 
 AS_IF([test x"$has_tls" != x"yes"], [
@@ -405,6 +390,9 @@ AS_IF([test x"$enable_rng" = x"yes"], [
 
 AS_IF([test x"$has_tls" = x"yes"], [
   AC_DEFINE(TORSION_HAVE_TLS)
+  AC_DEFINE_UNQUOTED(TORSION_TLS, [$ac_cv_tls])
+], [
+  AC_DEFINE_UNQUOTED(TORSION_TLS, [])
 ])
 
 AS_IF([test x"$has_tls_fallback" = x"yes"], [
