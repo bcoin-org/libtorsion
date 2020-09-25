@@ -12005,12 +12005,12 @@ eddsa_sign_with_scalar(const edwards_t *ec,
 
   eddsa_hash_nonce(ec, k, prefix, msg, msg_len, ph, ctx, ctx_len);
 
-  edwards_mul_g(ec, &R, k);
-  xge_export(ec, Rraw, &R);
-
   sc_import_reduce(sc, a, scalar);
 
+  edwards_mul_g(ec, &R, k);
   edwards_mul_g(ec, &A, a);
+
+  xge_export(ec, Rraw, &R);
   xge_export(ec, Araw, &A);
 
   eddsa_hash_challenge(ec, e, Rraw, Araw, msg, msg_len, ph, ctx, ctx_len);
