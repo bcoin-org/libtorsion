@@ -4969,6 +4969,7 @@ wei_point_to_hash(const wei_t *ec,
 
   for (;;) {
     drbg_generate(&rng, bytes, fe->size);
+
     wei_point_from_uniform(ec, &p1, bytes);
 
     /* Avoid 2-torsion points. */
@@ -6064,6 +6065,7 @@ mont_point_to_hash(const mont_t *ec,
 
   for (;;) {
     drbg_generate(&rng, bytes, fe->size);
+
     mont_point_from_uniform(ec, &p1, bytes);
 
     /* Avoid 2-torsion points. */
@@ -7270,6 +7272,7 @@ edwards_point_to_hash(const edwards_t *ec,
 
   for (;;) {
     drbg_generate(&rng, bytes, fe->size);
+
     edwards_point_from_uniform(ec, &p1, bytes);
 
     /* Avoid 2-torsion points. */
@@ -8805,7 +8808,6 @@ ecdsa_privkey_generate(const wei_t *ec,
 
   sc_random(sc, a, &rng);
   sc_export(sc, out, a);
-
   sc_cleanse(sc, a);
 
   cleanse(&rng, sizeof(rng));
@@ -10217,10 +10219,14 @@ schnorr_privkey_export(const wei_t *ec,
 
   wei_mul_g(ec, &A, a);
 
+  ret &= wge_is_zero(ec, &A) ^ 1;
+
   sc_neg_cond(sc, a, a, wge_is_even(ec, &A) ^ 1);
+
   wge_neg_cond(ec, &A, &A, wge_is_even(ec, &A) ^ 1);
 
   sc_export(sc, d_raw, a);
+
   fe_export(fe, x_raw, A.x);
   fe_export(fe, y_raw, A.y);
 
@@ -11040,7 +11046,6 @@ ecdh_privkey_generate(const mont_t *ec,
   drbg_t rng;
 
   drbg_init(&rng, HASH_SHA256, entropy, ENTROPY_SIZE);
-
   drbg_generate(&rng, out, sc->size);
 
   mont_clamp(ec, out, out);
@@ -11382,7 +11387,6 @@ eddsa_privkey_generate(const edwards_t *ec,
   drbg_t rng;
 
   drbg_init(&rng, HASH_SHA256, entropy, ENTROPY_SIZE);
-
   drbg_generate(&rng, out, fe->adj_size);
 
   cleanse(&rng, sizeof(rng));
@@ -11396,7 +11400,6 @@ eddsa_scalar_generate(const edwards_t *ec,
   drbg_t rng;
 
   drbg_init(&rng, HASH_SHA256, entropy, ENTROPY_SIZE);
-
   drbg_generate(&rng, out, sc->size);
 
   edwards_clamp(ec, out, out);
