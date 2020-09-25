@@ -769,7 +769,7 @@ sc_set_fe(const scalar_field_t *sc,
 }
 
 static void
-sc_set_word(const scalar_field_t *sc, sc_t r, uint32_t word) {
+sc_set_word(const scalar_field_t *sc, sc_t r, mp_limb_t word) {
   r[0] = word;
   mpn_zero(r + 1, sc->limbs - 1);
 }
@@ -851,7 +851,7 @@ sc_sub(const scalar_field_t *sc, sc_t r, const sc_t a, const sc_t b) {
 }
 
 static void
-sc_mul_word(const scalar_field_t *sc, sc_t r, const sc_t a, unsigned int word) {
+sc_mul_word(const scalar_field_t *sc, sc_t r, const sc_t a, mp_limb_t word) {
   /* Only constant-time if `word` is constant. */
   ASSERT(word && (word & (word - 1)) == 0);
 
@@ -1496,33 +1496,18 @@ fe_set_sc(const prime_field_t *fe,
 }
 
 static void
-fe_set_word(const prime_field_t *fe, fe_t r, uint32_t word) {
-  if (fe->from_montgomery != NULL) {
-    unsigned char tmp[MAX_FIELD_SIZE];
+fe_set_word(const prime_field_t *fe, fe_t r, fe_word_t word) {
+  size_t i;
 
-    memset(tmp, 0x00, fe->size);
+  r[0] = word;
 
-    if (fe->endian == 1) {
-      tmp[fe->size - 4] = (word >> 24) & 0xff;
-      tmp[fe->size - 3] = (word >> 16) & 0xff;
-      tmp[fe->size - 2] = (word >>  8) & 0xff;
-      tmp[fe->size - 1] = (word >>  0) & 0xff;
-    } else {
-      tmp[0] = (word >>  0) & 0xff;
-      tmp[1] = (word >>  8) & 0xff;
-      tmp[2] = (word >> 16) & 0xff;
-      tmp[3] = (word >> 24) & 0xff;
-    }
+  for (i = 1; i < fe->words; i++)
+    r[i] = 0;
 
-    ASSERT(fe_import(fe, r, tmp));
-  } else {
-    /* Note: the limit of the word size here depends
-     * on how saturated the field implementation is.
-     */
-    fe_zero(fe, r);
-
-    r[0] = word;
-  }
+  if (fe->to_montgomery != NULL)
+    fe->to_montgomery(r, r);
+  else
+    fe->carry(r, r);
 }
 
 static int
@@ -1628,7 +1613,7 @@ fe_sub(const prime_field_t *fe, fe_t r, const fe_t a, const fe_t b) {
 }
 
 static void
-fe_mul_word(const prime_field_t *fe, fe_t r, const fe_t a, unsigned int word) {
+fe_mul_word(const prime_field_t *fe, fe_t r, const fe_t a, fe_word_t word) {
   /* Only constant-time if `word` is constant. */
   int zero = 1;
   fe_t x;
