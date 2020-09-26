@@ -1046,6 +1046,7 @@ sc_invert(const scalar_field_t *sc, sc_t r, const sc_t a) {
     /* e = n - 2 */
     mpn_sub_1(e, sc->n, sc->limbs, 2);
 
+    /* r = a^e mod n */
     sc_pow(sc, r, a, e);
   }
 
@@ -1339,7 +1340,7 @@ static int
 fe_import_pad(const prime_field_t *fe, fe_t r,
               const unsigned char *raw, size_t len) {
   unsigned char tmp[MAX_FIELD_SIZE];
-  int ret;
+  int ret = 1;
 
   if (fe->endian == 1) {
     while (len > 0 && raw[0] == 0x00) {
@@ -1373,7 +1374,7 @@ fe_import_pad(const prime_field_t *fe, fe_t r,
     torsion_abort(); /* LCOV_EXCL_LINE */
   }
 
-  ret = fe_import(fe, r, tmp);
+  ret &= fe_import(fe, r, tmp);
 
   cleanse(tmp, fe->size);
 
@@ -1682,11 +1683,11 @@ static int
 fe_invert_var(const prime_field_t *fe, fe_t r, const fe_t a) {
   mp_limb_t scratch[MPN_INVERT_ITCH(MAX_FIELD_LIMBS)];
   mp_limb_t rp[MAX_FIELD_LIMBS];
-  int ret;
+  int ret = 1;
 
   fe_get_limbs(fe, rp, a);
 
-  ret = mpn_invert_n(rp, rp, fe->p, fe->limbs, scratch);
+  ret &= mpn_invert_n(rp, rp, fe->p, fe->limbs, scratch);
 
   ASSERT(fe_set_limbs(fe, r, rp, fe->limbs));
 
@@ -1707,6 +1708,7 @@ fe_invert(const prime_field_t *fe, fe_t r, const fe_t a) {
     /* e = p - 2 */
     mpn_sub_1(e, fe->p, fe->limbs, 2);
 
+    /* r = a^e mod p */
     fe_pow(fe, r, a, e);
   }
 
@@ -1715,20 +1717,22 @@ fe_invert(const prime_field_t *fe, fe_t r, const fe_t a) {
 
 static int
 fe_sqrt(const prime_field_t *fe, fe_t r, const fe_t a) {
-  int ret;
+  int ret = 1;
 
   if (fe->sqrt != NULL) {
     /* Fast square root chain. */
-    ret = fe->sqrt(r, a);
+    ret &= fe->sqrt(r, a);
   } else {
     /* Handle p = 3 mod 4 and p = 5 mod 8. */
     mp_limb_t e[MAX_FIELD_LIMBS + 1];
     fe_t b, b2;
 
     if ((fe->p[0] & 3) == 3) {
-      /* b = a^((p + 1) / 4) mod p */
+      /* e = (p + 1) / 4 */
       mpn_add_1(e, fe->p, fe->limbs + 1, 1);
       mpn_rshift(e, e, fe->limbs + 1, 2);
+
+      /* b = a^e mod p */
       fe_pow(fe, b, a, e);
     } else if ((fe->p[0] & 7) == 5) {
       fe_t a2, c;
@@ -1736,9 +1740,11 @@ fe_sqrt(const prime_field_t *fe, fe_t r, const fe_t a) {
       /* a2 = a * 2 mod p */
       fe_add(fe, a2, a, a);
 
-      /* c = a2^((p - 5) / 8) mod p */
+      /* e = (p - 5) / 8 */
       mpn_sub_1(e, fe->p, fe->limbs, 5);
       mpn_rshift(e, e, fe->limbs, 3);
+
+      /* c = a2^e mod p */
       fe_pow(fe, c, a2, e);
 
       /* b = (c^2 * a2 - 1) * a * c mod p */
@@ -1754,7 +1760,7 @@ fe_sqrt(const prime_field_t *fe, fe_t r, const fe_t a) {
     /* b2 = b^2 mod p */
     fe_sqr(fe, b2, b);
 
-    ret = fe_equal(fe, b2, a);
+    ret &= fe_equal(fe, b2, a);
 
     fe_set(fe, r, b);
   }
@@ -1774,12 +1780,13 @@ fe_is_square_var(const prime_field_t *fe, const fe_t a) {
 
 static int
 fe_is_square(const prime_field_t *fe, const fe_t a) {
-  int ret;
+  int ret = 1;
 
   if (fe->sqrt != NULL && fe->bits != 224) {
     /* Fast square root chain. */
     fe_t tmp;
-    ret = fe->sqrt(tmp, a);
+
+    ret &= fe->sqrt(tmp, a);
   } else {
     /* Euler's criterion. */
     mp_limb_t e[MAX_FIELD_LIMBS];
@@ -1790,15 +1797,17 @@ fe_is_square(const prime_field_t *fe, const fe_t a) {
     mpn_sub_1(e, fe->p, fe->limbs, 1);
     mpn_rshift(e, e, fe->limbs, 1);
 
+    /* b = a^e mod p */
     fe_pow(fe, b, a, e);
 
+    /* Must be 0, 1, or -1. */
     x = fe_is_zero(fe, a);
     y = fe_equal(fe, b, fe->one);
     z = fe_equal(fe, b, fe->mone);
 
     ASSERT(x + y + z == 1);
 
-    ret = x | y;
+    ret &= x | y;
   }
 
   return ret;
@@ -1814,10 +1823,13 @@ fe_isqrt(const prime_field_t *fe, fe_t r, const fe_t u, const fe_t v) {
   } else {
     fe_t z;
 
+    /* z = v^-1 mod p */
     ret &= fe_invert(fe, z, v);
 
+    /* z = u * z mod p */
     fe_mul(fe, z, z, u);
 
+    /* r = z^(1 / 2) mod p */
     ret &= fe_sqrt(fe, r, z);
   }
 
@@ -4571,6 +4583,7 @@ wei_sswu(const wei_t *ec, wge_t *p, const fe_t u) {
   fe_mul(fe, x1, ec->z, u2);
   fe_mul(fe, t1, z2, u4);
   fe_add(fe, t1, t1, x1);
+
   zero = fe_invert(fe, t1, t1) ^ 1;
 
   fe_add(fe, t1, t1, fe->one);
@@ -4633,7 +4646,7 @@ wei_sswui(const wei_t *ec, fe_t u, const wge_t *p, unsigned int hint) {
   const prime_field_t *fe = &ec->fe;
   fe_t a2x2, abx2, b23, axb, c, n0, n1, d0, d1;
   unsigned int r = hint & 3;
-  unsigned int s0, s1;
+  int ret = 1;
 
   fe_sqr(fe, n0, ec->a);
   fe_sqr(fe, n1, p->x);
@@ -4651,7 +4664,8 @@ wei_sswui(const wei_t *ec, fe_t u, const wge_t *p, unsigned int hint) {
 
   fe_sub(fe, c, a2x2, abx2);
   fe_sub(fe, c, c, b23);
-  s0 = fe_sqrt(fe, c, c);
+
+  ret &= fe_sqrt(fe, c, c);
 
   fe_sub(fe, n0, axb, c);
   fe_neg(fe, n0, n0);
@@ -4668,11 +4682,13 @@ wei_sswui(const wei_t *ec, fe_t u, const wge_t *p, unsigned int hint) {
   fe_select(fe, n0, n0, n1, r & 1); /* r = 1 or 3 */
   fe_select(fe, d0, d0, d1, r >> 1); /* r = 2 or 3 */
 
-  s1 = fe_isqrt(fe, u, n0, d0);
+  ret &= fe_isqrt(fe, u, n0, d0);
 
   fe_set_odd(fe, u, u, fe_is_odd(fe, p->y));
 
-  return s0 & s1 & (p->inf ^ 1);
+  ret &= p->inf ^ 1;
+
+  return ret;
 }
 
 static void
@@ -4826,7 +4842,8 @@ wei_svdwi(const wei_t *ec, fe_t u, const wge_t *p, unsigned int hint) {
   const prime_field_t *fe = &ec->fe;
   fe_t z2, z3, z4, gz, c0, c1, t4, t5, n0, n1, n2, n3, d0;
   uint32_t r = hint & 3;
-  uint32_t s0, s1, s2, s3;
+  uint32_t ret = 1;
+  uint32_t sqr;
 
   fe_sqr(fe, z2, ec->z);
   fe_mul(fe, z3, z2, ec->z);
@@ -4847,9 +4864,10 @@ wei_svdwi(const wei_t *ec, fe_t u, const wge_t *p, unsigned int hint) {
 
   fe_sub(fe, t4, n0, n1);
   fe_add(fe, t4, t4, n2);
-  s0 = fe_sqrt(fe, t4, t4);
-  s1 = ((r - 2) >> 31) | s0;
+  sqr = fe_sqrt(fe, t4, t4);
   fe_mul(fe, t4, t4, ec->z);
+
+  ret &= ((r - 2) >> 31) | sqr;
 
   fe_mul(fe, n0, p->x, z2);
   fe_add(fe, n1, gz, gz);
@@ -4875,15 +4893,17 @@ wei_svdwi(const wei_t *ec, fe_t u, const wge_t *p, unsigned int hint) {
   fe_select(fe, d0, d0, c1, ((r ^ 0) - 1) >> 31); /* r = 0 */
   fe_select(fe, d0, d0, c0, ((r ^ 1) - 1) >> 31); /* r = 1 */
 
-  s2 = fe_isqrt(fe, u, n0, d0);
+  ret &= fe_isqrt(fe, u, n0, d0);
 
   wei_svdwf(ec, n0, n1, u);
 
-  s3 = fe_equal(fe, n0, p->x);
+  ret &= fe_equal(fe, n0, p->x);
 
   fe_set_odd(fe, u, u, fe_is_odd(fe, p->y));
 
-  return s1 & s2 & s3 & (p->inf ^ 1);
+  ret &= p->inf ^ 1;
+
+  return ret;
 }
 
 static void
@@ -4908,9 +4928,9 @@ wei_point_to_uniform(const wei_t *ec,
                      unsigned int hint) {
   const prime_field_t *fe = &ec->fe;
   unsigned int subgroup = (hint >> 4) & 15;
+  int ret = 1;
   wge_t p0;
   fe_t u;
-  int ret;
 
   if (ec->h > 1)
     wge_add(ec, &p0, p, &ec->torsion[subgroup % ec->h]);
@@ -4918,9 +4938,9 @@ wei_point_to_uniform(const wei_t *ec,
     wge_set(ec, &p0, p);
 
   if (ec->zero_a)
-    ret = wei_svdwi(ec, u, &p0, hint);
+    ret &= wei_svdwi(ec, u, &p0, hint);
   else
-    ret = wei_sswui(ec, u, &p0, hint);
+    ret &= wei_sswui(ec, u, &p0, hint);
 
   fe_export(fe, bytes, u);
 
@@ -5305,8 +5325,9 @@ mge_set_pge(const mont_t *ec, mge_t *r, const pge_t *p, int sign) {
    * 1I + 1M
    */
   const prime_field_t *fe = &ec->fe;
-  int inf, ret;
+  int ret = 1;
   fe_t a, x;
+  int inf;
 
   /* A = 1 / Z1 */
   inf = fe_invert(fe, a, p->z) ^ 1;
@@ -5315,7 +5336,7 @@ mge_set_pge(const mont_t *ec, mge_t *r, const pge_t *p, int sign) {
   fe_mul(fe, x, p->x, a);
 
   /* Computes (0, 0) if infinity. */
-  ret = mge_set_x(ec, r, x, sign);
+  ret &= mge_set_x(ec, r, x, sign);
 
   /* Handle infinity. */
   r->inf = inf;
@@ -5397,10 +5418,10 @@ pge_export(const mont_t *ec,
           const pge_t *p) {
   /* [RFC7748] Section 5. */
   const prime_field_t *fe = &ec->fe;
+  int ret = 1;
   fe_t a, x;
-  int ret;
 
-  ret = fe_invert(fe, a, p->z);
+  ret &= fe_invert(fe, a, p->z);
 
   fe_mul(fe, x, p->x, a);
   fe_export(fe, raw, x);
@@ -5973,7 +5994,7 @@ mont_invert2(const mont_t *ec, fe_t u, const mge_t *p, unsigned int hint) {
    */
   const prime_field_t *fe = &ec->fe;
   fe_t x0, y0, n, d;
-  int ret;
+  int ret = 1;
 
   mont_div_b(ec, x0, p->x);
   mont_div_b(ec, y0, p->y);
@@ -5986,11 +6007,13 @@ mont_invert2(const mont_t *ec, fe_t u, const mge_t *p, unsigned int hint) {
   fe_neg(fe, n, n);
   fe_mul(fe, d, d, ec->z);
 
-  ret = fe_isqrt(fe, u, n, d);
+  ret &= fe_isqrt(fe, u, n, d);
 
   fe_set_odd(fe, u, u, fe_is_odd(fe, y0));
 
-  return ret & (p->inf ^ 1);
+  ret &= p->inf ^ 1;
+
+  return ret;
 }
 
 static void
@@ -6013,13 +6036,13 @@ mont_point_to_uniform(const mont_t *ec,
                       unsigned int hint) {
   const prime_field_t *fe = &ec->fe;
   unsigned int subgroup = (hint >> 4) & 15;
+  int ret = 1;
   mge_t p0;
   fe_t u;
-  int ret;
 
   mge_add(ec, &p0, p, &ec->torsion[subgroup % ec->h]);
 
-  ret = mont_invert2(ec, u, &p0, hint);
+  ret &= mont_invert2(ec, u, &p0, hint);
 
   fe_export(fe, bytes, u);
 
@@ -7114,8 +7137,8 @@ edwards_elligator2(const edwards_t *ec, xge_t *r, const fe_t u) {
    */
   const prime_field_t *fe = &ec->fe;
   fe_t lhs, rhs, x1, x2, y1, y2;
-  mge_t m;
   int alpha;
+  mge_t m;
 
   fe_neg(fe, lhs, ec->A0);
   fe_sqr(fe, rhs, u);
@@ -7176,8 +7199,8 @@ edwards_invert2(const edwards_t *ec, fe_t u,
    */
   const prime_field_t *fe = &ec->fe;
   fe_t x0, y0, n, d;
+  int ret = 1;
   mge_t m;
-  int ret;
 
   _edwards_to_mont(fe, &m, p, ec->c, ec->invert, 0);
 
@@ -7192,11 +7215,13 @@ edwards_invert2(const edwards_t *ec, fe_t u,
   fe_neg(fe, n, n);
   fe_mul(fe, d, d, ec->z);
 
-  ret = fe_isqrt(fe, u, n, d);
+  ret &= fe_isqrt(fe, u, n, d);
 
   fe_set_odd(fe, u, u, fe_is_odd(fe, y0));
 
-  return ret & (m.inf ^ 1);
+  ret &= m.inf ^ 1;
+
+  return ret;
 }
 
 static void
@@ -7219,13 +7244,13 @@ edwards_point_to_uniform(const edwards_t *ec,
                          unsigned int hint) {
   const prime_field_t *fe = &ec->fe;
   unsigned int subgroup = (hint >> 4) & 15;
+  int ret = 1;
   xge_t p0;
   fe_t u;
-  int ret;
 
   xge_add(ec, &p0, p, &ec->torsion[subgroup % ec->h]);
 
-  ret = edwards_invert2(ec, u, &p0, hint);
+  ret &= edwards_invert2(ec, u, &p0, hint);
 
   fe_export(fe, bytes, u);
 
@@ -9333,7 +9358,7 @@ ecdsa_reduce(const wei_t *ec, sc_t r,
    */
   const scalar_field_t *sc = &ec->sc;
   unsigned char tmp[MAX_SCALAR_SIZE];
-  int ret;
+  int ret = 1;
 
   /* Truncate. */
   if (msg_len > sc->size)
@@ -9364,7 +9389,7 @@ ecdsa_reduce(const wei_t *ec, sc_t r,
     }
   }
 
-  ret = sc_import_weak(sc, r, tmp);
+  ret &= sc_import_weak(sc, r, tmp);
 
   cleanse(tmp, sc->size);
 
@@ -11491,12 +11516,12 @@ eddsa_scalar_verify(const edwards_t *ec, const unsigned char *scalar) {
 int
 eddsa_scalar_is_zero(const edwards_t *ec, const unsigned char *scalar) {
   const scalar_field_t *sc = &ec->sc;
-  int ret;
+  int ret = 1;
   sc_t a;
 
   sc_import_reduce(sc, a, scalar);
 
-  ret = sc_is_zero(sc, a);
+  ret &= sc_is_zero(sc, a);
 
   sc_cleanse(sc, a);
 
@@ -12445,11 +12470,11 @@ eddsa_derive(const edwards_t *ec,
              const unsigned char *priv) {
   const scalar_field_t *sc = &ec->sc;
   unsigned char scalar[MAX_SCALAR_SIZE];
-  int ret;
+  int ret = 1;
 
   eddsa_privkey_convert(ec, scalar, priv);
 
-  ret = eddsa_derive_with_scalar(ec, secret, pub, scalar);
+  ret &= eddsa_derive_with_scalar(ec, secret, pub, scalar);
 
   cleanse(scalar, sc->size);
 
