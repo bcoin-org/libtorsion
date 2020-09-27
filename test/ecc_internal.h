@@ -220,7 +220,7 @@ test_memcmp(void) {
  */
 
 static void
-test_scalar(void) {
+test_scalar(drbg_t *rng) {
   printf("  - Scalar sanity check.\n");
 
   {
@@ -379,6 +379,31 @@ test_scalar(void) {
     ASSERT(torsion_memcmp(max, expect, 32) == 0);
 
     wei_curve_destroy(ec);
+  }
+
+  {
+    static const sc_t one = {1, 0};
+    edwards_t *ec = edwards_curve_create(EDWARDS_CURVE_ED1174);
+    scalar_field_t *sc = &ec->sc;
+    sc_t x, y;
+
+    do {
+      sc_random(sc, x, rng);
+    } while (sc_equal(sc, x, one));
+
+    ASSERT(sc_invert(sc, y, x));
+
+    ASSERT(!sc_is_zero(sc, x));
+    ASSERT(!sc_is_zero(sc, y));
+
+    ASSERT(!sc_equal(sc, x, one));
+    ASSERT(!sc_equal(sc, y, one));
+
+    sc_mul(sc, x, x, y);
+
+    ASSERT(sc_equal(sc, x, one));
+
+    edwards_curve_destroy(ec);
   }
 }
 
@@ -1864,7 +1889,7 @@ test_ecc_internal(drbg_t *rng) {
   test_memcmp();
 
   /* Scalar */
-  test_scalar();
+  test_scalar(rng);
 
   /* Field Element */
   test_field_element();

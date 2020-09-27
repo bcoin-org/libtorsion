@@ -53,25 +53,25 @@ static const p224_fe_t p224_g = {
 #endif
 
 static void
-p224_fe_set(p224_fe_t out, const p224_fe_t in) {
-  out[0] = in[0];
-  out[1] = in[1];
-  out[2] = in[2];
-  out[3] = in[3];
+p224_fe_set(p224_fe_t r, const p224_fe_t x) {
+  r[0] = x[0];
+  r[1] = x[1];
+  r[2] = x[2];
+  r[3] = x[3];
 #if P224_FIELD_WORDS == 7
-  out[4] = in[4];
-  out[5] = in[5];
-  out[6] = in[6];
+  r[4] = x[4];
+  r[5] = x[5];
+  r[6] = x[6];
 #endif
 }
 
 static int
-p224_fe_equal(const p224_fe_t a, const p224_fe_t b) {
+p224_fe_equal(const p224_fe_t x, const p224_fe_t y) {
   p224_fe_word_t z = 0;
   size_t i;
 
   for (i = 0; i < P224_FIELD_WORDS; i++)
-    z |= a[i] ^ b[i];
+    z |= x[i] ^ y[i];
 
   z = (z >> 1) | (z & 1);
 
@@ -79,106 +79,124 @@ p224_fe_equal(const p224_fe_t a, const p224_fe_t b) {
 }
 
 static void
-p224_fe_sqrn(p224_fe_t out, const p224_fe_t in, int rounds) {
+p224_fe_sqrn(p224_fe_t r, const p224_fe_t x, int rounds) {
   int i;
 
   /* Handle zero for the tonelli-shanks loop. */
   if (rounds == 0) {
-    p224_fe_set(out, in);
+    p224_fe_set(r, x);
     return;
   }
 
-  p224_fe_sqr(out, in);
+  p224_fe_sqr(r, x);
 
   for (i = 1; i < rounds; i++)
-    p224_fe_sqr(out, out);
+    p224_fe_sqr(r, r);
 }
 
 static void
-p224_fe_invert(p224_fe_t out, const p224_fe_t in) {
-  /* 127x1 1x0 96x1 */
-  p224_fe_t x1, x2, x3, x6, x12, x24, x48, x96;
+p224_fe_pow_s(p224_fe_t r, const p224_fe_t x1) {
+  /* Exponent: 2^128 - 1 */
+  /* Bits: 128x1 */
+  p224_fe_t t1, t2;
 
-  p224_fe_set(x1, in);
+  /* x2 = x1^(2^1) * x1 */
+  p224_fe_sqr(t1, x1);
+  p224_fe_mul(t1, t1, x1);
 
-  p224_fe_sqr(x2, x1);
-  p224_fe_mul(x2, x2, x1);
+  /* x4 = x2^(2^2) * x2 */
+  p224_fe_sqrn(t2, t1, 2);
+  p224_fe_mul(t2, t2, t1);
 
-  p224_fe_sqr(x3, x2);
-  p224_fe_mul(x3, x3, x1);
+  /* x8 = x4^(2^4) * x4 */
+  p224_fe_sqrn(t1, t2, 4);
+  p224_fe_mul(t1, t1, t2);
 
-  p224_fe_sqrn(x6, x3, 3);
-  p224_fe_mul(x6, x6, x3);
+  /* x16 = x8^(2^8) * x8 */
+  p224_fe_sqrn(t2, t1, 8);
+  p224_fe_mul(t2, t2, t1);
 
-  p224_fe_sqrn(x12, x6, 6);
-  p224_fe_mul(x12, x12, x6);
+  /* x32 = x16^(2^16) * x16 */
+  p224_fe_sqrn(t1, t2, 16);
+  p224_fe_mul(t1, t1, t2);
 
-  p224_fe_sqrn(x24, x12, 12);
-  p224_fe_mul(x24, x24, x12);
+  /* x64 = x32^(2^32) * x32 */
+  p224_fe_sqrn(t2, t1, 32);
+  p224_fe_mul(t2, t2, t1);
 
-  p224_fe_sqrn(x48, x24, 24);
-  p224_fe_mul(x48, x48, x24);
-
-  p224_fe_sqrn(x96, x48, 48);
-  p224_fe_mul(x96, x96, x48);
-
-  p224_fe_sqrn(out, x96, 24); /* x120 */
-  p224_fe_mul(out, out, x24);
-  p224_fe_sqrn(out, out, 6); /* x126 */
-  p224_fe_mul(out, out, x6);
-  p224_fe_sqr(out, out); /* x127 */
-  p224_fe_mul(out, out, x1);
-
-  p224_fe_sqr(out, out);
-
-  p224_fe_sqrn(out, out, 96);
-  p224_fe_mul(out, out, x96);
+  /* x128 = x64^(2^64) * x64 */
+  p224_fe_sqrn(r, t2, 64);
+  p224_fe_mul(r, r, t2);
 }
 
 static void
-p224_fe_pow_s(p224_fe_t out, const p224_fe_t in) {
-  /* Compute x^(2^128 - 1) mod p */
-  p224_fe_t x2, x4, x8, x16, x32, x64;
+p224_fe_pow_e(p224_fe_t r, const p224_fe_t x) {
+  /* Exponent: 2^127 */
+  /* Bits: 1x1 127x0 */
 
-  p224_fe_sqr(x2, in);
-  p224_fe_mul(x2, x2, in);
-
-  p224_fe_sqrn(x4, x2, 2);
-  p224_fe_mul(x4, x4, x2);
-
-  p224_fe_sqrn(x8, x4, 4);
-  p224_fe_mul(x8, x8, x4);
-
-  p224_fe_sqrn(x16, x8, 8);
-  p224_fe_mul(x16, x16, x8);
-
-  p224_fe_sqrn(x32, x16, 16);
-  p224_fe_mul(x32, x32, x16);
-
-  p224_fe_sqrn(x64, x32, 32);
-  p224_fe_mul(x64, x64, x32);
-
-  p224_fe_sqrn(out, x64, 64);
-  p224_fe_mul(out, out, x64);
+  /* r = x^(2^127) */
+  p224_fe_sqrn(r, x, 127);
 }
 
 static void
-p224_fe_pow_e(p224_fe_t out, const p224_fe_t in) {
-  /* Compute x^(2^127) mod p */
-  p224_fe_sqrn(out, in, 127);
-}
+p224_fe_invert(p224_fe_t r, const p224_fe_t x) {
+  /* Exponent: p - 2 */
+  /* Bits: 127x1 1x0 96x1 */
+  p224_fe_t t0, t1, t2, t3, t4;
 
-TORSION_UNUSED static int
-p224_fe_is_square(const p224_fe_t in) {
-  p224_fe_t b;
-  p224_fe_pow_s(b, in);
-  p224_fe_sqrn(b, b, 95);
-  return p224_fe_equal(b, p224_zero)
-       | p224_fe_equal(b, p224_one);
+  /* x1 = x */
+  p224_fe_set(t0, x);
+
+  /* x2 = x1^(2^1) * x1 */
+  p224_fe_sqr(t1, t0);
+  p224_fe_mul(t1, t1, t0);
+
+  /* x3 = x2^(2^1) * x1 */
+  p224_fe_sqr(t1, t1);
+  p224_fe_mul(t1, t1, t0);
+
+  /* x6 = x3^(2^3) * x3 */
+  p224_fe_sqrn(t2, t1, 3);
+  p224_fe_mul(t2, t2, t1);
+
+  /* x12 = x6^(2^6) * x6 */
+  p224_fe_sqrn(t1, t2, 6);
+  p224_fe_mul(t1, t1, t2);
+
+  /* x24 = x12^(2^12) * x12 */
+  p224_fe_sqrn(t3, t1, 12);
+  p224_fe_mul(t3, t3, t1);
+
+  /* x48 = x24^(2^24) * x24 */
+  p224_fe_sqrn(t1, t3, 24);
+  p224_fe_mul(t1, t1, t3);
+
+  /* x96 = x48^(2^48) * x48 */
+  p224_fe_sqrn(t4, t1, 48);
+  p224_fe_mul(t4, t4, t1);
+
+  /* x120 = x96^(2^24) * x24 */
+  p224_fe_sqrn(r, t4, 24);
+  p224_fe_mul(r, r, t3);
+
+  /* x126 = x120^(2^6) * x6 */
+  p224_fe_sqrn(r, r, 6);
+  p224_fe_mul(r, r, t2);
+
+  /* x127 = x126^(2^1) * x1 */
+  p224_fe_sqr(r, r);
+  p224_fe_mul(r, r, t0);
+
+  /* r = r^(2^1) */
+  p224_fe_sqr(r, r);
+
+  /* r = r^(2^96) * x96 */
+  p224_fe_sqrn(r, r, 96);
+  p224_fe_mul(r, r, t4);
 }
 
 static int
-p224_fe_sqrt_var(p224_fe_t out, const p224_fe_t in) {
+p224_fe_sqrt_var(p224_fe_t r, const p224_fe_t x) {
   /* Tonelli-Shanks for P224.
    *
    * Algorithm:
@@ -216,10 +234,10 @@ p224_fe_sqrt_var(p224_fe_t out, const p224_fe_t in) {
   p224_fe_t y, b, g, t;
   int k, m;
 
-  p224_fe_pow_e(y, in);
-  p224_fe_pow_s(b, in);
+  p224_fe_pow_e(y, x);
+  p224_fe_pow_s(b, x);
   p224_fe_set(g, p224_g);
-  p224_fe_set(out, p224_zero);
+  p224_fe_set(r, p224_zero);
 
   /* Note that b happens to be the first
    * step of Euler's criterion. Squaring
@@ -241,6 +259,7 @@ p224_fe_sqrt_var(p224_fe_t out, const p224_fe_t in) {
 
   for (;;) {
     m = 0;
+
     p224_fe_set(t, b);
 
     while (!p224_fe_equal(t, p224_one) && m < k) {
@@ -258,10 +277,23 @@ p224_fe_sqrt_var(p224_fe_t out, const p224_fe_t in) {
     p224_fe_sqr(g, t);
     p224_fe_mul(y, y, t);
     p224_fe_mul(b, b, g);
+
     k = m;
   }
 
-  p224_fe_set(out, y);
+  p224_fe_set(r, y);
 
   return 1;
+}
+
+TORSION_UNUSED static void
+p224_fe_legendre(p224_fe_t r, const p224_fe_t x) {
+  /* Exponent: (p - 1) / 2 */
+  /* Bits: 128x1 95x0 */
+
+  /* r = x^(2^128 - 1) */
+  p224_fe_pow_s(r, x);
+
+  /* r = r^(2^95) */
+  p224_fe_sqrn(r, r, 95);
 }

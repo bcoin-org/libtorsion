@@ -1836,6 +1836,15 @@ fe_isqrt(const prime_field_t *fe, fe_t r, const fe_t u, const fe_t v) {
   return ret;
 }
 
+TORSION_UNUSED static int
+fe_rsqrt(const prime_field_t *fe, fe_t r, const fe_t u, const fe_t v) {
+  int ret = fe_isqrt(fe, r, u, v);
+
+  fe_set_odd(fe, r, r, 0);
+
+  return ret;
+}
+
 TORSION_UNUSED static void
 fe_random(const prime_field_t *fe, fe_t x, drbg_t *rng) {
   unsigned char bytes[MAX_FIELD_SIZE];
@@ -7582,7 +7591,7 @@ static const prime_def_t field_p192 = {
   NULL,
   p192_fe_invert,
   p192_fe_sqrt,
-  NULL
+  p192_fe_isqrt
 };
 
 static const scalar_def_t field_q192 = {
@@ -7592,7 +7601,7 @@ static const scalar_def_t field_q192 = {
     0xff, 0xff, 0xff, 0xff, 0x99, 0xde, 0xf8, 0x36,
     0x14, 0x6b, 0xc9, 0xb1, 0xb4, 0xd2, 0x28, 0x31
   },
-  NULL
+  q192_sc_invert
 };
 
 /*
@@ -7635,7 +7644,7 @@ static const scalar_def_t field_q224 = {
     0xe0, 0xb8, 0xf0, 0x3e, 0x13, 0xdd, 0x29, 0x45,
     0x5c, 0x5c, 0x2a, 0x3d
   },
-  NULL
+  q224_sc_invert
 };
 
 /*
@@ -7667,7 +7676,7 @@ static const prime_def_t field_p256 = {
   NULL,
   p256_fe_invert,
   p256_fe_sqrt,
-  NULL
+  p256_fe_isqrt
 };
 
 static const scalar_def_t field_q256 = {
@@ -7712,7 +7721,7 @@ static const prime_def_t field_p384 = {
   NULL,
   p384_fe_invert,
   p384_fe_sqrt,
-  NULL
+  p384_fe_isqrt
 };
 
 static const scalar_def_t field_q384 = {
@@ -7762,7 +7771,7 @@ static const prime_def_t field_p521 = {
   NULL,
   p521_fe_invert,
   p521_fe_sqrt,
-  NULL
+  p521_fe_isqrt
 };
 
 static const scalar_def_t field_q521 = {
@@ -7778,7 +7787,7 @@ static const scalar_def_t field_q521 = {
     0x47, 0xae, 0xbb, 0x6f, 0xb7, 0x1e, 0x91, 0x38,
     0x64, 0x09
   },
-  NULL
+  q521_sc_invert
 };
 
 /*
@@ -7913,7 +7922,7 @@ static const scalar_def_t field_q448 = {
     0x21, 0x6c, 0xc2, 0x72, 0x8d, 0xc5, 0x8f, 0x55,
     0x23, 0x78, 0xc2, 0x92, 0xab, 0x58, 0x44, 0xf3
   },
-  NULL
+  q448_sc_invert
 };
 
 /*
@@ -7956,7 +7965,7 @@ static const scalar_def_t field_q251 = {
     0xf7, 0x79, 0x65, 0xc4, 0xdf, 0xd3, 0x07, 0x34,
     0x89, 0x44, 0xd4, 0x5f, 0xd1, 0x66, 0xc9, 0x71
   },
-  NULL
+  q251_sc_invert
 };
 
 /*
