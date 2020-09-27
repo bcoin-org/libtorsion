@@ -20,78 +20,73 @@ sc_montsqrn(const scalar_field_t *sc, sc_t r, const sc_t x, int rounds) {
 
 static void
 q192_sc_invert(const scalar_field_t *sc, sc_t r, const sc_t x) {
-  sc_t b101, b1101, b1111;
-  sc_t x1, x2, x3, t1, t2;
+  sc_t x1, x3, x5, x7, x13, x15, t1, t2;
 
   sc_mont(sc, x1, x);
 
-  sc_montsqr(sc, x2, x1); /* 10 */
+  sc_montsqr(sc, t1, x1);
+  sc_montmul(sc, x3, x1, t1);
+  sc_montmul(sc, x5, x3, t1);
+  sc_montmul(sc, x7, x5, t1);
+  sc_montmul(sc, x13, x7, x5);
+  sc_montmul(sc, x13, x13, x1);
+  sc_montmul(sc, x15, x13, t1);
 
-  sc_montsqr(sc, b101, x2); /* 100 */
-  sc_montsqr(sc, b1101, b101); /* 1000 */
-
-  sc_montmul(sc, x2, x2, x1);
-  sc_montsqr(sc, x3, x2);
-  sc_montmul(sc, x3, x3, x1);
-  sc_montsqrn(sc, t1, x3, 3); /* x6 */
-  sc_montmul(sc, t1, t1, x3);
-  sc_montsqrn(sc, t2, t1, 6); /* x12 */
+  sc_montsqrn(sc, t1, x15, 4); /* x8 */
+  sc_montmul(sc, t1, t1, x15);
+  sc_montsqrn(sc, t2, t1, 8); /* x16 */
   sc_montmul(sc, t2, t2, t1);
-  sc_montsqrn(sc, t1, t2, 12); /* x24 */
+  sc_montsqrn(sc, t1, t2, 16); /* x32 */
   sc_montmul(sc, t1, t1, t2);
-  sc_montsqrn(sc, t2, t1, 24); /* x48 */
+  sc_montsqrn(sc, t2, t1, 32); /* x64 */
   sc_montmul(sc, t2, t2, t1);
-  sc_montsqrn(sc, r, t2, 48); /* x96 */
-  sc_montmul(sc, r, r, t2);
+  sc_montsqrn(sc, r, t2, 32); /* x96 */
+  sc_montmul(sc, r, r, t1);
   sc_montsqr(sc, r, r); /* x97 */
   sc_montmul(sc, r, r, x1);
 
-  sc_montmul(sc, b101, b101, x1);
-  sc_montmul(sc, b1111, b1101, x3);
-  sc_montmul(sc, b1101, b1101, b101);
-
   sc_montsqrn(sc, r, r, 2 + 2); /* 0011 */
-  sc_montmul(sc, r, r, x2);
-  sc_montsqrn(sc, r, r, 2 + 3); /* 00111 */
   sc_montmul(sc, r, r, x3);
+  sc_montsqrn(sc, r, r, 2 + 3); /* 00111 */
+  sc_montmul(sc, r, r, x7);
   sc_montsqrn(sc, r, r, 1 + 4); /* 01111 */
-  sc_montmul(sc, r, r, b1111);
+  sc_montmul(sc, r, r, x15);
   sc_montsqrn(sc, r, r, 1 + 4); /* 01111 */
-  sc_montmul(sc, r, r, b1111);
+  sc_montmul(sc, r, r, x15);
   sc_montsqrn(sc, r, r, 0 + 1); /* 1 */
   sc_montmul(sc, r, r, x1);
   sc_montsqrn(sc, r, r, 5 + 2); /* 0000011 */
-  sc_montmul(sc, r, r, x2);
-  sc_montsqrn(sc, r, r, 1 + 2); /* 011 */
-  sc_montmul(sc, r, r, x2);
-  sc_montsqrn(sc, r, r, 4 + 3); /* 0000101 */
-  sc_montmul(sc, r, r, b101);
-  sc_montsqrn(sc, r, r, 3 + 2); /* 00011 */
-  sc_montmul(sc, r, r, x2);
-  sc_montsqrn(sc, r, r, 1 + 3); /* 0101 */
-  sc_montmul(sc, r, r, b101);
-  sc_montsqrn(sc, r, r, 0 + 3); /* 111 */
   sc_montmul(sc, r, r, x3);
+  sc_montsqrn(sc, r, r, 1 + 2); /* 011 */
+  sc_montmul(sc, r, r, x3);
+  sc_montsqrn(sc, r, r, 4 + 3); /* 0000101 */
+  sc_montmul(sc, r, r, x5);
+  sc_montsqrn(sc, r, r, 3 + 2); /* 00011 */
+  sc_montmul(sc, r, r, x3);
+  sc_montsqrn(sc, r, r, 1 + 3); /* 0101 */
+  sc_montmul(sc, r, r, x5);
+  sc_montsqrn(sc, r, r, 0 + 3); /* 111 */
+  sc_montmul(sc, r, r, x7);
   sc_montsqrn(sc, r, r, 2 + 1); /* 001 */
   sc_montmul(sc, r, r, x1);
   sc_montsqrn(sc, r, r, 2 + 4); /* 001101 */
-  sc_montmul(sc, r, r, b1101);
+  sc_montmul(sc, r, r, x13);
   sc_montsqrn(sc, r, r, 0 + 1); /* 1 */
   sc_montmul(sc, r, r, x1);
   sc_montsqrn(sc, r, r, 3 + 2); /* 00011 */
-  sc_montmul(sc, r, r, x2);
+  sc_montmul(sc, r, r, x3);
   sc_montsqrn(sc, r, r, 1 + 4); /* 01101 */
-  sc_montmul(sc, r, r, b1101);
+  sc_montmul(sc, r, r, x13);
   sc_montsqrn(sc, r, r, 2 + 4); /* 001101 */
-  sc_montmul(sc, r, r, b1101);
+  sc_montmul(sc, r, r, x13);
   sc_montsqrn(sc, r, r, 2 + 1); /* 001 */
   sc_montmul(sc, r, r, x1);
   sc_montsqrn(sc, r, r, 3 + 3); /* 000101 */
-  sc_montmul(sc, r, r, b101);
+  sc_montmul(sc, r, r, x5);
   sc_montsqrn(sc, r, r, 5 + 1); /* 000001 */
   sc_montmul(sc, r, r, x1);
   sc_montsqrn(sc, r, r, 1 + 4); /* 01111 */
-  sc_montmul(sc, r, r, b1111);
+  sc_montmul(sc, r, r, x15);
 
   sc_normal(sc, r, r);
 
@@ -100,24 +95,23 @@ q192_sc_invert(const scalar_field_t *sc, sc_t r, const sc_t x) {
 
 static void
 q224_sc_invert(const scalar_field_t *sc, sc_t r, const sc_t x) {
-  sc_t b101, b1011, b1111, b10111;
-  sc_t x1, x2, x3, t1, t2;
+  sc_t x1, x3, x5, x7, x11, x15, x23, t1, t2;
 
   sc_mont(sc, x1, x);
 
-  sc_montsqr(sc, x2, x1); /* 10 */
+  sc_montsqr(sc, t1, x1);
+  sc_montsqr(sc, t2, t1);
+  sc_montmul(sc, x3, x1, t1);
+  sc_montmul(sc, x5, x3, t1);
+  sc_montmul(sc, x7, x5, t1);
+  sc_montmul(sc, x11, x7, t2);
+  sc_montmul(sc, x15, x11, t2);
+  sc_montsqr(sc, t2, t2);
+  sc_montmul(sc, x23, x15, t2);
 
-  sc_montsqr(sc, b101, x2); /* 100 */
-  sc_montsqr(sc, b1011, b101); /* 1000 */
-  sc_montsqr(sc, b10111, b1011); /* 10000 */
-
-  sc_montmul(sc, x2, x2, x1);
-  sc_montsqr(sc, x3, x2);
-  sc_montmul(sc, x3, x3, x1);
-  sc_montsqrn(sc, t1, x3, 3); /* x6 */
+  sc_montmul(sc, t1, x23, t2); /* x5 */
+  sc_montsqrn(sc, t1, t1, 2); /* x7 */
   sc_montmul(sc, t1, t1, x3);
-  sc_montsqr(sc, t1, t1); /* x7 */
-  sc_montmul(sc, t1, t1, x1);
   sc_montsqrn(sc, t2, t1, 7); /* x14 */
   sc_montmul(sc, t2, t2, t1);
   sc_montsqrn(sc, t1, t2, 14); /* x28 */
@@ -127,51 +121,46 @@ q224_sc_invert(const scalar_field_t *sc, sc_t r, const sc_t x) {
   sc_montsqrn(sc, r, t2, 56); /* x112 */
   sc_montmul(sc, r, r, t2);
 
-  sc_montmul(sc, b101, b101, x1);
-  sc_montmul(sc, b1111, b1011, x3);
-  sc_montmul(sc, b1011, b1011, x2);
-  sc_montmul(sc, b10111, b10111, x3);
-
   sc_montsqrn(sc, r, r, 3 + 4); /* 0001011 */
-  sc_montmul(sc, r, r, b1011);
+  sc_montmul(sc, r, r, x11);
   sc_montsqrn(sc, r, r, 1 + 3); /* 0101 */
-  sc_montmul(sc, r, r, b101);
+  sc_montmul(sc, r, r, x5);
   sc_montsqrn(sc, r, r, 3 + 5); /* 00010111 */
-  sc_montmul(sc, r, r, b10111);
+  sc_montmul(sc, r, r, x23);
   sc_montsqrn(sc, r, r, 5 + 5); /* 0000010111 */
-  sc_montmul(sc, r, r, b10111);
+  sc_montmul(sc, r, r, x23);
   sc_montsqrn(sc, r, r, 3 + 4); /* 0001111 */
-  sc_montmul(sc, r, r, b1111);
+  sc_montmul(sc, r, r, x15);
   sc_montsqrn(sc, r, r, 6 + 4); /* 0000001111 */
-  sc_montmul(sc, r, r, b1111);
+  sc_montmul(sc, r, r, x15);
   sc_montsqrn(sc, r, r, 0 + 1); /* 1 */
   sc_montmul(sc, r, r, x1);
   sc_montsqrn(sc, r, r, 4 + 1); /* 00001 */
   sc_montmul(sc, r, r, x1);
   sc_montsqrn(sc, r, r, 2 + 3); /* 00111 */
-  sc_montmul(sc, r, r, x3);
+  sc_montmul(sc, r, r, x7);
   sc_montsqrn(sc, r, r, 0 + 4); /* 1011 */
-  sc_montmul(sc, r, r, b1011);
+  sc_montmul(sc, r, r, x11);
   sc_montsqrn(sc, r, r, 0 + 3); /* 101 */
-  sc_montmul(sc, r, r, b101);
+  sc_montmul(sc, r, r, x5);
   sc_montsqrn(sc, r, r, 2 + 3); /* 00101 */
-  sc_montmul(sc, r, r, b101);
+  sc_montmul(sc, r, r, x5);
   sc_montsqrn(sc, r, r, 2 + 3); /* 00101 */
-  sc_montmul(sc, r, r, b101);
+  sc_montmul(sc, r, r, x5);
   sc_montsqrn(sc, r, r, 3 + 3); /* 000101 */
-  sc_montmul(sc, r, r, b101);
+  sc_montmul(sc, r, r, x5);
   sc_montsqrn(sc, r, r, 1 + 5); /* 010111 */
-  sc_montmul(sc, r, r, b10111);
+  sc_montmul(sc, r, r, x23);
   sc_montsqrn(sc, r, r, 3 + 5); /* 00010111 */
-  sc_montmul(sc, r, r, b10111);
+  sc_montmul(sc, r, r, x23);
   sc_montsqrn(sc, r, r, 4 + 3); /* 0000101 */
-  sc_montmul(sc, r, r, b101);
+  sc_montmul(sc, r, r, x5);
   sc_montsqrn(sc, r, r, 1 + 1); /* 01 */
   sc_montmul(sc, r, r, x1);
   sc_montsqrn(sc, r, r, 3 + 2); /* 00011 */
-  sc_montmul(sc, r, r, x2);
+  sc_montmul(sc, r, r, x3);
   sc_montsqrn(sc, r, r, 0 + 4); /* 1011 */
-  sc_montmul(sc, r, r, b1011);
+  sc_montmul(sc, r, r, x11);
 
   sc_normal(sc, r, r);
 
@@ -187,6 +176,7 @@ q256_sc_invert(const scalar_field_t *sc, sc_t r, const sc_t x) {
   sc_t x8 /* ff */, x16 /* ffff */, x32 /* ffffffff */;
 
   sc_mont(sc, d0, x);
+
   sc_montsqr(sc, d1, d0);
   sc_montmul(sc, d2, d1, d0);
   sc_montmul(sc, d3, d1, d2);
@@ -282,6 +272,7 @@ q384_sc_invert(const scalar_field_t *sc, sc_t r, const sc_t x) {
   sc_t x64 /* ffffffffffffffff */, x96 /* ffffffffffffffffffffffff */;
 
   sc_mont(sc, d0, x);
+
   sc_montsqr(sc, b2, d0);
   sc_montmul(sc, d1, d0, b2);
   sc_montmul(sc, d2, d1, b2);
@@ -391,22 +382,21 @@ q384_sc_invert(const scalar_field_t *sc, sc_t r, const sc_t x) {
 
 static void
 q521_sc_invert(const scalar_field_t *sc, sc_t r, const sc_t x) {
-  sc_t b101, b111, b1001, b1101;
-  sc_t x1, x2, x4, t1, t2;
+  sc_t x1, x3, x5, x7, x9, x11, x13, x15, t1, t2;
 
   sc_mont(sc, x1, x);
 
-  sc_montsqr(sc, x2, x1); /* 10 */
+  sc_montsqr(sc, t1, x1);
+  sc_montmul(sc, x3, x1, t1);
+  sc_montmul(sc, x5, x3, t1);
+  sc_montmul(sc, x7, x5, t1);
+  sc_montmul(sc, x9, x7, t1);
+  sc_montmul(sc, x11, x9, t1);
+  sc_montmul(sc, x13, x11, t1);
+  sc_montmul(sc, x15, x13, t1);
 
-  sc_montsqr(sc, b101, x2); /* 100 */
-  sc_montsqr(sc, b1001, b101); /* 1000 */
-
-  sc_montmul(sc, x2, x2, x1);
-  sc_montsqrn(sc, x4, x2, 2); /* x4 */
-  sc_set(sc, b1101, x4); /* 1100 */
-  sc_montmul(sc, x4, x4, x2);
-  sc_montsqrn(sc, t1, x4, 4); /* x8 */
-  sc_montmul(sc, t1, t1, x4);
+  sc_montsqrn(sc, t1, x15, 4); /* x8 */
+  sc_montmul(sc, t1, t1, x15);
   sc_montsqrn(sc, t2, t1, 8); /* x16 */
   sc_montmul(sc, t2, t2, t1);
   sc_montsqrn(sc, t1, t2, 16); /* x32 */
@@ -422,119 +412,114 @@ q521_sc_invert(const scalar_field_t *sc, sc_t r, const sc_t x) {
   sc_montsqrn(sc, r, t1, 131); /* x262 */
   sc_montmul(sc, r, r, t1);
 
-  sc_montmul(sc, b111, b101, x2);
-  sc_montmul(sc, b101, b101, x1);
-  sc_montmul(sc, b1001, b1001, x1);
-  sc_montmul(sc, b1101, b1101, x1);
-
   sc_montsqrn(sc, r, r, 1 + 4); /* 01001 */
-  sc_montmul(sc, r, r, b1001);
+  sc_montmul(sc, r, r, x9);
   sc_montsqrn(sc, r, r, 1 + 1); /* 01 */
   sc_montmul(sc, r, r, x1);
   sc_montsqrn(sc, r, r, 3 + 2); /* 00011 */
-  sc_montmul(sc, r, r, x2);
+  sc_montmul(sc, r, r, x3);
   sc_montsqrn(sc, r, r, 4 + 4); /* 00001101 */
-  sc_montmul(sc, r, r, b1101);
+  sc_montmul(sc, r, r, x13);
   sc_montsqrn(sc, r, r, 4 + 4); /* 00001111 */
-  sc_montmul(sc, r, r, x4);
+  sc_montmul(sc, r, r, x15);
   sc_montsqrn(sc, r, r, 5 + 3); /* 00000111 */
-  sc_montmul(sc, r, r, b111);
+  sc_montmul(sc, r, r, x7);
   sc_montsqrn(sc, r, r, 1 + 1); /* 01 */
   sc_montmul(sc, r, r, x1);
   sc_montsqrn(sc, r, r, 0 + 4); /* 1111 */
-  sc_montmul(sc, r, r, x4);
+  sc_montmul(sc, r, r, x15);
   sc_montsqrn(sc, r, r, 0 + 4); /* 1001 */
-  sc_montmul(sc, r, r, b1001);
+  sc_montmul(sc, r, r, x9);
   sc_montsqrn(sc, r, r, 1 + 4); /* 01111 */
-  sc_montmul(sc, r, r, x4);
+  sc_montmul(sc, r, r, x15);
   sc_montsqrn(sc, r, r, 0 + 4); /* 1001 */
-  sc_montmul(sc, r, r, b1001);
+  sc_montmul(sc, r, r, x9);
   sc_montsqrn(sc, r, r, 1 + 2); /* 011 */
-  sc_montmul(sc, r, r, x2);
+  sc_montmul(sc, r, r, x3);
   sc_montsqrn(sc, r, r, 2 + 4); /* 001101 */
-  sc_montmul(sc, r, r, b1101);
+  sc_montmul(sc, r, r, x13);
   sc_montsqrn(sc, r, r, 1 + 4); /* 01101 */
-  sc_montmul(sc, r, r, b1101);
+  sc_montmul(sc, r, r, x13);
   sc_montsqrn(sc, r, r, 0 + 4); /* 1111 */
-  sc_montmul(sc, r, r, x4);
+  sc_montmul(sc, r, r, x15);
   sc_montsqrn(sc, r, r, 0 + 4); /* 1111 */
-  sc_montmul(sc, r, r, x4);
+  sc_montmul(sc, r, r, x15);
   sc_montsqrn(sc, r, r, 2 + 2); /* 0011 */
-  sc_montmul(sc, r, r, x2);
+  sc_montmul(sc, r, r, x3);
   sc_montsqrn(sc, r, r, 9 + 3); /* 000000000101 */
-  sc_montmul(sc, r, r, b101);
+  sc_montmul(sc, r, r, x5);
   sc_montsqrn(sc, r, r, 2 + 1); /* 001 */
   sc_montmul(sc, r, r, x1);
   sc_montsqrn(sc, r, r, 3 + 4); /* 0001111 */
-  sc_montmul(sc, r, r, x4);
+  sc_montmul(sc, r, r, x15);
   sc_montsqrn(sc, r, r, 1 + 3); /* 0111 */
-  sc_montmul(sc, r, r, b111);
+  sc_montmul(sc, r, r, x7);
   sc_montsqrn(sc, r, r, 4 + 4); /* 00001001 */
-  sc_montmul(sc, r, r, b1001);
+  sc_montmul(sc, r, r, x9);
   sc_montsqrn(sc, r, r, 0 + 3); /* 101 */
-  sc_montmul(sc, r, r, b101);
+  sc_montmul(sc, r, r, x5);
   sc_montsqrn(sc, r, r, 2 + 3); /* 00101 */
-  sc_montmul(sc, r, r, b101);
+  sc_montmul(sc, r, r, x5);
   sc_montsqrn(sc, r, r, 0 + 4); /* 1101 */
-  sc_montmul(sc, r, r, b1101);
+  sc_montmul(sc, r, r, x13);
   sc_montsqrn(sc, r, r, 6 + 3); /* 000000111 */
-  sc_montmul(sc, r, r, b111);
+  sc_montmul(sc, r, r, x7);
   sc_montsqrn(sc, r, r, 1 + 3); /* 0111 */
-  sc_montmul(sc, r, r, b111);
+  sc_montmul(sc, r, r, x7);
   sc_montsqrn(sc, r, r, 1 + 4); /* 01101 */
-  sc_montmul(sc, r, r, b1101);
+  sc_montmul(sc, r, r, x13);
   sc_montsqrn(sc, r, r, 1 + 3); /* 0111 */
-  sc_montmul(sc, r, r, b111);
+  sc_montmul(sc, r, r, x7);
   sc_montsqrn(sc, r, r, 2 + 4); /* 001001 */
-  sc_montmul(sc, r, r, b1001);
+  sc_montmul(sc, r, r, x9);
   sc_montsqrn(sc, r, r, 0 + 3); /* 101 */
-  sc_montmul(sc, r, r, b101);
+  sc_montmul(sc, r, r, x5);
   sc_montsqrn(sc, r, r, 0 + 2); /* 11 */
-  sc_montmul(sc, r, r, x2);
+  sc_montmul(sc, r, r, x3);
   sc_montsqrn(sc, r, r, 3 + 1); /* 0001 */
   sc_montmul(sc, r, r, x1);
   sc_montsqrn(sc, r, r, 3 + 4); /* 0001001 */
-  sc_montmul(sc, r, r, b1001);
+  sc_montmul(sc, r, r, x9);
   sc_montsqrn(sc, r, r, 0 + 4); /* 1001 */
-  sc_montmul(sc, r, r, b1001);
+  sc_montmul(sc, r, r, x9);
   sc_montsqrn(sc, r, r, 0 + 2); /* 11 */
-  sc_montmul(sc, r, r, x2);
+  sc_montmul(sc, r, r, x3);
   sc_montsqrn(sc, r, r, 3 + 1); /* 0001 */
   sc_montmul(sc, r, r, x1);
   sc_montsqrn(sc, r, r, 3 + 2); /* 00011 */
-  sc_montmul(sc, r, r, x2);
+  sc_montmul(sc, r, r, x3);
   sc_montsqrn(sc, r, r, 0 + 4); /* 1101 */
-  sc_montmul(sc, r, r, b1101);
+  sc_montmul(sc, r, r, x13);
   sc_montsqrn(sc, r, r, 1 + 2); /* 011 */
-  sc_montmul(sc, r, r, x2);
+  sc_montmul(sc, r, r, x3);
   sc_montsqrn(sc, r, r, 0 + 3); /* 101 */
-  sc_montmul(sc, r, r, b101);
+  sc_montmul(sc, r, r, x5);
   sc_montsqrn(sc, r, r, 1 + 3); /* 0111 */
-  sc_montmul(sc, r, r, b111);
+  sc_montmul(sc, r, r, x7);
   sc_montsqrn(sc, r, r, 1 + 2); /* 011 */
-  sc_montmul(sc, r, r, x2);
+  sc_montmul(sc, r, r, x3);
   sc_montsqrn(sc, r, r, 1 + 4); /* 01101 */
-  sc_montmul(sc, r, r, b1101);
+  sc_montmul(sc, r, r, x13);
   sc_montsqrn(sc, r, r, 0 + 4); /* 1111 */
-  sc_montmul(sc, r, r, x4);
+  sc_montmul(sc, r, r, x15);
   sc_montsqrn(sc, r, r, 1 + 4); /* 01101 */
-  sc_montmul(sc, r, r, b1101);
+  sc_montmul(sc, r, r, x13);
   sc_montsqrn(sc, r, r, 0 + 2); /* 11 */
-  sc_montmul(sc, r, r, x2);
+  sc_montmul(sc, r, r, x3);
   sc_montsqrn(sc, r, r, 3 + 4); /* 0001111 */
-  sc_montmul(sc, r, r, x4);
+  sc_montmul(sc, r, r, x15);
   sc_montsqrn(sc, r, r, 1 + 4); /* 01001 */
-  sc_montmul(sc, r, r, b1001);
+  sc_montmul(sc, r, r, x9);
   sc_montsqrn(sc, r, r, 3 + 4); /* 0001001 */
-  sc_montmul(sc, r, r, b1001);
+  sc_montmul(sc, r, r, x9);
   sc_montsqrn(sc, r, r, 0 + 2); /* 11 */
-  sc_montmul(sc, r, r, x2);
+  sc_montmul(sc, r, r, x3);
   sc_montsqrn(sc, r, r, 4 + 2); /* 000011 */
-  sc_montmul(sc, r, r, x2);
+  sc_montmul(sc, r, r, x3);
   sc_montsqrn(sc, r, r, 2 + 1); /* 001 */
   sc_montmul(sc, r, r, x1);
   sc_montsqrn(sc, r, r, 7 + 3); /* 0000000111 */
-  sc_montmul(sc, r, r, b111);
+  sc_montmul(sc, r, r, x7);
 
   sc_normal(sc, r, r);
 
@@ -549,6 +534,7 @@ q256k1_sc_invert(const scalar_field_t *sc, sc_t r, const sc_t x) {
   sc_t u1, u2, u5, u9, u11, u13;
 
   sc_mont(sc, u1, x);
+
   sc_montsqr(sc, u2, u1);
   sc_montmul(sc, x2, u2, u1);
   sc_montmul(sc, u5, u2, x2);
@@ -647,6 +633,7 @@ q25519_sc_invert(const scalar_field_t *sc, sc_t r, const sc_t x) {
   sc_t x9 /* 1001 */, x11 /* 1011 */, x15 /* 1111 */;
 
   sc_mont(sc, x1, x);
+
   sc_montsqr(sc, x2, x1);
   sc_montsqr(sc, x4, x2);
   sc_montmul(sc, x3, x2, x1);
@@ -719,49 +706,43 @@ q25519_sc_invert(const scalar_field_t *sc, sc_t r, const sc_t x) {
 
 static void
 q448_sc_invert(const scalar_field_t *sc, sc_t r, const sc_t x) {
-  sc_t b101, b1001, b1011, b1111, b10011;
-  sc_t t, x1, x2, x3;
+  sc_t x1, x3, x5, x7, x9, x11, x15, x19, t1, t2;
 
   sc_mont(sc, x1, x);
 
-  sc_montsqr(sc, x2, x1); /* 10 */
+  sc_montsqr(sc, t1, x1);
+  sc_montsqr(sc, t2, t1);
+  sc_montmul(sc, x3, x1, t1);
+  sc_montmul(sc, x5, x3, t1);
+  sc_montmul(sc, x7, x5, t1);
+  sc_montmul(sc, x9, x7, t1);
+  sc_montmul(sc, x11, x9, t1);
+  sc_montmul(sc, x15, x11, t2);
+  sc_montmul(sc, x19, x15, t2);
 
-  sc_montsqr(sc, b101, x2); /* 100 */
-  sc_montsqr(sc, b1001, b101); /* 1000 */
-  sc_montsqr(sc, b10011, b1001); /* 10000 */
-
-  sc_montmul(sc, x2, x2, x1);
-  sc_montsqr(sc, x3, x2);
-  sc_montmul(sc, x3, x3, x1);
-  sc_montsqrn(sc, t, x3, 3); /* x6 */
-  sc_montmul(sc, t, t, x3);
-  sc_montsqrn(sc, r, t, 6); /* x12 */
-  sc_montmul(sc, r, r, t);
-  sc_montsqrn(sc, t, r, 12); /* x24 */
-  sc_montmul(sc, t, t, r);
-  sc_montsqrn(sc, t, t, 3); /* x27 */
-  sc_montmul(sc, t, t, x3);
-  sc_montsqrn(sc, r, t, 27); /* x54 */
-  sc_montmul(sc, r, r, t);
-  sc_montsqrn(sc, t, r, 54); /* x108 */
-  sc_montmul(sc, t, t, r);
-  sc_montsqrn(sc, t, t, 3); /* x111 */
-  sc_montmul(sc, t, t, x3);
-  sc_montsqrn(sc, r, t, 111); /* x222 */
-  sc_montmul(sc, r, r, t);
-
-  sc_montmul(sc, b101, b101, x1);
-  sc_montmul(sc, b1011, b1001, x2);
-  sc_montmul(sc, b1111, b1001, x3);
-  sc_montmul(sc, b1001, b1001, x1);
-  sc_montmul(sc, b10011, b10011, x2);
+  sc_montsqrn(sc, t1, x15, 2); /* x6 */
+  sc_montmul(sc, t1, t1, x3);
+  sc_montsqrn(sc, t2, t1, 6); /* x12 */
+  sc_montmul(sc, t2, t2, t1);
+  sc_montsqrn(sc, t1, t2, 12); /* x24 */
+  sc_montmul(sc, t1, t1, t2);
+  sc_montsqrn(sc, t1, t1, 3); /* x27 */
+  sc_montmul(sc, t1, t1, x7);
+  sc_montsqrn(sc, t2, t1, 27); /* x54 */
+  sc_montmul(sc, t2, t2, t1);
+  sc_montsqrn(sc, t1, t2, 54); /* x108 */
+  sc_montmul(sc, t1, t1, t2);
+  sc_montsqrn(sc, t1, t1, 3); /* x111 */
+  sc_montmul(sc, t1, t1, x7);
+  sc_montsqrn(sc, t2, t1, 111); /* x222 */
+  sc_montmul(sc, r, t2, t1);
 
   sc_montsqrn(sc, r, r, 1 + 4); /* 01111 */
-  sc_montmul(sc, r, r, b1111);
+  sc_montmul(sc, r, r, x15);
   sc_montsqrn(sc, r, r, 0 + 4); /* 1001 */
-  sc_montmul(sc, r, r, b1001);
+  sc_montmul(sc, r, r, x9);
   sc_montsqrn(sc, r, r, 0 + 4); /* 1001 */
-  sc_montmul(sc, r, r, b1001);
+  sc_montmul(sc, r, r, x9);
   sc_montsqrn(sc, r, r, 1 + 1); /* 01 */
   sc_montmul(sc, r, r, x1);
   sc_montsqrn(sc, r, r, 3 + 1); /* 0001 */
@@ -769,93 +750,93 @@ q448_sc_invert(const scalar_field_t *sc, sc_t r, const sc_t x) {
   sc_montsqrn(sc, r, r, 3 + 1); /* 0001 */
   sc_montmul(sc, r, r, x1);
   sc_montsqrn(sc, r, r, 0 + 4); /* 1111 */
-  sc_montmul(sc, r, r, b1111);
+  sc_montmul(sc, r, r, x15);
   sc_montsqrn(sc, r, r, 1 + 4); /* 01001 */
-  sc_montmul(sc, r, r, b1001);
+  sc_montmul(sc, r, r, x9);
   sc_montsqrn(sc, r, r, 0 + 2); /* 11 */
-  sc_montmul(sc, r, r, x2);
+  sc_montmul(sc, r, r, x3);
   sc_montsqrn(sc, r, r, 3 + 1); /* 0001 */
   sc_montmul(sc, r, r, x1);
   sc_montsqrn(sc, r, r, 3 + 5); /* 00010011 */
-  sc_montmul(sc, r, r, b10011);
+  sc_montmul(sc, r, r, x19);
   sc_montsqrn(sc, r, r, 0 + 4); /* 1011 */
-  sc_montmul(sc, r, r, b1011);
+  sc_montmul(sc, r, r, x11);
   sc_montsqrn(sc, r, r, 1 + 1); /* 01 */
   sc_montmul(sc, r, r, x1);
   sc_montsqrn(sc, r, r, 0 + 4); /* 1011 */
-  sc_montmul(sc, r, r, b1011);
+  sc_montmul(sc, r, r, x11);
   sc_montsqrn(sc, r, r, 1 + 4); /* 01001 */
-  sc_montmul(sc, r, r, b1001);
+  sc_montmul(sc, r, r, x9);
   sc_montsqrn(sc, r, r, 2 + 2); /* 0011 */
-  sc_montmul(sc, r, r, x2);
+  sc_montmul(sc, r, r, x3);
   sc_montsqrn(sc, r, r, 1 + 4); /* 01011 */
-  sc_montmul(sc, r, r, b1011);
+  sc_montmul(sc, r, r, x11);
   sc_montsqrn(sc, r, r, 0 + 4); /* 1011 */
-  sc_montmul(sc, r, r, b1011);
+  sc_montmul(sc, r, r, x11);
   sc_montsqrn(sc, r, r, 1 + 4); /* 01011 */
-  sc_montmul(sc, r, r, b1011);
+  sc_montmul(sc, r, r, x11);
   sc_montsqrn(sc, r, r, 3 + 1); /* 0001 */
   sc_montmul(sc, r, r, x1);
   sc_montsqrn(sc, r, r, 0 + 4); /* 1011 */
-  sc_montmul(sc, r, r, b1011);
+  sc_montmul(sc, r, r, x11);
   sc_montsqrn(sc, r, r, 1 + 4); /* 01001 */
-  sc_montmul(sc, r, r, b1001);
+  sc_montmul(sc, r, r, x9);
   sc_montsqrn(sc, r, r, 6 + 1); /* 0000001 */
   sc_montmul(sc, r, r, x1);
   sc_montsqrn(sc, r, r, 4 + 4); /* 00001011 */
-  sc_montmul(sc, r, r, b1011);
+  sc_montmul(sc, r, r, x11);
   sc_montsqrn(sc, r, r, 1 + 1); /* 01 */
   sc_montmul(sc, r, r, x1);
   sc_montsqrn(sc, r, r, 0 + 5); /* 10011 */
-  sc_montmul(sc, r, r, b10011);
+  sc_montmul(sc, r, r, x19);
   sc_montsqrn(sc, r, r, 4 + 5); /* 000010011 */
-  sc_montmul(sc, r, r, b10011);
+  sc_montmul(sc, r, r, x19);
   sc_montsqrn(sc, r, r, 0 + 4); /* 1001 */
-  sc_montmul(sc, r, r, b1001);
+  sc_montmul(sc, r, r, x9);
   sc_montsqrn(sc, r, r, 1 + 1); /* 01 */
   sc_montmul(sc, r, r, x1);
   sc_montsqrn(sc, r, r, 3 + 1); /* 0001 */
   sc_montmul(sc, r, r, x1);
   sc_montsqrn(sc, r, r, 0 + 4); /* 1011 */
-  sc_montmul(sc, r, r, b1011);
+  sc_montmul(sc, r, r, x11);
   sc_montsqrn(sc, r, r, 0 + 1); /* 1 */
   sc_montmul(sc, r, r, x1);
   sc_montsqrn(sc, r, r, 3 + 4); /* 0001011 */
-  sc_montmul(sc, r, r, b1011);
+  sc_montmul(sc, r, r, x11);
   sc_montsqrn(sc, r, r, 3 + 4); /* 0001111 */
-  sc_montmul(sc, r, r, b1111);
+  sc_montmul(sc, r, r, x15);
   sc_montsqrn(sc, r, r, 1 + 1); /* 01 */
   sc_montmul(sc, r, r, x1);
   sc_montsqrn(sc, r, r, 1 + 3); /* 0101 */
-  sc_montmul(sc, r, r, b101);
+  sc_montmul(sc, r, r, x5);
   sc_montsqrn(sc, r, r, 1 + 4); /* 01001 */
-  sc_montmul(sc, r, r, b1001);
+  sc_montmul(sc, r, r, x9);
   sc_montsqrn(sc, r, r, 3 + 1); /* 0001 */
   sc_montmul(sc, r, r, x1);
   sc_montsqrn(sc, r, r, 0 + 4); /* 1011 */
-  sc_montmul(sc, r, r, b1011);
+  sc_montmul(sc, r, r, x11);
   sc_montsqrn(sc, r, r, 0 + 2); /* 11 */
-  sc_montmul(sc, r, r, x2);
+  sc_montmul(sc, r, r, x3);
   sc_montsqrn(sc, r, r, 3 + 2); /* 00011 */
-  sc_montmul(sc, r, r, x2);
+  sc_montmul(sc, r, r, x3);
   sc_montsqrn(sc, r, r, 4 + 1); /* 00001 */
   sc_montmul(sc, r, r, x1);
   sc_montsqrn(sc, r, r, 1 + 4); /* 01001 */
-  sc_montmul(sc, r, r, b1001);
+  sc_montmul(sc, r, r, x9);
   sc_montsqrn(sc, r, r, 2 + 1); /* 001 */
   sc_montmul(sc, r, r, x1);
   sc_montsqrn(sc, r, r, 1 + 3); /* 0101 */
-  sc_montmul(sc, r, r, b101);
+  sc_montmul(sc, r, r, x5);
   sc_montsqrn(sc, r, r, 1 + 4); /* 01011 */
-  sc_montmul(sc, r, r, b1011);
+  sc_montmul(sc, r, r, x11);
   sc_montsqrn(sc, r, r, 1 + 4); /* 01011 */
-  sc_montmul(sc, r, r, b1011);
+  sc_montmul(sc, r, r, x11);
   sc_montsqrn(sc, r, r, 4 + 1); /* 00001 */
   sc_montmul(sc, r, r, x1);
   sc_montsqrn(sc, r, r, 3 + 4); /* 0001001 */
-  sc_montmul(sc, r, r, b1001);
+  sc_montmul(sc, r, r, x9);
   sc_montsqrn(sc, r, r, 0 + 3); /* 111 */
-  sc_montmul(sc, r, r, x3);
+  sc_montmul(sc, r, r, x7);
   sc_montsqrn(sc, r, r, 3 + 1); /* 0001 */
   sc_montmul(sc, r, r, x1);
 
@@ -866,25 +847,25 @@ q448_sc_invert(const scalar_field_t *sc, sc_t r, const sc_t x) {
 
 static void
 q251_sc_invert(const scalar_field_t *sc, sc_t r, const sc_t x) {
-  sc_t x1, x2, x4, x5, t1, t2;
-  sc_t b101, b111, b1001;
+  sc_t x1, x3, x5, x7, x9, x15, x31, t1, t2;
 
   sc_mont(sc, x1, x);
 
-  sc_montsqr(sc, x2, x1); /* 10 */
+  sc_montsqr(sc, t1, x1);
+  sc_montsqr(sc, t2, t1);
+  sc_montmul(sc, x3, x1, t1);
+  sc_montmul(sc, x5, x3, t1);
+  sc_montmul(sc, x7, x5, t1);
+  sc_montmul(sc, x9, x7, t1);
+  sc_montmul(sc, x15, x9, t1);
+  sc_montmul(sc, x15, x15, t2);
 
-  sc_montsqr(sc, b101, x2); /* 100 */
-  sc_montsqr(sc, b1001, b101); /* 1000 */
-
-  sc_montmul(sc, x2, x2, x1);
-  sc_montsqrn(sc, x4, x2, 2);
-  sc_montmul(sc, x4, x4, x2);
-  sc_montsqr(sc, x5, x4);
-  sc_montmul(sc, x5, x5, x1);
-  sc_montsqrn(sc, t1, x5, 5); /* x10 */
-  sc_montmul(sc, t1, t1, x5);
+  sc_montsqr(sc, x31, x15); /* x5 */
+  sc_montmul(sc, x31, x31, x1);
+  sc_montsqrn(sc, t1, x31, 5); /* x10 */
+  sc_montmul(sc, t1, t1, x31);
   sc_montsqrn(sc, t1, t1, 5); /* x15 */
-  sc_montmul(sc, t1, t1, x5);
+  sc_montmul(sc, t1, t1, x31);
   sc_montsqrn(sc, t2, t1, 15); /* x30 */
   sc_montmul(sc, t2, t2, t1);
   sc_montsqrn(sc, t1, t2, 30); /* x60 */
@@ -892,70 +873,66 @@ q251_sc_invert(const scalar_field_t *sc, sc_t r, const sc_t x) {
   sc_montsqrn(sc, t2, t1, 60); /* x120 */
   sc_montmul(sc, t2, t2, t1);
   sc_montsqrn(sc, r, t2, 5); /* x125 */
-  sc_montmul(sc, r, r, x5);
-
-  sc_montmul(sc, b111, b101, x2);
-  sc_montmul(sc, b101, b101, x1);
-  sc_montmul(sc, b1001, b1001, x1);
+  sc_montmul(sc, r, r, x31);
 
   sc_montsqrn(sc, r, r, 1 + 3); /* 0111 */
-  sc_montmul(sc, r, r, b111);
+  sc_montmul(sc, r, r, x7);
   sc_montsqrn(sc, r, r, 1 + 4); /* 01111 */
-  sc_montmul(sc, r, r, x4);
+  sc_montmul(sc, r, r, x15);
   sc_montsqrn(sc, r, r, 2 + 3); /* 00101 */
-  sc_montmul(sc, r, r, b101);
-  sc_montsqrn(sc, r, r, 0 + 4); /* 1001 */
-  sc_montmul(sc, r, r, b1001);
-  sc_montsqrn(sc, r, r, 1 + 3); /* 0111 */
-  sc_montmul(sc, r, r, b111);
-  sc_montsqrn(sc, r, r, 3 + 4); /* 0001001 */
-  sc_montmul(sc, r, r, b1001);
-  sc_montsqrn(sc, r, r, 0 + 3); /* 101 */
-  sc_montmul(sc, r, r, b101);
-  sc_montsqrn(sc, r, r, 0 + 5); /* 11111 */
   sc_montmul(sc, r, r, x5);
+  sc_montsqrn(sc, r, r, 0 + 4); /* 1001 */
+  sc_montmul(sc, r, r, x9);
+  sc_montsqrn(sc, r, r, 1 + 3); /* 0111 */
+  sc_montmul(sc, r, r, x7);
+  sc_montsqrn(sc, r, r, 3 + 4); /* 0001001 */
+  sc_montmul(sc, r, r, x9);
   sc_montsqrn(sc, r, r, 0 + 3); /* 101 */
-  sc_montmul(sc, r, r, b101);
+  sc_montmul(sc, r, r, x5);
+  sc_montsqrn(sc, r, r, 0 + 5); /* 11111 */
+  sc_montmul(sc, r, r, x31);
+  sc_montsqrn(sc, r, r, 0 + 3); /* 101 */
+  sc_montmul(sc, r, r, x5);
   sc_montsqrn(sc, r, r, 2 + 2); /* 0011 */
-  sc_montmul(sc, r, r, x2);
+  sc_montmul(sc, r, r, x3);
   sc_montsqrn(sc, r, r, 5 + 3); /* 00000111 */
-  sc_montmul(sc, r, r, b111);
+  sc_montmul(sc, r, r, x7);
   sc_montsqrn(sc, r, r, 2 + 2); /* 0011 */
-  sc_montmul(sc, r, r, x2);
+  sc_montmul(sc, r, r, x3);
   sc_montsqrn(sc, r, r, 1 + 4); /* 01001 */
-  sc_montmul(sc, r, r, b1001);
+  sc_montmul(sc, r, r, x9);
   sc_montsqrn(sc, r, r, 3 + 1); /* 0001 */
   sc_montmul(sc, r, r, x1);
   sc_montsqrn(sc, r, r, 2 + 3); /* 00101 */
-  sc_montmul(sc, r, r, b101);
+  sc_montmul(sc, r, r, x5);
   sc_montsqrn(sc, r, r, 3 + 4); /* 0001001 */
-  sc_montmul(sc, r, r, b1001);
+  sc_montmul(sc, r, r, x9);
   sc_montsqrn(sc, r, r, 0 + 3); /* 101 */
-  sc_montmul(sc, r, r, b101);
+  sc_montmul(sc, r, r, x5);
   sc_montsqrn(sc, r, r, 1 + 1); /* 01 */
   sc_montmul(sc, r, r, x1);
   sc_montsqrn(sc, r, r, 3 + 1); /* 0001 */
   sc_montmul(sc, r, r, x1);
   sc_montsqrn(sc, r, r, 1 + 5); /* 011111 */
-  sc_montmul(sc, r, r, x5);
+  sc_montmul(sc, r, r, x31);
   sc_montsqrn(sc, r, r, 0 + 2); /* 11 */
-  sc_montmul(sc, r, r, x2);
+  sc_montmul(sc, r, r, x3);
   sc_montsqrn(sc, r, r, 1 + 1); /* 01 */
   sc_montmul(sc, r, r, x1);
   sc_montsqrn(sc, r, r, 3 + 3); /* 000101 */
-  sc_montmul(sc, r, r, b101);
+  sc_montmul(sc, r, r, x5);
   sc_montsqrn(sc, r, r, 0 + 4); /* 1001 */
-  sc_montmul(sc, r, r, b1001);
+  sc_montmul(sc, r, r, x9);
   sc_montsqrn(sc, r, r, 0 + 3); /* 101 */
-  sc_montmul(sc, r, r, b101);
+  sc_montmul(sc, r, r, x5);
   sc_montsqrn(sc, r, r, 0 + 4); /* 1001 */
-  sc_montmul(sc, r, r, b1001);
+  sc_montmul(sc, r, r, x9);
   sc_montsqrn(sc, r, r, 2 + 1); /* 001 */
   sc_montmul(sc, r, r, x1);
   sc_montsqrn(sc, r, r, 1 + 2); /* 011 */
-  sc_montmul(sc, r, r, x2);
+  sc_montmul(sc, r, r, x3);
   sc_montsqrn(sc, r, r, 1 + 4); /* 01111 */
-  sc_montmul(sc, r, r, x4);
+  sc_montmul(sc, r, r, x15);
 
   sc_normal(sc, r, r);
 
