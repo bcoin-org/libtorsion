@@ -430,7 +430,7 @@ p224_fe_sqrt_var(p224_fe_t r, const p224_fe_t x) {
   return 1;
 }
 
-TORSION_UNUSED static void
+static void
 p224_fe_legendre(p224_fe_t r, const p224_fe_t x) {
   /* Exponent: (p - 1) / 2 */
   /* Bits: 128x1 95x0 */

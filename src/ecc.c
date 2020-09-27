@@ -267,6 +267,7 @@ typedef void fe_scmul_121666_f(fe_word_t *, const fe_word_t *);
 typedef void fe_invert_f(fe_word_t *, const fe_word_t *);
 typedef int fe_sqrt_f(fe_word_t *, const fe_word_t *);
 typedef int fe_isqrt_f(fe_word_t *, const fe_word_t *, const fe_word_t *);
+typedef void fe_legendre_f(fe_word_t *, const fe_word_t *);
 
 typedef struct prime_field_s {
   int endian;
@@ -294,6 +295,7 @@ typedef struct prime_field_s {
   fe_invert_f *invert;
   fe_sqrt_f *sqrt;
   fe_isqrt_f *isqrt;
+  fe_legendre_f *legendre;
   fe_t zero;
   fe_t one;
   fe_t two;
@@ -322,6 +324,7 @@ typedef struct prime_def_s {
   fe_invert_f *invert;
   fe_sqrt_f *sqrt;
   fe_isqrt_f *isqrt;
+  fe_legendre_f *legendre;
 } prime_def_t;
 
 /*
@@ -1781,17 +1784,20 @@ fe_is_square_var(const prime_field_t *fe, const fe_t a) {
 static int
 fe_is_square(const prime_field_t *fe, const fe_t a) {
   int ret = 1;
+  fe_t b;
 
-  if (fe->sqrt != NULL && fe->bits != 224) {
+  if (fe->legendre != NULL) {
+    /* Fast legendre chain (P224). */
+    fe->legendre(b, a);
+
+    ret &= fe_equal(fe, b, fe->mone) ^ 1;
+  } else if (fe->sqrt != NULL) {
     /* Fast square root chain. */
-    fe_t tmp;
-
-    ret &= fe->sqrt(tmp, a);
+    ret &= fe->sqrt(b, a);
   } else {
     /* Euler's criterion. */
     mp_limb_t e[MAX_FIELD_LIMBS];
     int x, y, z;
-    fe_t b;
 
     /* e = (p - 1) / 2 */
     mpn_sub_1(e, fe->p, fe->limbs, 1);
@@ -1801,7 +1807,7 @@ fe_is_square(const prime_field_t *fe, const fe_t a) {
     fe_pow(fe, b, a, e);
 
     /* Must be 0, 1, or -1. */
-    x = fe_is_zero(fe, a);
+    x = fe_is_zero(fe, b);
     y = fe_equal(fe, b, fe->one);
     z = fe_equal(fe, b, fe->mone);
 
@@ -1989,6 +1995,7 @@ prime_field_init(prime_field_t *fe, const prime_def_t *def, int endian) {
   fe->invert = def->invert;
   fe->sqrt = def->sqrt;
   fe->isqrt = def->isqrt;
+  fe->legendre = def->legendre;
 
   /* Pre-montgomerized constants. */
   fe_set_word(fe, fe->zero, 0);
@@ -7591,7 +7598,8 @@ static const prime_def_t field_p192 = {
   NULL,
   p192_fe_invert,
   p192_fe_sqrt,
-  p192_fe_isqrt
+  p192_fe_isqrt,
+  NULL
 };
 
 static const scalar_def_t field_q192 = {
@@ -7633,7 +7641,8 @@ static const prime_def_t field_p224 = {
   NULL,
   p224_fe_invert,
   p224_fe_sqrt,
-  NULL
+  NULL,
+  p224_fe_legendre
 };
 
 static const scalar_def_t field_q224 = {
@@ -7676,7 +7685,8 @@ static const prime_def_t field_p256 = {
   NULL,
   p256_fe_invert,
   p256_fe_sqrt,
-  p256_fe_isqrt
+  p256_fe_isqrt,
+  NULL
 };
 
 static const scalar_def_t field_q256 = {
@@ -7721,7 +7731,8 @@ static const prime_def_t field_p384 = {
   NULL,
   p384_fe_invert,
   p384_fe_sqrt,
-  p384_fe_isqrt
+  p384_fe_isqrt,
+  NULL
 };
 
 static const scalar_def_t field_q384 = {
@@ -7771,7 +7782,8 @@ static const prime_def_t field_p521 = {
   NULL,
   p521_fe_invert,
   p521_fe_sqrt,
-  p521_fe_isqrt
+  p521_fe_isqrt,
+  NULL
 };
 
 static const scalar_def_t field_q521 = {
@@ -7819,7 +7831,8 @@ static const prime_def_t field_p256k1 = {
   NULL,
   secp256k1_fe_invert,
   secp256k1_fe_sqrt,
-  secp256k1_fe_isqrt
+  secp256k1_fe_isqrt,
+  NULL
 };
 
 static const scalar_def_t field_q256k1 = {
@@ -7862,7 +7875,8 @@ static const prime_def_t field_p25519 = {
   fiat_p25519_carry_scmul_121666,
   p25519_fe_invert,
   p25519_fe_sqrt,
-  p25519_fe_isqrt
+  p25519_fe_isqrt,
+  NULL
 };
 
 static const scalar_def_t field_q25519 = {
@@ -7908,7 +7922,8 @@ static const prime_def_t field_p448 = {
   NULL,
   p448_fe_invert,
   p448_fe_sqrt,
-  p448_fe_isqrt
+  p448_fe_isqrt,
+  NULL
 };
 
 static const scalar_def_t field_q448 = {
@@ -7954,7 +7969,8 @@ static const prime_def_t field_p251 = {
   NULL,
   p251_fe_invert,
   p251_fe_sqrt,
-  p251_fe_isqrt
+  p251_fe_isqrt,
+  NULL
 };
 
 static const scalar_def_t field_q251 = {
