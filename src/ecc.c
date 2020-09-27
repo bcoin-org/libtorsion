@@ -7632,7 +7632,7 @@ static const prime_def_t field_p224 = {
   NULL,
   NULL,
   p224_fe_invert,
-  p224_fe_sqrt_var,
+  p224_fe_sqrt,
   NULL
 };
 

@@ -21,6 +21,7 @@ typedef p224_fe_word_t p224_fe_t[P224_FIELD_WORDS];
 #define p224_fe_neg fiat_p224_opp
 #define p224_fe_mul fiat_p224_mul
 #define p224_fe_sqr fiat_p224_square
+#define p224_fe_select(r, a, b, flag) fiat_p224_selectznz(r, (flag) != 0, a, b)
 
 #if defined(TORSION_HAVE_INT128)
 static const p224_fe_t p224_zero = {0, 0, 0, 0};
@@ -139,6 +140,53 @@ p224_fe_pow_e(p224_fe_t r, const p224_fe_t x) {
 }
 
 static void
+p224_fe_pow_em1(p224_fe_t r, const p224_fe_t x1) {
+  /* Exponent: 2^127 - 1 */
+  /* Bits: 127x1 */
+  p224_fe_t t1, t2, t3, t4;
+
+  /* x2 = x1^(2^1) * x1 */
+  p224_fe_sqr(t1, x1);
+  p224_fe_mul(t1, t1, x1);
+
+  /* x3 = x2^(2^1) * x1 */
+  p224_fe_sqr(t1, t1);
+  p224_fe_mul(t1, t1, x1);
+
+  /* x6 = x3^(2^3) * x3 */
+  p224_fe_sqrn(t2, t1, 3);
+  p224_fe_mul(t2, t2, t1);
+
+  /* x12 = x6^(2^6) * x6 */
+  p224_fe_sqrn(t3, t2, 6);
+  p224_fe_mul(t3, t3, t2);
+
+  /* x24 = x12^(2^12) * x12 */
+  p224_fe_sqrn(t4, t3, 12);
+  p224_fe_mul(t4, t4, t3);
+
+  /* x30 = x24^(2^6) * x6 */
+  p224_fe_sqrn(t3, t4, 6);
+  p224_fe_mul(t3, t3, t2);
+
+  /* x31 = x30^(2^1) * x1 */
+  p224_fe_sqr(t3, t3);
+  p224_fe_mul(t3, t3, x1);
+
+  /* x62 = x31^(2^31) * x31 */
+  p224_fe_sqrn(t4, t3, 31);
+  p224_fe_mul(t4, t4, t3);
+
+  /* x124 = x62^(2^62) * x62 */
+  p224_fe_sqrn(r, t4, 62);
+  p224_fe_mul(r, r, t4);
+
+  /* x127 = x124^(2^3) * x3 */
+  p224_fe_sqrn(r, r, 3);
+  p224_fe_mul(r, r, t1);
+}
+
+static void
 p224_fe_invert(p224_fe_t r, const p224_fe_t x) {
   /* Exponent: p - 2 */
   /* Bits: 127x1 1x0 96x1 */
@@ -196,8 +244,91 @@ p224_fe_invert(p224_fe_t r, const p224_fe_t x) {
 }
 
 static int
+p224_fe_sqrt(p224_fe_t r, const p224_fe_t x) {
+  /* Tonelli-Shanks for P224 (constant time).
+   *
+   * See:
+   *   https://github.com/cfrg/draft-irtf-cfrg-hash-to-curve/blob/2cd66aa
+   *     /draft-irtf-cfrg-hash-to-curve.md#constant-time-tonelli-shanks-algorithm-sqrt-ts
+   *
+   * Algorithm:
+   *
+   *   s = 2^128 - 1 (0xffffffffffffffffffffffffffffffff)
+   *   n = 11
+   *   e = 2^127 - 1 (0x7fffffffffffffffffffffffffffffff)
+   *   y = x^e mod p
+   *   g = n^s mod p (0x6a0fec678598a7920c55b2d40b2d6ffbbea3d8cef3fb3632dc691b74)
+   *   k = 96
+   *   b = y^2 * x mod p
+   *   y = y * x mod p
+   *   t = b
+   *   i = k - 2
+   *
+   *   while i >= 0:
+   *     j = 0
+   *
+   *     while j < i:
+   *       t = t^2 mod p
+   *       j += 1
+   *
+   *     if t != 1:
+   *       y = y * g mod p
+   *
+   *     g = g^2 mod p
+   *
+   *     if t != 1:
+   *       b = b * g mod p
+   *
+   *     t = b
+   *     i = i - 1
+   *
+   *   if y^2 mod p != x:
+   *     fail
+   *
+   *   ret = y
+   */
+  p224_fe_t y, b, t, g, v;
+  int i, j, equal, ret;
+
+  p224_fe_pow_em1(y, x);
+
+  p224_fe_sqr(b, y);
+  p224_fe_mul(b, b, x);
+
+  p224_fe_mul(y, y, x);
+
+  p224_fe_set(t, b);
+  p224_fe_set(g, p224_g);
+
+  for (i = 96 - 2; i >= 0; i--) {
+    for (j = 0; j < i; j++)
+      p224_fe_sqr(t, t);
+
+    equal = p224_fe_equal(t, p224_one);
+
+    p224_fe_mul(v, y, g);
+    p224_fe_select(y, y, v, equal ^ 1);
+
+    p224_fe_sqr(g, g);
+
+    p224_fe_mul(v, b, g);
+    p224_fe_select(b, b, v, equal ^ 1);
+
+    p224_fe_set(t, b);
+  }
+
+  p224_fe_sqr(v, y);
+
+  ret = p224_fe_equal(v, x);
+
+  p224_fe_set(r, y);
+
+  return ret;
+}
+
+TORSION_UNUSED static int
 p224_fe_sqrt_var(p224_fe_t r, const p224_fe_t x) {
-  /* Tonelli-Shanks for P224.
+  /* Tonelli-Shanks for P224 (variable time).
    *
    * Algorithm:
    *
