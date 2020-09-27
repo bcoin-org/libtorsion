@@ -294,7 +294,7 @@ p224_fe_sqrt(p224_fe_t r, const p224_fe_t x) {
    *   return z
    */
   p224_fe_t z, t, b, c, v;
-  int i, j, equal, ret;
+  int i, equal, ret;
 
   p224_fe_pow_em1(z, x);
 
@@ -307,8 +307,7 @@ p224_fe_sqrt(p224_fe_t r, const p224_fe_t x) {
   p224_fe_set(c, p224_g);
 
   for (i = 96 - 2; i >= 0; i--) {
-    for (j = 0; j < i; j++)
-      p224_fe_sqr(b, b);
+    p224_fe_sqrn(b, b, i);
 
     equal = p224_fe_equal(b, p224_one);
 
@@ -336,15 +335,25 @@ TORSION_UNUSED static int
 p224_fe_sqrt_var(p224_fe_t r, const p224_fe_t x) {
   /* Tonelli-Shanks for P224 (variable time).
    *
-   * Algorithm:
+   * Constants:
    *
    *   k = 96
    *   s = 2^128 - 1 (0xffffffffffffffffffffffffffffffff)
    *   e = 2^127 (0x80000000000000000000000000000000)
    *   n = 11
+   *
+   * Algorithm:
+   *
    *   g = n^s mod p (0x6a0fec678598a7920c55b2d40b2d6ffbbea3d8cef3fb3632dc691b74)
    *   y = x^e mod p
    *   b = x^s mod p
+   *   t = b^(2^95) mod p
+   *
+   *   if t == 0 mod p:
+   *     return 0
+   *
+   *   if t != 1 mod p:
+   *     fail
    *
    *   loop:
    *     m = 0
@@ -366,14 +375,16 @@ p224_fe_sqrt_var(p224_fe_t r, const p224_fe_t x) {
    *     b = b * g mod p
    *     k = m
    *
-   *   ret = y
+   *   return y
    */
   p224_fe_t y, b, g, t;
   int k, m;
 
+  p224_fe_set(g, p224_g);
+
   p224_fe_pow_e(y, x);
   p224_fe_pow_s(b, x);
-  p224_fe_set(g, p224_g);
+
   p224_fe_set(r, p224_zero);
 
   /* Note that b happens to be the first
