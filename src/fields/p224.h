@@ -271,11 +271,7 @@ p224_fe_sqrt(p224_fe_t r, const p224_fe_t x) {
    *   i = k - 2
    *
    *   while i >= 0:
-   *     j = 0
-   *
-   *     while j < i:
-   *       b = b^2 mod p
-   *       j += 1
+   *     b = b^(2^i) mod p
    *
    *     if b != 1:
    *       z = z * c mod p
