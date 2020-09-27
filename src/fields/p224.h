@@ -247,81 +247,87 @@ static int
 p224_fe_sqrt(p224_fe_t r, const p224_fe_t x) {
   /* Tonelli-Shanks for P224 (constant time).
    *
-   * See:
+   * Resources:
    *   https://github.com/cfrg/draft-irtf-cfrg-hash-to-curve/blob/2cd66aa
    *     /draft-irtf-cfrg-hash-to-curve.md#constant-time-tonelli-shanks-algorithm-sqrt-ts
+   *   https://github.com/zkcrypto/jubjub/blob/160cb42/src/fq.rs#L319
+   *   https://github.com/zkcrypto/ff/blob/31e9b22/ff_derive/src/lib.rs#L523
+   *
+   * Constants:
+   *
+   *   k = 96
+   *   s = 2^128 - 1 (0xffffffffffffffffffffffffffffffff) ((p - 1) / 2^k)
+   *   e = 2^127 - 1 (0x7fffffffffffffffffffffffffffffff) ((s - 1) / 2)
+   *   n = 11
+   *   g = n^s mod p (0x6a0fec678598a7920c55b2d40b2d6ffbbea3d8cef3fb3632dc691b74)
    *
    * Algorithm:
    *
-   *   s = 2^128 - 1 (0xffffffffffffffffffffffffffffffff)
-   *   n = 11
-   *   e = 2^127 - 1 (0x7fffffffffffffffffffffffffffffff)
-   *   y = x^e mod p
-   *   g = n^s mod p (0x6a0fec678598a7920c55b2d40b2d6ffbbea3d8cef3fb3632dc691b74)
-   *   k = 96
-   *   b = y^2 * x mod p
-   *   y = y * x mod p
-   *   t = b
+   *   z = x^e mod p
+   *   t = z^2 * x mod p
+   *   z = z * x mod p
+   *   b = t
+   *   c = g
    *   i = k - 2
    *
    *   while i >= 0:
    *     j = 0
    *
    *     while j < i:
-   *       t = t^2 mod p
+   *       b = b^2 mod p
    *       j += 1
    *
-   *     if t != 1:
-   *       y = y * g mod p
+   *     if b != 1:
+   *       z = z * c mod p
    *
-   *     g = g^2 mod p
+   *     c = c^2 mod p
    *
-   *     if t != 1:
-   *       b = b * g mod p
+   *     if b != 1:
+   *       t = t * c mod p
    *
-   *     t = b
+   *     b = t
    *     i = i - 1
    *
-   *   if y^2 mod p != x:
+   *   if z^2 mod p != x:
    *     fail
    *
-   *   ret = y
+   *   return z
    */
-  p224_fe_t y, b, t, g, v;
+  p224_fe_t z, t, b, c, v;
   int i, j, equal, ret;
 
-  p224_fe_pow_em1(y, x);
+  p224_fe_pow_em1(z, x);
 
-  p224_fe_sqr(b, y);
-  p224_fe_mul(b, b, x);
+  p224_fe_sqr(t, z);
+  p224_fe_mul(t, t, x);
 
-  p224_fe_mul(y, y, x);
+  p224_fe_mul(z, z, x);
 
-  p224_fe_set(t, b);
-  p224_fe_set(g, p224_g);
+  p224_fe_set(b, t);
+  p224_fe_set(c, p224_g);
 
   for (i = 96 - 2; i >= 0; i--) {
     for (j = 0; j < i; j++)
-      p224_fe_sqr(t, t);
+      p224_fe_sqr(b, b);
 
-    equal = p224_fe_equal(t, p224_one);
+    equal = p224_fe_equal(b, p224_one);
 
-    p224_fe_mul(v, y, g);
-    p224_fe_select(y, y, v, equal ^ 1);
+    p224_fe_mul(v, z, c);
+    p224_fe_select(z, z, v, equal ^ 1);
 
-    p224_fe_sqr(g, g);
+    p224_fe_sqr(c, c);
 
-    p224_fe_mul(v, b, g);
-    p224_fe_select(b, b, v, equal ^ 1);
+    p224_fe_mul(v, t, c);
+    p224_fe_select(t, t, v, equal ^ 1);
 
-    p224_fe_set(t, b);
+    p224_fe_set(b, t);
   }
 
-  p224_fe_sqr(v, y);
+  p224_fe_sqr(v, z);
 
   ret = p224_fe_equal(v, x);
 
-  p224_fe_set(r, y);
+  p224_fe_set(r, z);
 
   return ret;
 }
@@ -332,13 +338,13 @@ p224_fe_sqrt_var(p224_fe_t r, const p224_fe_t x) {
    *
    * Algorithm:
    *
+   *   k = 96
    *   s = 2^128 - 1 (0xffffffffffffffffffffffffffffffff)
-   *   n = 11
    *   e = 2^127 (0x80000000000000000000000000000000)
+   *   n = 11
+   *   g = n^s mod p (0x6a0fec678598a7920c55b2d40b2d6ffbbea3d8cef3fb3632dc691b74)
    *   y = x^e mod p
    *   b = x^s mod p
-   *   g = n^s mod p (0x6a0fec678598a7920c55b2d40b2d6ffbbea3d8cef3fb3632dc691b74)
-   *   k = 96
    *
    *   loop:
    *     m = 0
