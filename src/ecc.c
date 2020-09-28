@@ -1018,7 +1018,7 @@ sc_normal(const scalar_field_t *sc, sc_t r, const sc_t a) {
 
 static int
 sc_invert_var(const scalar_field_t *sc, sc_t r, const sc_t a) {
-  mp_limb_t scratch[MPN_INVERT_ITCH(MAX_SCALAR_LIMBS)];
+  mp_limb_t scratch[MPN_INVERT_ITCH(MAX_SCALAR_LIMBS)]; /* 320 bytes */
 
   return mpn_invert_n(r, a, sc->n, sc->limbs, scratch);
 }
@@ -1705,7 +1705,7 @@ fe_pow(const prime_field_t *fe, fe_t r, const fe_t a, const mp_limb_t *e) {
 
 static int
 fe_invert_var(const prime_field_t *fe, fe_t r, const fe_t a) {
-  mp_limb_t scratch[MPN_INVERT_ITCH(MAX_FIELD_LIMBS)];
+  mp_limb_t scratch[MPN_INVERT_ITCH(MAX_FIELD_LIMBS)]; /* 320 bytes */
   mp_limb_t rp[MAX_FIELD_LIMBS];
   int ret = 1;
 
@@ -1794,7 +1794,7 @@ fe_sqrt(const prime_field_t *fe, fe_t r, const fe_t a) {
 
 static int
 fe_is_square_var(const prime_field_t *fe, const fe_t a) {
-  mp_limb_t scratch[MPN_JACOBI_ITCH(MAX_FIELD_LIMBS)];
+  mp_limb_t scratch[MPN_JACOBI_ITCH(MAX_FIELD_LIMBS)]; /* 144 bytes */
   mp_limb_t ap[MAX_FIELD_LIMBS];
 
   fe_get_limbs(fe, ap, a);
