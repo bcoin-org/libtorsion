@@ -9,16 +9,6 @@
  */
 
 static void
-sc_montsqrn(const scalar_field_t *sc, sc_t r, const sc_t x, int rounds) {
-  int i;
-
-  sc_montsqr(sc, r, x);
-
-  for (i = 1; i < rounds; i++)
-    sc_montsqr(sc, r, r);
-}
-
-static void
 q192_sc_invert(const scalar_field_t *sc, sc_t r, const sc_t x) {
   sc_t x1, x3, x5, x7, x13, x15, t1, t2;
 

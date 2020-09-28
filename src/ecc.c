@@ -984,6 +984,29 @@ sc_montsqr(const scalar_field_t *sc, sc_t r, const sc_t a) {
 }
 
 static void
+sc_montsqrn(const scalar_field_t *sc, sc_t r, const sc_t a, int rounds) {
+  mp_limb_t scratch[MAX_SCALAR_LIMBS * 4]; /* 288 bytes */
+  mp_limb_t *x = scratch;
+  mp_limb_t *y = scratch + MAX_SCALAR_LIMBS * 2;
+  mp_limb_t *t;
+  int i;
+
+  ASSERT(rounds >= 1);
+
+  mpn_montmul(x, a, a, sc->n, sc->k, sc->limbs);
+
+  for (i = 1; i < rounds; i++) {
+    mpn_montmul(y, x, x, sc->n, sc->k, sc->limbs);
+
+    t = x;
+    x = y;
+    y = t;
+  }
+
+  mpn_copyi(r, x, sc->limbs);
+}
+
+static void
 sc_mont(const scalar_field_t *sc, sc_t r, const sc_t a) {
   sc_montmul(sc, r, a, sc->r2);
 }
@@ -1006,7 +1029,7 @@ sc_pow(const scalar_field_t *sc, sc_t r, const sc_t a, const mp_limb_t *e) {
   /* Note that our exponent is not secret. */
   mp_size_t start = WND_STEPS(sc->bits) - 1;
   sc_t wnd[WND_SIZE]; /* 1152 bytes */
-  mp_size_t i, j;
+  mp_size_t i;
   mp_limb_t b;
 
   sc_mont(sc, wnd[0], sc_one);
@@ -1025,9 +1048,7 @@ sc_pow(const scalar_field_t *sc, sc_t r, const sc_t a, const mp_limb_t *e) {
     if (i == start) {
       sc_set(sc, r, wnd[b]);
     } else {
-      for (j = 0; j < WND_WIDTH; j++)
-        sc_montsqr(sc, r, r);
-
+      sc_montsqrn(sc, r, r, WND_WIDTH);
       sc_montmul(sc, r, r, wnd[b]);
     }
   }
