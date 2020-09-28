@@ -217,7 +217,7 @@ struct scalar_field_s;
 
 typedef mp_limb_t sc_t[MAX_SCALAR_LIMBS]; /* 72 bytes */
 
-typedef void sc_invert_func(const struct scalar_field_s *, sc_t, const sc_t);
+typedef void sc_invert_f(const struct scalar_field_s *, sc_t, const sc_t);
 
 typedef struct scalar_field_s {
   int endian;
@@ -233,13 +233,13 @@ typedef struct scalar_field_s {
   mp_limb_t k;
   mp_limb_t r2[MAX_SCALAR_LIMBS * 2 + 1];
   mp_size_t limbs;
-  sc_invert_func *invert;
+  sc_invert_f *invert;
 } scalar_field_t;
 
 typedef struct scalar_def_s {
   size_t bits;
   const unsigned char n[MAX_FIELD_SIZE];
-  sc_invert_func *invert;
+  sc_invert_f *invert;
 } scalar_def_t;
 
 static const sc_t sc_one = {1, 0};
