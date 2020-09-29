@@ -12416,25 +12416,13 @@ eddsa_scalar_tweak_mul(const edwards_t *ec,
 void
 eddsa_scalar_reduce(const edwards_t *ec,
                     unsigned char *out,
-                    const unsigned char *bytes,
-                    size_t len) {
+                    const unsigned char *scalar) {
   const scalar_field_t *sc = &ec->sc;
-  unsigned char scalar[MAX_SCALAR_SIZE];
   sc_t a;
-
-  if (len > sc->size)
-    len = sc->size;
-
-  if (len > 0)
-    memcpy(scalar, bytes, len);
-
-  memset(scalar + len, 0x00, sc->size - len);
 
   sc_import_reduce(sc, a, scalar);
   sc_export(sc, out, a);
   sc_cleanse(sc, a);
-
-  cleanse(scalar, sc->size);
 }
 
 void

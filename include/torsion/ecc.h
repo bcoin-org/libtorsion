@@ -978,8 +978,7 @@ eddsa_scalar_tweak_mul(const edwards_curve_t *ec,
 TORSION_EXTERN void
 eddsa_scalar_reduce(const edwards_curve_t *ec,
                     unsigned char *out,
-                    const unsigned char *bytes,
-                    size_t len);
+                    const unsigned char *scalar);
 
 TORSION_EXTERN void
 eddsa_scalar_negate(const edwards_curve_t *ec,

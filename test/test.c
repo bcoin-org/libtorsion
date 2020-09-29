@@ -1699,7 +1699,7 @@ test_eddsa_vectors(drbg_t *unused) {
     ASSERT(torsion_memcmp(scalar_, scalar, sc_size) == 0);
     ASSERT(torsion_memcmp(prefix_, prefix, pub_size) == 0);
 
-    eddsa_scalar_reduce(ec, out, scalar, sc_size);
+    eddsa_scalar_reduce(ec, out, scalar);
     ASSERT(torsion_memcmp(out, reduced, sc_size) == 0);
 
     eddsa_scalar_tweak_add(ec, out, scalar, tweak);
