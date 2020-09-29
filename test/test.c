@@ -862,9 +862,6 @@ test_ecdsa_vectors(drbg_t *unused) {
     ASSERT(ecdsa_pubkey_create(ec, out, &len, priv, 1));
     ASSERT(len == pub_size && torsion_memcmp(out, pub, pub_size) == 0);
 
-    ASSERT(ecdsa_privkey_reduce(ec, out, priv, sc_size));
-    ASSERT(torsion_memcmp(out, priv, sc_size) == 0);
-
     ASSERT(ecdsa_privkey_tweak_add(ec, out, priv, tweak));
     ASSERT(torsion_memcmp(out, privadd, sc_size) == 0);
 
@@ -2430,10 +2427,6 @@ test_ristretto_tweak(drbg_t *rng) {
 
   ASSERT(ristretto_pubkey_combine(ec, p2, points, 2));
   ASSERT(ristretto_pubkey_is_infinity(ec, p2));
-
-  ristretto_privkey_reduce(ec, k3, k2, 32);
-
-  ASSERT(torsion_memcmp(k3, k2, 32) == 0);
 
   edwards_curve_destroy(ec);
 }

@@ -54,7 +54,6 @@ extern "C" {
 #define ecdsa_privkey_import torsion_ecdsa_privkey_import
 #define ecdsa_privkey_tweak_add torsion_ecdsa_privkey_tweak_add
 #define ecdsa_privkey_tweak_mul torsion_ecdsa_privkey_tweak_mul
-#define ecdsa_privkey_reduce torsion_ecdsa_privkey_reduce
 #define ecdsa_privkey_negate torsion_ecdsa_privkey_negate
 #define ecdsa_privkey_invert torsion_ecdsa_privkey_invert
 #define ecdsa_pubkey_create torsion_ecdsa_pubkey_create
@@ -96,7 +95,6 @@ extern "C" {
 #define schnorr_privkey_import torsion_schnorr_privkey_import
 #define schnorr_privkey_tweak_add torsion_schnorr_privkey_tweak_add
 #define schnorr_privkey_tweak_mul torsion_schnorr_privkey_tweak_mul
-#define schnorr_privkey_reduce torsion_schnorr_privkey_reduce
 #define schnorr_privkey_invert torsion_schnorr_privkey_invert
 #define schnorr_pubkey_create torsion_schnorr_pubkey_create
 #define schnorr_pubkey_from_uniform torsion_schnorr_pubkey_from_uniform
@@ -190,7 +188,6 @@ extern "C" {
 #define ristretto_privkey_import torsion_ristretto_privkey_import
 #define ristretto_privkey_tweak_add torsion_ristretto_privkey_tweak_add
 #define ristretto_privkey_tweak_mul torsion_ristretto_privkey_tweak_mul
-#define ristretto_privkey_reduce torsion_ristretto_privkey_reduce
 #define ristretto_privkey_negate torsion_ristretto_privkey_negate
 #define ristretto_privkey_invert torsion_ristretto_privkey_invert
 #define ristretto_pubkey_create torsion_ristretto_pubkey_create
@@ -410,12 +407,6 @@ ecdsa_privkey_tweak_mul(const wei_curve_t *ec,
                         const unsigned char *tweak);
 
 TORSION_EXTERN int
-ecdsa_privkey_reduce(const wei_curve_t *ec,
-                     unsigned char *out,
-                     const unsigned char *bytes,
-                     size_t len);
-
-TORSION_EXTERN int
 ecdsa_privkey_negate(const wei_curve_t *ec,
                      unsigned char *out,
                      const unsigned char *priv);
@@ -616,7 +607,6 @@ schnorr_legacy_sig_size(const wei_curve_t *ec);
 #define schnorr_legacy_privkey_import ecdsa_privkey_import
 #define schnorr_legacy_privkey_tweak_add ecdsa_privkey_tweak_add
 #define schnorr_legacy_privkey_tweak_mul ecdsa_privkey_tweak_mul
-#define schnorr_legacy_privkey_reduce ecdsa_privkey_reduce
 #define schnorr_legacy_privkey_negate ecdsa_privkey_negate
 #define schnorr_legacy_privkey_invert ecdsa_privkey_invert
 #define schnorr_legacy_pubkey_create ecdsa_pubkey_create
@@ -705,12 +695,6 @@ schnorr_privkey_tweak_mul(const wei_curve_t *ec,
                           unsigned char *out,
                           const unsigned char *priv,
                           const unsigned char *tweak);
-
-TORSION_EXTERN int
-schnorr_privkey_reduce(const wei_curve_t *ec,
-                       unsigned char *out,
-                       const unsigned char *bytes,
-                       size_t len);
 
 TORSION_EXTERN int
 schnorr_privkey_invert(const wei_curve_t *ec,
@@ -1231,12 +1215,6 @@ ristretto_privkey_tweak_mul(const edwards_curve_t *ec,
                             unsigned char *out,
                             const unsigned char *priv,
                             const unsigned char *tweak);
-
-TORSION_EXTERN void
-ristretto_privkey_reduce(const edwards_curve_t *ec,
-                         unsigned char *out,
-                         const unsigned char *bytes,
-                         size_t len);
 
 TORSION_EXTERN int
 ristretto_privkey_negate(const edwards_curve_t *ec,

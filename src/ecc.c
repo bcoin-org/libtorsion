@@ -9835,36 +9835,6 @@ ecdsa_privkey_tweak_mul(const wei_t *ec,
 }
 
 int
-ecdsa_privkey_reduce(const wei_t *ec,
-                     unsigned char *out,
-                     const unsigned char *bytes,
-                     size_t len) {
-  const scalar_field_t *sc = &ec->sc;
-  unsigned char key[MAX_SCALAR_SIZE];
-  int ret = 1;
-  sc_t a;
-
-  if (len > sc->size)
-    len = sc->size;
-
-  memset(key, 0x00, sc->size - len);
-
-  if (len > 0)
-    memcpy(key + sc->size - len, bytes, len);
-
-  sc_import_reduce(sc, a, key);
-
-  ret &= sc_is_zero(sc, a) ^ 1;
-
-  sc_export(sc, out, a);
-  sc_cleanse(sc, a);
-
-  cleanse(key, sc->size);
-
-  return ret;
-}
-
-int
 ecdsa_privkey_negate(const wei_t *ec,
                      unsigned char *out,
                      const unsigned char *priv) {
@@ -11188,14 +11158,6 @@ schnorr_privkey_tweak_mul(const wei_t *ec,
                           const unsigned char *priv,
                           const unsigned char *tweak) {
   return ecdsa_privkey_tweak_mul(ec, out, priv, tweak);
-}
-
-int
-schnorr_privkey_reduce(const wei_t *ec,
-                       unsigned char *out,
-                       const unsigned char *bytes,
-                       size_t len) {
-  return ecdsa_privkey_reduce(ec, out, bytes, len);
 }
 
 int
@@ -13519,14 +13481,6 @@ ristretto_privkey_tweak_mul(const edwards_t *ec,
   sc_cleanse(sc, t);
 
   return ret;
-}
-
-void
-ristretto_privkey_reduce(const edwards_t *ec,
-                         unsigned char *out,
-                         const unsigned char *bytes,
-                         size_t len) {
-  eddsa_scalar_reduce(ec, out, bytes, len);
 }
 
 int
