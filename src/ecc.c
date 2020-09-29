@@ -2874,7 +2874,7 @@ jge_is_affine(const wei_t *ec, const jge_t *a) {
   return fe_equal(fe, a->z, fe->one);
 }
 
-static int
+TORSION_UNUSED static int
 jge_equal(const wei_t *ec, const jge_t *a, const jge_t *b) {
   const prime_field_t *fe = &ec->fe;
   int inf1 = jge_is_zero(ec, a);
@@ -11364,6 +11364,24 @@ schnorr_pubkey_tweak_add(const wei_t *ec,
 }
 
 int
+schnorr_pubkey_tweak_add_check(const wei_t *ec,
+                               const unsigned char *pub,
+                               const unsigned char *tweak,
+                               const unsigned char *expect,
+                               int negated) {
+  const prime_field_t *fe = &ec->fe;
+  unsigned char raw[MAX_FIELD_SIZE];
+  int ret = 1;
+  int sign;
+
+  ret &= schnorr_pubkey_tweak_add(ec, raw, &sign, pub, tweak);
+  ret &= torsion_memequal(raw, expect, fe->size);
+  ret &= (sign == (negated != 0));
+
+  return ret;
+}
+
+int
 schnorr_pubkey_tweak_mul(const wei_t *ec,
                          unsigned char *out,
                          int *negated,
@@ -11390,32 +11408,19 @@ schnorr_pubkey_tweak_mul(const wei_t *ec,
 }
 
 int
-schnorr_pubkey_tweak_test(const wei_t *ec,
-                          int *result,
-                          const unsigned char *pub,
-                          const unsigned char *tweak,
-                          const unsigned char *expect,
-                          int negated) {
-  const scalar_field_t *sc = &ec->sc;
+schnorr_pubkey_tweak_mul_check(const wei_t *ec,
+                               const unsigned char *pub,
+                               const unsigned char *tweak,
+                               const unsigned char *expect,
+                               int negated) {
+  const prime_field_t *fe = &ec->fe;
+  unsigned char raw[MAX_FIELD_SIZE];
   int ret = 1;
-  wge_t A, Q;
-  jge_t T, J;
-  sc_t t;
+  int sign;
 
-  ret &= wge_import_even(ec, &A, pub);
-  ret &= sc_import(sc, t, tweak);
-  ret &= wge_import_even(ec, &Q, expect);
-
-  wei_jmul_g(ec, &T, t);
-
-  jge_mixed_add(ec, &T, &T, &A);
-  jge_neg_cond(ec, &T, &T, negated);
-
-  jge_set_wge(ec, &J, &Q);
-
-  *result = ret & jge_equal(ec, &T, &J);
-
-  sc_cleanse(sc, t);
+  ret &= schnorr_pubkey_tweak_mul(ec, raw, &sign, pub, tweak);
+  ret &= torsion_memequal(raw, expect, fe->size);
+  ret &= (sign == (negated != 0));
 
   return ret;
 }

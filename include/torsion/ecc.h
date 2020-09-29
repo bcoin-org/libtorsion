@@ -107,8 +107,9 @@ extern "C" {
 #define schnorr_pubkey_export torsion_schnorr_pubkey_export
 #define schnorr_pubkey_import torsion_schnorr_pubkey_import
 #define schnorr_pubkey_tweak_add torsion_schnorr_pubkey_tweak_add
+#define schnorr_pubkey_tweak_add_check torsion_schnorr_pubkey_tweak_add_check
 #define schnorr_pubkey_tweak_mul torsion_schnorr_pubkey_tweak_mul
-#define schnorr_pubkey_tweak_test torsion_schnorr_pubkey_tweak_test
+#define schnorr_pubkey_tweak_mul_check torsion_schnorr_pubkey_tweak_mul_check
 #define schnorr_pubkey_combine torsion_schnorr_pubkey_combine
 #define schnorr_sign torsion_schnorr_sign
 #define schnorr_verify torsion_schnorr_verify
@@ -769,6 +770,13 @@ schnorr_pubkey_tweak_add(const wei_curve_t *ec,
                          const unsigned char *tweak);
 
 TORSION_EXTERN int
+schnorr_pubkey_tweak_add_check(const wei_curve_t *ec,
+                               const unsigned char *pub,
+                               const unsigned char *tweak,
+                               const unsigned char *expect,
+                               int negated);
+
+TORSION_EXTERN int
 schnorr_pubkey_tweak_mul(const wei_curve_t *ec,
                          unsigned char *out,
                          int *negated,
@@ -776,12 +784,11 @@ schnorr_pubkey_tweak_mul(const wei_curve_t *ec,
                          const unsigned char *tweak);
 
 TORSION_EXTERN int
-schnorr_pubkey_tweak_test(const wei_curve_t *ec,
-                          int *result,
-                          const unsigned char *pub,
-                          const unsigned char *tweak,
-                          const unsigned char *expect,
-                          int negated);
+schnorr_pubkey_tweak_mul_check(const wei_curve_t *ec,
+                               const unsigned char *pub,
+                               const unsigned char *tweak,
+                               const unsigned char *expect,
+                               int negated);
 
 TORSION_EXTERN int
 schnorr_pubkey_combine(const wei_curve_t *ec,
