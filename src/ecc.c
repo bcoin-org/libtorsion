@@ -7801,7 +7801,7 @@ rge_export(const edwards_t *ec, unsigned char *raw, const rge_t *p) {
   fe_export(fe, raw, s);
 }
 
-static int
+TORSION_UNUSED static int
 rge_equal(const edwards_t *ec, const rge_t *a, const rge_t *b) {
   /* https://ristretto.group/formulas/equality.html */
   const prime_field_t *fe = &ec->fe;
