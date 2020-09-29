@@ -12661,13 +12661,10 @@ eddsa_pubkey_import(const edwards_t *ec,
 
 int
 eddsa_pubkey_is_infinity(const edwards_t *ec, const unsigned char *pub) {
-  int ret = 1;
-  xge_t A;
+  static const unsigned char inf[MAX_FIELD_SIZE + 1] = {1, 0};
+  const prime_field_t *fe = &ec->fe;
 
-  ret &= xge_import(ec, &A, pub);
-  ret &= xge_is_zero(ec, &A);
-
-  return ret;
+  return torsion_memequal(pub, inf, fe->adj_size);
 }
 
 int

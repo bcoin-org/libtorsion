@@ -1770,6 +1770,7 @@ test_eddsa_vectors(drbg_t *unused) {
     pubs[1] = pubneg;
 
     ASSERT(eddsa_pubkey_combine(ec, out, pubs, 2));
+    ASSERT(eddsa_pubkey_is_infinity(ec, out));
     ASSERT(torsion_memcmp(out, inf, pub_size) == 0);
 
     ASSERT(eddsa_derive(ec, out, pub, other));
