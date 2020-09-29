@@ -5111,8 +5111,8 @@ static int
 mont_validate_x(const mont_t *ec, const fe_t x);
 
 static void
-_edwards_to_mont(const prime_field_t *fe, mge_t *r,
-                 const xge_t *p, const fe_t c,
+_mont_to_edwards(const prime_field_t *fe, xge_t *r,
+                 const mge_t *p, const fe_t c,
                  int invert, int isogeny);
 
 /*
@@ -5419,8 +5419,8 @@ mge_set_pge(const mont_t *ec, mge_t *r, const pge_t *p, int sign) {
 }
 
 static void
-mge_set_xge(const edwards_t *ec, mge_t *r, const xge_t *p) {
-  _edwards_to_mont(&ec->fe, r, p, ec->c, ec->invert, 1);
+mge_export_xge(const mont_t *ec, xge_t *r, const mge_t *p) {
+  _mont_to_edwards(&ec->fe, r, p, ec->c, ec->invert, 1);
 }
 
 /*
@@ -6198,8 +6198,8 @@ static int
 edwards_validate_xy(const edwards_t *ec, const fe_t x, const fe_t y);
 
 static void
-_mont_to_edwards(const prime_field_t *fe, xge_t *r,
-                 const mge_t *p, const fe_t c,
+_edwards_to_mont(const prime_field_t *fe, mge_t *r,
+                 const xge_t *p, const fe_t c,
                  int invert, int isogeny);
 
 /*
@@ -6713,8 +6713,8 @@ xge_jsf_points(const edwards_t *ec, xge_t *out,
 }
 
 static void
-xge_set_mge(const mont_t *ec, xge_t *r, const mge_t *p) {
-  _mont_to_edwards(&ec->fe, r, p, ec->c, ec->invert, 1);
+xge_export_mge(const edwards_t *ec, mge_t *r, const xge_t *p) {
+  _edwards_to_mont(&ec->fe, r, p, ec->c, ec->invert, 1);
 }
 
 /*
@@ -12022,7 +12022,7 @@ ecdh_pubkey_convert(const mont_t *ec,
   }
 
   /* Convert to Edwards. */
-  xge_set_mge(ec, &e, &A);
+  mge_export_xge(ec, &e, &A);
 
   /* Invert (should never fail). */
   ASSERT(fe_invert(fe, e.z, e.z));
@@ -12494,7 +12494,7 @@ eddsa_pubkey_convert(const edwards_t *ec,
 
   ret &= xge_import(ec, &A, pub);
 
-  mge_set_xge(ec, &p, &A);
+  xge_export_mge(ec, &p, &A);
 
   ret &= p.inf ^ 1;
 
