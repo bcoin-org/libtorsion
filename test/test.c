@@ -1934,6 +1934,560 @@ test_eddsa_elligator2(drbg_t *unused) {
   edwards_curve_destroy(ec);
 }
 
+static void
+test_ristretto_basepoint_multiples_ed25519(drbg_t *unused) {
+  /* https://ristretto.group/test_vectors/ristretto255.html */
+  static const unsigned char multiples[][32] = {
+    {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+     0, 0, 0, 0, 0, 0, 0},
+    {226, 242, 174, 10, 106, 188, 78, 113, 168, 132, 169, 97, 197, 0, 81, 95,
+     88, 227, 11, 106, 165, 130, 221, 141, 182, 166, 89, 69, 224, 141, 45, 118},
+    {106, 73, 50, 16, 247, 73, 156, 209, 127, 236, 181, 16, 174, 12, 234, 35,
+     161, 16, 232, 213, 185, 1, 248, 172, 173, 211, 9, 92, 115, 163, 185, 25},
+    {148, 116, 31, 93, 93, 82, 117, 94, 206, 79, 35, 240, 68, 238, 39, 213,
+     209, 234, 30, 43, 209, 150, 180, 98, 22, 107, 22, 21, 42, 157, 2, 89},
+    {218, 128, 134, 39, 115, 53, 139, 70, 111, 250, 223, 224, 179, 41, 58, 179,
+     217, 253, 83, 197, 234, 108, 149, 83, 88, 245, 104, 50, 45, 175, 106, 87},
+    {232, 130, 177, 49, 1, 107, 82, 193, 211, 51, 112, 128, 24, 124, 247, 104,
+     66, 62, 252, 203, 181, 23, 187, 73, 90, 184, 18, 196, 22, 15, 244, 78},
+    {246, 71, 70, 211, 201, 43, 19, 5, 14, 216, 216, 2, 54, 167, 240, 0, 124,
+     59, 63, 150, 47, 91, 167, 147, 209, 154, 96, 30, 187, 29, 244, 3},
+    {68, 245, 53, 32, 146, 110, 200, 31, 189, 90, 56, 120, 69, 190, 183, 223,
+     133, 169, 106, 36, 236, 225, 135, 56, 189, 207, 166, 167, 130, 42, 23,
+     109},
+    {144, 50, 147, 216, 242, 40, 126, 190, 16, 226, 55, 77, 193, 165, 62, 11,
+     200, 135, 229, 146, 105, 159, 2, 208, 119, 213, 38, 60, 221, 85, 96, 28},
+    {2, 98, 42, 206, 143, 115, 3, 163, 28, 175, 198, 63, 143, 196, 143, 220,
+     22, 225, 200, 200, 210, 52, 178, 240, 214, 104, 82, 130, 169, 7, 96, 49},
+    {32, 112, 111, 215, 136, 178, 114, 10, 30, 210, 165, 218, 212, 149, 43, 1,
+     244, 19, 188, 240, 231, 86, 77, 232, 205, 200, 22, 104, 158, 45, 185, 95},
+    {188, 232, 63, 139, 165, 221, 47, 165, 114, 134, 76, 36, 186, 24, 16, 249,
+     82, 43, 198, 0, 74, 254, 149, 135, 122, 199, 50, 65, 202, 253, 171, 66},
+    {228, 84, 158, 225, 107, 154, 160, 48, 153, 202, 32, 140, 103, 173, 175,
+     202, 250, 76, 63, 62, 78, 83, 3, 222, 96, 38, 227, 202, 143, 248, 68, 96},
+    {170, 82, 224, 0, 223, 46, 22, 245, 95, 177, 3, 47, 195, 59, 196, 39, 66,
+     218, 214, 189, 90, 143, 192, 190, 1, 103, 67, 108, 89, 72, 80, 31},
+    {70, 55, 107, 128, 244, 9, 178, 157, 194, 181, 246, 240, 197, 37, 145, 153,
+     8, 150, 229, 113, 111, 65, 71, 124, 211, 0, 133, 171, 127, 16, 48, 30},
+    {224, 196, 24, 247, 200, 217, 196, 205, 215, 57, 91, 147, 234, 18, 79, 58,
+     217, 144, 33, 187, 104, 29, 252, 51, 2, 169, 217, 154, 46, 83, 230, 78}
+  };
+
+  edwards_curve_t *ec = edwards_curve_create(EDWARDS_CURVE_ED25519);
+  const unsigned char *z = multiples[0];
+  const unsigned char *g = multiples[1];
+  const unsigned char *points[2];
+  unsigned char p[32];
+  size_t i;
+
+  (void)unused;
+
+  points[0] = z;
+
+  ASSERT(ristretto_pubkey_combine(ec, p, points, 1));
+
+  for (i = 0; i < ARRAY_SIZE(multiples); i++) {
+    const unsigned char *raw = multiples[i];
+
+    ASSERT(torsion_memcmp(p, raw, 32) == 0);
+
+    points[0] = p;
+    points[1] = g;
+
+    ASSERT(ristretto_pubkey_combine(ec, p, points, 2));
+  }
+
+  edwards_curve_destroy(ec);
+}
+
+static void
+test_ristretto_basepoint_multiples_ed448(drbg_t *unused) {
+  /* Self-generated. */
+  static const unsigned char multiples[][56] = {
+    {
+      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+    },
+    {
+      0xf0, 0x76, 0x23, 0x5a, 0x63, 0x3f, 0x56, 0x30, 0xd2, 0x52, 0x13, 0x34,
+      0x0b, 0x59, 0x1c, 0x51, 0xd9, 0x73, 0x5a, 0x73, 0xda, 0x5d, 0x68, 0x6b,
+      0xae, 0xb2, 0x11, 0x88, 0x2b, 0x5e, 0x77, 0x8c, 0xa4, 0xf8, 0xde, 0x1a,
+      0xa8, 0xcb, 0x20, 0x59, 0x02, 0xd3, 0xdf, 0xa9, 0xf6, 0xe9, 0x83, 0x7c,
+      0x58, 0x8d, 0xe0, 0x5c, 0x0a, 0xd3, 0x04, 0x93
+    },
+    {
+      0x56, 0xd7, 0xcc, 0xe1, 0x60, 0xec, 0x2b, 0x3a, 0x40, 0x49, 0xed, 0xfc,
+      0x32, 0x37, 0x1b, 0xa7, 0x32, 0xb8, 0xa2, 0x36, 0xb5, 0xcb, 0x62, 0x6d,
+      0x01, 0x39, 0x7f, 0x66, 0x72, 0xf9, 0xdb, 0x63, 0x1e, 0x07, 0x37, 0xff,
+      0x74, 0x3a, 0xae, 0xc6, 0x72, 0x34, 0x20, 0xeb, 0xea, 0xd8, 0x04, 0x2e,
+      0x09, 0xf4, 0x25, 0x3f, 0x7f, 0x0b, 0xea, 0xf6
+    },
+    {
+      0x2a, 0xd6, 0x4e, 0x1f, 0x8a, 0x7d, 0xd1, 0x68, 0xb8, 0x82, 0xf1, 0xc3,
+      0x49, 0x9d, 0x52, 0xd7, 0x32, 0x45, 0xae, 0x8d, 0x01, 0x17, 0xa1, 0x87,
+      0x19, 0x0a, 0x02, 0x7c, 0xa3, 0xa9, 0x31, 0x3a, 0xd9, 0x16, 0x17, 0xf9,
+      0x2c, 0x21, 0xa2, 0xc7, 0x9d, 0xe7, 0x1c, 0x43, 0xa2, 0x11, 0xa6, 0x63,
+      0xec, 0x73, 0x17, 0xc6, 0xc2, 0x0a, 0x05, 0x9b
+    },
+    {
+      0xd2, 0x2d, 0x2c, 0xde, 0x56, 0x48, 0xcc, 0xee, 0xe9, 0xdf, 0xd9, 0x2e,
+      0xff, 0xd5, 0xb1, 0x78, 0x6a, 0x9f, 0x99, 0x59, 0x04, 0x11, 0x3b, 0x2c,
+      0x81, 0x33, 0x02, 0x65, 0x81, 0x6c, 0x1c, 0xe9, 0x4a, 0x85, 0x5f, 0xc2,
+      0xf2, 0xbe, 0xa1, 0xec, 0x08, 0xe9, 0x7a, 0x54, 0xf7, 0x25, 0x8d, 0x74,
+      0x47, 0x98, 0x81, 0xf8, 0x53, 0xec, 0x21, 0x17
+    },
+    {
+      0x1e, 0xb3, 0xf3, 0x1f, 0xb7, 0x03, 0x18, 0xd3, 0x31, 0xab, 0x32, 0xc5,
+      0xd5, 0xb9, 0x83, 0x6c, 0x0f, 0xff, 0x52, 0x60, 0x28, 0x23, 0x27, 0x64,
+      0xd3, 0xcf, 0x58, 0x64, 0x3f, 0x53, 0x42, 0x62, 0x41, 0xf8, 0x61, 0xd6,
+      0x97, 0x23, 0xb9, 0x5e, 0x5f, 0x3d, 0xa5, 0xaf, 0x3f, 0xce, 0x50, 0x6d,
+      0xcc, 0x38, 0xbd, 0x44, 0x84, 0x0f, 0x4d, 0x16
+    },
+    {
+      0xa0, 0x44, 0xcf, 0xe0, 0x2c, 0x5a, 0x69, 0x80, 0x04, 0x67, 0x97, 0xa9,
+      0x8b, 0xc4, 0x13, 0xba, 0x10, 0x99, 0xc4, 0xff, 0x4c, 0x13, 0x29, 0xb6,
+      0xaa, 0x8f, 0x2f, 0x42, 0xa1, 0xf3, 0x27, 0xdc, 0xf1, 0xad, 0x8f, 0xb6,
+      0xbb, 0x9d, 0x88, 0xc7, 0x28, 0xc5, 0xc0, 0x2b, 0x7e, 0x9a, 0x19, 0xd9,
+      0x16, 0xf1, 0xc0, 0xce, 0xc2, 0x06, 0x35, 0x6b
+    },
+    {
+      0xc6, 0x53, 0x19, 0xc2, 0x47, 0xca, 0x2c, 0x87, 0x31, 0x9b, 0x69, 0x57,
+      0x84, 0x9f, 0x6a, 0xf9, 0x04, 0xca, 0x0c, 0x6b, 0x17, 0x07, 0xcc, 0xf7,
+      0x68, 0xef, 0x04, 0xae, 0x5a, 0x89, 0x6b, 0x24, 0x1c, 0xe9, 0xc7, 0xde,
+      0x7a, 0x05, 0x5a, 0x2c, 0x0a, 0x30, 0x07, 0x3f, 0x67, 0x31, 0x63, 0xde,
+      0x96, 0x3a, 0x1a, 0xaa, 0x42, 0x7f, 0xe4, 0xc4
+    },
+    {
+      0xd6, 0x14, 0x76, 0xc1, 0xd9, 0x65, 0xc9, 0xfd, 0x26, 0x88, 0xfa, 0xc3,
+      0xc6, 0x1b, 0x7c, 0xd1, 0x32, 0xab, 0x8f, 0x24, 0xf6, 0xfb, 0x7d, 0xb7,
+      0x62, 0x14, 0x10, 0x2f, 0x9c, 0x24, 0xfa, 0xec, 0x2a, 0xda, 0x82, 0x18,
+      0xb8, 0xc4, 0xb0, 0xd2, 0xf4, 0x8a, 0x64, 0x73, 0x2a, 0xdc, 0x4f, 0xfb,
+      0xd0, 0xea, 0xb3, 0xc3, 0x17, 0x39, 0x7c, 0x40
+    },
+    {
+      0xb8, 0x62, 0xdc, 0x86, 0x35, 0x03, 0x76, 0x00, 0x4c, 0xf1, 0x46, 0x12,
+      0xb8, 0x82, 0xb5, 0x27, 0x35, 0x02, 0x9d, 0xc7, 0x1f, 0x75, 0x62, 0x37,
+      0x17, 0xc7, 0xbd, 0x17, 0xae, 0x99, 0x63, 0xa1, 0xc6, 0xd6, 0xb2, 0x3b,
+      0xfa, 0x16, 0x32, 0x07, 0x0b, 0x36, 0x4b, 0x02, 0xbe, 0x84, 0x42, 0xe8,
+      0xb6, 0x54, 0x6c, 0x5d, 0x49, 0x97, 0xfd, 0x33
+    },
+    {
+      0xfc, 0x89, 0xc6, 0xca, 0x3b, 0xda, 0x12, 0xbe, 0x8b, 0xe8, 0x7a, 0x8e,
+      0xf2, 0x15, 0x0b, 0x6f, 0xc1, 0xae, 0x95, 0x53, 0x83, 0x25, 0x71, 0xdc,
+      0x2d, 0x1f, 0x92, 0x0b, 0x56, 0x37, 0xba, 0x9b, 0x47, 0x23, 0x6a, 0xaf,
+      0xf9, 0x41, 0xa0, 0x6a, 0xf8, 0x8a, 0x8e, 0x40, 0xb9, 0xaa, 0xd8, 0xc0,
+      0x4e, 0xc2, 0x13, 0xe5, 0x89, 0x40, 0xd5, 0xee
+    },
+    {
+      0x98, 0x82, 0xd1, 0x00, 0x1e, 0xe0, 0x7c, 0x94, 0x13, 0xe4, 0x9a, 0xb4,
+      0xfb, 0xa6, 0x52, 0x69, 0xe0, 0x9d, 0xc7, 0x78, 0x95, 0xae, 0x52, 0x58,
+      0x52, 0xde, 0x48, 0x25, 0x7d, 0xd7, 0xce, 0x61, 0xec, 0x9d, 0x82, 0x1a,
+      0x1b, 0x1d, 0xb2, 0xa3, 0x3f, 0x7c, 0xa1, 0xba, 0x1f, 0x1c, 0x9e, 0xb7,
+      0xd1, 0x08, 0xca, 0x47, 0xf4, 0xa2, 0xf0, 0xec
+    },
+    {
+      0x56, 0xd7, 0xc6, 0xfd, 0x8f, 0x00, 0x9a, 0x22, 0x06, 0x2d, 0x34, 0x50,
+      0x44, 0x98, 0xca, 0x9d, 0x21, 0xf8, 0x17, 0x4e, 0xb9, 0xd1, 0x3a, 0xb8,
+      0x8a, 0xf6, 0x2a, 0x2d, 0x83, 0xc7, 0xb8, 0x98, 0x28, 0x49, 0x3e, 0x77,
+      0xa9, 0xc6, 0xc5, 0x00, 0x18, 0xb3, 0x38, 0xde, 0x60, 0x53, 0x17, 0x37,
+      0xf7, 0xf4, 0x3b, 0xb6, 0xf8, 0xdd, 0x9b, 0x5d
+    },
+    {
+      0x08, 0x26, 0x50, 0xf2, 0xee, 0x0e, 0x41, 0x45, 0x0c, 0x18, 0x7a, 0x69,
+      0x1e, 0xb8, 0xa6, 0xe5, 0x35, 0x33, 0xbc, 0x4b, 0xb5, 0x6b, 0xb6, 0x5d,
+      0xfe, 0x2a, 0x8b, 0xee, 0x67, 0x1c, 0xe1, 0xc4, 0xad, 0xbd, 0x9c, 0x7a,
+      0x64, 0x1c, 0x03, 0xc4, 0xa9, 0x13, 0x25, 0x96, 0xd2, 0xee, 0x62, 0xbe,
+      0x84, 0x5a, 0xa7, 0xe2, 0xda, 0xf5, 0x60, 0xf7
+    },
+    {
+      0x76, 0xda, 0xc2, 0xa2, 0x49, 0xee, 0xe2, 0xf7, 0xfa, 0xbe, 0x40, 0x18,
+      0xfb, 0x66, 0xe5, 0x8c, 0x82, 0xd3, 0x71, 0x6d, 0xee, 0x1c, 0xb3, 0x56,
+      0xbb, 0xf2, 0xd0, 0x29, 0x29, 0xff, 0xbc, 0x74, 0xa4, 0x38, 0x54, 0x4c,
+      0xdc, 0xa5, 0x1a, 0x55, 0x7f, 0x67, 0x06, 0xe2, 0x20, 0x41, 0x7b, 0xaa,
+      0x97, 0x89, 0x1c, 0x0a, 0x4d, 0x39, 0x7e, 0xac
+    },
+    {
+      0xe4, 0x78, 0x41, 0xc8, 0xa4, 0xf5, 0xb5, 0x9b, 0x59, 0x90, 0x3d, 0xc0,
+      0x2f, 0xed, 0xb5, 0x94, 0x4d, 0x7d, 0x84, 0x3d, 0x62, 0x5d, 0x7f, 0x30,
+      0x15, 0xd0, 0xcc, 0xa0, 0x97, 0x76, 0x90, 0xf8, 0x21, 0x7b, 0x98, 0xbb,
+      0x57, 0xda, 0xfd, 0xaa, 0xc1, 0x5f, 0x27, 0x6c, 0xef, 0x4a, 0xac, 0x9b,
+      0x4a, 0x3e, 0x16, 0x3b, 0x07, 0x21, 0x64, 0x68
+    }
+  };
+
+  edwards_curve_t *ec = edwards_curve_create(EDWARDS_CURVE_ED448);
+  const unsigned char *z = multiples[0];
+  const unsigned char *g = multiples[1];
+  const unsigned char *points[2];
+  unsigned char p[56];
+  size_t i;
+
+  (void)unused;
+
+  points[0] = z;
+
+  ASSERT(ristretto_pubkey_combine(ec, p, points, 1));
+
+  for (i = 0; i < ARRAY_SIZE(multiples); i++) {
+    const unsigned char *raw = multiples[i];
+
+    ASSERT(torsion_memcmp(p, raw, 56) == 0);
+
+    points[0] = p;
+    points[1] = g;
+
+    ASSERT(ristretto_pubkey_combine(ec, p, points, 2));
+  }
+
+  edwards_curve_destroy(ec);
+}
+
+static void
+test_ristretto_elligator(drbg_t *unused) {
+  /* https://ristretto.group/test_vectors/ristretto255.html */
+  static const unsigned char bytes[][32] = {
+    {184, 249, 135, 49, 253, 123, 89, 113, 67, 160, 6, 239, 7, 105, 211, 41,
+     192, 249, 185, 57, 9, 102, 70, 198, 15, 127, 7, 26, 160, 102, 134, 71},
+    {229, 14, 241, 227, 75, 9, 118, 60, 128, 153, 226, 21, 183, 217, 91, 136,
+     98, 0, 231, 156, 124, 77, 82, 139, 142, 134, 164, 169, 169, 62, 250, 52},
+    {115, 109, 36, 220, 180, 223, 99, 6, 204, 169, 19, 29, 169, 68, 84, 23, 21,
+     109, 189, 149, 127, 205, 91, 102, 172, 35, 112, 35, 134, 69, 186, 34},
+    {16, 49, 96, 107, 171, 199, 164, 9, 129, 16, 64, 62, 241, 63, 132, 173,
+     209, 160, 112, 215, 105, 50, 157, 81, 253, 105, 1, 154, 229, 25, 120, 83},
+    {156, 131, 161, 162, 236, 251, 5, 187, 167, 171, 17, 178, 148, 210, 90,
+     207, 86, 21, 79, 161, 167, 215, 234, 1, 136, 242, 182, 248, 38, 85, 79,
+     86},
+    {251, 177, 124, 54, 18, 101, 75, 235, 245, 186, 19, 46, 133, 157, 229, 64,
+     10, 136, 181, 185, 78, 144, 254, 167, 137, 49, 107, 10, 61, 10, 21, 25},
+    {232, 193, 20, 68, 240, 77, 186, 77, 183, 40, 44, 86, 150, 31, 198, 212,
+     76, 81, 3, 217, 197, 8, 126, 128, 126, 152, 164, 208, 153, 44, 189, 77},
+    {173, 229, 149, 177, 37, 230, 30, 69, 61, 56, 172, 190, 219, 115, 167, 194,
+     71, 134, 59, 75, 28, 244, 118, 26, 162, 97, 64, 16, 15, 189, 30, 64},
+    {106, 71, 61, 107, 250, 117, 42, 151, 91, 202, 212, 100, 52, 188, 190, 21,
+     125, 218, 31, 18, 253, 241, 160, 133, 57, 242, 3, 164, 189, 68, 111, 75},
+    {112, 204, 182, 90, 220, 198, 120, 73, 173, 107, 193, 17, 227, 40, 162, 36,
+     150, 141, 235, 55, 172, 183, 12, 39, 194, 136, 43, 153, 244, 118, 91, 89},
+    {111, 24, 203, 123, 254, 189, 11, 162, 51, 196, 163, 136, 204, 143, 10,
+     222, 33, 112, 81, 205, 34, 35, 8, 66, 90, 6, 164, 58, 170, 177, 34, 25},
+    {225, 183, 30, 52, 236, 82, 6, 183, 109, 25, 227, 181, 25, 82, 41, 193, 80,
+     77, 161, 80, 242, 203, 79, 204, 136, 245, 131, 110, 237, 106, 3, 58},
+    {207, 246, 38, 56, 30, 86, 176, 90, 27, 200, 61, 42, 221, 27, 56, 210, 79,
+     178, 189, 120, 68, 193, 120, 167, 77, 185, 53, 197, 124, 128, 191, 126},
+    {1, 136, 215, 80, 240, 46, 63, 147, 16, 244, 230, 207, 82, 189, 74, 50,
+     106, 169, 138, 86, 30, 131, 214, 202, 166, 125, 251, 228, 98, 24, 36, 21},
+    {210, 207, 228, 56, 155, 116, 207, 54, 84, 195, 251, 215, 249, 199, 116,
+     75, 109, 239, 196, 251, 194, 246, 252, 228, 70, 146, 156, 35, 25, 39, 241,
+     4},
+    {34, 116, 123, 9, 8, 40, 93, 189, 9, 103, 57, 103, 66, 227, 3, 2, 157, 107,
+     134, 219, 202, 74, 230, 154, 78, 107, 219, 195, 214, 14, 84, 80}
+  };
+
+  static const unsigned char images[][32] = {
+    {176, 157, 237, 97, 66, 29, 140, 166, 168, 94, 26, 157, 212, 216, 229, 160,
+     195, 246, 232, 239, 169, 112, 63, 193, 64, 32, 152, 69, 11, 190, 246, 86},
+    {234, 141, 77, 203, 181, 225, 250, 74, 171, 62, 15, 118, 78, 212, 150, 19,
+     131, 14, 188, 238, 194, 244, 141, 138, 166, 162, 83, 122, 228, 201, 19,
+     26},
+    {232, 231, 51, 92, 5, 168, 80, 36, 173, 179, 104, 68, 186, 149, 68, 40,
+     140, 170, 27, 103, 99, 140, 21, 242, 43, 62, 250, 134, 208, 255, 61, 89},
+    {208, 120, 140, 129, 177, 179, 237, 159, 252, 160, 28, 13, 206, 5, 211,
+     241, 192, 218, 1, 97, 130, 241, 20, 169, 119, 46, 246, 29, 79, 80, 77, 84},
+    {202, 11, 236, 145, 58, 12, 181, 157, 209, 6, 213, 88, 75, 147, 11, 119,
+     191, 139, 47, 142, 33, 36, 153, 193, 223, 183, 178, 8, 205, 120, 248, 110},
+    {26, 66, 231, 67, 203, 175, 116, 130, 32, 136, 62, 253, 215, 46, 5, 214,
+     166, 248, 108, 237, 216, 71, 244, 173, 72, 133, 82, 6, 143, 240, 104, 41},
+    {40, 157, 102, 96, 201, 223, 200, 197, 150, 181, 106, 83, 103, 126, 143,
+     33, 145, 230, 78, 6, 171, 146, 210, 143, 112, 5, 245, 23, 183, 138, 18,
+     120},
+    {220, 37, 27, 203, 239, 196, 176, 131, 37, 66, 188, 243, 185, 250, 113, 23,
+     167, 211, 154, 243, 168, 215, 54, 171, 159, 36, 195, 81, 13, 150, 43, 43},
+    {232, 121, 176, 222, 183, 196, 159, 90, 238, 193, 105, 52, 101, 167, 244,
+     170, 121, 114, 196, 6, 67, 152, 80, 185, 221, 7, 83, 105, 176, 208, 224,
+     121},
+    {226, 181, 183, 52, 241, 163, 61, 179, 221, 207, 220, 73, 245, 242, 25,
+     236, 67, 84, 179, 222, 167, 62, 167, 182, 32, 9, 92, 30, 165, 127, 204,
+     68},
+    {226, 119, 16, 242, 200, 139, 240, 87, 11, 222, 92, 146, 156, 243, 46, 119,
+     65, 59, 1, 248, 92, 183, 50, 175, 87, 40, 206, 53, 208, 220, 148, 13},
+    {70, 240, 79, 112, 54, 157, 228, 146, 74, 122, 216, 88, 232, 62, 158, 13,
+     14, 146, 115, 117, 176, 222, 90, 225, 244, 23, 94, 190, 150, 7, 136, 96},
+    {22, 71, 241, 103, 45, 193, 195, 144, 183, 101, 154, 50, 39, 68, 49, 110,
+     51, 44, 62, 0, 229, 113, 72, 81, 168, 29, 73, 106, 102, 40, 132, 24},
+    {196, 133, 107, 11, 130, 105, 74, 33, 204, 171, 133, 221, 174, 193, 241,
+     36, 38, 179, 196, 107, 219, 185, 181, 253, 228, 47, 155, 42, 231, 73, 41,
+     78},
+    {58, 255, 225, 197, 115, 208, 160, 143, 39, 197, 82, 69, 143, 235, 92, 170,
+     74, 40, 57, 11, 171, 227, 26, 185, 217, 207, 90, 185, 197, 190, 35, 60},
+    {88, 43, 92, 118, 223, 136, 105, 145, 238, 186, 115, 8, 214, 112, 153, 253,
+     38, 108, 205, 230, 157, 130, 11, 66, 101, 85, 253, 110, 110, 14, 148, 112}
+  };
+
+  static const unsigned int hints[] = {
+    0,
+    16,
+    23,
+    0,
+    2,
+    23,
+    2,
+    16,
+    3,
+    3,
+    18,
+    23,
+    20,
+    21,
+    3,
+    3
+  };
+
+  static const size_t totals[] = {
+    3,
+    5,
+    2,
+    4,
+    4,
+    5,
+    5,
+    4,
+    7,
+    5,
+    4,
+    5,
+    6,
+    4,
+    5,
+    6
+  };
+
+  edwards_curve_t *ec = edwards_curve_create(EDWARDS_CURVE_ED25519);
+  unsigned char p[32];
+  unsigned char q[32];
+  unsigned char r0[32];
+  unsigned char r1[32];
+  size_t i, j, total;
+
+  (void)unused;
+
+  for (i = 0; i < ARRAY_SIZE(images); i++) {
+    ristretto_pubkey_from_uniform(ec, p, bytes[i]);
+
+    ASSERT(torsion_memcmp(p, images[i], 32) == 0);
+
+    ASSERT(ristretto_pubkey_to_uniform(ec, r0, p, hints[i]));
+    ASSERT(torsion_memcmp(r0, bytes[i], 32) == 0);
+
+    total = 0;
+
+    for (j = 0; j < 8; j++) {
+      if (ristretto_pubkey_to_uniform(ec, r1, p, j)) {
+        ristretto_pubkey_from_uniform(ec, q, r1);
+
+        ASSERT(torsion_memcmp(q, p, 32) == 0);
+
+        total += 1;
+      }
+    }
+
+    ASSERT(total == totals[i]);
+  }
+
+  edwards_curve_destroy(ec);
+}
+
+static void
+test_ristretto_elligator_hash(drbg_t *rng) {
+  /* https://ristretto.group/test_vectors/ristretto255.html */
+  static const char *labels[] = {
+    "Ristretto is traditionally a short shot of espresso coffee",
+    "made with the normal amount of ground coffee but extracted with",
+    "about half the amount of water in the same amount of time",
+    "by using a finer grind.",
+    "This produces a concentrated shot of coffee per volume.",
+    "Just pulling a normal shot short will produce a weaker shot",
+    "and is not a Ristretto as some believe."
+  };
+
+  static const unsigned char images[][32] = {
+    {
+      0x30, 0x66, 0xf8, 0x2a, 0x1a, 0x74, 0x7d, 0x45, 0x12, 0x0d, 0x17, 0x40,
+      0xf1, 0x43, 0x58, 0x53, 0x1a, 0x8f, 0x04, 0xbb, 0xff, 0xe6, 0xa8, 0x19,
+      0xf8, 0x6d, 0xfe, 0x50, 0xf4, 0x4a, 0x0a, 0x46
+    },
+    {
+      0xf2, 0x6e, 0x5b, 0x6f, 0x7d, 0x36, 0x2d, 0x2d, 0x2a, 0x94, 0xc5, 0xd0,
+      0xe7, 0x60, 0x2c, 0xb4, 0x77, 0x3c, 0x95, 0xa2, 0xe5, 0xc3, 0x1a, 0x64,
+      0xf1, 0x33, 0x18, 0x9f, 0xa7, 0x6e, 0xd6, 0x1b
+    },
+    {
+      0x00, 0x6c, 0xcd, 0x2a, 0x9e, 0x68, 0x67, 0xe6, 0xa2, 0xc5, 0xce, 0xa8,
+      0x3d, 0x33, 0x02, 0xcc, 0x9d, 0xe1, 0x28, 0xdd, 0x2a, 0x9a, 0x57, 0xdd,
+      0x8e, 0xe7, 0xb9, 0xd7, 0xff, 0xe0, 0x28, 0x26
+    },
+    {
+      0xf8, 0xf0, 0xc8, 0x7c, 0xf2, 0x37, 0x95, 0x3c, 0x58, 0x90, 0xae, 0xc3,
+      0x99, 0x81, 0x69, 0x00, 0x5d, 0xae, 0x3e, 0xca, 0x1f, 0xbb, 0x04, 0x54,
+      0x8c, 0x63, 0x59, 0x53, 0xc8, 0x17, 0xf9, 0x2a
+    },
+    {
+      0xae, 0x81, 0xe7, 0xde, 0xdf, 0x20, 0xa4, 0x97, 0xe1, 0x0c, 0x30, 0x4a,
+      0x76, 0x5c, 0x17, 0x67, 0xa4, 0x2d, 0x6e, 0x06, 0x02, 0x97, 0x58, 0xd2,
+      0xd7, 0xe8, 0xef, 0x7c, 0xc4, 0xc4, 0x11, 0x79
+    },
+    {
+      0xe2, 0x70, 0x56, 0x52, 0xff, 0x9f, 0x5e, 0x44, 0xd3, 0xe8, 0x41, 0xbf,
+      0x1c, 0x25, 0x1c, 0xf7, 0xdd, 0xdb, 0x77, 0xd1, 0x40, 0x87, 0x0d, 0x1a,
+      0xb2, 0xed, 0x64, 0xf1, 0xa9, 0xce, 0x86, 0x28
+    },
+    {
+      0x80, 0xbd, 0x07, 0x26, 0x25, 0x11, 0xcd, 0xde, 0x48, 0x63, 0xf8, 0xa7,
+      0x43, 0x4c, 0xef, 0x69, 0x67, 0x50, 0x68, 0x1c, 0xb9, 0x51, 0x0e, 0xea,
+      0x55, 0x70, 0x88, 0xf7, 0x6d, 0x9e, 0x50, 0x65
+    }
+  };
+
+  edwards_curve_t *ec = edwards_curve_create(EDWARDS_CURVE_ED25519);
+  unsigned char entropy[ENTROPY_SIZE];
+  unsigned char bytes[64];
+  unsigned char p[32];
+  unsigned char q[32];
+  sha512_t hash;
+  size_t i;
+
+  drbg_generate(rng, entropy, ENTROPY_SIZE);
+
+  for (i = 0; i < ARRAY_SIZE(images); i++) {
+    sha512_init(&hash);
+    sha512_update(&hash, labels[i], strlen(labels[i]));
+    sha512_final(&hash, bytes);
+
+    ristretto_pubkey_from_hash(ec, p, bytes);
+
+    ASSERT(torsion_memcmp(p, images[i], 32) == 0);
+
+    ASSERT(ristretto_pubkey_to_hash(ec, bytes, p, entropy));
+
+    ristretto_pubkey_from_hash(ec, q, bytes);
+
+    ASSERT(torsion_memcmp(q, p, 32) == 0);
+  }
+
+  edwards_curve_destroy(ec);
+}
+
+static void
+test_ristretto_tweak(drbg_t *rng) {
+  edwards_curve_t *ec = edwards_curve_create(EDWARDS_CURVE_ED25519);
+  unsigned char k1[32], k2[32], k3[32];
+  unsigned char p1[32], p2[32], p3[32];
+  unsigned char tweak[32], entropy[ENTROPY_SIZE];
+  const unsigned char *points[2];
+
+  drbg_generate(rng, entropy, ENTROPY_SIZE);
+
+  ristretto_privkey_generate(ec, k1, entropy);
+
+  drbg_generate(rng, entropy, ENTROPY_SIZE);
+
+  ristretto_privkey_generate(ec, tweak, entropy);
+
+  ASSERT(ristretto_pubkey_create(ec, p1, k1));
+  ASSERT(ristretto_privkey_tweak_add(ec, k2, k1, tweak));
+  ASSERT(ristretto_pubkey_tweak_add(ec, p2, p1, tweak));
+  ASSERT(ristretto_pubkey_create(ec, p3, k2));
+  ASSERT(torsion_memcmp(p3, p2, 32) == 0);
+
+  ASSERT(ristretto_privkey_negate(ec, tweak, tweak));
+  ASSERT(ristretto_privkey_tweak_add(ec, k3, k2, tweak));
+  ASSERT(ristretto_pubkey_tweak_add(ec, p3, p2, tweak));
+  ASSERT(torsion_memcmp(k3, k1, 32) == 0);
+  ASSERT(torsion_memcmp(p3, p1, 32) == 0);
+
+  ASSERT(ristretto_pubkey_create(ec, p1, k1));
+  ASSERT(ristretto_privkey_tweak_mul(ec, k2, k1, tweak));
+  ASSERT(ristretto_pubkey_tweak_mul(ec, p2, p1, tweak));
+  ASSERT(ristretto_pubkey_create(ec, p3, k2));
+  ASSERT(torsion_memcmp(p3, p2, 32) == 0);
+
+  ASSERT(ristretto_privkey_invert(ec, tweak, tweak));
+  ASSERT(ristretto_privkey_tweak_mul(ec, k3, k2, tweak));
+  ASSERT(ristretto_pubkey_tweak_mul(ec, p3, p2, tweak));
+  ASSERT(torsion_memcmp(k3, k1, 32) == 0);
+  ASSERT(torsion_memcmp(p3, p1, 32) == 0);
+
+  ASSERT(ristretto_privkey_negate(ec, k3, k2));
+  ASSERT(ristretto_privkey_tweak_add(ec, k2, k2, k3));
+  ASSERT(ristretto_privkey_is_zero(ec, k2));
+
+  ASSERT(ristretto_pubkey_negate(ec, p3, p2));
+
+  points[0] = p2;
+  points[1] = p3;
+
+  ASSERT(ristretto_pubkey_combine(ec, p2, points, 2));
+  ASSERT(ristretto_pubkey_is_infinity(ec, p2));
+
+  ristretto_privkey_reduce(ec, k3, k2, 32);
+
+  ASSERT(torsion_memcmp(k3, k2, 32) == 0);
+
+  edwards_curve_destroy(ec);
+}
+
+static void
+test_ristretto_derive(drbg_t *rng) {
+  edwards_curve_t *ec = edwards_curve_create(EDWARDS_CURVE_ED25519);
+  unsigned char alice_priv[32], alice_pub[32], alice_secret[32];
+  unsigned char bob_priv[32], bob_pub[32], bob_secret[32];
+  unsigned char alice_raw[32], entropy[64];
+
+  drbg_generate(rng, entropy, ENTROPY_SIZE);
+
+  ASSERT(ristretto_privkey_size(ec) == 32);
+  ASSERT(ristretto_pubkey_size(ec) == 32);
+
+  ristretto_privkey_generate(ec, alice_priv, entropy);
+
+  drbg_generate(rng, entropy, 64);
+
+  ristretto_privkey_from_uniform(ec, bob_priv, entropy);
+
+  ASSERT(ristretto_privkey_verify(ec, alice_priv));
+  ASSERT(ristretto_privkey_verify(ec, bob_priv));
+
+  ASSERT(!ristretto_privkey_is_zero(ec, alice_priv));
+  ASSERT(!ristretto_privkey_is_zero(ec, bob_priv));
+
+  ASSERT(ristretto_pubkey_create(ec, alice_pub, alice_priv));
+  ASSERT(ristretto_pubkey_create(ec, bob_pub, bob_priv));
+
+  ASSERT(ristretto_pubkey_verify(ec, alice_pub));
+  ASSERT(ristretto_pubkey_verify(ec, bob_pub));
+
+  ASSERT(!ristretto_pubkey_is_infinity(ec, alice_pub));
+  ASSERT(!ristretto_pubkey_is_infinity(ec, bob_pub));
+
+  ASSERT(ristretto_derive(ec, alice_secret, bob_pub, alice_priv));
+  ASSERT(ristretto_derive(ec, bob_secret, alice_pub, bob_priv));
+
+  ASSERT(torsion_memcmp(alice_secret, bob_secret, 32) == 0);
+
+  ASSERT(ristretto_privkey_export(ec, alice_raw, alice_priv));
+
+  ASSERT(torsion_memcmp(alice_raw, alice_priv, 32) == 0);
+
+  ASSERT(ristretto_privkey_import(ec, alice_priv, alice_raw, 32));
+
+  ASSERT(torsion_memcmp(alice_priv, alice_raw, 32) == 0);
+
+  ASSERT(!ristretto_privkey_import(ec, alice_priv, entropy, 64));
+
+  edwards_curve_destroy(ec);
+}
+
 /*
  * Encoding
  */
@@ -3797,6 +4351,12 @@ static const torsion_test_t torsion_tests[] = {
   T(eddsa_vectors),
   T(eddsa_random),
   T(eddsa_elligator2),
+  T(ristretto_basepoint_multiples_ed25519),
+  T(ristretto_basepoint_multiples_ed448),
+  T(ristretto_elligator),
+  T(ristretto_elligator_hash),
+  T(ristretto_tweak),
+  T(ristretto_derive),
 
   /* Encoding */
   T(encoding_base16),

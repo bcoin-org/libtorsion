@@ -488,6 +488,38 @@ typedef struct mont_def_s {
 } mont_def_t;
 
 /*
+ * Ristretto
+ */
+
+typedef struct ristretto_s {
+  fe_t qnr; /* non-square in F(p), sqrt(a) for h=8 */
+  fe_t qnrds; /* sqrt(qnr * d) */
+  fe_t adm1s; /* sqrt(a * d - 1) */
+  fe_t adm1si; /* 1 / sqrt(a * d - 1) */
+  fe_t dmaddpa; /* (d + a) / (d - a) */
+  fe_t amdsi; /* 1 / sqrt(a - d) (h=8 only) */
+  fe_t dmasi; /* 1 / sqrt(d - a) (h=8 only) */
+  fe_t mas; /* sqrt(-a) (h=8 only) */
+} ristretto_t;
+
+typedef struct ristretto_def_s {
+  const unsigned char qnr[MAX_FIELD_SIZE];
+  const unsigned char qnrds[MAX_FIELD_SIZE];
+  const unsigned char adm1s[MAX_FIELD_SIZE];
+  const unsigned char adm1si[MAX_FIELD_SIZE];
+  const unsigned char dmaddpa[MAX_FIELD_SIZE];
+  const unsigned char amdsi[MAX_FIELD_SIZE];
+  const unsigned char dmasi[MAX_FIELD_SIZE];
+  const unsigned char mas[MAX_FIELD_SIZE];
+} ristretto_def_t;
+
+/* qge = jacobi quartic group element */
+typedef struct qge_s {
+  fe_t s;
+  fe_t t;
+} qge_t;
+
+/*
  * Edwards
  */
 
@@ -526,6 +558,7 @@ typedef struct edwards_s {
   xge_t wnd_fixed[FIXED_MAX_LENGTH]; /* 589.5kb */
   xge_t wnd_naf[NAF_SIZE_PRE]; /* 288kb */
   xge_t torsion[8];
+  ristretto_t rs;
 } edwards_t;
 
 typedef struct edwards_def_s {
@@ -543,6 +576,7 @@ typedef struct edwards_def_s {
   const unsigned char y[MAX_FIELD_SIZE];
   const unsigned char c[MAX_FIELD_SIZE];
   const subgroup_def_t *torsion;
+  const ristretto_def_t *ristretto;
 } edwards_def_t;
 
 typedef struct edwards_scratch_s {
@@ -554,6 +588,9 @@ typedef struct edwards_scratch_s {
   xge_t *points;
   sc_t *coeffs;
 } edwards__scratch_t;
+
+/* rge = ristretto group element */
+typedef xge_t rge_t;
 
 /*
  * Helpers
@@ -1863,7 +1900,7 @@ fe_isqrt(const prime_field_t *fe, fe_t r, const fe_t u, const fe_t v) {
   return ret;
 }
 
-TORSION_UNUSED static int
+static int
 fe_rsqrt(const prime_field_t *fe, fe_t r, const fe_t u, const fe_t v) {
   int ret = fe_isqrt(fe, r, u, v);
 
@@ -6688,6 +6725,9 @@ static void
 edwards_init_isomorphism(edwards_t *ec, const edwards_def_t *def);
 
 static void
+ristretto_init(edwards_t *ec, const ristretto_def_t *def);
+
+static void
 edwards_init(edwards_t *ec, const edwards_def_t *def) {
   prime_field_t *fe = &ec->fe;
   scalar_field_t *sc = &ec->sc;
@@ -6739,6 +6779,8 @@ edwards_init(edwards_t *ec, const edwards_def_t *def) {
     fe_set(fe, ec->torsion[i].z, fe->one);
     fe_mul(fe, ec->torsion[i].t, ec->torsion[i].x, ec->torsion[i].y);
   }
+
+  ristretto_init(ec, def->ristretto);
 }
 
 static void
@@ -7357,6 +7399,649 @@ edwards_point_to_hash(const edwards_t *ec,
   xge_cleanse(ec, &p0);
   xge_cleanse(ec, &p1);
   xge_cleanse(ec, &p2);
+}
+
+/*
+ * Ristretto
+ */
+
+static void
+qge_import_rge(const edwards_t *ec, qge_t r[4], const rge_t *p);
+
+static int
+qge_invert(const edwards_t *ec, fe_t r, const qge_t *p, unsigned int sign);
+
+static void
+ristretto_init(edwards_t *ec, const ristretto_def_t *def) {
+  const prime_field_t *fe = &ec->fe;
+  ristretto_t *rs = &ec->rs;
+
+  fe_import_be(fe, rs->qnr, def->qnr);
+  fe_import_be(fe, rs->qnrds, def->qnrds);
+  fe_import_be(fe, rs->adm1s, def->adm1s);
+  fe_import_be(fe, rs->adm1si, def->adm1si);
+  fe_import_be(fe, rs->dmaddpa, def->dmaddpa);
+  fe_import_be(fe, rs->amdsi, def->amdsi);
+  fe_import_be(fe, rs->dmasi, def->dmasi);
+  fe_import_be(fe, rs->mas, def->mas);
+}
+
+static void
+ristretto_elligator(const edwards_t *ec, rge_t *r, const fe_t r0) {
+  /* https://ristretto.group/formulas/elligator.html */
+  const prime_field_t *fe = &ec->fe;
+  const ristretto_t *rs = &ec->rs;
+  fe_t R, ns, c, d, s, sp, nt, as2, w0, w1, w2, w3;
+  int sqr;
+
+  /* R = qnr * R0^2 */
+  fe_sqr(fe, R, r0);
+  fe_mul(fe, R, R, rs->qnr);
+
+  /* NS = a * (R + 1) * (d + a) * (d - a) */
+  fe_add(fe, w0, ec->d, ec->a);
+  fe_sub(fe, w1, ec->d, ec->a);
+  fe_add(fe, ns, R, fe->one);
+  fe_mul(fe, ns, ns, w0);
+  fe_mul(fe, ns, ns, w1);
+  edwards_mul_a(ec, ns, ns);
+
+  /* C = -1 */
+  fe_set(fe, c, fe->mone);
+
+  /* D = (d * R - a) * (a * R - d) */
+  fe_mul(fe, w2, ec->d, R);
+  fe_sub(fe, w2, w2, ec->a);
+  edwards_mul_a(ec, w3, R);
+  fe_sub(fe, w3, w3, ec->d);
+  fe_mul(fe, d, w2, w3);
+
+  /* S = sqrt(NS / D) */
+  sqr = fe_rsqrt(fe, s, ns, d);
+
+  /* S' = S * R0 */
+  fe_mul(fe, sp, s, r0);
+
+  /* S' = -S' if S' >= 0 */
+  fe_set_odd(fe, sp, sp, 1);
+
+  /* S = S' if S^2 != NS / D */
+  fe_select(fe, s, s, sp, sqr ^ 1);
+
+  /* C = R if S^2 != NS / D */
+  fe_select(fe, c, c, R, sqr ^ 1);
+
+  /* NT = C * (R - 1) * (d + a)^2 - D */
+  fe_sqr(fe, w0, w0);
+  fe_sub(fe, nt, R, fe->one);
+  fe_mul(fe, nt, nt, c);
+  fe_mul(fe, nt, nt, w0);
+  fe_sub(fe, nt, nt, d);
+
+  /* AS2 = a * S^2 */
+  fe_sqr(fe, as2, s);
+  edwards_mul_a(ec, as2, as2);
+
+  /* W0 = 2 * S * D */
+  fe_add(fe, w0, s, s);
+  fe_mul(fe, w0, w0, d);
+
+  /* W1 = NT * sqrt(a * d - 1) */
+  fe_mul(fe, w1, nt, rs->adm1s);
+
+  /* W2 = 1 + AS2 */
+  fe_add(fe, w2, fe->one, as2);
+
+  /* W3 = 1 - AS2 */
+  fe_sub(fe, w3, fe->one, as2);
+
+  /* X = W0 * W3 */
+  fe_mul(fe, r->x, w0, w3);
+
+  /* Y = W2 * W1 */
+  fe_mul(fe, r->y, w2, w1);
+
+  /* Z = W1 * W3 */
+  fe_mul(fe, r->z, w1, w3);
+
+  /* T = W0 * W2 */
+  fe_mul(fe, r->t, w0, w2);
+}
+
+static int
+ristretto_invert(const edwards_t *ec, fe_t u,
+                 const rge_t *p, unsigned int hint) {
+  const prime_field_t *fe = &ec->fe;
+  unsigned int sign = (hint >> 4) & 15;
+  unsigned int index = hint & 15;
+  size_t len = ec->h >> 1;
+  qge_t quartic[8];
+  size_t i;
+
+  qge_import_rge(ec, quartic, p);
+
+  for (i = 0; i < len; i++) {
+    fe_neg(fe, quartic[len + i].s, quartic[i].s);
+    fe_neg(fe, quartic[len + i].t, quartic[i].t);
+  }
+
+  return qge_invert(ec, u, &quartic[index % ec->h], sign);
+}
+
+static void
+ristretto_point_from_uniform(const edwards_t *ec, rge_t *p,
+                             const unsigned char *bytes) {
+  const prime_field_t *fe = &ec->fe;
+  fe_t u;
+
+  fe_import(fe, u, bytes);
+
+  ristretto_elligator(ec, p, u);
+
+  fe_cleanse(fe, u);
+}
+
+static int
+ristretto_point_to_uniform(const edwards_t *ec,
+                           unsigned char *bytes,
+                           const rge_t *p,
+                           unsigned int hint) {
+  const prime_field_t *fe = &ec->fe;
+  int ret = 1;
+  fe_t u;
+
+  ret &= ristretto_invert(ec, u, p, hint);
+
+  fe_export(fe, bytes, u);
+
+  bytes[fe->size - 1] |= (hint >> 8) & ~fe->mask;
+
+  fe_cleanse(fe, u);
+
+  return ret;
+}
+
+static void
+ristretto_point_from_hash(const edwards_t *ec, rge_t *p,
+                          const unsigned char *bytes) {
+  /* [H2EC] "Roadmap". */
+  const prime_field_t *fe = &ec->fe;
+  rge_t p1, p2;
+
+  ristretto_point_from_uniform(ec, &p1, bytes);
+  ristretto_point_from_uniform(ec, &p2, bytes + fe->size);
+
+  xge_add(ec, p, &p1, &p2);
+
+  xge_cleanse(ec, &p1);
+  xge_cleanse(ec, &p2);
+}
+
+static void
+ristretto_point_to_hash(const edwards_t *ec,
+                        unsigned char *bytes,
+                        const rge_t *p,
+                        const unsigned char *entropy) {
+  /* [SQUARED] Algorithm 1, Page 8, Section 3.3. */
+  const prime_field_t *fe = &ec->fe;
+  unsigned int hint;
+  rge_t p1, p2;
+  drbg_t rng;
+
+  drbg_init(&rng, HASH_SHA256, entropy, ENTROPY_SIZE);
+
+  for (;;) {
+    drbg_generate(&rng, bytes, fe->size);
+
+    ristretto_point_from_uniform(ec, &p1, bytes);
+
+    /* Avoid 2-torsion points. */
+    if (fe_is_zero(fe, p1.x))
+      continue;
+
+    xge_sub(ec, &p2, p, &p1);
+
+    drbg_generate(&rng, &hint, sizeof(hint));
+
+    if (!ristretto_point_to_uniform(ec, bytes + fe->size, &p2, hint))
+      continue;
+
+    break;
+  }
+
+  cleanse(&rng, sizeof(rng));
+  cleanse(&hint, sizeof(hint));
+
+  xge_cleanse(ec, &p1);
+  xge_cleanse(ec, &p2);
+}
+
+/*
+ * Ristretto Point
+ */
+
+static int
+rge_import(const edwards_t *ec, rge_t *r, const unsigned char *raw) {
+  /* https://ristretto.group/formulas/decoding.html */
+  const prime_field_t *fe = &ec->fe;
+  fe_t s, as2, u1, u2, u2u2, v, i, dx, dy;
+  int ret = 1;
+
+  /* Check for canonical encoding. */
+  ret &= fe_import(fe, s, raw);
+
+  /* S < 0 */
+  ret &= fe_is_odd(fe, s) ^ 1;
+
+  /* AS2 = a * S^2 */
+  fe_sqr(fe, as2, s);
+  edwards_mul_a(ec, as2, as2);
+
+  /* U1 = 1 + AS2 */
+  fe_add(fe, u1, fe->one, as2);
+
+  /* U2 = 1 - AS2 */
+  fe_sub(fe, u2, fe->one, as2);
+
+  /* U2U2 = U2^2 */
+  fe_sqr(fe, u2u2, u2);
+
+  /* V = a * d * U1^2 - U2^2 */
+  fe_sqr(fe, v, u1);
+  fe_mul(fe, v, v, ec->d);
+  edwards_mul_a(ec, v, v);
+  fe_sub(fe, v, v, u2u2);
+
+  /* I = 1 / sqrt(V * U2^2) */
+  fe_mul(fe, i, v, u2u2);
+
+  ret &= fe_rsqrt(fe, i, fe->one, i);
+
+  /* DX = I * U2 */
+  fe_mul(fe, dx, i, u2);
+
+  /* DY = I * DX * V */
+  fe_mul(fe, dy, i, dx);
+  fe_mul(fe, dy, dy, v);
+
+  /* X = 2 * S * DX */
+  fe_add(fe, r->x, s, s);
+  fe_mul(fe, r->x, r->x, dx);
+
+  /* X = -X if X < 0 */
+  fe_set_odd(fe, r->x, r->x, 0);
+
+  /* Y = U1 * DY */
+  fe_mul(fe, r->y, u1, dy);
+
+  /* Z = 1 */
+  fe_set(fe, r->z, fe->one);
+
+  /* T = X * Y */
+  fe_mul(fe, r->t, r->x, r->y);
+
+  /* if H = 8 */
+  if (ec->h == 8) {
+    /* T < 0 */
+    ret &= fe_is_odd(fe, r->t) ^ 1;
+
+    /* Y = 0 */
+    ret &= fe_is_zero(fe, r->y) ^ 1;
+  }
+
+  /* P = (X : Y : Z : T) */
+  return ret;
+}
+
+static void
+rge_export(const edwards_t *ec, unsigned char *raw, const rge_t *p) {
+  /* https://ristretto.group/formulas/encoding.html */
+  const prime_field_t *fe = &ec->fe;
+  const ristretto_t *rs = &ec->rs;
+  fe_t s;
+
+  /* H = 4 */
+  if (ec->h == 4) {
+    fe_t u, i, n, y;
+
+    /* U = -(Z0 + Y0) * (Z0 - Y0) */
+    fe_add(fe, y, p->z, p->y);
+    fe_sub(fe, s, p->z, p->y);
+    fe_mul(fe, u, y, s);
+    fe_neg(fe, u, u);
+
+    /* I = 1 / sqrt(U * Y0^2) */
+    fe_sqr(fe, i, p->y);
+    fe_mul(fe, i, i, u);
+    fe_rsqrt(fe, i, fe->one, i);
+
+    /* N = I^2 * U * Y0 * T0 */
+    fe_sqr(fe, n, i);
+    fe_mul(fe, n, n, u);
+    fe_mul(fe, n, n, p->y);
+    fe_mul(fe, n, n, p->t);
+
+    /* Y = Y0 */
+    fe_set(fe, y, p->y);
+
+    /* Y = -Y if N < 0 */
+    fe_neg_cond(fe, y, y, fe_is_odd(fe, n));
+
+    /* S = I * Y * (Z0 - Y) */
+    fe_sub(fe, s, p->z, y);
+    fe_mul(fe, s, s, y);
+    fe_mul(fe, s, s, i);
+  } else {
+    fe_t u1, u2, i, d1, d2, zi, x, y, d;
+    int rotate;
+
+    /* U1 = (Z0 + Y0) * (Z0 - Y0) */
+    fe_add(fe, d1, p->z, p->y);
+    fe_sub(fe, d2, p->z, p->y);
+    fe_mul(fe, u1, d1, d2);
+
+    /* U2 = X0 * Y0 */
+    fe_mul(fe, u2, p->x, p->y);
+
+    /* I = 1 / sqrt(U1 * U2^2) */
+    fe_sqr(fe, i, u2);
+    fe_mul(fe, i, i, u1);
+    fe_isqrt(fe, i, fe->one, i);
+
+    /* D1 = U1 * I */
+    fe_mul(fe, d1, u1, i);
+
+    /* D2 = U2 * I */
+    fe_mul(fe, d2, u2, i);
+
+    /* Zinv = D1 * D2 * T0 */
+    fe_mul(fe, zi, d1, d2);
+    fe_mul(fe, zi, zi, p->t);
+
+    /* X = X0 */
+    fe_set(fe, x, p->x);
+
+    /* Y = Y0 */
+    fe_set(fe, y, p->y);
+
+    /* D = D2 */
+    fe_set(fe, d, d2);
+
+    /* rotate = T0 * Zinv < 0 */
+    fe_mul(fe, s, p->t, zi);
+
+    rotate = fe_is_odd(fe, s);
+
+    /* X = Y0 * sqrt(a) if rotate = 1 */
+    fe_mul(fe, s, p->y, rs->qnr);
+    fe_select(fe, x, x, s, rotate);
+
+    /* Y = X0 * sqrt(a) if rotate = 1 */
+    fe_mul(fe, s, p->x, rs->qnr);
+    fe_select(fe, y, y, s, rotate);
+
+    /* D = D1 / sqrt(a - d) if rotate = 1 */
+    fe_mul(fe, s, d1, rs->amdsi);
+    fe_select(fe, d, d, s, rotate);
+
+    /* Y = -Y if X * Zinv < 0 */
+    fe_mul(fe, s, x, zi);
+    fe_neg_cond(fe, y, y, fe_is_odd(fe, s));
+
+    /* S = sqrt(-a) * (Z0 - Y) * D */
+    fe_sub(fe, s, p->z, y);
+    fe_mul(fe, s, s, d);
+    fe_mul(fe, s, s, rs->mas);
+  }
+
+  /* S = -S if S < 0 */
+  fe_set_odd(fe, s, s, 0);
+
+  /* Return the byte encoding of S. */
+  fe_export(fe, raw, s);
+}
+
+static int
+rge_equal(const edwards_t *ec, const rge_t *a, const rge_t *b) {
+  /* https://ristretto.group/formulas/equality.html */
+  const prime_field_t *fe = &ec->fe;
+  fe_t e1, e2;
+  int ret = 0;
+
+  /* X1 * Y2 == Y1 * X2 */
+  fe_mul(fe, e1, a->x, b->y);
+  fe_mul(fe, e2, a->y, b->x);
+
+  ret |= fe_equal(fe, e1, e2);
+
+  /* H = 4 */
+  if (ec->h == 4)
+    return ret;
+
+  /* Y1 * Y2 == -a * X1 * X2 */
+  fe_mul(fe, e1, a->y, b->y);
+  fe_mul(fe, e2, a->x, b->x);
+  edwards_mul_a(ec, e2, e2);
+  fe_neg(fe, e2, e2);
+
+  ret |= fe_equal(fe, e1, e2);
+
+  return ret;
+}
+
+static int
+rge_is_zero(const edwards_t *ec, const rge_t *p) {
+  const prime_field_t *fe = &ec->fe;
+  int ret = 0;
+
+  /* X1 == 0 */
+  ret |= fe_is_zero(fe, p->x);
+
+  /* H = 4 */
+  if (ec->h == 4)
+    return ret;
+
+  /* Y1 == 0 */
+  ret |= fe_is_zero(fe, p->y);
+
+  return ret;
+}
+
+/*
+ * Jacobi Quartic Point
+ */
+
+static void
+qge_import_rge(const edwards_t *ec, qge_t r[4], const rge_t *p) {
+  /* https://github.com/bwesterb/go-ristretto/blob/9343fcb/edwards25519/elligator.go#L57 */
+  const prime_field_t *fe = &ec->fe;
+  const ristretto_t *rs = &ec->rs;
+  fe_t x2, y2, y4, z2, z2my2, g, d0, sx, spxp, h0;
+  fe_t d1, iz, sy, spyp, h1, h2;
+  int xyz;
+
+#define s0 (r[0].s)
+#define s1 (r[1].s)
+#define s2 (r[2].s)
+#define s3 (r[3].s)
+#define t0 (r[0].t)
+#define t1 (r[1].t)
+#define t2 (r[2].t)
+#define t3 (r[3].t)
+
+  /* XYZ = X0 = 0 or Y0 = 0 */
+  xyz = fe_is_zero(fe, p->x) | fe_is_zero(fe, p->y);
+
+  /* X2 = X0^2 */
+  fe_sqr(fe, x2, p->x);
+
+  /* Y2 = Y0^2 */
+  fe_sqr(fe, y2, p->y);
+
+  /* Y4 = Y2^2 */
+  fe_sqr(fe, y4, y2);
+
+  /* Z2 = Z0^2 */
+  fe_sqr(fe, z2, p->z);
+
+  /* Z2MY2 = Z2 - Y2 */
+  fe_sub(fe, z2my2, z2, y2);
+
+  /* G = 1 / sqrt(Y4 * X2 * Z2MY2) */
+  fe_mul(fe, g, y4, x2);
+  fe_mul(fe, g, g, z2my2);
+  fe_rsqrt(fe, g, fe->one, g);
+
+  /* D0 = G * Y0^2 */
+  fe_mul(fe, d0, g, y2);
+
+  /* SX = D0 * (Z0 - Y0) */
+  fe_sub(fe, t0, p->z, p->y);
+  fe_mul(fe, sx, d0, t0);
+
+  /* SPXP = D0 * (Z0 + Y0) */
+  fe_add(fe, t0, p->z, p->y);
+  fe_mul(fe, spxp, d0, t0);
+
+  /* S0 = SX * X0 */
+  fe_mul(fe, s0, sx, p->x);
+
+  /* S1 = -SPXP * X0 */
+  fe_mul(fe, s1, spxp, p->x);
+  fe_neg(fe, s1, s1);
+
+  /* H0 = (2 / sqrt(a * d - 1)) * Z0 */
+  fe_mul(fe, h0, rs->adm1si, p->z);
+  fe_add(fe, h0, h0, h0);
+
+  /* T0 = H0 * SX */
+  fe_mul(fe, t0, h0, sx);
+
+  /* T1 = H0 * SPXP */
+  fe_mul(fe, t1, h0, spxp);
+
+  /* S0 = 0, T0 = 1 if XYZ = 1 */
+  fe_select(fe, s0, s0, fe->zero, xyz);
+  fe_select(fe, t0, t0, fe->one, xyz);
+
+  /* S1 = 0, T1 = 1 if XYZ = 1 */
+  fe_select(fe, s1, s1, fe->zero, xyz);
+  fe_select(fe, t1, t1, fe->one, xyz);
+
+  /* H = 4 */
+  if (ec->h == 4) {
+    /* Return ((S0, T0), ...). */
+    return;
+  }
+
+  /* D1 = (1 / sqrt(d - a)) * -Z2MY2 * G */
+  fe_mul(fe, d1, rs->dmasi, z2my2);
+  fe_mul(fe, d1, d1, g);
+  fe_neg(fe, d1, d1);
+
+  /* IZ = qnr * Z0 */
+  fe_mul(fe, iz, rs->qnr, p->z);
+
+  /* SY = D1 * (IZ - X0) */
+  fe_sub(fe, t2, iz, p->x);
+  fe_mul(fe, sy, d1, t2);
+
+  /* SPYP = D1 * (IZ + X0) */
+  fe_add(fe, t2, iz, p->x);
+  fe_mul(fe, spyp, d1, t2);
+
+  /* S2 = SY * Y0 */
+  fe_mul(fe, s2, sy, p->y);
+
+  /* S3 = -SPYP * Y0 */
+  fe_mul(fe, s3, spyp, p->y);
+  fe_neg(fe, s3, s3);
+
+  /* H1 = (2 / sqrt(a * d - 1)) * IZ */
+  fe_mul(fe, h1, rs->adm1si, iz);
+  fe_add(fe, h1, h1, h1);
+
+  /* T2 = H1 * SY */
+  fe_mul(fe, t2, h1, sy);
+
+  /* T3 = H1 * SPYP */
+  fe_mul(fe, t3, h1, spyp);
+
+  /* H2 = 2 * (qnr / sqrt(a * d - 1)) */
+  fe_mul(fe, h2, rs->qnr, rs->adm1si);
+  fe_add(fe, h2, h2, h2);
+
+  /* S2 = 1, T2 = H2 if XYZ = 1 */
+  fe_select(fe, s2, s2, fe->one, xyz);
+  fe_select(fe, t2, t2, h2, xyz);
+
+  /* S3 = -1, T3 = H2 if XYZ = 1 */
+  fe_select(fe, s3, s3, fe->mone, xyz);
+  fe_select(fe, t3, t3, h2, xyz);
+
+  /* Return ((S0, T0), ...). */
+#undef s0
+#undef s1
+#undef s2
+#undef s3
+#undef t0
+#undef t1
+#undef t2
+#undef t3
+}
+
+static int
+qge_invert(const edwards_t *ec, fe_t r, const qge_t *p, unsigned int hint) {
+  /* https://github.com/bwesterb/go-ristretto/blob/9343fcb/edwards25519/elligator.go#L151 */
+  const prime_field_t *fe = &ec->fe;
+  const ristretto_t *rs = &ec->rs;
+  fe_t a, a2, s2, s4, y;
+  int sz, to, sqr;
+
+  /* SZ = S = 0 */
+  sz = fe_is_zero(fe, p->s);
+
+  /* TO = T = 1 */
+  to = sz & fe_equal(fe, p->t, fe->one);
+
+  /* A = (T + 1) * ((d - a) / (d + a)) */
+  fe_add(fe, a, p->t, fe->one);
+  fe_mul(fe, a, a, rs->dmaddpa);
+
+  /* A2 = A^2 */
+  fe_sqr(fe, a2, a);
+
+  /* S2 = S^2 */
+  fe_sqr(fe, s2, p->s);
+
+  /* S4 = S2^2 */
+  fe_sqr(fe, s4, s2);
+
+  /* Y = 1 / sqrt(qnr * (S4 - A2)) */
+  /* SQR = Y^2 = 1 / (qnr * (S4 - A2)) */
+  fe_sub(fe, y, s4, a2);
+  fe_mul(fe, y, y, rs->qnr);
+
+  sqr = fe_rsqrt(fe, y, fe->one, y);
+
+  /* S2 = -S2 if S < 0 */
+  fe_neg_cond(fe, s2, s2, fe_is_odd(fe, p->s));
+
+  /* R = (A + S2) * Y */
+  fe_add(fe, r, a, s2);
+  fe_mul(fe, r, r, y);
+
+  /* R = -R if R < 0 */
+  fe_set_odd(fe, r, r, hint & 1);
+
+  /* R = 0 if SZ = 1 */
+  fe_select(fe, r, r, fe->zero, sz);
+
+  /* R = sqrt(qnr * d) if TO = 1 */
+  fe_select(fe, r, r, rs->qnrds, to);
+
+  /* Return (SQR | SZ, R). */
+  return sqr | sz;
 }
 
 /*
@@ -8057,6 +8742,153 @@ static const endo_def_t endo_secp256k1 = {
 #include "subgroups.h"
 
 /*
+ * Ristretto
+ */
+
+static const ristretto_def_t ristretto_ed25519 = {
+  {
+    0x2b, 0x83, 0x24, 0x80, 0x4f, 0xc1, 0xdf, 0x0b,
+    0x2b, 0x4d, 0x00, 0x99, 0x3d, 0xfb, 0xd7, 0xa7,
+    0x2f, 0x43, 0x18, 0x06, 0xad, 0x2f, 0xe4, 0x78,
+    0xc4, 0xee, 0x1b, 0x27, 0x4a, 0x0e, 0xa0, 0xb0
+  },
+  {
+    0x7a, 0x4c, 0xaa, 0xa7, 0x0b, 0x84, 0x14, 0x68,
+    0x8a, 0xcb, 0xab, 0x66, 0x8c, 0x14, 0x91, 0xea,
+    0x32, 0x43, 0x56, 0xd2, 0xf1, 0x15, 0x92, 0x55,
+    0x8a, 0xcf, 0xd5, 0x34, 0xb5, 0xa3, 0xe4, 0x45
+  },
+  {
+    0x37, 0x69, 0x31, 0xbf, 0x2b, 0x83, 0x48, 0xac,
+    0x0f, 0x3c, 0xfc, 0xc9, 0x31, 0xf5, 0xd1, 0xfd,
+    0xaf, 0x9d, 0x8e, 0x0c, 0x1b, 0x78, 0x54, 0xbd,
+    0x7e, 0x97, 0xf6, 0xa0, 0x49, 0x7b, 0x2e, 0x1b
+  },
+  {
+    0x07, 0x93, 0x76, 0xfa, 0x30, 0x50, 0x03, 0x5d,
+    0xe9, 0x3d, 0x84, 0x6e, 0x01, 0xfe, 0x27, 0xbf,
+    0x62, 0xd0, 0xe9, 0xe8, 0xa5, 0xbe, 0x8d, 0x41,
+    0x66, 0x37, 0x02, 0x55, 0x7f, 0xa2, 0xbf, 0x03
+  },
+  {
+    0x0e, 0x67, 0xc8, 0x30, 0xa7, 0xe8, 0xd8, 0x9d,
+    0xae, 0xf8, 0xd9, 0x5f, 0x99, 0x9f, 0x18, 0x24,
+    0x48, 0x9a, 0xe7, 0xf1, 0xcd, 0x24, 0x1d, 0xc8,
+    0x27, 0x7f, 0xac, 0x5f, 0x9b, 0x81, 0xbb, 0x2c
+  },
+  {
+    0x78, 0x6c, 0x89, 0x05, 0xcf, 0xaf, 0xfc, 0xa2,
+    0x16, 0xc2, 0x7b, 0x91, 0xfe, 0x01, 0xd8, 0x40,
+    0x9d, 0x2f, 0x16, 0x17, 0x5a, 0x41, 0x72, 0xbe,
+    0x99, 0xc8, 0xfd, 0xaa, 0x80, 0x5d, 0x40, 0xea
+  },
+  {
+    0x0a, 0x0d, 0x85, 0xb4, 0x03, 0x2b, 0x1e, 0xa8,
+    0x1e, 0xf0, 0x2c, 0x42, 0x94, 0x05, 0xac, 0x88,
+    0x4e, 0x52, 0xf7, 0x1c, 0x6b, 0xda, 0xb6, 0x4e,
+    0x0b, 0x2e, 0xdb, 0x88, 0x31, 0xbb, 0xdd, 0xec
+  },
+  {
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01
+  }
+};
+
+static const ristretto_def_t ristretto_ed448 = {
+  {
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+    0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+    0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+    0xff, 0xff, 0xff, 0xfe, 0xff, 0xff, 0xff, 0xff,
+    0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+    0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+    0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xfe
+  },
+  {
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0xdd, 0x26, 0x9d, 0x04, 0x14, 0xdb, 0x08, 0x97,
+    0xc4, 0x09, 0x72, 0x8d, 0xd0, 0x5d, 0x95, 0x5f,
+    0x5e, 0x0e, 0x58, 0x47, 0x5a, 0x47, 0x2a, 0xb4,
+    0x9b, 0x5d, 0x28, 0x7e, 0x69, 0x73, 0xeb, 0x45,
+    0x7c, 0x65, 0x99, 0x0b, 0x02, 0x91, 0x21, 0x2d,
+    0x9f, 0xcc, 0x84, 0x09, 0x55, 0xdf, 0x31, 0xad,
+    0x69, 0xbd, 0x10, 0xf0, 0xba, 0xa8, 0xd8, 0xc9
+  },
+  {
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x12, 0xfe, 0xc0, 0xc0, 0xb2, 0x5b, 0x7a, 0x49,
+    0x44, 0x3b, 0x87, 0x48, 0x73, 0x4a, 0xdc, 0xac,
+    0x46, 0x28, 0xc5, 0xf6, 0x56, 0xa4, 0x9f, 0x7b,
+    0x42, 0x4d, 0x97, 0x70, 0x51, 0xe6, 0x5c, 0xa6,
+    0xf1, 0x4c, 0x06, 0x5a, 0x18, 0x9a, 0xab, 0xde,
+    0xea, 0x38, 0x88, 0x8d, 0xb4, 0x2b, 0x4f, 0x01,
+    0x79, 0xd2, 0xe2, 0x18, 0x36, 0x74, 0x9f, 0x46
+  },
+  {
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0xdf, 0x64, 0x97, 0xe8, 0x36, 0xd1, 0x56, 0x79,
+    0x5a, 0x71, 0x30, 0xf4, 0x3e, 0x77, 0x86, 0x9a,
+    0x11, 0x73, 0xae, 0x0c, 0x1e, 0x2c, 0x4c, 0x2b,
+    0xdb, 0x8c, 0x92, 0x72, 0x39, 0xe1, 0x7c, 0xe7,
+    0x70, 0xc6, 0xd2, 0xf9, 0x23, 0x37, 0x17, 0x9c,
+    0x9e, 0x17, 0x76, 0xf8, 0x78, 0x82, 0xd3, 0x05,
+    0x5a, 0x06, 0x38, 0xbe, 0xa7, 0x8f, 0x0f, 0xeb
+  },
+  {
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x18, 0xa4, 0xc3, 0x28, 0x4c, 0xb8, 0xad, 0x25,
+    0xad, 0xee, 0xea, 0x76, 0x1f, 0x20, 0xf6, 0x83,
+    0xbf, 0x3a, 0x1e, 0x14, 0xa5, 0xcf, 0x79, 0x00,
+    0xfe, 0xe6, 0x44, 0xdc, 0x37, 0x38, 0xdc, 0x1a,
+    0x33, 0xe1, 0x9a, 0xdb, 0x94, 0x0b, 0x87, 0x77,
+    0xbf, 0x04, 0x74, 0x56, 0xfe, 0x2a, 0x72, 0xc4,
+    0x85, 0x1c, 0x09, 0x6e, 0xd6, 0x56, 0x78, 0x03
+  },
+  {0},
+  {0},
+  {0}
+};
+
+static const ristretto_def_t ristretto_ed1174 = {
+  {
+    0x07, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+    0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+    0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+    0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xf6
+  },
+  {
+    0x05, 0xb7, 0x8c, 0xa2, 0x46, 0xe7, 0x0f, 0x1f,
+    0xe2, 0x8c, 0x50, 0x57, 0xb5, 0xcf, 0xfc, 0x39,
+    0xf1, 0xcd, 0x31, 0x16, 0xed, 0xde, 0xcf, 0x99,
+    0x03, 0x37, 0xa8, 0x4a, 0x0f, 0xdb, 0xb3, 0xdf
+  },
+  {
+    0x00, 0x5c, 0xfb, 0xdd, 0x72, 0xb1, 0xed, 0x48,
+    0x2a, 0xaf, 0xda, 0x05, 0xd6, 0x92, 0xe7, 0x90,
+    0x79, 0x11, 0x64, 0x99, 0x07, 0xe7, 0x97, 0xf9,
+    0x98, 0xa6, 0x34, 0x7b, 0xc5, 0x5d, 0xd8, 0xa7
+  },
+  {
+    0x00, 0x2d, 0x3d, 0x01, 0xfd, 0x81, 0x7b, 0x8c,
+    0xaf, 0x22, 0x0e, 0x69, 0x71, 0xfb, 0x84, 0x7c,
+    0xb7, 0xc7, 0xfd, 0xf4, 0x1a, 0xca, 0xa4, 0x5d,
+    0x41, 0x3b, 0x56, 0x73, 0x5d, 0xf3, 0xef, 0xe9
+  },
+  {
+    0x04, 0x30, 0x03, 0x7d, 0xed, 0x3b, 0x24, 0xe2,
+    0x19, 0xc0, 0xb5, 0x94, 0x30, 0x03, 0x7d, 0xed,
+    0x3b, 0x24, 0xe2, 0x19, 0xc0, 0xb5, 0x94, 0x30,
+    0x03, 0x7d, 0xed, 0x3b, 0x24, 0xe2, 0x19, 0xbd
+  },
+  {0},
+  {0},
+  {0}
+};
+
+/*
  * Short Weierstrass Curves
  */
 
@@ -8484,7 +9316,8 @@ static const edwards_def_t curve_ed25519 = {
     0xc5, 0xa1, 0xd3, 0xd1, 0x4b, 0x7d, 0x1a, 0x82,
     0xcc, 0x6e, 0x04, 0xaa, 0xff, 0x45, 0x7e, 0x06
   },
-  subgroups_ed25519
+  subgroups_ed25519,
+  &ristretto_ed25519
 };
 
 static const edwards_def_t curve_ed448 = {
@@ -8547,7 +9380,8 @@ static const edwards_def_t curve_ed448 = {
     0xc3, 0xd1, 0x12, 0x0f, 0x0e, 0xfa, 0x59, 0xf5,
     0x4b, 0xf3, 0x8e, 0x82, 0xb0, 0xe1, 0xe0, 0x28
   },
-  subgroups_ed448
+  subgroups_ed448,
+  &ristretto_ed448
 };
 
 static const edwards_def_t curve_ed1174 = {
@@ -8595,7 +9429,8 @@ static const edwards_def_t curve_ed1174 = {
     0x6f, 0x8f, 0xfb, 0xe8, 0x35, 0x95, 0x48, 0xba,
     0x82, 0x76, 0xac, 0xe6, 0xbb, 0xe7, 0xdf, 0xd2
   },
-  subgroups_ed1174
+  subgroups_ed1174,
+  &ristretto_ed1174
 };
 
 /*
@@ -12523,6 +13358,405 @@ eddsa_derive(const edwards_t *ec,
   ret &= eddsa_derive_with_scalar(ec, secret, pub, scalar);
 
   cleanse(scalar, sc->size);
+
+  return ret;
+}
+
+/*
+ * Ristretto
+ */
+
+size_t
+ristretto_privkey_size(const edwards_t *ec) {
+  return ec->sc.size;
+}
+
+size_t
+ristretto_pubkey_size(const edwards_t *ec) {
+  return ec->fe.size;
+}
+
+void
+ristretto_privkey_generate(const edwards_t *ec,
+                           unsigned char *out,
+                           const unsigned char *entropy) {
+  const scalar_field_t *sc = &ec->sc;
+  drbg_t rng;
+  sc_t a;
+
+  drbg_init(&rng, HASH_SHA256, entropy, ENTROPY_SIZE);
+
+  sc_random(sc, a, &rng);
+  sc_export(sc, out, a);
+  sc_cleanse(sc, a);
+
+  cleanse(&rng, sizeof(rng));
+}
+
+void
+ristretto_privkey_from_uniform(const edwards_t *ec,
+                               unsigned char *out,
+                               const unsigned char *bytes) {
+  const scalar_field_t *sc = &ec->sc;
+  sc_t a;
+
+  sc_import_wide(sc, a, bytes, sc->size * 2);
+  sc_export(sc, out, a);
+  sc_cleanse(sc, a);
+}
+
+int
+ristretto_privkey_verify(const edwards_t *ec, const unsigned char *priv) {
+  const scalar_field_t *sc = &ec->sc;
+  int ret = 1;
+  sc_t a;
+
+  ret &= sc_import(sc, a, priv);
+
+  sc_cleanse(sc, a);
+
+  return ret;
+}
+
+int
+ristretto_privkey_is_zero(const edwards_t *ec, const unsigned char *priv) {
+  static const unsigned char zero[MAX_SCALAR_SIZE] = {0};
+  const scalar_field_t *sc = &ec->sc;
+
+  return torsion_memequal(priv, zero, sc->size);
+}
+
+int
+ristretto_privkey_export(const edwards_t *ec,
+                         unsigned char *out,
+                         const unsigned char *priv) {
+  const scalar_field_t *sc = &ec->sc;
+  int ret = 1;
+  sc_t a;
+
+  ret &= sc_import(sc, a, priv);
+
+  sc_export(sc, out, a);
+  sc_cleanse(sc, a);
+
+  return ret;
+}
+
+int
+ristretto_privkey_import(const edwards_t *ec,
+                         unsigned char *out,
+                         const unsigned char *bytes,
+                         size_t len) {
+  const scalar_field_t *sc = &ec->sc;
+  unsigned char key[MAX_SCALAR_SIZE];
+  int ret = 1;
+  sc_t a;
+
+  while (len > 0 && bytes[len - 1] == 0x00)
+    len -= 1;
+
+  if (len > sc->size) {
+    memset(out, 0x00, sc->size);
+    return 0;
+  }
+
+  if (len > 0)
+    memcpy(key, bytes, len);
+
+  memset(key + len, 0x00, sc->size - len);
+
+  ret &= sc_import(sc, a, key);
+
+  sc_export(sc, out, a);
+  sc_cleanse(sc, a);
+
+  cleanse(key, sc->size);
+
+  return ret;
+}
+
+int
+ristretto_privkey_tweak_add(const edwards_t *ec,
+                            unsigned char *out,
+                            const unsigned char *priv,
+                            const unsigned char *tweak) {
+  const scalar_field_t *sc = &ec->sc;
+  int ret = 1;
+  sc_t a, t;
+
+  ret &= sc_import(sc, a, priv);
+  ret &= sc_import(sc, t, tweak);
+
+  sc_add(sc, a, a, t);
+
+  sc_export(sc, out, a);
+  sc_cleanse(sc, a);
+  sc_cleanse(sc, t);
+
+  return ret;
+}
+
+int
+ristretto_privkey_tweak_mul(const edwards_t *ec,
+                            unsigned char *out,
+                            const unsigned char *priv,
+                            const unsigned char *tweak) {
+  const scalar_field_t *sc = &ec->sc;
+  int ret = 1;
+  sc_t a, t;
+
+  ret &= sc_import(sc, a, priv);
+  ret &= sc_import(sc, t, tweak);
+
+  sc_mul(sc, a, a, t);
+
+  ret &= sc_is_zero(sc, a) ^ 1;
+
+  sc_export(sc, out, a);
+  sc_cleanse(sc, a);
+  sc_cleanse(sc, t);
+
+  return ret;
+}
+
+void
+ristretto_privkey_reduce(const edwards_t *ec,
+                         unsigned char *out,
+                         const unsigned char *bytes,
+                         size_t len) {
+  eddsa_scalar_reduce(ec, out, bytes, len);
+}
+
+int
+ristretto_privkey_negate(const edwards_t *ec,
+                         unsigned char *out,
+                         const unsigned char *priv) {
+  const scalar_field_t *sc = &ec->sc;
+  int ret = 1;
+  sc_t a;
+
+  ret &= sc_import(sc, a, priv);
+
+  sc_neg(sc, a, a);
+
+  sc_export(sc, out, a);
+  sc_cleanse(sc, a);
+
+  return ret;
+}
+
+int
+ristretto_privkey_invert(const edwards_t *ec,
+                         unsigned char *out,
+                         const unsigned char *priv) {
+  const scalar_field_t *sc = &ec->sc;
+  int ret = 1;
+  sc_t a;
+
+  ret &= sc_import(sc, a, priv);
+
+  sc_invert(sc, a, a);
+
+  sc_export(sc, out, a);
+  sc_cleanse(sc, a);
+
+  return ret;
+}
+
+int
+ristretto_pubkey_create(const edwards_t *ec,
+                        unsigned char *pub,
+                        const unsigned char *priv) {
+  const scalar_field_t *sc = &ec->sc;
+  int ret = 1;
+  rge_t A;
+  sc_t a;
+
+  ret &= sc_import(sc, a, priv);
+
+  edwards_mul_g(ec, &A, a);
+
+  rge_export(ec, pub, &A);
+
+  sc_cleanse(sc, a);
+
+  xge_cleanse(ec, &A);
+
+  return ret;
+}
+
+void
+ristretto_pubkey_from_uniform(const edwards_t *ec,
+                              unsigned char *out,
+                              const unsigned char *bytes) {
+  rge_t A;
+
+  ristretto_point_from_uniform(ec, &A, bytes);
+
+  rge_export(ec, out, &A);
+}
+
+int
+ristretto_pubkey_to_uniform(const edwards_t *ec,
+                            unsigned char *out,
+                            const unsigned char *pub,
+                            unsigned int hint) {
+  int ret = 1;
+  rge_t A;
+
+  ret &= rge_import(ec, &A, pub);
+  ret &= ristretto_point_to_uniform(ec, out, &A, hint);
+
+  return ret;
+}
+
+void
+ristretto_pubkey_from_hash(const edwards_t *ec,
+                           unsigned char *out,
+                           const unsigned char *bytes) {
+  rge_t A;
+
+  ristretto_point_from_hash(ec, &A, bytes);
+
+  rge_export(ec, out, &A);
+}
+
+int
+ristretto_pubkey_to_hash(const edwards_t *ec,
+                         unsigned char *out,
+                         const unsigned char *pub,
+                         const unsigned char *entropy) {
+  int ret = 1;
+  rge_t A;
+
+  ret &= rge_import(ec, &A, pub);
+
+  ristretto_point_to_hash(ec, out, &A, entropy);
+
+  return ret;
+}
+
+int
+ristretto_pubkey_verify(const edwards_t *ec, const unsigned char *pub) {
+  rge_t A;
+
+  return rge_import(ec, &A, pub);
+}
+
+int
+ristretto_pubkey_is_infinity(const edwards_t *ec, const unsigned char *pub) {
+  static const unsigned char inf[MAX_FIELD_SIZE] = {0};
+  const prime_field_t *fe = &ec->fe;
+
+  return torsion_memequal(pub, inf, fe->size);
+}
+
+int
+ristretto_pubkey_tweak_add(const edwards_t *ec,
+                           unsigned char *out,
+                           const unsigned char *pub,
+                           const unsigned char *tweak) {
+  const scalar_field_t *sc = &ec->sc;
+  int ret = 1;
+  rge_t A, T;
+  sc_t t;
+
+  ret &= rge_import(ec, &A, pub);
+  ret &= sc_import(sc, t, tweak);
+
+  edwards_mul_g(ec, &T, t);
+
+  xge_add(ec, &A, &A, &T);
+  rge_export(ec, out, &A);
+
+  sc_cleanse(sc, t);
+
+  return ret;
+}
+
+int
+ristretto_pubkey_tweak_mul(const edwards_t *ec,
+                           unsigned char *out,
+                           const unsigned char *pub,
+                           const unsigned char *tweak) {
+  const scalar_field_t *sc = &ec->sc;
+  int ret = 1;
+  rge_t A;
+  sc_t t;
+
+  ret &= rge_import(ec, &A, pub);
+  ret &= sc_import(sc, t, tweak);
+
+  edwards_mul(ec, &A, &A, t);
+
+  ret &= rge_is_zero(ec, &A) ^ 1;
+
+  rge_export(ec, out, &A);
+
+  sc_cleanse(sc, t);
+
+  return ret;
+}
+
+int
+ristretto_pubkey_combine(const edwards_t *ec,
+                         unsigned char *out,
+                         const unsigned char *const *pubs,
+                         size_t len) {
+  int ret = 1;
+  rge_t P, A;
+  size_t i;
+
+  xge_zero(ec, &P);
+
+  for (i = 0; i < len; i++) {
+    ret &= rge_import(ec, &A, pubs[i]);
+
+    xge_add(ec, &P, &P, &A);
+  }
+
+  rge_export(ec, out, &P);
+
+  return ret;
+}
+
+int
+ristretto_pubkey_negate(const edwards_t *ec,
+                        unsigned char *out,
+                        const unsigned char *pub) {
+  int ret = 1;
+  rge_t A;
+
+  ret &= rge_import(ec, &A, pub);
+
+  xge_neg(ec, &A, &A);
+
+  rge_export(ec, out, &A);
+
+  return ret;
+}
+
+int
+ristretto_derive(const edwards_t *ec,
+                 unsigned char *secret,
+                 const unsigned char *pub,
+                 const unsigned char *priv) {
+  const scalar_field_t *sc = &ec->sc;
+  int ret = 1;
+  rge_t A, P;
+  sc_t a;
+
+  ret &= sc_import(sc, a, priv);
+  ret &= rge_import(ec, &A, pub);
+
+  edwards_mul(ec, &P, &A, a);
+
+  rge_export(ec, secret, &P);
+
+  sc_cleanse(sc, a);
+
+  xge_cleanse(ec, &A);
+  xge_cleanse(ec, &P);
 
   return ret;
 }

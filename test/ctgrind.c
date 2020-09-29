@@ -321,6 +321,50 @@ test_eddsa(void) {
 }
 
 static void
+test_ristretto(void) {
+  edwards_curve_t *ec = edwards_curve_create(EDWARDS_CURVE_ED25519);
+  unsigned char priv[32];
+  unsigned char pub[32];
+  unsigned char secret[32];
+  size_t i;
+  int ret;
+
+  printf("Testing Ristretto...\n");
+
+  for (i = 0; i < 31; i++)
+    priv[i] = i + 65;
+
+  priv[i] = 0;
+
+  /* Public key generation */
+  VALGRIND_MAKE_MEM_UNDEFINED(priv, 32);
+  ret = ristretto_pubkey_create(ec, pub, priv);
+  VALGRIND_MAKE_MEM_DEFINED(&ret, sizeof(ret));
+  ASSERT(ret);
+
+  /* Public key validation */
+  VALGRIND_MAKE_MEM_UNDEFINED(pub, 32);
+  ret = ristretto_pubkey_verify(ec, pub);
+  VALGRIND_MAKE_MEM_DEFINED(&ret, sizeof(ret));
+  ASSERT(ret);
+
+  /* ECDH */
+  VALGRIND_MAKE_MEM_UNDEFINED(pub, 32);
+  VALGRIND_MAKE_MEM_UNDEFINED(priv, 32);
+  ret = ristretto_derive(ec, secret, pub, priv);
+  VALGRIND_MAKE_MEM_DEFINED(&ret, sizeof(ret));
+  ASSERT(ret);
+
+  /* Secret validation */
+  VALGRIND_MAKE_MEM_UNDEFINED(secret, 32);
+  ret = ristretto_pubkey_verify(ec, secret);
+  VALGRIND_MAKE_MEM_DEFINED(&ret, sizeof(ret));
+  ASSERT(ret);
+
+  edwards_curve_destroy(ec);
+}
+
+static void
 test_util(void) {
   unsigned char x[32];
   unsigned char y[32];
@@ -369,6 +413,7 @@ main(void) {
   test_schnorr();
   test_ecdh();
   test_eddsa();
+  test_ristretto();
   test_util();
 
   return 0;

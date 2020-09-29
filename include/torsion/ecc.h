@@ -179,7 +179,34 @@ extern "C" {
 #define eddsa_derive_with_scalar torsion_eddsa_derive_with_scalar
 #define eddsa_derive torsion_eddsa_derive
 
+#define ristretto_privkey_size torsion_ristretto_privkey_size
+#define ristretto_pubkey_size torsion_ristretto_pubkey_size
+#define ristretto_privkey_generate torsion_ristretto_privkey_generate
+#define ristretto_privkey_from_uniform torsion_ristretto_privkey_from_uniform
+#define ristretto_privkey_verify torsion_ristretto_privkey_verify
+#define ristretto_privkey_is_zero torsion_ristretto_privkey_is_zero
+#define ristretto_privkey_export torsion_ristretto_privkey_export
+#define ristretto_privkey_import torsion_ristretto_privkey_import
+#define ristretto_privkey_tweak_add torsion_ristretto_privkey_tweak_add
+#define ristretto_privkey_tweak_mul torsion_ristretto_privkey_tweak_mul
+#define ristretto_privkey_reduce torsion_ristretto_privkey_reduce
+#define ristretto_privkey_negate torsion_ristretto_privkey_negate
+#define ristretto_privkey_invert torsion_ristretto_privkey_invert
+#define ristretto_pubkey_create torsion_ristretto_pubkey_create
+#define ristretto_pubkey_from_uniform torsion_ristretto_pubkey_from_uniform
+#define ristretto_pubkey_to_uniform torsion_ristretto_pubkey_to_uniform
+#define ristretto_pubkey_from_hash torsion_ristretto_pubkey_from_hash
+#define ristretto_pubkey_to_hash torsion_ristretto_pubkey_to_hash
+#define ristretto_pubkey_verify torsion_ristretto_pubkey_verify
+#define ristretto_pubkey_is_infinity torsion_ristretto_pubkey_is_infinity
+#define ristretto_pubkey_tweak_add torsion_ristretto_pubkey_tweak_add
+#define ristretto_pubkey_tweak_mul torsion_ristretto_pubkey_tweak_mul
+#define ristretto_pubkey_combine torsion_ristretto_pubkey_combine
+#define ristretto_pubkey_negate torsion_ristretto_pubkey_negate
+#define ristretto_derive torsion_ristretto_derive
+
 #define test_ecc_internal __torsion_test_ecc_internal
+
 
 /*
  * Defs
@@ -216,6 +243,9 @@ extern "C" {
 #define EDDSA_MAX_PUB_SIZE (EDWARDS_MAX_FIELD_SIZE + 1) /* 57 */
 #define EDDSA_MAX_PREFIX_SIZE (EDWARDS_MAX_FIELD_SIZE + 1) /* 57 */
 #define EDDSA_MAX_SIG_SIZE (EDDSA_MAX_PUB_SIZE * 2) /* 114 */
+
+#define RISTRETTO_MAX_PRIV_SIZE EDWARDS_MAX_SCALAR_SIZE /* 56 */
+#define RISTRETTO_MAX_PUB_SIZE EDWARDS_MAX_FIELD_SIZE /* 56 */
 
 /*
  * Curves
@@ -1145,6 +1175,134 @@ eddsa_derive(const edwards_curve_t *ec,
              unsigned char *secret,
              const unsigned char *pub,
              const unsigned char *priv);
+
+/*
+ * Ristretto
+ */
+
+TORSION_EXTERN size_t
+ristretto_privkey_size(const edwards_curve_t *ec);
+
+TORSION_EXTERN size_t
+ristretto_pubkey_size(const edwards_curve_t *ec);
+
+TORSION_EXTERN void
+ristretto_privkey_generate(const edwards_curve_t *ec,
+                           unsigned char *out,
+                           const unsigned char *entropy);
+
+TORSION_EXTERN void
+ristretto_privkey_from_uniform(const edwards_curve_t *ec,
+                               unsigned char *out,
+                               const unsigned char *bytes);
+
+TORSION_EXTERN int
+ristretto_privkey_verify(const edwards_curve_t *ec, const unsigned char *priv);
+
+TORSION_EXTERN int
+ristretto_privkey_is_zero(const edwards_curve_t *ec, const unsigned char *priv);
+
+TORSION_EXTERN int
+ristretto_privkey_export(const edwards_curve_t *ec,
+                         unsigned char *out,
+                         const unsigned char *priv);
+
+TORSION_EXTERN int
+ristretto_privkey_import(const edwards_curve_t *ec,
+                         unsigned char *out,
+                         const unsigned char *bytes,
+                         size_t len);
+
+TORSION_EXTERN int
+ristretto_privkey_tweak_add(const edwards_curve_t *ec,
+                            unsigned char *out,
+                            const unsigned char *priv,
+                            const unsigned char *tweak);
+
+TORSION_EXTERN int
+ristretto_privkey_tweak_mul(const edwards_curve_t *ec,
+                            unsigned char *out,
+                            const unsigned char *priv,
+                            const unsigned char *tweak);
+
+TORSION_EXTERN void
+ristretto_privkey_reduce(const edwards_curve_t *ec,
+                         unsigned char *out,
+                         const unsigned char *bytes,
+                         size_t len);
+
+TORSION_EXTERN int
+ristretto_privkey_negate(const edwards_curve_t *ec,
+                         unsigned char *out,
+                         const unsigned char *priv);
+
+TORSION_EXTERN int
+ristretto_privkey_invert(const edwards_curve_t *ec,
+                         unsigned char *out,
+                         const unsigned char *priv);
+
+TORSION_EXTERN int
+ristretto_pubkey_create(const edwards_curve_t *ec,
+                        unsigned char *pub,
+                        const unsigned char *priv);
+
+TORSION_EXTERN void
+ristretto_pubkey_from_uniform(const edwards_curve_t *ec,
+                              unsigned char *out,
+                              const unsigned char *bytes);
+
+TORSION_EXTERN int
+ristretto_pubkey_to_uniform(const edwards_curve_t *ec,
+                            unsigned char *out,
+                            const unsigned char *pub,
+                            unsigned int hint);
+
+TORSION_EXTERN void
+ristretto_pubkey_from_hash(const edwards_curve_t *ec,
+                           unsigned char *out,
+                           const unsigned char *bytes);
+
+TORSION_EXTERN int
+ristretto_pubkey_to_hash(const edwards_curve_t *ec,
+                         unsigned char *out,
+                         const unsigned char *pub,
+                         const unsigned char *entropy);
+
+TORSION_EXTERN int
+ristretto_pubkey_verify(const edwards_curve_t *ec, const unsigned char *pub);
+
+TORSION_EXTERN int
+ristretto_pubkey_is_infinity(const edwards_curve_t *ec,
+                             const unsigned char *pub);
+
+TORSION_EXTERN int
+ristretto_pubkey_tweak_add(const edwards_curve_t *ec,
+                           unsigned char *out,
+                           const unsigned char *pub,
+                           const unsigned char *tweak);
+
+TORSION_EXTERN int
+ristretto_pubkey_tweak_mul(const edwards_curve_t *ec,
+                           unsigned char *out,
+                           const unsigned char *pub,
+                           const unsigned char *tweak);
+
+TORSION_EXTERN int
+ristretto_pubkey_combine(const edwards_curve_t *ec,
+                         unsigned char *out,
+                         const unsigned char *const *pubs,
+                         size_t len);
+
+TORSION_EXTERN int
+ristretto_pubkey_negate(const edwards_curve_t *ec,
+                        unsigned char *out,
+                        const unsigned char *pub);
+
+TORSION_EXTERN int
+ristretto_derive(const edwards_curve_t *ec,
+                 unsigned char *secret,
+                 const unsigned char *pub,
+                 const unsigned char *priv);
 
 /*
  * Testing
