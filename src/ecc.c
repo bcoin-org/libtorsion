@@ -597,12 +597,12 @@ typedef xge_t rge_t;
  */
 
 static int
-bytes_zero(const unsigned char *a, size_t size) {
+bytes_zero(const unsigned char *a, size_t len) {
   /* Compute (a == 0) in constant time. */
   uint32_t z = 0;
   size_t i;
 
-  for (i = 0; i < size; i++)
+  for (i = 0; i < len; i++)
     z |= (uint32_t)a[i];
 
   return (z - 1) >> 31;
@@ -611,20 +611,19 @@ bytes_zero(const unsigned char *a, size_t size) {
 static int
 bytes_lt(const unsigned char *a,
          const unsigned char *b,
-         size_t size,
-         int endian) {
+         size_t len, int endian) {
   /* Compute (a < b) in constant time. */
-  size_t i = endian < 0 ? size - 1 : 0;
+  size_t i = endian < 0 ? len - 1 : 0;
   uint32_t eq = 1;
   uint32_t lt = 0;
   uint32_t x, y;
 
   ASSERT(endian == -1 || endian == 1);
 
-  while (size--) {
+  while (len--) {
     x = a[i];
     y = b[i];
-    lt = ((eq ^ 1) & lt) | (eq & ((x - y) >> 31));
+    lt |= eq & ((x - y) >> 31);
     eq &= ((x ^ y) - 1) >> 31;
     i += endian;
   }
@@ -633,23 +632,23 @@ bytes_lt(const unsigned char *a,
 }
 
 static void
-reverse_copy(unsigned char *dst, const unsigned char *src, size_t size) {
+reverse_copy(unsigned char *dst, const unsigned char *src, size_t len) {
   size_t i = 0;
-  size_t j = size - 1;
+  size_t j = len - 1;
 
-  while (size--)
+  while (len--)
     dst[i++] = src[j--];
 }
 
 static void
-reverse_bytes(unsigned char *raw, size_t size) {
+reverse_bytes(unsigned char *raw, size_t len) {
   size_t i = 0;
-  size_t j = size - 1;
+  size_t j = len - 1;
   unsigned char tmp;
 
-  size >>= 1;
+  len >>= 1;
 
-  while (size--) {
+  while (len--) {
     tmp = raw[i];
     raw[i++] = raw[j];
     raw[j--] = tmp;
@@ -693,9 +692,11 @@ sc_import_raw(const scalar_field_t *sc, sc_t r, const unsigned char *raw) {
 
 static int
 sc_import(const scalar_field_t *sc, sc_t r, const unsigned char *raw) {
-  int ret = bytes_lt(raw, sc->raw, sc->size, sc->endian);
+  int ret = 1;
 
   sc_import_raw(sc, r, raw);
+
+  ret &= mpn_sec_lt(r, sc->n, sc->limbs);
 
   mpn_cnd_zero(ret ^ 1, r, r, sc->limbs);
 
@@ -722,25 +723,28 @@ sc_import_weak(const scalar_field_t *sc, sc_t r, const unsigned char *raw) {
   return cy != 0;
 }
 
-static void
+static int
 sc_import_wide(const scalar_field_t *sc, sc_t r,
                const unsigned char *raw, size_t size) {
   mp_limb_t rp[MAX_REDUCE_LIMBS];
+  int ret = 1;
 
   ASSERT(size * 8 <= (size_t)sc->shift * MP_LIMB_BITS);
 
   mpn_import(rp, sc->shift, raw, size, sc->endian);
 
+  ret &= mpn_sec_lt(rp, sc->n, sc->shift);
+
   sc_reduce(sc, r, rp);
 
   mpn_cleanse(rp, sc->shift);
+
+  return ret;
 }
 
 static int
 sc_import_strong(const scalar_field_t *sc, sc_t r, const unsigned char *raw) {
-  sc_import_wide(sc, r, raw, sc->size);
-
-  return bytes_lt(raw, sc->raw, sc->size, sc->endian);
+  return sc_import_wide(sc, r, raw, sc->size);
 }
 
 static int
@@ -749,6 +753,44 @@ sc_import_reduce(const scalar_field_t *sc, sc_t r, const unsigned char *raw) {
     return sc_import_weak(sc, r, raw);
 
   return sc_import_strong(sc, r, raw);
+}
+
+static int
+sc_import_pad_raw(const scalar_field_t *sc, sc_t r,
+                  const unsigned char *raw, size_t len) {
+  if (sc->endian == 1) {
+    while (len > sc->size && raw[0] == 0x00) {
+      len -= 1;
+      raw += 1;
+    }
+  } else if (sc->endian == -1) {
+    while (len > sc->size && raw[len - 1] == 0x00)
+      len -= 1;
+  } else {
+    torsion_abort(); /* LCOV_EXCL_LINE */
+  }
+
+  if (len > sc->size) {
+    mpn_zero(r, sc->limbs);
+    return 0;
+  }
+
+  mpn_import(r, sc->limbs, raw, len, sc->endian);
+
+  return 1;
+}
+
+static int
+sc_import_pad(const scalar_field_t *sc, sc_t r,
+              const unsigned char *raw, size_t len) {
+  int ret = 1;
+
+  ret &= sc_import_pad_raw(sc, r, raw, len);
+  ret &= mpn_sec_lt(r, sc->n, sc->limbs);
+
+  mpn_cnd_zero(ret ^ 1, r, r, sc->limbs);
+
+  return ret;
 }
 
 static void
@@ -794,10 +836,7 @@ sc_set_fe(const scalar_field_t *sc,
     /* Import as scalar and reduce (wide). */
     fe_export(fe, raw, a);
 
-    sc_import_wide(sc, r, raw, fe->size);
-
-    ret &= bytes_zero(raw, fe->size - sc->size);
-    ret &= bytes_lt(raw + fe->size - sc->size, sc->raw, sc->size, sc->endian);
+    ret &= sc_import_wide(sc, r, raw, fe->size);
   } else {
     /* Import as scalar and reduce (normal). */
     fe_export(fe, raw, a);
@@ -1382,6 +1421,7 @@ fe_import(const prime_field_t *fe, fe_t r, const unsigned char *raw) {
   else
     fe->carry(r, r);
 
+  /* Ensure 0 <= x < p. */
   return bytes_lt(raw, fe->raw, fe->size, fe->endian);
 }
 
@@ -1404,7 +1444,7 @@ fe_import_pad(const prime_field_t *fe, fe_t r,
   int ret = 1;
 
   if (fe->endian == 1) {
-    while (len > 0 && raw[0] == 0x00) {
+    while (len > fe->size && raw[0] == 0x00) {
       len -= 1;
       raw += 1;
     }
@@ -1419,7 +1459,7 @@ fe_import_pad(const prime_field_t *fe, fe_t r,
     if (len > 0)
       memcpy(tmp + fe->size - len, raw, len);
   } else if (fe->endian == -1) {
-    while (len > 0 && raw[len - 1] == 0x00)
+    while (len > fe->size && raw[len - 1] == 0x00)
       len -= 1;
 
     if (len > fe->size) {
@@ -9756,32 +9796,14 @@ ecdsa_privkey_import(const wei_t *ec,
                      const unsigned char *bytes,
                      size_t len) {
   const scalar_field_t *sc = &ec->sc;
-  unsigned char key[MAX_SCALAR_SIZE];
   int ret = 1;
   sc_t a;
 
-  while (len > 0 && bytes[0] == 0x00) {
-    len -= 1;
-    bytes += 1;
-  }
-
-  if (len > sc->size) {
-    memset(out, 0x00, sc->size);
-    return 0;
-  }
-
-  memset(key, 0x00, sc->size - len);
-
-  if (len > 0)
-    memcpy(key + sc->size - len, bytes, len);
-
-  ret &= sc_import(sc, a, key);
+  ret &= sc_import_pad(sc, a, bytes, len);
   ret &= sc_is_zero(sc, a) ^ 1;
 
   sc_export(sc, out, a);
   sc_cleanse(sc, a);
-
-  cleanse(key, sc->size);
 
   return ret;
 }
@@ -11952,25 +11974,15 @@ ecdh_privkey_import(const mont_t *ec,
                     const unsigned char *bytes,
                     size_t len) {
   const scalar_field_t *sc = &ec->sc;
-  unsigned char key[MAX_SCALAR_SIZE];
+  int ret = 1;
+  sc_t a;
 
-  while (len > 0 && bytes[len - 1] == 0x00)
-    len -= 1;
+  ret &= sc_import_pad_raw(sc, a, bytes, len);
 
-  if (len > sc->size) {
-    memset(out, 0x00, sc->size);
-    return 0;
-  }
+  sc_export(sc, out, a);
+  sc_cleanse(sc, a);
 
-  if (len > 0)
-    memcpy(key, bytes, len);
-
-  memset(key + len, 0x00, sc->size - len);
-  memcpy(out, key, sc->size);
-
-  cleanse(key, sc->size);
-
-  return 1;
+  return ret;
 }
 
 void
@@ -13400,29 +13412,13 @@ ristretto_privkey_import(const edwards_t *ec,
                          const unsigned char *bytes,
                          size_t len) {
   const scalar_field_t *sc = &ec->sc;
-  unsigned char key[MAX_SCALAR_SIZE];
   int ret = 1;
   sc_t a;
 
-  while (len > 0 && bytes[len - 1] == 0x00)
-    len -= 1;
-
-  if (len > sc->size) {
-    memset(out, 0x00, sc->size);
-    return 0;
-  }
-
-  if (len > 0)
-    memcpy(key, bytes, len);
-
-  memset(key + len, 0x00, sc->size - len);
-
-  ret &= sc_import(sc, a, key);
+  ret &= sc_import_pad(sc, a, bytes, len);
 
   sc_export(sc, out, a);
   sc_cleanse(sc, a);
-
-  cleanse(key, sc->size);
 
   return ret;
 }
