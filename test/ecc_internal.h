@@ -244,7 +244,7 @@ test_scalar(drbg_t *rng) {
     mp_limb_t t[MAX_REDUCE_LIMBS];
     unsigned char raw[MAX_SCALAR_SIZE];
 
-    memcpy(raw, sc->raw, sc->size);
+    sc_export(sc, raw, sc->n);
 
     mpn_zero(r, ARRAY_SIZE(r));
     mpn_zero(t, ARRAY_SIZE(t));
@@ -267,7 +267,7 @@ test_scalar(drbg_t *rng) {
 
     ASSERT(!sc_import(sc, r, raw));
 
-    memcpy(raw, sc->raw, sc->size);
+    sc_export(sc, raw, sc->n);
 
     ASSERT(!sc_import_reduce(sc, r, raw));
 
@@ -275,7 +275,7 @@ test_scalar(drbg_t *rng) {
 
     ASSERT(torsion_memcmp(raw, expect1, 32) == 0);
 
-    memcpy(raw, sc->raw, sc->size);
+    sc_export(sc, raw, sc->n);
 
     raw[sc->size - 1] += 1;
 
@@ -309,7 +309,7 @@ test_scalar(drbg_t *rng) {
     mp_limb_t t[MAX_REDUCE_LIMBS];
     unsigned char raw[MAX_SCALAR_SIZE];
 
-    memcpy(raw, sc->raw, sc->size);
+    sc_export(sc, raw, sc->n);
 
     mpn_zero(r, ARRAY_SIZE(r));
     mpn_zero(t, ARRAY_SIZE(t));
@@ -336,7 +336,7 @@ test_scalar(drbg_t *rng) {
 
     ASSERT(!sc_import(sc, r, raw));
 
-    memcpy(raw, sc->raw, sc->size);
+    sc_export(sc, raw, sc->n);
 
     ASSERT(!sc_import_reduce(sc, r, raw));
 
@@ -344,7 +344,7 @@ test_scalar(drbg_t *rng) {
 
     ASSERT(torsion_memcmp(raw, expect1, 32) == 0);
 
-    memcpy(raw, sc->raw, sc->size);
+    sc_export(sc, raw, sc->n);
 
     raw[0] += 1;
 
@@ -420,7 +420,7 @@ test_field_element(void) {
 
   printf("  - Field element sanity check.\n");
 
-  memcpy(raw, fe->raw, fe->size);
+  mpn_export(raw, fe->size, fe->p, fe->limbs, fe->endian);
 
   raw[fe->size - 1] -= 1;
 
@@ -476,29 +476,16 @@ test_lt(drbg_t *rng) {
   printf("  - LT sanity check.\n");
 
   {
-    const unsigned char mod[4] = {1, 2, 3, 4};
-    const unsigned char minus1[4] = {1, 2, 3, 3};
-    const unsigned char plus1[4] = {1, 2, 3, 5};
-    const unsigned char full[4] = {0xff, 0xff, 0xff, 0xff};
-
-    ASSERT(bytes_lt(minus1, mod, 4, 1));
-    ASSERT(!bytes_lt(mod, mod, 4, 1));
-    ASSERT(!bytes_lt(plus1, mod, 4, 1));
-    ASSERT(bytes_lt(mod, full, 4, 1));
-    ASSERT(!bytes_lt(full, mod, 4, 1));
-  }
-
-  {
     const unsigned char mod[4] = {4, 3, 2, 1};
     const unsigned char minus1[4] = {3, 3, 2, 1};
     const unsigned char plus1[4] = {5, 3, 2, 1};
     const unsigned char full[4] = {0xff, 0xff, 0xff, 0xff};
 
-    ASSERT(bytes_lt(minus1, mod, 4, -1));
-    ASSERT(!bytes_lt(mod, mod, 4, -1));
-    ASSERT(!bytes_lt(plus1, mod, 4, -1));
-    ASSERT(bytes_lt(mod, full, 4, -1));
-    ASSERT(!bytes_lt(full, mod, 4, -1));
+    ASSERT(bytes_lt(minus1, mod, 4));
+    ASSERT(!bytes_lt(mod, mod, 4));
+    ASSERT(!bytes_lt(plus1, mod, 4));
+    ASSERT(bytes_lt(mod, full, 4));
+    ASSERT(!bytes_lt(full, mod, 4));
   }
 
   {
@@ -511,15 +498,103 @@ test_lt(drbg_t *rng) {
       drbg_generate(rng, a, sizeof(a));
       drbg_generate(rng, b, sizeof(b));
 
-      ASSERT(bytes_lt(a, a, 32, 1) == 0);
-      ASSERT(bytes_lt(b, b, 32, 1) == 0);
-      ASSERT(bytes_lt(a, b, 32, 1) == (torsion_memcmp(a, b, 32) < 0));
-      ASSERT(bytes_lt(b, a, 32, 1) == (torsion_memcmp(b, a, 32) < 0));
+      ASSERT(bytes_lt(a, a, 32) == 0);
+      ASSERT(bytes_lt(b, b, 32) == 0);
+      ASSERT(bytes_lt(a, b, 32) == (revcmp(a, b, 32) < 0));
+      ASSERT(bytes_lt(b, a, 32) == (revcmp(b, a, 32) < 0));
+    }
+  }
+}
 
-      ASSERT(bytes_lt(a, a, 32, -1) == 0);
-      ASSERT(bytes_lt(b, b, 32, -1) == 0);
-      ASSERT(bytes_lt(a, b, 32, -1) == (revcmp(a, b, 32) < 0));
-      ASSERT(bytes_lt(b, a, 32, -1) == (revcmp(b, a, 32) < 0));
+static void
+test_mpn_cmp(drbg_t *rng) {
+  printf("  - MPN comparison sanity check.\n");
+
+  {
+    const mp_limb_t mod[4] = {4, 3, 2, 1};
+    const mp_limb_t minus1[4] = {3, 3, 2, 1};
+    const mp_limb_t plus1[4] = {5, 3, 2, 1};
+    const mp_limb_t full[4] = {0xff, 0xff, 0xff, 0xff};
+
+    ASSERT(mpn_sec_lt(minus1, mod, 4));
+    ASSERT(!mpn_sec_lt(mod, mod, 4));
+    ASSERT(!mpn_sec_lt(plus1, mod, 4));
+    ASSERT(mpn_sec_lt(mod, full, 4));
+    ASSERT(!mpn_sec_lt(full, mod, 4));
+
+    ASSERT(mpn_sec_lte(minus1, mod, 4));
+    ASSERT(mpn_sec_lte(mod, mod, 4));
+    ASSERT(!mpn_sec_lte(plus1, mod, 4));
+    ASSERT(mpn_sec_lte(mod, full, 4));
+    ASSERT(!mpn_sec_lte(full, mod, 4));
+
+    ASSERT(!mpn_sec_gt(minus1, mod, 4));
+    ASSERT(!mpn_sec_gt(mod, mod, 4));
+    ASSERT(mpn_sec_gt(plus1, mod, 4));
+    ASSERT(!mpn_sec_gt(mod, full, 4));
+    ASSERT(mpn_sec_gt(full, mod, 4));
+
+    ASSERT(!mpn_sec_gte(minus1, mod, 4));
+    ASSERT(mpn_sec_gte(mod, mod, 4));
+    ASSERT(mpn_sec_gte(plus1, mod, 4));
+    ASSERT(!mpn_sec_gte(mod, full, 4));
+    ASSERT(mpn_sec_gte(full, mod, 4));
+
+    ASSERT(mpn_sec_cmp(minus1, mod, 4) == -1);
+    ASSERT(mpn_sec_cmp(mod, mod, 4) == 0);
+    ASSERT(mpn_sec_cmp(plus1, mod, 4) == 1);
+    ASSERT(mpn_sec_cmp(mod, full, 4) == -1);
+    ASSERT(mpn_sec_cmp(full, mod, 4) == 1);
+  }
+
+  {
+    size_t i;
+
+    for (i = 0; i < 1000; i++) {
+      mp_limb_t a[4];
+      mp_limb_t b[4];
+      int cab, cba;
+
+      drbg_generate(rng, a, sizeof(a));
+      drbg_generate(rng, b, sizeof(b));
+
+      ASSERT(mpn_sec_lt(a, a, 4) == 0);
+      ASSERT(mpn_sec_lt(b, b, 4) == 0);
+      ASSERT(mpn_sec_lt(a, b, 4) == (mpn_cmp(a, b, 4) < 0));
+      ASSERT(mpn_sec_lt(b, a, 4) == (mpn_cmp(b, a, 4) < 0));
+
+      ASSERT(mpn_sec_lte(a, a, 4) == 1);
+      ASSERT(mpn_sec_lte(b, b, 4) == 1);
+      ASSERT(mpn_sec_lte(a, b, 4) == (mpn_cmp(a, b, 4) <= 0));
+      ASSERT(mpn_sec_lte(b, a, 4) == (mpn_cmp(b, a, 4) <= 0));
+
+      ASSERT(mpn_sec_gt(a, a, 4) == 0);
+      ASSERT(mpn_sec_gt(b, b, 4) == 0);
+      ASSERT(mpn_sec_gt(a, b, 4) == (mpn_cmp(a, b, 4) > 0));
+      ASSERT(mpn_sec_gt(b, a, 4) == (mpn_cmp(b, a, 4) > 0));
+
+      ASSERT(mpn_sec_gte(a, a, 4) == 1);
+      ASSERT(mpn_sec_gte(b, b, 4) == 1);
+      ASSERT(mpn_sec_gte(a, b, 4) == (mpn_cmp(a, b, 4) >= 0));
+      ASSERT(mpn_sec_gte(b, a, 4) == (mpn_cmp(b, a, 4) >= 0));
+
+      cab = mpn_cmp(a, b, 4);
+      cba = mpn_cmp(b, a, 4);
+
+      if (cab < 0)
+        cab = -1;
+      else if (cab > 0)
+        cab = 1;
+
+      if (cba < 0)
+        cba = -1;
+      else if (cba > 0)
+        cba = 1;
+
+      ASSERT(mpn_sec_cmp(a, a, 4) == 0);
+      ASSERT(mpn_sec_cmp(b, b, 4) == 0);
+      ASSERT(mpn_sec_cmp(a, b, 4) == cab);
+      ASSERT(mpn_sec_cmp(b, a, 4) == cba);
     }
   }
 }
@@ -2141,6 +2216,7 @@ test_ecc_internal(drbg_t *rng) {
   /* Utils */
   test_zero(rng);
   test_lt(rng);
+  test_mpn_cmp(rng);
 
   /* ECC */
   test_wei_points_p256(rng);
