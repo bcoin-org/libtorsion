@@ -221,18 +221,17 @@ typedef void sc_invert_f(const struct scalar_field_s *, sc_t, const sc_t);
 
 typedef struct scalar_field_s {
   int endian;
+  mp_size_t limbs;
   size_t size;
   size_t bits;
   size_t endo_bits;
   mp_size_t shift;
-  mp_limb_t n[MAX_REDUCE_LIMBS];
   unsigned int mask;
-  unsigned char raw[MAX_SCALAR_SIZE];
+  mp_limb_t n[MAX_REDUCE_LIMBS];
   mp_limb_t nh[MAX_REDUCE_LIMBS];
   mp_limb_t m[MAX_REDUCE_LIMBS];
   mp_limb_t k;
   mp_limb_t r2[MAX_SCALAR_LIMBS * 2 + 1];
-  mp_size_t limbs;
   sc_invert_f *invert;
 } scalar_field_t;
 
@@ -271,13 +270,13 @@ typedef void fe_legendre_f(fe_word_t *, const fe_word_t *);
 
 typedef struct prime_field_s {
   int endian;
+  mp_size_t limbs;
   size_t size;
   size_t bits;
   size_t words;
   size_t adj_size;
-  mp_limb_t p[MAX_REDUCE_LIMBS];
-  mp_size_t limbs;
   unsigned int mask;
+  mp_limb_t p[MAX_REDUCE_LIMBS];
   unsigned char raw[MAX_FIELD_SIZE];
   fe_add_f *add;
   fe_sub_f *sub;
@@ -609,23 +608,18 @@ bytes_zero(const unsigned char *a, size_t len) {
 }
 
 static int
-bytes_lt(const unsigned char *a,
-         const unsigned char *b,
-         size_t len, int endian) {
+bytes_lt(const unsigned char *a, const unsigned char *b, size_t len) {
   /* Compute (a < b) in constant time. */
-  size_t i = endian < 0 ? len - 1 : 0;
+  size_t i = len;
   uint32_t eq = 1;
   uint32_t lt = 0;
   uint32_t x, y;
 
-  ASSERT(endian == -1 || endian == 1);
-
-  while (len--) {
+  while (i--) {
     x = a[i];
     y = b[i];
     lt |= eq & ((x - y) >> 31);
     eq &= ((x ^ y) - 1) >> 31;
-    i += endian;
   }
 
   return lt & (eq ^ 1);
@@ -1402,12 +1396,16 @@ fe_cleanse(const prime_field_t *fe, fe_t r) {
 static int
 fe_import(const prime_field_t *fe, fe_t r, const unsigned char *raw) {
   unsigned char tmp[MAX_FIELD_SIZE];
+  int ret = 1;
 
   /* Swap endianness if necessary. */
   if (fe->endian == 1)
     reverse_copy(tmp, raw, fe->size);
   else
     memcpy(tmp, raw, fe->size);
+
+  /* Ensure 0 <= x < p. */
+  ret &= bytes_lt(tmp, fe->raw, fe->size);
 
   /* Ignore the high bits. */
   tmp[fe->size - 1] &= fe->mask;
@@ -1421,8 +1419,7 @@ fe_import(const prime_field_t *fe, fe_t r, const unsigned char *raw) {
   else
     fe->carry(r, r);
 
-  /* Ensure 0 <= x < p. */
-  return bytes_lt(raw, fe->raw, fe->size, fe->endian);
+  return ret;
 }
 
 static int
@@ -1993,9 +1990,6 @@ scalar_field_init(scalar_field_t *sc, const scalar_def_t *def, int endian) {
   /* Deserialize order into limbs. */
   mpn_import(sc->n, MAX_REDUCE_LIMBS, def->n, sc->size, 1);
 
-  /* Keep a raw representation for byte comparisons. */
-  mpn_export(sc->raw, sc->size, sc->n, sc->limbs, sc->endian);
-
   /* Store `n / 2` for ECDSA checks and scalar minimization. */
   mpn_rshift(sc->nh, sc->n, MAX_REDUCE_LIMBS, 1);
 
@@ -2070,7 +2064,7 @@ prime_field_init(prime_field_t *fe, const prime_def_t *def, int endian) {
   mpn_import(fe->p, MAX_REDUCE_LIMBS, def->p, fe->size, 1);
 
   /* Keep a raw representation for byte comparisons. */
-  mpn_export(fe->raw, fe->size, fe->p, fe->limbs, fe->endian);
+  mpn_export(fe->raw, fe->size, fe->p, fe->limbs, -1);
 
   /* Function pointers for field arithmetic. In
    * addition to fiat's default functions, we
