@@ -2675,7 +2675,7 @@ mpn_sec_cmp(mp_srcptr xp, mp_srcptr yp, mp_size_t n) {
   int lt = cmp >> 1;
   int eq = cmp & 1;
 
-  return ((lt ^ 1) - lt) & (eq ^ 1);
+  return ((lt ^ 1) - lt) & -(eq ^ 1);
 }
 
 int
