@@ -3641,8 +3641,6 @@ jge_mixed_add(const wei_t *ec, jge_t *r, const jge_t *a, const wge_t *b) {
   int degenerate, inf1, inf2, inf3;
 
   /* Save some stack space. */
-#define u1 a->x
-#define s1 a->y
 #define ll l
 #define f m
 #define r0 z1z1
@@ -3653,26 +3651,22 @@ jge_mixed_add(const wei_t *ec, jge_t *r, const jge_t *a, const wge_t *b) {
   /* Z1Z1 = Z1^2 */
   fe_sqr(fe, z1z1, a->z);
 
-  /* U1 = X1 */
-
   /* U2 = X2 * Z1Z1 */
   fe_mul(fe, u2, b->x, z1z1);
-
-  /* S1 = Y1 */
 
   /* S2 = Y2 * Z1Z1 * Z1 */
   fe_mul(fe, s2, b->y, z1z1);
   fe_mul(fe, s2, s2, a->z);
 
-  /* T = U1 + U2 */
-  fe_add_nc(fe, t, u1, u2);
+  /* T = X1 + U2 */
+  fe_add_nc(fe, t, a->x, u2);
 
-  /* M = S1 + S2 */
-  fe_add(fe, m, s1, s2);
+  /* M = Y1 + S2 */
+  fe_add(fe, m, a->y, s2);
 
-  /* R = T^2 - U1 * U2 */
+  /* R = T^2 - X1 * U2 */
   fe_sqr(fe, r0, t);
-  fe_mul(fe, l, u1, u2);
+  fe_mul(fe, l, a->x, u2);
   fe_sub(fe, r0, r0, l);
 
   /* R = R + a * Z1^4 (if a != 0) */
@@ -3686,12 +3680,12 @@ jge_mixed_add(const wei_t *ec, jge_t *r, const jge_t *a, const wge_t *b) {
   /* Check for degenerate case (X1 != X2, Y1 = -Y2). */
   degenerate = fe_is_zero(fe, m) & fe_is_zero(fe, r0);
 
-  /* M = U1 - U2 (if degenerate) */
-  fe_sub_nc(fe, l, u1, u2);
+  /* M = X1 - U2 (if degenerate) */
+  fe_sub_nc(fe, l, a->x, u2);
   fe_select(fe, m, m, l, degenerate);
 
-  /* R = S1 - S2 (if degenerate) */
-  fe_sub_nc(fe, l, s1, s2);
+  /* R = Y1 - S2 (if degenerate) */
+  fe_sub_nc(fe, l, a->y, s2);
   fe_select(fe, r0, r0, l, degenerate);
 
   /* L = M^2 */
@@ -3757,8 +3751,6 @@ jge_mixed_add(const wei_t *ec, jge_t *r, const jge_t *a, const wge_t *b) {
   fe_set(fe, r->y, y3);
   fe_set(fe, r->z, z3);
 
-#undef u1
-#undef s1
 #undef ll
 #undef f
 #undef r0
