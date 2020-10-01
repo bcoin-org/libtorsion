@@ -5573,17 +5573,17 @@ pge_equal(const mont_t *ec, const pge_t *a, const pge_t *b) {
   const prime_field_t *fe = &ec->fe;
   int inf1 = pge_is_zero(ec, a);
   int inf2 = pge_is_zero(ec, b);
-  fe_t e1, e2;
+  fe_t lhs, rhs;
   int ret = 1;
 
   /* P != O, Q != O */
   ret &= (inf1 | inf2) ^ 1;
 
   /* X1 * Z2 == X2 * Z1 */
-  fe_mul(fe, e1, a->x, b->z);
-  fe_mul(fe, e2, b->x, a->z);
+  fe_mul(fe, lhs, a->x, b->z);
+  fe_mul(fe, rhs, b->x, a->z);
 
-  ret &= fe_equal(fe, e1, e2);
+  ret &= fe_equal(fe, lhs, rhs);
 
   return ret | (inf1 & inf2);
 }
@@ -6465,20 +6465,20 @@ xge_is_zero(const edwards_t *ec, const xge_t *a) {
 static int
 xge_equal(const edwards_t *ec, const xge_t *a, const xge_t *b) {
   const prime_field_t *fe = &ec->fe;
-  fe_t e1, e2;
+  fe_t lhs, rhs;
   int ret = 1;
 
   /* X1 * Z2 == X2 * Z1 */
-  fe_mul(fe, e1, a->x, b->z);
-  fe_mul(fe, e2, b->x, a->z);
+  fe_mul(fe, lhs, a->x, b->z);
+  fe_mul(fe, rhs, b->x, a->z);
 
-  ret &= fe_equal(fe, e1, e2);
+  ret &= fe_equal(fe, lhs, rhs);
 
   /* Y1 * Z2 == Y2 * Z1 */
-  fe_mul(fe, e1, a->y, b->z);
-  fe_mul(fe, e2, b->y, a->z);
+  fe_mul(fe, lhs, a->y, b->z);
+  fe_mul(fe, rhs, b->y, a->z);
 
-  ret &= fe_equal(fe, e1, e2);
+  ret &= fe_equal(fe, lhs, rhs);
 
   return ret;
 }
@@ -7838,24 +7838,24 @@ TORSION_UNUSED static int
 rge_equal(const edwards_t *ec, const rge_t *a, const rge_t *b) {
   /* https://ristretto.group/formulas/equality.html */
   const prime_field_t *fe = &ec->fe;
-  fe_t e1, e2;
+  fe_t lhs, rhs;
   int ret = 0;
 
   /* X1 * Y2 == Y1 * X2 */
-  fe_mul(fe, e1, a->x, b->y);
-  fe_mul(fe, e2, a->y, b->x);
+  fe_mul(fe, lhs, a->x, b->y);
+  fe_mul(fe, rhs, a->y, b->x);
 
-  ret |= fe_equal(fe, e1, e2);
+  ret |= fe_equal(fe, lhs, rhs);
 
   /* H = 8 */
   if (ec->h == 8) {
     /* Y1 * Y2 == -a * X1 * X2 */
-    fe_mul(fe, e1, a->y, b->y);
-    fe_mul(fe, e2, a->x, b->x);
-    edwards_mul_a(ec, e2, e2);
-    fe_neg(fe, e2, e2);
+    fe_mul(fe, lhs, a->y, b->y);
+    fe_mul(fe, rhs, a->x, b->x);
+    edwards_mul_a(ec, rhs, rhs);
+    fe_neg(fe, rhs, rhs);
 
-    ret |= fe_equal(fe, e1, e2);
+    ret |= fe_equal(fe, lhs, rhs);
   }
 
   return ret;
