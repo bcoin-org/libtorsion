@@ -2500,14 +2500,13 @@ wge_add_var(const wei_t *ec, wge_t *r, const wge_t *a, const wge_t *b) {
 
   /* P + P, P + -P */
   if (fe_equal(fe, a->x, b->x)) {
-    /* P + -P = O */
-    if (!fe_equal(fe, a->y, b->y)) {
+    if (fe_equal(fe, a->y, b->y)) {
+      /* P + P = 2P */
+      wge_dbl_var(ec, r, a);
+    } else {
+      /* P + -P = O */
       wge_zero(ec, r);
-      return;
     }
-
-    /* P + P = 2P */
-    wge_dbl_var(ec, r, a);
     return;
   }
 
@@ -3248,12 +3247,11 @@ jge_addsub_var(const wei_t *ec, jge_t *r,
 
   /* H = 0 */
   if (fe_is_zero(fe, h)) {
-    if (!fe_is_zero(fe, r0)) {
+    if (fe_is_zero(fe, r0))
+      jge_dbl_var(ec, r, a);
+    else
       jge_zero(ec, r);
-      return;
-    }
 
-    jge_dbl_var(ec, r, a);
     return;
   }
 
@@ -3362,12 +3360,11 @@ jge_mixed_addsub_var(const wei_t *ec, jge_t *r, const jge_t *a,
 
   /* H = 0 */
   if (fe_is_zero(fe, h)) {
-    if (!fe_is_zero(fe, r0)) {
+    if (fe_is_zero(fe, r0))
+      jge_dbl_var(ec, r, a);
+    else
       jge_zero(ec, r);
-      return;
-    }
 
-    jge_dbl_var(ec, r, a);
     return;
   }
 
