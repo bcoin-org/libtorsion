@@ -1415,11 +1415,9 @@ fe_import(const prime_field_t *fe, fe_t r, const unsigned char *raw) {
   /* Deserialize. */
   fe->from_bytes(r, tmp);
 
-  /* Montgomerize/carry. */
+  /* Montgomerize. */
   if (fe->to_montgomery != NULL)
     fe->to_montgomery(r, r);
-  else
-    fe->carry(r, r);
 
   return ret;
 }
@@ -1677,7 +1675,7 @@ fe_is_odd(const prime_field_t *fe, const fe_t a) {
   return sign;
 }
 
-static void
+static TORSION_INLINE void
 fe_neg(const prime_field_t *fe, fe_t r, const fe_t a) {
   fe->opp(r, a);
 
@@ -1697,7 +1695,7 @@ fe_set_odd(const prime_field_t *fe, fe_t r, const fe_t a, unsigned int odd) {
   fe_neg_cond(fe, r, a, fe_is_odd(fe, a) ^ (odd != 0));
 }
 
-static void
+static TORSION_INLINE void
 fe_add(const prime_field_t *fe, fe_t r, const fe_t a, const fe_t b) {
   fe->add(r, a, b);
 
@@ -1705,12 +1703,22 @@ fe_add(const prime_field_t *fe, fe_t r, const fe_t a, const fe_t b) {
     fe->carry(r, r);
 }
 
-static void
+static TORSION_INLINE void
 fe_sub(const prime_field_t *fe, fe_t r, const fe_t a, const fe_t b) {
   fe->sub(r, a, b);
 
   if (fe->carry != NULL)
     fe->carry(r, r);
+}
+
+static TORSION_INLINE void
+fe_add_nc(const prime_field_t *fe, fe_t r, const fe_t a, const fe_t b) {
+  fe->add(r, a, b);
+}
+
+static TORSION_INLINE void
+fe_sub_nc(const prime_field_t *fe, fe_t r, const fe_t a, const fe_t b) {
+  fe->sub(r, a, b);
 }
 
 static void
@@ -1737,12 +1745,12 @@ fe_mul_word(const prime_field_t *fe, fe_t r, const fe_t a, fe_word_t word) {
   }
 }
 
-static void
+static TORSION_INLINE void
 fe_mul(const prime_field_t *fe, fe_t r, const fe_t a, const fe_t b) {
   fe->mul(r, a, b);
 }
 
-static void
+static TORSION_INLINE void
 fe_sqr(const prime_field_t *fe, fe_t r, const fe_t a) {
   fe->square(r, a);
 }
@@ -1850,7 +1858,7 @@ fe_sqrt(const prime_field_t *fe, fe_t r, const fe_t a) {
       /* b = (c^2 * a2 - 1) * a * c mod p */
       fe_sqr(fe, b, c);
       fe_mul(fe, b, b, a2);
-      fe_sub(fe, b, b, fe->one);
+      fe_sub_nc(fe, b, b, fe->one);
       fe_mul(fe, b, b, a);
       fe_mul(fe, b, b, c);
     } else {
@@ -2451,7 +2459,7 @@ wge_dbl_var(const wei_t *ec, wge_t *r, const wge_t *p) {
   fe_sqr(fe, t, p->x);
   fe_add(fe, l, t, t);
   fe_add(fe, l, l, t);
-  fe_add(fe, l, l, ec->a);
+  fe_add_nc(fe, l, l, ec->a);
   fe_add(fe, t, p->y, p->y);
   ASSERT(fe_invert_var(fe, t, t));
   fe_mul(fe, l, l, t);
@@ -2462,7 +2470,7 @@ wge_dbl_var(const wei_t *ec, wge_t *r, const wge_t *p) {
   fe_sub(fe, x3, x3, p->x);
 
   /* Y3 = L * (X1 - X3) - Y1 */
-  fe_sub(fe, t, p->x, x3);
+  fe_sub_nc(fe, t, p->x, x3);
   fe_mul(fe, y3, l, t);
   fe_sub(fe, y3, y3, p->y);
 
@@ -2528,7 +2536,7 @@ wge_add_var(const wei_t *ec, wge_t *r, const wge_t *a, const wge_t *b) {
   }
 
   /* L = (Y1 - Y2) / (X1 - X2) */
-  fe_sub(fe, l, a->y, b->y);
+  fe_sub_nc(fe, l, a->y, b->y);
   fe_sub(fe, t, a->x, b->x);
   ASSERT(fe_invert_var(fe, t, t));
   fe_mul(fe, l, l, t);
@@ -2575,7 +2583,7 @@ wge_dbl(const wei_t *ec, wge_t *r, const wge_t *p) {
   fe_sqr(fe, t, p->x);
   fe_add(fe, l, t, t);
   fe_add(fe, l, l, t);
-  fe_add(fe, l, l, ec->a);
+  fe_add_nc(fe, l, l, ec->a);
   fe_add(fe, t, p->y, p->y);
   fe_invert(fe, t, t);
   fe_mul(fe, l, l, t);
@@ -2586,7 +2594,7 @@ wge_dbl(const wei_t *ec, wge_t *r, const wge_t *p) {
   fe_sub(fe, x3, x3, p->x);
 
   /* Y3 = L * (X1 - X3) - Y1 */
-  fe_sub(fe, t, p->x, x3);
+  fe_sub_nc(fe, t, p->x, x3);
   fe_mul(fe, y3, l, t);
   fe_sub(fe, y3, y3, p->y);
 
@@ -2621,7 +2629,7 @@ wge_add(const wei_t *ec, wge_t *r, const wge_t *a, const wge_t *b) {
   fe_add(fe, m, a->y, b->y);
 
   /* R = (X1 + X2)^2 - X1 * X2 + a */
-  fe_add(fe, t, a->x, b->x);
+  fe_add_nc(fe, t, a->x, b->x);
   fe_sqr(fe, t, t);
   fe_mul(fe, l, a->x, b->x);
   fe_sub(fe, r0, t, l);
@@ -2635,7 +2643,7 @@ wge_add(const wei_t *ec, wge_t *r, const wge_t *a, const wge_t *b) {
   fe_select(fe, m, m, t, degenerate);
 
   /* R = Y1 - Y2 (if degenerate) */
-  fe_sub(fe, t, a->y, b->y);
+  fe_sub_nc(fe, t, a->y, b->y);
   fe_select(fe, r0, r0, t, degenerate);
 
   /* Check for negation (X1 = X2, Y1 = -Y2). */
@@ -2651,7 +2659,7 @@ wge_add(const wei_t *ec, wge_t *r, const wge_t *a, const wge_t *b) {
   fe_sub(fe, x3, x3, b->x);
 
   /* Y3 = L * (X1 - X3) - Y1 */
-  fe_sub(fe, t, a->x, x3);
+  fe_sub_nc(fe, t, a->x, x3);
   fe_mul(fe, y3, l, t);
   fe_sub(fe, y3, y3, a->y);
 
@@ -3060,7 +3068,7 @@ jge_dblj(const wei_t *ec, jge_t *r, const jge_t *p) {
   fe_add(fe, m, m, xx);
   fe_sqr(fe, t, zz);
   fe_mul(fe, t, t, ec->a);
-  fe_add(fe, m, m, t);
+  fe_add_nc(fe, m, m, t);
 
   /* T = M^2 - 2 * S */
   fe_sqr(fe, t, m);
@@ -3075,7 +3083,7 @@ jge_dblj(const wei_t *ec, jge_t *r, const jge_t *p) {
   fe_set(fe, r->x, t);
 
   /* Y3 = M * (S - T) - 8 * YY^2 */
-  fe_sub(fe, xx, s, t);
+  fe_sub_nc(fe, xx, s, t);
   fe_sqr(fe, zz, yy);
   fe_add(fe, zz, zz, zz);
   fe_add(fe, zz, zz, zz);
@@ -3103,7 +3111,7 @@ jge_dbl0(const wei_t *ec, jge_t *r, const jge_t *p) {
   fe_sqr(fe, c, b);
 
   /* D = 2 * ((X1 + B)^2 - A - C) */
-  fe_add(fe, d, p->x, b);
+  fe_add_nc(fe, d, p->x, b);
   fe_sqr(fe, d, d);
   fe_sub(fe, d, d, a);
   fe_sub(fe, d, d, c);
@@ -3111,7 +3119,7 @@ jge_dbl0(const wei_t *ec, jge_t *r, const jge_t *p) {
 
   /* E = 3 * A */
   fe_add(fe, e, a, a);
-  fe_add(fe, e, e, a);
+  fe_add_nc(fe, e, e, a);
 
   /* F = E^2 */
   fe_sqr(fe, f, e);
@@ -3153,13 +3161,13 @@ jge_dbl3(const wei_t *ec, jge_t *r, const jge_t *p) {
 
   /* alpha = 3 * (X1 - delta) * (X1 + delta) */
   fe_sub(fe, t1, p->x, delta);
-  fe_add(fe, t2, p->x, delta);
+  fe_add_nc(fe, t2, p->x, delta);
   fe_add(fe, alpha, t1, t1);
-  fe_add(fe, alpha, alpha, t1);
+  fe_add_nc(fe, alpha, alpha, t1);
   fe_mul(fe, alpha, alpha, t2);
 
   /* Z3 = (Y1 + Z1)^2 - gamma - delta */
-  fe_add(fe, r->z, p->y, p->z);
+  fe_add_nc(fe, r->z, p->y, p->z);
   fe_sqr(fe, r->z, r->z);
   fe_sub(fe, r->z, r->z, gamma);
   fe_sub(fe, r->z, r->z, delta);
@@ -3172,7 +3180,7 @@ jge_dbl3(const wei_t *ec, jge_t *r, const jge_t *p) {
   fe_sub(fe, r->x, r->x, t2);
 
   /* Y3 = alpha * (4 * beta - X3) - 8 * gamma^2 */
-  fe_sub(fe, r->y, t1, r->x);
+  fe_sub_nc(fe, r->y, t1, r->x);
   fe_mul(fe, r->y, r->y, alpha);
   fe_sqr(fe, gamma, gamma);
   fe_add(fe, gamma, gamma, gamma);
@@ -3275,7 +3283,7 @@ jge_addsub_var(const wei_t *ec, jge_t *r,
   fe_sub(fe, r->x, r->x, v);
 
   /* Y3 = r * (V - X3) - S1 * HHH */
-  fe_sub(fe, u1, v, r->x);
+  fe_sub_nc(fe, u1, v, r->x);
   fe_mul(fe, u2, s1, hhh);
   fe_mul(fe, r->y, r0, u1);
   fe_sub(fe, r->y, r->y, u2);
@@ -3369,7 +3377,7 @@ jge_mixed_addsub_var(const wei_t *ec, jge_t *r, const jge_t *a,
   }
 
   /* I = (2 * H)^2 */
-  fe_add(fe, i, h, h);
+  fe_add_nc(fe, i, h, h);
   fe_sqr(fe, i, i);
 
   /* J = H * I */
@@ -3385,7 +3393,7 @@ jge_mixed_addsub_var(const wei_t *ec, jge_t *r, const jge_t *a,
   fe_sub(fe, r->x, r->x, v);
 
   /* Y3 = r * (V - X3) - 2 * Y1 * J */
-  fe_sub(fe, u2, v, r->x);
+  fe_sub_nc(fe, u2, v, r->x);
   fe_mul(fe, s2, a->y, j);
   fe_add(fe, s2, s2, s2);
   fe_mul(fe, r->y, r0, u2);
@@ -3510,7 +3518,7 @@ jge_add(const wei_t *ec, jge_t *r, const jge_t *a, const jge_t *b) {
   fe_mul(fe, z, a->z, b->z);
 
   /* T = U1 + U2 */
-  fe_add(fe, t, u1, u2);
+  fe_add_nc(fe, t, u1, u2);
 
   /* M = S1 + S2 */
   fe_add(fe, m, s1, s2);
@@ -3532,11 +3540,11 @@ jge_add(const wei_t *ec, jge_t *r, const jge_t *a, const jge_t *b) {
   degenerate = fe_is_zero(fe, m) & fe_is_zero(fe, r0);
 
   /* M = U1 - U2 (if degenerate) */
-  fe_sub(fe, l, u1, u2);
+  fe_sub_nc(fe, l, u1, u2);
   fe_select(fe, m, m, l, degenerate);
 
   /* R = S1 - S2 (if degenerate) */
-  fe_sub(fe, l, s1, s2);
+  fe_sub_nc(fe, l, s1, s2);
   fe_select(fe, r0, r0, l, degenerate);
 
   /* L = M^2 */
@@ -3561,7 +3569,7 @@ jge_add(const wei_t *ec, jge_t *r, const jge_t *a, const jge_t *b) {
   fe_add(fe, h, g, g);
   fe_add(fe, h, h, g);
   fe_sub(fe, h, h, w);
-  fe_sub(fe, h, h, w);
+  fe_sub_nc(fe, h, h, w);
 
   /* X3 = 4 * (W - G) */
   fe_sub(fe, x3, w, g);
@@ -3657,7 +3665,7 @@ jge_mixed_add(const wei_t *ec, jge_t *r, const jge_t *a, const wge_t *b) {
   fe_mul(fe, s2, s2, a->z);
 
   /* T = U1 + U2 */
-  fe_add(fe, t, u1, u2);
+  fe_add_nc(fe, t, u1, u2);
 
   /* M = S1 + S2 */
   fe_add(fe, m, s1, s2);
@@ -3679,11 +3687,11 @@ jge_mixed_add(const wei_t *ec, jge_t *r, const jge_t *a, const wge_t *b) {
   degenerate = fe_is_zero(fe, m) & fe_is_zero(fe, r0);
 
   /* M = U1 - U2 (if degenerate) */
-  fe_sub(fe, l, u1, u2);
+  fe_sub_nc(fe, l, u1, u2);
   fe_select(fe, m, m, l, degenerate);
 
   /* R = S1 - S2 (if degenerate) */
-  fe_sub(fe, l, s1, s2);
+  fe_sub_nc(fe, l, s1, s2);
   fe_select(fe, r0, r0, l, degenerate);
 
   /* L = M^2 */
@@ -3708,7 +3716,7 @@ jge_mixed_add(const wei_t *ec, jge_t *r, const jge_t *a, const wge_t *b) {
   fe_add(fe, h, g, g);
   fe_add(fe, h, h, g);
   fe_sub(fe, h, h, w);
-  fe_sub(fe, h, h, w);
+  fe_sub_nc(fe, h, h, w);
 
   /* X3 = 4 * (W - G) */
   fe_sub(fe, x3, w, g);
@@ -4693,7 +4701,7 @@ wei_sswu(const wei_t *ec, wge_t *p, const fe_t u) {
 
   zero = fe_invert(fe, t1, t1) ^ 1;
 
-  fe_add(fe, t1, t1, fe->one);
+  fe_add_nc(fe, t1, t1, fe->one);
   fe_mul(fe, x1, ba, t1);
 
   fe_select(fe, x1, x1, bza, zero);
@@ -4844,7 +4852,7 @@ wei_svdwf(const wei_t *ec, fe_t x, fe_t y, const fe_t u) {
   fe_sqr(fe, u2, u);
   fe_sqr(fe, u4, u2);
 
-  fe_add(fe, t1, u2, gz);
+  fe_add_nc(fe, t1, u2, gz);
 
   fe_mul(fe, t2, u2, t1);
   fe_invert(fe, t2, t2);
@@ -4855,11 +4863,11 @@ wei_svdwf(const wei_t *ec, fe_t x, fe_t y, const fe_t u) {
   fe_sqr(fe, t4, t1);
   fe_mul(fe, t4, t4, t1);
 
-  fe_sub(fe, x1, ec->c, ec->z);
+  fe_sub_nc(fe, x1, ec->c, ec->z);
   fe_mul(fe, x1, x1, ec->i2);
   fe_sub(fe, x1, x1, t3);
 
-  fe_add(fe, y1, ec->c, ec->z);
+  fe_add_nc(fe, y1, ec->c, ec->z);
   fe_mul(fe, y1, y1, ec->i2);
   fe_sub(fe, x2, t3, y1);
 
@@ -4965,7 +4973,7 @@ wei_svdwi(const wei_t *ec, fe_t u, const wge_t *p, unsigned int hint) {
   fe_mul(fe, n1, p->x, z3);
   fe_mul_word(fe, n1, n1, 18);
 
-  fe_sub(fe, n2, p->x, ec->z);
+  fe_sub_nc(fe, n2, p->x, ec->z);
   fe_mul(fe, n2, n2, gz);
   fe_mul_word(fe, n2, n2, 12);
 
@@ -5302,13 +5310,13 @@ mge_dbl(const mont_t *ec, mge_t *r, const mge_t *p) {
   fe_t l, t, x3, y3;
 
   /* L = (3 * X1^2 + 2 * a * X1 + 1) / (2 * b * Y1) */
-  fe_add(fe, x3, ec->a, ec->a);
+  fe_add_nc(fe, x3, ec->a, ec->a);
   fe_mul(fe, x3, x3, p->x);
   fe_add(fe, x3, x3, fe->one);
   fe_sqr(fe, t, p->x);
   fe_add(fe, l, t, t);
   fe_add(fe, l, l, t);
-  fe_add(fe, l, l, x3);
+  fe_add_nc(fe, l, l, x3);
   fe_add(fe, t, p->y, p->y);
   mont_mul_b(ec, t, t);
   fe_invert(fe, t, t);
@@ -5322,7 +5330,7 @@ mge_dbl(const mont_t *ec, mge_t *r, const mge_t *p) {
   fe_sub(fe, x3, x3, p->x);
 
   /* Y3 = L * (X1 - X3) - Y1 */
-  fe_sub(fe, y3, p->x, x3);
+  fe_sub_nc(fe, y3, p->x, x3);
   fe_mul(fe, y3, y3, l);
   fe_sub(fe, y3, y3, p->y);
 
@@ -5359,13 +5367,13 @@ mge_add(const mont_t *ec, mge_t *r, const mge_t *a, const mge_t *b) {
   fe_sub(fe, r0, b->y, a->y);
 
   /* M = (3 * X1^2) + (2 * a * X1) + 1 */
-  fe_add(fe, x3, ec->a, ec->a);
+  fe_add_nc(fe, x3, ec->a, ec->a);
   fe_mul(fe, x3, x3, a->x);
   fe_add(fe, x3, x3, fe->one);
   fe_sqr(fe, z, a->x);
   fe_add(fe, m, z, z);
   fe_add(fe, m, m, z);
-  fe_add(fe, m, m, x3);
+  fe_add_nc(fe, m, m, x3);
 
   /* Z = 2 * b * Y1 */
   fe_add(fe, z, a->y, a->y);
@@ -5597,26 +5605,26 @@ pge_dbl(const mont_t *ec, pge_t *r, const pge_t *p) {
   fe_t a, aa, b, bb, c;
 
   /* A = X1 + Z1 */
-  fe_add(fe, a, p->x, p->z);
+  fe_add_nc(fe, a, p->x, p->z);
 
   /* AA = A^2 */
   fe_sqr(fe, aa, a);
 
   /* B = X1 - Z1 */
-  fe_sub(fe, b, p->x, p->z);
+  fe_sub_nc(fe, b, p->x, p->z);
 
   /* BB = B^2 */
   fe_sqr(fe, bb, b);
 
   /* C = AA - BB */
-  fe_sub(fe, c, aa, bb);
+  fe_sub_nc(fe, c, aa, bb);
 
   /* X3 = AA * BB */
   fe_mul(fe, r->x, aa, bb);
 
   /* Z3 = C * (BB + a24 * C) */
   mont_mul_a24(ec, r->z, c);
-  fe_add(fe, r->z, r->z, bb);
+  fe_add_nc(fe, r->z, r->z, bb);
   fe_mul(fe, r->z, r->z, c);
 }
 
@@ -5638,25 +5646,25 @@ pge_ladder(const mont_t *ec,
   ASSERT(p4 != p5);
 
   /* A = X2 + Z2 */
-  fe_add(fe, a, p2->x, p2->z);
+  fe_add_nc(fe, a, p2->x, p2->z);
 
   /* AA = A^2 */
   fe_sqr(fe, aa, a);
 
   /* B = X2 - Z2 */
-  fe_sub(fe, b, p2->x, p2->z);
+  fe_sub_nc(fe, b, p2->x, p2->z);
 
   /* BB = B^2 */
   fe_sqr(fe, bb, b);
 
   /* E = AA - BB */
-  fe_sub(fe, e, aa, bb);
+  fe_sub_nc(fe, e, aa, bb);
 
   /* C = X3 + Z3 */
-  fe_add(fe, c, p3->x, p3->z);
+  fe_add_nc(fe, c, p3->x, p3->z);
 
   /* D = X3 - Z3 */
-  fe_sub(fe, d, p3->x, p3->z);
+  fe_sub_nc(fe, d, p3->x, p3->z);
 
   /* DA = D * A */
   fe_mul(fe, da, d, a);
@@ -5665,14 +5673,14 @@ pge_ladder(const mont_t *ec,
   fe_mul(fe, cb, c, b);
 
   /* X5 = Z1 * (DA + CB)^2 */
-  fe_add(fe, p5->x, da, cb);
+  fe_add_nc(fe, p5->x, da, cb);
   fe_sqr(fe, p5->x, p5->x);
 
   if (!affine)
     fe_mul(fe, p5->x, p5->x, p1->z);
 
   /* Z5 = X1 * (DA - CB)^2 */
-  fe_sub(fe, p5->z, da, cb);
+  fe_sub_nc(fe, p5->z, da, cb);
   fe_sqr(fe, p5->z, p5->z);
   fe_mul(fe, p5->z, p5->z, p1->x);
 
@@ -5681,7 +5689,7 @@ pge_ladder(const mont_t *ec,
 
   /* Z4 = E * (BB + a24 * E) */
   mont_mul_a24(ec, p4->z, e);
-  fe_add(fe, p4->z, p4->z, bb);
+  fe_add_nc(fe, p4->z, p4->z, bb);
   fe_mul(fe, p4->z, p4->z, e);
 }
 
@@ -6275,7 +6283,7 @@ xge_validate(const edwards_t *ec, const xge_t *p) {
 
   edwards_mul_a(ec, ax2, x2);
 
-  fe_add(fe, lhs, ax2, y2);
+  fe_add_nc(fe, lhs, ax2, y2);
   fe_mul(fe, lhs, lhs, z2);
 
   fe_mul(fe, rhs, x2, y2);
@@ -6525,19 +6533,19 @@ xge_dbl(const edwards_t *ec, xge_t *r, const xge_t *p) {
   edwards_mul_a(ec, d, a);
 
   /* E = (X1 + Y1)^2 - A - B */
-  fe_add(fe, e, p->x, p->y);
+  fe_add_nc(fe, e, p->x, p->y);
   fe_sqr(fe, e, e);
   fe_sub(fe, e, e, a);
-  fe_sub(fe, e, e, b);
+  fe_sub_nc(fe, e, e, b);
 
   /* G = D + B */
   fe_add(fe, g, d, b);
 
   /* F = G - C */
-  fe_sub(fe, f, g, c);
+  fe_sub_nc(fe, f, g, c);
 
   /* H = D - B */
-  fe_sub(fe, h, d, b);
+  fe_sub_nc(fe, h, d, b);
 
   /* X3 = E * F */
   fe_mul(fe, r->x, e, f);
@@ -6574,21 +6582,21 @@ xge_add_a(const edwards_t *ec, xge_t *r, const xge_t *a, const xge_t *b) {
   fe_mul(fe, d, a->z, b->z);
 
   /* E = (X1 + Y1) * (X2 + Y2) - A - B */
-  fe_add(fe, f, a->x, a->y);
-  fe_add(fe, g, b->x, b->y);
+  fe_add_nc(fe, f, a->x, a->y);
+  fe_add_nc(fe, g, b->x, b->y);
   fe_mul(fe, e, f, g);
   fe_sub(fe, e, e, A);
-  fe_sub(fe, e, e, B);
+  fe_sub_nc(fe, e, e, B);
 
   /* F = D - C */
-  fe_sub(fe, f, d, c);
+  fe_sub_nc(fe, f, d, c);
 
   /* G = D + C */
-  fe_add(fe, g, d, c);
+  fe_add_nc(fe, g, d, c);
 
   /* H = B - a * A */
   edwards_mul_a(ec, h, A);
-  fe_sub(fe, h, B, h);
+  fe_sub_nc(fe, h, B, h);
 
   /* X3 = E * F */
   fe_mul(fe, r->x, e, f);
@@ -6614,13 +6622,13 @@ xge_add_m1(const edwards_t *ec, xge_t *r, const xge_t *a, const xge_t *b) {
   fe_t A, B, c, d, e, f, g, h;
 
   /* A = (Y1 - X1) * (Y2 - X2) */
-  fe_sub(fe, c, a->y, a->x);
-  fe_sub(fe, d, b->y, b->x);
+  fe_sub_nc(fe, c, a->y, a->x);
+  fe_sub_nc(fe, d, b->y, b->x);
   fe_mul(fe, A, c, d);
 
   /* B = (Y1 + X1) * (Y2 + X2) */
-  fe_add(fe, c, a->y, a->x);
-  fe_add(fe, d, b->y, b->x);
+  fe_add_nc(fe, c, a->y, a->x);
+  fe_add_nc(fe, d, b->y, b->x);
   fe_mul(fe, B, c, d);
 
   /* C = T1 * k * T2 */
@@ -6632,16 +6640,16 @@ xge_add_m1(const edwards_t *ec, xge_t *r, const xge_t *a, const xge_t *b) {
   fe_add(fe, d, d, d);
 
   /* E = B - A */
-  fe_sub(fe, e, B, A);
+  fe_sub_nc(fe, e, B, A);
 
   /* F = D - C */
-  fe_sub(fe, f, d, c);
+  fe_sub_nc(fe, f, d, c);
 
   /* G = D + C */
-  fe_add(fe, g, d, c);
+  fe_add_nc(fe, g, d, c);
 
   /* H = B + A */
-  fe_add(fe, h, B, A);
+  fe_add_nc(fe, h, B, A);
 
   /* X3 = E * F */
   fe_mul(fe, r->x, e, f);
@@ -7472,9 +7480,9 @@ ristretto_elligator(const edwards_t *ec, rge_t *r, const fe_t r0) {
   fe_mul(fe, R, R, rs->qnr);
 
   /* NS = a * (R + 1) * (d + a) * (d - a) */
-  fe_add(fe, w0, ec->d, ec->a);
-  fe_sub(fe, w1, ec->d, ec->a);
-  fe_add(fe, ns, R, fe->one);
+  fe_add_nc(fe, w0, ec->d, ec->a);
+  fe_sub_nc(fe, w1, ec->d, ec->a);
+  fe_add_nc(fe, ns, R, fe->one);
   fe_mul(fe, ns, ns, w0);
   fe_mul(fe, ns, ns, w1);
   edwards_mul_a(ec, ns, ns);
@@ -7484,9 +7492,9 @@ ristretto_elligator(const edwards_t *ec, rge_t *r, const fe_t r0) {
 
   /* D = (d * R - a) * (a * R - d) */
   fe_mul(fe, w2, ec->d, R);
-  fe_sub(fe, w2, w2, ec->a);
+  fe_sub_nc(fe, w2, w2, ec->a);
   edwards_mul_a(ec, w3, R);
-  fe_sub(fe, w3, w3, ec->d);
+  fe_sub_nc(fe, w3, w3, ec->d);
   fe_mul(fe, d, w2, w3);
 
   /* S = sqrt(NS / D) */
@@ -7506,27 +7514,27 @@ ristretto_elligator(const edwards_t *ec, rge_t *r, const fe_t r0) {
 
   /* NT = C * (R - 1) * (d + a)^2 - D */
   fe_sqr(fe, w0, w0);
-  fe_sub(fe, nt, R, fe->one);
+  fe_sub_nc(fe, nt, R, fe->one);
   fe_mul(fe, nt, nt, c);
   fe_mul(fe, nt, nt, w0);
-  fe_sub(fe, nt, nt, d);
+  fe_sub_nc(fe, nt, nt, d);
 
   /* AS2 = a * S^2 */
   fe_sqr(fe, as2, s);
   edwards_mul_a(ec, as2, as2);
 
   /* W0 = 2 * S * D */
-  fe_add(fe, w0, s, s);
+  fe_add_nc(fe, w0, s, s);
   fe_mul(fe, w0, w0, d);
 
   /* W1 = NT * sqrt(a * d - 1) */
   fe_mul(fe, w1, nt, rs->adm1s);
 
   /* W2 = 1 + AS2 */
-  fe_add(fe, w2, fe->one, as2);
+  fe_add_nc(fe, w2, fe->one, as2);
 
   /* W3 = 1 - AS2 */
-  fe_sub(fe, w3, fe->one, as2);
+  fe_sub_nc(fe, w3, fe->one, as2);
 
   /* X = W0 * W3 */
   fe_mul(fe, r->x, w0, w3);
@@ -7671,10 +7679,10 @@ rge_import(const edwards_t *ec, rge_t *r, const unsigned char *raw) {
   edwards_mul_a(ec, as2, as2);
 
   /* U1 = 1 + AS2 */
-  fe_add(fe, u1, fe->one, as2);
+  fe_add_nc(fe, u1, fe->one, as2);
 
   /* U2 = 1 - AS2 */
-  fe_sub(fe, u2, fe->one, as2);
+  fe_sub_nc(fe, u2, fe->one, as2);
 
   /* U2U2 = U2^2 */
   fe_sqr(fe, u2u2, u2);
@@ -7683,7 +7691,7 @@ rge_import(const edwards_t *ec, rge_t *r, const unsigned char *raw) {
   fe_sqr(fe, v, u1);
   fe_mul(fe, v, v, ec->d);
   edwards_mul_a(ec, v, v);
-  fe_sub(fe, v, v, u2u2);
+  fe_sub_nc(fe, v, v, u2u2);
 
   /* I = 1 / sqrt(V * U2^2) */
   fe_mul(fe, i, v, u2u2);
@@ -7698,7 +7706,7 @@ rge_import(const edwards_t *ec, rge_t *r, const unsigned char *raw) {
   fe_mul(fe, dy, dy, v);
 
   /* X = 2 * S * DX */
-  fe_add(fe, r->x, s, s);
+  fe_add_nc(fe, r->x, s, s);
   fe_mul(fe, r->x, r->x, dx);
 
   /* X = -X if X < 0 */
@@ -7738,8 +7746,8 @@ rge_export(const edwards_t *ec, unsigned char *raw, const rge_t *p) {
     fe_t u, i, n, y;
 
     /* U = -(Z0 + Y0) * (Z0 - Y0) */
-    fe_add(fe, y, p->z, p->y);
-    fe_sub(fe, s, p->z, p->y);
+    fe_add_nc(fe, y, p->z, p->y);
+    fe_sub_nc(fe, s, p->z, p->y);
     fe_mul(fe, u, y, s);
     fe_neg(fe, u, u);
 
@@ -7761,7 +7769,7 @@ rge_export(const edwards_t *ec, unsigned char *raw, const rge_t *p) {
     fe_neg_cond(fe, y, y, fe_is_odd(fe, n));
 
     /* S = I * Y * (Z0 - Y) */
-    fe_sub(fe, s, p->z, y);
+    fe_sub_nc(fe, s, p->z, y);
     fe_mul(fe, s, s, y);
     fe_mul(fe, s, s, i);
   } else {
@@ -7769,8 +7777,8 @@ rge_export(const edwards_t *ec, unsigned char *raw, const rge_t *p) {
     int rotate;
 
     /* U1 = (Z0 + Y0) * (Z0 - Y0) */
-    fe_add(fe, d1, p->z, p->y);
-    fe_sub(fe, d2, p->z, p->y);
+    fe_add_nc(fe, d1, p->z, p->y);
+    fe_sub_nc(fe, d2, p->z, p->y);
     fe_mul(fe, u1, d1, d2);
 
     /* U2 = X0 * Y0 */
@@ -7822,7 +7830,7 @@ rge_export(const edwards_t *ec, unsigned char *raw, const rge_t *p) {
     fe_neg_cond(fe, y, y, fe_is_odd(fe, s));
 
     /* S = sqrt(-a) * (Z0 - Y) * D */
-    fe_sub(fe, s, p->z, y);
+    fe_sub_nc(fe, s, p->z, y);
     fe_mul(fe, s, s, d);
     fe_mul(fe, s, s, rs->mas);
   }
@@ -7916,7 +7924,7 @@ qge_import_rge(const edwards_t *ec, qge_t r[4], const rge_t *p) {
   fe_sqr(fe, z2, p->z);
 
   /* Z2MY2 = Z2 - Y2 */
-  fe_sub(fe, z2my2, z2, y2);
+  fe_sub_nc(fe, z2my2, z2, y2);
 
   /* G = 1 / sqrt(Y4 * X2 * Z2MY2) */
   fe_mul(fe, g, y4, x2);
@@ -7927,11 +7935,11 @@ qge_import_rge(const edwards_t *ec, qge_t r[4], const rge_t *p) {
   fe_mul(fe, d0, g, y2);
 
   /* SX = D0 * (Z0 - Y0) */
-  fe_sub(fe, t0, p->z, p->y);
+  fe_sub_nc(fe, t0, p->z, p->y);
   fe_mul(fe, sx, d0, t0);
 
   /* SPXP = D0 * (Z0 + Y0) */
-  fe_add(fe, t0, p->z, p->y);
+  fe_add_nc(fe, t0, p->z, p->y);
   fe_mul(fe, spxp, d0, t0);
 
   /* S0 = SX * X0 */
@@ -7943,7 +7951,7 @@ qge_import_rge(const edwards_t *ec, qge_t r[4], const rge_t *p) {
 
   /* H0 = (2 / sqrt(a * d - 1)) * Z0 */
   fe_mul(fe, h0, rs->adm1si, p->z);
-  fe_add(fe, h0, h0, h0);
+  fe_add_nc(fe, h0, h0, h0);
 
   /* T0 = H0 * SX */
   fe_mul(fe, t0, h0, sx);
@@ -7974,11 +7982,11 @@ qge_import_rge(const edwards_t *ec, qge_t r[4], const rge_t *p) {
   fe_mul(fe, iz, rs->qnr, p->z);
 
   /* SY = D1 * (IZ - X0) */
-  fe_sub(fe, t2, iz, p->x);
+  fe_sub_nc(fe, t2, iz, p->x);
   fe_mul(fe, sy, d1, t2);
 
   /* SPYP = D1 * (IZ + X0) */
-  fe_add(fe, t2, iz, p->x);
+  fe_add_nc(fe, t2, iz, p->x);
   fe_mul(fe, spyp, d1, t2);
 
   /* S2 = SY * Y0 */
@@ -7990,7 +7998,7 @@ qge_import_rge(const edwards_t *ec, qge_t r[4], const rge_t *p) {
 
   /* H1 = (2 / sqrt(a * d - 1)) * IZ */
   fe_mul(fe, h1, rs->adm1si, iz);
-  fe_add(fe, h1, h1, h1);
+  fe_add_nc(fe, h1, h1, h1);
 
   /* T2 = H1 * SY */
   fe_mul(fe, t2, h1, sy);
@@ -8036,7 +8044,7 @@ qge_invert(const edwards_t *ec, fe_t r, const qge_t *p, unsigned int hint) {
   to = sz & fe_equal(fe, p->t, fe->one);
 
   /* A = (T + 1) * ((d - a) / (d + a)) */
-  fe_add(fe, a, p->t, fe->one);
+  fe_add_nc(fe, a, p->t, fe->one);
   fe_mul(fe, a, a, rs->dmaddpa);
 
   /* A2 = A^2 */
@@ -8050,7 +8058,7 @@ qge_invert(const edwards_t *ec, fe_t r, const qge_t *p, unsigned int hint) {
 
   /* Y = 1 / sqrt(qnr * (S4 - A2)) */
   /* SQR = Y^2 = 1 / (qnr * (S4 - A2)) */
-  fe_sub(fe, y, s4, a2);
+  fe_sub_nc(fe, y, s4, a2);
   fe_mul(fe, y, y, rs->qnr);
 
   sqr = fe_rsqrt(fe, y, fe->one, y);
@@ -8059,7 +8067,7 @@ qge_invert(const edwards_t *ec, fe_t r, const qge_t *p, unsigned int hint) {
   fe_neg_cond(fe, s2, s2, fe_is_odd(fe, p->s));
 
   /* R = (A + S2) * Y */
-  fe_add(fe, r, a, s2);
+  fe_add_nc(fe, r, a, s2);
   fe_mul(fe, r, r, y);
 
   /* R = -R if R < 0 */
@@ -8118,8 +8126,8 @@ _mont_to_edwards(const prime_field_t *fe, xge_t *r,
     fe_sqr(fe, v2, p->y);
 
     fe_add(fe, a, p->y, p->y); /* x4 */
-    fe_add(fe, a, a, a);
-    fe_sub(fe, b, u2, fe->one);
+    fe_add_nc(fe, a, a, a);
+    fe_sub_nc(fe, b, u2, fe->one);
     fe_add(fe, d, u2, u2); /* x2 */
     fe_add(fe, e, v2, v2); /* x4 */
     fe_add(fe, e, e, e);
@@ -8135,7 +8143,7 @@ _mont_to_edwards(const prime_field_t *fe, xge_t *r,
 
     fe_sub(fe, xz, u4, d);
     fe_add(fe, xz, xz, e);
-    fe_add(fe, xz, xz, fe->one);
+    fe_add_nc(fe, xz, xz, fe->one);
 
     fe_sub(fe, yy, u5, f);
     fe_sub(fe, yy, yy, g);
@@ -8145,7 +8153,7 @@ _mont_to_edwards(const prime_field_t *fe, xge_t *r,
     fe_sub(fe, yz, u5, h);
     fe_sub(fe, yz, yz, f);
     fe_sub(fe, yz, yz, i);
-    fe_add(fe, yz, yz, p->x);
+    fe_add_nc(fe, yz, yz, p->x);
 
     /* Handle 2-torsion as infinity. */
     inf |= tor;
@@ -8169,8 +8177,8 @@ _mont_to_edwards(const prime_field_t *fe, xge_t *r,
      */
     fe_mul(fe, xx, c, p->x);
     fe_select(fe, xz, p->y, fe->one, tor);
-    fe_add(fe, yy, p->x, fe->one);
-    fe_sub(fe, yz, p->x, fe->one);
+    fe_add_nc(fe, yy, p->x, fe->one);
+    fe_sub_nc(fe, yz, p->x, fe->one);
   } else {
     /* Isomorphic maps for M(A,B)->E(a,d):
      *
@@ -8191,8 +8199,8 @@ _mont_to_edwards(const prime_field_t *fe, xge_t *r,
      */
     fe_mul(fe, xx, c, p->x);
     fe_select(fe, xz, p->y, fe->one, tor);
-    fe_sub(fe, yy, p->x, fe->one);
-    fe_add(fe, yz, p->x, fe->one);
+    fe_sub_nc(fe, yy, p->x, fe->one);
+    fe_add_nc(fe, yz, p->x, fe->one);
   }
 
   /* Completed point. */
@@ -8240,7 +8248,7 @@ _edwards_to_mont(const prime_field_t *fe, mge_t *r,
     fe_sqr(fe, uu, p->y);
     fe_sqr(fe, uz, p->x);
     fe_sub(fe, vv, two, uz);
-    fe_sub(fe, vv, vv, uu);
+    fe_sub_nc(fe, vv, vv, uu);
     fe_mul(fe, vv, vv, p->y);
     fe_mul(fe, vz, uz, p->x);
   } else if (invert) {
@@ -8258,8 +8266,8 @@ _edwards_to_mont(const prime_field_t *fe, mge_t *r,
      * Unexceptional Cases:
      *   - (+-sqrt(1 / a), 0) -> (-1, +-sqrt((A - 2) / B))
      */
-    fe_add(fe, uu, p->y, p->z);
-    fe_sub(fe, uz, p->y, p->z);
+    fe_add_nc(fe, uu, p->y, p->z);
+    fe_sub_nc(fe, uz, p->y, p->z);
     fe_mul(fe, vv, c, p->z);
     fe_mul(fe, vv, vv, uu);
     fe_mul(fe, vz, p->x, uz);
@@ -8278,8 +8286,8 @@ _edwards_to_mont(const prime_field_t *fe, mge_t *r,
      * Unexceptional Cases:
      *   - (+-sqrt(1 / a), 0) -> (1, +-sqrt((A + 2) / B))
      */
-    fe_add(fe, uu, p->z, p->y);
-    fe_sub(fe, uz, p->z, p->y);
+    fe_add_nc(fe, uu, p->z, p->y);
+    fe_sub_nc(fe, uz, p->z, p->y);
     fe_mul(fe, vv, c, p->z);
     fe_mul(fe, vv, vv, uu);
     fe_mul(fe, vz, p->x, uz);
