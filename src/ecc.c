@@ -7847,17 +7847,16 @@ rge_equal(const edwards_t *ec, const rge_t *a, const rge_t *b) {
 
   ret |= fe_equal(fe, e1, e2);
 
-  /* H = 4 */
-  if (ec->h == 4)
-    return ret;
+  /* H = 8 */
+  if (ec->h == 8) {
+    /* Y1 * Y2 == -a * X1 * X2 */
+    fe_mul(fe, e1, a->y, b->y);
+    fe_mul(fe, e2, a->x, b->x);
+    edwards_mul_a(ec, e2, e2);
+    fe_neg(fe, e2, e2);
 
-  /* Y1 * Y2 == -a * X1 * X2 */
-  fe_mul(fe, e1, a->y, b->y);
-  fe_mul(fe, e2, a->x, b->x);
-  edwards_mul_a(ec, e2, e2);
-  fe_neg(fe, e2, e2);
-
-  ret |= fe_equal(fe, e1, e2);
+    ret |= fe_equal(fe, e1, e2);
+  }
 
   return ret;
 }
@@ -7870,12 +7869,11 @@ rge_is_zero(const edwards_t *ec, const rge_t *p) {
   /* X1 == 0 */
   ret |= fe_is_zero(fe, p->x);
 
-  /* H = 4 */
-  if (ec->h == 4)
-    return ret;
-
-  /* Y1 == 0 */
-  ret |= fe_is_zero(fe, p->y);
+  /* H = 8 */
+  if (ec->h == 8) {
+    /* Y1 == 0 */
+    ret |= fe_is_zero(fe, p->y);
+  }
 
   return ret;
 }
