@@ -58,18 +58,105 @@ bench_end(bench_t *start, uint64_t ops) {
 static void
 bench_ecdsa_pubkey_create(drbg_t *rng) {
   wei_curve_t *ec = wei_curve_create(WEI_CURVE_SECP256K1);
+  unsigned char entropy[ENTROPY_SIZE];
+  unsigned char priv[32];
   unsigned char pub[33];
   size_t pub_len;
-  unsigned char bytes[32];
   bench_t tv;
   size_t i;
 
-  drbg_generate(rng, bytes, 32);
+  drbg_generate(rng, entropy, sizeof(entropy));
+
+  ecdsa_privkey_generate(ec, priv, entropy);
 
   bench_start(&tv, "ecdsa_pubkey_create");
 
   for (i = 0; i < 10000; i++)
-    ASSERT(ecdsa_pubkey_create(ec, pub, &pub_len, bytes, 1));
+    ASSERT(ecdsa_pubkey_create(ec, pub, &pub_len, priv, 1));
+
+  bench_end(&tv, i);
+
+  wei_curve_destroy(ec);
+}
+
+static void
+bench_ecdsa_pubkey_tweak_add(drbg_t *rng) {
+  wei_curve_t *ec = wei_curve_create(WEI_CURVE_SECP256K1);
+  unsigned char entropy1[ENTROPY_SIZE];
+  unsigned char entropy2[ENTROPY_SIZE];
+  unsigned char priv[32];
+  unsigned char tweak[32];
+  unsigned char pub[33];
+  unsigned char out[33];
+  bench_t tv;
+  size_t i;
+
+  drbg_generate(rng, entropy1, sizeof(entropy1));
+  drbg_generate(rng, entropy2, sizeof(entropy2));
+
+  ecdsa_privkey_generate(ec, priv, entropy1);
+  ecdsa_privkey_generate(ec, tweak, entropy2);
+
+  ASSERT(ecdsa_pubkey_create(ec, pub, NULL, priv, 1));
+
+  bench_start(&tv, "ecdsa_pubkey_tweak_add");
+
+  for (i = 0; i < 10000; i++)
+    ASSERT(ecdsa_pubkey_tweak_add(ec, out, NULL, pub, 33, tweak, 1));
+
+  bench_end(&tv, i);
+
+  wei_curve_destroy(ec);
+}
+
+static void
+bench_ecdsa_sign(drbg_t *rng) {
+  wei_curve_t *ec = wei_curve_create(WEI_CURVE_SECP256K1);
+  unsigned char entropy[ENTROPY_SIZE];
+  unsigned char priv[32];
+  unsigned char msg[32];
+  unsigned char sig[64];
+  bench_t tv;
+  size_t i;
+
+  drbg_generate(rng, entropy, sizeof(entropy));
+  drbg_generate(rng, msg, sizeof(msg));
+
+  ecdsa_privkey_generate(ec, priv, entropy);
+
+  bench_start(&tv, "ecdsa_sign");
+
+  for (i = 0; i < 10000; i++)
+    ASSERT(ecdsa_sign(ec, sig, NULL, msg, 32, priv));
+
+  bench_end(&tv, i);
+
+  wei_curve_destroy(ec);
+}
+
+static void
+bench_ecdsa_verify(drbg_t *rng) {
+  wei_curve_t *ec = wei_curve_create(WEI_CURVE_SECP256K1);
+  unsigned char entropy[ENTROPY_SIZE];
+  unsigned char priv[32];
+  unsigned char msg[32];
+  unsigned char sig[64];
+  unsigned char pub[33];
+  bench_t tv;
+  size_t i;
+
+  drbg_generate(rng, entropy, sizeof(entropy));
+  drbg_generate(rng, msg, sizeof(msg));
+
+  ecdsa_privkey_generate(ec, priv, entropy);
+
+  ASSERT(ecdsa_sign(ec, sig, NULL, msg, 32, priv));
+  ASSERT(ecdsa_pubkey_create(ec, pub, NULL, priv, 1));
+
+  bench_start(&tv, "ecdsa_verify");
+
+  for (i = 0; i < 10000; i++)
+    ASSERT(ecdsa_verify(ec, msg, 32, sig, pub, 33));
 
   bench_end(&tv, i);
 
@@ -79,6 +166,8 @@ bench_ecdsa_pubkey_create(drbg_t *rng) {
 static void
 bench_ecdsa_derive(drbg_t *rng) {
   wei_curve_t *ec = wei_curve_create(WEI_CURVE_SECP256K1);
+  unsigned char entropy1[ENTROPY_SIZE];
+  unsigned char entropy2[ENTROPY_SIZE];
   unsigned char k0[32];
   unsigned char k1[32];
   unsigned char p0[65];
@@ -87,8 +176,11 @@ bench_ecdsa_derive(drbg_t *rng) {
   bench_t tv;
   size_t i;
 
-  drbg_generate(rng, k0, 32);
-  drbg_generate(rng, k1, 32);
+  drbg_generate(rng, entropy1, sizeof(entropy1));
+  drbg_generate(rng, entropy2, sizeof(entropy2));
+
+  ecdsa_privkey_generate(ec, k0, entropy1);
+  ecdsa_privkey_generate(ec, k1, entropy2);
 
   ASSERT(ecdsa_pubkey_create(ec, p0, &p0_len, k0, 0));
 
@@ -103,55 +195,18 @@ bench_ecdsa_derive(drbg_t *rng) {
 }
 
 static void
-bench_ecdsa(drbg_t *rng) {
-  wei_curve_t *ec = wei_curve_create(WEI_CURVE_SECP256K1);
+bench_ecdh_derive(drbg_t *rng) {
+  mont_curve_t *ec = mont_curve_create(MONT_CURVE_X25519);
   unsigned char entropy[ENTROPY_SIZE];
   unsigned char priv[32];
-  unsigned char msg[32];
-  unsigned char sig[64];
-  unsigned char pub[33];
+  unsigned char pub[32];
+  unsigned char secret[32];
   bench_t tv;
   size_t i;
 
   drbg_generate(rng, entropy, sizeof(entropy));
-  drbg_generate(rng, priv, sizeof(priv));
-  drbg_generate(rng, msg, sizeof(msg));
 
-  priv[0] = 0;
-
-  wei_curve_randomize(ec, entropy);
-
-  ASSERT(ecdsa_sign(ec, sig, NULL, msg, 32, priv));
-  ASSERT(ecdsa_pubkey_create(ec, pub, NULL, priv, 1));
-
-  bench_start(&tv, "ecdsa_verify");
-
-  for (i = 0; i < 10000; i++)
-    ASSERT(ecdsa_verify(ec, msg, 32, sig, pub, 33));
-
-  bench_end(&tv, i);
-
-  bench_start(&tv, "ecdsa_sign");
-
-  for (i = 0; i < 10000; i++)
-    ASSERT(ecdsa_sign(ec, sig, NULL, msg, 32, priv));
-
-  bench_end(&tv, i);
-
-  wei_curve_destroy(ec);
-}
-
-static void
-bench_ecdh(drbg_t *rng) {
-  mont_curve_t *ec = mont_curve_create(MONT_CURVE_X25519);
-  unsigned char priv[MONT_MAX_SCALAR_SIZE];
-  unsigned char pub[MONT_MAX_FIELD_SIZE];
-  unsigned char secret[MONT_MAX_FIELD_SIZE];
-  bench_t tv;
-  size_t i;
-
-  drbg_generate(rng, priv, sizeof(priv));
-
+  ecdh_privkey_generate(ec, priv, entropy);
   ecdh_pubkey_create(ec, pub, priv);
 
   bench_start(&tv, "ecdh_derive");
@@ -165,7 +220,7 @@ bench_ecdh(drbg_t *rng) {
 }
 
 static void
-bench_eddsa(drbg_t *rng) {
+bench_eddsa_sign(drbg_t *rng) {
   edwards_curve_t *ec = edwards_curve_create(EDWARDS_CURVE_ED25519);
   unsigned char entropy[ENTROPY_SIZE];
   unsigned char priv[32];
@@ -176,11 +231,9 @@ bench_eddsa(drbg_t *rng) {
   size_t i;
 
   drbg_generate(rng, entropy, sizeof(entropy));
-  drbg_generate(rng, priv, sizeof(priv));
   drbg_generate(rng, msg, sizeof(msg));
 
-  edwards_curve_randomize(ec, entropy);
-
+  eddsa_privkey_generate(ec, priv, entropy);
   eddsa_sign(ec, sig, msg, 32, priv, -1, NULL, 0);
   eddsa_pubkey_create(ec, pub, priv);
 
@@ -188,6 +241,31 @@ bench_eddsa(drbg_t *rng) {
 
   for (i = 0; i < 10000; i++)
     ASSERT(eddsa_verify(ec, msg, 32, sig, pub, -1, NULL, 0));
+
+  bench_end(&tv, i);
+
+  edwards_curve_destroy(ec);
+}
+
+static void
+bench_eddsa_verify(drbg_t *rng) {
+  edwards_curve_t *ec = edwards_curve_create(EDWARDS_CURVE_ED25519);
+  unsigned char entropy[ENTROPY_SIZE];
+  unsigned char priv[32];
+  unsigned char msg[32];
+  unsigned char sig[64];
+  bench_t tv;
+  size_t i;
+
+  drbg_generate(rng, entropy, sizeof(entropy));
+  drbg_generate(rng, msg, sizeof(msg));
+
+  eddsa_privkey_generate(ec, priv, entropy);
+
+  bench_start(&tv, "eddsa_sign");
+
+  for (i = 0; i < 10000; i++)
+    eddsa_sign(ec, sig, msg, 32, priv, -1, NULL, 0);
 
   bench_end(&tv, i);
 
@@ -244,10 +322,13 @@ static const struct {
 } torsion_benches[] = {
 #define B(name) { #name, bench_ ## name }
   B(ecdsa_pubkey_create),
+  B(ecdsa_pubkey_tweak_add),
+  B(ecdsa_sign),
+  B(ecdsa_verify),
   B(ecdsa_derive),
-  B(ecdsa),
-  B(ecdh),
-  B(eddsa),
+  B(ecdh_derive),
+  B(eddsa_sign),
+  B(eddsa_verify),
   B(hash),
   B(sha256)
 #undef B
