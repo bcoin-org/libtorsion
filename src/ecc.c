@@ -204,6 +204,8 @@ TORSION_BARRIER(fe_word_t, fiat)
 #define NAF_WIDTH_PRE 12
 #define NAF_SIZE_PRE (1 << (NAF_WIDTH_PRE - 2)) /* 1024 */
 
+#define JSF_SIZE 4
+
 #define ECC_MIN(a, b) ((a) < (b) ? (a) : (b))
 #define ECC_MAX(a, b) ((a) > (b) ? (a) : (b))
 
@@ -4360,7 +4362,7 @@ wei_jmul_double_endo_var(const wei_t *ec,
   int naf1[MAX_ENDO_BITS + 1]; /* 1048 bytes */
   int naf2[MAX_ENDO_BITS + 1]; /* 1048 bytes */
   int naf3[MAX_ENDO_BITS + 1]; /* 1048 bytes */
-  jge_t wnd3[4]; /* 608 bytes */
+  jge_t wnd3[JSF_SIZE]; /* 608 bytes */
   sc_t c1, c2, c3, c4; /* 288 bytes */
   size_t i, max, max1, max2;
 
@@ -9551,13 +9553,13 @@ wei_scratch_create(const wei_t *ec, size_t size) {
   size_t i;
 
   scratch->size = size;
-  scratch->wnd = checked_malloc(length * 4 * sizeof(jge_t));
+  scratch->wnd = checked_malloc(length * JSF_SIZE * sizeof(jge_t));
   scratch->wnds = checked_malloc(length * sizeof(jge_t *));
   scratch->naf = checked_malloc(length * (bits + 1) * sizeof(int));
   scratch->nafs = checked_malloc(length * sizeof(int *));
 
   for (i = 0; i < length; i++) {
-    scratch->wnds[i] = &scratch->wnd[i * 4];
+    scratch->wnds[i] = &scratch->wnd[i * JSF_SIZE];
     scratch->nafs[i] = &scratch->naf[i * (bits + 1)];
   }
 
@@ -9686,13 +9688,13 @@ edwards_scratch_create(const edwards_t *ec, size_t size) {
   size_t i;
 
   scratch->size = size;
-  scratch->wnd = checked_malloc(length * 4 * sizeof(xge_t));
+  scratch->wnd = checked_malloc(length * JSF_SIZE * sizeof(xge_t));
   scratch->wnds = checked_malloc(length * sizeof(xge_t *));
   scratch->naf = checked_malloc(length * (bits + 1) * sizeof(int));
   scratch->nafs = checked_malloc(length * sizeof(int *));
 
   for (i = 0; i < length; i++) {
-    scratch->wnds[i] = &scratch->wnd[i * 4];
+    scratch->wnds[i] = &scratch->wnd[i * JSF_SIZE];
     scratch->nafs[i] = &scratch->naf[i * (bits + 1)];
   }
 
