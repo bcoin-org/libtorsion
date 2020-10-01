@@ -237,7 +237,7 @@ bench_eddsa_sign(drbg_t *rng) {
   eddsa_sign(ec, sig, msg, 32, priv, -1, NULL, 0);
   eddsa_pubkey_create(ec, pub, priv);
 
-  bench_start(&tv, "eddsa_verify");
+  bench_start(&tv, "eddsa_sign");
 
   for (i = 0; i < 10000; i++)
     ASSERT(eddsa_verify(ec, msg, 32, sig, pub, -1, NULL, 0));
@@ -262,7 +262,7 @@ bench_eddsa_verify(drbg_t *rng) {
 
   eddsa_privkey_generate(ec, priv, entropy);
 
-  bench_start(&tv, "eddsa_sign");
+  bench_start(&tv, "eddsa_verify");
 
   for (i = 0; i < 10000; i++)
     eddsa_sign(ec, sig, msg, 32, priv, -1, NULL, 0);
