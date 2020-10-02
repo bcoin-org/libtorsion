@@ -255,10 +255,10 @@ p224_fe_sqrt(p224_fe_t r, const p224_fe_t x) {
    *
    * Constants:
    *
-   *   k = 96
+   *   k = 96 (factors of 2 for (p - 1))
    *   s = 2^128 - 1 (0xffffffffffffffffffffffffffffffff) ((p - 1) / 2^k)
    *   e = 2^127 - 1 (0x7fffffffffffffffffffffffffffffff) ((s - 1) / 2)
-   *   n = 11
+   *   n = 11 mod p (first non-square in F(p))
    *   g = n^s mod p (0x6a0fec678598a7920c55b2d40b2d6ffbbea3d8cef3fb3632dc691b74)
    *
    * Algorithm:
@@ -333,10 +333,10 @@ p224_fe_sqrt_var(p224_fe_t r, const p224_fe_t x) {
    *
    * Constants:
    *
-   *   k = 96
-   *   s = 2^128 - 1 (0xffffffffffffffffffffffffffffffff)
-   *   e = 2^127 (0x80000000000000000000000000000000)
-   *   n = 11
+   *   k = 96 (factors of 2 for (p - 1))
+   *   s = 2^128 - 1 (0xffffffffffffffffffffffffffffffff) ((p - 1) / 2^k)
+   *   e = 2^127 (0x80000000000000000000000000000000) ((s + 1) / 2)
+   *   n = 11 mod p (first non-square in F(p))
    *
    * Algorithm:
    *
@@ -345,10 +345,10 @@ p224_fe_sqrt_var(p224_fe_t r, const p224_fe_t x) {
    *   b = x^s mod p
    *   t = b^(2^95) mod p
    *
-   *   if t == 0 mod p:
+   *   if t == 0:
    *     return 0
    *
-   *   if t != 1 mod p:
+   *   if t != 1:
    *     fail
    *
    *   loop:
