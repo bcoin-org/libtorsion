@@ -38,6 +38,7 @@ U_FUNCS = carry_mul    \
           from_bytes
 
 U_FUNCS_25519 := $(U_FUNCS) carry_scmul121666
+U_FUNCS_448 := $(U_FUNCS) carry_scmul39082
 
 M_FUNCS = mul             \
           square          \
@@ -135,11 +136,11 @@ src/fields/p25519_64.h: $(UNSAT)
 
 # 2^448 - 2^224 - 1
 src/fields/p448_32.h: $(UNSAT)
-	$(UNSAT) --static p448 32 18 '2^448 - 2^224 - 1' $(U_FUNCS) > $@
+	$(UNSAT) --static p448 32 18 '2^448 - 2^224 - 1' $(U_FUNCS_448) > $@
 	$(AFTER)
 
 src/fields/p448_64.h: $(UNSAT)
-	$(UNSAT) --static p448 64 8 '2^448 - 2^224 - 1' $(U_FUNCS) > $@
+	$(UNSAT) --static p448 64 8 '2^448 - 2^224 - 1' $(U_FUNCS_448) > $@
 	$(AFTER)
 
 # 2^251 - 9

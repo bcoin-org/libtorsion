@@ -264,7 +264,7 @@ typedef void fe_selectznz_f(fe_word_t *, unsigned char,
 typedef void fe_to_bytes_f(uint8_t *, const fe_word_t *);
 typedef void fe_from_bytes_f(fe_word_t *, const uint8_t *);
 typedef void fe_carry_f(fe_word_t *, const fe_word_t *);
-typedef void fe_scmul_121666_f(fe_word_t *, const fe_word_t *);
+typedef void fe_scmul_f(fe_word_t *, const fe_word_t *);
 typedef void fe_invert_f(fe_word_t *, const fe_word_t *);
 typedef int fe_sqrt_f(fe_word_t *, const fe_word_t *);
 typedef int fe_isqrt_f(fe_word_t *, const fe_word_t *, const fe_word_t *);
@@ -292,7 +292,7 @@ typedef struct prime_field_s {
   fe_to_bytes_f *to_bytes;
   fe_from_bytes_f *from_bytes;
   fe_carry_f *carry;
-  fe_scmul_121666_f *scmul_121666;
+  fe_scmul_f *scmul_a24;
   fe_invert_f *invert;
   fe_sqrt_f *sqrt;
   fe_isqrt_f *isqrt;
@@ -321,7 +321,7 @@ typedef struct prime_def_s {
   fe_to_bytes_f *to_bytes;
   fe_from_bytes_f *from_bytes;
   fe_carry_f *carry;
-  fe_scmul_121666_f *scmul_121666;
+  fe_scmul_f *scmul_a24;
   fe_invert_f *invert;
   fe_sqrt_f *sqrt;
   fe_isqrt_f *isqrt;
@@ -2076,7 +2076,7 @@ prime_field_init(prime_field_t *fe, const prime_def_t *def, int endian) {
   fe->to_bytes = def->to_bytes;
   fe->from_bytes = def->from_bytes;
   fe->carry = def->carry;
-  fe->scmul_121666 = def->scmul_121666;
+  fe->scmul_a24 = def->scmul_a24;
   fe->invert = def->invert;
   fe->sqrt = def->sqrt;
   fe->isqrt = def->isqrt;
@@ -5853,8 +5853,8 @@ static void
 mont_mul_a24(const mont_t *ec, fe_t r, const fe_t a) {
   const prime_field_t *fe = &ec->fe;
 
-  if (fe->scmul_121666 != NULL)
-    fe->scmul_121666(r, a);
+  if (fe->scmul_a24 != NULL)
+    fe->scmul_a24(r, a);
   else
     fe_mul(fe, r, a, ec->a24);
 }
@@ -8639,7 +8639,7 @@ static const prime_def_t field_p448 = {
   fiat_p448_to_bytes,
   fiat_p448_from_bytes,
   fiat_p448_carry,
-  NULL,
+  fiat_p448_carry_scmul_39082,
   p448_fe_invert,
   p448_fe_sqrt,
   p448_fe_isqrt,
