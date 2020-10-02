@@ -1483,25 +1483,8 @@ static void
 fe_export(const prime_field_t *fe, unsigned char *raw, const fe_t a) {
   if (fe->from_montgomery != NULL) {
     fe_t b;
-
-    /* Demontgomerize. */
     fe->from_montgomery(b, a);
-
-    if (fe->size * 8 != fe->words * FIELD_WORD_BITS) {
-      /* Fiat accepts bytes serialized as full
-       * words. In particular, this affects the
-       * P224 64 bit backend. This is a non-issue
-       * during deserialization as fiat will zero
-       * the remaining limbs.
-       */
-      unsigned char tmp[MAX_FIELD_SIZE];
-
-      fe->to_bytes(tmp, b);
-
-      memcpy(raw, tmp, fe->size);
-    } else {
-      fe->to_bytes(raw, b);
-    }
+    fe->to_bytes(raw, b);
   } else {
     fe->to_bytes(raw, a);
   }
