@@ -135,6 +135,18 @@
  *
  *   [ECPM] Elliptic Curve Point Multiplication (wikipedia)
  *     https://en.wikipedia.org/wiki/Elliptic_curve_point_multiplication
+ *
+ *   [DECAF] Decaf: Eliminating cofactors through point compression
+ *     Mike Hamburg
+ *     https://www.shiftleft.org/papers/decaf/decaf.pdf
+ *
+ *   [RIST] The Ristretto Group
+ *     Henry de Valence, Isis Lovecruft, Tony Arcieri
+ *     https://ristretto.group
+ *
+ *   [RIST255] The ristretto255 Group
+ *     H. de Valence, J. Grigg, G. Tankersley, F. Valsorda, I. Lovecruft
+ *     https://tools.ietf.org/html/draft-hdevalence-cfrg-ristretto-01
  */
 
 #include <limits.h>
@@ -1932,6 +1944,8 @@ fe_isqrt(const prime_field_t *fe, fe_t r, const fe_t u, const fe_t v) {
 
 static int
 fe_rsqrt(const prime_field_t *fe, fe_t r, const fe_t u, const fe_t v) {
+  /* [RIST] "Extracting an Inverse Square Root". */
+  /* [RIST255] Page 6, Section 3.1.3. */
   int ret = fe_isqrt(fe, r, u, v);
 
   fe_set_odd(fe, r, r, 0);
@@ -7429,6 +7443,7 @@ qge_invert(const edwards_t *ec, fe_t r, const qge_t *p, unsigned int sign);
 
 static void
 ristretto_init(edwards_t *ec, const ristretto_def_t *def) {
+  /* [RIST] "The Ristretto Group". */
   const prime_field_t *fe = &ec->fe;
   ristretto_t *rs = &ec->rs;
 
@@ -7444,7 +7459,10 @@ ristretto_init(edwards_t *ec, const ristretto_def_t *def) {
 
 static void
 ristretto_elligator(const edwards_t *ec, rge_t *r, const fe_t r0) {
-  /* https://ristretto.group/formulas/elligator.html */
+  /* [DECAF] Page 12, Section 6. */
+  /*         Page 19, Appendix C. */
+  /* [RIST] "Elligator in Extended Coordinates". */
+  /* [RIST255] Page 10, Section 3.2.4. */
   const prime_field_t *fe = &ec->fe;
   const ristretto_t *rs = &ec->rs;
   fe_t R, ns, c, d, s, sp, nt, as2, w0, w1, w2, w3;
@@ -7638,7 +7656,10 @@ ristretto_point_to_hash(const edwards_t *ec,
 
 static int
 rge_import(const edwards_t *ec, rge_t *r, const unsigned char *raw) {
-  /* https://ristretto.group/formulas/decoding.html */
+  /* [DECAF] Page 8, Section 4.3. */
+  /*         Page 16, Appendix A.2. */
+  /* [RIST] "Decoding to Extended Coordinates". */
+  /* [RIST255] Page 7, Section 3.2.1. */
   const prime_field_t *fe = &ec->fe;
   fe_t s, as2, u1, u2, u2u2, v, i, dx, dy;
   int ret = 1;
@@ -7711,7 +7732,10 @@ rge_import(const edwards_t *ec, rge_t *r, const unsigned char *raw) {
 
 static void
 rge_export(const edwards_t *ec, unsigned char *raw, const rge_t *p) {
-  /* https://ristretto.group/formulas/encoding.html */
+  /* [DECAF] Page 8, Section 4.2. */
+  /*         Page 15, Appendix A.1. */
+  /* [RIST] "Encoding from Extended Coordinates". */
+  /* [RIST255] Page 8, Section 3.2.2. */
   const prime_field_t *fe = &ec->fe;
   const ristretto_t *rs = &ec->rs;
   fe_t s;
@@ -7834,7 +7858,9 @@ rge_export(const edwards_t *ec, unsigned char *raw, const rge_t *p) {
 
 TORSION_UNUSED static int
 rge_equal(const edwards_t *ec, const rge_t *a, const rge_t *b) {
-  /* https://ristretto.group/formulas/equality.html */
+  /* [DECAF] Page 9, Section 4.5. */
+  /* [RIST] "Testing Equality". */
+  /* [RIST255] Page 9, Section 3.2.3. */
   const prime_field_t *fe = &ec->fe;
   fe_t lhs, rhs;
   int ret = 0;
@@ -7861,7 +7887,6 @@ rge_equal(const edwards_t *ec, const rge_t *a, const rge_t *b) {
 
 static int
 rge_is_zero(const edwards_t *ec, const rge_t *p) {
-  /* https://ristretto.group/formulas/equality.html */
   const prime_field_t *fe = &ec->fe;
   int ret = 0;
 
@@ -7937,7 +7962,7 @@ qge_import_rge(const edwards_t *ec, qge_t r[4], const rge_t *p) {
   fe_mul(fe, s1, spxp, p->x);
   fe_neg(fe, s1, s1);
 
-  /* H0 = (2 / sqrt(a * d - 1)) * Z0 */
+  /* H0 = 2 * Z0 / sqrt(a * d - 1) */
   fe_mul(fe, h0, rs->adm1si, p->z);
   fe_add_nc(fe, h0, h0, h0);
 
@@ -7961,7 +7986,7 @@ qge_import_rge(const edwards_t *ec, qge_t r[4], const rge_t *p) {
     return;
   }
 
-  /* D1 = (1 / sqrt(d - a)) * -Z2MY2 * G */
+  /* D1 = -Z2MY2 * G / sqrt(d - a) */
   fe_mul(fe, d1, rs->dmasi, z2my2);
   fe_mul(fe, d1, d1, g);
   fe_neg(fe, d1, d1);
@@ -7984,7 +8009,7 @@ qge_import_rge(const edwards_t *ec, qge_t r[4], const rge_t *p) {
   fe_mul(fe, s3, spyp, p->y);
   fe_neg(fe, s3, s3);
 
-  /* H1 = (2 / sqrt(a * d - 1)) * IZ */
+  /* H1 = 2 * IZ / sqrt(a * d - 1) */
   fe_mul(fe, h1, rs->adm1si, iz);
   fe_add_nc(fe, h1, h1, h1);
 
@@ -7994,7 +8019,7 @@ qge_import_rge(const edwards_t *ec, qge_t r[4], const rge_t *p) {
   /* T3 = H1 * SPYP */
   fe_mul(fe, t3, h1, spyp);
 
-  /* H2 = 2 * (qnr / sqrt(a * d - 1)) */
+  /* H2 = 2 * qnr / sqrt(a * d - 1) */
   fe_mul(fe, h2, rs->qnr, rs->adm1si);
   fe_add(fe, h2, h2, h2);
 
