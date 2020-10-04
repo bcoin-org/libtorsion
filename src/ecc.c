@@ -7718,7 +7718,7 @@ rge_export(const edwards_t *ec, unsigned char *raw, const rge_t *p) {
 
   /* H = 4 */
   if (ec->h == 4) {
-    fe_t u, i, n, y;
+    fe_t u, i, zi, y;
 
     /* U = -(Z0 + Y0) * (Z0 - Y0) */
     fe_add_nc(fe, y, p->z, p->y);
@@ -7731,17 +7731,17 @@ rge_export(const edwards_t *ec, unsigned char *raw, const rge_t *p) {
     fe_mul(fe, i, i, u);
     fe_rsqrt(fe, i, fe->one, i);
 
-    /* N = I^2 * U * Y0 * T0 */
-    fe_sqr(fe, n, i);
-    fe_mul(fe, n, n, u);
-    fe_mul(fe, n, n, p->y);
-    fe_mul(fe, n, n, p->t);
+    /* Zinv = I^2 * U * Y0 * T0 */
+    fe_sqr(fe, zi, i);
+    fe_mul(fe, zi, zi, u);
+    fe_mul(fe, zi, zi, p->y);
+    fe_mul(fe, zi, zi, p->t);
 
     /* Y = Y0 */
     fe_set(fe, y, p->y);
 
-    /* Y = -Y if N < 0 */
-    fe_neg_cond(fe, y, y, fe_is_odd(fe, n));
+    /* Y = -Y if Zinv < 0 */
+    fe_neg_cond(fe, y, y, fe_is_odd(fe, zi));
 
     /* S = I * Y * (Z0 - Y) */
     fe_sub_nc(fe, s, p->z, y);
