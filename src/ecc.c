@@ -7788,17 +7788,32 @@ rge_export(const edwards_t *ec, unsigned char *raw, const rge_t *p) {
 
     rotate = fe_is_odd(fe, s);
 
-    /* X = Y0 * sqrt(a) if rotate = 1 */
-    fe_mul(fe, s, p->y, rs->qnr);
-    fe_select(fe, x, x, s, rotate);
+    /* a = -1 */
+    if (ec->mone_a) {
+      /* X = Y0 * sqrt(a) if rotate = 1 */
+      fe_mul(fe, s, p->y, rs->qnr);
+      fe_select(fe, x, x, s, rotate);
 
-    /* Y = X0 * sqrt(a) if rotate = 1 */
-    fe_mul(fe, s, p->x, rs->qnr);
-    fe_select(fe, y, y, s, rotate);
+      /* Y = X0 * sqrt(a) if rotate = 1 */
+      fe_mul(fe, s, p->x, rs->qnr);
+      fe_select(fe, y, y, s, rotate);
 
-    /* D = D1 / sqrt(a - d) if rotate = 1 */
-    fe_mul(fe, s, d1, rs->amdsi);
-    fe_select(fe, d, d, s, rotate);
+      /* D = D1 / sqrt(a - d) if rotate = 1 */
+      fe_mul(fe, s, d1, rs->amdsi);
+      fe_select(fe, d, d, s, rotate);
+    } else {
+      /* X = -Y0 if rotate = 1 */
+      fe_neg(fe, s, p->y);
+      fe_select(fe, x, x, s, rotate);
+
+      /* Y = X0 if rotate = 1 */
+      fe_select(fe, y, y, p->x, rotate);
+
+      /* D = (D1 / sqrt(a - d)) * qnr if rotate = 1 */
+      fe_mul(fe, s, d1, rs->amdsi);
+      fe_mul(fe, s, s, rs->qnr);
+      fe_select(fe, d, d, s, rotate);
+    }
 
     /* Y = -Y if X * Zinv < 0 */
     fe_mul(fe, s, x, zi);
