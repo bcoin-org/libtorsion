@@ -7762,7 +7762,7 @@ rge_export(const edwards_t *ec, unsigned char *raw, const rge_t *p) {
     /* I = 1 / sqrt(U1 * U2^2) */
     fe_sqr(fe, i, u2);
     fe_mul(fe, i, i, u1);
-    fe_isqrt(fe, i, fe->one, i);
+    fe_rsqrt(fe, i, fe->one, i);
 
     /* D1 = U1 * I */
     fe_mul(fe, d1, u1, i);
