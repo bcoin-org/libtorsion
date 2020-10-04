@@ -40,6 +40,7 @@ Used as the backend for [bcrypto].
     - [BIP340][bip340]
     - ECDH
     - EdDSA
+    - [Ristretto][ristretto]
 
 ## Example
 
@@ -108,3 +109,4 @@ See LICENSE for more info.
 [mpn_]: https://gmplib.org/manual/Low_002dlevel-Functions.html
 [schnorr]: https://github.com/sipa/bips/blob/d194620/bip-schnorr.mediawiki
 [bip340]: https://github.com/bitcoin/bips/blob/master/bip-0340.mediawiki
+[ristretto]: https://ristretto.group/
