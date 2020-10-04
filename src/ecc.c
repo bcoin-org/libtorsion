@@ -512,7 +512,6 @@ typedef struct ristretto_s {
   fe_t dmaddpa; /* (d + a) / (d - a) */
   fe_t amdsi; /* 1 / sqrt(a - d) (h=8 only) */
   fe_t dmasi; /* 1 / sqrt(d - a) (h=8 only) */
-  fe_t mas; /* sqrt(-a) (h=8 only) */
 } ristretto_t;
 
 typedef struct ristretto_def_s {
@@ -523,7 +522,6 @@ typedef struct ristretto_def_s {
   const unsigned char dmaddpa[MAX_FIELD_SIZE];
   const unsigned char amdsi[MAX_FIELD_SIZE];
   const unsigned char dmasi[MAX_FIELD_SIZE];
-  const unsigned char mas[MAX_FIELD_SIZE];
 } ristretto_def_t;
 
 /* qge = jacobi quartic group element */
@@ -5030,6 +5028,18 @@ wei_point_to_uniform(const wei_t *ec,
                      unsigned char *bytes,
                      const wge_t *p,
                      unsigned int hint) {
+  /* Convert a short weierstrass point to a field
+   * element by inverting either the SSWU or SVDW
+   * map.
+   *
+   * Hint Layout:
+   *
+   *   [00000000] [0000] [0000]
+   *        |        |      |
+   *        |        |      +-- preimage index
+   *        |        +--- subgroup
+   *        +-- bits to OR with uniform bytes
+   */
   const prime_field_t *fe = &ec->fe;
   unsigned int subgroup = (hint >> 4) & 15;
   int ret = 1;
@@ -6138,6 +6148,17 @@ mont_point_to_uniform(const mont_t *ec,
                       unsigned char *bytes,
                       const mge_t *p,
                       unsigned int hint) {
+  /* Convert a montgomery point to a field
+   * element by inverting the elligator2 map.
+   *
+   * Hint Layout:
+   *
+   *   [00000000] [0000] [0000]
+   *        |        |      |
+   *        |        |      +-- preimage index
+   *        |        +--- subgroup
+   *        +-- bits to OR with uniform bytes
+   */
   const prime_field_t *fe = &ec->fe;
   unsigned int subgroup = (hint >> 4) & 15;
   int ret = 1;
@@ -7351,6 +7372,17 @@ edwards_point_to_uniform(const edwards_t *ec,
                          unsigned char *bytes,
                          const xge_t *p,
                          unsigned int hint) {
+  /* Convert an edwards point to a field
+   * element by inverting the elligator2 map.
+   *
+   * Hint Layout:
+   *
+   *   [00000000] [0000] [0000]
+   *        |        |      |
+   *        |        |      +-- preimage index
+   *        |        +--- subgroup
+   *        +-- bits to OR with uniform bytes
+   */
   const prime_field_t *fe = &ec->fe;
   unsigned int subgroup = (hint >> 4) & 15;
   int ret = 1;
@@ -7433,6 +7465,13 @@ edwards_point_to_hash(const edwards_t *ec,
 
 /*
  * Ristretto
+ *
+ * Resources:
+ *   https://git.zx2c4.com/goldilocks/tree/_aux/ristretto/ristretto.sage
+ *   https://git.zx2c4.com/goldilocks/tree/src/per_curve/decaf.tmpl.c
+ *   https://git.zx2c4.com/goldilocks/tree/src/per_curve/elligator.tmpl.c
+ *   https://github.com/dalek-cryptography/curve25519-dalek/blob/9a62386/src/ristretto.rs
+ *   https://github.com/bwesterb/go-ristretto/blob/9343fcb/edwards25519/elligator.go
  */
 
 static void
@@ -7443,26 +7482,56 @@ qge_invert(const edwards_t *ec, fe_t r, const qge_t *p, unsigned int sign);
 
 static void
 ristretto_init(edwards_t *ec, const ristretto_def_t *def) {
-  /* [RIST] "The Ristretto Group". */
+  /* [RIST] "The Ristretto Group".
+   *
+   * Assumptions (h = 4):
+   *
+   *   - p = 3 (mod 4).
+   *   - a = 1 mod p.
+   *   - d is non-square in F(p).
+   *
+   * Assumptions (h = 8):
+   *
+   *   - p = 5 (mod 8).
+   *   - a = -1 mod p.
+   *   - d is non-square in F(p).
+   *
+   * No other parameters are acceptable.
+   */
   const prime_field_t *fe = &ec->fe;
   ristretto_t *rs = &ec->rs;
 
-  fe_import_be(fe, rs->qnr, def->qnr);
-  fe_import_be(fe, rs->qnrds, def->qnrds);
-  fe_import_be(fe, rs->adm1s, def->adm1s);
-  fe_import_be(fe, rs->adm1si, def->adm1si);
-  fe_import_be(fe, rs->dmaddpa, def->dmaddpa);
-  fe_import_be(fe, rs->amdsi, def->amdsi);
-  fe_import_be(fe, rs->dmasi, def->dmasi);
-  fe_import_be(fe, rs->mas, def->mas);
+  fe_import_be(fe, rs->qnr, def->qnr); /* non-square in F(p) */
+  fe_import_be(fe, rs->qnrds, def->qnrds); /* sqrt(qnr * d) */
+  fe_import_be(fe, rs->adm1s, def->adm1s); /* sqrt(a * d - 1) */
+  fe_import_be(fe, rs->adm1si, def->adm1si); /* 1 / sqrt(a * d - 1) */
+  fe_import_be(fe, rs->dmaddpa, def->dmaddpa); /* (d + a) / (d - a) */
+  fe_import_be(fe, rs->amdsi, def->amdsi); /* 1 / sqrt(a - d) (h=8 only) */
+  fe_import_be(fe, rs->dmasi, def->dmasi); /* 1 / sqrt(d - a) (h=8 only) */
 }
 
 static void
 ristretto_elligator(const edwards_t *ec, rge_t *r, const fe_t r0) {
-  /* [DECAF] Page 12, Section 6. */
-  /*         Page 19, Appendix C. */
-  /* [RIST] "Elligator in Extended Coordinates". */
-  /* [RIST255] Page 10, Section 3.2.4. */
+  /* [DECAF] Page 12, Section 6.
+   *         Page 19, Appendix C.
+   * [RIST] "Elligator in Extended Coordinates".
+   * [RIST255] Page 10, Section 3.2.4.
+   *
+   * Affine Formula:
+   *
+   *   w = (d * r - a) * (a * r - d)
+   *   s = +sqrt((a * (r + 1) * (d + a) * (d - a)) / w
+   *   t = (+a * (r - 1) * (a + d)^2) / w - 1
+   *
+   * Or:
+   *
+   *   w = (d * r - a) * (a * r - d)
+   *   s = -sqrt((a * r * (r + 1) * (d + a) * (d - a)) / w
+   *   t = (-a * r * (r - 1) * (a + d)) / w - 1
+   *
+   * Depending on which square root exists, preferring
+   * the second when r = 0 or both are square.
+   */
   const prime_field_t *fe = &ec->fe;
   const ristretto_t *rs = &ec->rs;
   fe_t R, ns, c, d, s, sp, nt, as2, w0, w1, w2, w3;
@@ -7545,6 +7614,25 @@ ristretto_elligator(const edwards_t *ec, rge_t *r, const fe_t r0) {
 static int
 ristretto_invert(const edwards_t *ec, fe_t u,
                  const rge_t *p, unsigned int hint) {
+  /* [RIST] "Isogenies".
+   *
+   * In order to invert the ristretto elligator, we
+   * must first first map the edwards point to an
+   * isogenous jacobi quartic curve.
+   *
+   * Isogeny: E(a,d) -> J(a^2,a-2d)
+   *
+   * This gives us a maximum of `h` possible points
+   * to work with in the jacobi quartic space.
+   *
+   * After a jacobi quartic point is chosen, the
+   * it is run through the inverse elligator2 map,
+   * and oddness is set according to the sign in
+   * the hint.
+   *
+   * Note that the upper half of all jacobi quartic
+   * points will be the negations of the lower half.
+   */
   const prime_field_t *fe = &ec->fe;
   unsigned int sign = (hint >> 4) & 15;
   unsigned int index = hint & 15;
@@ -7580,6 +7668,18 @@ ristretto_point_to_uniform(const edwards_t *ec,
                            unsigned char *bytes,
                            const rge_t *p,
                            unsigned int hint) {
+  /* Convert a ristretto group element to a field
+   * element by inverting the ristretto-flavored
+   * elligator.
+   *
+   * Hint Layout:
+   *
+   *   [00000000] 000[0] [0000]
+   *        |         |     |
+   *        |         |     +-- index for jacobi quartic point
+   *        |         +-- sign bit
+   *        +-- bits to OR with uniform bytes
+   */
   const prime_field_t *fe = &ec->fe;
   int ret = 1;
   fe_t u;
@@ -7598,7 +7698,8 @@ ristretto_point_to_uniform(const edwards_t *ec,
 static void
 ristretto_point_from_hash(const edwards_t *ec, rge_t *p,
                           const unsigned char *bytes) {
-  /* [H2EC] "Roadmap". */
+  /* [RIST] "Hash-to-Group with Elligator". */
+  /* [RIST255] Page 10, Section 3.2.4. */
   const prime_field_t *fe = &ec->fe;
   rge_t p1, p2;
 
@@ -7656,10 +7757,24 @@ ristretto_point_to_hash(const edwards_t *ec,
 
 static int
 rge_import(const edwards_t *ec, rge_t *r, const unsigned char *raw) {
-  /* [DECAF] Page 8, Section 4.3. */
-  /*         Page 16, Appendix A.2. */
-  /* [RIST] "Decoding to Extended Coordinates". */
-  /* [RIST255] Page 7, Section 3.2.1. */
+  /* [DECAF] Page 8, Section 4.3.
+   *         Page 16, Appendix A.2.
+   * [RIST] "Decoding to Extended Coordinates".
+   * [RIST255] Page 7, Section 3.2.1.
+   *
+   * Assumptions:
+   *
+   *   - Let s be a canonically encoded field element.
+   *   - s >= 0.
+   *   - (4 * s^2 / (a * d * (1 + w)^2 - (1 - w)^2)) is square in F(p).
+   *   - if h = 8 then t >= 0 and y != 0.
+   *
+   * Affine Formula:
+   *
+   *   y = (1 + a * s^2) / (1 - a * s^2)
+   *   w = a * s^2
+   *   x = +sqrt(4 * s^2 / (a * d * (1 + w)^2 - (1 - w)^2))
+   */
   const prime_field_t *fe = &ec->fe;
   fe_t s, as2, u1, u2, u2u2, v, i, dx, dy;
   int ret = 1;
@@ -7667,7 +7782,7 @@ rge_import(const edwards_t *ec, rge_t *r, const unsigned char *raw) {
   /* Check for canonical encoding. */
   ret &= fe_import(fe, s, raw);
 
-  /* S < 0 */
+  /* Reject if S < 0. */
   ret &= fe_is_odd(fe, s) ^ 1;
 
   /* AS2 = a * S^2 */
@@ -7692,6 +7807,7 @@ rge_import(const edwards_t *ec, rge_t *r, const unsigned char *raw) {
   /* I = 1 / sqrt(V * U2^2) */
   fe_mul(fe, i, v, u2u2);
 
+  /* Reject if V * U2^2 is not square. */
   ret &= fe_rsqrt(fe, i, fe->one, i);
 
   /* DX = I * U2 */
@@ -7717,12 +7833,12 @@ rge_import(const edwards_t *ec, rge_t *r, const unsigned char *raw) {
   /* T = X * Y */
   fe_mul(fe, r->t, r->x, r->y);
 
-  /* if H = 8 */
+  /* h = 8 */
   if (ec->h == 8) {
-    /* T < 0 */
+    /* Reject if T < 0. */
     ret &= fe_is_odd(fe, r->t) ^ 1;
 
-    /* Y = 0 */
+    /* Reject if Y = 0. */
     ret &= fe_is_zero(fe, r->y) ^ 1;
   }
 
@@ -7732,122 +7848,99 @@ rge_import(const edwards_t *ec, rge_t *r, const unsigned char *raw) {
 
 static void
 rge_export(const edwards_t *ec, unsigned char *raw, const rge_t *p) {
-  /* [DECAF] Page 8, Section 4.2. */
-  /*         Page 15, Appendix A.1. */
-  /* [RIST] "Encoding from Extended Coordinates". */
-  /* [RIST255] Page 8, Section 3.2.2. */
+  /* [DECAF] Page 8, Section 4.2.
+   *         Page 15, Appendix A.1.
+   * [RIST] "Encoding from Extended Coordinates".
+   * [RIST255] Page 8, Section 3.2.2.
+   *
+   * Affine Formula:
+   *
+   *   If h = 8 and x * y < 0 or x = 0 then (x, y) = (x, y) + Q
+   *   If x < 0 or y = -1 then (x, y) = (-x, -y)
+   *   s = +sqrt(-a * (1 - y) / (1 + y))
+   *
+   *   Where Q is a 4-torsion point.
+   *
+   * Note that the U1 calculation stated in the
+   * formula is actually:
+   *
+   *   U1 = (Z0 + Y0) * (Z0 - Y0)
+   *
+   * The calculation of S stated in the formula is:
+   *
+   *   S = sqrt(-a) * (Z0 - Y) * D
+   *
+   * We move the `sqrt(-a)` in S to U1 with the
+   * following modifications:
+   *
+   *   U1 = -a * (Z0 + Y0) * (Z0 - Y0)
+   *   S = (Z0 - Y) * D
+   */
   const prime_field_t *fe = &ec->fe;
   const ristretto_t *rs = &ec->rs;
-  fe_t s;
+  fe_t u1, u2, i, d1, d2, zi, x, y, d, s;
+  int rotate;
 
-  /* H = 4 */
-  if (ec->h == 4) {
-    fe_t u, i, zi, y;
+  /* U1 = -a * (Z0 + Y0) * (Z0 - Y0) */
+  fe_add_nc(fe, d1, p->y, p->z);
+  fe_sub_nc(fe, d2, p->y, p->z);
+  fe_mul(fe, u1, d1, d2);
+  edwards_mul_a(ec, u1, u1);
 
-    /* U = -(Z0 + Y0) * (Z0 - Y0) */
-    fe_add_nc(fe, y, p->z, p->y);
-    fe_sub_nc(fe, s, p->z, p->y);
-    fe_mul(fe, u, y, s);
-    fe_neg(fe, u, u);
+  /* U2 = X0 * Y0 */
+  fe_mul(fe, u2, p->x, p->y);
 
-    /* I = 1 / sqrt(U * Y0^2) */
-    fe_sqr(fe, i, p->y);
-    fe_mul(fe, i, i, u);
-    fe_rsqrt(fe, i, fe->one, i);
+  /* I = 1 / sqrt(U1 * U2^2) */
+  fe_sqr(fe, i, u2);
+  fe_mul(fe, i, i, u1);
+  fe_rsqrt(fe, i, fe->one, i);
 
-    /* Zinv = I^2 * U * Y0 * T0 */
-    fe_sqr(fe, zi, i);
-    fe_mul(fe, zi, zi, u);
-    fe_mul(fe, zi, zi, p->y);
-    fe_mul(fe, zi, zi, p->t);
+  /* D1 = U1 * I */
+  fe_mul(fe, d1, u1, i);
 
-    /* Y = Y0 */
-    fe_set(fe, y, p->y);
+  /* D2 = U2 * I */
+  fe_mul(fe, d2, u2, i);
 
-    /* Y = -Y if Zinv < 0 */
-    fe_neg_cond(fe, y, y, fe_is_odd(fe, zi));
+  /* Zinv = D1 * D2 * T0 */
+  fe_mul(fe, zi, d1, d2);
+  fe_mul(fe, zi, zi, p->t);
 
-    /* S = I * Y * (Z0 - Y) */
-    fe_sub_nc(fe, s, p->z, y);
-    fe_mul(fe, s, s, y);
-    fe_mul(fe, s, s, i);
-  } else {
-    fe_t u1, u2, i, d1, d2, zi, x, y, d;
-    int rotate;
+  /* X = X0 */
+  fe_set(fe, x, p->x);
 
-    /* U1 = (Z0 + Y0) * (Z0 - Y0) */
-    fe_add_nc(fe, d1, p->z, p->y);
-    fe_sub_nc(fe, d2, p->z, p->y);
-    fe_mul(fe, u1, d1, d2);
+  /* Y = Y0 */
+  fe_set(fe, y, p->y);
 
-    /* U2 = X0 * Y0 */
-    fe_mul(fe, u2, p->x, p->y);
+  /* D = D2 */
+  fe_set(fe, d, d2);
 
-    /* I = 1 / sqrt(U1 * U2^2) */
-    fe_sqr(fe, i, u2);
-    fe_mul(fe, i, i, u1);
-    fe_rsqrt(fe, i, fe->one, i);
-
-    /* D1 = U1 * I */
-    fe_mul(fe, d1, u1, i);
-
-    /* D2 = U2 * I */
-    fe_mul(fe, d2, u2, i);
-
-    /* Zinv = D1 * D2 * T0 */
-    fe_mul(fe, zi, d1, d2);
-    fe_mul(fe, zi, zi, p->t);
-
-    /* X = X0 */
-    fe_set(fe, x, p->x);
-
-    /* Y = Y0 */
-    fe_set(fe, y, p->y);
-
-    /* D = D2 */
-    fe_set(fe, d, d2);
-
+  /* h = 8 */
+  if (ec->h == 8) {
     /* rotate = T0 * Zinv < 0 */
     fe_mul(fe, s, p->t, zi);
 
     rotate = fe_is_odd(fe, s);
 
-    /* a = -1 */
-    if (ec->mone_a) {
-      /* X = Y0 * sqrt(a) if rotate = 1 */
-      fe_mul(fe, s, p->y, rs->qnr);
-      fe_select(fe, x, x, s, rotate);
+    /* X = Y0 * sqrt(a) if rotate */
+    fe_mul(fe, s, p->y, rs->qnr);
+    fe_select(fe, x, x, s, rotate);
 
-      /* Y = X0 * sqrt(a) if rotate = 1 */
-      fe_mul(fe, s, p->x, rs->qnr);
-      fe_select(fe, y, y, s, rotate);
+    /* Y = X0 * sqrt(a) if rotate */
+    fe_mul(fe, s, p->x, rs->qnr);
+    fe_select(fe, y, y, s, rotate);
 
-      /* D = D1 / sqrt(a - d) if rotate = 1 */
-      fe_mul(fe, s, d1, rs->amdsi);
-      fe_select(fe, d, d, s, rotate);
-    } else {
-      /* X = -Y0 if rotate = 1 */
-      fe_neg(fe, s, p->y);
-      fe_select(fe, x, x, s, rotate);
-
-      /* Y = X0 if rotate = 1 */
-      fe_select(fe, y, y, p->x, rotate);
-
-      /* D = (D1 / sqrt(a - d)) * qnr if rotate = 1 */
-      fe_mul(fe, s, d1, rs->amdsi);
-      fe_mul(fe, s, s, rs->qnr);
-      fe_select(fe, d, d, s, rotate);
-    }
-
-    /* Y = -Y if X * Zinv < 0 */
-    fe_mul(fe, s, x, zi);
-    fe_neg_cond(fe, y, y, fe_is_odd(fe, s));
-
-    /* S = sqrt(-a) * (Z0 - Y) * D */
-    fe_sub_nc(fe, s, p->z, y);
-    fe_mul(fe, s, s, d);
-    fe_mul(fe, s, s, rs->mas);
+    /* D = D1 / sqrt(a - d) if rotate */
+    fe_mul(fe, s, d1, rs->amdsi);
+    fe_select(fe, d, d, s, rotate);
   }
+
+  /* Y = -Y if X * Zinv < 0 */
+  fe_mul(fe, s, x, zi);
+  fe_neg_cond(fe, y, y, fe_is_odd(fe, s));
+
+  /* S = (Z0 - Y) * D */
+  fe_sub_nc(fe, s, p->z, y);
+  fe_mul(fe, s, s, d);
 
   /* S = -S if S < 0 */
   fe_set_odd(fe, s, s, 0);
@@ -7856,11 +7949,199 @@ rge_export(const edwards_t *ec, unsigned char *raw, const rge_t *p) {
   fe_export(fe, raw, s);
 }
 
+TORSION_UNUSED static void
+rge_export_batch(const edwards_t *ec, unsigned char **out,
+                 const rge_t *points, size_t len) {
+  /* [DECAF] Page 9, Section 4.7.
+   * [RIST] "Batched Double-and-Encode".
+   *
+   * Affine Formula:
+   *
+   *   e = 2 * x * y
+   *   f = 1 + ((x * y)^2 * d)
+   *   g = y^2 - a * x^2
+   *   h = 1 - ((x * y)^2 * d)
+   *
+   *   if h = 8 and e * g / (f * h) < 0
+   *     e = g, g = -e
+   *     h = f * sqrt(a)
+   *     magic = sqrt(a)
+   *   else
+   *     magic = 1 / sqrt(a - d) if h = 8
+   *           = 1 / sqrt(a * d - 1) otherwise
+   *
+   *   g = -g if h * e / (f * h) < 0
+   *   s = +((h - g) * magic * g / (e * g))
+   *
+   * The trick here is that the inverses can be
+   * batched. Every product of (e * g * f * h)
+   * can be inverted with montgomery's trick.
+   * The necessary inverses can then be retrieved
+   * from each value with:
+   *
+   *   (e * g) / (e * g * f * h) = 1 / (f * h)
+   *   (f * h) / (e * g * f * h) = 1 / (e * g)
+   */
+  const prime_field_t *fe = &ec->fe;
+  const ristretto_t *rs = &ec->rs;
+  fe_t prod[16];
+  fe_t invs[16];
+  fe_t acc, tmp;
+  size_t i;
+
+  struct rge_state_s {
+    fe_t e;
+    fe_t f;
+    fe_t g;
+    fe_t h;
+    fe_t eg;
+    fe_t fh;
+  } states[16];
+
+  ASSERT(len <= 16);
+
+  /* Set up state. */
+  for (i = 0; i < len; i++) {
+    struct rge_state_s *st = &states[i];
+    const rge_t *p = &points[i];
+    fe_t xx, yy, zz, dtt;
+
+    /* XX = X0^2 */
+    fe_sqr(fe, xx, p->x);
+
+    /* YY = Y0^2 */
+    fe_sqr(fe, yy, p->y);
+
+    /* ZZ = Z0^2 */
+    fe_sqr(fe, zz, p->z);
+
+    /* DTT = T0^2 * d */
+    fe_sqr(fe, dtt, p->t);
+    fe_mul(fe, dtt, dtt, ec->d);
+
+    /* E = 2 * X0 * Y0 */
+    fe_add_nc(fe, st->e, p->y, p->y);
+    fe_mul(fe, st->e, st->e, p->x);
+
+    /* F = ZZ + DTT */
+    fe_add_nc(fe, st->f, zz, dtt);
+
+    /* G = YY - a * XX */
+    edwards_mul_a(ec, st->g, xx);
+    fe_sub(fe, st->g, yy, st->g);
+
+    /* H = ZZ - DTT */
+    fe_sub(fe, st->h, zz, dtt);
+
+    /* EG = E * G */
+    fe_mul(fe, st->eg, st->e, st->g);
+
+    /* FH = F * H */
+    fe_mul(fe, st->fh, st->f, st->h);
+
+    /* EFGH = EG * FH */
+    fe_mul(fe, prod[i], st->eg, st->fh);
+  }
+
+  /* Montgomery's trick. */
+  fe_set(fe, acc, fe->one);
+
+  for (i = 0; i < len; i++) {
+    int zero = fe_is_zero(fe, prod[i]);
+
+    fe_select(fe, invs[i], acc, fe->zero, zero);
+    fe_select(fe, tmp, prod[i], fe->one, zero);
+    fe_mul(fe, acc, acc, tmp);
+  }
+
+  ASSERT(fe_invert(fe, acc, acc));
+
+  for (i = len; i-- > 0;) {
+    int zero = fe_is_zero(fe, prod[i]);
+
+    fe_mul(fe, invs[i], invs[i], acc);
+    fe_select(fe, tmp, prod[i], fe->one, zero);
+    fe_mul(fe, acc, acc, tmp);
+  }
+
+  /* Output encoded points. */
+  for (i = 0; i < len; i++) {
+    struct rge_state_s *st = &states[i];
+    fe_t zinv, tinv, magic, me, fqnr, s;
+    int rotate;
+
+    /* Zinv = EG / EFGH */
+    fe_mul(fe, zinv, st->eg, invs[i]);
+
+    /* Tinv = FH / EFGH */
+    fe_mul(fe, tinv, st->fh, invs[i]);
+
+    /* h = 8 */
+    if (ec->h == 8) {
+      /* magic = 1 / sqrt(a - d) */
+      fe_set(fe, magic, rs->amdsi);
+
+      /* rotate = EG * Zinv < 0 */
+      fe_mul(fe, s, st->eg, zinv);
+
+      rotate = fe_is_odd(fe, s);
+
+      /* ME = -E */
+      fe_neg(fe, me, st->e);
+
+      /* FQNR = F * sqrt(a) */
+      fe_mul(fe, fqnr, st->f, rs->qnr);
+
+      /* E = G if rotate */
+      fe_select(fe, st->e, st->e, st->g, rotate);
+
+      /* G = ME if rotate */
+      fe_select(fe, st->g, st->g, me, rotate);
+
+      /* H = FQNR if rotate */
+      fe_select(fe, st->h, st->h, fqnr, rotate);
+
+      /* magic = sqrt(a) if rotate */
+      fe_select(fe, magic, magic, rs->qnr, rotate);
+    } else {
+      /* magic = 1 / sqrt(a * d - 1) */
+      fe_set(fe, magic, rs->adm1si);
+    }
+
+    /* G = -G if H * E * Zinv < 0 */
+    fe_mul(fe, s, st->h, st->e);
+    fe_mul(fe, s, s, zinv);
+    fe_neg_cond(fe, st->g, st->g, fe_is_odd(fe, s));
+
+    /* S = (H - G) * magic * G * Tinv */
+    fe_sub(fe, s, st->h, st->g);
+    fe_mul(fe, s, s, magic);
+    fe_mul(fe, s, s, st->g);
+    fe_mul(fe, s, s, tinv);
+
+    /* S = -S if S < 0 */
+    fe_set_odd(fe, s, s, 0);
+
+    /* Output the byte encoding of S. */
+    fe_export(fe, out[i], s);
+  }
+}
+
 TORSION_UNUSED static int
 rge_equal(const edwards_t *ec, const rge_t *a, const rge_t *b) {
-  /* [DECAF] Page 9, Section 4.5. */
-  /* [RIST] "Testing Equality". */
-  /* [RIST255] Page 9, Section 3.2.3. */
+  /* [DECAF] Page 9, Section 4.5.
+   * [RIST] "Testing Equality".
+   * [RIST255] Page 9, Section 3.2.3.
+   *
+   * Affine Formula (h = 4):
+   *
+   *   x1 * y2 = y1 * x2
+   *
+   * Affine Formula (h = 8):
+   *
+   *   x1 * y2 = y1 * x2 or
+   *   y1 * y2 = -a * x1 * x2
+   */
   const prime_field_t *fe = &ec->fe;
   fe_t lhs, rhs;
   int ret = 0;
@@ -7871,13 +8152,11 @@ rge_equal(const edwards_t *ec, const rge_t *a, const rge_t *b) {
 
   ret |= fe_equal(fe, lhs, rhs);
 
-  /* H = 8 */
+  /* h = 8 */
   if (ec->h == 8) {
     /* Y1 * Y2 == -a * X1 * X2 */
     fe_mul(fe, lhs, a->y, b->y);
     fe_mul(fe, rhs, a->x, b->x);
-    edwards_mul_a(ec, rhs, rhs);
-    fe_neg(fe, rhs, rhs);
 
     ret |= fe_equal(fe, lhs, rhs);
   }
@@ -7887,13 +8166,23 @@ rge_equal(const edwards_t *ec, const rge_t *a, const rge_t *b) {
 
 static int
 rge_is_zero(const edwards_t *ec, const rge_t *p) {
+  /* See above for references.
+   *
+   * Affine Formula (h = 4):
+   *
+   *   x = 0
+   *
+   * Affine Formula (h = 8):
+   *
+   *   x = 0 or y = 0
+   */
   const prime_field_t *fe = &ec->fe;
   int ret = 0;
 
   /* X1 == 0 */
   ret |= fe_is_zero(fe, p->x);
 
-  /* H = 8 */
+  /* h = 8 */
   if (ec->h == 8) {
     /* Y1 == 0 */
     ret |= fe_is_zero(fe, p->y);
@@ -7908,7 +8197,35 @@ rge_is_zero(const edwards_t *ec, const rge_t *p) {
 
 static void
 qge_import_rge(const edwards_t *ec, qge_t r[4], const rge_t *p) {
-  /* https://github.com/bwesterb/go-ristretto/blob/9343fcb/edwards25519/elligator.go#L57 */
+  /* [DECAF] Page 7, Section 4.1.
+   * [RIST] "Isogenies".
+   *
+   * Affine Formula:
+   *
+   *   g = sqrt(y^4 * x^2 * (1 - y^2))
+   *
+   *   d1 = y^2 / g
+   *   s1 = d1 * (1 - y) * x
+   *   t1 = 2 * d1 * (1 - y) / sqrt(a * d - 1)
+   *   s2 = -d1 * (1 + y) * x
+   *   t2 = 2 * d1 * (1 + y) / sqrt(a * d - 1)
+   *
+   *   if h = 8
+   *     d2 = -(1 - y^2) / (g * sqrt(d - a))
+   *     s3 = d2 * (sqrt(a) - x) * y
+   *     t3 = 2 * d2 * (sqrt(a) - x) * sqrt(a) / sqrt(a * d - 1)
+   *     s4 = -d2 * (sqrt(a) + x) * y
+   *     t4 = 2 * d2 * (sqrt(a) + x) * sqrt(a) / sqrt(a * d - 1)
+   *
+   * Undefined for x = 0 or y = 0.
+   *
+   * The exceptional cases must be handled as:
+   *
+   *   (s1, t1) = (0, 1)
+   *   (s2, t2) = (0, 1)
+   *   (s3, t3) = (1, 2 * sqrt(a) / sqrt(a * d - 1))
+   *   (s4, t4) = (-1, 2 * sqrt(a) / sqrt(a * d - 1))
+   */
   const prime_field_t *fe = &ec->fe;
   const ristretto_t *rs = &ec->rs;
   int xyz = fe_is_zero(fe, p->x) | fe_is_zero(fe, p->y);
@@ -7980,56 +8297,53 @@ qge_import_rge(const edwards_t *ec, qge_t r[4], const rge_t *p) {
   fe_select(fe, s1, s1, fe->zero, xyz);
   fe_select(fe, t1, t1, fe->one, xyz);
 
-  /* H = 4 */
-  if (ec->h == 4) {
-    /* Return ((S0, T0), ...). */
-    return;
+  /* h = 8 */
+  if (ec->h == 8) {
+    /* D1 = -Z2MY2 * G / sqrt(d - a) */
+    fe_mul(fe, d1, rs->dmasi, z2my2);
+    fe_mul(fe, d1, d1, g);
+    fe_neg(fe, d1, d1);
+
+    /* IZ = sqrt(a) * Z0 */
+    fe_mul(fe, iz, rs->qnr, p->z);
+
+    /* SY = D1 * (IZ - X0) */
+    fe_sub_nc(fe, t2, iz, p->x);
+    fe_mul(fe, sy, d1, t2);
+
+    /* SPYP = D1 * (IZ + X0) */
+    fe_add_nc(fe, t2, iz, p->x);
+    fe_mul(fe, spyp, d1, t2);
+
+    /* S2 = SY * Y0 */
+    fe_mul(fe, s2, sy, p->y);
+
+    /* S3 = -SPYP * Y0 */
+    fe_mul(fe, s3, spyp, p->y);
+    fe_neg(fe, s3, s3);
+
+    /* H1 = 2 * IZ / sqrt(a * d - 1) */
+    fe_mul(fe, h1, rs->adm1si, iz);
+    fe_add_nc(fe, h1, h1, h1);
+
+    /* T2 = H1 * SY */
+    fe_mul(fe, t2, h1, sy);
+
+    /* T3 = H1 * SPYP */
+    fe_mul(fe, t3, h1, spyp);
+
+    /* H2 = 2 * sqrt(a) / sqrt(a * d - 1) */
+    fe_mul(fe, h2, rs->qnr, rs->adm1si);
+    fe_add(fe, h2, h2, h2);
+
+    /* S2 = 1, T2 = H2 if X0 = 0 or Y0 = 0 */
+    fe_select(fe, s2, s2, fe->one, xyz);
+    fe_select(fe, t2, t2, h2, xyz);
+
+    /* S3 = -1, T3 = H2 if X0 = 0 or Y0 = 0 */
+    fe_select(fe, s3, s3, fe->mone, xyz);
+    fe_select(fe, t3, t3, h2, xyz);
   }
-
-  /* D1 = -Z2MY2 * G / sqrt(d - a) */
-  fe_mul(fe, d1, rs->dmasi, z2my2);
-  fe_mul(fe, d1, d1, g);
-  fe_neg(fe, d1, d1);
-
-  /* IZ = qnr * Z0 */
-  fe_mul(fe, iz, rs->qnr, p->z);
-
-  /* SY = D1 * (IZ - X0) */
-  fe_sub_nc(fe, t2, iz, p->x);
-  fe_mul(fe, sy, d1, t2);
-
-  /* SPYP = D1 * (IZ + X0) */
-  fe_add_nc(fe, t2, iz, p->x);
-  fe_mul(fe, spyp, d1, t2);
-
-  /* S2 = SY * Y0 */
-  fe_mul(fe, s2, sy, p->y);
-
-  /* S3 = -SPYP * Y0 */
-  fe_mul(fe, s3, spyp, p->y);
-  fe_neg(fe, s3, s3);
-
-  /* H1 = 2 * IZ / sqrt(a * d - 1) */
-  fe_mul(fe, h1, rs->adm1si, iz);
-  fe_add_nc(fe, h1, h1, h1);
-
-  /* T2 = H1 * SY */
-  fe_mul(fe, t2, h1, sy);
-
-  /* T3 = H1 * SPYP */
-  fe_mul(fe, t3, h1, spyp);
-
-  /* H2 = 2 * qnr / sqrt(a * d - 1) */
-  fe_mul(fe, h2, rs->qnr, rs->adm1si);
-  fe_add(fe, h2, h2, h2);
-
-  /* S2 = 1, T2 = H2 if X0 = 0 or Y0 = 0 */
-  fe_select(fe, s2, s2, fe->one, xyz);
-  fe_select(fe, t2, t2, h2, xyz);
-
-  /* S3 = -1, T3 = H2 if X0 = 0 or Y0 = 0 */
-  fe_select(fe, s3, s3, fe->mone, xyz);
-  fe_select(fe, t3, t3, h2, xyz);
 
   /* Return ((S0, T0), ...). */
 #undef s0
@@ -8044,15 +8358,33 @@ qge_import_rge(const edwards_t *ec, qge_t r[4], const rge_t *p) {
 
 static int
 qge_invert(const edwards_t *ec, fe_t r, const qge_t *p, unsigned int hint) {
-  /* https://github.com/bwesterb/go-ristretto/blob/9343fcb/edwards25519/elligator.go#L151 */
+  /* [DECAF] Page 13, Section 6.
+   *
+   * Assumptions:
+   *
+   *   - qnr * (s^4 - w^2) is square in F(p).
+   *   - s != 0, t != +-1.
+   *
+   * Affine Formula:
+   *
+   *   w = (t + 1) * (d - a) / (d + a)
+   *   r = (w + s^2) / sqrt(qnr * (s^4 - w^2))
+   *
+   * Undefined for s = 0 and t = +-1.
+   *
+   * The exceptional cases must be handled as:
+   *
+   *   (0, 1) -> sqrt(qnr * d)
+   *   (0, -1) -> 0
+   */
   const prime_field_t *fe = &ec->fe;
   const ristretto_t *rs = &ec->rs;
   int s_zero = fe_is_zero(fe, p->s);
   int t_one = fe_equal(fe, p->t, fe->one);
   fe_t a, a2, s2, s4, y;
-  int sqr;
+  int ret = s_zero;
 
-  /* A = (T + 1) * ((d - a) / (d + a)) */
+  /* A = (T + 1) * (d - a) / (d + a) */
   fe_add_nc(fe, a, p->t, fe->one);
   fe_mul(fe, a, a, rs->dmaddpa);
 
@@ -8068,7 +8400,9 @@ qge_invert(const edwards_t *ec, fe_t r, const qge_t *p, unsigned int hint) {
   /* Y = 1 / sqrt(qnr * (S4 - A2)) */
   fe_sub_nc(fe, y, s4, a2);
   fe_mul(fe, y, y, rs->qnr);
-  sqr = fe_rsqrt(fe, y, fe->one, y);
+
+  /* Fail if (qnr * (S4 - A2)) is not square and S != 0. */
+  ret |= fe_rsqrt(fe, y, fe->one, y);
 
   /* S2 = -S2 if S < 0 */
   fe_neg_cond(fe, s2, s2, fe_is_odd(fe, p->s));
@@ -8086,8 +8420,7 @@ qge_invert(const edwards_t *ec, fe_t r, const qge_t *p, unsigned int hint) {
   /* R = -R if R < 0 (or random) */
   fe_set_odd(fe, r, r, hint & 1);
 
-  /* Fail if (qnr * (S4 - A2)) is not square. */
-  return sqr | s_zero;
+  return ret;
 }
 
 /*
@@ -8833,12 +9166,6 @@ static const ristretto_def_t ristretto_ed25519 = {
     0x1e, 0xf0, 0x2c, 0x42, 0x94, 0x05, 0xac, 0x88,
     0x4e, 0x52, 0xf7, 0x1c, 0x6b, 0xda, 0xb6, 0x4e,
     0x0b, 0x2e, 0xdb, 0x88, 0x31, 0xbb, 0xdd, 0xec
-  },
-  {
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01
   }
 };
 
@@ -8894,7 +9221,6 @@ static const ristretto_def_t ristretto_ed448 = {
     0x85, 0x1c, 0x09, 0x6e, 0xd6, 0x56, 0x78, 0x03
   },
   {0},
-  {0},
   {0}
 };
 
@@ -8929,7 +9255,6 @@ static const ristretto_def_t ristretto_ed1174 = {
     0x3b, 0x24, 0xe2, 0x19, 0xc0, 0xb5, 0x94, 0x30,
     0x03, 0x7d, 0xed, 0x3b, 0x24, 0xe2, 0x19, 0xbd
   },
-  {0},
   {0},
   {0}
 };
