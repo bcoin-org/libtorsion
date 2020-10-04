@@ -7481,10 +7481,10 @@ ristretto_elligator(const edwards_t *ec, rge_t *r, const fe_t r0) {
   /* S' = -S' if S' >= 0 */
   fe_set_odd(fe, sp, sp, 1);
 
-  /* S = S' if S^2 != NS / D */
+  /* S = S' if NS / D is not square */
   fe_select(fe, s, s, sp, sqr ^ 1);
 
-  /* C = R if S^2 != NS / D */
+  /* C = R if NS / D is not square */
   fe_select(fe, c, c, R, sqr ^ 1);
 
   /* NT = C * (R - 1) * (d + a)^2 - D */
@@ -7861,6 +7861,7 @@ rge_equal(const edwards_t *ec, const rge_t *a, const rge_t *b) {
 
 static int
 rge_is_zero(const edwards_t *ec, const rge_t *p) {
+  /* https://ristretto.group/formulas/equality.html */
   const prime_field_t *fe = &ec->fe;
   int ret = 0;
 
@@ -7885,9 +7886,9 @@ qge_import_rge(const edwards_t *ec, qge_t r[4], const rge_t *p) {
   /* https://github.com/bwesterb/go-ristretto/blob/9343fcb/edwards25519/elligator.go#L57 */
   const prime_field_t *fe = &ec->fe;
   const ristretto_t *rs = &ec->rs;
+  int xyz = fe_is_zero(fe, p->x) | fe_is_zero(fe, p->y);
   fe_t x2, y2, y4, z2, z2my2, g, d0, sx, spxp, h0;
   fe_t d1, iz, sy, spyp, h1, h2;
-  int xyz;
 
 #define s0 (r[0].s)
 #define s1 (r[1].s)
@@ -7897,9 +7898,6 @@ qge_import_rge(const edwards_t *ec, qge_t r[4], const rge_t *p) {
 #define t1 (r[1].t)
 #define t2 (r[2].t)
 #define t3 (r[3].t)
-
-  /* XYZ = X0 = 0 or Y0 = 0 */
-  xyz = fe_is_zero(fe, p->x) | fe_is_zero(fe, p->y);
 
   /* X2 = X0^2 */
   fe_sqr(fe, x2, p->x);
@@ -7949,11 +7947,11 @@ qge_import_rge(const edwards_t *ec, qge_t r[4], const rge_t *p) {
   /* T1 = H0 * SPXP */
   fe_mul(fe, t1, h0, spxp);
 
-  /* S0 = 0, T0 = 1 if XYZ = 1 */
+  /* S0 = 0, T0 = 1 if X0 = 0 or Y0 = 0 */
   fe_select(fe, s0, s0, fe->zero, xyz);
   fe_select(fe, t0, t0, fe->one, xyz);
 
-  /* S1 = 0, T1 = 1 if XYZ = 1 */
+  /* S1 = 0, T1 = 1 if X0 = 0 or Y0 = 0 */
   fe_select(fe, s1, s1, fe->zero, xyz);
   fe_select(fe, t1, t1, fe->one, xyz);
 
@@ -8000,11 +7998,11 @@ qge_import_rge(const edwards_t *ec, qge_t r[4], const rge_t *p) {
   fe_mul(fe, h2, rs->qnr, rs->adm1si);
   fe_add(fe, h2, h2, h2);
 
-  /* S2 = 1, T2 = H2 if XYZ = 1 */
+  /* S2 = 1, T2 = H2 if X0 = 0 or Y0 = 0 */
   fe_select(fe, s2, s2, fe->one, xyz);
   fe_select(fe, t2, t2, h2, xyz);
 
-  /* S3 = -1, T3 = H2 if XYZ = 1 */
+  /* S3 = -1, T3 = H2 if X0 = 0 or Y0 = 0 */
   fe_select(fe, s3, s3, fe->mone, xyz);
   fe_select(fe, t3, t3, h2, xyz);
 
@@ -8024,14 +8022,10 @@ qge_invert(const edwards_t *ec, fe_t r, const qge_t *p, unsigned int hint) {
   /* https://github.com/bwesterb/go-ristretto/blob/9343fcb/edwards25519/elligator.go#L151 */
   const prime_field_t *fe = &ec->fe;
   const ristretto_t *rs = &ec->rs;
+  int s_zero = fe_is_zero(fe, p->s);
+  int t_one = fe_equal(fe, p->t, fe->one);
   fe_t a, a2, s2, s4, y;
-  int sz, to, sqr;
-
-  /* SZ = S = 0 */
-  sz = fe_is_zero(fe, p->s);
-
-  /* TO = T = 1 */
-  to = sz & fe_equal(fe, p->t, fe->one);
+  int sqr;
 
   /* A = (T + 1) * ((d - a) / (d + a)) */
   fe_add_nc(fe, a, p->t, fe->one);
@@ -8047,10 +8041,8 @@ qge_invert(const edwards_t *ec, fe_t r, const qge_t *p, unsigned int hint) {
   fe_sqr(fe, s4, s2);
 
   /* Y = 1 / sqrt(qnr * (S4 - A2)) */
-  /* SQR = Y^2 = 1 / (qnr * (S4 - A2)) */
   fe_sub_nc(fe, y, s4, a2);
   fe_mul(fe, y, y, rs->qnr);
-
   sqr = fe_rsqrt(fe, y, fe->one, y);
 
   /* S2 = -S2 if S < 0 */
@@ -8060,17 +8052,17 @@ qge_invert(const edwards_t *ec, fe_t r, const qge_t *p, unsigned int hint) {
   fe_add_nc(fe, r, a, s2);
   fe_mul(fe, r, r, y);
 
-  /* R = -R if R < 0 */
+  /* R = 0 if S = 0 */
+  fe_select(fe, r, r, fe->zero, s_zero);
+
+  /* R = sqrt(qnr * d) if S = 0, T = 1 */
+  fe_select(fe, r, r, rs->qnrds, s_zero & t_one);
+
+  /* R = -R if R < 0 (or random) */
   fe_set_odd(fe, r, r, hint & 1);
 
-  /* R = 0 if SZ = 1 */
-  fe_select(fe, r, r, fe->zero, sz);
-
-  /* R = sqrt(qnr * d) if TO = 1 */
-  fe_select(fe, r, r, rs->qnrds, to);
-
-  /* Return (SQR | SZ, R). */
-  return sqr | sz;
+  /* Fail if (qnr * (S4 - A2)) is not square. */
+  return sqr | s_zero;
 }
 
 /*
