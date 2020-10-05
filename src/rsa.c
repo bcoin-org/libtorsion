@@ -222,23 +222,29 @@ typedef struct rsa_priv_s {
  * Helpers
  */
 
+TORSION_BARRIER(uint32_t, u32)
+
+#define B u32_barrier
+
 static TORSION_INLINE uint32_t
 safe_equal(uint32_t x, uint32_t y) {
-  return ((x ^ y) - 1) >> 31;
+  return ((B(x) ^ B(y)) - 1) >> 31;
 }
 
 static TORSION_INLINE uint32_t
 safe_select(uint32_t x, uint32_t y, uint32_t v) {
-  return (x & (v - 1)) | (y & ~(v - 1));
+  return (B(x) & (B(v) - 1)) | (B(y) & ~(B(v) - 1));
 }
 
 static TORSION_INLINE uint32_t
 safe_lte(uint32_t x, uint32_t y) {
-  return (x - y - 1) >> 31;
+  return (B(x) - B(y) - 1) >> 31;
 }
 
+#undef B
+
 static TORSION_INLINE uint32_t
-safe_cmp(const unsigned char *x, const unsigned char *y, size_t len) {
+safe_memequal(const unsigned char *x, const unsigned char *y, size_t len) {
   uint32_t v = 0;
   size_t i;
 
@@ -1416,7 +1422,7 @@ pss_verify(int type,
   hash_update(&hash, salt, slen);
   hash_final(&hash, h0, hlen);
 
-  return safe_cmp(h0, h, hlen);
+  return safe_memequal(h0, h, hlen);
 }
 
 /*
@@ -1782,8 +1788,8 @@ rsa_verify(int type,
     ok &= safe_equal(em[i], 0xff);
 
   ok &= safe_equal(em[klen - tlen - 1], 0x00);
-  ok &= safe_cmp(em + klen - tlen, prefix, prefix_len);
-  ok &= safe_cmp(em + klen - hlen, msg, msg_len);
+  ok &= safe_memequal(em + klen - tlen, prefix, prefix_len);
+  ok &= safe_memequal(em + klen - hlen, msg, msg_len);
 
   ret = (ok == 1);
 fail:
@@ -2221,7 +2227,7 @@ rsa_decrypt_oaep(unsigned char *out,
   mgf1xor(type, db, dlen, seed, slen);
 
   lhash = &db[0];
-  lvalid = safe_cmp(lhash, expect, hlen);
+  lvalid = safe_memequal(lhash, expect, hlen);
   rest = &db[hlen];
   rlen = dlen - hlen;
 

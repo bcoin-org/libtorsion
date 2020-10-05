@@ -172,6 +172,7 @@ typedef uint32_t fe_word_t;
 #define MAX_FIELD_WORDS 19
 #endif
 
+TORSION_BARRIER(int, int)
 TORSION_BARRIER(fe_word_t, fiat)
 
 #include "fields/p192.h"
@@ -2348,7 +2349,7 @@ wge_export_x(const wei_t *ec, unsigned char *raw, const wge_t *p) {
 TORSION_UNUSED static void
 wge_swap(const wei_t *ec, wge_t *a, wge_t *b, unsigned int flag) {
   const prime_field_t *fe = &ec->fe;
-  int cond = (flag != 0);
+  int cond = int_barrier(flag != 0);
   int inf1 = a->inf;
   int inf2 = b->inf;
 
@@ -2366,7 +2367,7 @@ wge_select(const wei_t *ec,
            const wge_t *b,
            unsigned int flag) {
   const prime_field_t *fe = &ec->fe;
-  int cond = (flag != 0);
+  int cond = int_barrier(flag != 0);
 
   fe_select(fe, r->x, a->x, b->x, flag);
   fe_select(fe, r->y, a->y, b->y, flag);
@@ -5264,7 +5265,7 @@ mge_export(const mont_t *ec, unsigned char *raw, const mge_t *p) {
 TORSION_UNUSED static void
 mge_swap(const mont_t *ec, mge_t *a, mge_t *b, unsigned int flag) {
   const prime_field_t *fe = &ec->fe;
-  int cond = (flag != 0);
+  int cond = int_barrier(flag != 0);
   int inf1 = a->inf;
   int inf2 = b->inf;
 
