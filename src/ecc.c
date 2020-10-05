@@ -1922,7 +1922,31 @@ fe_isqrt(const prime_field_t *fe, fe_t r, const fe_t u, const fe_t v) {
   int ret = 1;
 
   if (fe->isqrt != NULL) {
-    /* Fast inverse square root chain. */
+    /* Fast inverse square root chain.
+     *
+     * The inverse square root formulae notably
+     * do not fail when both the numerator and
+     * denominator are zero.
+     *
+     * We account for this below by explicitly
+     * checking for zero. `0 / 0` is extremely
+     * uncommon, and does not occur at all in
+     * Ristretto, for example. However, unlike
+     * SVDW and Elligator 2, the SSWU map can
+     * compute `0 / 0` when x = -b / a.
+     *
+     * Full list of cases for `0 / 0`:
+     *
+     *   - SSWU with x = -b / a.
+     *   - Elligator 2 with A = 0.
+     *   - Ristretto Elligator with a = d.
+     *   - Edwards point decoding on an
+     *     incomplete curve.
+     *
+     * Only the first is cause for concern,
+     * as the others are rather unrealistic.
+     */
+    ret &= fe_is_zero(fe, v) ^ 1;
     ret &= fe->isqrt(r, u, v);
   } else {
     fe_t z;
