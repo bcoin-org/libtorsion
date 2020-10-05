@@ -7521,13 +7521,13 @@ ristretto_elligator(const edwards_t *ec, rge_t *r, const fe_t r0) {
    *
    *   w = (d * r - a) * (a * r - d)
    *   s = +sqrt((a * (r + 1) * (d + a) * (d - a)) / w
-   *   t = (+a * (r - 1) * (d + a)^2) / w - 1
+   *   t = +(a * (r - 1) * (d + a)^2) / w - 1
    *
    * Or:
    *
    *   w = (d * r - a) * (a * r - d)
    *   s = -sqrt((a * r * (r + 1) * (d + a) * (d - a)) / w
-   *   t = (-a * r * (r - 1) * (d + a)) / w - 1
+   *   t = -(a * r * (r - 1) * (d + a)^2) / w - 1
    *
    * Depending on which square root exists, preferring
    * the second when r = 0 or both are square.
@@ -7625,10 +7625,10 @@ ristretto_invert(const edwards_t *ec, fe_t u,
    * This gives us a maximum of `h` possible points
    * to work with in the jacobi quartic space.
    *
-   * After a jacobi quartic point is chosen, the
-   * it is run through the inverse elligator2 map,
-   * and oddness is set according to the sign in
-   * the hint.
+   * After a jacobi quartic point is chosen, it is
+   * run through the inverse elligator 2 map, and
+   * oddness is set according to the sign in the
+   * hint.
    *
    * Note that the upper half of all jacobi quartic
    * points will be the negations of the lower half.
@@ -7639,6 +7639,8 @@ ristretto_invert(const edwards_t *ec, fe_t u,
   size_t len = ec->h >> 1;
   qge_t quartic[8];
   size_t i;
+
+  ASSERT(ec->h <= ARRAY_SIZE(quartic));
 
   qge_import_rge(ec, quartic, p);
 
@@ -7729,10 +7731,6 @@ ristretto_point_to_hash(const edwards_t *ec,
     drbg_generate(&rng, bytes, fe->size);
 
     ristretto_point_from_uniform(ec, &p1, bytes);
-
-    /* Avoid 2-torsion points. */
-    if (fe_is_zero(fe, p1.x))
-      continue;
 
     xge_sub(ec, &p2, p, &p1);
 
@@ -8223,7 +8221,7 @@ qge_import_rge(const edwards_t *ec, qge_t r[4], const rge_t *p) {
    *
    *   (s1, t1) = (0, 1)
    *   (s2, t2) = (0, 1)
-   *   (s3, t3) = (1, 2 * sqrt(a) / sqrt(a * d - 1))
+   *   (s3, t3) = (+1, 2 * sqrt(a) / sqrt(a * d - 1))
    *   (s4, t4) = (-1, 2 * sqrt(a) / sqrt(a * d - 1))
    */
   const prime_field_t *fe = &ec->fe;
@@ -8374,7 +8372,7 @@ qge_invert(const edwards_t *ec, fe_t r, const qge_t *p, unsigned int hint) {
    *
    * The exceptional cases must be handled as:
    *
-   *   (0, 1) -> sqrt(qnr * d)
+   *   (0, +1) -> sqrt(qnr * d)
    *   (0, -1) -> 0
    */
   const prime_field_t *fe = &ec->fe;
@@ -8411,11 +8409,11 @@ qge_invert(const edwards_t *ec, fe_t r, const qge_t *p, unsigned int hint) {
   fe_add_nc(fe, r, a, s2);
   fe_mul(fe, r, r, y);
 
-  /* R = 0 if S = 0 */
-  fe_select(fe, r, r, fe->zero, s_zero);
-
   /* R = sqrt(qnr * d) if S = 0, T = 1 */
   fe_select(fe, r, r, rs->qnrds, s_zero & t_one);
+
+  /* R = 0 if S = 0, T = -1 */
+  fe_select(fe, r, r, fe->zero, s_zero & (t_one ^ 1));
 
   /* R = -R if R < 0 (or random) */
   fe_set_odd(fe, r, r, hint & 1);

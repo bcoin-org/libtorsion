@@ -2200,6 +2200,42 @@ test_ristretto_elligator(drbg_t *unused) {
   edwards_curve_destroy(ec);
 }
 
+static void
+test_ristretto_batch_encode(drbg_t *unused) {
+  edwards_t *ec = edwards_curve_create(EDWARDS_CURVE_ED25519);
+  unsigned char *encoded[16];
+  unsigned char data[16 * 32];
+  rge_t points[16];
+  rge_t p, q;
+  size_t i;
+
+  (void)unused;
+
+  printf("  - Testing ristretto_batch_encode (ED25519).\n");
+
+  for (i = 0; i < 16; i++)
+    encoded[i] = &data[i * 32];
+
+  xge_zero(ec, &p);
+
+  for (i = 0; i < 16; i++) {
+    xge_set(ec, &points[i], &p);
+    xge_add(ec, &p, &p, &ec->g);
+  }
+
+  rge_export_batch(ec, encoded, points, 16);
+
+  for (i = 0; i < 16; i++) {
+    ASSERT(rge_import(ec, &q, encoded[i]));
+
+    xge_dbl(ec, &p, &points[i]);
+
+    ASSERT(rge_equal(ec, &q, &p));
+  }
+
+  edwards_curve_destroy(ec);
+}
+
 void
 test_ecc_internal(drbg_t *rng) {
   printf("Testing internal ECC functions...\n");
@@ -2238,4 +2274,5 @@ test_ecc_internal(drbg_t *rng) {
   test_edwards_multi_mul_ed25519(rng);
   test_ristretto_basepoint_multiples(rng);
   test_ristretto_elligator(rng);
+  test_ristretto_batch_encode(rng);
 }
