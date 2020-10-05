@@ -930,8 +930,10 @@ scrypt_derive(unsigned char *out,
   if (N == 0 || R == 0 || P == 0)
     return 0;
 
+#if SIZE_MAX > UINT32_MAX
   if ((uint64_t)len > ((UINT64_C(1) << 32) - 1) * 32)
     return 0;
+#endif
 
   if ((uint64_t)R * (uint64_t)P >= (UINT64_C(1) << 30))
     return 0;
