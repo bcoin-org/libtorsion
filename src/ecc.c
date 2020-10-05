@@ -7521,13 +7521,13 @@ ristretto_elligator(const edwards_t *ec, rge_t *r, const fe_t r0) {
    *
    *   w = (d * r - a) * (a * r - d)
    *   s = +sqrt((a * (r + 1) * (d + a) * (d - a)) / w
-   *   t = (+a * (r - 1) * (a + d)^2) / w - 1
+   *   t = (+a * (r - 1) * (d + a)^2) / w - 1
    *
    * Or:
    *
    *   w = (d * r - a) * (a * r - d)
    *   s = -sqrt((a * r * (r + 1) * (d + a) * (d - a)) / w
-   *   t = (-a * r * (r - 1) * (a + d)) / w - 1
+   *   t = (-a * r * (r - 1) * (d + a)) / w - 1
    *
    * Depending on which square root exists, preferring
    * the second when r = 0 or both are square.
