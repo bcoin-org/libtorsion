@@ -3502,17 +3502,18 @@ jge_add(const wei_t *ec, jge_t *r, const jge_t *a, const jge_t *b) {
    * 11M + 6S + 6A + 2*4 + 1*3 + 2*2 (a = 0)
    */
   const prime_field_t *fe = &ec->fe;
-  fe_t z1z1, z2z2, u1, u2, s1, s2, z, t, m, l, w, h;
+  fe_t u1, u2, s1, s2, z, m, r0, l, g, w, h;
   int degenerate, inf1, inf2, inf3;
 
   /* Save some stack space. */
+#define z1z1 g
+#define z2z2 w
+#define t h
 #define ll l
 #define f m
-#define r0 z1z1
-#define g z2z2
 #define x3 u2
 #define y3 s2
-#define z3 t
+#define z3 h
 
   /* Z1Z1 = Z1^2 */
   fe_sqr(fe, z1z1, a->z);
@@ -3630,10 +3631,11 @@ jge_add(const wei_t *ec, jge_t *r, const jge_t *a, const jge_t *b) {
   fe_set(fe, r->y, y3);
   fe_set(fe, r->z, z3);
 
+#undef z1z1
+#undef z2z2
+#undef t
 #undef ll
 #undef f
-#undef r0
-#undef g
 #undef x3
 #undef y3
 #undef z3
@@ -3653,20 +3655,21 @@ jge_mixed_add(const wei_t *ec, jge_t *r, const jge_t *a, const wge_t *b) {
    * [SIDE2] Page 6, Section 3.
    * [SIDE3] Page 4, Section 3.
    *
-   * 7M + 7S + 7A + 1*a + 2*4 + 1*3 + 2*2 (a != 0)
+   * 7M + 6S + 7A + 1*a + 2*4 + 1*3 + 2*2 (a != 0)
    * 7M + 5S + 6A + 2*4 + 1*3 + 2*2 (a = 0)
    */
   const prime_field_t *fe = &ec->fe;
-  fe_t z1z1, u2, s2, t, m, l, g, w, h;
+  fe_t u2, s2, m, r0, l, g, w, h;
   int degenerate, inf1, inf2, inf3;
 
   /* Save some stack space. */
+#define z1z1 g
+#define t h
 #define ll l
 #define f m
-#define r0 z1z1
 #define x3 u2
 #define y3 s2
-#define z3 t
+#define z3 h
 
   /* Z1Z1 = Z1^2 */
   fe_sqr(fe, z1z1, a->z);
@@ -3691,8 +3694,7 @@ jge_mixed_add(const wei_t *ec, jge_t *r, const jge_t *a, const wge_t *b) {
 
   /* R = R + a * Z1^4 (if a != 0) */
   if (!ec->zero_a) {
-    fe_sqr(fe, l, a->z);
-    fe_sqr(fe, l, l);
+    fe_sqr(fe, l, z1z1);
     wei_mul_a(ec, l, l);
     fe_add(fe, r0, r0, l);
   }
@@ -3771,9 +3773,10 @@ jge_mixed_add(const wei_t *ec, jge_t *r, const jge_t *a, const wge_t *b) {
   fe_set(fe, r->y, y3);
   fe_set(fe, r->z, z3);
 
+#undef z1z1
+#undef t
 #undef ll
 #undef f
-#undef r0
 #undef x3
 #undef y3
 #undef z3
