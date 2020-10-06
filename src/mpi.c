@@ -2652,7 +2652,6 @@ mpn_sec_eq(mp_srcptr xp, mp_srcptr yp, mp_size_t n) {
 static int
 mpn_sec_compare(mp_srcptr xp, mp_srcptr yp, mp_size_t n) {
   /* Compare in constant time. */
-  size_t shift = MP_LIMB_BITS - 1;
   mp_size_t i = n * 2;
   mp_limb_t eq = 1;
   mp_limb_t lt = 0;
@@ -2661,8 +2660,8 @@ mpn_sec_compare(mp_srcptr xp, mp_srcptr yp, mp_size_t n) {
   while (i--) {
     a = (xp[i / 2] >> ((i % 2) * (MP_LIMB_BITS / 2))) & MP_LLIMB_MASK;
     b = (yp[i / 2] >> ((i % 2) * (MP_LIMB_BITS / 2))) & MP_LLIMB_MASK;
-    lt |= eq & ((a - b) >> shift);
-    eq &= ((a ^ b) - 1) >> shift;
+    lt |= eq & ((a - b) >> (MP_LIMB_BITS - 1));
+    eq &= ((a ^ b) - 1) >> (MP_LIMB_BITS - 1);
   }
 
   return (lt << 1) | eq;
@@ -2675,7 +2674,7 @@ mpn_sec_cmp(mp_srcptr xp, mp_srcptr yp, mp_size_t n) {
   int lt = cmp >> 1;
   int eq = cmp & 1;
 
-  return ((lt ^ 1) - lt) & -(eq ^ 1);
+  return (1 - 2 * lt) * (1 - eq);
 }
 
 int

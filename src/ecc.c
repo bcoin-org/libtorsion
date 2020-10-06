@@ -1257,8 +1257,8 @@ sc_naf_endo_var(const scalar_field_t *sc,
   int s1, s2;
 
   /* Minimize scalars. */
-  s1 = -sc_minimize_var(sc, c1, k1) | 1;
-  s2 = -sc_minimize_var(sc, c2, k2) | 1;
+  s1 = sc_minimize_var(sc, c1, k1) ? -1 : 1;
+  s2 = sc_minimize_var(sc, c2, k2) ? -1 : 1;
 
   /* Calculate NAFs. */
   len1 = sc_naf_var0(sc, naf1, c1, s1, width, sc->endo_bits + 1);
@@ -1364,8 +1364,8 @@ sc_jsf_endo_var(const scalar_field_t *sc, int *naf,
   int s1, s2;
 
   /* Minimize scalars. */
-  s1 = -sc_minimize_var(sc, c1, k1) | 1;
-  s2 = -sc_minimize_var(sc, c2, k2) | 1;
+  s1 = sc_minimize_var(sc, c1, k1) ? -1 : 1;
+  s2 = sc_minimize_var(sc, c2, k2) ? -1 : 1;
 
   return sc_jsf_var0(sc, naf, c1, s1, c2, s2, sc->endo_bits + 1);
 }
