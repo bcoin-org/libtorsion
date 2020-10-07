@@ -5342,11 +5342,14 @@ mge_import(const mont_t *ec, mge_t *r, const unsigned char *raw, int sign) {
 }
 
 static int
-mge_export(const mont_t *ec, unsigned char *raw, const mge_t *p) {
+mge_export(const mont_t *ec, unsigned char *raw, int *sign, const mge_t *p) {
   /* [RFC7748] Section 5. */
   const prime_field_t *fe = &ec->fe;
 
   fe_export(fe, raw, p->x);
+
+  if (sign != NULL)
+    *sign = fe_is_odd(fe, p->y);
 
   return p->inf ^ 1;
 }
@@ -12509,7 +12512,7 @@ ecdh_pubkey_from_uniform(const mont_t *ec,
 
   mont_point_from_uniform(ec, &A, bytes);
 
-  ASSERT(mge_export(ec, out, &A));
+  ASSERT(mge_export(ec, out, NULL, &A));
 }
 
 int
@@ -12608,7 +12611,7 @@ ecdh_pubkey_import(const mont_t *ec,
   else
     ret &= mge_set_x(ec, &A, x, -1);
 
-  ret &= mge_export(ec, out, &A);
+  ret &= mge_export(ec, out, NULL, &A);
 
   return ret;
 }
