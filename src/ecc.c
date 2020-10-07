@@ -2639,6 +2639,12 @@ wge_add(const wei_t *ec, wge_t *r, const wge_t *a, const wge_t *b) {
    *
    *   l = (y1 - y2) / (x1 - x2)
    *
+   * The x2 value in this case is:
+   *
+   *   x2 = (-x1 - sqrt(-3 * x1^2 - 4 * a)) / 2
+   *
+   * Which causes the numerator to evaluate to 0.
+   *
    * 1I + 3M + 2S + 10A
    */
   const prime_field_t *fe = &ec->fe;
@@ -2662,8 +2668,8 @@ wge_add(const wei_t *ec, wge_t *r, const wge_t *a, const wge_t *b) {
   fe_sub(fe, t, a->x, b->x);
   fe_select(fe, m, m, t, degenerate);
 
-  /* R = Y1 - Y2 (if degenerate) */
-  fe_sub_nc(fe, t, a->y, b->y);
+  /* R = Y1 - Y2 = 2 * Y1 (if degenerate) */
+  fe_add_nc(fe, t, a->y, a->y);
   fe_select(fe, r0, r0, t, degenerate);
 
   /* Check for negation (X1 = X2, Y1 = -Y2). */
@@ -3103,13 +3109,13 @@ jge_dblj(const wei_t *ec, jge_t *r, const jge_t *p) {
   fe_set(fe, r->x, t);
 
   /* Y3 = M * (S - T) - 8 * YY^2 */
-  fe_sub_nc(fe, xx, s, t);
-  fe_sqr(fe, zz, yy);
-  fe_add(fe, zz, zz, zz);
-  fe_add(fe, zz, zz, zz);
-  fe_add(fe, zz, zz, zz);
-  fe_mul(fe, r->y, m, xx);
-  fe_sub(fe, r->y, r->y, zz);
+  fe_sub_nc(fe, s, s, t);
+  fe_sqr(fe, yy, yy);
+  fe_add(fe, yy, yy, yy);
+  fe_add(fe, yy, yy, yy);
+  fe_add(fe, yy, yy, yy);
+  fe_mul(fe, r->y, m, s);
+  fe_sub(fe, r->y, r->y, yy);
 }
 
 static void
@@ -3200,13 +3206,13 @@ jge_dbl3(const wei_t *ec, jge_t *r, const jge_t *p) {
   fe_sub(fe, r->x, r->x, t2);
 
   /* Y3 = alpha * (4 * beta - X3) - 8 * gamma^2 */
-  fe_sub_nc(fe, r->y, t1, r->x);
-  fe_mul(fe, r->y, r->y, alpha);
-  fe_sqr(fe, gamma, gamma);
-  fe_add(fe, gamma, gamma, gamma);
-  fe_add(fe, gamma, gamma, gamma);
-  fe_add(fe, gamma, gamma, gamma);
-  fe_sub(fe, r->y, r->y, gamma);
+  fe_sub_nc(fe, t1, t1, r->x);
+  fe_sqr(fe, t2, gamma);
+  fe_add(fe, t2, t2, t2);
+  fe_add(fe, t2, t2, t2);
+  fe_add(fe, t2, t2, t2);
+  fe_mul(fe, r->y, alpha, t1);
+  fe_sub(fe, r->y, r->y, t2);
 }
 
 static void
@@ -3241,7 +3247,19 @@ jge_addsub_var(const wei_t *ec, jge_t *r,
    * 12M + 4S + 6A + 1*2
    */
   const prime_field_t *fe = &ec->fe;
-  fe_t z1z1, z2z2, u1, u2, s1, s2, h, r0, hh, hhh, v;
+  fe_t t1, t2, t3, t4, t5, t6;
+
+#define z1z1 t1
+#define z2z2 t2
+#define u1   t3
+#define u2   t4
+#define s1   t5
+#define s2   t6
+#define h    t1 /* <- z1z1 */
+#define r0   t2 /* <- z2z2 */
+#define hh   t4 /* <- u2 */
+#define hhh  t6 /* <- s2 */
+#define v    t3 /* <- u1 */
 
   /* Z1Z1 = Z1^2 */
   fe_sqr(fe, z1z1, a->z);
@@ -3292,10 +3310,6 @@ jge_addsub_var(const wei_t *ec, jge_t *r,
   /* V = U1 * HH */
   fe_mul(fe, v, u1, hh);
 
-  /* Z3 = Z1 * Z2 * H */
-  fe_mul(fe, r->z, a->z, b->z);
-  fe_mul(fe, r->z, r->z, h);
-
   /* X3 = r^2 - HHH - 2 * V */
   fe_sqr(fe, r->x, r0);
   fe_sub(fe, r->x, r->x, hhh);
@@ -3303,10 +3317,26 @@ jge_addsub_var(const wei_t *ec, jge_t *r,
   fe_sub(fe, r->x, r->x, v);
 
   /* Y3 = r * (V - X3) - S1 * HHH */
-  fe_sub_nc(fe, u1, v, r->x);
-  fe_mul(fe, u2, s1, hhh);
-  fe_mul(fe, r->y, r0, u1);
-  fe_sub(fe, r->y, r->y, u2);
+  fe_sub_nc(fe, v, v, r->x);
+  fe_mul(fe, s1, s1, hhh);
+  fe_mul(fe, r->y, r0, v);
+  fe_sub(fe, r->y, r->y, s1);
+
+  /* Z3 = Z1 * Z2 * H */
+  fe_mul(fe, r->z, a->z, b->z);
+  fe_mul(fe, r->z, r->z, h);
+
+#undef z1z1
+#undef z2z2
+#undef u1
+#undef u2
+#undef s1
+#undef s2
+#undef h
+#undef r0
+#undef hh
+#undef hhh
+#undef v
 }
 
 static void
@@ -3363,7 +3393,16 @@ jge_mixed_addsub_var(const wei_t *ec, jge_t *r, const jge_t *a,
    * 8M + 3S + 6A + 5*2
    */
   const prime_field_t *fe = &ec->fe;
-  fe_t z1z1, u2, s2, h, r0, i, j, v;
+  fe_t t1, t2, t3, t4;
+
+#define z1z1 t1
+#define u2   t2
+#define s2   t3
+#define h    t4
+#define r0   t1 /* <- z1z1 */
+#define i    t2 /* <- u2 */
+#define j    t3 /* <- s2 */
+#define v    t2 /* <- i */
 
   /* Z1Z1 = Z1^2 */
   fe_sqr(fe, z1z1, a->z);
@@ -3404,7 +3443,7 @@ jge_mixed_addsub_var(const wei_t *ec, jge_t *r, const jge_t *a,
   fe_mul(fe, j, h, i);
 
   /* V = X1 * I */
-  fe_mul(fe, v, a->x, i);
+  fe_mul(fe, v, i, a->x);
 
   /* X3 = r^2 - J - 2 * V */
   fe_sqr(fe, r->x, r0);
@@ -3413,15 +3452,26 @@ jge_mixed_addsub_var(const wei_t *ec, jge_t *r, const jge_t *a,
   fe_sub(fe, r->x, r->x, v);
 
   /* Y3 = r * (V - X3) - 2 * Y1 * J */
-  fe_sub_nc(fe, u2, v, r->x);
-  fe_mul(fe, s2, a->y, j);
-  fe_add(fe, s2, s2, s2);
-  fe_mul(fe, r->y, r0, u2);
-  fe_sub(fe, r->y, r->y, s2);
+  fe_sub_nc(fe, v, v, r->x);
+  fe_mul(fe, j, j, a->y);
+  fe_add(fe, j, j, j);
+  fe_mul(fe, r->y, r0, v);
+  fe_sub(fe, r->y, r->y, j);
 
   /* Z3 = 2 * Z1 * H */
+  /* Note: 2 * H is computed above. */
+  /* We could skip one addition here. */
   fe_mul(fe, r->z, a->z, h);
   fe_add(fe, r->z, r->z, r->z);
+
+#undef z1z1
+#undef u2
+#undef s2
+#undef h
+#undef r0
+#undef i
+#undef j
+#undef v
 }
 
 static void
@@ -3502,18 +3552,28 @@ jge_add(const wei_t *ec, jge_t *r, const jge_t *a, const jge_t *b) {
    * 11M + 6S + 6A + 2*4 + 1*3 + 2*2 (a = 0)
    */
   const prime_field_t *fe = &ec->fe;
-  fe_t u1, u2, s1, s2, z, m, r0, l, g, w, h;
+  fe_t t1, t2, t3, t4, t5, t6, t7, t8;
   int degenerate, inf1, inf2, inf3;
 
-  /* Save some stack space. */
-#define z1z1 g
-#define z2z2 w
-#define t h
-#define ll l
-#define f m
-#define x3 u2
-#define y3 s2
-#define z3 h
+#define z1z1 t1
+#define z2z2 t2
+#define u1   t3
+#define u2   t4
+#define s1   t5
+#define s2   t6
+#define z0   t7
+#define t    t8
+#define m    t1 /* <- z1z1 */
+#define r0   t2 /* <- z2z2 */
+#define l    t6 /* <- s2 (tmp) */
+#define g    t3 /* <- u1 */
+#define ll   t4 /* <- u2 */
+#define w    t5 /* <- s1 */
+#define f    t6 /* <- l */
+#define h    t7 /* <- z0 */
+#define x3   t8 /* <- t */
+#define y3   t1 /* <- m */
+#define z3   t2 /* <- r0 */
 
   /* Z1Z1 = Z1^2 */
   fe_sqr(fe, z1z1, a->z);
@@ -3536,7 +3596,7 @@ jge_add(const wei_t *ec, jge_t *r, const jge_t *a, const jge_t *b) {
   fe_mul(fe, s2, s2, a->z);
 
   /* Z = Z1 * Z2 */
-  fe_mul(fe, z, a->z, b->z);
+  fe_mul(fe, z0, a->z, b->z);
 
   /* T = U1 + U2 */
   fe_add_nc(fe, t, u1, u2);
@@ -3551,7 +3611,7 @@ jge_add(const wei_t *ec, jge_t *r, const jge_t *a, const jge_t *b) {
 
   /* R = R + a * Z^4 (if a != 0) */
   if (!ec->zero_a) {
-    fe_sqr(fe, l, z);
+    fe_sqr(fe, l, z0);
     fe_sqr(fe, l, l);
     wei_mul_a(ec, l, l);
     fe_add(fe, r0, r0, l);
@@ -3564,8 +3624,8 @@ jge_add(const wei_t *ec, jge_t *r, const jge_t *a, const jge_t *b) {
   fe_sub_nc(fe, l, u1, u2);
   fe_select(fe, m, m, l, degenerate);
 
-  /* R = S1 - S2 (if degenerate) */
-  fe_sub_nc(fe, l, s1, s2);
+  /* R = S1 - S2 = 2 * S1 (if degenerate) */
+  fe_add_nc(fe, l, s1, s1);
   fe_select(fe, r0, r0, l, degenerate);
 
   /* L = M^2 */
@@ -3584,7 +3644,7 @@ jge_add(const wei_t *ec, jge_t *r, const jge_t *a, const jge_t *b) {
   fe_sqr(fe, w, r0);
 
   /* F = Z * M */
-  fe_mul(fe, f, m, z);
+  fe_mul(fe, f, z0, m);
 
   /* H = 3 * G - 2 * W */
   fe_add(fe, h, g, g);
@@ -3633,9 +3693,20 @@ jge_add(const wei_t *ec, jge_t *r, const jge_t *a, const jge_t *b) {
 
 #undef z1z1
 #undef z2z2
+#undef u1
+#undef u2
+#undef s1
+#undef s2
+#undef z0
 #undef t
+#undef m
+#undef r0
+#undef l
+#undef g
 #undef ll
+#undef w
 #undef f
+#undef h
 #undef x3
 #undef y3
 #undef z3
@@ -3659,17 +3730,24 @@ jge_mixed_add(const wei_t *ec, jge_t *r, const jge_t *a, const wge_t *b) {
    * 7M + 5S + 6A + 2*4 + 1*3 + 2*2 (a = 0)
    */
   const prime_field_t *fe = &ec->fe;
-  fe_t u2, s2, m, r0, l, g, w, h;
+  fe_t t1, t2, t3, t4, t5, t6, t7;
   int degenerate, inf1, inf2, inf3;
 
-  /* Save some stack space. */
-#define z1z1 g
-#define t h
-#define ll l
-#define f m
-#define x3 u2
-#define y3 s2
-#define z3 h
+#define z1z1 t1
+#define u2   t2
+#define s2   t3
+#define t    t4
+#define m    t5
+#define r0   t6
+#define l    t7
+#define g    t1 /* <- z1z1 */
+#define ll   t2 /* <- u2 */
+#define w    t3 /* <- s2 */
+#define f    t4 /* <- t */
+#define h    t5 /* <- m */
+#define x3   t3 /* <- w */
+#define y3   t6 /* <- r0 */
+#define z3   t1 /* <- g */
 
   /* Z1Z1 = Z1^2 */
   fe_sqr(fe, z1z1, a->z);
@@ -3706,8 +3784,8 @@ jge_mixed_add(const wei_t *ec, jge_t *r, const jge_t *a, const wge_t *b) {
   fe_sub_nc(fe, l, a->x, u2);
   fe_select(fe, m, m, l, degenerate);
 
-  /* R = Y1 - S2 (if degenerate) */
-  fe_sub_nc(fe, l, a->y, s2);
+  /* R = Y1 - S2 = 2 * Y1 (if degenerate) */
+  fe_add_nc(fe, l, a->y, a->y);
   fe_select(fe, r0, r0, l, degenerate);
 
   /* L = M^2 */
@@ -3726,7 +3804,7 @@ jge_mixed_add(const wei_t *ec, jge_t *r, const jge_t *a, const wge_t *b) {
   fe_sqr(fe, w, r0);
 
   /* F = Z1 * M */
-  fe_mul(fe, f, m, a->z);
+  fe_mul(fe, f, a->z, m);
 
   /* H = 3 * G - 2 * W */
   fe_add(fe, h, g, g);
@@ -3774,9 +3852,17 @@ jge_mixed_add(const wei_t *ec, jge_t *r, const jge_t *a, const wge_t *b) {
   fe_set(fe, r->z, z3);
 
 #undef z1z1
+#undef u2
+#undef s2
 #undef t
+#undef m
+#undef r0
+#undef l
+#undef g
 #undef ll
+#undef w
 #undef f
+#undef h
 #undef x3
 #undef y3
 #undef z3
