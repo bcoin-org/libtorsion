@@ -5269,6 +5269,9 @@ _mont_to_edwards(const prime_field_t *fe, xge_t *r,
                  const mge_t *p, const fe_t c,
                  int invert, int isogeny);
 
+static void
+mont_mul(const mont_t *ec, pge_t *r, const pge_t *p, const sc_t k, int affine);
+
 /*
  * Montgomery Affine Point
  */
@@ -5846,6 +5849,21 @@ pge_is_small(const mont_t *ec, const pge_t *p) {
   return ret;
 }
 
+static int
+pge_has_torsion(const mont_t *ec, const pge_t *p) {
+  const prime_field_t *fe = &ec->fe;
+  const scalar_field_t *sc = &ec->sc;
+  int ret = 0;
+  pge_t r;
+
+  mont_mul(ec, &r, p, sc->n, 0);
+
+  ret |= pge_is_zero(ec, &r) ^ 1;
+  ret |= fe_is_zero(fe, p->x);
+
+  return ret;
+}
+
 /*
  * Montgomery Curve
  */
@@ -6366,6 +6384,9 @@ static int
 edwards_validate_xy(const edwards_t *ec, const fe_t x, const fe_t y);
 
 static void
+edwards_mul(const edwards_t *ec, xge_t *r, const xge_t *p, const sc_t k);
+
+static void
 _edwards_to_mont(const prime_field_t *fe, mge_t *r,
                  const xge_t *p, const fe_t c,
                  int invert, int isogeny);
@@ -6833,6 +6854,16 @@ xge_is_small(const edwards_t *ec, const xge_t *p) {
   ret &= xge_is_zero(ec, p) ^ 1;
 
   return ret;
+}
+
+static int
+xge_has_torsion(const edwards_t *ec, const xge_t *p) {
+  const scalar_field_t *sc = &ec->sc;
+  xge_t r;
+
+  edwards_mul(ec, &r, p, sc->n);
+
+  return xge_is_zero(ec, &r) ^ 1;
 }
 
 static void
@@ -12629,19 +12660,11 @@ ecdh_pubkey_is_small(const mont_t *ec, const unsigned char *pub) {
 
 int
 ecdh_pubkey_has_torsion(const mont_t *ec, const unsigned char *pub) {
-  const prime_field_t *fe = &ec->fe;
-  const scalar_field_t *sc = &ec->sc;
   int ret = 1;
-  int zero;
   pge_t A;
 
   ret &= pge_import(ec, &A, pub);
-
-  zero = fe_is_zero(fe, A.x);
-
-  mont_mul(ec, &A, &A, sc->n, 0);
-
-  ret &= (pge_is_zero(ec, &A) ^ 1) | zero;
+  ret &= pge_has_torsion(ec, &A);
 
   return ret;
 }
@@ -13093,15 +13116,11 @@ eddsa_pubkey_is_small(const edwards_t *ec, const unsigned char *pub) {
 
 int
 eddsa_pubkey_has_torsion(const edwards_t *ec, const unsigned char *pub) {
-  const scalar_field_t *sc = &ec->sc;
   int ret = 1;
   xge_t A;
 
   ret &= xge_import(ec, &A, pub);
-
-  edwards_mul(ec, &A, &A, sc->n);
-
-  ret &= xge_is_zero(ec, &A) ^ 1;
+  ret &= xge_has_torsion(ec, &A);
 
   return ret;
 }
