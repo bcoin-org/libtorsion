@@ -2639,11 +2639,12 @@ wge_add(const wei_t *ec, wge_t *r, const wge_t *a, const wge_t *b) {
    *
    *   l = (y1 - y2) / (x1 - x2)
    *
-   * The x2 value in this case is:
+   * This case specifically occurs when:
    *
    *   x2 = (-x1 - sqrt(-3 * x1^2 - 4 * a)) / 2
+   *   y2 = -y1
    *
-   * Which causes the numerator to evaluate to 0.
+   * Which causes the lambda to evaluate to `0 / 0`.
    *
    * 1I + 3M + 2S + 10A
    */
@@ -3537,19 +3538,77 @@ static void
 jge_add(const wei_t *ec, jge_t *r, const jge_t *a, const jge_t *b) {
   /* Strongly unified Jacobian addition (Brier and Joye).
    *
-   * [SIDE2] Page 6, Section 3.
+   * [SIDE2] Page 6, Corollary 2, Section 3.
    * [SIDE3] Page 4, Section 3.
    *
-   * The above documents use projective coordinates[1]
-   * and have been modified for jacobian coordinates. A
-   * further modification, taken from libsecp256k1[2],
-   * handles the degenerate case of: x1 != x2, y1 = -y2.
+   * Brier and Joye give us a projective formula[1]:
+   *
+   *   U1 = X1 * Z2
+   *   U2 = X2 * Z1
+   *   S1 = Y1 * Z2
+   *   S2 = Y2 * Z1
+   *   Z = Z1 * Z2
+   *   T = U1 + U2
+   *   M = S1 + S2
+   *   R = T^2 - U1 * U2 + a * Z^2
+   *   F = Z * M
+   *   L = M * F
+   *   G = T * L
+   *   W = R^2 - G
+   *   X3 = 2 * F * W
+   *   Y3 = R * (G - 2 * W) - L^2
+   *   Z3 = 2 * F^3
+   *
+   * Modifying for jacobian coordinates, we get[2]:
+   *
+   *   Z1Z1 = Z1^2
+   *   Z2Z2 = Z2^2
+   *   U1 = X1 * Z2Z2
+   *   U2 = X2 * Z1Z1
+   *   S1 = Y1 * Z2Z2 * Z2
+   *   S2 = Y2 * Z1Z1 * Z1
+   *   Z = Z1 * Z2
+   *   T = U1 + U2
+   *   M = S1 + S2
+   *   R = T^2 - U1 * U2 + a * Z^4
+   *   F = Z * M
+   *   L = M^2
+   *   G = T * L
+   *   W = R^2 - G
+   *   LL = L^2
+   *   X3 = 4 * W
+   *   Y3 = 4 * (R * (G - 2 * W) - LL)
+   *   Z3 = 2 * F
+   *
+   * If M = 0, R = 0 is detected, the following
+   * substitutions must be performed[3][4]:
+   *
+   *   M = U1 - U2
+   *   R = S1 - S2 (= 2 * S1)
+   *   LL = 0
+   *
+   * This avoids the degenerate case of x1 != x2,
+   * y1 = -y2, which can occur when:
+   *
+   *   x2 = (-x1 - sqrt(-3 * x1^2 - 4 * a)) / 2
+   *   y2 = -y1
+   *
+   * This causes the lambda to evaluate to `0 / 0`.
+   * On a GLV curve like secp256k1, this can imply
+   * x2 = x1 * beta (i.e. P2 = -P1 * lambda).
+   *
+   * Note that infinity must be handled explicitly
+   * with constant time selections.
+   *
+   * Cost: 11M + 8S + 7A + 1*a + 2*4 + 2*2 (a != 0)
+   *       11M + 6S + 6A + 2*4 + 2*2 (a = 0)
+   *
+   * Possible to compute with 8 field registers.
    *
    * [1] https://hyperelliptic.org/EFD/g1p/auto-shortw-projective.html#addition-add-2002-bj
    * [2] https://github.com/bitcoin-core/secp256k1/blob/ee9e68c/src/group_impl.h#L525
-   *
-   * 11M + 8S + 7A + 1*a + 2*4 + 1*3 + 2*2 (a != 0)
-   * 11M + 6S + 6A + 2*4 + 1*3 + 2*2 (a = 0)
+   * [3] https://github.com/bitcoin-core/secp256k1/pull/261
+   * [4] https://github.com/bitcoin-core/secp256k1/commit/5de4c5d
    */
   const prime_field_t *fe = &ec->fe;
   fe_t t1, t2, t3, t4, t5, t6, t7, t8;
@@ -3565,15 +3624,14 @@ jge_add(const wei_t *ec, jge_t *r, const jge_t *a, const jge_t *b) {
 #define t    t8
 #define m    t1 /* <- z1z1 */
 #define r0   t2 /* <- z2z2 */
-#define l    t6 /* <- s2 (tmp) */
-#define g    t3 /* <- u1 */
-#define ll   t4 /* <- u2 */
+#define f    t3 /* <- u1 */
+#define l    t6 /* <- s2 */
+#define g    t4 /* <- u2 */
 #define w    t5 /* <- s1 */
-#define f    t6 /* <- l */
-#define h    t7 /* <- z0 */
-#define x3   t8 /* <- t */
-#define y3   t1 /* <- m */
-#define z3   t2 /* <- r0 */
+#define ll   t6 /* <- l */
+#define x3   t7 /* <- z0 */
+#define y3   t8 /* <- t */
+#define z3   t1 /* <- m */
 
   /* Z1Z1 = Z1^2 */
   fe_sqr(fe, z1z1, a->z);
@@ -3604,12 +3662,11 @@ jge_add(const wei_t *ec, jge_t *r, const jge_t *a, const jge_t *b) {
   /* M = S1 + S2 */
   fe_add(fe, m, s1, s2);
 
-  /* R = T^2 - U1 * U2 */
+  /* R = T^2 - U1 * U2 + a * Z^4 */
   fe_sqr(fe, r0, t);
   fe_mul(fe, l, u1, u2);
   fe_sub(fe, r0, r0, l);
 
-  /* R = R + a * Z^4 (if a != 0) */
   if (!ec->zero_a) {
     fe_sqr(fe, l, z0);
     fe_sqr(fe, l, l);
@@ -3628,11 +3685,18 @@ jge_add(const wei_t *ec, jge_t *r, const jge_t *a, const jge_t *b) {
   fe_add_nc(fe, l, s1, s1);
   fe_select(fe, r0, r0, l, degenerate);
 
+  /* F = Z * M */
+  fe_mul(fe, f, z0, m);
+
   /* L = M^2 */
   fe_sqr(fe, l, m);
 
   /* G = T * L */
   fe_mul(fe, g, t, l);
+
+  /* W = R^2 - G */
+  fe_sqr(fe, w, r0);
+  fe_sub(fe, w, w, g);
 
   /* LL = L^2 */
   fe_sqr(fe, ll, l);
@@ -3640,25 +3704,14 @@ jge_add(const wei_t *ec, jge_t *r, const jge_t *a, const jge_t *b) {
   /* LL = 0 (if degenerate) */
   fe_select(fe, ll, ll, fe->zero, degenerate);
 
-  /* W = R^2 */
-  fe_sqr(fe, w, r0);
-
-  /* F = Z * M */
-  fe_mul(fe, f, z0, m);
-
-  /* H = 3 * G - 2 * W */
-  fe_add(fe, h, g, g);
-  fe_add(fe, h, h, g);
-  fe_sub(fe, h, h, w);
-  fe_sub_nc(fe, h, h, w);
-
-  /* X3 = 4 * (W - G) */
-  fe_sub(fe, x3, w, g);
-  fe_add(fe, x3, x3, x3);
+  /* X3 = 4 * W */
+  fe_add(fe, x3, w, w);
   fe_add(fe, x3, x3, x3);
 
-  /* Y3 = 4 * (R * H - LL) */
-  fe_mul(fe, y3, r0, h);
+  /* Y3 = 4 * (R * (G - 2 * W) - LL) */
+  fe_sub(fe, y3, g, w);
+  fe_sub_nc(fe, y3, y3, w);
+  fe_mul(fe, y3, y3, r0);
   fe_sub(fe, y3, y3, ll);
   fe_add(fe, y3, y3, y3);
   fe_add(fe, y3, y3, y3);
@@ -3701,12 +3754,11 @@ jge_add(const wei_t *ec, jge_t *r, const jge_t *a, const jge_t *b) {
 #undef t
 #undef m
 #undef r0
+#undef f
 #undef l
 #undef g
-#undef ll
 #undef w
-#undef f
-#undef h
+#undef ll
 #undef x3
 #undef y3
 #undef z3
@@ -3723,14 +3775,43 @@ static void
 jge_mixed_add(const wei_t *ec, jge_t *r, const jge_t *a, const wge_t *b) {
   /* Strongly unified mixed addition (Brier and Joye).
    *
-   * [SIDE2] Page 6, Section 3.
+   * [SIDE2] Page 6, Corollary 2, Section 3.
    * [SIDE3] Page 4, Section 3.
    *
-   * 7M + 6S + 7A + 1*a + 2*4 + 1*3 + 2*2 (a != 0)
-   * 7M + 5S + 6A + 2*4 + 1*3 + 2*2 (a = 0)
+   * Modifying the formula from `jge_add`, we get:
+   *
+   *   Z1Z1 = Z1^2
+   *   U2 = X2 * Z1Z1
+   *   S2 = Y2 * Z1Z1 * Z1
+   *   T = X1 + U2
+   *   M = Y1 + S2
+   *   R = T^2 - X1 * U2 + a * Z1Z1^2
+   *   F = Z1 * M
+   *   L = M^2
+   *   G = T * L
+   *   W = R^2 - G
+   *   LL = L^2
+   *   X3 = 4 * W
+   *   Y3 = 4 * (R * (G - 2 * W) - LL)
+   *   Z3 = 2 * F
+   *
+   * If M = 0, R = 0 is detected, the following
+   * substitutions must be performed:
+   *
+   *   M = X1 - U2
+   *   R = Y1 - S2 (= 2 * Y1)
+   *   LL = 0
+   *
+   * Note that infinity must be handled explicitly
+   * with constant time selections.
+   *
+   * Cost: 7M + 6S + 7A + 1*a + 2*4 + 2*2 (a != 0)
+   *       7M + 5S + 6A + 2*4 + 2*2 (a = 0)
+   *
+   * Possible to compute with 6 field registers.
    */
   const prime_field_t *fe = &ec->fe;
-  fe_t t1, t2, t3, t4, t5, t6, t7;
+  fe_t t1, t2, t3, t4, t5, t6;
   int degenerate, inf1, inf2, inf3;
 
 #define z1z1 t1
@@ -3739,15 +3820,14 @@ jge_mixed_add(const wei_t *ec, jge_t *r, const jge_t *a, const wge_t *b) {
 #define t    t4
 #define m    t5
 #define r0   t6
-#define l    t7
-#define g    t1 /* <- z1z1 */
-#define ll   t2 /* <- u2 */
-#define w    t3 /* <- s2 */
-#define f    t4 /* <- t */
-#define h    t5 /* <- m */
-#define x3   t3 /* <- w */
-#define y3   t6 /* <- r0 */
-#define z3   t1 /* <- g */
+#define f    t1 /* <- z1z1 */
+#define l    t3 /* <- s2 */
+#define g    t2 /* <- u2 */
+#define w    t4 /* <- t */
+#define ll   t3 /* <- l */
+#define x3   t5 /* <- m */
+#define y3   t2 /* <- g */
+#define z3   t1 /* <- f */
 
   /* Z1Z1 = Z1^2 */
   fe_sqr(fe, z1z1, a->z);
@@ -3765,12 +3845,11 @@ jge_mixed_add(const wei_t *ec, jge_t *r, const jge_t *a, const wge_t *b) {
   /* M = Y1 + S2 */
   fe_add(fe, m, a->y, s2);
 
-  /* R = T^2 - X1 * U2 */
+  /* R = T^2 - X1 * U2 + a * Z1Z1^2 */
   fe_sqr(fe, r0, t);
   fe_mul(fe, l, a->x, u2);
   fe_sub(fe, r0, r0, l);
 
-  /* R = R + a * Z1^4 (if a != 0) */
   if (!ec->zero_a) {
     fe_sqr(fe, l, z1z1);
     wei_mul_a(ec, l, l);
@@ -3788,11 +3867,18 @@ jge_mixed_add(const wei_t *ec, jge_t *r, const jge_t *a, const wge_t *b) {
   fe_add_nc(fe, l, a->y, a->y);
   fe_select(fe, r0, r0, l, degenerate);
 
+  /* F = Z1 * M */
+  fe_mul(fe, f, a->z, m);
+
   /* L = M^2 */
   fe_sqr(fe, l, m);
 
   /* G = T * L */
   fe_mul(fe, g, t, l);
+
+  /* W = R^2 - G */
+  fe_sqr(fe, w, r0);
+  fe_sub(fe, w, w, g);
 
   /* LL = L^2 */
   fe_sqr(fe, ll, l);
@@ -3800,25 +3886,14 @@ jge_mixed_add(const wei_t *ec, jge_t *r, const jge_t *a, const wge_t *b) {
   /* LL = 0 (if degenerate) */
   fe_select(fe, ll, ll, fe->zero, degenerate);
 
-  /* W = R^2 */
-  fe_sqr(fe, w, r0);
-
-  /* F = Z1 * M */
-  fe_mul(fe, f, a->z, m);
-
-  /* H = 3 * G - 2 * W */
-  fe_add(fe, h, g, g);
-  fe_add(fe, h, h, g);
-  fe_sub(fe, h, h, w);
-  fe_sub_nc(fe, h, h, w);
-
-  /* X3 = 4 * (W - G) */
-  fe_sub(fe, x3, w, g);
-  fe_add(fe, x3, x3, x3);
+  /* X3 = 4 * W */
+  fe_add(fe, x3, w, w);
   fe_add(fe, x3, x3, x3);
 
-  /* Y3 = 4 * (R * H - LL) */
-  fe_mul(fe, y3, r0, h);
+  /* Y3 = 4 * (R * (G - 2 * W) - LL) */
+  fe_sub(fe, y3, g, w);
+  fe_sub_nc(fe, y3, y3, w);
+  fe_mul(fe, y3, y3, r0);
   fe_sub(fe, y3, y3, ll);
   fe_add(fe, y3, y3, y3);
   fe_add(fe, y3, y3, y3);
@@ -3857,12 +3932,11 @@ jge_mixed_add(const wei_t *ec, jge_t *r, const jge_t *a, const wge_t *b) {
 #undef t
 #undef m
 #undef r0
+#undef f
 #undef l
 #undef g
-#undef ll
 #undef w
-#undef f
-#undef h
+#undef ll
 #undef x3
 #undef y3
 #undef z3
