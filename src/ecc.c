@@ -2161,7 +2161,7 @@ jge_add_var(const wei_t *ec, jge_t *r, const jge_t *a, const jge_t *b);
 
 static void
 jge_mixed_addsub_var(const wei_t *ec, jge_t *r, const jge_t *a,
-                     const fe_t bx, const fe_t by, int negate);
+                     const fe_t bx, const fe_t by, int sign);
 
 static void
 jge_mixed_add_var(const wei_t *ec, jge_t *r, const jge_t *a, const wge_t *b);
@@ -3242,7 +3242,7 @@ jge_dbl_var(const wei_t *ec, jge_t *r, const jge_t *p) {
 
 static void
 jge_addsub_var(const wei_t *ec, jge_t *r,
-               const jge_t *a, const jge_t *b, int negate) {
+               const jge_t *a, const jge_t *b, int sign) {
   /* No assumptions.
    * https://hyperelliptic.org/EFD/g1p/auto-shortw-jacobian.html#addition-add-1998-cmo-2
    * 12M + 4S + 6A + 1*2
@@ -3282,15 +3282,14 @@ jge_addsub_var(const wei_t *ec, jge_t *r,
   fe_mul(fe, s2, b->y, a->z);
   fe_mul(fe, s2, s2, z1z1);
 
-  /* S2 = -S2 (if subtracting) */
-  if (negate)
-    fe_neg(fe, s2, s2);
-
   /* H = U2 - U1 */
   fe_sub(fe, h, u2, u1);
 
   /* r = S2 - S1 */
-  fe_sub(fe, r0, s2, s1);
+  if (sign)
+    fe_sub(fe, r0, s2, s1);
+  else
+    fe_add(fe, r0, s2, s1);
 
   /* H = 0 */
   if (fe_is_zero(fe, h)) {
@@ -3318,7 +3317,11 @@ jge_addsub_var(const wei_t *ec, jge_t *r,
   fe_sub(fe, r->x, r->x, v);
 
   /* Y3 = r * (V - X3) - S1 * HHH */
-  fe_sub_nc(fe, v, v, r->x);
+  if (sign)
+    fe_sub_nc(fe, v, v, r->x);
+  else
+    fe_sub_nc(fe, v, r->x, v);
+
   fe_mul(fe, s1, s1, hhh);
   fe_mul(fe, r->y, r0, v);
   fe_sub(fe, r->y, r->y, s1);
@@ -3356,11 +3359,11 @@ jge_add_var(const wei_t *ec, jge_t *r, const jge_t *a, const jge_t *b) {
 
   /* Z2 = 1 */
   if (jge_is_affine(ec, b)) {
-    jge_mixed_addsub_var(ec, r, a, b->x, b->y, 0);
+    jge_mixed_addsub_var(ec, r, a, b->x, b->y, 1);
     return;
   }
 
-  jge_addsub_var(ec, r, a, b, 0);
+  jge_addsub_var(ec, r, a, b, 1);
 }
 
 static void
@@ -3379,16 +3382,16 @@ jge_sub_var(const wei_t *ec, jge_t *r, const jge_t *a, const jge_t *b) {
 
   /* Z2 = 1 */
   if (jge_is_affine(ec, b)) {
-    jge_mixed_addsub_var(ec, r, a, b->x, b->y, 1);
+    jge_mixed_addsub_var(ec, r, a, b->x, b->y, 0);
     return;
   }
 
-  jge_addsub_var(ec, r, a, b, 1);
+  jge_addsub_var(ec, r, a, b, 0);
 }
 
 static void
 jge_mixed_addsub_var(const wei_t *ec, jge_t *r, const jge_t *a,
-                     const fe_t bx, const fe_t by, int negate) {
+                     const fe_t bx, const fe_t by, int sign) {
   /* Assumes Z2 = 1.
    * https://hyperelliptic.org/EFD/g1p/auto-shortw-jacobian.html#addition-madd
    * 8M + 3S + 6A + 5*2
@@ -3415,15 +3418,15 @@ jge_mixed_addsub_var(const wei_t *ec, jge_t *r, const jge_t *a,
   fe_mul(fe, s2, by, a->z);
   fe_mul(fe, s2, s2, z1z1);
 
-  /* S2 = -S2 (if subtracting) */
-  if (negate)
-    fe_neg(fe, s2, s2);
-
   /* H = U2 - X1 */
   fe_sub(fe, h, u2, a->x);
 
   /* r = 2 * (S2 - Y1) */
-  fe_sub(fe, r0, s2, a->y);
+  if (sign)
+    fe_sub(fe, r0, s2, a->y);
+  else
+    fe_add(fe, r0, s2, a->y);
+
   fe_add(fe, r0, r0, r0);
 
   /* H = 0 */
@@ -3438,6 +3441,7 @@ jge_mixed_addsub_var(const wei_t *ec, jge_t *r, const jge_t *a,
 
   /* I = (2 * H)^2 */
   fe_add_nc(fe, i, h, h);
+  fe_mul(fe, r->z, a->z, i);
   fe_sqr(fe, i, i);
 
   /* J = H * I */
@@ -3453,17 +3457,18 @@ jge_mixed_addsub_var(const wei_t *ec, jge_t *r, const jge_t *a,
   fe_sub(fe, r->x, r->x, v);
 
   /* Y3 = r * (V - X3) - 2 * Y1 * J */
-  fe_sub_nc(fe, v, v, r->x);
+  if (sign)
+    fe_sub_nc(fe, v, v, r->x);
+  else
+    fe_sub_nc(fe, v, r->x, v);
+
   fe_mul(fe, j, j, a->y);
   fe_add(fe, j, j, j);
   fe_mul(fe, r->y, r0, v);
   fe_sub(fe, r->y, r->y, j);
 
   /* Z3 = 2 * Z1 * H */
-  /* Note: 2 * H is computed above. */
-  /* We could skip one addition here. */
-  fe_mul(fe, r->z, a->z, h);
-  fe_add(fe, r->z, r->z, r->z);
+  /* Computed above. */
 
 #undef z1z1
 #undef u2
@@ -3489,7 +3494,7 @@ jge_mixed_add_var(const wei_t *ec, jge_t *r, const jge_t *a, const wge_t *b) {
     return;
   }
 
-  jge_mixed_addsub_var(ec, r, a, b->x, b->y, 0);
+  jge_mixed_addsub_var(ec, r, a, b->x, b->y, 1);
 }
 
 static void
@@ -3507,7 +3512,7 @@ jge_mixed_sub_var(const wei_t *ec, jge_t *r, const jge_t *a, const wge_t *b) {
     return;
   }
 
-  jge_mixed_addsub_var(ec, r, a, b->x, b->y, 1);
+  jge_mixed_addsub_var(ec, r, a, b->x, b->y, 0);
 }
 
 static void
@@ -6795,6 +6800,9 @@ xge_add_a(const edwards_t *ec, xge_t *r,
           const xge_t *a, const xge_t *b, int affine) {
   /* https://hyperelliptic.org/EFD/g1p/auto-twisted-extended.html#addition-add-2008-hwcd
    * 9M + 7A + 1*a + 1*d
+   *
+   * https://hyperelliptic.org/EFD/g1p/auto-twisted-extended.html#addition-madd-2008-hwcd
+   * 8M + 7A + 1*a + 1*d
    */
   const prime_field_t *fe = &ec->fe;
   fe_t A, B, c, d, e, f, g, h;
@@ -6846,11 +6854,73 @@ xge_add_a(const edwards_t *ec, xge_t *r,
 }
 
 static void
+xge_sub_a(const edwards_t *ec, xge_t *r,
+          const xge_t *a, const xge_t *b, int affine) {
+  /* https://hyperelliptic.org/EFD/g1p/auto-twisted-extended.html#addition-add-2008-hwcd
+   * 9M + 7A + 1*a + 1*d
+   *
+   * https://hyperelliptic.org/EFD/g1p/auto-twisted-extended.html#addition-madd-2008-hwcd
+   * 8M + 7A + 1*a + 1*d
+   */
+  const prime_field_t *fe = &ec->fe;
+  fe_t A, B, c, d, e, f, g, h;
+
+  /* A = X1 * X2 */
+  fe_mul(fe, A, a->x, b->x);
+
+  /* B = Y1 * Y2 */
+  fe_mul(fe, B, a->y, b->y);
+
+  /* C = T1 * d * T2 */
+  fe_mul(fe, c, a->t, b->t);
+  fe_mul(fe, c, c, ec->d);
+
+  /* D = Z1 * Z2 */
+  if (affine)
+    fe_set(fe, d, a->z);
+  else
+    fe_mul(fe, d, a->z, b->z);
+
+  /* E = (Y1 + X1) * (Y2 - X2) + A - B */
+  fe_add_nc(fe, f, a->y, a->x);
+  fe_sub_nc(fe, g, b->y, b->x);
+  fe_mul(fe, e, f, g);
+  fe_add(fe, e, e, A);
+  fe_sub_nc(fe, e, e, B);
+
+  /* F = D + C */
+  fe_add_nc(fe, f, d, c);
+
+  /* G = D - C */
+  fe_sub_nc(fe, g, d, c);
+
+  /* H = B + a * A */
+  edwards_mul_a(ec, h, A);
+  fe_add_nc(fe, h, B, h);
+
+  /* X3 = E * F */
+  fe_mul(fe, r->x, e, f);
+
+  /* Y3 = G * H */
+  fe_mul(fe, r->y, g, h);
+
+  /* T3 = E * H */
+  fe_mul(fe, r->t, e, h);
+
+  /* Z3 = F * G */
+  fe_mul(fe, r->z, f, g);
+}
+
+static void
 xge_add_m1(const edwards_t *ec, xge_t *r,
            const xge_t *a, const xge_t *b, int affine) {
   /* Assumes a = -1.
+   *
    * https://hyperelliptic.org/EFD/g1p/auto-twisted-extended-1.html#addition-add-2008-hwcd-3
    * 8M + 8A + 1*k + 1*2
+   *
+   * https://hyperelliptic.org/EFD/g1p/auto-twisted-extended-1.html#addition-madd-2008-hwcd-3
+   * 7M + 8A + 1*k + 1*2
    */
   const prime_field_t *fe = &ec->fe;
   fe_t A, B, c, d, e, f, g, h;
@@ -6903,6 +6973,67 @@ xge_add_m1(const edwards_t *ec, xge_t *r,
 }
 
 static void
+xge_sub_m1(const edwards_t *ec, xge_t *r,
+           const xge_t *a, const xge_t *b, int affine) {
+  /* Assumes a = -1.
+   *
+   * https://hyperelliptic.org/EFD/g1p/auto-twisted-extended-1.html#addition-add-2008-hwcd-3
+   * 8M + 8A + 1*k + 1*2
+   *
+   * https://hyperelliptic.org/EFD/g1p/auto-twisted-extended-1.html#addition-madd-2008-hwcd-3
+   * 7M + 8A + 1*k + 1*2
+   */
+  const prime_field_t *fe = &ec->fe;
+  fe_t A, B, c, d, e, f, g, h;
+
+  /* A = (Y1 - X1) * (Y2 + X2) */
+  fe_sub_nc(fe, c, a->y, a->x);
+  fe_add_nc(fe, d, b->y, b->x);
+  fe_mul(fe, A, c, d);
+
+  /* B = (Y1 + X1) * (Y2 - X2) */
+  fe_add_nc(fe, c, a->y, a->x);
+  fe_sub_nc(fe, d, b->y, b->x);
+  fe_mul(fe, B, c, d);
+
+  /* C = T1 * k * T2 */
+  fe_mul(fe, c, a->t, b->t);
+  fe_mul(fe, c, c, ec->k);
+
+  /* D = Z1 * 2 * Z2 */
+  if (affine) {
+    fe_add(fe, d, a->z, a->z);
+  } else {
+    fe_mul(fe, d, a->z, b->z);
+    fe_add(fe, d, d, d);
+  }
+
+  /* E = B - A */
+  fe_sub_nc(fe, e, B, A);
+
+  /* F = D + C */
+  fe_add_nc(fe, f, d, c);
+
+  /* G = D - C */
+  fe_sub_nc(fe, g, d, c);
+
+  /* H = B + A */
+  fe_add_nc(fe, h, B, A);
+
+  /* X3 = E * F */
+  fe_mul(fe, r->x, e, f);
+
+  /* Y3 = G * H */
+  fe_mul(fe, r->y, g, h);
+
+  /* T3 = E * H */
+  fe_mul(fe, r->t, e, h);
+
+  /* Z3 = F * G */
+  fe_mul(fe, r->z, f, g);
+}
+
+static void
 xge_add(const edwards_t *ec, xge_t *r, const xge_t *a, const xge_t *b) {
   if (ec->mone_a)
     xge_add_m1(ec, r, a, b, 0);
@@ -6912,9 +7043,10 @@ xge_add(const edwards_t *ec, xge_t *r, const xge_t *a, const xge_t *b) {
 
 static void
 xge_sub(const edwards_t *ec, xge_t *r, const xge_t *a, const xge_t *b) {
-  xge_t c;
-  xge_neg(ec, &c, b);
-  xge_add(ec, r, a, &c);
+  if (ec->mone_a)
+    xge_sub_m1(ec, r, a, b, 0);
+  else
+    xge_sub_a(ec, r, a, b, 0);
 }
 
 static void
@@ -6927,9 +7059,10 @@ xge_mixed_add(const edwards_t *ec, xge_t *r, const xge_t *a, const xge_t *b) {
 
 static void
 xge_mixed_sub(const edwards_t *ec, xge_t *r, const xge_t *a, const xge_t *b) {
-  xge_t c;
-  xge_neg(ec, &c, b);
-  xge_mixed_add(ec, r, a, &c);
+  if (ec->mone_a)
+    xge_sub_m1(ec, r, a, b, 1);
+  else
+    xge_sub_a(ec, r, a, b, 1);
 }
 
 static void
