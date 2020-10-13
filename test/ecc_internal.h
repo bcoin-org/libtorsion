@@ -227,13 +227,36 @@ rge_equal_raw(const edwards_t *ec, const rge_t *a, const unsigned char *b) {
   return torsion_memcmp(b, raw, ec->fe.size) == 0;
 }
 
+TORSION_UNUSED static void
+wge_set_jge_zinv(const wei_t *ec, wge_t *r, const jge_t *p, const fe_t a) {
+  /* https://hyperelliptic.org/EFD/g1p/auto-shortw-jacobian.html#scaling-z
+   * 3M + 1S
+   */
+  const prime_field_t *fe = &ec->fe;
+  int inf = fe_is_zero(fe, a);
+  fe_t aa;
+
+  /* AA = A^2 */
+  fe_sqr(fe, aa, a);
+
+  /* X3 = X1 * AA */
+  fe_mul(fe, r->x, p->x, aa);
+
+  /* Y3 = Y1 * AA * A */
+  fe_mul(fe, r->y, p->y, aa);
+  fe_mul(fe, r->y, r->y, a);
+
+  /* Check for infinity. */
+  r->inf = inf;
+}
+
 static void
 jge_scale(const wei_t *ec, jge_t *r, const jge_t *p, const fe_t z) {
   /* https://hyperelliptic.org/EFD/g1p/auto-shortw-jacobian.html#scaling-z
    * 4M + 1S
    */
   const prime_field_t *fe = &ec->fe;
-  int inf = fe_is_zero(fe, z);
+  int inf;
   fe_t zz;
 
   /* ZZ = Z^2 */
@@ -248,6 +271,9 @@ jge_scale(const wei_t *ec, jge_t *r, const jge_t *p, const fe_t z) {
 
   /* Z3 = Z1 * Z */
   fe_mul(fe, r->z, p->z, z);
+
+  /* Check for infinity. */
+  inf = fe_is_zero(fe, r->z);
 
   /* Ensure (1, 1, 0) if infinity. */
   fe_select(fe, r->x, r->x, fe->one, inf);
@@ -274,8 +300,10 @@ jge_randomize(const wei_t *ec, jge_t *r, const jge_t *p, drbg_t *rng) {
 
 static void
 pge_scale(const mont_t *ec, pge_t *r, const pge_t *p, const fe_t z) {
+  /* https://hyperelliptic.org/EFD/g1p/auto-montgom-xz.html#scaling-scale
+   * 2M
+   */
   const prime_field_t *fe = &ec->fe;
-  int inf = fe_is_zero(fe, z);
 
   /* X3 = X1 * Z */
   fe_mul(fe, r->x, p->x, z);
@@ -284,7 +312,7 @@ pge_scale(const mont_t *ec, pge_t *r, const pge_t *p, const fe_t z) {
   fe_mul(fe, r->z, p->z, z);
 
   /* Ensure (1, 0) if infinity. */
-  fe_select(fe, r->x, r->x, fe->one, inf);
+  fe_select(fe, r->x, r->x, fe->one, fe_is_zero(fe, r->z));
 }
 
 static void
@@ -307,9 +335,10 @@ pge_randomize(const mont_t *ec, pge_t *r, const pge_t *p, drbg_t *rng) {
 
 static void
 xge_scale(const edwards_t *ec, xge_t *r, const xge_t *p, const fe_t z) {
+  /* https://hyperelliptic.org/EFD/g1p/auto-edwards-projective.html#scaling-z
+   * 4M
+   */
   const prime_field_t *fe = &ec->fe;
-
-  ASSERT(!fe_is_zero(fe, z));
 
   /* X3 = X1 * Z */
   fe_mul(fe, r->x, p->x, z);

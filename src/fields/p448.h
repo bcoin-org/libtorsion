@@ -180,7 +180,7 @@ p448_fe_sqrt(p448_fe_t r, const p448_fe_t x) {
   p448_fe_sqr(x2, x1);
   p448_fe_mul(x2, x2, x1);
 
-  /* x222 = x1^(2^222 - 1) */
+  /* r = x1^(2^222 - 1) */
   p448_fe_pow_core(r, x1, x2);
 
   /* r = r^(2^2) * x2 */

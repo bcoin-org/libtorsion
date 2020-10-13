@@ -352,8 +352,8 @@ p224_fe_sqrt_var(p224_fe_t r, const p224_fe_t x) {
    *     fail
    *
    *   loop:
-   *     m = 0
    *     t = b
+   *     m = 0
    *
    *     while t != 1:
    *       t = t^2 mod p
@@ -402,9 +402,9 @@ p224_fe_sqrt_var(p224_fe_t r, const p224_fe_t x) {
   k = 96;
 
   for (;;) {
-    m = 0;
-
     p224_fe_set(t, b);
+
+    m = 0;
 
     while (!p224_fe_equal(t, p224_one) && m < k) {
       p224_fe_sqr(t, t);

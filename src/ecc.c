@@ -6629,15 +6629,23 @@ static void
 xge_export(const edwards_t *ec,
            unsigned char *raw,
            const xge_t *p) {
-  /* [RFC8032] Section 5.1.2. */
+  /* [RFC8032] Section 5.1.2.
+   * https://hyperelliptic.org/EFD/g1p/auto-edwards-projective.html#scaling-z
+   * 1I + 2M
+   */
   const prime_field_t *fe = &ec->fe;
-  fe_t x, y, z;
+  fe_t a, x, y;
 
-  ASSERT(fe_invert(fe, z, p->z));
+  /* A = 1 / Z */
+  ASSERT(fe_invert(fe, a, p->z));
 
-  fe_mul(fe, x, p->x, z);
-  fe_mul(fe, y, p->y, z);
+  /* X3 = X1 * A */
+  fe_mul(fe, x, p->x, a);
 
+  /* Y3 = Y1 * A */
+  fe_mul(fe, y, p->y, a);
+
+  /* Serialize. */
   fe_export(fe, raw, y);
 
   /* Quirk: we need an extra byte (p448). */
@@ -6836,7 +6844,6 @@ xge_add_a(const edwards_t *ec, xge_t *r, const xge_t *a, const xge_t *b) {
 static void
 xge_add_m1(const edwards_t *ec, xge_t *r, const xge_t *a, const xge_t *b) {
   /* Assumes a = -1.
-   *
    * https://hyperelliptic.org/EFD/g1p/auto-twisted-extended-1.html#addition-add-2008-hwcd-3
    * 8M + 8A + 1*k + 1*2
    */
@@ -8924,7 +8931,7 @@ static const scalar_def_t field_q192 = {
 static const prime_def_t field_p224 = {
   224,
   P224_FIELD_WORDS,
-  /* 2^224 - 2^96 + 1 (no congruence) */
+  /* 2^224 - 2^96 + 1 (1 mod 16) */
   {
     0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
     0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
