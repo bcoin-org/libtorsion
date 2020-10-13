@@ -273,6 +273,36 @@ bench_eddsa_verify(drbg_t *rng) {
 }
 
 static void
+bench_eddsa_derive(drbg_t *rng) {
+  edwards_curve_t *ec = edwards_curve_create(EDWARDS_CURVE_ED25519);
+  unsigned char entropy1[ENTROPY_SIZE];
+  unsigned char entropy2[ENTROPY_SIZE];
+  unsigned char k0[32];
+  unsigned char k1[32];
+  unsigned char p0[32];
+  unsigned char p1[32];
+  bench_t tv;
+  size_t i;
+
+  drbg_generate(rng, entropy1, sizeof(entropy1));
+  drbg_generate(rng, entropy2, sizeof(entropy2));
+
+  eddsa_privkey_generate(ec, k0, entropy1);
+  eddsa_privkey_generate(ec, k1, entropy2);
+
+  eddsa_pubkey_create(ec, p0, k0);
+
+  bench_start(&tv, "eddsa_derive");
+
+  for (i = 0; i < 10000; i++)
+    ASSERT(eddsa_derive(ec, p1, p0, k1));
+
+  bench_end(&tv, i);
+
+  edwards_curve_destroy(ec);
+}
+
+static void
 bench_hash(drbg_t *rng) {
   unsigned char chain[32];
   bench_t tv;
@@ -329,6 +359,7 @@ static const struct {
   B(ecdh_derive),
   B(eddsa_sign),
   B(eddsa_verify),
+  B(eddsa_derive),
   B(hash),
   B(sha256)
 #undef B
