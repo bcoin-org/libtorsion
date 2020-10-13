@@ -6791,7 +6791,8 @@ xge_dbl(const edwards_t *ec, xge_t *r, const xge_t *p) {
 }
 
 static void
-xge_add_a(const edwards_t *ec, xge_t *r, const xge_t *a, const xge_t *b) {
+xge_add_a(const edwards_t *ec, xge_t *r,
+          const xge_t *a, const xge_t *b, int affine) {
   /* https://hyperelliptic.org/EFD/g1p/auto-twisted-extended.html#addition-add-2008-hwcd
    * 9M + 7A + 1*a + 1*d
    */
@@ -6809,7 +6810,10 @@ xge_add_a(const edwards_t *ec, xge_t *r, const xge_t *a, const xge_t *b) {
   fe_mul(fe, c, c, ec->d);
 
   /* D = Z1 * Z2 */
-  fe_mul(fe, d, a->z, b->z);
+  if (affine)
+    fe_set(fe, d, a->z);
+  else
+    fe_mul(fe, d, a->z, b->z);
 
   /* E = (X1 + Y1) * (X2 + Y2) - A - B */
   fe_add_nc(fe, f, a->x, a->y);
@@ -6842,7 +6846,8 @@ xge_add_a(const edwards_t *ec, xge_t *r, const xge_t *a, const xge_t *b) {
 }
 
 static void
-xge_add_m1(const edwards_t *ec, xge_t *r, const xge_t *a, const xge_t *b) {
+xge_add_m1(const edwards_t *ec, xge_t *r,
+           const xge_t *a, const xge_t *b, int affine) {
   /* Assumes a = -1.
    * https://hyperelliptic.org/EFD/g1p/auto-twisted-extended-1.html#addition-add-2008-hwcd-3
    * 8M + 8A + 1*k + 1*2
@@ -6865,8 +6870,12 @@ xge_add_m1(const edwards_t *ec, xge_t *r, const xge_t *a, const xge_t *b) {
   fe_mul(fe, c, c, ec->k);
 
   /* D = Z1 * 2 * Z2 */
-  fe_mul(fe, d, a->z, b->z);
-  fe_add(fe, d, d, d);
+  if (affine) {
+    fe_add(fe, d, a->z, a->z);
+  } else {
+    fe_mul(fe, d, a->z, b->z);
+    fe_add(fe, d, d, d);
+  }
 
   /* E = B - A */
   fe_sub_nc(fe, e, B, A);
@@ -6896,9 +6905,9 @@ xge_add_m1(const edwards_t *ec, xge_t *r, const xge_t *a, const xge_t *b) {
 static void
 xge_add(const edwards_t *ec, xge_t *r, const xge_t *a, const xge_t *b) {
   if (ec->mone_a)
-    xge_add_m1(ec, r, a, b);
+    xge_add_m1(ec, r, a, b, 0);
   else
-    xge_add_a(ec, r, a, b);
+    xge_add_a(ec, r, a, b, 0);
 }
 
 static void
@@ -6906,6 +6915,21 @@ xge_sub(const edwards_t *ec, xge_t *r, const xge_t *a, const xge_t *b) {
   xge_t c;
   xge_neg(ec, &c, b);
   xge_add(ec, r, a, &c);
+}
+
+static void
+xge_mixed_add(const edwards_t *ec, xge_t *r, const xge_t *a, const xge_t *b) {
+  if (ec->mone_a)
+    xge_add_m1(ec, r, a, b, 1);
+  else
+    xge_add_a(ec, r, a, b, 1);
+}
+
+static void
+xge_mixed_sub(const edwards_t *ec, xge_t *r, const xge_t *a, const xge_t *b) {
+  xge_t c;
+  xge_neg(ec, &c, b);
+  xge_mixed_add(ec, r, a, &c);
 }
 
 static void
@@ -6948,8 +6972,42 @@ xge_has_torsion(const edwards_t *ec, const xge_t *p) {
 }
 
 static void
+xge_normalize_all_var(const edwards_t *ec, xge_t *out,
+                      const xge_t *in, size_t len) {
+  /* Montgomery's trick. */
+  const prime_field_t *fe = &ec->fe;
+  fe_t *invs = checked_malloc(len * sizeof(fe_t));
+  fe_t acc;
+  size_t i;
+
+  fe_set(fe, acc, fe->one);
+
+  for (i = 0; i < len; i++) {
+    fe_set(fe, invs[i], acc);
+    fe_mul(fe, acc, acc, in[i].z);
+  }
+
+  ASSERT(fe_invert_var(fe, acc, acc));
+
+  for (i = len; i-- > 0;) {
+    fe_mul(fe, invs[i], invs[i], acc);
+    fe_mul(fe, acc, acc, in[i].z);
+  }
+
+  for (i = 0; i < len; i++) {
+    fe_mul(fe, out[i].x, in[i].x, invs[i]);
+    fe_mul(fe, out[i].y, in[i].y, invs[i]);
+    fe_set(fe, out[i].z, fe->one);
+    fe_mul(fe, out[i].t, in[i].t, invs[i]);
+  }
+
+  free(invs);
+}
+
+static void
 xge_fixed_points(const edwards_t *ec, xge_t *out, const xge_t *p) {
   const scalar_field_t *sc = &ec->sc;
+  size_t size = FIXED_LENGTH(sc->bits);
   size_t i, j;
   xge_t g;
 
@@ -6966,6 +7024,8 @@ xge_fixed_points(const edwards_t *ec, xge_t *out, const xge_t *p) {
     for (j = 0; j < FIXED_WIDTH; j++)
       xge_dbl(ec, &g, &g);
   }
+
+  xge_normalize_all_var(ec, out, out, size);
 }
 
 static void
@@ -6980,6 +7040,13 @@ xge_naf_points(const edwards_t *ec, xge_t *out,
 
   for (i = 1; i < size; i++)
     xge_add(ec, &out[i], &out[i - 1], &dbl);
+}
+
+static void
+xge_fixed_naf_points(const edwards_t *ec, xge_t *out,
+                     const xge_t *p, size_t width) {
+  xge_naf_points(ec, out, p, width);
+  xge_normalize_all_var(ec, out, out, 1 << (width - 2));
 }
 
 static void
@@ -7050,7 +7117,7 @@ edwards_init(edwards_t *ec, const edwards_def_t *def) {
   xge_zero(ec, &ec->unblind);
 
   xge_fixed_points(ec, ec->wnd_fixed, &ec->g);
-  xge_naf_points(ec, ec->wnd_naf, &ec->g, NAF_WIDTH_PRE);
+  xge_fixed_naf_points(ec, ec->wnd_naf, &ec->g, NAF_WIDTH_PRE);
 
   for (i = 0; i < ec->h; i++) {
     fe_import_be(fe, ec->torsion[i].x, def->torsion[i].x);
@@ -7215,7 +7282,7 @@ edwards_mul_g(const edwards_t *ec, xge_t *r, const sc_t k) {
     for (j = 0; j < FIXED_SIZE; j++)
       xge_select(ec, &t, &t, &wnds[i * FIXED_SIZE + j], j == b);
 
-    xge_add(ec, r, r, &t);
+    xge_mixed_add(ec, r, r, &t);
   }
 
   /* Cleanse. */
@@ -7308,9 +7375,9 @@ edwards_mul_double_var(const edwards_t *ec,
       xge_dbl(ec, r, r);
 
     if (z1 > 0)
-      xge_add(ec, r, r, &wnd1[(z1 - 1) >> 1]);
+      xge_mixed_add(ec, r, r, &wnd1[(z1 - 1) >> 1]);
     else if (z1 < 0)
-      xge_sub(ec, r, r, &wnd1[(-z1 - 1) >> 1]);
+      xge_mixed_sub(ec, r, r, &wnd1[(-z1 - 1) >> 1]);
 
     if (z2 > 0)
       xge_add(ec, r, r, &wnd2[(z2 - 1) >> 1]);
@@ -7385,9 +7452,9 @@ edwards_mul_multi_var(const edwards_t *ec,
       xge_dbl(ec, r, r);
 
     if (z0 > 0)
-      xge_add(ec, r, r, &wnd0[(z0 - 1) >> 1]);
+      xge_mixed_add(ec, r, r, &wnd0[(z0 - 1) >> 1]);
     else if (z0 < 0)
-      xge_sub(ec, r, r, &wnd0[(-z0 - 1) >> 1]);
+      xge_mixed_sub(ec, r, r, &wnd0[(-z0 - 1) >> 1]);
 
     for (j = 0; j < len; j++) {
       int z = nafs[j][i];
