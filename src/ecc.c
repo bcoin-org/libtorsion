@@ -2182,6 +2182,7 @@ wge_zero(const wei_t *ec, wge_t *r) {
 
   fe_zero(fe, r->x);
   fe_zero(fe, r->y);
+
   r->inf = 1;
 }
 
@@ -2191,11 +2192,21 @@ wge_cleanse(const wei_t *ec, wge_t *r) {
 
   fe_cleanse(fe, r->x);
   fe_cleanse(fe, r->y);
+
   r->inf = 1;
 }
 
 TORSION_UNUSED static int
 wge_validate(const wei_t *ec, const wge_t *p) {
+#ifdef TORSION_VERIFY
+  if (p->inf) {
+    const prime_field_t *fe = &ec->fe;
+
+    ASSERT(fe_is_zero(fe, p->x));
+    ASSERT(fe_is_zero(fe, p->y));
+  }
+#endif
+
   return wei_validate_xy(ec, p->x, p->y) | p->inf;
 }
 
@@ -2218,6 +2229,7 @@ wge_set_x(const wei_t *ec, wge_t *r, const fe_t x, int sign) {
 
   fe_select(fe, r->x, x, fe->zero, ret ^ 1);
   fe_select(fe, r->y, y, fe->zero, ret ^ 1);
+
   r->inf = ret ^ 1;
 
   return ret;
@@ -2230,6 +2242,7 @@ wge_set_xy(const wei_t *ec, wge_t *r, const fe_t x, const fe_t y) {
 
   fe_select(fe, r->x, x, fe->zero, ret ^ 1);
   fe_select(fe, r->y, y, fe->zero, ret ^ 1);
+
   r->inf = ret ^ 1;
 
   return ret;
@@ -2381,6 +2394,7 @@ wge_set(const wei_t *ec, wge_t *r, const wge_t *a) {
 
   fe_set(fe, r->x, a->x);
   fe_set(fe, r->y, a->y);
+
   r->inf = a->inf;
 }
 
@@ -2398,12 +2412,34 @@ wge_equal(const wei_t *ec, const wge_t *a, const wge_t *b) {
   /* Y1 = Y2 */
   ret &= fe_equal(fe, a->y, b->y);
 
+#ifdef TORSION_VERIFY
+  if (a->inf) {
+    ASSERT(fe_is_zero(fe, a->x));
+    ASSERT(fe_is_zero(fe, a->y));
+  }
+
+  if (b->inf) {
+    ASSERT(fe_is_zero(fe, b->x));
+    ASSERT(fe_is_zero(fe, b->y));
+  }
+#endif
+
   return ret | (a->inf & b->inf);
 }
 
 static int
 wge_is_zero(const wei_t *ec, const wge_t *a) {
   (void)ec;
+
+#ifdef TORSION_VERIFY
+  if (a->inf) {
+    const prime_field_t *fe = &ec->fe;
+
+    ASSERT(fe_is_zero(fe, a->x));
+    ASSERT(fe_is_zero(fe, a->y));
+  }
+#endif
+
   return a->inf;
 }
 
@@ -2436,6 +2472,7 @@ wge_neg(const wei_t *ec, wge_t *r, const wge_t *a) {
 
   fe_set(fe, r->x, a->x);
   fe_neg(fe, r->y, a->y);
+
   r->inf = a->inf;
 }
 
@@ -2445,6 +2482,7 @@ wge_neg_cond(const wei_t *ec, wge_t *r, const wge_t *a, unsigned int flag) {
 
   fe_set(fe, r->x, a->x);
   fe_neg_cond(fe, r->y, a->y, flag);
+
   r->inf = a->inf;
 }
 
@@ -2496,6 +2534,7 @@ wge_dbl_var(const wei_t *ec, wge_t *r, const wge_t *p) {
 
   fe_set(fe, r->x, x3);
   fe_set(fe, r->y, y3);
+
   r->inf = 0;
 }
 
@@ -2550,6 +2589,7 @@ wge_add_var(const wei_t *ec, wge_t *r, const wge_t *a, const wge_t *b) {
     /* Skip the inverse. */
     fe_set(fe, r->x, x3);
     fe_set(fe, r->y, y3);
+
     r->inf = 0;
 
     return;
@@ -2573,6 +2613,7 @@ wge_add_var(const wei_t *ec, wge_t *r, const wge_t *a, const wge_t *b) {
 
   fe_set(fe, r->x, x3);
   fe_set(fe, r->y, y3);
+
   r->inf = 0;
 }
 
@@ -2618,8 +2659,10 @@ wge_dbl(const wei_t *ec, wge_t *r, const wge_t *p) {
   fe_mul(fe, y3, l, t);
   fe_sub(fe, y3, y3, p->y);
 
+  /* Ensure (0, 0) for infinity. */
   fe_select(fe, r->x, x3, fe->zero, inf);
   fe_select(fe, r->y, y3, fe->zero, inf);
+
   r->inf = inf;
 }
 
@@ -2707,6 +2750,7 @@ wge_add(const wei_t *ec, wge_t *r, const wge_t *a, const wge_t *b) {
 
   fe_set(fe, r->x, x3);
   fe_set(fe, r->y, y3);
+
   r->inf = inf;
 }
 
@@ -2773,6 +2817,7 @@ wge_set_jge_var(const wei_t *ec, wge_t *r, const jge_t *p) {
   /* Y3 = Y1 * AA * A */
   fe_mul(fe, r->y, p->y, aa);
   fe_mul(fe, r->y, r->y, a);
+
   r->inf = 0;
 }
 
@@ -2874,6 +2919,7 @@ wge_endo_beta(const wei_t *ec, wge_t *r, const wge_t *p) {
 
   fe_mul(fe, r->x, p->x, ec->beta);
   fe_set(fe, r->y, p->y);
+
   r->inf = p->inf;
 }
 
@@ -2934,6 +2980,13 @@ static int
 jge_is_zero(const wei_t *ec, const jge_t *a) {
   const prime_field_t *fe = &ec->fe;
 
+#ifdef TORSION_VERIFY
+  if (fe_is_zero(fe, a->z)) {
+    ASSERT(fe_equal(fe, a->x, fe->one));
+    ASSERT(fe_equal(fe, a->y, fe->one));
+  }
+#endif
+
   return fe_is_zero(fe, a->z);
 }
 
@@ -2970,6 +3023,18 @@ jge_equal(const wei_t *ec, const jge_t *a, const jge_t *b) {
   fe_mul(fe, e2, b->y, z1);
 
   ret &= fe_equal(fe, e1, e2);
+
+#ifdef TORSION_VERIFY
+  if (inf1) {
+    ASSERT(fe_equal(fe, a->x, fe->one));
+    ASSERT(fe_equal(fe, a->y, fe->one));
+  }
+
+  if (inf2) {
+    ASSERT(fe_equal(fe, b->x, fe->one));
+    ASSERT(fe_equal(fe, b->y, fe->one));
+  }
+#endif
 
   return ret | (inf1 & inf2);
 }
@@ -3057,6 +3122,9 @@ jge_neg(const wei_t *ec, jge_t *r, const jge_t *a) {
   fe_set(fe, r->x, a->x);
   fe_neg(fe, r->y, a->y);
   fe_set(fe, r->z, a->z);
+
+  /* Ensure (1, 1, 0) for infinity. */
+  fe_select(fe, r->y, r->y, fe->one, fe_is_zero(fe, r->z));
 }
 
 static void
@@ -3066,6 +3134,9 @@ jge_neg_cond(const wei_t *ec, jge_t *r, const jge_t *a, unsigned int flag) {
   fe_set(fe, r->x, a->x);
   fe_neg_cond(fe, r->y, a->y, flag);
   fe_set(fe, r->z, a->z);
+
+  /* Ensure (1, 1, 0) for infinity. */
+  fe_select(fe, r->y, r->y, fe->one, fe_is_zero(fe, r->z));
 }
 
 static void
@@ -3518,14 +3589,7 @@ jge_mixed_sub_var(const wei_t *ec, jge_t *r, const jge_t *a, const wge_t *b) {
 static void
 jge_dbl(const wei_t *ec, jge_t *r, const jge_t *p) {
   const prime_field_t *fe = &ec->fe;
-  int inf = 0;
-
-  /* P = O */
-  inf |= jge_is_zero(ec, p);
-
-  /* Y1 = 0 */
-  if (ec->h > 1)
-    inf |= fe_is_zero(fe, p->y);
+  int inf = ec->h > 1 && fe_is_zero(fe, p->y);
 
   if (ec->zero_a)
     jge_dbl0(ec, r, p);
@@ -3534,9 +3598,12 @@ jge_dbl(const wei_t *ec, jge_t *r, const jge_t *p) {
   else
     jge_dblj(ec, r, p);
 
-  fe_select(fe, r->x, r->x, fe->one, inf);
-  fe_select(fe, r->y, r->y, fe->one, inf);
-  fe_select(fe, r->z, r->z, fe->zero, inf);
+  if (ec->h > 1) {
+    /* Ensure (1, 1, 0) for 2-torsion. */
+    fe_select(fe, r->x, r->x, fe->one, inf);
+    fe_select(fe, r->y, r->y, fe->one, inf);
+    fe_select(fe, r->z, r->z, fe->zero, inf);
+  }
 }
 
 static void
@@ -3968,7 +4035,6 @@ jge_validate(const wei_t *ec, const jge_t *p) {
   /* [GECC] Example 3.20, Page 88, Section 3. */
   const prime_field_t *fe = &ec->fe;
   fe_t lhs, x3, z2, z4, z6, rhs;
-  int ret = 0;
 
   /* y^2 = x^3 + a * x * z^4 + b * z^6 */
   fe_sqr(fe, lhs, p->y);
@@ -3983,10 +4049,14 @@ jge_validate(const wei_t *ec, const jge_t *p) {
   fe_mul(fe, x3, x3, p->x);
   fe_add(fe, rhs, rhs, x3);
 
-  ret |= fe_equal(fe, lhs, rhs);
-  ret |= jge_is_zero(ec, p);
+#ifdef TORSION_VERIFY
+  if (fe_is_zero(fe, p->z)) {
+    ASSERT(fe_equal(fe, p->x, fe->one));
+    ASSERT(fe_equal(fe, p->y, fe->one));
+  }
+#endif
 
-  return ret;
+  return fe_equal(fe, lhs, rhs);
 }
 
 static void
@@ -4037,6 +4107,9 @@ jge_endo_beta(const wei_t *ec, jge_t *r, const jge_t *p) {
   fe_mul(fe, r->x, p->x, ec->beta);
   fe_set(fe, r->y, p->y);
   fe_set(fe, r->z, p->z);
+
+  /* Ensure (1, 1, 0) for infinity. */
+  fe_select(fe, r->x, r->x, fe->one, fe_is_zero(fe, r->z));
 }
 
 /*
@@ -4903,6 +4976,7 @@ wei_sswu(const wei_t *ec, wge_t *p, const fe_t u) {
 
   fe_set(fe, p->x, x1);
   fe_set(fe, p->y, y1);
+
   p->inf = 0;
 }
 
@@ -5084,6 +5158,7 @@ wei_svdw(const wei_t *ec, wge_t *p, const fe_t u) {
 
   fe_set(fe, p->x, x);
   fe_set(fe, p->y, y);
+
   p->inf = 0;
 }
 
@@ -5361,6 +5436,7 @@ mge_zero(const mont_t *ec, mge_t *r) {
 
   fe_zero(fe, r->x);
   fe_zero(fe, r->y);
+
   r->inf = 1;
 }
 
@@ -5370,11 +5446,21 @@ mge_cleanse(const mont_t *ec, mge_t *r) {
 
   fe_cleanse(fe, r->x);
   fe_cleanse(fe, r->y);
+
   r->inf = 1;
 }
 
 TORSION_UNUSED static int
 mge_validate(const mont_t *ec, const mge_t *p) {
+#ifdef TORSION_VERIFY
+  if (p->inf) {
+    const prime_field_t *fe = &ec->fe;
+
+    ASSERT(fe_is_zero(fe, p->x));
+    ASSERT(fe_is_zero(fe, p->y));
+  }
+#endif
+
   return mont_validate_xy(ec, p->x, p->y) | p->inf;
 }
 
@@ -5396,6 +5482,7 @@ mge_set_x(const mont_t *ec, mge_t *r, const fe_t x, int sign) {
 
   fe_select(fe, r->x, x, fe->zero, ret ^ 1);
   fe_select(fe, r->y, y, fe->zero, ret ^ 1);
+
   r->inf = ret ^ 1;
 
   return ret;
@@ -5408,6 +5495,7 @@ mge_set_xy(const mont_t *ec, mge_t *r, const fe_t x, const fe_t y) {
 
   fe_select(fe, r->x, x, fe->zero, ret ^ 1);
   fe_select(fe, r->y, y, fe->zero, ret ^ 1);
+
   r->inf = ret ^ 1;
 
   return ret;
@@ -5456,6 +5544,7 @@ mge_set(const mont_t *ec, mge_t *r, const mge_t *a) {
 
   fe_set(fe, r->x, a->x);
   fe_set(fe, r->y, a->y);
+
   r->inf = a->inf;
 }
 
@@ -5473,12 +5562,34 @@ mge_equal(const mont_t *ec, const mge_t *a, const mge_t *b) {
   /* Y1 = Y2 */
   ret &= fe_equal(fe, a->y, b->y);
 
+#ifdef TORSION_VERIFY
+  if (a->inf) {
+    ASSERT(fe_is_zero(fe, a->x));
+    ASSERT(fe_is_zero(fe, a->y));
+  }
+
+  if (b->inf) {
+    ASSERT(fe_is_zero(fe, b->x));
+    ASSERT(fe_is_zero(fe, b->y));
+  }
+#endif
+
   return ret | (a->inf & b->inf);
 }
 
 TORSION_UNUSED static int
 mge_is_zero(const mont_t *ec, const mge_t *a) {
   (void)ec;
+
+#ifdef TORSION_VERIFY
+  if (a->inf) {
+    const prime_field_t *fe = &ec->fe;
+
+    ASSERT(fe_is_zero(fe, a->x));
+    ASSERT(fe_is_zero(fe, a->y));
+  }
+#endif
+
   return a->inf;
 }
 
@@ -5488,6 +5599,7 @@ mge_neg(const mont_t *ec, mge_t *r, const mge_t *a) {
 
   fe_set(fe, r->x, a->x);
   fe_neg(fe, r->y, a->y);
+
   r->inf = a->inf;
 }
 
@@ -5534,6 +5646,7 @@ mge_dbl(const mont_t *ec, mge_t *r, const mge_t *p) {
 
   fe_select(fe, r->x, x3, fe->zero, inf);
   fe_select(fe, r->y, y3, fe->zero, inf);
+
   r->inf = inf;
 }
 
@@ -5622,6 +5735,7 @@ mge_add(const mont_t *ec, mge_t *r, const mge_t *a, const mge_t *b) {
 
   fe_set(fe, r->x, x3);
   fe_set(fe, r->y, y3);
+
   r->inf = inf;
 }
 
@@ -5699,6 +5813,11 @@ pge_validate(const mont_t *ec, const pge_t *p) {
   mont_div_b(ec, y2, y2);
   fe_mul(fe, y2, y2, p->z);
 
+#ifdef TORSION_VERIFY
+  if (fe_is_zero(fe, p->z))
+    ASSERT(fe_equal(fe, p->x, fe->one));
+#endif
+
   /* sqrt(y^2 * z^4) = y * z^2 */
   return fe_is_square(fe, y2);
 }
@@ -5771,6 +5890,11 @@ static int
 pge_is_zero(const mont_t *ec, const pge_t *a) {
   const prime_field_t *fe = &ec->fe;
 
+#ifdef TORSION_VERIFY
+  if (fe_is_zero(fe, a->z))
+    ASSERT(fe_equal(fe, a->x, fe->one));
+#endif
+
   return fe_is_zero(fe, a->z);
 }
 
@@ -5790,6 +5914,14 @@ pge_equal(const mont_t *ec, const pge_t *a, const pge_t *b) {
   fe_mul(fe, rhs, b->x, a->z);
 
   ret &= fe_equal(fe, lhs, rhs);
+
+#ifdef TORSION_VERIFY
+  if (inf1)
+    ASSERT(fe_equal(fe, a->x, fe->one));
+
+  if (inf2)
+    ASSERT(fe_equal(fe, b->x, fe->one));
+#endif
 
   return ret | (inf1 & inf2);
 }
@@ -5824,6 +5956,9 @@ pge_dbl(const mont_t *ec, pge_t *r, const pge_t *p) {
   mont_mul_a24(ec, r->z, c);
   fe_add_nc(fe, r->z, r->z, bb);
   fe_mul(fe, r->z, r->z, c);
+
+  /* Ensure (1, 0) for infinity. */
+  fe_select(fe, r->x, r->x, fe->one, fe_is_zero(fe, r->z));
 }
 
 static void
@@ -6175,6 +6310,9 @@ mont_mul(const mont_t *ec, pge_t *r, const pge_t *p, const sc_t k, int affine) {
   pge_swap(ec, &a, &b, swap);
   pge_set(ec, r, &a);
 
+  /* Ensure (1, 0) for infinity. */
+  fe_select(fe, r->x, r->x, fe->one, fe_is_zero(fe, r->z));
+
   /* Cleanse. */
   cleanse(&bit, sizeof(bit));
   cleanse(&swap, sizeof(swap));
@@ -6295,6 +6433,7 @@ mont_elligator2(const mont_t *ec, mge_t *r, const fe_t u) {
 
   fe_set(fe, r->x, x1);
   fe_set(fe, r->y, y1);
+
   r->inf = 0;
 }
 
@@ -6525,6 +6664,10 @@ xge_validate(const edwards_t *ec, const xge_t *p) {
   ret &= fe_equal(fe, lhs, rhs);
   ret &= fe_is_zero(fe, p->z) ^ 1;
 
+#ifdef TORSION_VERIFY
+  ASSERT(!fe_is_zero(fe, p->z));
+#endif
+
   return ret;
 }
 
@@ -6702,6 +6845,10 @@ xge_is_zero(const edwards_t *ec, const xge_t *a) {
   ret &= fe_is_zero(fe, a->x);
   ret &= fe_equal(fe, a->y, a->z);
 
+#ifdef TORSION_VERIFY
+  ASSERT(!fe_is_zero(fe, a->z));
+#endif
+
   return ret;
 }
 
@@ -6722,6 +6869,11 @@ xge_equal(const edwards_t *ec, const xge_t *a, const xge_t *b) {
   fe_mul(fe, rhs, b->y, a->z);
 
   ret &= fe_equal(fe, lhs, rhs);
+
+#ifdef TORSION_VERIFY
+  ASSERT(!fe_is_zero(fe, a->z));
+  ASSERT(!fe_is_zero(fe, b->z));
+#endif
 
   return ret;
 }

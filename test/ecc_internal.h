@@ -236,6 +236,10 @@ wge_set_jge_zinv(const wei_t *ec, wge_t *r, const jge_t *p, const fe_t a) {
   int inf = fe_is_zero(fe, a);
   fe_t aa;
 
+#ifdef TORSION_VERIFY
+  ASSERT(!fe_is_zero(fe, p->z));
+#endif
+
   /* AA = A^2 */
   fe_sqr(fe, aa, a);
 
@@ -256,8 +260,8 @@ jge_scale(const wei_t *ec, jge_t *r, const jge_t *p, const fe_t z) {
    * 4M + 1S
    */
   const prime_field_t *fe = &ec->fe;
-  int inf;
   fe_t zz;
+  int inf;
 
   /* ZZ = Z^2 */
   fe_sqr(fe, zz, z);
@@ -275,7 +279,7 @@ jge_scale(const wei_t *ec, jge_t *r, const jge_t *p, const fe_t z) {
   /* Check for infinity. */
   inf = fe_is_zero(fe, r->z);
 
-  /* Ensure (1, 1, 0) if infinity. */
+  /* Ensure (1, 1, 0) for infinity. */
   fe_select(fe, r->x, r->x, fe->one, inf);
   fe_select(fe, r->y, r->y, fe->one, inf);
 }
@@ -311,7 +315,7 @@ pge_scale(const mont_t *ec, pge_t *r, const pge_t *p, const fe_t z) {
   /* Z3 = Z1 * Z */
   fe_mul(fe, r->z, p->z, z);
 
-  /* Ensure (1, 0) if infinity. */
+  /* Ensure (1, 0) for infinity. */
   fe_select(fe, r->x, r->x, fe->one, fe_is_zero(fe, r->z));
 }
 
@@ -339,6 +343,11 @@ xge_scale(const edwards_t *ec, xge_t *r, const xge_t *p, const fe_t z) {
    * 4M
    */
   const prime_field_t *fe = &ec->fe;
+
+#ifdef TORSION_VERIFY
+  ASSERT(!fe_is_zero(fe, z));
+  ASSERT(!fe_is_zero(fe, p->z));
+#endif
 
   /* X3 = X1 * Z */
   fe_mul(fe, r->x, p->x, z);
@@ -1013,6 +1022,7 @@ test_wei_points(int type,
   wge_sub_var(ec, &p, &p, &p); ASSERT(wge_is_zero(ec, &p));
 
   /* Addition (with explicit doubling) */
+  wge_dbl_var(ec, &p, &o); ASSERT(wge_is_zero(ec, &p));
   wge_dbl_var(ec, &p, &g); ASSERT(wge_equal(ec, &p, &q));
   wge_add_var(ec, &p, &p, &g); ASSERT(wge_equal(ec, &p, &r));
 
@@ -1059,6 +1069,7 @@ test_wei_points(int type,
   wge_sub(ec, &p, &p, &p); ASSERT(wge_is_zero(ec, &p));
 
   /* Addition (with explicit doubling) */
+  wge_dbl(ec, &p, &o); ASSERT(wge_is_zero(ec, &p));
   wge_dbl(ec, &p, &g); ASSERT(wge_equal(ec, &p, &q));
   wge_add(ec, &p, &p, &g); ASSERT(wge_equal(ec, &p, &r));
 
@@ -1104,6 +1115,7 @@ test_wei_points(int type,
   jge_sub_var(ec, &jp, &jp, &jp); ASSERT(jge_is_zero(ec, &jp));
 
   /* Addition (with explicit doubling) */
+  jge_dbl_var(ec, &jp, &jo); ASSERT(jge_is_zero(ec, &jp));
   jge_dbl_var(ec, &jp, &jg); ASSERT(jge_equal(ec, &jp, &jq));
   jge_add_var(ec, &jp, &jp, &jg); ASSERT(jge_equal(ec, &jp, &jr));
 
@@ -1150,6 +1162,7 @@ test_wei_points(int type,
   jge_sub(ec, &jp, &jp, &jp); ASSERT(jge_is_zero(ec, &jp));
 
   /* Addition (with explicit doubling) */
+  jge_dbl(ec, &jp, &jo); ASSERT(jge_is_zero(ec, &jp));
   jge_dbl(ec, &jp, &jg); ASSERT(jge_equal(ec, &jp, &jq));
   jge_add(ec, &jp, &jp, &jg); ASSERT(jge_equal(ec, &jp, &jr));
 
@@ -1183,6 +1196,7 @@ test_wei_points(int type,
   jge_mixed_sub_var(ec, &jp, &jp, &g); ASSERT(jge_equal(ec, &jp, &jmr));
 
   /* Addition (with explicit doubling) */
+  jge_dbl_var(ec, &jp, &jo); ASSERT(jge_is_zero(ec, &jp));
   jge_dbl_var(ec, &jp, &jg); ASSERT(jge_equal(ec, &jp, &jq));
   jge_mixed_add_var(ec, &jp, &jp, &g); ASSERT(jge_equal(ec, &jp, &jr));
 
@@ -1212,6 +1226,7 @@ test_wei_points(int type,
   jge_mixed_sub(ec, &jp, &jp, &g); ASSERT(jge_equal(ec, &jp, &jmr));
 
   /* Addition (with explicit doubling) */
+  jge_dbl(ec, &jp, &jo); ASSERT(jge_is_zero(ec, &jp));
   jge_dbl(ec, &jp, &jg); ASSERT(jge_equal(ec, &jp, &jq));
   jge_mixed_add(ec, &jp, &jp, &g); ASSERT(jge_equal(ec, &jp, &jr));
 
@@ -2547,6 +2562,7 @@ test_mont_points(int type,
   mge_sub(ec, &p, &p, &p); ASSERT(mge_is_zero(ec, &p));
 
   /* Addition (with explicit doubling) */
+  mge_dbl(ec, &p, &o); ASSERT(mge_is_zero(ec, &p));
   mge_dbl(ec, &p, &g); ASSERT(mge_equal(ec, &p, &q));
   mge_add(ec, &p, &p, &g); ASSERT(mge_equal(ec, &p, &r));
 
@@ -2560,11 +2576,13 @@ test_mont_points(int type,
    */
 
   /* Addition (with explicit doubling) */
+  pge_dbl(ec, &jp, &jo); ASSERT(pge_is_zero(ec, &jp));
   pge_dbl(ec, &jp, &jg); ASSERT(pge_equal(ec, &jp, &jq));
 
   /* Multiplication */
   mont_mul_g(ec, &jp, z); ASSERT(pge_equal(ec, &jp, &jo));
   mont_mul_g(ec, &jp, k); ASSERT(pge_equal(ec, &jp, &jr));
+  mont_mul(ec, &jp, &jo, k, 0); ASSERT(pge_is_zero(ec, &jo));
   mont_mul(ec, &jp, &jg, k, 0); ASSERT(pge_equal(ec, &jp, &jr));
   pge_normalize(ec, &jg, &jg);
   mont_mul(ec, &jp, &jg, k, 1); ASSERT(pge_equal(ec, &jp, &jr));
@@ -2956,6 +2974,7 @@ test_edwards_points(int type,
   xge_sub(ec, &p, &p, &p); ASSERT(xge_is_zero(ec, &p));
 
   /* Addition (with explicit doubling) */
+  xge_dbl(ec, &p, &o); ASSERT(xge_is_zero(ec, &p));
   xge_dbl(ec, &p, &g); ASSERT(xge_equal(ec, &p, &q));
   xge_add(ec, &p, &p, &g); ASSERT(xge_equal(ec, &p, &r));
 
@@ -2995,6 +3014,7 @@ test_edwards_points(int type,
   xge_mixed_sub(ec, &p, &p, &g); ASSERT(xge_equal(ec, &p, &mr));
 
   /* Addition (with explicit doubling) */
+  xge_dbl(ec, &p, &o); ASSERT(xge_is_zero(ec, &p));
   xge_dbl(ec, &p, &g); ASSERT(xge_equal(ec, &p, &q));
   xge_mixed_add(ec, &p, &p, &g); ASSERT(xge_equal(ec, &p, &r));
 
