@@ -353,7 +353,7 @@ xge_scale(const edwards_t *ec, xge_t *r, const xge_t *p, const fe_t z) {
   fe_mul(fe, r->t, p->t, z);
 }
 
-TORSION_UNUSED static void
+static void
 xge_normalize(const edwards_t *ec, xge_t *r, const xge_t *p) {
   const prime_field_t *fe = &ec->fe;
   fe_t zi;
@@ -2970,6 +2970,41 @@ test_edwards_points(int type,
   edwards_mul_double_var(ec, &p, k, &mg, k); ASSERT(xge_equal(ec, &p, &o));
   edwards_mul_g(ec, &p, k); ASSERT(xge_equal(ec, &p, &r));
   edwards_mul(ec, &p, &g, k); ASSERT(xge_equal(ec, &p, &r));
+
+  /*
+   * Arithmetic (mixed)
+   */
+
+  xge_normalize(ec, &o, &o);
+  xge_normalize(ec, &g, &g);
+
+  /* Addition */
+  xge_mixed_add(ec, &p, &o, &o); ASSERT(xge_is_zero(ec, &p));
+  xge_mixed_add(ec, &p, &p, &g); ASSERT(xge_equal(ec, &p, &g));
+  xge_mixed_add(ec, &p, &p, &g); ASSERT(xge_equal(ec, &p, &q));
+  xge_mixed_add(ec, &p, &p, &g); ASSERT(xge_equal(ec, &p, &r));
+  xge_mixed_add(ec, &p, &p, &o); ASSERT(xge_equal(ec, &p, &r));
+
+  /* Subtraction */
+  xge_mixed_sub(ec, &p, &p, &o); ASSERT(xge_equal(ec, &p, &r));
+  xge_mixed_sub(ec, &p, &p, &g); ASSERT(xge_equal(ec, &p, &q));
+  xge_mixed_sub(ec, &p, &p, &g); ASSERT(xge_equal(ec, &p, &g));
+  xge_mixed_sub(ec, &p, &p, &g); ASSERT(xge_is_zero(ec, &p));
+  xge_mixed_sub(ec, &p, &p, &g); ASSERT(xge_equal(ec, &p, &mg));
+  xge_mixed_sub(ec, &p, &p, &g); ASSERT(xge_equal(ec, &p, &mq));
+  xge_mixed_sub(ec, &p, &p, &g); ASSERT(xge_equal(ec, &p, &mr));
+
+  /* Addition (with explicit doubling) */
+  xge_dbl(ec, &p, &g); ASSERT(xge_equal(ec, &p, &q));
+  xge_mixed_add(ec, &p, &p, &g); ASSERT(xge_equal(ec, &p, &r));
+
+  /* Subtraction (with explicit doubling) */
+  xge_mixed_sub(ec, &p, &o, &g); ASSERT(xge_equal(ec, &p, &mg));
+  xge_dbl(ec, &p, &p); ASSERT(xge_equal(ec, &p, &mq));
+  xge_mixed_sub(ec, &p, &p, &g); ASSERT(xge_equal(ec, &p, &mr));
+
+  xge_randomize(ec, &o, &o, rng);
+  xge_randomize(ec, &g, &g, rng);
 
   /*
    * Torsion
