@@ -90,7 +90,7 @@ TORSION_UNUSED static void
 wge_print(const wei_t *ec, const wge_t *p) {
   const prime_field_t *fe = &ec->fe;
 
-  if (wge_is_zero(ec, p)) {
+  if (p->inf) {
     printf("(infinity)\n");
   } else {
     printf("(");
@@ -105,7 +105,7 @@ TORSION_UNUSED static void
 jge_print(const wei_t *ec, const jge_t *p) {
   const prime_field_t *fe = &ec->fe;
 
-  if (jge_is_zero(ec, p)) {
+  if (p->inf) {
     printf("(infinity)\n");
   } else {
     printf("(");
@@ -236,9 +236,7 @@ wge_set_jge_zinv(const wei_t *ec, wge_t *r, const jge_t *p, const fe_t a) {
   int inf = fe_is_zero(fe, a);
   fe_t aa;
 
-#ifdef TORSION_VERIFY
-  ASSERT(!fe_is_zero(fe, p->z));
-#endif
+  ASSERT(!p->inf);
 
   /* AA = A^2 */
   fe_sqr(fe, aa, a);
@@ -260,8 +258,8 @@ jge_scale(const wei_t *ec, jge_t *r, const jge_t *p, const fe_t z) {
    * 4M + 1S
    */
   const prime_field_t *fe = &ec->fe;
+  int inf = p->inf | fe_is_zero(fe, z);
   fe_t zz;
-  int inf;
 
   /* ZZ = Z^2 */
   fe_sqr(fe, zz, z);
@@ -276,12 +274,13 @@ jge_scale(const wei_t *ec, jge_t *r, const jge_t *p, const fe_t z) {
   /* Z3 = Z1 * Z */
   fe_mul(fe, r->z, p->z, z);
 
-  /* Check for infinity. */
-  inf = fe_is_zero(fe, r->z);
-
   /* Ensure (1, 1, 0) for infinity. */
   fe_select(fe, r->x, r->x, fe->one, inf);
   fe_select(fe, r->y, r->y, fe->one, inf);
+  fe_select(fe, r->z, r->z, fe->zero, inf);
+
+  r->inf = inf;
+  r->aff = 0;
 }
 
 TORSION_UNUSED static void
@@ -291,6 +290,8 @@ jge_normalize(const wei_t *ec, jge_t *r, const jge_t *p) {
 
   fe_invert(fe, zi, p->z);
   jge_scale(ec, r, p, zi);
+
+  r->aff = r->inf ^ 1;
 }
 
 static void
@@ -1167,8 +1168,8 @@ test_wei_points(int type,
   jge_add(ec, &jp, &jp, &jg); ASSERT(jge_equal(ec, &jp, &jr));
 
   /* Addition (with explicit doubling -- jacobian formula) */
-  jge_dblj(ec, &jp, &jo); ASSERT(jge_is_zero(ec, &jp));
-  jge_dblj(ec, &jp, &jg); ASSERT(jge_equal(ec, &jp, &jq));
+  jge_dblj(ec, &jp, &jo); jp.inf = 1; ASSERT(jge_is_zero(ec, &jp));
+  jge_dblj(ec, &jp, &jg); jp.inf = 0; ASSERT(jge_equal(ec, &jp, &jq));
   jge_add(ec, &jp, &jp, &jg); ASSERT(jge_equal(ec, &jp, &jr));
 
   /* Subtraction (with explicit doubling) */

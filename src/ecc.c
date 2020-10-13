@@ -391,6 +391,8 @@ typedef struct jge_s {
   fe_t x;
   fe_t y;
   fe_t z;
+  int inf;
+  int aff;
 } jge_t;
 
 typedef struct wei_s {
@@ -2188,9 +2190,6 @@ jge_set(const wei_t *ec, jge_t *r, const jge_t *a);
 static int
 jge_is_zero(const wei_t *ec, const jge_t *a);
 
-static int
-jge_is_affine(const wei_t *ec, const jge_t *a);
-
 static void
 jge_dbl_var(const wei_t *ec, jge_t *r, const jge_t *p);
 
@@ -2775,7 +2774,7 @@ wge_set_jge(const wei_t *ec, wge_t *r, const jge_t *p) {
   fe_t a, aa;
 
   /* A = 1 / Z1 */
-  r->inf = fe_invert(fe, a, p->z) ^ 1;
+  fe_invert(fe, a, p->z);
 
   /* AA = A^2 */
   fe_sqr(fe, aa, a);
@@ -2786,6 +2785,8 @@ wge_set_jge(const wei_t *ec, wge_t *r, const jge_t *p) {
   /* Y3 = Y1 * AA * A */
   fe_mul(fe, r->y, p->y, aa);
   fe_mul(fe, r->y, r->y, a);
+
+  r->inf = p->inf;
 }
 
 static void
@@ -2797,13 +2798,13 @@ wge_set_jge_var(const wei_t *ec, wge_t *r, const jge_t *p) {
   fe_t a, aa;
 
   /* P = O */
-  if (jge_is_zero(ec, p)) {
+  if (p->inf) {
     wge_zero(ec, r);
     return;
   }
 
   /* Z = 1 */
-  if (jge_is_affine(ec, p)) {
+  if (p->aff) {
     fe_set(fe, r->x, p->x);
     fe_set(fe, r->y, p->y);
     r->inf = 0;
@@ -2836,7 +2837,7 @@ wge_set_jge_all_var(const wei_t *ec, wge_t *out, const jge_t *in, size_t len) {
   fe_set(fe, acc, fe->one);
 
   for (i = 0; i < len; i++) {
-    if (fe_is_zero(fe, in[i].z))
+    if (in[i].inf)
       continue;
 
     fe_set(fe, out[i].x, acc);
@@ -2846,7 +2847,7 @@ wge_set_jge_all_var(const wei_t *ec, wge_t *out, const jge_t *in, size_t len) {
   ASSERT(fe_invert_var(fe, acc, acc));
 
   for (i = len; i-- > 0;) {
-    if (fe_is_zero(fe, in[i].z))
+    if (in[i].inf)
       continue;
 
     fe_mul(fe, out[i].x, out[i].x, acc);
@@ -2854,7 +2855,7 @@ wge_set_jge_all_var(const wei_t *ec, wge_t *out, const jge_t *in, size_t len) {
   }
 
   for (i = 0; i < len; i++) {
-    if (fe_is_zero(fe, in[i].z)) {
+    if (in[i].inf) {
       wge_zero(ec, &out[i]);
       continue;
     }
@@ -2939,6 +2940,9 @@ jge_zero(const wei_t *ec, jge_t *r) {
   fe_set(fe, r->x, fe->one);
   fe_set(fe, r->y, fe->one);
   fe_zero(fe, r->z);
+
+  r->inf = 1;
+  r->aff = 0;
 }
 
 static void
@@ -2948,15 +2952,29 @@ jge_cleanse(const wei_t *ec, jge_t *r) {
   fe_cleanse(fe, r->x);
   fe_cleanse(fe, r->y);
   fe_cleanse(fe, r->z);
+
+  r->inf = 1;
+  r->aff = 0;
 }
 
 TORSION_UNUSED static void
 jge_swap(const wei_t *ec, jge_t *a, jge_t *b, unsigned int flag) {
   const prime_field_t *fe = &ec->fe;
+  int cond = int_barrier(flag != 0);
+  int inf1 = a->inf;
+  int inf2 = b->inf;
+  int aff1 = a->aff;
+  int aff2 = b->aff;
 
   fe_swap(fe, a->x, b->x, flag);
   fe_swap(fe, a->y, b->y, flag);
   fe_swap(fe, a->z, b->z, flag);
+
+  a->inf = (inf1 & (cond ^ 1)) | (inf2 & cond);
+  b->inf = (inf2 & (cond ^ 1)) | (inf1 & cond);
+
+  a->aff = (aff1 & (cond ^ 1)) | (aff2 & cond);
+  b->aff = (aff2 & (cond ^ 1)) | (aff1 & cond);
 }
 
 static void
@@ -2966,10 +2984,14 @@ jge_select(const wei_t *ec,
            const jge_t *b,
            unsigned int flag) {
   const prime_field_t *fe = &ec->fe;
+  int cond = int_barrier(flag != 0);
 
   fe_select(fe, r->x, a->x, b->x, flag);
   fe_select(fe, r->y, a->y, b->y, flag);
   fe_select(fe, r->z, a->z, b->z, flag);
+
+  r->inf = (a->inf & (cond ^ 1)) | (b->inf & cond);
+  r->aff = (a->aff & (cond ^ 1)) | (b->aff & cond);
 }
 
 static void
@@ -2979,32 +3001,25 @@ jge_set(const wei_t *ec, jge_t *r, const jge_t *a) {
   fe_set(fe, r->x, a->x);
   fe_set(fe, r->y, a->y);
   fe_set(fe, r->z, a->z);
+
+  r->inf = a->inf;
+  r->aff = a->aff;
 }
 
 static int
 jge_is_zero(const wei_t *ec, const jge_t *a) {
-  const prime_field_t *fe = &ec->fe;
-
-  return fe_is_zero(fe, a->z);
-}
-
-static int
-jge_is_affine(const wei_t *ec, const jge_t *a) {
-  const prime_field_t *fe = &ec->fe;
-
-  return fe_equal(fe, a->z, fe->one);
+  (void)ec;
+  return a->inf;
 }
 
 TORSION_UNUSED static int
 jge_equal(const wei_t *ec, const jge_t *a, const jge_t *b) {
   const prime_field_t *fe = &ec->fe;
-  int inf1 = jge_is_zero(ec, a);
-  int inf2 = jge_is_zero(ec, b);
   fe_t z1, z2, e1, e2;
   int ret = 1;
 
   /* P != O, Q != O */
-  ret &= (inf1 | inf2) ^ 1;
+  ret &= (a->inf | b->inf) ^ 1;
 
   /* X1 * Z2^2 == X2 * Z1^2 */
   fe_sqr(fe, z1, a->z);
@@ -3022,22 +3037,18 @@ jge_equal(const wei_t *ec, const jge_t *a, const jge_t *b) {
 
   ret &= fe_equal(fe, e1, e2);
 
-  return ret | (inf1 & inf2);
+  return ret | (a->inf & b->inf);
 }
 
 TORSION_UNUSED static int
 jge_is_square(const wei_t *ec, const jge_t *p) {
   /* [SCHNORR] "Optimizations". */
   const prime_field_t *fe = &ec->fe;
-  int ret = 1;
   fe_t yz;
 
   fe_mul(fe, yz, p->y, p->z);
 
-  ret &= fe_is_square(fe, yz);
-  ret &= jge_is_zero(ec, p) ^ 1;
-
-  return ret;
+  return fe_is_square(fe, yz) & (p->inf ^ 1);
 }
 
 static int
@@ -3046,7 +3057,7 @@ jge_is_square_var(const wei_t *ec, const jge_t *p) {
   const prime_field_t *fe = &ec->fe;
   fe_t yz;
 
-  if (jge_is_zero(ec, p))
+  if (p->inf)
     return 0;
 
   fe_mul(fe, yz, p->y, p->z);
@@ -3058,16 +3069,12 @@ static int
 jge_equal_x(const wei_t *ec, const jge_t *p, const fe_t x) {
   /* [SCHNORR] "Optimizations". */
   const prime_field_t *fe = &ec->fe;
-  int ret = 1;
   fe_t xz;
 
   fe_sqr(fe, xz, p->z);
   fe_mul(fe, xz, xz, x);
 
-  ret &= fe_equal(fe, p->x, xz);
-  ret &= jge_is_zero(ec, p) ^ 1;
-
-  return ret;
+  return fe_equal(fe, p->x, xz) & (p->inf ^ 1);
 }
 
 static int
@@ -3077,7 +3084,7 @@ jge_equal_r_var(const wei_t *ec, const jge_t *p, const sc_t x) {
   const scalar_field_t *sc = &ec->sc;
   fe_t rx, rn, zz;
 
-  if (jge_is_zero(ec, p))
+  if (p->inf)
     return 0;
 
   if (!fe_set_sc(fe, sc, rx, x))
@@ -3110,7 +3117,10 @@ jge_neg(const wei_t *ec, jge_t *r, const jge_t *a) {
   fe_set(fe, r->z, a->z);
 
   /* Ensure (1, 1, 0) for infinity. */
-  fe_select(fe, r->y, r->y, fe->one, fe_is_zero(fe, r->z));
+  fe_select(fe, r->y, r->y, fe->one, a->inf);
+
+  r->inf = a->inf;
+  r->aff = a->aff;
 }
 
 static void
@@ -3122,7 +3132,10 @@ jge_neg_cond(const wei_t *ec, jge_t *r, const jge_t *a, unsigned int flag) {
   fe_set(fe, r->z, a->z);
 
   /* Ensure (1, 1, 0) for infinity. */
-  fe_select(fe, r->y, r->y, fe->one, fe_is_zero(fe, r->z));
+  fe_select(fe, r->y, r->y, fe->one, a->inf);
+
+  r->inf = a->inf;
+  r->aff = a->aff;
 }
 
 static void
@@ -3267,7 +3280,7 @@ jge_dbl_var(const wei_t *ec, jge_t *r, const jge_t *p) {
   const prime_field_t *fe = &ec->fe;
 
   /* P = O */
-  if (jge_is_zero(ec, p)) {
+  if (p->inf) {
     jge_zero(ec, r);
     return;
   }
@@ -3284,6 +3297,9 @@ jge_dbl_var(const wei_t *ec, jge_t *r, const jge_t *p) {
     jge_dbl3(ec, r, p);
   else
     jge_dblj(ec, r, p);
+
+  r->inf = 0;
+  r->aff = 0;
 }
 
 static void
@@ -3378,6 +3394,9 @@ jge_addsub_var(const wei_t *ec, jge_t *r,
   fe_mul(fe, r->z, a->z, b->z);
   fe_mul(fe, r->z, r->z, h);
 
+  r->inf = 0;
+  r->aff = 0;
+
 #undef z1z1
 #undef z2z2
 #undef u1
@@ -3394,19 +3413,19 @@ jge_addsub_var(const wei_t *ec, jge_t *r,
 static void
 jge_add_var(const wei_t *ec, jge_t *r, const jge_t *a, const jge_t *b) {
   /* O + P = P */
-  if (jge_is_zero(ec, a)) {
+  if (a->inf) {
     jge_set(ec, r, b);
     return;
   }
 
   /* P + O = P */
-  if (jge_is_zero(ec, b)) {
+  if (b->inf) {
     jge_set(ec, r, a);
     return;
   }
 
   /* Z2 = 1 */
-  if (jge_is_affine(ec, b)) {
+  if (b->aff) {
     jge_mixed_addsub_var(ec, r, a, b->x, b->y, 1);
     return;
   }
@@ -3417,19 +3436,19 @@ jge_add_var(const wei_t *ec, jge_t *r, const jge_t *a, const jge_t *b) {
 static void
 jge_sub_var(const wei_t *ec, jge_t *r, const jge_t *a, const jge_t *b) {
   /* O - P = -P */
-  if (jge_is_zero(ec, a)) {
+  if (a->inf) {
     jge_neg(ec, r, b);
     return;
   }
 
   /* P - O = P */
-  if (jge_is_zero(ec, b)) {
+  if (b->inf) {
     jge_set(ec, r, a);
     return;
   }
 
   /* Z2 = 1 */
-  if (jge_is_affine(ec, b)) {
+  if (b->aff) {
     jge_mixed_addsub_var(ec, r, a, b->x, b->y, 0);
     return;
   }
@@ -3518,6 +3537,9 @@ jge_mixed_addsub_var(const wei_t *ec, jge_t *r, const jge_t *a,
   /* Z3 = 2 * Z1 * H */
   /* Computed above. */
 
+  r->inf = 0;
+  r->aff = 0;
+
 #undef z1z1
 #undef u2
 #undef s2
@@ -3531,13 +3553,13 @@ jge_mixed_addsub_var(const wei_t *ec, jge_t *r, const jge_t *a,
 static void
 jge_mixed_add_var(const wei_t *ec, jge_t *r, const jge_t *a, const wge_t *b) {
   /* O + P = P */
-  if (jge_is_zero(ec, a)) {
+  if (a->inf) {
     jge_set_wge(ec, r, b);
     return;
   }
 
   /* P + O = P */
-  if (wge_is_zero(ec, b)) {
+  if (b->inf) {
     jge_set(ec, r, a);
     return;
   }
@@ -3548,14 +3570,14 @@ jge_mixed_add_var(const wei_t *ec, jge_t *r, const jge_t *a, const wge_t *b) {
 static void
 jge_mixed_sub_var(const wei_t *ec, jge_t *r, const jge_t *a, const wge_t *b) {
   /* O - P = -P */
-  if (jge_is_zero(ec, a)) {
+  if (a->inf) {
     jge_set_wge(ec, r, b);
     jge_neg(ec, r, r);
     return;
   }
 
   /* P - O = P */
-  if (wge_is_zero(ec, b)) {
+  if (b->inf) {
     jge_set(ec, r, a);
     return;
   }
@@ -3566,10 +3588,7 @@ jge_mixed_sub_var(const wei_t *ec, jge_t *r, const jge_t *a, const wge_t *b) {
 static void
 jge_dbl(const wei_t *ec, jge_t *r, const jge_t *p) {
   const prime_field_t *fe = &ec->fe;
-  int zero = (ec->h > 1 && fe_is_zero(fe, p->y));
-#ifdef TORSION_VERIFY
-  int inf = fe_is_zero(fe, p->z) | zero;
-#endif
+  int inf = p->inf | (ec->h > 1 && fe_is_zero(fe, p->y));
 
   if (ec->zero_a)
     jge_dbl0(ec, r, p);
@@ -3580,16 +3599,21 @@ jge_dbl(const wei_t *ec, jge_t *r, const jge_t *p) {
 
   if (ec->h > 1) {
     /* Ensure (1, 1, 0) for 2-torsion. */
-    fe_select(fe, r->x, r->x, fe->one, zero);
-    fe_select(fe, r->y, r->y, fe->one, zero);
-    fe_select(fe, r->z, r->z, fe->zero, zero);
+    fe_select(fe, r->x, r->x, fe->one, inf);
+    fe_select(fe, r->y, r->y, fe->one, inf);
+    fe_select(fe, r->z, r->z, fe->zero, inf);
   }
 
+  r->inf = inf;
+  r->aff = 0;
+
 #ifdef TORSION_VERIFY
-  if (inf) {
+  if (r->inf) {
     ASSERT(fe_equal(fe, r->x, fe->one));
     ASSERT(fe_equal(fe, r->y, fe->one));
     ASSERT(fe_is_zero(fe, r->z));
+  } else {
+    ASSERT(!fe_is_zero(fe, r->z));
   }
 #endif
 }
@@ -3672,7 +3696,7 @@ jge_add(const wei_t *ec, jge_t *r, const jge_t *a, const jge_t *b) {
    */
   const prime_field_t *fe = &ec->fe;
   fe_t t1, t2, t3, t4, t5, t6, t7, t8;
-  int degenerate, inf1, inf2, inf3;
+  int degenerate, inf;
 
 #define z1z1 t1
 #define z2z2 t2
@@ -3778,29 +3802,30 @@ jge_add(const wei_t *ec, jge_t *r, const jge_t *a, const jge_t *b) {
   fe_add(fe, z3, f, f);
 
   /* Check for infinity. */
-  inf1 = fe_is_zero(fe, a->z);
-  inf2 = fe_is_zero(fe, b->z);
-  inf3 = fe_is_zero(fe, z3) & ((inf1 | inf2) ^ 1);
+  inf = fe_is_zero(fe, z3) & ((a->inf | b->inf) ^ 1);
 
   /* Case 1: O + P = P */
-  fe_select(fe, x3, x3, b->x, inf1);
-  fe_select(fe, y3, y3, b->y, inf1);
-  fe_select(fe, z3, z3, b->z, inf1);
+  fe_select(fe, x3, x3, b->x, a->inf);
+  fe_select(fe, y3, y3, b->y, a->inf);
+  fe_select(fe, z3, z3, b->z, a->inf);
 
   /* Case 2: P + O = P */
-  fe_select(fe, x3, x3, a->x, inf2);
-  fe_select(fe, y3, y3, a->y, inf2);
-  fe_select(fe, z3, z3, a->z, inf2);
+  fe_select(fe, x3, x3, a->x, b->inf);
+  fe_select(fe, y3, y3, a->y, b->inf);
+  fe_select(fe, z3, z3, a->z, b->inf);
 
   /* Case 3: P + -P = O */
-  fe_select(fe, x3, x3, fe->one, inf3);
-  fe_select(fe, y3, y3, fe->one, inf3);
-  fe_select(fe, z3, z3, fe->zero, inf3);
+  fe_select(fe, x3, x3, fe->one, inf);
+  fe_select(fe, y3, y3, fe->one, inf);
+  fe_select(fe, z3, z3, fe->zero, inf);
 
   /* R = (X3, Y3, Z3) */
   fe_set(fe, r->x, x3);
   fe_set(fe, r->y, y3);
   fe_set(fe, r->z, z3);
+
+  r->inf = inf | (a->inf & b->inf);
+  r->aff = 0;
 
 #undef z1z1
 #undef z2z2
@@ -3870,7 +3895,7 @@ jge_mixed_add(const wei_t *ec, jge_t *r, const jge_t *a, const wge_t *b) {
    */
   const prime_field_t *fe = &ec->fe;
   fe_t t1, t2, t3, t4, t5, t6;
-  int degenerate, inf1, inf2, inf3;
+  int degenerate, inf;
 
 #define z1z1 t1
 #define u2   t2
@@ -3958,29 +3983,30 @@ jge_mixed_add(const wei_t *ec, jge_t *r, const jge_t *a, const wge_t *b) {
   fe_add(fe, z3, f, f);
 
   /* Check for infinity. */
-  inf1 = fe_is_zero(fe, a->z);
-  inf2 = b->inf;
-  inf3 = fe_is_zero(fe, z3) & ((inf1 | inf2) ^ 1);
+  inf = fe_is_zero(fe, z3) & ((a->inf | b->inf) ^ 1);
 
   /* Case 1: O + P = P */
-  fe_select(fe, x3, x3, b->x, inf1);
-  fe_select(fe, y3, y3, b->y, inf1);
-  fe_select(fe, z3, z3, fe->one, inf1);
+  fe_select(fe, x3, x3, b->x, a->inf);
+  fe_select(fe, y3, y3, b->y, a->inf);
+  fe_select(fe, z3, z3, fe->one, a->inf);
 
   /* Case 2: P + O = P */
-  fe_select(fe, x3, x3, a->x, inf2);
-  fe_select(fe, y3, y3, a->y, inf2);
-  fe_select(fe, z3, z3, a->z, inf2);
+  fe_select(fe, x3, x3, a->x, b->inf);
+  fe_select(fe, y3, y3, a->y, b->inf);
+  fe_select(fe, z3, z3, a->z, b->inf);
 
   /* Case 3: P + -P = O */
-  fe_select(fe, x3, x3, fe->one, inf3);
-  fe_select(fe, y3, y3, fe->one, inf3);
-  fe_select(fe, z3, z3, fe->zero, inf3);
+  fe_select(fe, x3, x3, fe->one, inf);
+  fe_select(fe, y3, y3, fe->one, inf);
+  fe_select(fe, z3, z3, fe->zero, inf);
 
   /* R = (X3, Y3, Z3) */
   fe_set(fe, r->x, x3);
   fe_set(fe, r->y, y3);
   fe_set(fe, r->z, z3);
+
+  r->inf = inf | (a->inf & b->inf);
+  r->aff = 0;
 
 #undef z1z1
 #undef u2
@@ -4012,6 +4038,9 @@ jge_set_wge(const wei_t *ec, jge_t *r, const wge_t *a) {
   fe_select(fe, r->x, a->x, fe->one, a->inf);
   fe_select(fe, r->y, a->y, fe->one, a->inf);
   fe_select(fe, r->z, fe->one, fe->zero, a->inf);
+
+  r->inf = a->inf;
+  r->aff = a->inf ^ 1;
 }
 
 TORSION_UNUSED static int
@@ -4088,7 +4117,10 @@ jge_endo_beta(const wei_t *ec, jge_t *r, const jge_t *p) {
   fe_set(fe, r->z, p->z);
 
   /* Ensure (1, 1, 0) for infinity. */
-  fe_select(fe, r->x, r->x, fe->one, fe_is_zero(fe, r->z));
+  fe_select(fe, r->x, r->x, fe->one, p->inf);
+
+  r->inf = p->inf;
+  r->aff = p->aff;
 }
 
 /*
