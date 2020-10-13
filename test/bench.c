@@ -226,7 +226,6 @@ bench_eddsa_sign(drbg_t *rng) {
   unsigned char priv[32];
   unsigned char msg[32];
   unsigned char sig[64];
-  unsigned char pub[32];
   bench_t tv;
   size_t i;
 
@@ -234,13 +233,11 @@ bench_eddsa_sign(drbg_t *rng) {
   drbg_generate(rng, msg, sizeof(msg));
 
   eddsa_privkey_generate(ec, priv, entropy);
-  eddsa_sign(ec, sig, msg, 32, priv, -1, NULL, 0);
-  eddsa_pubkey_create(ec, pub, priv);
 
   bench_start(&tv, "eddsa_sign");
 
   for (i = 0; i < 10000; i++)
-    ASSERT(eddsa_verify(ec, msg, 32, sig, pub, -1, NULL, 0));
+    eddsa_sign(ec, sig, msg, 32, priv, -1, NULL, 0);
 
   bench_end(&tv, i);
 
@@ -254,6 +251,7 @@ bench_eddsa_verify(drbg_t *rng) {
   unsigned char priv[32];
   unsigned char msg[32];
   unsigned char sig[64];
+  unsigned char pub[32];
   bench_t tv;
   size_t i;
 
@@ -261,11 +259,13 @@ bench_eddsa_verify(drbg_t *rng) {
   drbg_generate(rng, msg, sizeof(msg));
 
   eddsa_privkey_generate(ec, priv, entropy);
+  eddsa_sign(ec, sig, msg, 32, priv, -1, NULL, 0);
+  eddsa_pubkey_create(ec, pub, priv);
 
   bench_start(&tv, "eddsa_verify");
 
   for (i = 0; i < 10000; i++)
-    eddsa_sign(ec, sig, msg, 32, priv, -1, NULL, 0);
+    ASSERT(eddsa_verify(ec, msg, 32, sig, pub, -1, NULL, 0));
 
   bench_end(&tv, i);
 
