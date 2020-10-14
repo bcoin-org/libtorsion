@@ -6685,7 +6685,7 @@ xge_set_xy(const edwards_t *ec, xge_t *r, const fe_t x, const fe_t y) {
   fe_select(fe, r->x, x, fe->zero, ret ^ 1);
   fe_select(fe, r->y, y, fe->one, ret ^ 1);
   fe_set(fe, r->z, fe->one);
-  fe_mul(fe, r->t, x, y);
+  fe_mul(fe, r->t, r->x, r->y);
 
   return ret;
 }
@@ -6716,7 +6716,7 @@ xge_set_x(const edwards_t *ec, xge_t *r, const fe_t x, int sign) {
   fe_select(fe, r->x, x, fe->zero, ret ^ 1);
   fe_select(fe, r->y, y, fe->one, ret ^ 1);
   fe_set(fe, r->z, fe->one);
-  fe_mul(fe, r->t, x, y);
+  fe_mul(fe, r->t, r->x, r->y);
 
   return ret;
 }
@@ -6745,7 +6745,7 @@ xge_set_y(const edwards_t *ec, xge_t *r, const fe_t y, int sign) {
   fe_select(fe, r->x, x, fe->zero, ret ^ 1);
   fe_select(fe, r->y, y, fe->one, ret ^ 1);
   fe_set(fe, r->z, fe->one);
-  fe_mul(fe, r->t, x, y);
+  fe_mul(fe, r->t, r->x, r->y);
 
   return ret;
 }
