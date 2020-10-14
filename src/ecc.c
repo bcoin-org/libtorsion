@@ -2201,23 +2201,8 @@ wge_cleanse(const wei_t *ec, wge_t *r) {
   r->inf = 1;
 }
 
-#ifdef TORSION_VERIFY
-static void
-wge_check_sanity(const wei_t *ec, const wge_t *p) {
-  const prime_field_t *fe = &ec->fe;
-
-  if (p->inf) {
-    ASSERT(fe_is_zero(fe, p->x));
-    ASSERT(fe_is_zero(fe, p->y));
-  }
-}
-#endif
-
 TORSION_UNUSED static int
 wge_validate(const wei_t *ec, const wge_t *p) {
-#ifdef TORSION_VERIFY
-  wge_check_sanity(ec, p);
-#endif
   return wei_validate_xy(ec, p->x, p->y) | p->inf;
 }
 
@@ -2414,11 +2399,6 @@ wge_equal(const wei_t *ec, const wge_t *a, const wge_t *b) {
   const prime_field_t *fe = &ec->fe;
   int ret = 1;
 
-#ifdef TORSION_VERIFY
-  wge_check_sanity(ec, a);
-  wge_check_sanity(ec, b);
-#endif
-
   /* P != O, Q != O */
   ret &= (a->inf | b->inf) ^ 1;
 
@@ -2433,9 +2413,6 @@ wge_equal(const wei_t *ec, const wge_t *a, const wge_t *b) {
 
 static int
 wge_is_zero(const wei_t *ec, const wge_t *a) {
-#ifdef TORSION_VERIFY
-  wge_check_sanity(ec, a);
-#endif
   (void)ec;
   return a->inf;
 }
@@ -2973,25 +2950,9 @@ jge_set(const wei_t *ec, jge_t *r, const jge_t *a) {
   fe_set(fe, r->z, a->z);
 }
 
-#ifdef TORSION_VERIFY
-static void
-jge_check_sanity(const wei_t *ec, const jge_t *p) {
-  const prime_field_t *fe = &ec->fe;
-
-  if (fe_is_zero(fe, p->z)) {
-    ASSERT(fe_equal(fe, p->x, fe->one));
-    ASSERT(fe_equal(fe, p->y, fe->one));
-  }
-}
-#endif
-
 static int
 jge_is_zero(const wei_t *ec, const jge_t *a) {
   const prime_field_t *fe = &ec->fe;
-
-#ifdef TORSION_VERIFY
-  jge_check_sanity(ec, a);
-#endif
 
   return fe_is_zero(fe, a->z);
 }
@@ -3010,11 +2971,6 @@ jge_equal(const wei_t *ec, const jge_t *a, const jge_t *b) {
   int inf2 = jge_is_zero(ec, b);
   fe_t z1, z2, e1, e2;
   int ret = 1;
-
-#ifdef TORSION_VERIFY
-  jge_check_sanity(ec, a);
-  jge_check_sanity(ec, b);
-#endif
 
   /* P != O, Q != O */
   ret &= (inf1 | inf2) ^ 1;
@@ -3588,10 +3544,9 @@ jge_mixed_sub_var(const wei_t *ec, jge_t *r, const jge_t *a, const wge_t *b) {
 static void
 jge_dbl(const wei_t *ec, jge_t *r, const jge_t *p) {
   const prime_field_t *fe = &ec->fe;
-  int inf = ec->h > 1 && fe_is_zero(fe, p->y);
-
+  int zero = (ec->h > 1 && fe_is_zero(fe, p->y));
 #ifdef TORSION_VERIFY
-  jge_check_sanity(ec, p);
+  int inf = fe_is_zero(fe, p->z) | zero;
 #endif
 
   if (ec->zero_a)
@@ -3603,10 +3558,18 @@ jge_dbl(const wei_t *ec, jge_t *r, const jge_t *p) {
 
   if (ec->h > 1) {
     /* Ensure (1, 1, 0) for 2-torsion. */
-    fe_select(fe, r->x, r->x, fe->one, inf);
-    fe_select(fe, r->y, r->y, fe->one, inf);
-    fe_select(fe, r->z, r->z, fe->zero, inf);
+    fe_select(fe, r->x, r->x, fe->one, zero);
+    fe_select(fe, r->y, r->y, fe->one, zero);
+    fe_select(fe, r->z, r->z, fe->zero, zero);
   }
+
+#ifdef TORSION_VERIFY
+  if (inf) {
+    ASSERT(fe_equal(fe, r->x, fe->one));
+    ASSERT(fe_equal(fe, r->y, fe->one));
+    ASSERT(fe_is_zero(fe, r->z));
+  }
+#endif
 }
 
 static void
@@ -4038,10 +4001,6 @@ jge_validate(const wei_t *ec, const jge_t *p) {
   /* [GECC] Example 3.20, Page 88, Section 3. */
   const prime_field_t *fe = &ec->fe;
   fe_t lhs, x3, z2, z4, z6, rhs;
-
-#ifdef TORSION_VERIFY
-  jge_check_sanity(ec, p);
-#endif
 
   /* y^2 = x^3 + a * x * z^4 + b * z^6 */
   fe_sqr(fe, lhs, p->y);
@@ -5450,23 +5409,8 @@ mge_cleanse(const mont_t *ec, mge_t *r) {
   r->inf = 1;
 }
 
-#ifdef TORSION_VERIFY
-static void
-mge_check_sanity(const mont_t *ec, const mge_t *p) {
-  if (p->inf) {
-    const prime_field_t *fe = &ec->fe;
-
-    ASSERT(fe_is_zero(fe, p->x));
-    ASSERT(fe_is_zero(fe, p->y));
-  }
-}
-#endif
-
 TORSION_UNUSED static int
 mge_validate(const mont_t *ec, const mge_t *p) {
-#ifdef TORSION_VERIFY
-  mge_check_sanity(ec, p);
-#endif
   return mont_validate_xy(ec, p->x, p->y) | p->inf;
 }
 
@@ -5559,11 +5503,6 @@ mge_equal(const mont_t *ec, const mge_t *a, const mge_t *b) {
   const prime_field_t *fe = &ec->fe;
   int ret = 1;
 
-#ifdef TORSION_VERIFY
-  mge_check_sanity(ec, a);
-  mge_check_sanity(ec, b);
-#endif
-
   /* P != O, Q != O */
   ret &= (a->inf | b->inf) ^ 1;
 
@@ -5578,9 +5517,6 @@ mge_equal(const mont_t *ec, const mge_t *a, const mge_t *b) {
 
 TORSION_UNUSED static int
 mge_is_zero(const mont_t *ec, const mge_t *a) {
-#ifdef TORSION_VERIFY
-  mge_check_sanity(ec, a);
-#endif
   (void)ec;
   return a->inf;
 }
@@ -5788,24 +5724,10 @@ pge_cleanse(const mont_t *ec, pge_t *r) {
   fe_cleanse(fe, r->z);
 }
 
-#ifdef TORSION_VERIFY
-static void
-pge_check_sanity(const mont_t *ec, const pge_t *p) {
-  const prime_field_t *fe = &ec->fe;
-
-  if (fe_is_zero(fe, p->z))
-    ASSERT(fe_equal(fe, p->x, fe->one));
-}
-#endif
-
 TORSION_UNUSED static int
 pge_validate(const mont_t *ec, const pge_t *p) {
   const prime_field_t *fe = &ec->fe;
   fe_t x2, x3, z2, ax2, xz2, y2;
-
-#ifdef TORSION_VERIFY
-  pge_check_sanity(ec, p);
-#endif
 
   /* B * y^2 * z = x^3 + A * x^2 * z + x * z^2 */
   fe_sqr(fe, x2, p->x);
@@ -5891,10 +5813,6 @@ static int
 pge_is_zero(const mont_t *ec, const pge_t *a) {
   const prime_field_t *fe = &ec->fe;
 
-#ifdef TORSION_VERIFY
-  pge_check_sanity(ec, a);
-#endif
-
   return fe_is_zero(fe, a->z);
 }
 
@@ -5905,11 +5823,6 @@ pge_equal(const mont_t *ec, const pge_t *a, const pge_t *b) {
   int inf2 = pge_is_zero(ec, b);
   fe_t lhs, rhs;
   int ret = 1;
-
-#ifdef TORSION_VERIFY
-  pge_check_sanity(ec, a);
-  pge_check_sanity(ec, b);
-#endif
 
   /* P != O, Q != O */
   ret &= (inf1 | inf2) ^ 1;
