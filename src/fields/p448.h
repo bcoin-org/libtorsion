@@ -222,3 +222,9 @@ p448_fe_isqrt(p448_fe_t r, const p448_fe_t u, const p448_fe_t v) {
 
   return ret;
 }
+
+static void
+fiat_p448_carry_scmul_m39081(p448_fe_t out1, const p448_fe_t arg1) {
+  fiat_p448_opp(out1, arg1);
+  fiat_p448_carry_scmul_39081(out1, out1);
+}

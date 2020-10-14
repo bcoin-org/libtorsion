@@ -306,6 +306,7 @@ typedef struct prime_field_s {
   fe_from_bytes_f *from_bytes;
   fe_carry_f *carry;
   fe_scmul_f *scmul_a24;
+  fe_scmul_f *scmul_d;
   fe_invert_f *invert;
   fe_sqrt_f *sqrt;
   fe_isqrt_f *isqrt;
@@ -335,6 +336,7 @@ typedef struct prime_def_s {
   fe_from_bytes_f *from_bytes;
   fe_carry_f *carry;
   fe_scmul_f *scmul_a24;
+  fe_scmul_f *scmul_d;
   fe_invert_f *invert;
   fe_sqrt_f *sqrt;
   fe_isqrt_f *isqrt;
@@ -2114,6 +2116,7 @@ prime_field_init(prime_field_t *fe, const prime_def_t *def, int endian) {
   fe->from_bytes = def->from_bytes;
   fe->carry = def->carry;
   fe->scmul_a24 = def->scmul_a24;
+  fe->scmul_d = def->scmul_d;
   fe->invert = def->invert;
   fe->sqrt = def->sqrt;
   fe->isqrt = def->isqrt;
@@ -6598,6 +6601,9 @@ mont_point_to_hash(const mont_t *ec,
 static void
 edwards_mul_a(const edwards_t *ec, fe_t r, const fe_t x);
 
+static void
+edwards_mul_d(const edwards_t *ec, fe_t r, const fe_t x);
+
 static int
 edwards_validate_xy(const edwards_t *ec, const fe_t x, const fe_t y);
 
@@ -6653,7 +6659,7 @@ xge_validate(const edwards_t *ec, const xge_t *p) {
   fe_mul(fe, lhs, lhs, z2);
 
   fe_mul(fe, rhs, x2, y2);
-  fe_mul(fe, rhs, rhs, ec->d);
+  edwards_mul_d(ec, rhs, rhs);
   fe_add(fe, rhs, rhs, z4);
 
   ret &= fe_equal(fe, lhs, rhs);
@@ -6696,7 +6702,7 @@ xge_set_x(const edwards_t *ec, xge_t *r, const fe_t x, int sign) {
   edwards_mul_a(ec, lhs, x2);
 
   fe_sub(fe, lhs, lhs, fe->one);
-  fe_mul(fe, rhs, x2, ec->d);
+  edwards_mul_d(ec, rhs, x2);
   fe_sub(fe, rhs, rhs, fe->one);
 
   ret &= fe_isqrt(fe, y, lhs, rhs);
@@ -6725,7 +6731,7 @@ xge_set_y(const edwards_t *ec, xge_t *r, const fe_t y, int sign) {
 
   fe_sqr(fe, y2, y);
   fe_sub(fe, lhs, y2, fe->one);
-  fe_mul(fe, rhs, ec->d, y2);
+  edwards_mul_d(ec, rhs, y2);
   fe_sub(fe, rhs, rhs, ec->a);
 
   ret &= fe_isqrt(fe, x, lhs, rhs);
@@ -6967,7 +6973,7 @@ xge_add_a(const edwards_t *ec, xge_t *r,
 
   /* C = T1 * d * T2 */
   fe_mul(fe, c, a->t, b->t);
-  fe_mul(fe, c, c, ec->d);
+  edwards_mul_d(ec, c, c);
 
   /* D = Z1 * Z2 */
   if (affine)
@@ -7025,7 +7031,7 @@ xge_sub_a(const edwards_t *ec, xge_t *r,
 
   /* C = T1 * d * T2 */
   fe_mul(fe, c, a->t, b->t);
-  fe_mul(fe, c, c, ec->d);
+  edwards_mul_d(ec, c, c);
 
   /* D = Z1 * Z2 */
   if (affine)
@@ -7514,6 +7520,16 @@ edwards_mul_a(const edwards_t *ec, fe_t r, const fe_t x) {
     fe_set(fe, r, x); /* a = 1 */
   else
     fe_mul(fe, r, x, ec->a);
+}
+
+static void
+edwards_mul_d(const edwards_t *ec, fe_t r, const fe_t x) {
+  const prime_field_t *fe = &ec->fe;
+
+  if (fe->scmul_d != NULL)
+    fe->scmul_d(r, x);
+  else
+    fe_mul(fe, r, x, ec->d);
 }
 
 static int
@@ -9260,6 +9276,7 @@ static const prime_def_t field_p192 = {
   fiat_p192_from_bytes,
   fiat_p192_carry,
   NULL,
+  NULL,
   p192_fe_invert,
   p192_fe_sqrt,
   p192_fe_isqrt,
@@ -9301,6 +9318,7 @@ static const prime_def_t field_p224 = {
   fiat_p224_selectznz,
   fiat_p224_to_bytes,
   fiat_p224_from_bytes,
+  NULL,
   NULL,
   NULL,
   p224_fe_invert,
@@ -9347,6 +9365,7 @@ static const prime_def_t field_p256 = {
   fiat_p256_from_bytes,
   NULL,
   NULL,
+  NULL,
   p256_fe_invert,
   p256_fe_sqrt,
   p256_fe_isqrt,
@@ -9391,6 +9410,7 @@ static const prime_def_t field_p384 = {
   fiat_p384_selectznz,
   fiat_p384_to_bytes,
   fiat_p384_from_bytes,
+  NULL,
   NULL,
   NULL,
   p384_fe_invert,
@@ -9444,6 +9464,7 @@ static const prime_def_t field_p521 = {
   fiat_p521_from_bytes,
   fiat_p521_carry,
   NULL,
+  NULL,
   p521_fe_invert,
   p521_fe_sqrt,
   p521_fe_isqrt,
@@ -9493,6 +9514,7 @@ static const prime_def_t field_p256k1 = {
   fiat_secp256k1_from_bytes,
   fiat_secp256k1_carry,
   NULL,
+  NULL,
   secp256k1_fe_invert,
   secp256k1_fe_sqrt,
   secp256k1_fe_isqrt,
@@ -9537,6 +9559,7 @@ static const prime_def_t field_p25519 = {
   fiat_p25519_from_bytes,
   fiat_p25519_carry,
   fiat_p25519_carry_scmul_121666,
+  NULL,
   p25519_fe_invert,
   p25519_fe_sqrt,
   p25519_fe_isqrt,
@@ -9584,6 +9607,7 @@ static const prime_def_t field_p448 = {
   fiat_p448_from_bytes,
   fiat_p448_carry,
   fiat_p448_carry_scmul_39082,
+  fiat_p448_carry_scmul_m39081,
   p448_fe_invert,
   p448_fe_sqrt,
   p448_fe_isqrt,
@@ -9631,6 +9655,7 @@ static const prime_def_t field_p251 = {
   fiat_p251_from_bytes,
   fiat_p251_carry,
   NULL,
+  fiat_p251_carry_scmul_m1174,
   p251_fe_invert,
   p251_fe_sqrt,
   p251_fe_isqrt,

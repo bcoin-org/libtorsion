@@ -38,7 +38,8 @@ U_FUNCS = carry_mul    \
           from_bytes
 
 U_FUNCS_25519 := $(U_FUNCS) carry_scmul121666
-U_FUNCS_448 := $(U_FUNCS) carry_scmul39082
+U_FUNCS_448 := $(U_FUNCS) carry_scmul39082 carry_scmul39081
+U_FUNCS_251 := $(U_FUNCS) carry_scmul1174
 
 M_FUNCS = mul             \
           square          \
@@ -145,11 +146,11 @@ src/fields/p448_64.h: $(UNSAT)
 
 # 2^251 - 9
 src/fields/p251_32.h: $(UNSAT)
-	$(UNSAT) --static p251 32 10 '2^251 - 9' $(U_FUNCS) > $@
+	$(UNSAT) --static p251 32 10 '2^251 - 9' $(U_FUNCS_251) > $@
 	$(AFTER)
 
 src/fields/p251_64.h: $(UNSAT)
-	$(UNSAT) --static p251 64 5 '2^251 - 9' $(U_FUNCS) > $@
+	$(UNSAT) --static p251 64 5 '2^251 - 9' $(U_FUNCS_251) > $@
 	$(AFTER)
 
 src/fields/.fiat-head: $(UNSAT) $(MONT)
