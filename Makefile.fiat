@@ -109,22 +109,13 @@ src/fields/p521_64.h: $(UNSAT)
 	$(AFTER)
 
 # 2^256 - 2^32 - 977
-src/fields/secp256k1_32.h: $(MONT)
-	$(MONT) --static secp256k1 32 '2^256 - 2^32 - 977' $(M_FUNCS) > $@
+src/fields/secp256k1_32.h: $(UNSAT)
+	$(UNSAT) --static --tight-bounds-mul-by '1.1' secp256k1 32 12 '2^256 - 2^32 - 977' $(U_FUNCS) > $@
 	$(AFTER)
 
-src/fields/secp256k1_64.h: $(MONT)
-	$(MONT) --static secp256k1 64 '2^256 - 2^32 - 977' $(M_FUNCS) > $@
+src/fields/secp256k1_64.h: $(UNSAT)
+	$(UNSAT) --static secp256k1 64 6 '2^256 - 4294968273' $(U_FUNCS) > $@
 	$(AFTER)
-
-# 2^256 - 2^32 - 977 (faster for GCC, slower for clang)
-# src/fields/secp256k1_32.h: $(UNSAT)
-# 	$(UNSAT) --static secp256k1 32 12 '2^256 - 2^32 - 977' $(U_FUNCS) > $@
-# 	$(AFTER)
-
-# src/fields/secp256k1_64.h: $(UNSAT)
-# 	$(UNSAT) --static secp256k1 64 8 '2^256 - 2^32 - 977' $(U_FUNCS) > $@
-# 	$(AFTER)
 
 # 2^255 - 19
 src/fields/p25519_32.h: $(UNSAT)

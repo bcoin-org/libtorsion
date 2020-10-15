@@ -36,8 +36,6 @@ include_HEADERS = include/torsion/aead.h     \
 
 noinst_HEADERS = src/asn1.h                         \
                  src/bio.h                          \
-                 src/fields/libsecp256k1_32.h       \
-                 src/fields/libsecp256k1_64.h       \
                  src/fields/p192_32.h               \
                  src/fields/p192_64.h               \
                  src/fields/p192.h                  \

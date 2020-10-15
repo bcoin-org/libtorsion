@@ -62,7 +62,6 @@ option(TORSION_ENABLE_COVERAGE "Enable coverage" OFF)
 option(TORSION_ENABLE_CRT "Enable chinese remainder theorem for RSA" OFF)
 option(TORSION_ENABLE_DEBUG "Enable debug build" OFF)
 option(TORSION_ENABLE_INT128 "Use __int128 if available" ON)
-option(TORSION_ENABLE_LIBSECP256K1 "Use libsecp256k1 field element backend" OFF)
 option(TORSION_ENABLE_PTHREAD "Use pthread as a fallback for TLS" ON)
 option(TORSION_ENABLE_RNG "Enable RNG" ON)
 option(TORSION_ENABLE_TLS "Enable thread-local storage" ON)
@@ -300,10 +299,6 @@ endif()
 
 if(TORSION_HAS_INT128)
   list(APPEND torsion_defines TORSION_HAVE_INT128)
-endif()
-
-if(TORSION_ENABLE_LIBSECP256K1)
-  list(APPEND torsion_defines TORSION_USE_LIBSECP256K1)
 endif()
 
 if(TORSION_ENABLE_RNG)

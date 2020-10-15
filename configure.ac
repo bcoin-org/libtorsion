@@ -106,14 +106,6 @@ AC_ARG_ENABLE(
 )
 
 AC_ARG_ENABLE(
-  libsecp256k1,
-  AS_HELP_STRING([--enable-libsecp256k1],
-                 [use libsecp256k1 field element backend [default=no]]),
-  [enable_libsecp256k1=$enableval],
-  [enable_libsecp256k1=no]
-)
-
-AC_ARG_ENABLE(
   pthread,
   AS_HELP_STRING([--enable-pthread],
                  [use pthread as a fallback for TLS [default=yes]]),
@@ -376,10 +368,6 @@ AS_IF([test x"$has_int128" = x"yes"], [
   AC_DEFINE(TORSION_HAVE_INT128)
 ])
 
-AS_IF([test x"$enable_libsecp256k1" = x"yes"], [
-  AC_DEFINE(TORSION_USE_LIBSECP256K1)
-])
-
 AS_IF([test x"$has_pthread" = x"yes"], [
   AC_DEFINE(TORSION_HAVE_THREADS)
 ])
@@ -447,7 +435,6 @@ AC_MSG_NOTICE([Build Options:
   emscripten   = $EMSCRIPTEN
   fork         = $has_fork
   int128       = $has_int128
-  libsecp256k1 = $enable_libsecp256k1
   pthread      = $has_pthread
   rng          = $enable_rng
   tests        = $enable_tests
