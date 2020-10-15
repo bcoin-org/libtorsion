@@ -1166,6 +1166,11 @@ test_wei_points(int type,
   jge_dbl(ec, &jp, &jg); ASSERT(jge_equal(ec, &jp, &jq));
   jge_add(ec, &jp, &jp, &jg); ASSERT(jge_equal(ec, &jp, &jr));
 
+  /* Addition (with explicit doubling -- jacobian formula) */
+  jge_dblj(ec, &jp, &jo); ASSERT(jge_is_zero(ec, &jp));
+  jge_dblj(ec, &jp, &jg); ASSERT(jge_equal(ec, &jp, &jq));
+  jge_add(ec, &jp, &jp, &jg); ASSERT(jge_equal(ec, &jp, &jr));
+
   /* Subtraction (with explicit doubling) */
   jge_sub(ec, &jp, &jo, &jg); ASSERT(jge_equal(ec, &jp, &jmg));
   jge_dbl(ec, &jp, &jp); ASSERT(jge_equal(ec, &jp, &jmq));

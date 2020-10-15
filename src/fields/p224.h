@@ -441,3 +441,23 @@ p224_fe_legendre(p224_fe_t r, const p224_fe_t x) {
   /* r = r^(2^95) */
   p224_fe_sqrn(r, r, 95);
 }
+
+static void
+fiat_p224_scmul_3(p224_fe_t r, const p224_fe_t x) {
+  p224_fe_t t;
+  fiat_p224_add(t, x, x);
+  fiat_p224_add(r, t, x);
+}
+
+static void
+fiat_p224_scmul_4(p224_fe_t r, const p224_fe_t x) {
+  fiat_p224_add(r, x, x);
+  fiat_p224_add(r, r, r);
+}
+
+static void
+fiat_p224_scmul_8(p224_fe_t r, const p224_fe_t x) {
+  fiat_p224_add(r, x, x);
+  fiat_p224_add(r, r, r);
+  fiat_p224_add(r, r, r);
+}

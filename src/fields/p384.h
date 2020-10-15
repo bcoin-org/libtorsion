@@ -254,3 +254,23 @@ p384_fe_isqrt(p384_fe_t r, const p384_fe_t u, const p384_fe_t v) {
 
   return ret;
 }
+
+static void
+fiat_p384_scmul_3(p384_fe_t r, const p384_fe_t x) {
+  p384_fe_t t;
+  fiat_p384_add(t, x, x);
+  fiat_p384_add(r, t, x);
+}
+
+static void
+fiat_p384_scmul_4(p384_fe_t r, const p384_fe_t x) {
+  fiat_p384_add(r, x, x);
+  fiat_p384_add(r, r, r);
+}
+
+static void
+fiat_p384_scmul_8(p384_fe_t r, const p384_fe_t x) {
+  fiat_p384_add(r, x, x);
+  fiat_p384_add(r, r, r);
+  fiat_p384_add(r, r, r);
+}

@@ -35,7 +35,10 @@ U_FUNCS = carry_mul    \
           opp          \
           selectznz    \
           to_bytes     \
-          from_bytes
+          from_bytes   \
+          carry_scmul3 \
+          carry_scmul4 \
+          carry_scmul8
 
 U_FUNCS_25519 := $(U_FUNCS) carry_scmul121666
 U_FUNCS_448 := $(U_FUNCS) carry_scmul39082 carry_scmul39081

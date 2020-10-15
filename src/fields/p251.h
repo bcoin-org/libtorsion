@@ -208,7 +208,7 @@ p251_fe_isqrt(p251_fe_t r, const p251_fe_t u, const p251_fe_t v) {
 }
 
 static void
-fiat_p251_carry_scmul_m1174(p251_fe_t out1, const p251_fe_t arg1) {
-  fiat_p251_opp(out1, arg1);
-  fiat_p251_carry_scmul_1174(out1, out1);
+fiat_p251_carry_scmul_m1174(p251_fe_t r, const p251_fe_t x) {
+  fiat_p251_opp(r, x);
+  fiat_p251_carry_scmul_1174(r, r);
 }

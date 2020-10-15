@@ -220,3 +220,23 @@ p256_fe_isqrt(p256_fe_t r, const p256_fe_t u, const p256_fe_t v) {
 
   return ret;
 }
+
+static void
+fiat_p256_scmul_3(p256_fe_t r, const p256_fe_t x) {
+  p256_fe_t t;
+  fiat_p256_add(t, x, x);
+  fiat_p256_add(r, t, x);
+}
+
+static void
+fiat_p256_scmul_4(p256_fe_t r, const p256_fe_t x) {
+  fiat_p256_add(r, x, x);
+  fiat_p256_add(r, r, r);
+}
+
+static void
+fiat_p256_scmul_8(p256_fe_t r, const p256_fe_t x) {
+  fiat_p256_add(r, x, x);
+  fiat_p256_add(r, r, r);
+  fiat_p256_add(r, r, r);
+}
