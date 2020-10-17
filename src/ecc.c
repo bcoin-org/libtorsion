@@ -9019,7 +9019,8 @@ _mont_to_edwards(const prime_field_t *fe, xge_t *r,
      *
      * The point (1, v) is invalid on Curve448.
      */
-    fe_t u2, u3, u4, u5, v2, a, b, d, e, f, g, h, i;
+    fe_t u2, u3, u4, u5, v2;
+    fe_t a, b, d, e, f, g, h, i;
 
     fe_sqr(fe, u2, p->x);
     fe_mul(fe, u3, u2, p->x);
@@ -9027,19 +9028,16 @@ _mont_to_edwards(const prime_field_t *fe, xge_t *r,
     fe_mul(fe, u5, u4, p->x);
     fe_sqr(fe, v2, p->y);
 
-    fe_add(fe, a, p->y, p->y); /* x4 */
-    fe_add_nc(fe, a, a, a);
+    fe_mul4(fe, a, p->y);
     fe_sub_nc(fe, b, u2, fe->one);
-    fe_add(fe, d, u2, u2); /* x2 */
-    fe_add(fe, e, v2, v2); /* x4 */
-    fe_add(fe, e, e, e);
-    fe_add(fe, f, u3, u3); /* x2 */
+    fe_add(fe, d, u2, u2);
+    fe_mul4(fe, e, v2);
+    fe_add(fe, f, u3, u3);
     fe_mul(fe, g, p->x, v2);
-    fe_add(fe, g, g, g); /* x4 */
-    fe_add(fe, g, g, g);
+    fe_mul4(fe, g, g);
     fe_mul(fe, h, u2, v2);
-    fe_add(fe, h, h, h); /* x2 */
-    fe_add(fe, i, v2, v2); /* x2 */
+    fe_add(fe, h, h, h);
+    fe_add(fe, i, v2, v2);
 
     fe_mul(fe, xx, a, b);
 
