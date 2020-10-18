@@ -1943,7 +1943,7 @@ rsa_sign_pss(unsigned char *out,
              size_t msg_len,
              const unsigned char *key,
              size_t key_len,
-             int salt_len,
+             size_t salt_len,
              const unsigned char *entropy) {
   /* [RFC8017] Page 33, Section 8.1.1. */
   size_t hlen = hash_output_size(type);
@@ -1973,16 +1973,16 @@ rsa_sign_pss(unsigned char *out,
   klen = (bits + 7) / 8;
   emlen = (bits + 6) / 8;
 
-  if (salt_len == RSA_SALT_LENGTH_AUTO) {
+  if (salt_len == (size_t)RSA_SALT_LENGTH_AUTO) {
     if (emlen < 2 + hlen)
       goto fail;
 
     salt_len = emlen - 2 - hlen;
-  } else if (salt_len == RSA_SALT_LENGTH_HASH) {
+  } else if (salt_len == (size_t)RSA_SALT_LENGTH_HASH) {
     salt_len = hlen;
   }
 
-  if (salt_len < 0 || (size_t)salt_len > klen)
+  if (salt_len > klen)
     goto fail;
 
   if (salt_len > 0) {
@@ -2023,7 +2023,7 @@ rsa_verify_pss(int type,
                size_t sig_len,
                const unsigned char *key,
                size_t key_len,
-               int salt_len) {
+               size_t salt_len) {
   /* [RFC8017] Page 34, Section 8.1.2. */
   unsigned char *em = NULL;
   size_t hlen = hash_output_size(type);
@@ -2052,12 +2052,12 @@ rsa_verify_pss(int type,
   if (sig_len != klen)
     goto fail;
 
-  if (salt_len == RSA_SALT_LENGTH_AUTO)
+  if (salt_len == (size_t)RSA_SALT_LENGTH_AUTO)
     salt_len = 0; /* Handled in pss_verify. */
-  else if (salt_len == RSA_SALT_LENGTH_HASH)
+  else if (salt_len == (size_t)RSA_SALT_LENGTH_HASH)
     salt_len = hlen;
 
-  if (salt_len < 0 || (size_t)salt_len > klen)
+  if (salt_len > klen)
     goto fail;
 
   em = malloc(klen);

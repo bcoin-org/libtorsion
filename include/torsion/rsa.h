@@ -191,7 +191,7 @@ rsa_sign_pss(unsigned char *out,
              size_t msg_len,
              const unsigned char *key,
              size_t key_len,
-             int salt_len,
+             size_t salt_len,
              const unsigned char *entropy);
 
 TORSION_EXTERN int
@@ -202,7 +202,7 @@ rsa_verify_pss(int type,
                size_t sig_len,
                const unsigned char *key,
                size_t key_len,
-               int salt_len);
+               size_t salt_len);
 
 TORSION_EXTERN int
 rsa_encrypt_oaep(unsigned char *out,
