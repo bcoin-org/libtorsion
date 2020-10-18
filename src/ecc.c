@@ -5375,18 +5375,14 @@ wei_point_to_hash(const wei_t *ec,
                   unsigned int subgroup,
                   const unsigned char *entropy) {
   /* [SQUARED] Algorithm 1, Page 8, Section 3.3. */
-  static const unsigned int mask = 0xff0fu;
   const prime_field_t *fe = &ec->fe;
+  static const unsigned int mask = 0xff0fu;
+  unsigned int flag = (subgroup & 15) << 4;
   unsigned char *u1 = bytes;
   unsigned char *u2 = bytes + fe->size;
   unsigned int hint;
-  wge_t p0, p1, p2;
+  wge_t p1, p2;
   drbg_t rng;
-
-  if (ec->h > 1)
-    wge_add(ec, &p0, p, &ec->torsion[subgroup % ec->h]);
-  else
-    wge_set(ec, &p0, p);
 
   drbg_init(&rng, HASH_SHA256, entropy, ENTROPY_SIZE);
 
@@ -5399,17 +5395,16 @@ wei_point_to_hash(const wei_t *ec,
     if (ec->h > 1 && fe_is_zero(fe, p1.y))
       continue;
 
-    wge_sub(ec, &p2, &p0, &p1);
+    wge_sub(ec, &p2, p, &p1);
 
     drbg_generate(&rng, &hint, sizeof(hint));
 
-    hint &= mask;
+    hint = (hint & mask) | flag;
   } while (!wei_point_to_uniform(ec, u2, &p2, hint));
 
   cleanse(&rng, sizeof(rng));
   cleanse(&hint, sizeof(hint));
 
-  wge_cleanse(ec, &p0);
   wge_cleanse(ec, &p1);
   wge_cleanse(ec, &p2);
 }
@@ -6525,15 +6520,14 @@ mont_point_to_hash(const mont_t *ec,
                    unsigned int subgroup,
                    const unsigned char *entropy) {
   /* [SQUARED] Algorithm 1, Page 8, Section 3.3. */
-  static const unsigned int mask = 0xff0fu;
   const prime_field_t *fe = &ec->fe;
+  static const unsigned int mask = 0xff0fu;
+  unsigned int flag = (subgroup & 15) << 4;
   unsigned char *u1 = bytes;
   unsigned char *u2 = bytes + fe->size;
   unsigned int hint;
-  mge_t p0, p1, p2;
+  mge_t p1, p2;
   drbg_t rng;
-
-  mge_add(ec, &p0, p, &ec->torsion[subgroup % ec->h]);
 
   drbg_init(&rng, HASH_SHA256, entropy, ENTROPY_SIZE);
 
@@ -6546,17 +6540,16 @@ mont_point_to_hash(const mont_t *ec,
     if (fe_is_zero(fe, p1.y))
       continue;
 
-    mge_sub(ec, &p2, &p0, &p1);
+    mge_sub(ec, &p2, p, &p1);
 
     drbg_generate(&rng, &hint, sizeof(hint));
 
-    hint &= mask;
+    hint = (hint & mask) | flag;
   } while (!mont_point_to_uniform(ec, u2, &p2, hint));
 
   cleanse(&rng, sizeof(rng));
   cleanse(&hint, sizeof(hint));
 
-  mge_cleanse(ec, &p0);
   mge_cleanse(ec, &p1);
   mge_cleanse(ec, &p2);
 }
@@ -7995,15 +7988,14 @@ edwards_point_to_hash(const edwards_t *ec,
                       unsigned int subgroup,
                       const unsigned char *entropy) {
   /* [SQUARED] Algorithm 1, Page 8, Section 3.3. */
-  static const unsigned int mask = 0xff0fu;
   const prime_field_t *fe = &ec->fe;
+  static const unsigned int mask = 0xff0fu;
+  unsigned int flag = (subgroup & 15) << 4;
   unsigned char *u1 = bytes;
   unsigned char *u2 = bytes + fe->size;
   unsigned int hint;
-  xge_t p0, p1, p2;
+  xge_t p1, p2;
   drbg_t rng;
-
-  xge_mixed_add(ec, &p0, p, &ec->torsion[subgroup % ec->h]);
 
   drbg_init(&rng, HASH_SHA256, entropy, ENTROPY_SIZE);
 
@@ -8016,17 +8008,16 @@ edwards_point_to_hash(const edwards_t *ec,
     if (fe_is_zero(fe, p1.x))
       continue;
 
-    xge_sub(ec, &p2, &p0, &p1);
+    xge_sub(ec, &p2, p, &p1);
 
     drbg_generate(&rng, &hint, sizeof(hint));
 
-    hint &= mask;
+    hint = (hint & mask) | flag;
   } while (!edwards_point_to_uniform(ec, u2, &p2, hint));
 
   cleanse(&rng, sizeof(rng));
   cleanse(&hint, sizeof(hint));
 
-  xge_cleanse(ec, &p0);
   xge_cleanse(ec, &p1);
   xge_cleanse(ec, &p2);
 }
