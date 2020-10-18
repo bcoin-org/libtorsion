@@ -6090,7 +6090,7 @@ mont_init(mont_t *ec, const mont_def_t *def) {
   /* b' = 1 / b^2 */
   fe_sqr(fe, ec->b0, ec->bi);
 
-  /* i16 = 1 / 16 (mod n) */
+  /* i16 = 16^-1 mod n */
   if (fe->bits == 448) {
     sc_set_word(sc, ec->i16, 16);
     ASSERT(sc_invert_var(sc, ec->i16, ec->i16));
@@ -6420,7 +6420,7 @@ mont_invert2(const mont_t *ec, fe_t u, const mge_t *p, unsigned int hint) {
    *   r = random integer in [1,2]
    *   u = sign(y) * abs(sqrt(ur))
    *
-   * Note that `0 / 0` can only occur if `A == 0`
+   * Note that `0 / 0` can only occur if A = 0
    * (this violates the assumptions of Elligator 2).
    */
   const prime_field_t *fe = &ec->fe;
@@ -7884,7 +7884,7 @@ edwards_invert2(const edwards_t *ec, fe_t u,
    *   r = random integer in [1,2]
    *   u = sign(y) * abs(sqrt(ur))
    *
-   * Note that `0 / 0` can only occur if `A == 0`
+   * Note that `0 / 0` can only occur if A = 0
    * (this violates the assumptions of Elligator 2).
    */
   const prime_field_t *fe = &ec->fe;
