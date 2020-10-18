@@ -1344,10 +1344,10 @@ sc_jsf_var0(const scalar_field_t *sc, int *naf,
     naf[i] = table[(u1 * s1 + 1) * 3 + (u2 * s2 + 1)];
 
     /* Second phase. */
-    if (2 * d1 == u1 + 1)
+    if (2 * d1 == 1 + u1)
       d1 = 1 - d1;
 
-    if (2 * d2 == u2 + 1)
+    if (2 * d2 == 1 + u2)
       d2 = 1 - d2;
   }
 
@@ -3021,7 +3021,7 @@ jge_equal(const wei_t *ec, const jge_t *a, const jge_t *b) {
   /* P != O, Q != O */
   ret &= (a->inf | b->inf) ^ 1;
 
-  /* X1 * Z2^2 == X2 * Z1^2 */
+  /* X1 * Z2^2 = X2 * Z1^2 */
   fe_sqr(fe, z1, a->z);
   fe_sqr(fe, z2, b->z);
   fe_mul(fe, e1, a->x, z2);
@@ -3029,7 +3029,7 @@ jge_equal(const wei_t *ec, const jge_t *a, const jge_t *b) {
 
   ret &= fe_equal(fe, e1, e2);
 
-  /* Y1 * Z2^3 == Y2 * Z1^3 */
+  /* Y1 * Z2^3 = Y2 * Z1^3 */
   fe_mul(fe, z1, z1, a->z);
   fe_mul(fe, z2, z2, b->z);
   fe_mul(fe, e1, a->y, z2);
@@ -4177,6 +4177,7 @@ wei_init(wei_t *ec, const wei_def_t *def) {
 
   fe_import(fe, ec->g.x, def->x);
   fe_import(fe, ec->g.y, def->y);
+
   ec->g.inf = 0;
 
   sc_zero(sc, ec->blind);
@@ -5354,10 +5355,12 @@ static void
 wei_point_from_hash(const wei_t *ec, wge_t *p, const unsigned char *bytes) {
   /* [H2EC] "Roadmap". */
   const prime_field_t *fe = &ec->fe;
+  const unsigned char *u1 = bytes;
+  const unsigned char *u2 = bytes + fe->size;
   wge_t p1, p2;
 
-  wei_point_from_uniform(ec, &p1, bytes);
-  wei_point_from_uniform(ec, &p2, bytes + fe->size);
+  wei_point_from_uniform(ec, &p1, u1);
+  wei_point_from_uniform(ec, &p2, u2);
 
   wge_add(ec, p, &p1, &p2);
 
@@ -5372,8 +5375,10 @@ wei_point_to_hash(const wei_t *ec,
                   unsigned int subgroup,
                   const unsigned char *entropy) {
   /* [SQUARED] Algorithm 1, Page 8, Section 3.3. */
-  const prime_field_t *fe = &ec->fe;
   static const unsigned int mask = 0xff0fu;
+  const prime_field_t *fe = &ec->fe;
+  unsigned char *u1 = bytes;
+  unsigned char *u2 = bytes + fe->size;
   unsigned int hint;
   wge_t p0, p1, p2;
   drbg_t rng;
@@ -5385,10 +5390,10 @@ wei_point_to_hash(const wei_t *ec,
 
   drbg_init(&rng, HASH_SHA256, entropy, ENTROPY_SIZE);
 
-  for (;;) {
-    drbg_generate(&rng, bytes, fe->size);
+  do {
+    drbg_generate(&rng, u1, fe->size);
 
-    wei_point_from_uniform(ec, &p1, bytes);
+    wei_point_from_uniform(ec, &p1, u1);
 
     /* Avoid 2-torsion points. */
     if (ec->h > 1 && fe_is_zero(fe, p1.y))
@@ -5398,11 +5403,8 @@ wei_point_to_hash(const wei_t *ec,
 
     drbg_generate(&rng, &hint, sizeof(hint));
 
-    if (!wei_point_to_uniform(ec, bytes + fe->size, &p2, hint & mask))
-      continue;
-
-    break;
-  }
+    hint &= mask;
+  } while (!wei_point_to_uniform(ec, u2, &p2, hint));
 
   cleanse(&rng, sizeof(rng));
   cleanse(&hint, sizeof(hint));
@@ -5883,7 +5885,7 @@ pge_equal(const mont_t *ec, const pge_t *a, const pge_t *b) {
   /* P != O, Q != O */
   ret &= (inf1 | inf2) ^ 1;
 
-  /* X1 * Z2 == X2 * Z1 */
+  /* X1 * Z2 = X2 * Z1 */
   fe_mul(fe, lhs, a->x, b->z);
   fe_mul(fe, rhs, b->x, a->z);
 
@@ -6101,6 +6103,7 @@ mont_init(mont_t *ec, const mont_def_t *def) {
 
   fe_import_be(fe, ec->g.x, def->x);
   fe_import_be(fe, ec->g.y, def->y);
+
   ec->g.inf = 0;
 
   for (i = 0; i < ec->h; i++) {
@@ -6502,10 +6505,12 @@ static void
 mont_point_from_hash(const mont_t *ec, mge_t *p, const unsigned char *bytes) {
   /* [H2EC] "Roadmap". */
   const prime_field_t *fe = &ec->fe;
+  const unsigned char *u1 = bytes;
+  const unsigned char *u2 = bytes + fe->size;
   mge_t p1, p2;
 
-  mont_point_from_uniform(ec, &p1, bytes);
-  mont_point_from_uniform(ec, &p2, bytes + fe->size);
+  mont_point_from_uniform(ec, &p1, u1);
+  mont_point_from_uniform(ec, &p2, u2);
 
   mge_add(ec, p, &p1, &p2);
 
@@ -6520,8 +6525,10 @@ mont_point_to_hash(const mont_t *ec,
                    unsigned int subgroup,
                    const unsigned char *entropy) {
   /* [SQUARED] Algorithm 1, Page 8, Section 3.3. */
-  const prime_field_t *fe = &ec->fe;
   static const unsigned int mask = 0xff0fu;
+  const prime_field_t *fe = &ec->fe;
+  unsigned char *u1 = bytes;
+  unsigned char *u2 = bytes + fe->size;
   unsigned int hint;
   mge_t p0, p1, p2;
   drbg_t rng;
@@ -6530,10 +6537,10 @@ mont_point_to_hash(const mont_t *ec,
 
   drbg_init(&rng, HASH_SHA256, entropy, ENTROPY_SIZE);
 
-  for (;;) {
-    drbg_generate(&rng, bytes, fe->size);
+  do {
+    drbg_generate(&rng, u1, fe->size);
 
-    mont_point_from_uniform(ec, &p1, bytes);
+    mont_point_from_uniform(ec, &p1, u1);
 
     /* Avoid 2-torsion points. */
     if (fe_is_zero(fe, p1.y))
@@ -6543,11 +6550,8 @@ mont_point_to_hash(const mont_t *ec,
 
     drbg_generate(&rng, &hint, sizeof(hint));
 
-    if (!mont_point_to_uniform(ec, bytes + fe->size, &p2, hint & mask))
-      continue;
-
-    break;
-  }
+    hint &= mask;
+  } while (!mont_point_to_uniform(ec, u2, &p2, hint));
 
   cleanse(&rng, sizeof(rng));
   cleanse(&hint, sizeof(hint));
@@ -6828,13 +6832,13 @@ xge_equal(const edwards_t *ec, const xge_t *a, const xge_t *b) {
   fe_t lhs, rhs;
   int ret = 1;
 
-  /* X1 * Z2 == X2 * Z1 */
+  /* X1 * Z2 = X2 * Z1 */
   fe_mul(fe, lhs, a->x, b->z);
   fe_mul(fe, rhs, b->x, a->z);
 
   ret &= fe_equal(fe, lhs, rhs);
 
-  /* Y1 * Z2 == Y2 * Z1 */
+  /* Y1 * Z2 = Y2 * Z1 */
   fe_mul(fe, lhs, a->y, b->z);
   fe_mul(fe, rhs, b->y, a->z);
 
@@ -7952,7 +7956,7 @@ edwards_point_to_uniform(const edwards_t *ec,
   xge_t p0;
   fe_t u;
 
-  xge_add(ec, &p0, p, &ec->torsion[subgroup % ec->h]);
+  xge_mixed_add(ec, &p0, p, &ec->torsion[subgroup % ec->h]);
 
   ret &= edwards_invert2(ec, u, &p0, hint);
 
@@ -7971,10 +7975,12 @@ edwards_point_from_hash(const edwards_t *ec, xge_t *p,
                         const unsigned char *bytes) {
   /* [H2EC] "Roadmap". */
   const prime_field_t *fe = &ec->fe;
+  const unsigned char *u1 = bytes;
+  const unsigned char *u2 = bytes + fe->size;
   xge_t p1, p2;
 
-  edwards_point_from_uniform(ec, &p1, bytes);
-  edwards_point_from_uniform(ec, &p2, bytes + fe->size);
+  edwards_point_from_uniform(ec, &p1, u1);
+  edwards_point_from_uniform(ec, &p2, u2);
 
   xge_add(ec, p, &p1, &p2);
 
@@ -7989,20 +7995,22 @@ edwards_point_to_hash(const edwards_t *ec,
                       unsigned int subgroup,
                       const unsigned char *entropy) {
   /* [SQUARED] Algorithm 1, Page 8, Section 3.3. */
-  const prime_field_t *fe = &ec->fe;
   static const unsigned int mask = 0xff0fu;
+  const prime_field_t *fe = &ec->fe;
+  unsigned char *u1 = bytes;
+  unsigned char *u2 = bytes + fe->size;
   unsigned int hint;
   xge_t p0, p1, p2;
   drbg_t rng;
 
-  xge_add(ec, &p0, p, &ec->torsion[subgroup % ec->h]);
+  xge_mixed_add(ec, &p0, p, &ec->torsion[subgroup % ec->h]);
 
   drbg_init(&rng, HASH_SHA256, entropy, ENTROPY_SIZE);
 
-  for (;;) {
-    drbg_generate(&rng, bytes, fe->size);
+  do {
+    drbg_generate(&rng, u1, fe->size);
 
-    edwards_point_from_uniform(ec, &p1, bytes);
+    edwards_point_from_uniform(ec, &p1, u1);
 
     /* Avoid 2-torsion points. */
     if (fe_is_zero(fe, p1.x))
@@ -8012,11 +8020,8 @@ edwards_point_to_hash(const edwards_t *ec,
 
     drbg_generate(&rng, &hint, sizeof(hint));
 
-    if (!edwards_point_to_uniform(ec, bytes + fe->size, &p2, hint & mask))
-      continue;
-
-    break;
-  }
+    hint &= mask;
+  } while (!edwards_point_to_uniform(ec, u2, &p2, hint));
 
   cleanse(&rng, sizeof(rng));
   cleanse(&hint, sizeof(hint));
@@ -8266,10 +8271,12 @@ ristretto_point_from_hash(const edwards_t *ec, rge_t *p,
   /* [RIST] "Hash-to-Group with Elligator". */
   /* [RIST255] Page 10, Section 3.2.4. */
   const prime_field_t *fe = &ec->fe;
+  const unsigned char *u1 = bytes;
+  const unsigned char *u2 = bytes + fe->size;
   rge_t p1, p2;
 
-  ristretto_point_from_uniform(ec, &p1, bytes);
-  ristretto_point_from_uniform(ec, &p2, bytes + fe->size);
+  ristretto_point_from_uniform(ec, &p1, u1);
+  ristretto_point_from_uniform(ec, &p2, u2);
 
   xge_add(ec, p, &p1, &p2);
 
@@ -8284,26 +8291,23 @@ ristretto_point_to_hash(const edwards_t *ec,
                         const unsigned char *entropy) {
   /* [SQUARED] Algorithm 1, Page 8, Section 3.3. */
   const prime_field_t *fe = &ec->fe;
+  unsigned char *u1 = bytes;
+  unsigned char *u2 = bytes + fe->size;
   unsigned int hint;
   rge_t p1, p2;
   drbg_t rng;
 
   drbg_init(&rng, HASH_SHA256, entropy, ENTROPY_SIZE);
 
-  for (;;) {
-    drbg_generate(&rng, bytes, fe->size);
+  do {
+    drbg_generate(&rng, u1, fe->size);
 
-    ristretto_point_from_uniform(ec, &p1, bytes);
+    ristretto_point_from_uniform(ec, &p1, u1);
 
     xge_sub(ec, &p2, p, &p1);
 
     drbg_generate(&rng, &hint, sizeof(hint));
-
-    if (!ristretto_point_to_uniform(ec, bytes + fe->size, &p2, hint))
-      continue;
-
-    break;
-  }
+  } while (!ristretto_point_to_uniform(ec, u2, &p2, hint));
 
   cleanse(&rng, sizeof(rng));
   cleanse(&hint, sizeof(hint));
@@ -8707,7 +8711,7 @@ rge_equal(const edwards_t *ec, const rge_t *a, const rge_t *b) {
   fe_t lhs, rhs;
   int ret = 0;
 
-  /* X1 * Y2 == Y1 * X2 */
+  /* X1 * Y2 = Y1 * X2 */
   fe_mul(fe, lhs, a->x, b->y);
   fe_mul(fe, rhs, a->y, b->x);
 
@@ -8715,7 +8719,7 @@ rge_equal(const edwards_t *ec, const rge_t *a, const rge_t *b) {
 
   /* h = 8 */
   if (ec->h == 8) {
-    /* Y1 * Y2 == -a * X1 * X2 */
+    /* Y1 * Y2 = -a * X1 * X2 */
     fe_mul(fe, lhs, a->y, b->y);
     fe_mul(fe, rhs, a->x, b->x);
 
@@ -8740,12 +8744,12 @@ rge_is_zero(const edwards_t *ec, const rge_t *p) {
   const prime_field_t *fe = &ec->fe;
   int ret = 0;
 
-  /* X1 == 0 */
+  /* X1 = 0 */
   ret |= fe_is_zero(fe, p->x);
 
   /* h = 8 */
   if (ec->h == 8) {
-    /* Y1 == 0 */
+    /* Y1 = 0 */
     ret |= fe_is_zero(fe, p->y);
   }
 
