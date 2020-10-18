@@ -4380,6 +4380,7 @@ wei_jmul_g(const wei_t *ec, jge_t *r, const sc_t k) {
    */
   const scalar_field_t *sc = &ec->sc;
   const wge_t *wnds = ec->wnd_fixed;
+  size_t steps = FIXED_STEPS(sc->bits);
   size_t i, j, b;
   sc_t k0;
   wge_t t;
@@ -4391,7 +4392,7 @@ wei_jmul_g(const wei_t *ec, jge_t *r, const sc_t k) {
   jge_set(ec, r, &ec->unblind);
   wge_zero(ec, &t);
 
-  for (i = 0; i < FIXED_STEPS(sc->bits); i++) {
+  for (i = 0; i < steps; i++) {
     b = sc_get_bits(sc, k0, i * FIXED_WIDTH, FIXED_WIDTH);
 
     for (j = 0; j < FIXED_SIZE; j++)
@@ -7527,6 +7528,7 @@ edwards_mul_g(const edwards_t *ec, xge_t *r, const sc_t k) {
    */
   const scalar_field_t *sc = &ec->sc;
   const xge_t *wnds = ec->wnd_fixed;
+  size_t steps = FIXED_STEPS(sc->bits);
   size_t i, j, b;
   sc_t k0;
   xge_t t;
@@ -7538,7 +7540,7 @@ edwards_mul_g(const edwards_t *ec, xge_t *r, const sc_t k) {
   xge_set(ec, r, &ec->unblind);
   xge_zero(ec, &t);
 
-  for (i = 0; i < FIXED_STEPS(sc->bits); i++) {
+  for (i = 0; i < steps; i++) {
     b = sc_get_bits(sc, k0, i * FIXED_WIDTH, FIXED_WIDTH);
 
     for (j = 0; j < FIXED_SIZE; j++)
