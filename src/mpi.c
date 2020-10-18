@@ -4758,13 +4758,14 @@ void
 mpz_random_int(mpz_t ret, const mpz_t max, mp_rng_f *rng, void *arg) {
   mp_bitcnt_t bits = mpz_bitlen(max);
 
-  mpz_set(ret, max);
-
   if (bits > 0) {
-    while (mpz_cmpabs(ret, max) >= 0)
+    do {
       mpz_random_bits(ret, bits, rng, arg);
+    } while (mpz_cmpabs(ret, max) >= 0);
 
     if (mpz_sgn(max) < 0)
       mpz_neg(ret, ret);
+  } else {
+    mpz_set_ui(ret, 0);
   }
 }
