@@ -53,12 +53,12 @@ p256_fe_equal(const p256_fe_t x, const p256_fe_t y) {
 }
 
 static void
-p256_fe_sqrn(p256_fe_t r, const p256_fe_t x, int rounds) {
-  int i;
+p256_fe_sqrn(p256_fe_t r, const p256_fe_t x, unsigned int n) {
+  unsigned int i;
 
   p256_fe_sqr(r, x);
 
-  for (i = 1; i < rounds; i++)
+  for (i = 1; i < n; i++)
     p256_fe_sqr(r, r);
 }
 

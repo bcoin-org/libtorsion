@@ -60,12 +60,12 @@ secp256k1_fe_equal(const secp256k1_fe_t x, const secp256k1_fe_t y) {
 }
 
 static void
-secp256k1_fe_sqrn(secp256k1_fe_t r, const secp256k1_fe_t x, int rounds) {
-  int i;
+secp256k1_fe_sqrn(secp256k1_fe_t r, const secp256k1_fe_t x, unsigned int n) {
+  unsigned int i;
 
   secp256k1_fe_sqr(r, x);
 
-  for (i = 1; i < rounds; i++)
+  for (i = 1; i < n; i++)
     secp256k1_fe_sqr(r, r);
 }
 

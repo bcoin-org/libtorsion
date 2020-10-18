@@ -1077,18 +1077,18 @@ sc_montsqr(const scalar_field_t *sc, sc_t r, const sc_t a) {
 }
 
 static void
-sc_montsqrn(const scalar_field_t *sc, sc_t r, const sc_t a, int rounds) {
+sc_montsqrn(const scalar_field_t *sc, sc_t r, const sc_t a, unsigned int n) {
   mp_limb_t scratch[MAX_SCALAR_LIMBS * 4]; /* 288 bytes */
   mp_limb_t *x = scratch;
   mp_limb_t *y = scratch + MAX_SCALAR_LIMBS * 2;
   mp_limb_t *t;
-  int i;
+  unsigned int i;
 
-  ASSERT(rounds >= 1);
+  ASSERT(n > 0);
 
   mpn_montmul(x, a, a, sc->n, sc->k, sc->limbs);
 
-  for (i = 1; i < rounds; i++) {
+  for (i = 1; i < n; i++) {
     mpn_montmul(y, x, x, sc->n, sc->k, sc->limbs);
 
     t = x;

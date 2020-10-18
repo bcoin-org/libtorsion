@@ -63,12 +63,12 @@ p448_fe_equal(const p448_fe_t x, const p448_fe_t y) {
 }
 
 static void
-p448_fe_sqrn(p448_fe_t r, const p448_fe_t x, int rounds) {
-  int i;
+p448_fe_sqrn(p448_fe_t r, const p448_fe_t x, unsigned int n) {
+  unsigned int i;
 
   p448_fe_sqr(r, x);
 
-  for (i = 1; i < rounds; i++)
+  for (i = 1; i < n; i++)
     p448_fe_sqr(r, r);
 }
 

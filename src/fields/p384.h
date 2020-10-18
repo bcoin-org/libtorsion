@@ -59,12 +59,12 @@ p384_fe_equal(const p384_fe_t x, const p384_fe_t y) {
 }
 
 static void
-p384_fe_sqrn(p384_fe_t r, const p384_fe_t x, int rounds) {
-  int i;
+p384_fe_sqrn(p384_fe_t r, const p384_fe_t x, unsigned int n) {
+  unsigned int i;
 
   p384_fe_sqr(r, x);
 
-  for (i = 1; i < rounds; i++)
+  for (i = 1; i < n; i++)
     p384_fe_sqr(r, r);
 }
 
