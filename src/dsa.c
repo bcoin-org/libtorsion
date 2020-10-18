@@ -595,7 +595,7 @@ dsa_priv_verify(const dsa_priv_t *k) {
   mpz_init(y);
   mpz_powm_sec(y, k->g, k->x, k->p);
 
-  ret = mpz_cmp(y, k->y) == 0;
+  ret = (mpz_cmp(y, k->y) == 0);
 
   mpz_cleanse(y);
 
@@ -611,13 +611,12 @@ dsa_priv_create(dsa_priv_t *k,
   mpz_set(k->p, group->p);
   mpz_set(k->q, group->q);
   mpz_set(k->g, group->g);
-  mpz_set_ui(k->y, 0);
-  mpz_set_ui(k->x, 0);
 
   drbg_init(&rng, HASH_SHA256, entropy, ENTROPY_SIZE);
 
-  while (mpz_sgn(k->x) == 0)
+  do {
     mpz_random_int(k->x, k->q, drbg_rng, &rng);
+  } while (mpz_sgn(k->x) == 0);
 
   mpz_powm_sec(k->y, k->g, k->x, k->p);
 
@@ -1222,8 +1221,8 @@ fail:
   return ret;
 }
 
-static void
-dsa_truncate(mpz_t m, const unsigned char *msg, size_t msg_len, const mpz_t q) {
+static int
+dsa_reduce(mpz_t m, const unsigned char *msg, size_t msg_len, const mpz_t q) {
   /* Byte array to integer conversion.
    *
    * [FIPS186] Page 68, Appendix C.2.
@@ -1231,24 +1230,33 @@ dsa_truncate(mpz_t m, const unsigned char *msg, size_t msg_len, const mpz_t q) {
    * Note that the FIPS186 behavior
    * differs from OpenSSL's behavior.
    * We replicate OpenSSL which takes
-   * the left-most ceil(log2(n)) bits
-   * modulo `q`.
+   * the left-most ceil(log2(q+1)) bits
+   * modulo the order.
    */
   size_t bits = mpz_bitlen(q);
-  size_t bytes = bits >> 3;
+  size_t bytes = (bits + 7) / 8;
+  int ret = 1;
 
-  ASSERT((bits & 7) == 0);
-
+  /* Truncate. */
   if (msg_len > bytes)
     msg_len = bytes;
 
+  /* Import and pad. */
   mpz_import(m, msg, msg_len, 1);
-}
 
-static void
-dsa_reduce(mpz_t m, const unsigned char *msg, size_t msg_len, const mpz_t q) {
-  dsa_truncate(m, msg, msg_len, q);
-  mpz_mod(m, m, q);
+  /* Shift by the remaining bits. */
+  if (msg_len * 8 > bits)
+    mpz_rshift(m, m, msg_len * 8 - bits);
+
+  /* Reduce (m < 2^ceil(log2(q+1))). */
+  if (mpz_cmp(m, q) >= 0) {
+    mpz_sub(m, m, q);
+    ret = 0;
+  }
+
+  ASSERT(mpz_cmp(m, q) < 0);
+
+  return ret;
 }
 
 int
@@ -1307,10 +1315,10 @@ dsa_sign(unsigned char *out, size_t *out_len,
    */
   unsigned char bytes[DSA_MAX_QSIZE * 2];
   mpz_t m, b, bx, bm, k, r, s;
+  drbg_t drbg, rng;
   dsa_priv_t priv;
   dsa_sig_t S;
   size_t qsize;
-  drbg_t drbg, rng;
   int ret = 0;
 
   mpz_init(m);
@@ -1320,6 +1328,7 @@ dsa_sign(unsigned char *out, size_t *out_len,
   mpz_init(k);
   mpz_init(r);
   mpz_init(s);
+
   dsa_priv_init(&priv);
 
   if (!dsa_priv_import(&priv, key, key_len))
@@ -1345,9 +1354,11 @@ dsa_sign(unsigned char *out, size_t *out_len,
       continue;
 
     drbg_generate(&drbg, bytes, qsize);
-    dsa_truncate(k, bytes, qsize, priv.q);
 
-    if (mpz_sgn(k) == 0 || mpz_cmp(k, priv.q) >= 0)
+    if (!dsa_reduce(k, bytes, qsize, priv.q))
+      continue;
+
+    if (mpz_sgn(k) == 0)
       continue;
 
     mpz_powm_sec(r, priv.g, k, priv.p);
@@ -1438,6 +1449,7 @@ dsa_verify(const unsigned char *msg, size_t msg_len,
   mpz_init(e1);
   mpz_init(e2);
   mpz_init(re);
+
   dsa_pub_init(&k);
   dsa_sig_init(&S);
 
@@ -1504,6 +1516,7 @@ dsa_derive(unsigned char *out, size_t *out_len,
 
   dsa_pub_init(&k1);
   dsa_priv_init(&k2);
+
   mpz_init(e);
 
   if (!dsa_pub_import(&k1, pub, pub_len))
