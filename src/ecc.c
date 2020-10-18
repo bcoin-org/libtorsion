@@ -2846,7 +2846,7 @@ wge_set_jge_all_var(const wei_t *ec, wge_t *out, const jge_t *in, size_t len) {
 
   ASSERT(fe_invert_var(fe, acc, acc));
 
-  for (i = len; i-- > 0;) {
+  for (i = len - 1; i != (size_t)-1; i--) {
     if (in[i].inf)
       continue;
 
@@ -4593,7 +4593,7 @@ wei_jmul_double_normal_var(const wei_t *ec,
   /* Multiply and add. */
   jge_zero(ec, r);
 
-  for (i = max; i-- > 0;) {
+  for (i = max - 1; i != (size_t)-1; i--) {
     int z1 = naf1[i];
     int z2 = naf2[i];
 
@@ -4650,7 +4650,7 @@ wei_jmul_double_endo_var(const wei_t *ec,
   /* Multiply and add. */
   jge_zero(ec, r);
 
-  for (i = max; i-- > 0;) {
+  for (i = max - 1; i != (size_t)-1; i--) {
     int z1 = naf1[i];
     int z2 = naf2[i];
     int z3 = naf3[i];
@@ -4758,7 +4758,7 @@ wei_jmul_multi_normal_var(const wei_t *ec,
   /* Multiply and add. */
   jge_zero(ec, r);
 
-  for (i = max; i-- > 0;) {
+  for (i = max - 1; i != (size_t)-1; i--) {
     int z0 = naf0[i];
     int z1 = naf1[i];
 
@@ -4836,7 +4836,7 @@ wei_jmul_multi_endo_var(const wei_t *ec,
   /* Multiply and add. */
   jge_zero(ec, r);
 
-  for (i = max; i-- > 0;) {
+  for (i = max - 1; i != (size_t)-1; i--) {
     int z0 = naf0[i];
     int z1 = naf1[i];
 
@@ -7248,7 +7248,7 @@ xge_normalize_all_var(const edwards_t *ec, xge_t *out,
 
   ASSERT(fe_invert_var(fe, acc, acc));
 
-  for (i = len; i-- > 0;) {
+  for (i = len - 1; i != (size_t)-1; i--) {
     fe_mul(fe, invs[i], invs[i], acc);
     fe_mul(fe, acc, acc, in[i].z);
   }
@@ -7636,7 +7636,7 @@ edwards_mul_double_var(const edwards_t *ec,
   /* Multiply and add. */
   xge_zero(ec, r);
 
-  for (i = max; i-- > 0;) {
+  for (i = max - 1; i != (size_t)-1; i--) {
     int z1 = naf1[i];
     int z2 = naf2[i];
 
@@ -7713,7 +7713,7 @@ edwards_mul_multi_var(const edwards_t *ec,
   /* Multiply and add. */
   xge_zero(ec, r);
 
-  for (i = max; i-- > 0;) {
+  for (i = max - 1; i != (size_t)-1; i--) {
     int z0 = naf0[i];
     int z1 = naf1[i];
 
@@ -8621,7 +8621,7 @@ rge_export_batch(const edwards_t *ec, unsigned char **out,
 
   ASSERT(fe_invert(fe, acc, acc));
 
-  for (i = len; i-- > 0;) {
+  for (i = len - 1; i != (size_t)-1; i--) {
     int zero = fe_is_zero(fe, prod[i]);
 
     fe_mul(fe, invs[i], invs[i], acc);
