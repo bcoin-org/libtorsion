@@ -2477,7 +2477,7 @@ mpn_powm_sec(mp_ptr zp,
   mp_ptr rr = &wnds[3 * mn];
   mp_ptr wnd[1 << 4];
   mp_size_t yb = yn * MP_LIMB_BITS;
-  mp_size_t start = (yb + MP_WND_WIDTH - 1) / MP_WND_WIDTH - 1;
+  mp_size_t steps = (yb + MP_WND_WIDTH - 1) / MP_WND_WIDTH;
   mp_limb_t k, b, j;
   mp_size_t i, un;
 
@@ -2503,13 +2503,13 @@ mpn_powm_sec(mp_ptr zp,
 
   mpn_copyi(z1, wnd[0], mn);
 
-  for (i = start; i >= 0; i--) {
+  for (i = steps - 1; i >= 0; i--) {
     b = mpn_get_bits(yp, yn, i * MP_WND_WIDTH, MP_WND_WIDTH);
 
     for (j = 0; j < MP_WND_SIZE; j++)
       mpn_cnd_select(j == b, tmp, tmp, wnd[j], mn);
 
-    if (i == start) {
+    if (i == steps - 1) {
       mpn_copyi(z1, tmp, mn);
     } else {
       for (j = 0; j < MP_WND_WIDTH; j++) {

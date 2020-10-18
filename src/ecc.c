@@ -1120,7 +1120,7 @@ static void
 sc_pow(const scalar_field_t *sc, sc_t r, const sc_t a, const mp_limb_t *e) {
   /* Used for inversion if not available otherwise. */
   /* Note that our exponent is not secret. */
-  mp_size_t start = WND_STEPS(sc->bits) - 1;
+  mp_size_t steps = WND_STEPS(sc->bits);
   sc_t wnd[WND_SIZE]; /* 1152 bytes */
   mp_size_t i;
   mp_limb_t b;
@@ -1135,10 +1135,10 @@ sc_pow(const scalar_field_t *sc, sc_t r, const sc_t a, const mp_limb_t *e) {
 
   sc_set(sc, r, wnd[0]);
 
-  for (i = start; i >= 0; i--) {
+  for (i = steps - 1; i >= 0; i--) {
     b = mpn_get_bits(e, sc->limbs, i * WND_WIDTH, WND_WIDTH);
 
-    if (i == start) {
+    if (i == steps - 1) {
       sc_set(sc, r, wnd[b]);
     } else {
       sc_montsqrn(sc, r, r, WND_WIDTH);
@@ -1788,7 +1788,7 @@ fe_mul8(const prime_field_t *fe, fe_t r, const fe_t a) {
 static void
 fe_pow(const prime_field_t *fe, fe_t r, const fe_t a, const mp_limb_t *e) {
   /* Used for inversion and square roots if not available otherwise. */
-  mp_size_t start = WND_STEPS(fe->bits) - 1;
+  mp_size_t steps = WND_STEPS(fe->bits);
   fe_t wnd[WND_SIZE]; /* 1152 bytes */
   mp_size_t i, j;
   mp_limb_t b;
@@ -1803,10 +1803,10 @@ fe_pow(const prime_field_t *fe, fe_t r, const fe_t a, const mp_limb_t *e) {
 
   fe_set(fe, r, fe->one);
 
-  for (i = start; i >= 0; i--) {
+  for (i = steps - 1; i >= 0; i--) {
     b = mpn_get_bits(e, fe->limbs, i * WND_WIDTH, WND_WIDTH);
 
-    if (i == start) {
+    if (i == steps - 1) {
       fe_set(fe, r, wnd[b]);
     } else {
       for (j = 0; j < WND_WIDTH; j++)
@@ -4423,7 +4423,7 @@ wei_jmul_normal(const wei_t *ec, jge_t *r, const wge_t *p, const sc_t k) {
    * [GECC] Page 95, Section 3.3.
    */
   const scalar_field_t *sc = &ec->sc;
-  mp_size_t start = WND_STEPS(sc->bits) - 1;
+  mp_size_t steps = WND_STEPS(sc->bits);
   jge_t wnd[WND_SIZE]; /* 3456 bytes */
   mp_size_t i, j, b;
   jge_t t;
@@ -4441,13 +4441,13 @@ wei_jmul_normal(const wei_t *ec, jge_t *r, const wge_t *p, const sc_t k) {
   jge_zero(ec, r);
   jge_zero(ec, &t);
 
-  for (i = start; i >= 0; i--) {
+  for (i = steps - 1; i >= 0; i--) {
     b = sc_get_bits(sc, k, i * WND_WIDTH, WND_WIDTH);
 
     for (j = 0; j < WND_SIZE; j++)
       jge_select(ec, &t, &t, &wnd[j], j == b);
 
-    if (i == start) {
+    if (i == steps - 1) {
       jge_set(ec, r, &t);
     } else {
       for (j = 0; j < WND_WIDTH; j++)
@@ -4469,7 +4469,7 @@ wei_jmul_endo(const wei_t *ec, jge_t *r, const wge_t *p, const sc_t k) {
    * [GECC] Page 95, Section 3.3.
    */
   const scalar_field_t *sc = &ec->sc;
-  mp_size_t start = WND_STEPS(sc->endo_bits) - 1;
+  mp_size_t steps = WND_STEPS(sc->endo_bits);
   jge_t wnd1[WND_SIZE]; /* 3456 bytes */
   jge_t wnd2[WND_SIZE]; /* 3456 bytes */
   mp_size_t i, j, b1, b2;
@@ -4517,7 +4517,7 @@ wei_jmul_endo(const wei_t *ec, jge_t *r, const wge_t *p, const sc_t k) {
   jge_zero(ec, &t1);
   jge_zero(ec, &t2);
 
-  for (i = start; i >= 0; i--) {
+  for (i = steps - 1; i >= 0; i--) {
     b1 = sc_get_bits(sc, k1, i * WND_WIDTH, WND_WIDTH);
     b2 = sc_get_bits(sc, k2, i * WND_WIDTH, WND_WIDTH);
 
@@ -4526,7 +4526,7 @@ wei_jmul_endo(const wei_t *ec, jge_t *r, const wge_t *p, const sc_t k) {
       jge_select(ec, &t2, &t2, &wnd2[j], j == b2);
     }
 
-    if (i == start) {
+    if (i == steps - 1) {
       jge_add(ec, r, &t1, &t2);
     } else {
       for (j = 0; j < WND_WIDTH; j++)
@@ -7562,7 +7562,7 @@ edwards_mul(const edwards_t *ec, xge_t *r, const xge_t *p, const sc_t k) {
    */
   const prime_field_t *fe = &ec->fe;
   const scalar_field_t *sc = &ec->sc;
-  mp_size_t start = WND_STEPS(fe->bits) - 1;
+  mp_size_t steps = WND_STEPS(fe->bits);
   xge_t wnd[WND_SIZE]; /* 4608 bytes */
   mp_size_t i, j, b;
   xge_t t;
@@ -7580,13 +7580,13 @@ edwards_mul(const edwards_t *ec, xge_t *r, const xge_t *p, const sc_t k) {
   xge_zero(ec, r);
   xge_zero(ec, &t);
 
-  for (i = start; i >= 0; i--) {
+  for (i = steps - 1; i >= 0; i--) {
     b = sc_get_bits(sc, k, i * WND_WIDTH, WND_WIDTH);
 
     for (j = 0; j < WND_SIZE; j++)
       xge_select(ec, &t, &t, &wnd[j], j == b);
 
-    if (i == start) {
+    if (i == steps - 1) {
       xge_set(ec, r, &t);
     } else {
       for (j = 0; j < WND_WIDTH; j++)
