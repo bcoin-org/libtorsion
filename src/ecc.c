@@ -9426,7 +9426,7 @@ static const scalar_def_t field_q521 = {
  * P256K1
  */
 
-static const prime_def_t field_p256k1 = {
+static const prime_def_t field_secp256k1 = {
   256,
   SECP256K1_FIELD_WORDS,
   /* 2^256 - 2^32 - 977 (= 3 mod 4) */
@@ -9459,7 +9459,7 @@ static const prime_def_t field_p256k1 = {
   NULL
 };
 
-static const scalar_def_t field_q256k1 = {
+static const scalar_def_t field_secq256k1 = {
   256,
   {
     0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
@@ -9467,7 +9467,7 @@ static const scalar_def_t field_q256k1 = {
     0xba, 0xae, 0xdc, 0xe6, 0xaf, 0x48, 0xa0, 0x3b,
     0xbf, 0xd2, 0x5e, 0x8c, 0xd0, 0x36, 0x41, 0x41
   },
-  q256k1_sc_invert
+  secq256k1_sc_invert
 };
 
 /*
@@ -10036,8 +10036,8 @@ static const wei_def_t curve_p521 = {
 static const wei_def_t curve_secp256k1 = {
   HASH_SHA256,
   HASH_SHA256,
-  &field_p256k1,
-  &field_q256k1,
+  &field_secp256k1,
+  &field_secq256k1,
   1,
   1,
   /* Coefficients (a, b). */

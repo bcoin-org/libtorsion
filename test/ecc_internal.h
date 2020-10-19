@@ -459,7 +459,7 @@ test_memcmp(drbg_t *unused) {
  */
 
 static void
-test_scalar_encoding_q256k1(drbg_t *unused) {
+test_scalar_encoding_secq256k1(drbg_t *unused) {
   static const unsigned char expect1[32] = {
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -482,9 +482,9 @@ test_scalar_encoding_q256k1(drbg_t *unused) {
 
   (void)unused;
 
-  printf("  - Testing scalar encoding (q256k1).\n");
+  printf("  - Testing scalar encoding (secq256k1).\n");
 
-  scalar_field_init(sc, &field_q256k1, 1);
+  scalar_field_init(sc, &field_secq256k1, 1);
 
   sc_export(sc, raw, sc->n);
 
@@ -603,15 +603,15 @@ test_scalar_encoding_q25519(drbg_t *unused) {
 }
 
 static void
-test_scalar_addsub_q256k1(drbg_t *rng) {
+test_scalar_addsub_secq256k1(drbg_t *rng) {
   scalar_field_t field;
   scalar_field_t *sc = &field;
   sc_t two, a, b, ae, mb, aa1, aa2, ab, a1, a2;
   int i;
 
-  printf("  - Testing scalar arithmetic (q256k1).\n");
+  printf("  - Testing scalar arithmetic (secq256k1).\n");
 
-  scalar_field_init(sc, &field_q256k1, 1);
+  scalar_field_init(sc, &field_secq256k1, 1);
 
   sc_set_word(sc, two, 2);
 
@@ -645,7 +645,7 @@ test_scalar_addsub_q256k1(drbg_t *rng) {
 }
 
 static void
-test_scalar_reduce_q256k1(drbg_t *unused) {
+test_scalar_reduce_secq256k1(drbg_t *unused) {
   static const unsigned char expect[32] = {
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01,
@@ -660,9 +660,9 @@ test_scalar_reduce_q256k1(drbg_t *unused) {
 
   (void)unused;
 
-  printf("  - Testing scalar reduction (q256k1).\n");
+  printf("  - Testing scalar reduction (secq256k1).\n");
 
-  scalar_field_init(sc, &field_q256k1, 1);
+  scalar_field_init(sc, &field_secq256k1, 1);
 
   memset(max, 0xff, 32);
 
@@ -716,7 +716,7 @@ test_scalar_naf(drbg_t *unused) {
 
   printf("  - Testing NAF.\n");
 
-  scalar_field_init(&sc, &field_q256k1, 1);
+  scalar_field_init(&sc, &field_secq256k1, 1);
 
   ASSERT(sc_naf_var(&sc, naf1, k1, 2) == ARRAY_SIZE(expect1));
   ASSERT(sc_naf_var(&sc, naf2, k2, 2) == ARRAY_SIZE(expect2));
@@ -737,7 +737,7 @@ test_scalar_jsf(drbg_t *unused) {
 
   printf("  - Testing JSF.\n");
 
-  scalar_field_init(&sc, &field_q256k1, 1);
+  scalar_field_init(&sc, &field_secq256k1, 1);
 
   ASSERT(sc_jsf_var(&sc, jsf, k1, k2) == ARRAY_SIZE(expect));
   ASSERT(torsion_memcmp(jsf, expect, sizeof(expect)) == 0);
@@ -4096,10 +4096,10 @@ test_ecc_internal(drbg_t *rng) {
   test_memcmp(rng);
 
   /* Scalar */
-  test_scalar_encoding_q256k1(rng);
+  test_scalar_encoding_secq256k1(rng);
   test_scalar_encoding_q25519(rng);
-  test_scalar_addsub_q256k1(rng);
-  test_scalar_reduce_q256k1(rng);
+  test_scalar_addsub_secq256k1(rng);
+  test_scalar_reduce_secq256k1(rng);
   test_scalar_invert_q251(rng);
   test_scalar_naf(rng);
   test_scalar_jsf(rng);
