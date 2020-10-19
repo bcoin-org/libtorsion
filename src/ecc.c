@@ -742,13 +742,13 @@ sc_import_weak(const scalar_field_t *sc, sc_t r, const unsigned char *raw) {
 
 static int
 sc_import_wide(const scalar_field_t *sc, sc_t r,
-               const unsigned char *raw, size_t size) {
+               const unsigned char *raw, size_t len) {
   mp_limb_t rp[MAX_REDUCE_LIMBS];
   int ret = 1;
 
-  ASSERT(size * 8 <= (size_t)sc->shift * MP_LIMB_BITS);
+  ASSERT(len * 8 <= (size_t)sc->shift * MP_LIMB_BITS);
 
-  mpn_import(rp, sc->shift, raw, size, sc->endian);
+  mpn_import(rp, sc->shift, raw, len, sc->endian);
 
   ret &= mpn_sec_lt(rp, sc->n, sc->shift);
 
