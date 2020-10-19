@@ -2403,20 +2403,6 @@ wge_export_x(const wei_t *ec, unsigned char *raw, const wge_t *p) {
   return p->inf ^ 1;
 }
 
-TORSION_UNUSED static void
-wge_swap(const wei_t *ec, wge_t *a, wge_t *b, unsigned int flag) {
-  const prime_field_t *fe = &ec->fe;
-  int cond = int_barrier(flag != 0);
-  int inf1 = a->inf;
-  int inf2 = b->inf;
-
-  fe_swap(fe, a->x, b->x, flag);
-  fe_swap(fe, a->y, b->y, flag);
-
-  a->inf = (inf1 & (cond ^ 1)) | (inf2 & cond);
-  b->inf = (inf2 & (cond ^ 1)) | (inf1 & cond);
-}
-
 static void
 wge_select(const wei_t *ec,
            wge_t *r,
@@ -2971,26 +2957,6 @@ jge_cleanse(const wei_t *ec, jge_t *r) {
 
   r->inf = 1;
   r->aff = 0;
-}
-
-TORSION_UNUSED static void
-jge_swap(const wei_t *ec, jge_t *a, jge_t *b, unsigned int flag) {
-  const prime_field_t *fe = &ec->fe;
-  int cond = int_barrier(flag != 0);
-  int inf1 = a->inf;
-  int inf2 = b->inf;
-  int aff1 = a->aff;
-  int aff2 = b->aff;
-
-  fe_swap(fe, a->x, b->x, flag);
-  fe_swap(fe, a->y, b->y, flag);
-  fe_swap(fe, a->z, b->z, flag);
-
-  a->inf = (inf1 & (cond ^ 1)) | (inf2 & cond);
-  b->inf = (inf2 & (cond ^ 1)) | (inf1 & cond);
-
-  a->aff = (aff1 & (cond ^ 1)) | (aff2 & cond);
-  b->aff = (aff2 & (cond ^ 1)) | (aff1 & cond);
 }
 
 static void
@@ -5546,20 +5512,6 @@ mge_export(const mont_t *ec, unsigned char *raw, int *sign, const mge_t *p) {
 }
 
 TORSION_UNUSED static void
-mge_swap(const mont_t *ec, mge_t *a, mge_t *b, unsigned int flag) {
-  const prime_field_t *fe = &ec->fe;
-  int cond = int_barrier(flag != 0);
-  int inf1 = a->inf;
-  int inf2 = b->inf;
-
-  fe_swap(fe, a->x, b->x, flag);
-  fe_swap(fe, a->y, b->y, flag);
-
-  a->inf = (inf1 & (cond ^ 1)) | (inf2 & cond);
-  b->inf = (inf2 & (cond ^ 1)) | (inf1 & cond);
-}
-
-TORSION_UNUSED static void
 mge_set(const mont_t *ec, mge_t *r, const mge_t *a) {
   const prime_field_t *fe = &ec->fe;
 
@@ -6785,16 +6737,6 @@ xge_export(const edwards_t *ec,
     raw[fe->size] = fe_is_odd(fe, x) << 7;
   else
     raw[fe->size - 1] |= fe_is_odd(fe, x) << 7;
-}
-
-TORSION_UNUSED static void
-xge_swap(const edwards_t *ec, xge_t *a, xge_t *b, unsigned int flag) {
-  const prime_field_t *fe = &ec->fe;
-
-  fe_swap(fe, a->x, b->x, flag);
-  fe_swap(fe, a->y, b->y, flag);
-  fe_swap(fe, a->z, b->z, flag);
-  fe_swap(fe, a->t, b->t, flag);
 }
 
 static void
