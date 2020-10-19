@@ -267,17 +267,17 @@ typedef fe_word_t fe_t[MAX_FIELD_WORDS]; /* 72 bytes */
 typedef void fe_add_f(fe_word_t *, const fe_word_t *, const fe_word_t *);
 typedef void fe_sub_f(fe_word_t *, const fe_word_t *, const fe_word_t *);
 typedef void fe_opp_f(fe_word_t *, const fe_word_t *);
+typedef void fe_carry_f(fe_word_t *, const fe_word_t *);
 typedef void fe_mul_f(fe_word_t *, const fe_word_t *, const fe_word_t *);
 typedef void fe_sqr_f(fe_word_t *, const fe_word_t *);
-typedef void fe_to_montgomery_f(fe_word_t *, const fe_word_t *);
-typedef void fe_from_montgomery_f(fe_word_t *, const fe_word_t *);
+typedef void fe_scmul_f(fe_word_t *, const fe_word_t *);
 typedef void fe_nonzero_f(fe_word_t *, const fe_word_t *);
 typedef void fe_selectznz_f(fe_word_t *, unsigned char,
                             const fe_word_t *, const fe_word_t *);
+typedef void fe_to_montgomery_f(fe_word_t *, const fe_word_t *);
+typedef void fe_from_montgomery_f(fe_word_t *, const fe_word_t *);
 typedef void fe_to_bytes_f(uint8_t *, const fe_word_t *);
 typedef void fe_from_bytes_f(fe_word_t *, const uint8_t *);
-typedef void fe_carry_f(fe_word_t *, const fe_word_t *);
-typedef void fe_scmul_f(fe_word_t *, const fe_word_t *);
 typedef void fe_invert_f(fe_word_t *, const fe_word_t *);
 typedef int fe_sqrt_f(fe_word_t *, const fe_word_t *);
 typedef int fe_isqrt_f(fe_word_t *, const fe_word_t *, const fe_word_t *);
@@ -296,20 +296,20 @@ typedef struct prime_field_s {
   fe_add_f *add;
   fe_sub_f *sub;
   fe_opp_f *opp;
+  fe_carry_f *carry;
   fe_mul_f *mul;
   fe_sqr_f *square;
-  fe_to_montgomery_f *to_montgomery;
-  fe_from_montgomery_f *from_montgomery;
-  fe_nonzero_f *nonzero;
-  fe_selectznz_f *selectznz;
-  fe_to_bytes_f *to_bytes;
-  fe_from_bytes_f *from_bytes;
-  fe_carry_f *carry;
   fe_scmul_f *scmul_3;
   fe_scmul_f *scmul_4;
   fe_scmul_f *scmul_8;
   fe_scmul_f *scmul_a24;
   fe_scmul_f *scmul_d;
+  fe_nonzero_f *nonzero;
+  fe_selectznz_f *selectznz;
+  fe_to_montgomery_f *to_montgomery;
+  fe_from_montgomery_f *from_montgomery;
+  fe_to_bytes_f *to_bytes;
+  fe_from_bytes_f *from_bytes;
   fe_invert_f *invert;
   fe_sqrt_f *sqrt;
   fe_isqrt_f *isqrt;
@@ -329,20 +329,20 @@ typedef struct prime_def_s {
   fe_add_f *add;
   fe_sub_f *sub;
   fe_opp_f *opp;
+  fe_carry_f *carry;
   fe_mul_f *mul;
   fe_sqr_f *square;
-  fe_to_montgomery_f *to_montgomery;
-  fe_from_montgomery_f *from_montgomery;
-  fe_nonzero_f *nonzero;
-  fe_selectznz_f *selectznz;
-  fe_to_bytes_f *to_bytes;
-  fe_from_bytes_f *from_bytes;
-  fe_carry_f *carry;
   fe_scmul_f *scmul_3;
   fe_scmul_f *scmul_4;
   fe_scmul_f *scmul_8;
   fe_scmul_f *scmul_a24;
   fe_scmul_f *scmul_d;
+  fe_nonzero_f *nonzero;
+  fe_selectznz_f *selectznz;
+  fe_to_montgomery_f *to_montgomery;
+  fe_from_montgomery_f *from_montgomery;
+  fe_to_bytes_f *to_bytes;
+  fe_from_bytes_f *from_bytes;
   fe_invert_f *invert;
   fe_sqrt_f *sqrt;
   fe_isqrt_f *isqrt;
@@ -2140,20 +2140,20 @@ prime_field_init(prime_field_t *fe, const prime_def_t *def, int endian) {
   fe->add = def->add;
   fe->sub = def->sub;
   fe->opp = def->opp;
+  fe->carry = def->carry;
   fe->mul = def->mul;
   fe->square = def->square;
-  fe->to_montgomery = def->to_montgomery;
-  fe->from_montgomery = def->from_montgomery;
-  fe->nonzero = def->nonzero;
-  fe->selectznz = def->selectznz;
-  fe->to_bytes = def->to_bytes;
-  fe->from_bytes = def->from_bytes;
-  fe->carry = def->carry;
   fe->scmul_3 = def->scmul_3;
   fe->scmul_4 = def->scmul_4;
   fe->scmul_8 = def->scmul_8;
   fe->scmul_a24 = def->scmul_a24;
   fe->scmul_d = def->scmul_d;
+  fe->nonzero = def->nonzero;
+  fe->selectznz = def->selectznz;
+  fe->to_montgomery = def->to_montgomery;
+  fe->from_montgomery = def->from_montgomery;
+  fe->to_bytes = def->to_bytes;
+  fe->from_bytes = def->from_bytes;
   fe->invert = def->invert;
   fe->sqrt = def->sqrt;
   fe->isqrt = def->isqrt;
@@ -9228,20 +9228,20 @@ static const prime_def_t field_p192 = {
   fiat_p192_add,
   fiat_p192_sub,
   fiat_p192_opp,
+  fiat_p192_carry,
   fiat_p192_carry_mul,
   fiat_p192_carry_square,
-  NULL,
-  NULL,
-  NULL,
-  fiat_p192_selectznz,
-  fiat_p192_to_bytes,
-  fiat_p192_from_bytes,
-  fiat_p192_carry,
   fiat_p192_carry_scmul_3,
   fiat_p192_carry_scmul_4,
   fiat_p192_carry_scmul_8,
   NULL,
   NULL,
+  NULL,
+  fiat_p192_selectznz,
+  NULL,
+  NULL,
+  fiat_p192_to_bytes,
+  fiat_p192_from_bytes,
   p192_fe_invert,
   p192_fe_sqrt,
   p192_fe_isqrt,
@@ -9275,20 +9275,20 @@ static const prime_def_t field_p224 = {
   fiat_p224_add,
   fiat_p224_sub,
   fiat_p224_opp,
+  NULL,
   fiat_p224_mul,
   fiat_p224_square,
-  fiat_p224_to_montgomery,
-  fiat_p224_from_montgomery,
-  fiat_p224_nonzero,
-  fiat_p224_selectznz,
-  fiat_p224_to_bytes,
-  fiat_p224_from_bytes,
-  NULL,
   fiat_p224_scmul_3,
   fiat_p224_scmul_4,
   fiat_p224_scmul_8,
   NULL,
   NULL,
+  fiat_p224_nonzero,
+  fiat_p224_selectznz,
+  fiat_p224_to_montgomery,
+  fiat_p224_from_montgomery,
+  fiat_p224_to_bytes,
+  fiat_p224_from_bytes,
   p224_fe_invert,
   p224_fe_sqrt,
   NULL,
@@ -9323,20 +9323,20 @@ static const prime_def_t field_p256 = {
   fiat_p256_add,
   fiat_p256_sub,
   fiat_p256_opp,
+  NULL,
   fiat_p256_mul,
   fiat_p256_square,
-  fiat_p256_to_montgomery,
-  fiat_p256_from_montgomery,
-  fiat_p256_nonzero,
-  fiat_p256_selectznz,
-  fiat_p256_to_bytes,
-  fiat_p256_from_bytes,
-  NULL,
   fiat_p256_scmul_3,
   fiat_p256_scmul_4,
   fiat_p256_scmul_8,
   NULL,
   NULL,
+  fiat_p256_nonzero,
+  fiat_p256_selectznz,
+  fiat_p256_to_montgomery,
+  fiat_p256_from_montgomery,
+  fiat_p256_to_bytes,
+  fiat_p256_from_bytes,
   p256_fe_invert,
   p256_fe_sqrt,
   p256_fe_isqrt,
@@ -9373,20 +9373,20 @@ static const prime_def_t field_p384 = {
   fiat_p384_add,
   fiat_p384_sub,
   fiat_p384_opp,
+  NULL,
   fiat_p384_mul,
   fiat_p384_square,
-  fiat_p384_to_montgomery,
-  fiat_p384_from_montgomery,
-  fiat_p384_nonzero,
-  fiat_p384_selectznz,
-  fiat_p384_to_bytes,
-  fiat_p384_from_bytes,
-  NULL,
   fiat_p384_scmul_3,
   fiat_p384_scmul_4,
   fiat_p384_scmul_8,
   NULL,
   NULL,
+  fiat_p384_nonzero,
+  fiat_p384_selectznz,
+  fiat_p384_to_montgomery,
+  fiat_p384_from_montgomery,
+  fiat_p384_to_bytes,
+  fiat_p384_from_bytes,
   p384_fe_invert,
   p384_fe_sqrt,
   p384_fe_isqrt,
@@ -9428,20 +9428,20 @@ static const prime_def_t field_p521 = {
   fiat_p521_add,
   fiat_p521_sub,
   fiat_p521_opp,
+  fiat_p521_carry,
   fiat_p521_carry_mul,
   fiat_p521_carry_square,
-  NULL,
-  NULL,
-  NULL,
-  fiat_p521_selectznz,
-  fiat_p521_to_bytes,
-  fiat_p521_from_bytes,
-  fiat_p521_carry,
   fiat_p521_carry_scmul_3,
   fiat_p521_carry_scmul_4,
   fiat_p521_carry_scmul_8,
   NULL,
   NULL,
+  NULL,
+  fiat_p521_selectznz,
+  NULL,
+  NULL,
+  fiat_p521_to_bytes,
+  fiat_p521_from_bytes,
   p521_fe_invert,
   p521_fe_sqrt,
   p521_fe_isqrt,
@@ -9481,20 +9481,20 @@ static const prime_def_t field_p256k1 = {
   fiat_secp256k1_add,
   fiat_secp256k1_sub,
   fiat_secp256k1_opp,
+  fiat_secp256k1_carry,
   fiat_secp256k1_carry_mul,
   fiat_secp256k1_carry_square,
-  NULL,
-  NULL,
-  NULL,
-  fiat_secp256k1_selectznz,
-  fiat_secp256k1_to_bytes,
-  fiat_secp256k1_from_bytes,
-  fiat_secp256k1_carry,
   fiat_secp256k1_carry_scmul_3,
   fiat_secp256k1_carry_scmul_4,
   fiat_secp256k1_carry_scmul_8,
   NULL,
   NULL,
+  NULL,
+  fiat_secp256k1_selectznz,
+  NULL,
+  NULL,
+  fiat_secp256k1_to_bytes,
+  fiat_secp256k1_from_bytes,
   secp256k1_fe_invert,
   secp256k1_fe_sqrt,
   secp256k1_fe_isqrt,
@@ -9529,20 +9529,20 @@ static const prime_def_t field_p25519 = {
   fiat_p25519_add,
   fiat_p25519_sub,
   fiat_p25519_opp,
+  fiat_p25519_carry,
   fiat_p25519_carry_mul,
   fiat_p25519_carry_square,
-  NULL,
-  NULL,
-  NULL,
-  fiat_p25519_selectznz,
-  fiat_p25519_to_bytes,
-  fiat_p25519_from_bytes,
-  fiat_p25519_carry,
   fiat_p25519_carry_scmul_3,
   fiat_p25519_carry_scmul_4,
   fiat_p25519_carry_scmul_8,
   fiat_p25519_carry_scmul_121666,
   NULL,
+  NULL,
+  fiat_p25519_selectznz,
+  NULL,
+  NULL,
+  fiat_p25519_to_bytes,
+  fiat_p25519_from_bytes,
   p25519_fe_invert,
   p25519_fe_sqrt,
   p25519_fe_isqrt,
@@ -9580,20 +9580,20 @@ static const prime_def_t field_p448 = {
   fiat_p448_add,
   fiat_p448_sub,
   fiat_p448_opp,
+  fiat_p448_carry,
   fiat_p448_carry_mul,
   fiat_p448_carry_square,
-  NULL,
-  NULL,
-  NULL,
-  fiat_p448_selectznz,
-  fiat_p448_to_bytes,
-  fiat_p448_from_bytes,
-  fiat_p448_carry,
   fiat_p448_carry_scmul_3,
   fiat_p448_carry_scmul_4,
   fiat_p448_carry_scmul_8,
   fiat_p448_carry_scmul_39082,
   fiat_p448_carry_scmul_m39081,
+  NULL,
+  fiat_p448_selectznz,
+  NULL,
+  NULL,
+  fiat_p448_to_bytes,
+  fiat_p448_from_bytes,
   p448_fe_invert,
   p448_fe_sqrt,
   p448_fe_isqrt,
@@ -9631,20 +9631,20 @@ static const prime_def_t field_p251 = {
   fiat_p251_add,
   fiat_p251_sub,
   fiat_p251_opp,
+  fiat_p251_carry,
   fiat_p251_carry_mul,
   fiat_p251_carry_square,
-  NULL,
-  NULL,
-  NULL,
-  fiat_p251_selectznz,
-  fiat_p251_to_bytes,
-  fiat_p251_from_bytes,
-  fiat_p251_carry,
   fiat_p251_carry_scmul_3,
   fiat_p251_carry_scmul_4,
   fiat_p251_carry_scmul_8,
   NULL,
   fiat_p251_carry_scmul_m1174,
+  NULL,
+  fiat_p251_selectznz,
+  NULL,
+  NULL,
+  fiat_p251_to_bytes,
+  fiat_p251_from_bytes,
   p251_fe_invert,
   p251_fe_sqrt,
   p251_fe_isqrt,

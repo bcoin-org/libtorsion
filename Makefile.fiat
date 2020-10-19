@@ -27,34 +27,73 @@ OUTPUT = src/fields/p192_32.h      \
          src/fields/p251_64.h      \
          src/fields/.fiat-head
 
-U_FUNCS = carry_mul    \
-          carry_square \
-          carry        \
-          add          \
+U_FUNCS = add          \
           sub          \
           opp          \
-          selectznz    \
-          to_bytes     \
-          from_bytes   \
+          carry        \
+          carry_mul    \
+          carry_square \
           carry_scmul3 \
           carry_scmul4 \
-          carry_scmul8
+          carry_scmul8 \
+          selectznz    \
+          to_bytes     \
+          from_bytes
 
-U_FUNCS_25519 := $(U_FUNCS) carry_scmul121666
-U_FUNCS_448 := $(U_FUNCS) carry_scmul39082 carry_scmul39081
-U_FUNCS_251 := $(U_FUNCS) carry_scmul1174
-
-M_FUNCS = mul             \
-          square          \
-          add             \
+M_FUNCS = add             \
           sub             \
           opp             \
-          from_montgomery \
-          to_montgomery   \
+          mul             \
+          square          \
           nonzero         \
           selectznz       \
+          to_montgomery   \
+          from_montgomery \
           to_bytes        \
           from_bytes
+
+U_FUNCS_25519 = add               \
+                sub               \
+                opp               \
+                carry             \
+                carry_mul         \
+                carry_square      \
+                carry_scmul3      \
+                carry_scmul4      \
+                carry_scmul8      \
+                carry_scmul121666 \
+                selectznz         \
+                to_bytes          \
+                from_bytes
+
+U_FUNCS_448 = add              \
+              sub              \
+              opp              \
+              carry            \
+              carry_mul        \
+              carry_square     \
+              carry_scmul3     \
+              carry_scmul4     \
+              carry_scmul8     \
+              carry_scmul39082 \
+              carry_scmul39081 \
+              selectznz        \
+              to_bytes         \
+              from_bytes
+
+U_FUNCS_251 = add             \
+              sub             \
+              opp             \
+              carry           \
+              carry_mul       \
+              carry_square    \
+              carry_scmul3    \
+              carry_scmul4    \
+              carry_scmul8    \
+              carry_scmul1174 \
+              selectznz       \
+              to_bytes        \
+              from_bytes
 
 AFTER = sed -e 's;$(FIAT);;g'                               \
             -e 's/unsigned __int128/torsion_uint128_t/g'    \
