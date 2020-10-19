@@ -603,6 +603,48 @@ test_scalar_encoding_q25519(drbg_t *unused) {
 }
 
 static void
+test_scalar_addsub_q256k1(drbg_t *rng) {
+  scalar_field_t field;
+  scalar_field_t *sc = &field;
+  sc_t two, a, b, ae, mb, aa1, aa2, ab, a1, a2;
+  int i;
+
+  printf("  - Testing scalar arithmetic (q256k1).\n");
+
+  scalar_field_init(sc, &field_q256k1, 1);
+
+  sc_set_word(sc, two, 2);
+
+  for (i = 0; i < 100; i++) {
+    sc_random(sc, a, rng);
+    sc_random(sc, b, rng);
+
+    ASSERT(!sc_is_zero(sc, a));
+    ASSERT(!sc_is_zero(sc, b));
+
+    sc_neg(sc, mb, b);
+    sc_mul(sc, ae, a, two);
+
+    sc_add(sc, aa1, a, a);
+    sc_mul_word(sc, aa2, a, 2);
+    sc_add(sc, ab, a, b);
+    sc_sub(sc, a1, ab, b);
+    sc_add(sc, a2, ab, mb);
+
+    ASSERT(sc_equal(sc, aa1, ae));
+    ASSERT(sc_equal(sc, aa2, ae));
+    ASSERT(!sc_equal(sc, ab, a));
+    ASSERT(sc_equal(sc, a1, a));
+    ASSERT(sc_equal(sc, a2, a));
+  }
+
+  sc_zero(sc, a);
+  sc_neg(sc, a, a);
+
+  ASSERT(sc_is_zero(sc, a));
+}
+
+static void
 test_scalar_reduce_q256k1(drbg_t *unused) {
   static const unsigned char expect[32] = {
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -613,8 +655,8 @@ test_scalar_reduce_q256k1(drbg_t *unused) {
 
   scalar_field_t field;
   scalar_field_t *sc = &field;
-  mp_limb_t r[MAX_SCALAR_LIMBS];
   unsigned char max[32];
+  sc_t r;
 
   (void)unused;
 
@@ -4056,6 +4098,7 @@ test_ecc_internal(drbg_t *rng) {
   /* Scalar */
   test_scalar_encoding_q256k1(rng);
   test_scalar_encoding_q25519(rng);
+  test_scalar_addsub_q256k1(rng);
   test_scalar_reduce_q256k1(rng);
   test_scalar_invert_q251(rng);
   test_scalar_naf(rng);

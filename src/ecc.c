@@ -941,9 +941,25 @@ sc_add(const scalar_field_t *sc, sc_t r, const sc_t a, const sc_t b) {
 
 TORSION_UNUSED static void
 sc_sub(const scalar_field_t *sc, sc_t r, const sc_t a, const sc_t b) {
-  sc_t c;
-  sc_neg(sc, c, b);
-  sc_add(sc, r, a, c);
+  mp_limb_t ap[MAX_SCALAR_LIMBS + 1];
+  mp_limb_t bp[MAX_SCALAR_LIMBS + 1];
+  mp_limb_t cy;
+
+  ASSERT(sc->n[sc->limbs] == 0);
+
+  /* r = a + n */
+  ap[sc->limbs] = mpn_add_n(ap, a, sc->n, sc->limbs);
+
+  /* r = r - b */
+  ap[sc->limbs] -= mpn_sub_n(ap, ap, b, sc->limbs);
+
+  /* r = r - n if r >= n */
+  cy = mpn_sub_n(bp, ap, sc->n, sc->limbs + 1);
+  mpn_cnd_select(cy == 0, r, ap, bp, sc->limbs);
+
+#ifdef TORSION_VERIFY
+  ASSERT(mpn_cmp(r, sc->n, sc->limbs) < 0);
+#endif
 }
 
 static void
