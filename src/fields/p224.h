@@ -69,7 +69,7 @@ p224_fe_set(p224_fe_t r, const p224_fe_t x) {
 static int
 p224_fe_equal(const p224_fe_t x, const p224_fe_t y) {
   p224_fe_word_t z = 0;
-  size_t i;
+  int i;
 
   for (i = 0; i < P224_FIELD_WORDS; i++)
     z |= x[i] ^ y[i];
@@ -80,8 +80,8 @@ p224_fe_equal(const p224_fe_t x, const p224_fe_t y) {
 }
 
 static void
-p224_fe_sqrn(p224_fe_t r, const p224_fe_t x, unsigned int n) {
-  unsigned int i;
+p224_fe_sqrn(p224_fe_t r, const p224_fe_t x, int n) {
+  int i;
 
   /* Handle zero for the tonelli-shanks loop. */
   if (n == 0) {

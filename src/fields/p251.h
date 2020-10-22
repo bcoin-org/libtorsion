@@ -43,7 +43,7 @@ p251_fe_equal(const p251_fe_t x, const p251_fe_t y) {
   uint32_t z = 0;
   uint8_t u[32];
   uint8_t v[32];
-  size_t i;
+  int i;
 
   fiat_p251_to_bytes(u, x);
   fiat_p251_to_bytes(v, y);
@@ -55,8 +55,8 @@ p251_fe_equal(const p251_fe_t x, const p251_fe_t y) {
 }
 
 static void
-p251_fe_sqrn(p251_fe_t r, const p251_fe_t x, unsigned int n) {
-  unsigned int i;
+p251_fe_sqrn(p251_fe_t r, const p251_fe_t x, int n) {
+  int i;
 
   p251_fe_sqr(r, x);
 

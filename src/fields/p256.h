@@ -42,7 +42,7 @@ p256_fe_set(p256_fe_t r, const p256_fe_t x) {
 static int
 p256_fe_equal(const p256_fe_t x, const p256_fe_t y) {
   p256_fe_word_t z = 0;
-  size_t i;
+  int i;
 
   for (i = 0; i < P256_FIELD_WORDS; i++)
     z |= x[i] ^ y[i];
@@ -53,8 +53,8 @@ p256_fe_equal(const p256_fe_t x, const p256_fe_t y) {
 }
 
 static void
-p256_fe_sqrn(p256_fe_t r, const p256_fe_t x, unsigned int n) {
-  unsigned int i;
+p256_fe_sqrn(p256_fe_t r, const p256_fe_t x, int n) {
+  int i;
 
   p256_fe_sqr(r, x);
 

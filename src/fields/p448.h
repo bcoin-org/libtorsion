@@ -51,7 +51,7 @@ p448_fe_equal(const p448_fe_t x, const p448_fe_t y) {
   uint32_t z = 0;
   uint8_t u[56];
   uint8_t v[56];
-  size_t i;
+  int i;
 
   fiat_p448_to_bytes(u, x);
   fiat_p448_to_bytes(v, y);
@@ -63,8 +63,8 @@ p448_fe_equal(const p448_fe_t x, const p448_fe_t y) {
 }
 
 static void
-p448_fe_sqrn(p448_fe_t r, const p448_fe_t x, unsigned int n) {
-  unsigned int i;
+p448_fe_sqrn(p448_fe_t r, const p448_fe_t x, int n) {
+  int i;
 
   p448_fe_sqr(r, x);
 

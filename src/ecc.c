@@ -236,11 +236,11 @@ typedef void sc_invert_f(const struct scalar_field_s *, sc_t, const sc_t);
 
 typedef struct scalar_field_s {
   int endian;
+  int bits;
+  int endo_bits;
   mp_size_t limbs;
-  size_t size;
-  size_t bits;
-  size_t endo_bits;
   mp_size_t shift;
+  size_t size;
   unsigned int mask;
   mp_limb_t n[MAX_REDUCE_LIMBS];
   mp_limb_t nh[MAX_REDUCE_LIMBS];
@@ -251,7 +251,7 @@ typedef struct scalar_field_s {
 } scalar_field_t;
 
 typedef struct scalar_def_s {
-  size_t bits;
+  int bits;
   const unsigned char n[MAX_FIELD_SIZE];
   sc_invert_f *invert;
 } scalar_def_t;
@@ -285,10 +285,10 @@ typedef void fe_legendre_f(fe_word_t *, const fe_word_t *);
 
 typedef struct prime_field_s {
   int endian;
+  int bits;
+  int words;
   mp_size_t limbs;
   size_t size;
-  size_t bits;
-  size_t words;
   size_t adj_size;
   unsigned int mask;
   mp_limb_t p[MAX_REDUCE_LIMBS];
@@ -323,8 +323,8 @@ typedef struct prime_field_s {
 } prime_field_t;
 
 typedef struct prime_def_s {
-  size_t bits;
-  size_t words;
+  int bits;
+  int words;
   const unsigned char p[MAX_FIELD_SIZE];
   fe_add_f *add;
   fe_sub_f *sub;
@@ -360,7 +360,7 @@ typedef struct endo_def_s {
   const unsigned char b2[MAX_SCALAR_SIZE];
   const unsigned char g1[MAX_SCALAR_SIZE];
   const unsigned char g2[MAX_SCALAR_SIZE];
-  size_t prec;
+  int prec;
 } endo_def_t;
 
 /*
@@ -429,7 +429,7 @@ typedef struct wei_s {
   sc_t g1;
   sc_t g2;
   wge_t wnd_endo[NAF_SIZE_PRE]; /* 19kb */
-  size_t prec;
+  int prec;
 } wei_t;
 
 typedef struct wei_def_s {
@@ -821,14 +821,16 @@ sc_set(const scalar_field_t *sc, sc_t r, const sc_t a) {
 }
 
 TORSION_UNUSED static void
-sc_swap(const scalar_field_t *sc, sc_t a, sc_t b, unsigned int flag) {
+sc_swap(const scalar_field_t *sc, sc_t a, sc_t b, int flag) {
   mpn_cnd_swap(flag != 0, a, b, sc->limbs);
 }
 
 static void
-sc_select(const scalar_field_t *sc, sc_t r,
-          const sc_t a, const sc_t b,
-          unsigned int flag) {
+sc_select(const scalar_field_t *sc,
+          sc_t r,
+          const sc_t a,
+          const sc_t b,
+          int flag) {
   mpn_cnd_select(flag != 0, r, a, b, sc->limbs);
 }
 
@@ -913,7 +915,7 @@ sc_neg(const scalar_field_t *sc, sc_t r, const sc_t a) {
 }
 
 static void
-sc_neg_cond(const scalar_field_t *sc, sc_t r, const sc_t a, unsigned int flag) {
+sc_neg_cond(const scalar_field_t *sc, sc_t r, const sc_t a, int flag) {
   sc_t b;
   sc_neg(sc, b, a);
   sc_select(sc, r, a, b, flag);
@@ -1030,9 +1032,11 @@ sc_sqr(const scalar_field_t *sc, sc_t r, const sc_t a) {
 }
 
 static void
-sc_mulshift(const scalar_field_t *sc, sc_t r,
-            const sc_t a, const sc_t b,
-            size_t shift) {
+sc_mulshift(const scalar_field_t *sc,
+            sc_t r,
+            const sc_t a,
+            const sc_t b,
+            int shift) {
   /* Computes `r = round((a * b) >> shift)`.
    *
    * Constant time assuming `shift` is constant.
@@ -1093,12 +1097,12 @@ sc_montsqr(const scalar_field_t *sc, sc_t r, const sc_t a) {
 }
 
 static void
-sc_montsqrn(const scalar_field_t *sc, sc_t r, const sc_t a, unsigned int n) {
+sc_montsqrn(const scalar_field_t *sc, sc_t r, const sc_t a, int n) {
   mp_limb_t scratch[MAX_SCALAR_LIMBS * 4]; /* 288 bytes */
   mp_limb_t *x = scratch;
   mp_limb_t *y = scratch + MAX_SCALAR_LIMBS * 2;
   mp_limb_t *t;
-  unsigned int i;
+  int i;
 
   ASSERT(n > 0);
 
@@ -1136,10 +1140,9 @@ static void
 sc_pow(const scalar_field_t *sc, sc_t r, const sc_t a, const mp_limb_t *e) {
   /* Used for inversion if not available otherwise. */
   /* Note that our exponent is not secret. */
-  mp_size_t steps = WND_STEPS(sc->bits);
+  int steps = WND_STEPS(sc->bits);
   sc_t wnd[WND_SIZE]; /* 1152 bytes */
-  mp_size_t i;
-  mp_limb_t b;
+  int i, b;
 
   sc_mont(sc, wnd[0], sc_one);
   sc_mont(sc, wnd[1], a);
@@ -1184,19 +1187,19 @@ sc_invert(const scalar_field_t *sc, sc_t r, const sc_t a) {
   return sc_is_zero(sc, r) ^ 1;
 }
 
-static size_t
+static int
 sc_bitlen_var(const scalar_field_t *sc, const sc_t a) {
   return mpn_bitlen(a, sc->limbs);
 }
 
-static mp_limb_t
-sc_get_bit(const scalar_field_t *sc, const sc_t k, size_t i) {
+static int
+sc_get_bit(const scalar_field_t *sc, const sc_t k, int i) {
   /* Constant time assuming `i` is constant. */
   return mpn_get_bit(k, sc->limbs, i);
 }
 
-static mp_limb_t
-sc_get_bits(const scalar_field_t *sc, const sc_t k, size_t i, size_t w) {
+static int
+sc_get_bits(const scalar_field_t *sc, const sc_t k, int i, int w) {
   /* Constant time assuming `i` is constant. */
   return mpn_get_bits(k, sc->limbs, i, w);
 }
@@ -1222,10 +1225,10 @@ sc_minimize_var(const scalar_field_t *sc, sc_t r, const sc_t a) {
   return high;
 }
 
-static size_t
-sc_naf_var0(const scalar_field_t *sc, int *naf,
-            const sc_t k, int sign,
-            size_t width, size_t max) {
+static int
+sc_naf_var0(const scalar_field_t *sc,
+            int *naf, const sc_t k,
+            int sign, int width, int max) {
   /* Computing the width-w NAF of a positive integer.
    *
    * [GECC] Algorithm 3.35, Page 100, Section 3.3.
@@ -1234,25 +1237,26 @@ sc_naf_var0(const scalar_field_t *sc, int *naf,
    * method of recoding. The more optimal method
    * below was ported from libsecp256k1.
    */
-  size_t bits = sc_bitlen_var(sc, k) + 1;
-  size_t len = 0;
-  size_t i = 0;
+  int bits = sc_bitlen_var(sc, k) + 1;
   int carry = 0;
+  int len = 0;
+  int i = 0;
   int word;
 
   ASSERT(bits <= max);
 
-  memset(naf, 0, max * sizeof(int));
+  while (max--)
+    naf[max] = 0;
 
   while (i < bits) {
-    if (sc_get_bit(sc, k, i) == (mp_limb_t)carry) {
+    if (sc_get_bit(sc, k, i) == carry) {
       i += 1;
       continue;
     }
 
     word = sc_get_bits(sc, k, i, width) + carry;
     carry = (word >> (width - 1)) & 1;
-    word -= carry << width;
+    word -= (carry << width);
 
     naf[i] = sign * word;
 
@@ -1266,19 +1270,20 @@ sc_naf_var0(const scalar_field_t *sc, int *naf,
   return len;
 }
 
-static size_t
-sc_naf_var(const scalar_field_t *sc, int *naf, const sc_t k, size_t width) {
+static int
+sc_naf_var(const scalar_field_t *sc, int *naf, const sc_t k, int width) {
   return sc_naf_var0(sc, naf, k, 1, width, sc->bits + 1);
 }
 
-static size_t
+static int
 sc_naf_endo_var(const scalar_field_t *sc,
-                int *naf1, int *naf2,
-                const sc_t k1, const sc_t k2,
-                size_t width) {
-  size_t len1, len2;
+                int *naf1,
+                int *naf2,
+                const sc_t k1,
+                const sc_t k2,
+                int width) {
+  int s1, s2, len1, len2;
   sc_t c1, c2;
-  int s1, s2;
 
   /* Minimize scalars. */
   s1 = sc_minimize_var(sc, c1, k1) ? -1 : 1;
@@ -1291,21 +1296,24 @@ sc_naf_endo_var(const scalar_field_t *sc,
   return ECC_MAX(len1, len2);
 }
 
-static size_t
-sc_jsf_var0(const scalar_field_t *sc, int *naf,
-            const sc_t k1, int s1,
-            const sc_t k2, int s2,
-            size_t max) {
+static int
+sc_jsf_var0(const scalar_field_t *sc,
+            int *naf,
+            const sc_t k1,
+            int s1,
+            const sc_t k2,
+            int s2,
+            int max) {
   /* Joint sparse form.
    *
    * [GECC] Algorithm 3.50, Page 111, Section 3.3.
    */
-  size_t bits1 = sc_bitlen_var(sc, k1) + 1;
-  size_t bits2 = sc_bitlen_var(sc, k2) + 1;
-  size_t bits = ECC_MAX(bits1, bits2);
+  int bits1 = sc_bitlen_var(sc, k1) + 1;
+  int bits2 = sc_bitlen_var(sc, k2) + 1;
+  int bits = ECC_MAX(bits1, bits2);
   int d1 = 0;
   int d2 = 0;
-  size_t i;
+  int i;
 
   /* JSF->NAF conversion table. */
   static const int table[9] = {
@@ -1376,14 +1384,16 @@ sc_jsf_var0(const scalar_field_t *sc, int *naf,
   return i;
 }
 
-static size_t
+static int
 sc_jsf_var(const scalar_field_t *sc, int *naf, const sc_t k1, const sc_t k2) {
   return sc_jsf_var0(sc, naf, k1, 1, k2, 1, sc->bits + 1);
 }
 
-static size_t
-sc_jsf_endo_var(const scalar_field_t *sc, int *naf,
-                const sc_t k1, const sc_t k2) {
+static int
+sc_jsf_endo_var(const scalar_field_t *sc,
+                int *naf,
+                const sc_t k1,
+                const sc_t k2) {
   sc_t c1, c2;
   int s1, s2;
 
@@ -1419,9 +1429,9 @@ sc_random(const scalar_field_t *sc, sc_t k, drbg_t *rng) {
 
 static void
 fe_zero(const prime_field_t *fe, fe_t r) {
-  size_t i = fe->words;
+  int i;
 
-  while (i--)
+  for (i = 0; i < fe->words; i++)
     r[i] = 0;
 }
 
@@ -1529,10 +1539,10 @@ fe_export(const prime_field_t *fe, unsigned char *raw, const fe_t a) {
 }
 
 static void
-fe_swap(const prime_field_t *fe, fe_t a, fe_t b, unsigned int flag) {
+fe_swap(const prime_field_t *fe, fe_t a, fe_t b, int flag) {
   fe_word_t cond = (flag != 0);
   fe_word_t mask = fiat_barrier(-cond);
-  size_t i;
+  int i;
 
   for (i = 0; i < fe->words; i++) {
     fe_word_t word = (a[i] ^ b[i]) & mask;
@@ -1547,15 +1557,15 @@ fe_select(const prime_field_t *fe,
           fe_t r,
           const fe_t a,
           const fe_t b,
-          unsigned int flag) {
+          int flag) {
   fe->selectznz(r, flag != 0, a, b);
 }
 
 static void
 fe_set(const prime_field_t *fe, fe_t r, const fe_t a) {
-  size_t i = fe->words;
+  int i;
 
-  while (i--)
+  for (i = 0; i < fe->words; i++)
     r[i] = a[i];
 }
 
@@ -1614,7 +1624,7 @@ fe_set_sc(const prime_field_t *fe,
 
 static void
 fe_set_word(const prime_field_t *fe, fe_t r, fe_word_t word) {
-  size_t i;
+  int i;
 
   r[0] = word;
 
@@ -1651,9 +1661,10 @@ fe_is_zero(const prime_field_t *fe, const fe_t a) {
 static int
 fe_equal(const prime_field_t *fe, const fe_t a, const fe_t b) {
   fe_word_t z = 0;
-  size_t i;
 
   if (fe->from_montgomery != NULL) {
+    int i;
+
     for (i = 0; i < fe->words; i++)
       z |= a[i] ^ b[i];
 
@@ -1661,6 +1672,7 @@ fe_equal(const prime_field_t *fe, const fe_t a, const fe_t b) {
   } else {
     unsigned char x[MAX_FIELD_SIZE];
     unsigned char y[MAX_FIELD_SIZE];
+    size_t i;
 
     fe->to_bytes(x, a);
     fe->to_bytes(y, b);
@@ -1715,14 +1727,14 @@ fe_neg_nc(const prime_field_t *fe, fe_t r, const fe_t a) {
 }
 
 static void
-fe_neg_cond(const prime_field_t *fe, fe_t r, const fe_t a, unsigned int flag) {
+fe_neg_cond(const prime_field_t *fe, fe_t r, const fe_t a, int flag) {
   fe_t b;
   fe_neg(fe, b, a);
   fe_select(fe, r, a, b, flag);
 }
 
 static void
-fe_set_odd(const prime_field_t *fe, fe_t r, const fe_t a, unsigned int odd) {
+fe_set_odd(const prime_field_t *fe, fe_t r, const fe_t a, int odd) {
   fe_neg_cond(fe, r, a, fe_is_odd(fe, a) ^ (odd != 0));
 }
 
@@ -1804,10 +1816,9 @@ fe_mul8(const prime_field_t *fe, fe_t r, const fe_t a) {
 static void
 fe_pow(const prime_field_t *fe, fe_t r, const fe_t a, const mp_limb_t *e) {
   /* Used for inversion and square roots if not available otherwise. */
-  mp_size_t steps = WND_STEPS(fe->bits);
+  int steps = WND_STEPS(fe->bits);
   fe_t wnd[WND_SIZE]; /* 1152 bytes */
-  mp_size_t i, j;
-  mp_limb_t b;
+  int i, j, b;
 
   fe_set(fe, wnd[0], fe->one);
   fe_set(fe, wnd[1], a);
@@ -2058,11 +2069,11 @@ scalar_field_init(scalar_field_t *sc, const scalar_def_t *def, int endian) {
 
   /* Field constants. */
   sc->endian = endian;
-  sc->limbs = (def->bits + MP_LIMB_BITS - 1) / MP_LIMB_BITS;
-  sc->size = (def->bits + 7) / 8;
   sc->bits = def->bits;
   sc->endo_bits = (def->bits + 1) / 2 + 1;
+  sc->limbs = (def->bits + MP_LIMB_BITS - 1) / MP_LIMB_BITS;
   sc->shift = sc->limbs * 2 + 2;
+  sc->size = (def->bits + 7) / 8;
   sc->mask = 0xff;
 
   /* Mask to ignore high bits during hashing (schnorr). */
@@ -2131,10 +2142,10 @@ prime_field_init(prime_field_t *fe, const prime_def_t *def, int endian) {
 
   /* Field constants. */
   fe->endian = endian;
-  fe->limbs = (def->bits + MP_LIMB_BITS - 1) / MP_LIMB_BITS;
-  fe->size = (def->bits + 7) / 8;
   fe->bits = def->bits;
   fe->words = def->words;
+  fe->limbs = (def->bits + MP_LIMB_BITS - 1) / MP_LIMB_BITS;
+  fe->size = (def->bits + 7) / 8;
   fe->adj_size = fe->size + ((fe->bits & 7) == 0);
   fe->mask = 0xff;
 
@@ -2408,7 +2419,7 @@ wge_select(const wei_t *ec,
            wge_t *r,
            const wge_t *a,
            const wge_t *b,
-           unsigned int flag) {
+           int flag) {
   const prime_field_t *fe = &ec->fe;
   int cond = int_barrier(flag != 0);
 
@@ -2485,7 +2496,7 @@ wge_neg(const wei_t *ec, wge_t *r, const wge_t *a) {
 }
 
 static void
-wge_neg_cond(const wei_t *ec, wge_t *r, const wge_t *a, unsigned int flag) {
+wge_neg_cond(const wei_t *ec, wge_t *r, const wge_t *a, int flag) {
   const prime_field_t *fe = &ec->fe;
 
   fe_set(fe, r->x, a->x);
@@ -2876,14 +2887,15 @@ static void
 wge_fixed_points_var(const wei_t *ec, wge_t *out, const wge_t *p) {
   /* NOTE: Only called on initialization. */
   const scalar_field_t *sc = &ec->sc;
-  size_t size = FIXED_LENGTH(sc->bits);
+  int steps = FIXED_STEPS(sc->bits);
+  int size = steps * FIXED_SIZE;
   jge_t *wnds = checked_malloc(size * sizeof(jge_t)); /* 442.2kb */
-  size_t i, j;
+  int i, j;
   jge_t g;
 
   jge_set_wge(ec, &g, p);
 
-  for (i = 0; i < FIXED_STEPS(sc->bits); i++) {
+  for (i = 0; i < steps; i++) {
     jge_t *wnd = &wnds[i * FIXED_SIZE];
 
     jge_zero(ec, &wnd[0]);
@@ -2901,13 +2913,12 @@ wge_fixed_points_var(const wei_t *ec, wge_t *out, const wge_t *p) {
 }
 
 static void
-wge_naf_points_var(const wei_t *ec, wge_t *out,
-                   const wge_t *p, size_t width) {
+wge_naf_points_var(const wei_t *ec, wge_t *out, const wge_t *p, int width) {
   /* NOTE: Only called on initialization. */
-  size_t size = 1 << (width - 2);
+  int size = 1 << (width - 2);
   jge_t *wnd = checked_malloc(size * sizeof(jge_t)); /* 216kb */
   jge_t j, dbl;
-  size_t i;
+  int i;
 
   jge_set_wge(ec, &j, p);
   jge_dbl_var(ec, &dbl, &j);
@@ -2964,7 +2975,7 @@ jge_select(const wei_t *ec,
            jge_t *r,
            const jge_t *a,
            const jge_t *b,
-           unsigned int flag) {
+           int flag) {
   const prime_field_t *fe = &ec->fe;
   int cond = int_barrier(flag != 0);
 
@@ -3106,7 +3117,7 @@ jge_neg(const wei_t *ec, jge_t *r, const jge_t *a) {
 }
 
 static void
-jge_neg_cond(const wei_t *ec, jge_t *r, const jge_t *a, unsigned int flag) {
+jge_neg_cond(const wei_t *ec, jge_t *r, const jge_t *a, int flag) {
   const prime_field_t *fe = &ec->fe;
 
   fe_set(fe, r->x, a->x);
@@ -4050,11 +4061,10 @@ jge_validate(const wei_t *ec, const jge_t *p) {
 }
 
 static void
-jge_naf_points_var(const wei_t *ec, jge_t *out,
-                   const wge_t *p, size_t width) {
-  size_t size = 1 << (width - 2);
+jge_naf_points_var(const wei_t *ec, jge_t *out, const wge_t *p, int width) {
+  int size = 1 << (width - 2);
   jge_t dbl;
-  size_t i;
+  int i;
 
   jge_set_wge(ec, &out[0], p);
   jge_dbl_var(ec, &dbl, &out[0]);
@@ -4362,8 +4372,8 @@ wei_jmul_g(const wei_t *ec, jge_t *r, const sc_t k) {
    */
   const scalar_field_t *sc = &ec->sc;
   const wge_t *wnds = ec->wnd_fixed;
-  size_t steps = FIXED_STEPS(sc->bits);
-  size_t i, j, b;
+  int steps = FIXED_STEPS(sc->bits);
+  int i, j, b;
   sc_t k0;
   wge_t t;
 
@@ -4406,9 +4416,9 @@ wei_jmul_normal(const wei_t *ec, jge_t *r, const wge_t *p, const sc_t k) {
    * [GECC] Page 95, Section 3.3.
    */
   const scalar_field_t *sc = &ec->sc;
-  mp_size_t steps = WND_STEPS(sc->bits);
+  int steps = WND_STEPS(sc->bits);
   jge_t wnd[WND_SIZE]; /* 3456 bytes */
-  mp_size_t i, j, b;
+  int i, j, b;
   jge_t t;
 
   /* Create window. */
@@ -4452,13 +4462,12 @@ wei_jmul_endo(const wei_t *ec, jge_t *r, const wge_t *p, const sc_t k) {
    * [GECC] Page 95, Section 3.3.
    */
   const scalar_field_t *sc = &ec->sc;
-  mp_size_t steps = WND_STEPS(sc->endo_bits);
+  int steps = WND_STEPS(sc->endo_bits);
   jge_t wnd1[WND_SIZE]; /* 3456 bytes */
   jge_t wnd2[WND_SIZE]; /* 3456 bytes */
-  mp_size_t i, j, b1, b2;
+  int i, j, s1, s2, b1, b2;
   jge_t t1, t2;
   sc_t k1, k2;
-  int s1, s2;
 
   ASSERT(ec->endo == 1);
 
@@ -4563,7 +4572,7 @@ wei_jmul_double_normal_var(const wei_t *ec,
   int naf1[MAX_SCALAR_BITS + 1]; /* 2088 bytes */
   int naf2[MAX_SCALAR_BITS + 1]; /* 2088 bytes */
   jge_t wnd2[NAF_SIZE]; /* 1728 bytes */
-  size_t i, max, max1, max2;
+  int i, max, max1, max2;
 
   /* Compute NAFs. */
   max1 = sc_naf_var(sc, naf1, k1, NAF_WIDTH_PRE);
@@ -4576,7 +4585,7 @@ wei_jmul_double_normal_var(const wei_t *ec,
   /* Multiply and add. */
   jge_zero(ec, r);
 
-  for (i = max - 1; i != (size_t)-1; i--) {
+  for (i = max - 1; i >= 0; i--) {
     int z1 = naf1[i];
     int z2 = naf2[i];
 
@@ -4614,7 +4623,7 @@ wei_jmul_double_endo_var(const wei_t *ec,
   int naf3[MAX_ENDO_BITS + 1]; /* 1048 bytes */
   jge_t wnd3[JSF_SIZE]; /* 608 bytes */
   sc_t c1, c2, c3, c4; /* 288 bytes */
-  size_t i, max, max1, max2;
+  int i, max, max1, max2;
 
   ASSERT(ec->endo == 1);
 
@@ -4633,7 +4642,7 @@ wei_jmul_double_endo_var(const wei_t *ec,
   /* Multiply and add. */
   jge_zero(ec, r);
 
-  for (i = max - 1; i != (size_t)-1; i--) {
+  for (i = max - 1; i >= 0; i--) {
     int z1 = naf1[i];
     int z2 = naf2[i];
     int z3 = naf3[i];
@@ -4704,19 +4713,20 @@ wei_jmul_multi_normal_var(const wei_t *ec,
   int naf1[MAX_SCALAR_BITS + 1]; /* 2088 bytes */
   jge_t **wnds = scratch->wnds;
   int **nafs = scratch->nafs;
-  size_t i, j, max, size;
+  int i, max, size;
+  size_t j;
 
   ASSERT(len <= scratch->size);
 
   /* Compute fixed NAF. */
   max = sc_naf_var(sc, naf0, k0, NAF_WIDTH_PRE);
 
-  for (i = 0; i < len - (len & 1); i += 2) {
+  for (j = 0; j < len - (len & 1); j += 2) {
     /* Compute JSF.*/
-    size = sc_jsf_var(sc, nafs[i / 2], coeffs[i], coeffs[i + 1]);
+    size = sc_jsf_var(sc, nafs[j / 2], coeffs[j], coeffs[j + 1]);
 
     /* Create comb for JSF. */
-    jge_jsf_points_var(ec, wnds[i / 2], &points[i], &points[i + 1]);
+    jge_jsf_points_var(ec, wnds[j / 2], &points[j], &points[j + 1]);
 
     /* Calculate max. */
     max = ECC_MAX(max, size);
@@ -4724,10 +4734,10 @@ wei_jmul_multi_normal_var(const wei_t *ec,
 
   if (len & 1) {
     /* Compute NAF.*/
-    size = sc_naf_var(sc, naf1, coeffs[i], NAF_WIDTH);
+    size = sc_naf_var(sc, naf1, coeffs[j], NAF_WIDTH);
 
     /* Compute NAF points. */
-    jge_naf_points_var(ec, wnd1, &points[i], NAF_WIDTH);
+    jge_naf_points_var(ec, wnd1, &points[j], NAF_WIDTH);
 
     /* Calculate max. */
     max = ECC_MAX(max, size);
@@ -4741,7 +4751,7 @@ wei_jmul_multi_normal_var(const wei_t *ec,
   /* Multiply and add. */
   jge_zero(ec, r);
 
-  for (i = max - 1; i != (size_t)-1; i--) {
+  for (i = max - 1; i >= 0; i--) {
     int z0 = naf0[i];
     int z1 = naf1[i];
 
@@ -4790,8 +4800,9 @@ wei_jmul_multi_endo_var(const wei_t *ec,
   int naf1[MAX_ENDO_BITS + 1]; /* 1048 bytes */
   jge_t **wnds = scratch->wnds;
   int **nafs = scratch->nafs;
-  size_t i, j, max, size;
+  int i, max, size;
   sc_t k1, k2;
+  size_t j;
 
   ASSERT(ec->endo == 1);
   ASSERT(len <= scratch->size);
@@ -4802,15 +4813,15 @@ wei_jmul_multi_endo_var(const wei_t *ec,
   /* Compute fixed NAFs. */
   max = sc_naf_endo_var(sc, naf0, naf1, k1, k2, NAF_WIDTH_PRE);
 
-  for (i = 0; i < len; i++) {
+  for (j = 0; j < len; j++) {
     /* Split scalar. */
-    wei_endo_split(ec, k1, k2, coeffs[i]);
+    wei_endo_split(ec, k1, k2, coeffs[j]);
 
     /* Compute JSF.*/
-    size = sc_jsf_endo_var(sc, nafs[i], k1, k2);
+    size = sc_jsf_endo_var(sc, nafs[j], k1, k2);
 
     /* Create comb for JSF. */
-    jge_jsf_points_endo_var(ec, wnds[i], &points[i]);
+    jge_jsf_points_endo_var(ec, wnds[j], &points[j]);
 
     /* Calculate max. */
     max = ECC_MAX(max, size);
@@ -4819,7 +4830,7 @@ wei_jmul_multi_endo_var(const wei_t *ec,
   /* Multiply and add. */
   jge_zero(ec, r);
 
-  for (i = max - 1; i != (size_t)-1; i--) {
+  for (i = max - 1; i >= 0; i--) {
     int z0 = naf0[i];
     int z1 = naf1[i];
 
@@ -5091,7 +5102,7 @@ wei_svdwf(const wei_t *ec, fe_t x, fe_t y, const fe_t u) {
   const prime_field_t *fe = &ec->fe;
   fe_t gz, z3, u2, u4, t1, t2, t3, t4;
   fe_t x1, x2, x3, y1, y2, y3;
-  unsigned int alpha, beta;
+  int alpha, beta;
 
   wei_solve_y2(ec, gz, ec->z);
 
@@ -6109,7 +6120,7 @@ mont_clamp(const mont_t *ec, unsigned char *out, const unsigned char *scalar) {
   /* [RFC7748] Page 8, Section 5. */
   const prime_field_t *fe = &ec->fe;
   const scalar_field_t *sc = &ec->sc;
-  size_t top = fe->bits & 7;
+  int top = fe->bits & 7;
   size_t i;
 
   ASSERT(sc->size <= fe->size);
@@ -6218,10 +6229,10 @@ mont_mul(const mont_t *ec, pge_t *r, const pge_t *p, const sc_t k, int affine) {
    */
   const prime_field_t *fe = &ec->fe;
   const scalar_field_t *sc = &ec->sc;
-  mp_limb_t swap = 0;
-  mp_limb_t bit = 0;
-  mp_size_t i;
+  int swap = 0;
+  int bit = 0;
   pge_t a, b;
+  int i;
 
   pge_zero(ec, &a);
   pge_set(ec, &b, p);
@@ -7218,13 +7229,14 @@ xge_normalize_all_var(const edwards_t *ec, xge_t *out,
 static void
 xge_fixed_points(const edwards_t *ec, xge_t *out, const xge_t *p) {
   const scalar_field_t *sc = &ec->sc;
-  size_t size = FIXED_LENGTH(sc->bits);
-  size_t i, j;
+  int steps = FIXED_STEPS(sc->bits);
+  int size = steps * FIXED_SIZE;
+  int i, j;
   xge_t g;
 
   xge_set(ec, &g, p);
 
-  for (i = 0; i < FIXED_STEPS(sc->bits); i++) {
+  for (i = 0; i < steps; i++) {
     xge_t *wnd = &out[i * FIXED_SIZE];
 
     xge_zero(ec, &wnd[0]);
@@ -7240,11 +7252,10 @@ xge_fixed_points(const edwards_t *ec, xge_t *out, const xge_t *p) {
 }
 
 static void
-xge_naf_points(const edwards_t *ec, xge_t *out,
-               const xge_t *p, size_t width) {
-  size_t size = 1 << (width - 2);
+xge_naf_points(const edwards_t *ec, xge_t *out, const xge_t *p, int width) {
+  int size = 1 << (width - 2);
   xge_t dbl;
-  size_t i;
+  int i;
 
   xge_dbl(ec, &dbl, p);
   xge_set(ec, &out[0], p);
@@ -7255,9 +7266,11 @@ xge_naf_points(const edwards_t *ec, xge_t *out,
 
 static void
 xge_fixed_naf_points(const edwards_t *ec, xge_t *out,
-                     const xge_t *p, size_t width) {
+                     const xge_t *p, int width) {
+  int size = 1 << (width - 2);
+
   xge_naf_points(ec, out, p, width);
-  xge_normalize_all_var(ec, out, out, 1 << (width - 2));
+  xge_normalize_all_var(ec, out, out, size);
 }
 
 static void
@@ -7404,7 +7417,7 @@ edwards_clamp(const edwards_t *ec,
   /* [RFC8032] Section 5.1.5 & 5.2.5. */
   const prime_field_t *fe = &ec->fe;
   const scalar_field_t *sc = &ec->sc;
-  size_t top = fe->bits & 7;
+  int top = fe->bits & 7;
   size_t i;
 
   ASSERT(sc->size <= fe->size);
@@ -7486,8 +7499,8 @@ edwards_mul_g(const edwards_t *ec, xge_t *r, const sc_t k) {
    */
   const scalar_field_t *sc = &ec->sc;
   const xge_t *wnds = ec->wnd_fixed;
-  size_t steps = FIXED_STEPS(sc->bits);
-  size_t i, j, b;
+  int steps = FIXED_STEPS(sc->bits);
+  int i, j, b;
   sc_t k0;
   xge_t t;
 
@@ -7522,9 +7535,9 @@ edwards_mul(const edwards_t *ec, xge_t *r, const xge_t *p, const sc_t k) {
    */
   const prime_field_t *fe = &ec->fe;
   const scalar_field_t *sc = &ec->sc;
-  mp_size_t steps = WND_STEPS(fe->bits);
+  int steps = WND_STEPS(fe->bits);
   xge_t wnd[WND_SIZE]; /* 4608 bytes */
-  mp_size_t i, j, b;
+  int i, j, b;
   xge_t t;
 
   /* Create window. */
@@ -7576,7 +7589,7 @@ edwards_mul_double_var(const edwards_t *ec,
   int naf1[MAX_SCALAR_BITS + 1]; /* 2088 bytes */
   int naf2[MAX_SCALAR_BITS + 1]; /* 2088 bytes */
   xge_t wnd2[NAF_SIZE]; /* 2304 bytes */
-  size_t i, max, max1, max2;
+  int i, max, max1, max2;
 
   /* Compute NAFs. */
   max1 = sc_naf_var(sc, naf1, k1, NAF_WIDTH_PRE);
@@ -7589,7 +7602,7 @@ edwards_mul_double_var(const edwards_t *ec,
   /* Multiply and add. */
   xge_zero(ec, r);
 
-  for (i = max - 1; i != (size_t)-1; i--) {
+  for (i = max - 1; i >= 0; i--) {
     int z1 = naf1[i];
     int z2 = naf2[i];
 
@@ -7629,19 +7642,20 @@ edwards_mul_multi_var(const edwards_t *ec,
   int naf1[MAX_SCALAR_BITS + 1]; /* 2088 bytes */
   xge_t **wnds = scratch->wnds;
   int **nafs = scratch->nafs;
-  size_t i, j, max, size;
+  int i, max, size;
+  size_t j;
 
   ASSERT(len <= scratch->size);
 
   /* Compute fixed NAF. */
   max = sc_naf_var(sc, naf0, k0, NAF_WIDTH_PRE);
 
-  for (i = 0; i < len - (len & 1); i += 2) {
+  for (j = 0; j < len - (len & 1); j += 2) {
     /* Compute JSF.*/
-    size = sc_jsf_var(sc, nafs[i / 2], coeffs[i], coeffs[i + 1]);
+    size = sc_jsf_var(sc, nafs[j / 2], coeffs[j], coeffs[j + 1]);
 
     /* Create comb for JSF. */
-    xge_jsf_points(ec, wnds[i / 2], &points[i], &points[i + 1]);
+    xge_jsf_points(ec, wnds[j / 2], &points[j], &points[j + 1]);
 
     /* Calculate max. */
     max = ECC_MAX(max, size);
@@ -7649,10 +7663,10 @@ edwards_mul_multi_var(const edwards_t *ec,
 
   if (len & 1) {
     /* Compute NAF.*/
-    size = sc_naf_var(sc, naf1, coeffs[i], NAF_WIDTH);
+    size = sc_naf_var(sc, naf1, coeffs[j], NAF_WIDTH);
 
     /* Compute NAF points. */
-    xge_naf_points(ec, wnd1, &points[i], NAF_WIDTH);
+    xge_naf_points(ec, wnd1, &points[j], NAF_WIDTH);
 
     /* Calculate max. */
     max = ECC_MAX(max, size);
@@ -7666,7 +7680,7 @@ edwards_mul_multi_var(const edwards_t *ec,
   /* Multiply and add. */
   xge_zero(ec, r);
 
-  for (i = max - 1; i != (size_t)-1; i--) {
+  for (i = max - 1; i >= 0; i--) {
     int z0 = naf0[i];
     int z1 = naf1[i];
 
@@ -8155,9 +8169,9 @@ ristretto_invert(const edwards_t *ec, fe_t u,
   const prime_field_t *fe = &ec->fe;
   unsigned int sign = (hint >> 4) & 15;
   unsigned int index = hint & 15;
-  size_t len = ec->h >> 1;
+  int len = ec->h >> 1;
   qge_t quartic[8];
-  size_t i;
+  int i;
 
   ASSERT(ec->h <= ARRAY_SIZE(quartic));
 
@@ -10416,7 +10430,7 @@ wei_curve_scalar_size(const wei_t *ec) {
   return ec->sc.size;
 }
 
-size_t
+unsigned int
 wei_curve_scalar_bits(const wei_t *ec) {
   return ec->sc.bits;
 }
@@ -10426,7 +10440,7 @@ wei_curve_field_size(const wei_t *ec) {
   return ec->fe.size;
 }
 
-size_t
+unsigned int
 wei_curve_field_bits(const wei_t *ec) {
   return ec->fe.bits;
 }
@@ -10499,7 +10513,7 @@ mont_curve_scalar_size(const mont_t *ec) {
   return ec->sc.size;
 }
 
-size_t
+unsigned int
 mont_curve_scalar_bits(const mont_t *ec) {
   return ec->sc.bits;
 }
@@ -10509,7 +10523,7 @@ mont_curve_field_size(const mont_t *ec) {
   return ec->fe.size;
 }
 
-size_t
+unsigned int
 mont_curve_field_bits(const mont_t *ec) {
   return ec->fe.bits;
 }
@@ -10551,7 +10565,7 @@ edwards_curve_scalar_size(const edwards_t *ec) {
   return ec->sc.size;
 }
 
-size_t
+unsigned int
 edwards_curve_scalar_bits(const edwards_t *ec) {
   return ec->sc.bits;
 }
@@ -10561,7 +10575,7 @@ edwards_curve_field_size(const edwards_t *ec) {
   return ec->fe.size;
 }
 
-size_t
+unsigned int
 edwards_curve_field_bits(const edwards_t *ec) {
   return ec->fe.bits;
 }
@@ -11127,8 +11141,8 @@ ecdsa_reduce(const wei_t *ec, sc_t r,
 
   /* Shift by the remaining bits. */
   /* Note that the message length is not secret. */
-  if (msg_len * 8 > sc->bits) {
-    size_t shift = msg_len * 8 - sc->bits;
+  if (msg_len * 8 > (size_t)sc->bits) {
+    unsigned int shift = msg_len * 8 - sc->bits;
     unsigned int mask = (1 << shift) - 1;
     unsigned int cy = 0;
     size_t i;

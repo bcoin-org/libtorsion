@@ -48,7 +48,7 @@ secp256k1_fe_equal(const secp256k1_fe_t x, const secp256k1_fe_t y) {
   uint32_t z = 0;
   uint8_t u[32];
   uint8_t v[32];
-  size_t i;
+  int i;
 
   fiat_secp256k1_to_bytes(u, x);
   fiat_secp256k1_to_bytes(v, y);
@@ -60,8 +60,8 @@ secp256k1_fe_equal(const secp256k1_fe_t x, const secp256k1_fe_t y) {
 }
 
 static void
-secp256k1_fe_sqrn(secp256k1_fe_t r, const secp256k1_fe_t x, unsigned int n) {
-  unsigned int i;
+secp256k1_fe_sqrn(secp256k1_fe_t r, const secp256k1_fe_t x, int n) {
+  int i;
 
   secp256k1_fe_sqr(r, x);
 

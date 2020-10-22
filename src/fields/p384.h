@@ -48,7 +48,7 @@ p384_fe_set(p384_fe_t r, const p384_fe_t x) {
 static int
 p384_fe_equal(const p384_fe_t x, const p384_fe_t y) {
   p384_fe_word_t z = 0;
-  size_t i;
+  int i;
 
   for (i = 0; i < P384_FIELD_WORDS; i++)
     z |= x[i] ^ y[i];
@@ -59,8 +59,8 @@ p384_fe_equal(const p384_fe_t x, const p384_fe_t y) {
 }
 
 static void
-p384_fe_sqrn(p384_fe_t r, const p384_fe_t x, unsigned int n) {
-  unsigned int i;
+p384_fe_sqrn(p384_fe_t r, const p384_fe_t x, int n) {
+  int i;
 
   p384_fe_sqr(r, x);
 
