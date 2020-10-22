@@ -407,9 +407,7 @@ rsa_priv_export_dumb(unsigned char *out, size_t *out_len, const rsa_priv_t *k) {
 }
 
 static int
-rsa_priv_generate(rsa_priv_t *k,
-                  unsigned int bits,
-                  uint64_t exp,
+rsa_priv_generate(rsa_priv_t *k, int bits, uint64_t exp,
                   const unsigned char *entropy) {
   /* [RFC8017] Page 9, Section 3.2.
    * [FIPS186] Page 51, Appendix B.3.1
@@ -1080,7 +1078,7 @@ rsa_pub_export_dumb(unsigned char *out, size_t *out_len, const rsa_pub_t *k) {
 
 static int
 rsa_pub_verify(const rsa_pub_t *k) {
-  mp_bitcnt_t bits = mpz_bitlen(k->n);
+  int bits = mpz_bitlen(k->n);
 
   if (mpz_sgn(k->n) < 0)
     return 0;
@@ -1139,7 +1137,7 @@ rsa_pub_veil(const rsa_pub_t *k,
              unsigned char *out,
              const unsigned char *msg,
              size_t msg_len,
-             unsigned int bits,
+             int bits,
              const unsigned char *entropy) {
   mpz_t vmax, rmax, c, v, r;
   int ret = 0;
@@ -1206,11 +1204,12 @@ rsa_pub_unveil(const rsa_pub_t *k,
                unsigned char *out,
                const unsigned char *msg,
                size_t msg_len,
-               unsigned int bits) {
+               int bits) {
   int ret = 0;
   mpz_t v;
 
   mpz_init(v);
+
   mpz_import(v, msg, msg_len, 1);
 
   if (bits != 0 && mpz_bitlen(v) > bits)
@@ -1308,7 +1307,7 @@ pss_encode(unsigned char *out,
            int type,
            const unsigned char *msg,
            size_t msg_len,
-           unsigned int embits,
+           int embits,
            const unsigned char *salt,
            size_t salt_len) {
   /* [RFC8017] Page 42, Section 9.1.1. */
@@ -1363,7 +1362,7 @@ pss_verify(int type,
            const unsigned char *msg,
            size_t msg_len,
            unsigned char *em,
-           unsigned int embits,
+           int embits,
            size_t salt_len) {
   /* [RFC8017] Page 44, Section 9.1.2. */
   size_t hlen = hash_output_size(type);
@@ -1449,6 +1448,9 @@ rsa_privkey_generate(unsigned char *out,
 
   rsa_priv_init(&k);
 
+  if (bits > RSA_MAX_MOD_BITS)
+    goto fail;
+
   if (!rsa_priv_generate(&k, bits, exp, entropy))
     goto fail;
 
@@ -1461,7 +1463,7 @@ fail:
 
 unsigned int
 rsa_privkey_bits(const unsigned char *key, size_t key_len) {
-  unsigned int size = 0;
+  unsigned int bits = 0;
   rsa_priv_t k;
 
   rsa_priv_init(&k);
@@ -1472,10 +1474,10 @@ rsa_privkey_bits(const unsigned char *key, size_t key_len) {
   if (!rsa_priv_verify(&k))
     goto fail;
 
-  size = mpz_bitlen(k.n);
+  bits = mpz_bitlen(k.n);
 fail:
   rsa_priv_clear(&k);
-  return size;
+  return bits;
 }
 
 int
@@ -1584,7 +1586,7 @@ fail:
 
 unsigned int
 rsa_pubkey_bits(const unsigned char *key, size_t key_len) {
-  unsigned int size = 0;
+  unsigned int bits = 0;
   rsa_pub_t k;
 
   rsa_pub_init(&k);
@@ -1595,10 +1597,10 @@ rsa_pubkey_bits(const unsigned char *key, size_t key_len) {
   if (!rsa_pub_verify(&k))
     goto fail;
 
-  size = mpz_bitlen(k.n);
+  bits = mpz_bitlen(k.n);
 fail:
   rsa_pub_clear(&k);
-  return size;
+  return bits;
 }
 
 int
@@ -1950,12 +1952,12 @@ rsa_sign_pss(unsigned char *out,
   size_t hlen = hash_output_size(type);
   unsigned char *salt = NULL;
   unsigned char *em = out;
-  unsigned int bits;
   size_t klen = 0;
   size_t emlen;
   rsa_priv_t k;
   drbg_t rng;
   int ret = 0;
+  int bits;
 
   rsa_priv_init(&k);
 
@@ -2029,10 +2031,10 @@ rsa_verify_pss(int type,
   /* [RFC8017] Page 34, Section 8.1.2. */
   size_t hlen = hash_output_size(type);
   unsigned char *em = NULL;
-  unsigned int bits;
   size_t klen = 0;
   rsa_pub_t k;
   int ret = 0;
+  int bits;
 
   rsa_pub_init(&k);
 
@@ -2293,6 +2295,9 @@ rsa_veil(unsigned char *out,
   if (msg_len != mpz_bytelen(k.n))
     goto fail;
 
+  if (bits > RSA_MAX_MOD_BITS + 8)
+    goto fail;
+
   if (!rsa_pub_veil(&k, out, msg, msg_len, bits, entropy))
     goto fail;
 
@@ -2327,6 +2332,12 @@ rsa_unveil(unsigned char *out,
   klen = mpz_bytelen(k.n);
 
   if (msg_len < klen)
+    goto fail;
+
+  if (msg_len > RSA_MAX_MOD_SIZE + 1)
+    goto fail;
+
+  if (bits > RSA_MAX_MOD_BITS + 8)
     goto fail;
 
   if (!rsa_pub_unveil(&k, out, msg, msg_len, bits))

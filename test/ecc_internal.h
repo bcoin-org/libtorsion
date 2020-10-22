@@ -18,10 +18,10 @@
  */
 
 static size_t
-mpn_out_str(FILE *stream, int base, mp_srcptr xp, mp_size_t xn) {
-  mp_size_t bytes = 0;
+mpn_out_str(FILE *stream, int base, const mp_limb_t *xp, int xn) {
   mp_limb_t ch;
-  mp_size_t i;
+  int bytes = 0;
+  int i;
 
   ASSERT(base == 16);
 
@@ -30,7 +30,7 @@ mpn_out_str(FILE *stream, int base, mp_srcptr xp, mp_size_t xn) {
     xn = -xn;
   }
 
-  xn = mpn_normalized_size(xp, xn);
+  xn = mpn_strip(xp, xn);
 
   if (xn == 0) {
     fputc('0', stream);
@@ -62,7 +62,7 @@ mpn_out_str(FILE *stream, int base, mp_srcptr xp, mp_size_t xn) {
 
 TORSION_UNUSED static size_t
 mpz_out_str(FILE *stream, int base, const mpz_t x) {
-  return mpn_out_str(stream, base, x->_mp_d, x->_mp_size);
+  return mpn_out_str(stream, base, x->limbs, x->size);
 }
 
 TORSION_UNUSED static void
@@ -491,7 +491,7 @@ test_scalar_encoding_secq256k1(drbg_t *unused) {
   mpn_zero(r, ARRAY_SIZE(r));
   mpn_zero(t, ARRAY_SIZE(t));
 
-  mpn_copyi(t, sc->n, sc->limbs);
+  mpn_copy(t, sc->n, sc->limbs);
 
   sc_reduce(sc, r, t);
 
@@ -561,7 +561,7 @@ test_scalar_encoding_q25519(drbg_t *unused) {
   mpn_zero(r, ARRAY_SIZE(r));
   mpn_zero(t, ARRAY_SIZE(t));
 
-  mpn_copyi(t, sc->n, sc->limbs);
+  mpn_copy(t, sc->n, sc->limbs);
 
   sc_reduce(sc, r, t);
 
@@ -1401,9 +1401,9 @@ test_wei_fuzzy_equality(int type, drbg_t *rng) {
 
   /* Generate a field element in the interval [n, p-1]. */
   for (;;) {
-    mp_size_t bits = mpn_bitlen(ec->sc_p, sc->limbs);
-    mp_size_t limbs = (bits + MP_LIMB_BITS - 1) / MP_LIMB_BITS;
-    mp_size_t low = bits % MP_LIMB_BITS;
+    int bits = mpn_bitlen(ec->sc_p, sc->limbs);
+    int limbs = (bits + MP_LIMB_BITS - 1) / MP_LIMB_BITS;
+    int low = bits % MP_LIMB_BITS;
 
     mpn_zero(r, ARRAY_SIZE(r));
 

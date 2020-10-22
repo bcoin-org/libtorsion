@@ -164,26 +164,16 @@
 
 #if defined(TORSION_HAVE_INT128)
 typedef uint64_t fe_word_t;
-#define FIELD_WORD_BITS 64
-#define MAX_FIELD_WORDS 9
+#  define FIELD_WORD_BITS 64
+#  define MAX_FIELD_WORDS 9
 #else
 typedef uint32_t fe_word_t;
-#define FIELD_WORD_BITS 32
-#define MAX_FIELD_WORDS 19
+#  define FIELD_WORD_BITS 32
+#  define MAX_FIELD_WORDS 19
 #endif
 
 TORSION_BARRIER(int, int)
 TORSION_BARRIER(fe_word_t, fiat)
-
-#include "fields/p192.h"
-#include "fields/p224.h"
-#include "fields/p256.h"
-#include "fields/p384.h"
-#include "fields/p521.h"
-#include "fields/secp256k1.h"
-#include "fields/p25519.h"
-#include "fields/p448.h"
-#include "fields/p251.h"
 
 #define MAX_FIELD_BITS 521
 #define MAX_FIELD_SIZE 66
@@ -238,8 +228,8 @@ typedef struct scalar_field_s {
   int endian;
   int bits;
   int endo_bits;
-  mp_size_t limbs;
-  mp_size_t shift;
+  int limbs;
+  int shift;
   size_t size;
   unsigned int mask;
   mp_limb_t n[MAX_REDUCE_LIMBS];
@@ -287,7 +277,7 @@ typedef struct prime_field_s {
   int endian;
   int bits;
   int words;
-  mp_size_t limbs;
+  int limbs;
   size_t size;
   size_t adj_size;
   unsigned int mask;
@@ -672,6 +662,62 @@ reverse_bytes(unsigned char *raw, size_t len) {
   }
 }
 
+static int
+byte_pad_be(unsigned char *out, size_t size,
+            const unsigned char *raw, size_t len) {
+  while (len > size && raw[0] == 0x00) {
+    raw += 1;
+    len -= 1;
+  }
+
+  if (len > size) {
+    memset(out, 0, size);
+    return 0;
+  }
+
+  memset(out, 0, size - len);
+
+  if (len > 0)
+    memcpy(out + size - len, raw, len);
+
+  return 1;
+}
+
+static int
+byte_pad_le(unsigned char *out, size_t size,
+            const unsigned char *raw, size_t len) {
+  while (len > size && raw[len - 1] == 0x00)
+    len -= 1;
+
+  if (len > size) {
+    memset(out, 0, size);
+    return 0;
+  }
+
+  if (len > 0)
+    memcpy(out, raw, len);
+
+  memset(out + len, 0, size - len);
+
+  return 1;
+}
+
+static int
+byte_pad(unsigned char *out, size_t size,
+         const unsigned char *raw, size_t len,
+         int endian) {
+  int ret = 0;
+
+  if (endian == 1)
+    ret = byte_pad_be(out, size, raw, len);
+  else if (endian == -1)
+    ret = byte_pad_le(out, size, raw, len);
+  else
+    memset(out, 0, size);
+
+  return ret;
+}
+
 static void *
 checked_malloc(size_t size) {
   void *ptr = malloc(size);
@@ -687,19 +733,263 @@ checked_malloc(size_t size) {
  */
 
 static void
-sc_reduce(const scalar_field_t *sc, sc_t r, const sc_t ap);
-
-static void
 fe_export(const prime_field_t *fe, unsigned char *raw, const fe_t a);
 
 static void
-sc_zero(const scalar_field_t *sc, sc_t r) {
-  mpn_zero(r, sc->limbs);
+sc_zero(const scalar_field_t *sc, sc_t a) {
+  mpn_zero(a, sc->limbs);
 }
 
 static void
 sc_cleanse(const scalar_field_t *sc, sc_t r) {
-  mpn_cleanse(r, sc->limbs);
+  cleanse(r, sc->limbs * sizeof(mp_limb_t));
+}
+
+static void
+sc_set(const scalar_field_t *sc, sc_t r, const sc_t a) {
+  mpn_copy(r, a, sc->limbs);
+}
+
+static void
+sc_set_word(const scalar_field_t *sc, sc_t r, mp_limb_t word) {
+  mpn_set_1(r, sc->limbs, word);
+}
+
+static void
+sc_select(const scalar_field_t *sc, sc_t r,
+          const sc_t a, const sc_t b, int flag) {
+  mpn_select(r, a, b, sc->limbs, flag);
+}
+
+static void
+sc_select_zero(const scalar_field_t *sc, sc_t r, const sc_t a, int flag) {
+  mpn_select_zero(r, a, sc->limbs, flag);
+}
+
+static int
+sc_is_zero(const scalar_field_t *sc, const sc_t a) {
+  return mpn_sec_zero_p(a, sc->limbs);
+}
+
+static int
+sc_equal(const scalar_field_t *sc, const sc_t a, const sc_t b) {
+  return mpn_sec_equal(a, b, sc->limbs);
+}
+
+static int
+sc_cmp_var(const scalar_field_t *sc, const sc_t a, const sc_t b) {
+  return mpn_cmp(a, b, sc->limbs);
+}
+
+static int
+sc_is_canonical(const scalar_field_t *sc, const sc_t a) {
+  return mpn_sec_lt(a, sc->n, sc->limbs);
+}
+
+static int
+sc_is_high(const scalar_field_t *sc, const sc_t a) {
+  return mpn_sec_gt(a, sc->nh, sc->limbs);
+}
+
+static int
+sc_is_high_var(const scalar_field_t *sc, const sc_t a) {
+  return mpn_cmp(a, sc->nh, sc->limbs) > 0;
+}
+
+static int
+sc_bitlen_var(const scalar_field_t *sc, const sc_t a) {
+  return mpn_bitlen(a, sc->limbs);
+}
+
+static int
+sc_get_bit(const scalar_field_t *sc, const sc_t a, int pos) {
+  return mpn_get_bit(a, sc->limbs, pos);
+}
+
+static int
+sc_get_bits(const scalar_field_t *sc, const sc_t a, int pos, int width) {
+  return mpn_get_bits(a, sc->limbs, pos, width);
+}
+
+static int
+sc_reduce_weak(const scalar_field_t *sc, mp_limb_t *r,
+               const mp_limb_t *a, mp_limb_t hi) {
+  mp_limb_t scratch[MAX_SCALAR_SIZE];
+  int ret = mpn_reduce_weak(r, a, sc->n, sc->limbs, hi, scratch);
+
+#ifdef TORSION_VERIFY
+  ASSERT(mpn_cmp(r, sc->n, sc->limbs) < 0);
+#endif
+
+  return ret;
+}
+
+static void
+sc_add(const scalar_field_t *sc, sc_t r,
+       const sc_t a, const sc_t b) {
+  mp_limb_t c = mpn_add_n(r, a, b, sc->limbs);
+
+  sc_reduce_weak(sc, r, r, c);
+}
+
+TORSION_UNUSED static void
+sc_sub(const scalar_field_t *sc, sc_t r,
+       const sc_t a, const sc_t b) {
+  mp_limb_t t[MAX_SCALAR_LIMBS];
+  mp_limb_t c;
+
+  c = mpn_sub_n(t, sc->n, b, sc->limbs);
+
+  ASSERT(c == 0);
+
+  c = mpn_add_n(r, a, t, sc->limbs);
+
+  sc_reduce_weak(sc, r, r, c);
+}
+
+static void
+sc_neg(const scalar_field_t *sc, sc_t r, const sc_t a) {
+  int zero = sc_is_zero(sc, a);
+  mp_limb_t c;
+
+  c = mpn_sub_n(r, sc->n, a, sc->limbs);
+
+  ASSERT(c == 0);
+
+  sc_select_zero(sc, r, r, zero);
+
+#ifdef TORSION_VERIFY
+  ASSERT(mpn_cmp(r, sc->n, sc->limbs) < 0);
+#endif
+}
+
+static void
+sc_neg_cond(const scalar_field_t *sc, sc_t r, const sc_t a, int flag) {
+  sc_t b;
+  sc_neg(sc, b, a);
+  sc_select(sc, r, a, b, flag);
+}
+
+static void
+sc_reduce(const scalar_field_t *sc, sc_t r, const mp_limb_t *a) {
+  /* Barrett reduction (264 bytes). */
+  mp_limb_t scratch[1 + MAX_REDUCE_LIMBS + MAX_SCALAR_LIMBS + 3];
+
+  mpn_reduce(r, a, sc->m, sc->n, sc->limbs, sc->shift, scratch);
+
+#ifdef TORSION_VERIFY
+  ASSERT(mpn_cmp(r, sc->n, sc->limbs) < 0);
+#endif
+}
+
+static void
+sc_mul(const scalar_field_t *sc, sc_t r, const sc_t a, const sc_t b) {
+  mp_limb_t rp[MAX_REDUCE_LIMBS]; /* 160 bytes */
+  int rn = sc->limbs * 2;
+
+  mpn_mul_n(rp, a, b, sc->limbs);
+  mpn_zero(rp + rn, sc->shift - rn);
+
+  sc_reduce(sc, r, rp);
+}
+
+static void
+sc_mul_word(const scalar_field_t *sc, sc_t r, const sc_t a, mp_limb_t word) {
+  mp_limb_t rp[MAX_REDUCE_LIMBS]; /* 160 bytes */
+  int rn = sc->limbs + 1;
+
+  rp[sc->limbs] = mpn_mul_1(rp, a, sc->limbs, word);
+
+  mpn_zero(rp + rn, sc->shift - rn);
+
+  sc_reduce(sc, r, rp);
+}
+
+static void
+sc_mulshift(const scalar_field_t *sc, sc_t r,
+            const sc_t a, const sc_t b, int shift) {
+  /* Computes `r = round((a * b) / 2^shift)`.
+   *
+   * Constant time assuming `shift` is constant.
+   */
+  mp_limb_t scratch[MAX_SCALAR_LIMBS * 2]; /* 144 bytes */
+  mp_limb_t *rp = scratch;
+  int rn = sc->limbs * 2;
+  int limbs = shift / MP_LIMB_BITS;
+  int left = shift % MP_LIMB_BITS;
+  mp_limb_t bit, cy;
+
+  ASSERT(shift > sc->bits);
+
+  /* r = a * b */
+  mpn_mul_n(rp, a, b, sc->limbs);
+
+  /* bit = (r >> 383) & 1 */
+  bit = mpn_get_bit(rp, rn, shift - 1);
+
+  /* r >>= 384 */
+  rp += limbs;
+  rn -= limbs;
+
+  ASSERT(rn >= 0);
+
+  /* r >>= 0 */
+  if (left > 0)
+    mpn_rshift(rp, rp, rn, left);
+
+  /* r += bit */
+  cy = mpn_add_1(rp, rp, rn, bit);
+
+  ASSERT(cy == 0);
+  ASSERT(rn <= sc->limbs);
+
+  mpn_copy(r, rp, rn);
+  mpn_zero(r + rn, sc->limbs - rn);
+
+  mpn_cleanse(scratch, sc->limbs * 2);
+
+#ifdef TORSION_VERIFY
+  ASSERT(mpn_cmp(r, sc->n, sc->limbs) < 0);
+#endif
+}
+
+static void
+sc_montmul(const scalar_field_t *sc, sc_t r,
+           const sc_t a, const sc_t b) {
+  mp_limb_t scratch[MAX_SCALAR_LIMBS * 2]; /* 144 bytes */
+
+  mpn_montmul(r, a, b, sc->n, sc->limbs, sc->k, scratch);
+
+#ifdef TORSION_VERIFY
+  ASSERT(mpn_cmp(r, sc->n, sc->limbs) < 0);
+#endif
+}
+
+static void
+sc_montsqr(const scalar_field_t *sc, sc_t r, const sc_t a) {
+  sc_montmul(sc, r, a, a);
+}
+
+static void
+sc_montsqrn(const scalar_field_t *sc, sc_t r, const sc_t a, int n) {
+  int i;
+
+  ASSERT(n > 0);
+
+  sc_montsqr(sc, r, a);
+
+  for (i = 1; i < n; i++)
+    sc_montsqr(sc, r, r);
+}
+
+static void
+sc_mont(const scalar_field_t *sc, sc_t r, const sc_t a) {
+  sc_montmul(sc, r, a, sc->r2);
+}
+
+static void
+sc_normal(const scalar_field_t *sc, sc_t r, const sc_t a) {
+  sc_montmul(sc, r, a, sc_one);
 }
 
 static void
@@ -713,44 +1003,34 @@ sc_import(const scalar_field_t *sc, sc_t r, const unsigned char *raw) {
 
   sc_import_raw(sc, r, raw);
 
-  ret &= mpn_sec_lt(r, sc->n, sc->limbs);
+  ret &= sc_is_canonical(sc, r);
 
-  mpn_cnd_zero(ret ^ 1, r, r, sc->limbs);
+  sc_select_zero(sc, r, r, ret ^ 1);
 
   return ret;
 }
 
 static int
 sc_import_weak(const scalar_field_t *sc, sc_t r, const unsigned char *raw) {
-  mp_limb_t sp[MAX_SCALAR_LIMBS];
-  mp_limb_t cy;
-
   sc_import_raw(sc, r, raw);
 
-  cy = mpn_sub_n(sp, r, sc->n, sc->limbs);
-
-  mpn_cnd_select(cy == 0, r, r, sp, sc->limbs);
-
-  mpn_cleanse(sp, sc->limbs);
-
-#ifdef TORSION_VERIFY
-  ASSERT(mpn_cmp(r, sc->n, sc->limbs) < 0);
-#endif
-
-  return cy != 0;
+  return sc_reduce_weak(sc, r, r, 0) ^ 1;
 }
 
 static int
 sc_import_wide(const scalar_field_t *sc, sc_t r,
                const unsigned char *raw, size_t len) {
-  mp_limb_t rp[MAX_REDUCE_LIMBS];
+  mp_limb_t rp[MAX_REDUCE_LIMBS]; /* 160 bytes */
   int ret = 1;
 
   ASSERT(len * 8 <= (size_t)sc->shift * MP_LIMB_BITS);
 
   mpn_import(rp, sc->shift, raw, len, sc->endian);
 
-  ret &= mpn_sec_lt(rp, sc->n, sc->shift);
+  ret &= mpn_sec_lt(rp, sc->n, sc->limbs);
+
+  if (len > sc->size)
+    ret &= mpn_sec_zero_p(rp + sc->limbs, sc->shift - sc->limbs);
 
   sc_reduce(sc, r, rp);
 
@@ -775,26 +1055,16 @@ sc_import_reduce(const scalar_field_t *sc, sc_t r, const unsigned char *raw) {
 static int
 sc_import_pad_raw(const scalar_field_t *sc, sc_t r,
                   const unsigned char *raw, size_t len) {
-  if (sc->endian == 1) {
-    while (len > sc->size && raw[0] == 0x00) {
-      len -= 1;
-      raw += 1;
-    }
-  } else if (sc->endian == -1) {
-    while (len > sc->size && raw[len - 1] == 0x00)
-      len -= 1;
-  } else {
-    torsion_abort(); /* LCOV_EXCL_LINE */
-  }
+  unsigned char tmp[MAX_SCALAR_SIZE];
+  int ret = 1;
 
-  if (len > sc->size) {
-    mpn_zero(r, sc->limbs);
-    return 0;
-  }
+  ret &= byte_pad(tmp, sc->size, raw, len, sc->endian);
 
-  mpn_import(r, sc->limbs, raw, len, sc->endian);
+  sc_import_raw(sc, r, tmp);
 
-  return 1;
+  cleanse(tmp, sc->size);
+
+  return ret;
 }
 
 static int
@@ -803,9 +1073,9 @@ sc_import_pad(const scalar_field_t *sc, sc_t r,
   int ret = 1;
 
   ret &= sc_import_pad_raw(sc, r, raw, len);
-  ret &= mpn_sec_lt(r, sc->n, sc->limbs);
+  ret &= sc_is_canonical(sc, r);
 
-  mpn_cnd_zero(ret ^ 1, r, r, sc->limbs);
+  sc_select_zero(sc, r, r, ret ^ 1);
 
   return ret;
 }
@@ -813,25 +1083,6 @@ sc_import_pad(const scalar_field_t *sc, sc_t r,
 static void
 sc_export(const scalar_field_t *sc, unsigned char *raw, const sc_t a) {
   mpn_export(raw, sc->size, a, sc->limbs, sc->endian);
-}
-
-static void
-sc_set(const scalar_field_t *sc, sc_t r, const sc_t a) {
-  mpn_copyi(r, a, sc->limbs);
-}
-
-TORSION_UNUSED static void
-sc_swap(const scalar_field_t *sc, sc_t a, sc_t b, int flag) {
-  mpn_cnd_swap(flag != 0, a, b, sc->limbs);
-}
-
-static void
-sc_select(const scalar_field_t *sc,
-          sc_t r,
-          const sc_t a,
-          const sc_t b,
-          int flag) {
-  mpn_cnd_select(flag != 0, r, a, b, sc->limbs);
 }
 
 static int
@@ -867,276 +1118,6 @@ sc_set_fe(const scalar_field_t *sc,
 }
 
 static void
-sc_set_word(const scalar_field_t *sc, sc_t r, mp_limb_t word) {
-  r[0] = word;
-  mpn_zero(r + 1, sc->limbs - 1);
-}
-
-static int
-sc_equal(const scalar_field_t *sc, const sc_t a, const sc_t b) {
-  return mpn_sec_eq(a, b, sc->limbs);
-}
-
-static int
-sc_cmp_var(const scalar_field_t *sc, const sc_t a, const sc_t b) {
-  return mpn_cmp(a, b, sc->limbs);
-}
-
-static int
-sc_is_zero(const scalar_field_t *sc, const sc_t a) {
-  return mpn_sec_zero_p(a, sc->limbs);
-}
-
-static int
-sc_is_high(const scalar_field_t *sc, const sc_t a) {
-  return mpn_sec_gt(a, sc->nh, sc->limbs);
-}
-
-static int
-sc_is_high_var(const scalar_field_t *sc, const sc_t a) {
-  return sc_cmp_var(sc, a, sc->nh) > 0;
-}
-
-static void
-sc_neg(const scalar_field_t *sc, sc_t r, const sc_t a) {
-  mp_limb_t zero = mpn_sec_zero_p(a, sc->limbs);
-  mp_limb_t cy;
-
-  /* r = n - a */
-  cy = mpn_sub_n(r, sc->n, a, sc->limbs);
-  ASSERT(cy == 0);
-
-  /* r = 0 if a = 0 */
-  mpn_cnd_zero(zero, r, r, sc->limbs);
-
-#ifdef TORSION_VERIFY
-  ASSERT(mpn_cmp(r, sc->n, sc->limbs) < 0);
-#endif
-}
-
-static void
-sc_neg_cond(const scalar_field_t *sc, sc_t r, const sc_t a, int flag) {
-  sc_t b;
-  sc_neg(sc, b, a);
-  sc_select(sc, r, a, b, flag);
-}
-
-static void
-sc_add(const scalar_field_t *sc, sc_t r, const sc_t a, const sc_t b) {
-  mp_limb_t ap[MAX_SCALAR_LIMBS + 1];
-  mp_limb_t bp[MAX_SCALAR_LIMBS + 1];
-  mp_limb_t cy;
-
-  ASSERT(sc->n[sc->limbs] == 0);
-
-  /* r = a + b */
-  ap[sc->limbs] = mpn_add_n(ap, a, b, sc->limbs);
-
-  /* r = r - n if r >= n */
-  cy = mpn_sub_n(bp, ap, sc->n, sc->limbs + 1);
-  mpn_cnd_select(cy == 0, r, ap, bp, sc->limbs);
-
-#ifdef TORSION_VERIFY
-  ASSERT(mpn_cmp(r, sc->n, sc->limbs) < 0);
-#endif
-}
-
-TORSION_UNUSED static void
-sc_sub(const scalar_field_t *sc, sc_t r, const sc_t a, const sc_t b) {
-  mp_limb_t ap[MAX_SCALAR_LIMBS + 1];
-  mp_limb_t bp[MAX_SCALAR_LIMBS + 1];
-  mp_limb_t cy;
-
-  ASSERT(sc->n[sc->limbs] == 0);
-
-  /* r = a + n */
-  ap[sc->limbs] = mpn_add_n(ap, a, sc->n, sc->limbs);
-
-  /* r = r - b */
-  ap[sc->limbs] -= mpn_sub_n(ap, ap, b, sc->limbs);
-
-  /* r = r - n if r >= n */
-  cy = mpn_sub_n(bp, ap, sc->n, sc->limbs + 1);
-  mpn_cnd_select(cy == 0, r, ap, bp, sc->limbs);
-
-#ifdef TORSION_VERIFY
-  ASSERT(mpn_cmp(r, sc->n, sc->limbs) < 0);
-#endif
-}
-
-static void
-sc_mul_word(const scalar_field_t *sc, sc_t r, const sc_t a, mp_limb_t word) {
-  /* Only constant-time if `word` is constant. */
-  ASSERT(word && (word & (word - 1)) == 0);
-
-  sc_set(sc, r, a);
-
-  word >>= 1;
-
-  while (word) {
-    sc_add(sc, r, r, r);
-    word >>= 1;
-  }
-}
-
-static void
-sc_reduce(const scalar_field_t *sc, sc_t r, const mp_limb_t *ap) {
-  /* Barrett reduction (264 bytes). */
-  mp_limb_t scratch[1 + MAX_REDUCE_LIMBS + MAX_SCALAR_LIMBS + 3];
-  mp_limb_t *qp = scratch;
-  mp_limb_t *hp = scratch + 1;
-  mp_limb_t cy;
-
-  /* h = a * m */
-  mpn_mul(hp, ap, sc->shift, sc->m, sc->limbs + 3);
-
-  /* h = h >> shift */
-  hp += sc->shift;
-
-  /* q = a - h * n */
-  mpn_mul(qp, hp, sc->limbs + 3, sc->n, sc->limbs);
-  cy = mpn_sub_n(qp, ap, qp, sc->shift);
-  ASSERT(cy == 0);
-
-  /* q = q - n if q >= n */
-  cy = mpn_sub_n(hp, qp, sc->n, sc->limbs + 1);
-  mpn_cnd_select(cy == 0, r, qp, hp, sc->limbs);
-
-#ifdef TORSION_VERIFY
-  ASSERT(mpn_cmp(r, sc->n, sc->limbs) < 0);
-#endif
-}
-
-static void
-sc_mul(const scalar_field_t *sc, sc_t r, const sc_t a, const sc_t b) {
-  mp_limb_t rp[MAX_REDUCE_LIMBS]; /* 160 bytes */
-
-  mpn_mul_n(rp, a, b, sc->limbs);
-
-  rp[sc->shift - 2] = 0;
-  rp[sc->shift - 1] = 0;
-
-  sc_reduce(sc, r, rp);
-}
-
-TORSION_UNUSED static void
-sc_sqr(const scalar_field_t *sc, sc_t r, const sc_t a) {
-  mp_limb_t rp[MAX_REDUCE_LIMBS]; /* 160 bytes */
-
-  mpn_sqr(rp, a, sc->limbs);
-
-  rp[sc->shift - 2] = 0;
-  rp[sc->shift - 1] = 0;
-
-  sc_reduce(sc, r, rp);
-}
-
-static void
-sc_mulshift(const scalar_field_t *sc,
-            sc_t r,
-            const sc_t a,
-            const sc_t b,
-            int shift) {
-  /* Computes `r = round((a * b) >> shift)`.
-   *
-   * Constant time assuming `shift` is constant.
-   */
-  mp_limb_t scratch[MAX_SCALAR_LIMBS * 2]; /* 144 bytes */
-  mp_size_t limbs = shift / MP_LIMB_BITS;
-  mp_size_t left = shift % MP_LIMB_BITS;
-  mp_limb_t *rp = scratch;
-  mp_size_t rn = sc->limbs * 2;
-  mp_limb_t bit, cy;
-
-  ASSERT(shift > sc->bits);
-
-  /* r = a * b */
-  mpn_mul_n(rp, a, b, sc->limbs);
-
-  /* bit = (r >> 383) & 1 */
-  bit = mpn_get_bit(rp, rn, shift - 1);
-
-  /* r >>= 384 */
-  rp += limbs;
-  rn -= limbs;
-
-  ASSERT(rn >= 0);
-
-  /* r >>= 0 */
-  if (left > 0)
-    mpn_rshift(rp, rp, rn, left);
-
-  /* r += bit */
-  cy = mpn_add_1(rp, rp, rn, bit);
-
-  ASSERT(cy == 0);
-  ASSERT(rn <= sc->limbs);
-
-  mpn_copyi(r, rp, rn);
-  mpn_zero(r + rn, sc->limbs - rn);
-
-  mpn_cleanse(scratch, sc->limbs * 2);
-
-#ifdef TORSION_VERIFY
-  ASSERT(mpn_cmp(r, sc->n, sc->limbs) < 0);
-#endif
-}
-
-static void
-sc_montmul(const scalar_field_t *sc, sc_t r, const sc_t a, const sc_t b) {
-  mp_limb_t tmp[MAX_SCALAR_LIMBS * 2]; /* 144 bytes */
-
-  mpn_montmul(tmp, a, b, sc->n, sc->k, sc->limbs);
-
-  mpn_copyi(r, tmp, sc->limbs);
-}
-
-static void
-sc_montsqr(const scalar_field_t *sc, sc_t r, const sc_t a) {
-  sc_montmul(sc, r, a, a);
-}
-
-static void
-sc_montsqrn(const scalar_field_t *sc, sc_t r, const sc_t a, int n) {
-  mp_limb_t scratch[MAX_SCALAR_LIMBS * 4]; /* 288 bytes */
-  mp_limb_t *x = scratch;
-  mp_limb_t *y = scratch + MAX_SCALAR_LIMBS * 2;
-  mp_limb_t *t;
-  int i;
-
-  ASSERT(n > 0);
-
-  mpn_montmul(x, a, a, sc->n, sc->k, sc->limbs);
-
-  for (i = 1; i < n; i++) {
-    mpn_montmul(y, x, x, sc->n, sc->k, sc->limbs);
-
-    t = x;
-    x = y;
-    y = t;
-  }
-
-  mpn_copyi(r, x, sc->limbs);
-}
-
-static void
-sc_mont(const scalar_field_t *sc, sc_t r, const sc_t a) {
-  sc_montmul(sc, r, a, sc->r2);
-}
-
-static void
-sc_normal(const scalar_field_t *sc, sc_t r, const sc_t a) {
-  sc_montmul(sc, r, a, sc_one);
-}
-
-static int
-sc_invert_var(const scalar_field_t *sc, sc_t r, const sc_t a) {
-  mp_limb_t scratch[MPN_INVERT_ITCH(MAX_SCALAR_LIMBS)]; /* 320 bytes */
-
-  return mpn_invert_n(r, a, sc->n, sc->limbs, scratch);
-}
-
-static void
 sc_pow(const scalar_field_t *sc, sc_t r, const sc_t a, const mp_limb_t *e) {
   /* Used for inversion if not available otherwise. */
   /* Note that our exponent is not secret. */
@@ -1169,6 +1150,13 @@ sc_pow(const scalar_field_t *sc, sc_t r, const sc_t a, const mp_limb_t *e) {
 }
 
 static int
+sc_invert_var(const scalar_field_t *sc, sc_t r, const sc_t a) {
+  mp_limb_t scratch[MPN_INVERT_ITCH(MAX_SCALAR_LIMBS)]; /* 320 bytes */
+
+  return mpn_invert_n(r, a, sc->n, sc->limbs, scratch);
+}
+
+static int
 sc_invert(const scalar_field_t *sc, sc_t r, const sc_t a) {
   if (sc->invert != NULL) {
     /* Fast inversion chain. */
@@ -1185,23 +1173,6 @@ sc_invert(const scalar_field_t *sc, sc_t r, const sc_t a) {
   }
 
   return sc_is_zero(sc, r) ^ 1;
-}
-
-static int
-sc_bitlen_var(const scalar_field_t *sc, const sc_t a) {
-  return mpn_bitlen(a, sc->limbs);
-}
-
-static int
-sc_get_bit(const scalar_field_t *sc, const sc_t k, int i) {
-  /* Constant time assuming `i` is constant. */
-  return mpn_get_bit(k, sc->limbs, i);
-}
-
-static int
-sc_get_bits(const scalar_field_t *sc, const sc_t k, int i, int w) {
-  /* Constant time assuming `i` is constant. */
-  return mpn_get_bits(k, sc->limbs, i, w);
 }
 
 static int
@@ -1570,7 +1541,7 @@ fe_set(const prime_field_t *fe, fe_t r, const fe_t a) {
 }
 
 static int
-fe_set_limbs(const prime_field_t *fe, fe_t r, const mp_limb_t *p, mp_size_t n) {
+fe_set_limbs(const prime_field_t *fe, fe_t r, const mp_limb_t *p, int n) {
   unsigned char tmp[MAX_FIELD_SIZE];
 
   ASSERT(n <= fe->limbs);
@@ -1762,30 +1733,6 @@ fe_add_nc(const prime_field_t *fe, fe_t r, const fe_t a, const fe_t b) {
 static TORSION_INLINE void
 fe_sub_nc(const prime_field_t *fe, fe_t r, const fe_t a, const fe_t b) {
   fe->sub(r, a, b);
-}
-
-TORSION_UNUSED static void
-fe_mul_word(const prime_field_t *fe, fe_t r, const fe_t a, fe_word_t word) {
-  /* Only constant-time if `word` is constant. */
-  int zero = 1;
-  fe_t x;
-
-  fe_set(fe, x, a);
-  fe_zero(fe, r);
-
-  while (word) {
-    if (word & 1) {
-      if (zero)
-        fe_set(fe, r, x);
-      else
-        fe_add(fe, r, r, x);
-
-      zero = 0;
-    }
-
-    fe_add(fe, x, x, x);
-    word >>= 1;
-  }
 }
 
 static TORSION_INLINE void
@@ -2064,6 +2011,8 @@ fe_random(const prime_field_t *fe, fe_t x, drbg_t *rng) {
 
 static void
 scalar_field_init(scalar_field_t *sc, const scalar_def_t *def, int endian) {
+  mp_limb_t scratch[MAX_REDUCE_LIMBS + 1];
+
   /* Scalar field using Barrett reduction. */
   memset(sc, 0, sizeof(*sc));
 
@@ -2111,21 +2060,10 @@ scalar_field_init(scalar_field_t *sc, const scalar_def_t *def, int endian) {
    * Ed448 is the most severely affected by this, as
    * it appends an extra byte to the field element.
    */
-  {
-    mp_limb_t x[MAX_REDUCE_LIMBS + 1]; /* 168 bytes */
-
-    mpn_zero(sc->m, MAX_REDUCE_LIMBS);
-    mpn_zero(x, sc->shift);
-
-    x[sc->shift] = 1;
-
-    mpn_quorem(sc->m, x, x, sc->shift + 1, sc->n, sc->limbs);
-
-    ASSERT(sc->m[sc->limbs + 3] == 0);
-  }
+  mpn_barrett(sc->m, sc->n, sc->limbs, sc->shift, scratch);
 
   /* Montgomery precomputation. */
-  mpn_mont(&sc->k, sc->r2, sc->n, sc->limbs);
+  mpn_mont(&sc->k, sc->r2, sc->n, sc->limbs, scratch);
 
   /* Optimized scalar inverse (optional). */
   sc->invert = def->invert;
@@ -4220,7 +4158,6 @@ static int
 wei_has_small_gap(const wei_t *ec) {
   const prime_field_t *fe = &ec->fe;
   const scalar_field_t *sc = &ec->sc;
-  mp_limb_t r[MAX_SCALAR_LIMBS];
   mp_limb_t q;
 
   if (sc->limbs < fe->limbs)
@@ -4232,7 +4169,7 @@ wei_has_small_gap(const wei_t *ec) {
   if (mpn_cmp(sc->n, fe->p, sc->limbs) >= 0)
     return 1;
 
-  mpn_quorem(&q, r, fe->p, fe->limbs, sc->n, sc->limbs);
+  mpn_div(&q, fe->p, fe->limbs, sc->n, sc->limbs);
 
   return q == 1;
 }
@@ -9188,6 +9125,8 @@ _edwards_to_mont(const prime_field_t *fe, mge_t *r,
  * P192
  */
 
+#include "fields/p192.h"
+
 static const prime_def_t field_p192 = {
   192,
   P192_FIELD_WORDS,
@@ -9233,6 +9172,8 @@ static const scalar_def_t field_q192 = {
 /*
  * P224
  */
+
+#include "fields/p224.h"
 
 static const prime_def_t field_p224 = {
   224,
@@ -9282,6 +9223,8 @@ static const scalar_def_t field_q224 = {
  * P256
  */
 
+#include "fields/p256.h"
+
 static const prime_def_t field_p256 = {
   256,
   P256_FIELD_WORDS,
@@ -9329,6 +9272,8 @@ static const scalar_def_t field_q256 = {
 /*
  * P384
  */
+
+#include "fields/p384.h"
 
 static const prime_def_t field_p384 = {
   384,
@@ -9381,6 +9326,8 @@ static const scalar_def_t field_q384 = {
 /*
  * P521
  */
+
+#include "fields/p521.h"
 
 static const prime_def_t field_p521 = {
   521,
@@ -9437,8 +9384,10 @@ static const scalar_def_t field_q521 = {
 };
 
 /*
- * P256K1
+ * SECP256K1
  */
+
+#include "fields/secp256k1.h"
 
 static const prime_def_t field_secp256k1 = {
   256,
@@ -9488,6 +9437,8 @@ static const scalar_def_t field_secq256k1 = {
  * P25519
  */
 
+#include "fields/p25519.h"
+
 static const prime_def_t field_p25519 = {
   255,
   P25519_FIELD_WORDS,
@@ -9535,6 +9486,8 @@ static const scalar_def_t field_q25519 = {
 /*
  * P448
  */
+
+#include "fields/p448.h"
 
 static const prime_def_t field_p448 = {
   448,
@@ -9589,6 +9542,8 @@ static const scalar_def_t field_q448 = {
 /*
  * P251
  */
+
+#include "fields/p251.h"
 
 static const prime_def_t field_p251 = {
   251,

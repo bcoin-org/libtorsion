@@ -165,19 +165,16 @@ dsa_group_export_dumb(unsigned char *out,
 }
 
 static int
-dsa_group_generate(dsa_group_t *group,
-                   unsigned int bits,
-                   const unsigned char *entropy) {
+dsa_group_generate(dsa_group_t *group, int bits, const unsigned char *entropy) {
   /* [FIPS186] Page 31, Appendix A.1.
    *           Page 41, Appendix A.2.
    * [DSA] "Parameter generation".
    */
-  unsigned int L = bits;
-  unsigned int N = bits < 2048 ? 160 : 256;
-  unsigned int i;
+  int L = bits;
+  int N = bits < 2048 ? 160 : 256;
   mpz_t q, p, t, h, pm1, e, g;
-  mp_bitcnt_t b;
   drbg_t rng;
+  int i, b;
 
   if (!(L == 1024 && N == 160)
       && !(L == 2048 && N == 224)
@@ -260,8 +257,8 @@ done:
 
 static int
 dsa_group_is_sane(const dsa_group_t *group) {
-  mp_bitcnt_t pbits = mpz_bitlen(group->p);
-  mp_bitcnt_t qbits = mpz_bitlen(group->q);
+  int pbits = mpz_bitlen(group->p);
+  int qbits = mpz_bitlen(group->q);
   mpz_t pm1;
   int ret = 0;
 
@@ -625,9 +622,7 @@ dsa_priv_create(dsa_priv_t *k,
 }
 
 static int
-dsa_priv_generate(dsa_priv_t *k,
-                  unsigned int bits,
-                  const unsigned char *entropy) {
+dsa_priv_generate(dsa_priv_t *k, int bits, const unsigned char *entropy) {
   unsigned char entropy1[ENTROPY_SIZE];
   unsigned char entropy2[ENTROPY_SIZE];
   dsa_group_t group;
@@ -803,6 +798,9 @@ dsa_params_generate(unsigned char *out,
 
   dsa_group_init(&group);
 
+  if (bits > DSA_MAX_BITS)
+    goto fail;
+
   if (!dsa_group_generate(&group, bits, entropy))
     goto fail;
 
@@ -815,7 +813,7 @@ fail:
 
 unsigned int
 dsa_params_bits(const unsigned char *params, size_t params_len) {
-  unsigned int size = 0;
+  unsigned int bits = 0;
   dsa_group_t group;
 
   dsa_group_init(&group);
@@ -826,15 +824,15 @@ dsa_params_bits(const unsigned char *params, size_t params_len) {
   if (!dsa_group_is_sane(&group))
     goto fail;
 
-  size = mpz_bitlen(group.p);
+  bits = mpz_bitlen(group.p);
 fail:
   dsa_group_clear(&group);
-  return size;
+  return bits;
 }
 
 unsigned int
 dsa_params_qbits(const unsigned char *params, size_t params_len) {
-  unsigned int size = 0;
+  unsigned int bits = 0;
   dsa_group_t group;
 
   dsa_group_init(&group);
@@ -845,10 +843,10 @@ dsa_params_qbits(const unsigned char *params, size_t params_len) {
   if (!dsa_group_is_sane(&group))
     goto fail;
 
-  size = mpz_bitlen(group.q);
+  bits = mpz_bitlen(group.q);
 fail:
   dsa_group_clear(&group);
-  return size;
+  return bits;
 }
 
 int
@@ -948,6 +946,9 @@ dsa_privkey_generate(unsigned char *out,
 
   dsa_priv_init(&k);
 
+  if (bits > DSA_MAX_BITS)
+    goto fail;
+
   if (!dsa_priv_generate(&k, bits, entropy))
     goto fail;
 
@@ -960,7 +961,7 @@ fail:
 
 unsigned int
 dsa_privkey_bits(const unsigned char *key, size_t key_len) {
-  unsigned int size = 0;
+  unsigned int bits = 0;
   dsa_priv_t k;
 
   dsa_priv_init(&k);
@@ -971,15 +972,15 @@ dsa_privkey_bits(const unsigned char *key, size_t key_len) {
   if (!dsa_priv_is_sane(&k))
     goto fail;
 
-  size = mpz_bitlen(k.p);
+  bits = mpz_bitlen(k.p);
 fail:
   dsa_priv_clear(&k);
-  return size;
+  return bits;
 }
 
 unsigned int
 dsa_privkey_qbits(const unsigned char *key, size_t key_len) {
-  unsigned int size = 0;
+  unsigned int bits = 0;
   dsa_priv_t k;
 
   dsa_priv_init(&k);
@@ -990,10 +991,10 @@ dsa_privkey_qbits(const unsigned char *key, size_t key_len) {
   if (!dsa_priv_is_sane(&k))
     goto fail;
 
-  size = mpz_bitlen(k.q);
+  bits = mpz_bitlen(k.q);
 fail:
   dsa_priv_clear(&k);
-  return size;
+  return bits;
 }
 
 int
@@ -1079,7 +1080,7 @@ fail:
 
 unsigned int
 dsa_pubkey_bits(const unsigned char *key, size_t key_len) {
-  unsigned int size = 0;
+  unsigned int bits = 0;
   dsa_pub_t k;
 
   dsa_pub_init(&k);
@@ -1090,15 +1091,15 @@ dsa_pubkey_bits(const unsigned char *key, size_t key_len) {
   if (!dsa_pub_is_sane(&k))
     goto fail;
 
-  size = mpz_bitlen(k.p);
+  bits = mpz_bitlen(k.p);
 fail:
   dsa_pub_clear(&k);
-  return size;
+  return bits;
 }
 
 unsigned int
 dsa_pubkey_qbits(const unsigned char *key, size_t key_len) {
-  unsigned int size = 0;
+  unsigned int bits = 0;
   dsa_pub_t k;
 
   dsa_pub_init(&k);
@@ -1109,10 +1110,10 @@ dsa_pubkey_qbits(const unsigned char *key, size_t key_len) {
   if (!dsa_pub_is_sane(&k))
     goto fail;
 
-  size = mpz_bitlen(k.q);
+  bits = mpz_bitlen(k.q);
 fail:
   dsa_pub_clear(&k);
-  return size;
+  return bits;
 }
 
 int
@@ -1238,7 +1239,7 @@ dsa_reduce(mpz_t m, const unsigned char *msg, size_t msg_len, const mpz_t q) {
    * the left-most ceil(log2(q+1)) bits
    * modulo the order.
    */
-  mp_bitcnt_t bits = mpz_bitlen(q);
+  size_t bits = mpz_bitlen(q);
   size_t bytes = (bits + 7) / 8;
   int ret = 1;
 
