@@ -970,43 +970,7 @@ mp_minv_2by1(mp_limb_t *q, mp_limb_t *r,
              mp_limb_t n1, mp_limb_t n0,
              mp_limb_t d, mp_limb_t m) {
   /* Note: divisor must be normalized! */
-#if defined(MP_USE_ASM)
-  __asm__ (
-    "movq %q3, %%rax\n"
-    "movq %%rdx, %q3\n"
-    "mulq %%rdx\n"
-    "movq %%rdx, %%r10\n"
-    "addq %%rcx, %%rax\n"
-    "adcq %q3, %%r10\n"
-    "movq %%r10, %%rax\n"
-    "mulq %q2\n"
-    "xorl %%r11d, %%r11d\n"
-    "subq %%rax, %%rcx\n"
-    "movl $0, %%eax\n"
-    "sbbq %%rax, %%rax\n"
-    "subq %%rdx, %q3\n"
-    "negq %%rax\n"
-    "xorl %%edx, %%edx\n"
-    "cmpq %%rax, %q3\n"
-    "movq %q2, %%rax\n"
-    "cmoveq %%r11, %%rax\n"
-    "setneb %%dl\n"
-    "subq %%rax, %%rcx\n"
-    "addq %%r10, %%rdx\n"
-    "xorl %%eax, %%eax\n"
-    "cmpq %q2, %%rcx\n"
-    "setaeb %%al\n"
-    "cmovbq %%r11, %q2\n"
-    "subq %q2, %%rcx\n"
-    "addq %%rdx, %%rax\n"
-    : "=&a" (*q), "=c" (*r),
-      "+r" (d), "+r" (m), "+d" (n1)
-    : "1" (n0)
-    : "cc", "r10", "r11"
-  );
-#elif !defined(__clang__)
-  mp_limb_t t0, t1, q0, r0, r1;
-  mp_limb_t w, c;
+  mp_limb_t t0, t1, q0, r0, r1, w, c;
 
   mp_mul(t1, t0, m, n1);
 
@@ -1028,40 +992,10 @@ mp_minv_2by1(mp_limb_t *q, mp_limb_t *r,
     r0 -= d;
   }
 
-  *q = q0;
-  *r = r0;
-#else /* !MP_USE_ASM */
-  mp_limb_t t0, t1, q0, r0, r1;
-  mp_wide_t w;
-
-  w = (mp_wide_t)m * n1;
-  t1 = w >> MP_LIMB_BITS;
-  t0 = w;
-
-  w = (mp_wide_t)t0 + n0;
-  q0 = (mp_wide_t)t1 + n1 + (mp_limb_t)(w >> MP_LIMB_BITS);
-
-  w = (mp_wide_t)d * q0;
-  t1 = w >> MP_LIMB_BITS;
-  t0 = w;
-
-  w = (mp_wide_t)n0 - t0;
-  r0 = w;
-  r1 = (mp_wide_t)n1 - t1 - (mp_limb_t)-(w >> MP_LIMB_BITS);
-
-  if (r1 != 0) {
-    q0 += 1;
-    r0 -= d;
-  }
-
-  if (r0 >= d) {
-    q0 += 1;
-    r0 -= d;
-  }
+  (void)w;
 
   *q = q0;
   *r = r0;
-#endif /* !MP_USE_ASM */
 }
 
 /*
