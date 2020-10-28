@@ -881,17 +881,15 @@ static int
 rsa_priv_decrypt(const rsa_priv_t *k,
                  unsigned char *out,
                  const unsigned char *msg,
-                 size_t msg_len,
+                 size_t msg_len, int use_crt,
                  const unsigned char *entropy) {
   /* [RFC8017] Page 13, Section 5.1.2.
    *           Page 15, Section 5.2.1.
    */
   mpz_t t, s, b, bi, c, m;
-#ifdef TORSION_USE_CRT
   mpz_t mp, mq, md;
-#endif
-  drbg_t rng;
   int ret = 0;
+  drbg_t rng;
 
   drbg_init(&rng, HASH_SHA256, entropy, ENTROPY_SIZE);
 
@@ -901,11 +899,9 @@ rsa_priv_decrypt(const rsa_priv_t *k,
   mpz_init(bi);
   mpz_init(c);
   mpz_init(m);
-#ifdef TORSION_USE_CRT
   mpz_init(mp);
   mpz_init(mq);
   mpz_init(md);
-#endif
 
   if (mpz_sgn(k->n) <= 0 || mpz_sgn(k->d) <= 0)
     goto fail;
@@ -914,13 +910,11 @@ rsa_priv_decrypt(const rsa_priv_t *k,
   if (mpz_sgn(k->d) <= 0 || !mpz_odd_p(k->n))
     goto fail;
 
-#ifdef TORSION_USE_CRT
   if (mpz_sgn(k->dp) <= 0 || !mpz_odd_p(k->p))
     goto fail;
 
   if (mpz_sgn(k->dq) <= 0 || !mpz_odd_p(k->q))
     goto fail;
-#endif
 
   mpz_import(c, msg, msg_len, 1);
 
@@ -950,35 +944,35 @@ rsa_priv_decrypt(const rsa_priv_t *k,
   mpz_mul(c, c, b);
   mpz_mod(c, c, k->n);
 
-#if defined(TORSION_USE_CRT)
-  /* Leverage Chinese Remainder Theorem.
-   *
-   * Computation:
-   *
-   *   mp = c^(d mod p-1) mod p
-   *   mq = c^(d mod q-1) mod q
-   *   md = (mp - mq) / q mod p
-   *   m = (md * q + mq) mod n
-   */
-  mpz_powm_sec(mp, c, k->dp, k->p);
-  mpz_powm_sec(mq, c, k->dq, k->q);
+  if (use_crt) {
+    /* Leverage Chinese Remainder Theorem.
+     *
+     * Computation:
+     *
+     *   mp = c^(d mod p-1) mod p
+     *   mq = c^(d mod q-1) mod q
+     *   md = (mp - mq) / q mod p
+     *   m = (md * q + mq) mod n
+     */
+    mpz_powm_sec(mp, c, k->dp, k->p);
+    mpz_powm_sec(mq, c, k->dq, k->q);
 
-  mpz_sub(md, mp, mq);
-  mpz_mul(md, md, k->qi);
-  mpz_mod(md, md, k->p);
+    mpz_sub(md, mp, mq);
+    mpz_mul(md, md, k->qi);
+    mpz_mod(md, md, k->p);
 
-  mpz_mul(m, md, k->q);
-  mpz_add(m, m, mq);
-  mpz_mod(m, m, k->n);
+    mpz_mul(m, md, k->q);
+    mpz_add(m, m, mq);
+    mpz_mod(m, m, k->n);
 
-  mpz_powm(mp, m, k->e, k->n);
+    mpz_powm(mp, m, k->e, k->n);
 
-  if (mpz_cmp(mp, c) != 0)
-    goto fail;
-#else
-  /* m = c^d mod n */
-  mpz_powm_sec(m, c, k->d, k->n);
-#endif
+    if (mpz_cmp(mp, c) != 0)
+      goto fail;
+  } else {
+    /* m = c^d mod n */
+    mpz_powm_sec(m, c, k->d, k->n);
+  }
 
   /* m = m * bi mod n (unblind) */
   mpz_mul(m, m, bi);
@@ -993,11 +987,9 @@ fail:
   mpz_cleanse(bi);
   mpz_cleanse(c);
   mpz_cleanse(m);
-#ifdef TORSION_USE_CRT
   mpz_cleanse(mp);
   mpz_cleanse(mq);
   mpz_cleanse(md);
-#endif
   return ret;
 }
 
@@ -1136,8 +1128,7 @@ static int
 rsa_pub_veil(const rsa_pub_t *k,
              unsigned char *out,
              const unsigned char *msg,
-             size_t msg_len,
-             int bits,
+             size_t msg_len, int bits,
              const unsigned char *entropy) {
   mpz_t vmax, rmax, c, v, r;
   int ret = 0;
@@ -1725,7 +1716,7 @@ rsa_sign(unsigned char *out,
   if (msg_len > 0)
     memcpy(em + klen - hlen, msg, msg_len);
 
-  if (!rsa_priv_decrypt(&k, out, em, klen, entropy))
+  if (!rsa_priv_decrypt(&k, out, em, klen, 1, entropy))
     goto fail;
 
   *out_len = klen;
@@ -1906,7 +1897,7 @@ rsa_decrypt(unsigned char *out,
   if (klen < 11)
     goto fail;
 
-  if (!rsa_priv_decrypt(&k, em, msg, msg_len, entropy))
+  if (!rsa_priv_decrypt(&k, em, msg, msg_len, 1, entropy))
     goto fail;
 
   /* EM = 0x00 || 0x02 || PS || 0x00 || M */
@@ -2006,7 +1997,7 @@ rsa_sign_pss(unsigned char *out,
    * than the modulus size in the case
    * of (bits - 1) mod 8 == 0.
    */
-  if (!rsa_priv_decrypt(&k, out, em, emlen, entropy))
+  if (!rsa_priv_decrypt(&k, out, em, emlen, 1, entropy))
     goto fail;
 
   *out_len = klen;
@@ -2221,7 +2212,7 @@ rsa_decrypt_oaep(unsigned char *out,
   if (klen < hlen * 2 + 2)
     goto fail;
 
-  if (!rsa_priv_decrypt(&k, em, msg, msg_len, entropy))
+  if (!rsa_priv_decrypt(&k, em, msg, msg_len, 1, entropy))
     goto fail;
 
   hash_init(&hash, type);

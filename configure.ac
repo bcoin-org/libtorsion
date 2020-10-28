@@ -82,14 +82,6 @@ AC_ARG_ENABLE(
 )
 
 AC_ARG_ENABLE(
-  crt,
-  AS_HELP_STRING([--enable-crt],
-                 [enable chinese remainder theorem for RSA [default=no]]),
-  [enable_crt=$enableval],
-  [enable_crt=no]
-)
-
-AC_ARG_ENABLE(
   debug,
   AS_HELP_STRING([--enable-debug],
                  [enable debug build [default=no]]),
@@ -352,10 +344,6 @@ AS_IF([test x"$enable_coverage" = x"yes"], [
   AC_DEFINE(TORSION_COVERAGE)
 ])
 
-AS_IF([test x"$enable_crt" = x"yes"], [
-  AC_DEFINE(TORSION_USE_CRT)
-])
-
 AS_IF([test x"$enable_debug" = x"yes"], [
   AC_DEFINE(TORSION_DEBUG)
 ])
@@ -430,7 +418,6 @@ AC_MSG_NOTICE([Build Options:
   asm          = $has_asm
   asm_x64      = $has_asm_x64
   coverage     = $enable_coverage
-  crt          = $enable_crt
   debug        = $enable_debug
   emscripten   = $EMSCRIPTEN
   fork         = $has_fork

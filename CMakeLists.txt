@@ -59,7 +59,6 @@ endif()
 
 option(TORSION_ENABLE_ASM "Use inline x86-64 assembly if available" ON)
 option(TORSION_ENABLE_COVERAGE "Enable coverage" OFF)
-option(TORSION_ENABLE_CRT "Enable chinese remainder theorem for RSA" OFF)
 option(TORSION_ENABLE_DEBUG "Enable debug build" OFF)
 option(TORSION_ENABLE_INT128 "Use __int128 if available" ON)
 option(TORSION_ENABLE_PTHREAD "Use pthread as a fallback for TLS" ON)
@@ -281,10 +280,6 @@ endif()
 
 if(TORSION_ENABLE_COVERAGE)
   list(APPEND torsion_defines TORSION_COVERAGE)
-endif()
-
-if(TORSION_ENABLE_CRT)
-  list(APPEND torsion_defines TORSION_USE_CRT)
 endif()
 
 if(TORSION_ENABLE_DEBUG)
