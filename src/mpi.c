@@ -4,6 +4,36 @@
  * https://github.com/bcoin-org/libtorsion
  *
  * A from-scratch reimplementation of GMP.
+ *
+ * References:
+ *
+ *   [KNUTH] The Art of Computer Programming,
+ *           Volume 2, Seminumerical Algorithms
+ *     Donald E. Knuth
+ *     https://www-cs-faculty.stanford.edu/~knuth/taocp.html
+ *
+ *   [MONT] Efficient Software Implementations of Modular Exponentiation
+ *     Shay Gueron
+ *     https://eprint.iacr.org/2011/239.pdf
+ *
+ *   [DIV] Improved division by invariant integers
+ *     Niels Möller, Torbjörn Granlund
+ *     https://gmplib.org/~tege/division-paper.pdf
+ *
+ *   [JACOBI] A Binary Algorithm for the Jacobi Symbol
+ *     J. Shallit, J. Sorenson
+ *     https://www.researchgate.net/publication/2273750
+ *
+ *   [HANDBOOK] Handbook of Applied Cryptography
+ *     A. Menezes, P. van Oorschot, S. Vanstone
+ *
+ *   [LUCAS] Lucas Pseudoprimes
+ *     R. Baillie, S. Wagstaff
+ *     https://www.ams.org/journals/mcom/1980-35-152/S0025-5718-1980-0583518-6/S0025-5718-1980-0583518-6.pdf
+ *
+ *   [BPSW] The Baillie-PSW Primality Test
+ *     Thomas R. Nicely
+ *     https://web.archive.org/web/20130828131627/http://www.trnicely.net/misc/bpsw.html
  */
 
 #include <stdint.h>
@@ -720,15 +750,21 @@ mpn_reduce_weak(mp_limb_t *zp,
 void
 mpn_barrett(mp_limb_t *mp, const mp_limb_t *np,
             int n, int shift, mp_limb_t *scratch) {
-  /* `shift` limbs are required for scratch. */
-  /* Must have `shift - n + 1` limbs at mp. */
+  /* Barrett precomputation.
+   *
+   * [HANDBOOK] Page 603, Section 14.3.3.
+   *
+   * `shift` limbs are required for scratch.
+   *
+   * Must have `shift - n + 1` limbs at mp.
+   */
   mp_limb_t *xp = scratch;
   int xn;
 
   ASSERT(n > 0);
   ASSERT(shift >= n * 2);
 
-  /* m = 2^(shift * MP_LIMB_BITS) / n */
+  /* m = 2^(shift * L) / n */
   xn = shift + 1;
 
   mpn_zero(xp, shift);
@@ -744,8 +780,14 @@ mpn_reduce(mp_limb_t *zp, const mp_limb_t *xp,
                           const mp_limb_t *np,
                           int n, int shift,
                           mp_limb_t *scratch) {
-  /* `2 * (shift + 1) - n` limbs are required for scratch. */
-  /* In other words: `1 + shift + mn` limbs. */
+  /* Barrett reduction.
+   *
+   * [HANDBOOK] Algorithm 14.42, Page 604, Section 14.3.3.
+   *
+   * `2 * (shift + 1) - n` limbs are required for scratch.
+   *
+   * In other words: `1 + shift + mn` limbs.
+   */
   int mn = shift - n + 1;
   mp_limb_t *qp = scratch;
   mp_limb_t *hp = scratch + 1;
@@ -753,7 +795,7 @@ mpn_reduce(mp_limb_t *zp, const mp_limb_t *xp,
   /* h = x * m */
   mpn_mul(hp, xp, shift, mp, mn);
 
-  /* h = h >> (shift * MP_LIMB_BITS) */
+  /* h = h >> (shift * L) */
   hp += shift;
 
   /* q = x - h * n */
@@ -765,27 +807,26 @@ mpn_reduce(mp_limb_t *zp, const mp_limb_t *xp,
 }
 
 /*
- * Montgomery Multiplication
- *
- * See: Efficient Software Implementations of Modular Exponentiation
- *   Shay Gueron
- *   Page 5, Section 3
- *   https://eprint.iacr.org/2011/239.pdf
+ * Montgomery Multiplication (logic from golang)
  */
 
 void
 mpn_mont(mp_limb_t *kp, mp_limb_t *rp,
          const mp_limb_t *mp, int n,
          mp_limb_t *scratch) {
-  /* Montgomery precomputation. */
-  /* `2 * n + 1` limbs are required for scratch. */
+  /* Montgomery precomputation.
+   *
+   * [HANDBOOK] Page 600, Section 14.3.2.
+   *
+   * `2 * n + 1` limbs are required for scratch.
+   */
   mp_limb_t *xp = scratch;
   mp_limb_t k, t;
   int i, xn;
 
   ASSERT(n > 0);
 
-  /* k = -m^-1 mod 2^MP_LIMB_BITS */
+  /* k = -m^-1 mod 2^L */
   k = 2 - mp[0];
   t = mp[0] - 1;
 
@@ -796,7 +837,7 @@ mpn_mont(mp_limb_t *kp, mp_limb_t *rp,
 
   kp[0] = -k;
 
-  /* r = 2^(n * MP_LIMB_BITS * 2) mod m */
+  /* r = 2^(n * L * 2) mod m */
   xn = n * 2 + 1;
 
   mpn_zero(xp, n * 2);
@@ -812,8 +853,12 @@ mpn_montmul_inner(const mp_limb_t *xp,
                   const mp_limb_t *mp,
                   int n, mp_limb_t k,
                   mp_limb_t *scratch) {
-  /* Montgomery multiplication. */
-  /* `2 * n` limbs are required for scratch. */
+  /* Montgomery multiplication.
+   *
+   * [MONT] Algorithm 4 & 5, Page 5, Section 3.
+   *
+   * `2 * n` limbs are required for scratch.
+   */
   mp_limb_t *tp = scratch;
   mp_limb_t c1, c2, c3, cx, cy;
   int i;
@@ -847,6 +892,10 @@ mpn_montmul(mp_limb_t *zp,
             const mp_limb_t *mp,
             int n, mp_limb_t k,
             mp_limb_t *scratch) {
+  /* Word-by-Word Montgomery Multiplication.
+   *
+   * [MONT] Algorithm 4, Page 5, Section 3.
+   */
   mp_limb_t *tp = scratch;
   mp_limb_t c = mpn_montmul_inner(xp, yp, mp, n, k, tp);
 
@@ -860,6 +909,10 @@ mpn_montmul_var(mp_limb_t *zp,
                 const mp_limb_t *mp,
                 int n, mp_limb_t k,
                 mp_limb_t *scratch) {
+  /* Word-by-Word Almost Montgomery Multiplication.
+   *
+   * [MONT] Algorithm 4, Page 5, Section 3.
+   */
   mp_limb_t *tp = scratch;
   mp_limb_t c = mpn_montmul_inner(xp, yp, mp, n, k, tp);
 
@@ -874,8 +927,8 @@ mpn_montmul_var(mp_limb_t *zp,
  */
 
 static void
-mp_div_2by1(mp_limb_t *q, mp_limb_t *r,
-            mp_limb_t n1, mp_limb_t n0, mp_limb_t d) {
+mp_div(mp_limb_t *q, mp_limb_t *r,
+       mp_limb_t n1, mp_limb_t n0, mp_limb_t d) {
 #if defined(MP_HAVE_ASM)
   mp_limb_t q0, r0;
 
@@ -892,6 +945,16 @@ mp_div_2by1(mp_limb_t *q, mp_limb_t *r,
   if (r != NULL)
     *r = r0;
 #elif MP_LIMB_BITS == 64
+  /* [DIV] Algorithm 1, Page 2, Section A.
+   *
+   * This code is basically an unrolled version
+   * of the `divlu` code from Hacker's Delight.
+   *
+   * Having this here allows us to avoid using
+   * __int128 division on non-x64 platforms.
+   *
+   * Logic borrowed from golang's arith.go.
+   */
   static const mp_limb_t b = MP_LIMB_C(1) << MP_LOW_BITS;
   mp_limb_t q0, q1, un0, un1, vn0, vn1, rhat;
   int s;
@@ -955,46 +1018,139 @@ mp_div_2by1(mp_limb_t *q, mp_limb_t *r,
 
 static mp_limb_t
 mp_inv_2by1(mp_limb_t d) {
+  /* [DIV] Page 2, Section II.
+   *
+   * The approximate reciprocal is defined as:
+   *
+   *   v = ((B^2 - 1) / d) - B
+   *
+   * Unfortunately, the numerator here is too
+   * large for hardware instructions.
+   *
+   * Instead, we can compute:
+   *
+   *   v = (B^2 - 1 - d * B) / d
+   *
+   * Which happens to be equivalent and allows
+   * us to do a normalized division using
+   * hardware instructions.
+   *
+   * A more programmatic way of expressing
+   * this would be (where L = log2(B)):
+   *
+   *   v = ~(d << L) / d
+   *
+   * Or, in x86-64 assembly:
+   *
+   *   mov $0, %rax
+   *   mov %[d], %rdx
+   *   not %rax
+   *   not %rdx
+   *   div %[d]
+   *   mov %rax, %[v]
+   *
+   * This trick was utilized by the golang
+   * developers when switching away from a
+   * more specialized inverse function. See
+   * the discussion here[1][2].
+   *
+   * [1] https://go-review.googlesource.com/c/go/+/250417
+   * [2] https://go-review.googlesource.com/c/go/+/250417/comment/380e8f18_ad97735c/
+   */
   mp_limb_t u = d << mp_clz(d);
-  mp_limb_t n1 = ~u;
-  mp_limb_t n0 = MP_LIMB_MAX;
   mp_limb_t q;
 
-  mp_div_2by1(&q, NULL, n1, n0, u);
+  mp_div(&q, NULL, ~u, MP_LIMB_MAX, u);
 
   return q;
 }
 
 static TORSION_INLINE void
-mp_minv_2by1(mp_limb_t *q, mp_limb_t *r,
-             mp_limb_t n1, mp_limb_t n0,
-             mp_limb_t d, mp_limb_t m) {
-  /* Note: divisor must be normalized! */
-  mp_limb_t t0, t1, q0, r0, r1, w, c;
+mp_div_2by1(mp_limb_t *q, mp_limb_t *r,
+            mp_limb_t u1, mp_limb_t u0,
+            mp_limb_t d, mp_limb_t v) {
+  /* [DIV] Algorithm 4, Page 4, Section A.
+   *
+   * The 2-by-1 division is defined by
+   * Möller & Granlund as:
+   *
+   *   (q1, q0) <- v * u1
+   *   (q1, q0) <- (q1, q0) + (u1, u0)
+   *
+   *   q1 <- (q1 + 1) mod B
+   *
+   *   r <- (u0 - q1 * d) mod B
+   *
+   *   if r > q0 (unpredictable)
+   *     q1 <- (q1 - 1) mod B
+   *     r <- (r + d) mod B
+   *
+   *   if r >= d (unlikely)
+   *     q1 <- q1 + 1
+   *     r <- r - d
+   *
+   *   return q1, r
+   *
+   * Note that this function expects the
+   * divisor to be normalized and does not
+   * de-normalize the remainder.
+   */
+  mp_limb_t q0, q1, r0, c;
 
-  mp_mul(t1, t0, m, n1);
+  mp_mul(q1, q0, v, u1);
+  mp_add(q0, c, q0, u0);
+  mp_add_1(q1, c, q1, u1);
 
-  mp_add(w, c, t0, n0);
-  mp_add_1(q0, c, t1, n1);
+  /* At this point, we have computed:
+   *
+   *   q = (((B^2 - 1) / d) - B) * (u / B) + u
+   *     = ((B^2 - 1) * u) / (B * d)
+   *
+   * On an 8-bit machine, this implies:
+   *
+   *   q = (u * 0xffff) / (d << 8)
+   *
+   * For example, if we want to compute:
+   *
+   *   [q, r] = 0x421 / 0x83 = [0x08, 0x09]
+   *
+   * We first compute:
+   *
+   *   q = 0x420fbdf / 0x8300 = 0x0811
+   *
+   * Note that the actual quotient is
+   * in the high bits of the result.
+   *
+   * Our remainder is trickier. We now
+   * compute:
+   *
+   *   r = u0 - (q1 + 1) * d
+   *     = 0x21 - 0x09 * 0x83
+   *     = -0x047a (allowed to underflow)
+   *     = 0x86 mod B
+   *
+   * Since 0x86 > 0x11, the first branch
+   * is triggered, computing:
+   *
+   *   r = r + d
+   *     = 0x86 + 0x83
+   *     = 0x09 mod B
+   */
+  q1 += 1;
 
-  mp_mul(t1, t0, d, q0);
+  r0 = u0 - q1 * d;
 
-  mp_sub(r0, c, n0, t0);
-  mp_sub_1(r1, c, n1, t1);
+  if (r0 > q0) {
+    q1 -= 1;
+    r0 += d;
+  }
 
-  if (r1 != 0) {
-    q0 += 1;
+  if (UNLIKELY(r0 >= d)) {
+    q1 += 1;
     r0 -= d;
   }
 
-  if (r0 >= d) {
-    q0 += 1;
-    r0 -= d;
-  }
-
-  (void)w;
-
-  *q = q0;
+  *q = q1;
   *r = r0;
 }
 
@@ -1054,7 +1210,7 @@ mpn_divmod_small(mp_limb_t *qp, mp_limb_t *rp,
       n0 <<= s;
     }
 
-    mp_minv_2by1(&q, &r, n1, n0, d, m);
+    mp_div_2by1(&q, &r, n1, n0, d, m);
 
     r >>= s;
 
@@ -1070,6 +1226,15 @@ static void
 mpn_divmod_inner(mp_limb_t *qp, mp_limb_t *rp,
                  const mp_limb_t *np, int nn,
                  mp_divisor_t *den) {
+  /* Division of nonnegative integers.
+   *
+   * [KNUTH] Algorithm D, Page 272, Section 4.3.1.
+   *
+   * Originally based on the Hacker's Delight
+   * `divmnu64` function, the code below has
+   * taken on some modifications based on the
+   * golang logic.
+   */
   const mp_limb_t *vp = den->vp;
   mp_limb_t *up = den->up;
   mp_limb_t m = den->inv;
@@ -1098,7 +1263,7 @@ mpn_divmod_inner(mp_limb_t *qp, mp_limb_t *rp,
     qhat = MP_LIMB_MAX;
 
     if (up[j + dn] != vp[dn - 1]) {
-      mp_minv_2by1(&qhat, &rhat, up[j + dn], up[j + dn - 1], vp[dn - 1], m);
+      mp_div_2by1(&qhat, &rhat, up[j + dn], up[j + dn - 1], vp[dn - 1], m);
 
       mp_mul(hi, lo, qhat, vp[dn - 2]);
 
@@ -1185,7 +1350,7 @@ mpn_divmod_1(mp_limb_t *qp, const mp_limb_t *np, int nn, mp_limb_t d) {
       n0 <<= s;
     }
 
-    mp_minv_2by1(&q, &r, n1, n0, d, m);
+    mp_div_2by1(&q, &r, n1, n0, d, m);
 
     r >>= s;
 
@@ -1343,10 +1508,7 @@ mpn_invert(mp_limb_t *zp,
            mp_limb_t *scratch) {
   /* Penk's right shift binary EGCD.
    *
-   * See: The Art of Computer Programming,
-   *      Volume 2, Seminumerical Algorithms
-   *   Donald E. Knuth
-   *   Exercise 4.5.2.39
+   * [KNUTH] Exercise 4.5.2.39, Page 646.
    */
   mp_limb_t *ap = &scratch[0 * (yn + 1)];
   mp_limb_t *bp = &scratch[1 * (yn + 1)];
@@ -1431,9 +1593,9 @@ int
 mpn_jacobi(const mp_limb_t *xp, int xn,
            const mp_limb_t *yp, int yn,
            mp_limb_t *scratch) {
-  /* See: A Binary Algorithm for the Jacobi Symbol
-   *   J. Shallit, J. Sorenson
-   *   Page 3, Section 3
+  /* Binary Jacobi Symbol.
+   *
+   * [JACOBI] Page 3, Section 3.
    */
   mp_limb_t *ap = &scratch[0 * yn];
   mp_limb_t *bp = &scratch[1 * yn];
@@ -1495,6 +1657,7 @@ mpn_div_powm(mp_limb_t *zp, const mp_limb_t *xp, int xn,
                             const mp_limb_t *yp, int yn,
                             const mp_limb_t *mp, int mn,
                             mp_limb_t *scratch) {
+  /* Sliding window with division. */
   mp_limb_t *ap = &scratch[0 * mn]; /* mn */
   mp_limb_t *rp = &scratch[1 * mn]; /* mn */
   mp_limb_t *sp = &scratch[2 * mn]; /* 2 * mn */
@@ -1592,6 +1755,7 @@ mpn_mont_powm(mp_limb_t *zp,
               const mp_limb_t *yp, int yn,
               const mp_limb_t *mp, int mn,
               mp_limb_t *scratch) {
+  /* Sliding window with montgomery. */
   mp_limb_t *ap = &scratch[0 * mn]; /* mn */
   mp_limb_t *rp = &scratch[1 * mn]; /* mn */
   mp_limb_t *tp = &scratch[2 * mn]; /* 2 * mn + 1 */
@@ -1721,15 +1885,7 @@ mpn_sec_powm(mp_limb_t *zp,
              const mp_limb_t *yp, int yn,
              const mp_limb_t *mp, int mn,
              mp_limb_t *scratch) {
-  /* Fixed window montgomery.
-   *
-   * Precomputation:
-   *
-   *   k = -m^-1 mod 2^limb_width
-   *   rr = 2^(2 * mod_limbs) mod m
-   *
-   * We assume the modulus is not secret.
-   */
+  /* Fixed window montgomery. */
   mp_limb_t *rp = &scratch[0 * mn]; /* mn */
   mp_limb_t *tp = &scratch[1 * mn]; /* 2 * mn + 1 */
   mp_limb_t *sp = &scratch[3 * mn + 1]; /* mn */
@@ -2976,6 +3132,10 @@ mpz_neg(mpz_t z, const mpz_t x) {
 
 void
 mpz_gcd(mpz_t z, const mpz_t x, const mpz_t y) {
+  /* Binary GCD algorithm.
+   *
+   * [KNUTH] Algorithm B, Page 338, Section 4.5.2.
+   */
   int i, j, shift, cmp;
   mpz_t a, b;
 
@@ -3059,6 +3219,10 @@ mpz_lcm(mpz_t z, const mpz_t x, const mpz_t y) {
 
 void
 mpz_gcdext(mpz_t g, mpz_t s, mpz_t t, const mpz_t x, const mpz_t y) {
+  /* Euclid's algorithm for large numbers.
+   *
+   * [KNUTH] Algorithm L, Page 347, Section 4.5.2.
+   */
   mpz_t u, v, A, B, C, D, up, vp;
   int i, j, shift;
 
@@ -3369,11 +3533,15 @@ mpz_powm_sec(mpz_t z, const mpz_t x, const mpz_t y, const mpz_t m) {
 }
 
 /*
- * Primality Testing
+ * Primality Testing (logic from golang)
  */
 
 int
 mpz_is_prime_mr(const mpz_t n, int reps, int force2, mp_rng_f *rng, void *arg) {
+  /* Miller-Rabin Primality Test.
+   *
+   * [HANDBOOK] Algorithm 4.24, Page 139, Section 4.2.3.
+   */
   mpz_t nm1, nm3, q, x, y;
   int ret = 0;
   int i, j, k;
@@ -3456,6 +3624,10 @@ fail:
 
 int
 mpz_is_prime_lucas(const mpz_t n, mp_limb_t limit) {
+  /* Lucas Primality Test.
+   *
+   * [LUCAS] Page 1401, Section 5.
+   */
   mpz_t d, s, nm2, vk, vk1, t1, t2, t3;
   int i, j, r, t;
   int ret = 0;
@@ -3542,6 +3714,9 @@ mpz_is_prime_lucas(const mpz_t n, mp_limb_t limit) {
   /* r = s factors of 2 */
   r = mpz_ctz(s);
 
+  /* s >>= r */
+  mpz_rshift(s, s, r);
+
   /* nm2 = n - 2 */
   mpz_sub_ui(nm2, n, 2);
 
@@ -3550,9 +3725,6 @@ mpz_is_prime_lucas(const mpz_t n, mp_limb_t limit) {
 
   /* vk1 = p */
   mpz_set_ui(vk1, p);
-
-  /* s >>= r */
-  mpz_rshift(s, s, r);
 
   for (i = mpz_bitlen(s); i >= 0; i--) {
     /* if floor(s / 2^i) mod 2 == 1 */
@@ -3628,6 +3800,10 @@ fail:
 
 int
 mpz_is_prime(const mpz_t n, int rounds, mp_rng_f *rng, void *arg) {
+  /* Baillie-PSW Primality Test.
+   *
+   * [BPSW] "Bibliography".
+   */
   /* 3 * 5 * 7 * 11 * 13 * 17 * 19 * 23 * 37 */
   static const mp_limb_t primes_a = MP_LIMB_C(4127218095);
   /* 29 * 31 * 41 * 43 * 47 * 53 */
