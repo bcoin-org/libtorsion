@@ -63,11 +63,21 @@ typedef void mp_rng_f(void *out, size_t size, void *arg);
  * Itches
  */
 
+#define MPN_SQR_ITCH(n) (2 * (n))
+#define MPN_MULSHIFT_ITCH(n) (2 * (n))
+#define MPN_REDUCE_WEAK_ITCH(n) (n)
+#define MPN_BARRETT_ITCH(n, shift) ((shift) + 1 - (n) + 1)
+#define MPN_REDUCE_ITCH(n, shift) (1 + (shift) + ((shift) - (n) + 1))
+#define MPN_MONT_ITCH(n) (2 * (n) + 1)
+#define MPN_MONTMUL_ITCH(n) (2 * (n))
 #define MPN_INVERT_ITCH(n) (4 * ((n) + 1))
 #define MPN_JACOBI_ITCH(n) (2 * (n))
 #define MPN_SLIDE_ITCH(yn, mn) ((yn) > 2 ? (MP_SLIDE_SIZE * (mn)) : 0)
 #define MPN_POWM_ITCH(yn, mn) (6 * (mn) + MPN_SLIDE_ITCH(yn, mn))
 #define MPN_SEC_POWM_ITCH(n) (5 * (n) + MP_FIXED_SIZE * (n) + 1)
+
+/* Either Barrett or Montgomery precomputation. */
+#define MPN_BARRETT_MONT_ITCH(shift) ((shift) + 2)
 
 /*
  * Allocation
@@ -170,6 +180,17 @@ mpn_mul(mp_limb_t *zp, const mp_limb_t *xp, int xn,
 
 void
 mpn_sqr(mp_limb_t *zp, const mp_limb_t *xp, int xn, mp_limb_t *scratch);
+
+/*
+ * Multiply + Shift
+ */
+
+mp_limb_t
+mpn_mulshift(mp_limb_t *zp,
+             const mp_limb_t *xp,
+             const mp_limb_t *yp,
+             int n, int bits,
+             mp_limb_t *scratch);
 
 /*
  * Weak Reduction

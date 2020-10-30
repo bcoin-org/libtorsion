@@ -814,53 +814,34 @@ sc_get_bits(const scalar_field_t *sc, const sc_t a, int pos, int width) {
 static int
 sc_reduce_weak(const scalar_field_t *sc, mp_limb_t *r,
                const mp_limb_t *a, mp_limb_t hi) {
-  mp_limb_t scratch[MAX_SCALAR_SIZE];
-  int ret = mpn_reduce_weak(r, a, sc->n, sc->limbs, hi, scratch);
+  mp_limb_t scratch[MPN_REDUCE_WEAK_ITCH(MAX_SCALAR_LIMBS)]; /* 144 bytes */
 
-#ifdef TORSION_VERIFY
-  ASSERT(mpn_cmp(r, sc->n, sc->limbs) < 0);
-#endif
-
-  return ret;
+  return mpn_reduce_weak(r, a, sc->n, sc->limbs, hi, scratch);
 }
 
 static void
-sc_add(const scalar_field_t *sc, sc_t r,
-       const sc_t a, const sc_t b) {
+sc_add(const scalar_field_t *sc, sc_t r, const sc_t a, const sc_t b) {
   mp_limb_t c = mpn_add_n(r, a, b, sc->limbs);
 
   sc_reduce_weak(sc, r, r, c);
 }
 
 TORSION_UNUSED static void
-sc_sub(const scalar_field_t *sc, sc_t r,
-       const sc_t a, const sc_t b) {
-  mp_limb_t t[MAX_SCALAR_LIMBS];
-  mp_limb_t c;
+sc_sub(const scalar_field_t *sc, sc_t r, const sc_t a, const sc_t b) {
+  mp_limb_t tp[MAX_SCALAR_LIMBS];
 
-  c = mpn_sub_n(t, sc->n, b, sc->limbs);
+  ASSERT(mpn_sub_n(tp, sc->n, b, sc->limbs) == 0);
 
-  ASSERT(c == 0);
-
-  c = mpn_add_n(r, a, t, sc->limbs);
-
-  sc_reduce_weak(sc, r, r, c);
+  sc_add(sc, r, a, tp);
 }
 
 static void
 sc_neg(const scalar_field_t *sc, sc_t r, const sc_t a) {
   int zero = sc_is_zero(sc, a);
-  mp_limb_t c;
 
-  c = mpn_sub_n(r, sc->n, a, sc->limbs);
-
-  ASSERT(c == 0);
+  ASSERT(mpn_sub_n(r, sc->n, a, sc->limbs) == 0);
 
   sc_select_zero(sc, r, r, zero);
-
-#ifdef TORSION_VERIFY
-  ASSERT(mpn_cmp(r, sc->n, sc->limbs) < 0);
-#endif
 }
 
 static void
@@ -873,13 +854,9 @@ sc_neg_cond(const scalar_field_t *sc, sc_t r, const sc_t a, int flag) {
 static void
 sc_reduce(const scalar_field_t *sc, sc_t r, const mp_limb_t *a) {
   /* Barrett reduction (264 bytes). */
-  mp_limb_t scratch[1 + MAX_REDUCE_LIMBS + MAX_SCALAR_LIMBS + 3];
+  mp_limb_t scratch[MPN_REDUCE_ITCH(MAX_SCALAR_LIMBS, MAX_REDUCE_LIMBS)];
 
   mpn_reduce(r, a, sc->m, sc->n, sc->limbs, sc->shift, scratch);
-
-#ifdef TORSION_VERIFY
-  ASSERT(mpn_cmp(r, sc->n, sc->limbs) < 0);
-#endif
 }
 
 static void
@@ -888,6 +865,20 @@ sc_mul(const scalar_field_t *sc, sc_t r, const sc_t a, const sc_t b) {
   int rn = sc->limbs * 2;
 
   mpn_mul_n(rp, a, b, sc->limbs);
+
+  mpn_zero(rp + rn, sc->shift - rn);
+
+  sc_reduce(sc, r, rp);
+}
+
+TORSION_UNUSED static void
+sc_sqr(const scalar_field_t *sc, sc_t r, const sc_t a) {
+  mp_limb_t scratch[MPN_SQR_ITCH(MAX_SCALAR_LIMBS)]; /* 144 bytes */
+  mp_limb_t rp[MAX_REDUCE_LIMBS]; /* 160 bytes */
+  int rn = sc->limbs * 2;
+
+  mpn_sqr(rp, a, sc->limbs, scratch);
+
   mpn_zero(rp + rn, sc->shift - rn);
 
   sc_reduce(sc, r, rp);
@@ -908,61 +899,16 @@ sc_mul_word(const scalar_field_t *sc, sc_t r, const sc_t a, mp_limb_t word) {
 static void
 sc_mulshift(const scalar_field_t *sc, sc_t r,
             const sc_t a, const sc_t b, int shift) {
-  /* Computes `r = round((a * b) / 2^shift)`.
-   *
-   * Constant time assuming `shift` is constant.
-   */
-  mp_limb_t scratch[MAX_SCALAR_LIMBS * 2]; /* 144 bytes */
-  mp_limb_t *rp = scratch;
-  int rn = sc->limbs * 2;
-  int limbs = shift / MP_LIMB_BITS;
-  int left = shift % MP_LIMB_BITS;
-  mp_limb_t bit, cy;
+  mp_limb_t scratch[MPN_MULSHIFT_ITCH(MAX_SCALAR_LIMBS)]; /* 144 bytes */
 
-  ASSERT(shift > sc->bits);
-
-  /* r = a * b */
-  mpn_mul_n(rp, a, b, sc->limbs);
-
-  /* bit = (r >> 383) & 1 */
-  bit = mpn_get_bit(rp, rn, shift - 1);
-
-  /* r >>= 384 */
-  rp += limbs;
-  rn -= limbs;
-
-  ASSERT(rn >= 0);
-
-  /* r >>= 0 */
-  if (left > 0)
-    mpn_rshift(rp, rp, rn, left);
-
-  /* r += bit */
-  cy = mpn_add_1(rp, rp, rn, bit);
-
-  ASSERT(cy == 0);
-  ASSERT(rn <= sc->limbs);
-
-  mpn_copy(r, rp, rn);
-  mpn_zero(r + rn, sc->limbs - rn);
-
-  mpn_cleanse(scratch, sc->limbs * 2);
-
-#ifdef TORSION_VERIFY
-  ASSERT(mpn_cmp(r, sc->n, sc->limbs) < 0);
-#endif
+  ASSERT(mpn_mulshift(r, a, b, sc->limbs, shift, scratch) == 0);
 }
 
 static void
-sc_montmul(const scalar_field_t *sc, sc_t r,
-           const sc_t a, const sc_t b) {
-  mp_limb_t scratch[MAX_SCALAR_LIMBS * 2]; /* 144 bytes */
+sc_montmul(const scalar_field_t *sc, sc_t r, const sc_t a, const sc_t b) {
+  mp_limb_t scratch[MPN_MONTMUL_ITCH(MAX_SCALAR_LIMBS)]; /* 144 bytes */
 
   mpn_montmul(r, a, b, sc->n, sc->limbs, sc->k, scratch);
-
-#ifdef TORSION_VERIFY
-  ASSERT(mpn_cmp(r, sc->n, sc->limbs) < 0);
-#endif
 }
 
 static void
@@ -2011,7 +1957,7 @@ fe_random(const prime_field_t *fe, fe_t x, drbg_t *rng) {
 
 static void
 scalar_field_init(scalar_field_t *sc, const scalar_def_t *def, int endian) {
-  mp_limb_t scratch[MAX_REDUCE_LIMBS + 1];
+  mp_limb_t scratch[MPN_BARRETT_MONT_ITCH(MAX_REDUCE_LIMBS)];
 
   /* Scalar field using Barrett reduction. */
   memset(sc, 0, sizeof(*sc));
@@ -2062,7 +2008,11 @@ scalar_field_init(scalar_field_t *sc, const scalar_def_t *def, int endian) {
    */
   mpn_barrett(sc->m, sc->n, sc->limbs, sc->shift, scratch);
 
-  /* Montgomery precomputation. */
+  /* Montgomery precomputation.
+   *
+   *   k = -n^-1 mod 2^limb_width
+   *   r2 = 2^(2 * limbs) mod n
+   */
   mpn_mont(&sc->k, sc->r2, sc->n, sc->limbs, scratch);
 
   /* Optimized scalar inverse (optional). */

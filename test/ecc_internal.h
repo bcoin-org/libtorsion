@@ -636,6 +636,11 @@ test_scalar_addsub_secq256k1(drbg_t *rng) {
     ASSERT(!sc_equal(sc, ab, a));
     ASSERT(sc_equal(sc, a1, a));
     ASSERT(sc_equal(sc, a2, a));
+
+    sc_mul(sc, a1, a, a);
+    sc_sqr(sc, a2, a);
+
+    ASSERT(sc_equal(sc, a1, a2));
   }
 
   sc_zero(sc, a);

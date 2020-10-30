@@ -723,6 +723,48 @@ mpn_sqr(mp_limb_t *zp, const mp_limb_t *xp, int xn, mp_limb_t *scratch) {
 }
 
 /*
+ * Multiply + Shift
+ */
+
+mp_limb_t
+mpn_mulshift(mp_limb_t *zp,
+             const mp_limb_t *xp,
+             const mp_limb_t *yp,
+             int n, int bits,
+             mp_limb_t *scratch) {
+  /* Computes `z = round((x * y) / 2^bits)`.
+   *
+   * Constant time assuming `bits` is constant.
+   *
+   * `2 * n` limbs are required for scratch.
+   */
+  int sn = bits / MP_LIMB_BITS;
+  int lo = bits % MP_LIMB_BITS;
+  mp_limb_t *tp = scratch;
+  int tn = n * 2;
+  int zn = tn - sn;
+  mp_limb_t b;
+
+  /* Ensure L <= bits <= 2 * L. */
+  ASSERT(sn >= n && sn <= n * 2);
+
+  /* t = x * y */
+  mpn_mul_n(tp, xp, yp, n);
+
+  /* z = t >> bits */
+  mpn_copy(zp, tp + sn, tn - sn);
+  mpn_zero(zp + zn, n - zn);
+
+  if (lo != 0)
+    mpn_rshift(zp, zp, zn, lo);
+
+  /* z += (t >> (bits - 1)) & 1 */
+  b = mpn_get_bit(tp, tn, bits - 1);
+
+  return mpn_add_1(zp, zp, n, b);
+}
+
+/*
  * Weak Reduction
  */
 
@@ -740,6 +782,10 @@ mpn_reduce_weak(mp_limb_t *zp,
 
   mpn_select(zp, xp, tp, n, c == 0);
 
+#ifdef TORSION_VERIFY
+  ASSERT(mpn_cmp(zp, np, n) < 0);
+#endif
+
   return c == 0;
 }
 
@@ -756,22 +802,24 @@ mpn_barrett(mp_limb_t *mp, const mp_limb_t *np,
    *
    * `shift` limbs are required for scratch.
    *
-   * Must have `shift - n + 1` limbs at mp.
+   * Must have `shift + 1 - n + 1` limbs at mp.
+   *
+   * Result will be `shift - n + 1` limbs.
    */
   mp_limb_t *xp = scratch;
-  int xn;
+  int xn = shift + 1;
 
-  ASSERT(n > 0);
-  ASSERT(shift >= n * 2);
+  CHECK(n > 0);
+  CHECK(shift >= n * 2);
 
   /* m = 2^(shift * L) / n */
-  xn = shift + 1;
-
   mpn_zero(xp, shift);
 
   xp[shift] = 1;
 
   mpn_div(mp, xp, xn, np, n);
+
+  CHECK(mpn_strip(mp, xn - n + 1) == shift - n + 1);
 }
 
 void
@@ -784,9 +832,9 @@ mpn_reduce(mp_limb_t *zp, const mp_limb_t *xp,
    *
    * [HANDBOOK] Algorithm 14.42, Page 604, Section 14.3.3.
    *
-   * `2 * (shift + 1) - n` limbs are required for scratch.
+   * `1 + shift + mn` limbs are required for scratch.
    *
-   * In other words: `1 + shift + mn` limbs.
+   * In other words: `2 * (shift + 1) - n` limbs.
    */
   int mn = shift - n + 1;
   mp_limb_t *qp = scratch;
@@ -821,10 +869,11 @@ mpn_mont(mp_limb_t *kp, mp_limb_t *rp,
    * `2 * n + 1` limbs are required for scratch.
    */
   mp_limb_t *xp = scratch;
+  int xn = n * 2 + 1;
   mp_limb_t k, t;
-  int i, xn;
+  int i;
 
-  ASSERT(n > 0);
+  CHECK(n > 0);
 
   /* k = -m^-1 mod 2^L */
   k = 2 - mp[0];
@@ -837,9 +886,7 @@ mpn_mont(mp_limb_t *kp, mp_limb_t *rp,
 
   kp[0] = -k;
 
-  /* r = 2^(n * L * 2) mod m */
-  xn = n * 2 + 1;
-
+  /* r = 2^(2 * n * L) mod m */
   mpn_zero(xp, n * 2);
 
   xp[n * 2] = 1;
@@ -1679,7 +1726,7 @@ mpn_div_powm(mp_limb_t *zp, const mp_limb_t *xp, int xn,
 
   ASSERT(len > 0);
 
-  if (yn > 2) {
+  if (yn > 2 && len >= MP_SLIDE_WIDTH) {
     mpn_sqr(sp, ap, mn, tp);
     mpn_mod_inner(rp, sp, sn, &den);
 
@@ -1778,7 +1825,7 @@ mpn_mont_powm(mp_limb_t *zp,
 
   mpn_montmul_var(ap, ap, rr, mp, mn, k, tp);
 
-  if (yn > 2) {
+  if (yn > 2 && len >= MP_SLIDE_WIDTH) {
     mpn_montmul_var(rp, ap, ap, mp, mn, k, tp);
 
 #define WND(i) &wp[(i) * mn]
