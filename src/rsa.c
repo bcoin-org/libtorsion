@@ -695,7 +695,9 @@ rsa_priv_set_pqe(rsa_priv_t *out,
   if (!mpz_invert(k.qi, q, p))
     goto fail;
 
+#ifdef TORSION_DEBUG
   ASSERT(rsa_priv_verify(&k));
+#endif
 
   rsa_priv_set(out, &k);
   ret = 1;
