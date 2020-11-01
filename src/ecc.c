@@ -1402,38 +1402,7 @@ fe_import_pad(const prime_field_t *fe, fe_t r,
   unsigned char tmp[MAX_FIELD_SIZE];
   int ret = 1;
 
-  if (fe->endian == 1) {
-    while (len > fe->size && raw[0] == 0x00) {
-      len -= 1;
-      raw += 1;
-    }
-
-    if (len > fe->size) {
-      fe_zero(fe, r);
-      return 0;
-    }
-
-    memset(tmp, 0x00, fe->size - len);
-
-    if (len > 0)
-      memcpy(tmp + fe->size - len, raw, len);
-  } else if (fe->endian == -1) {
-    while (len > fe->size && raw[len - 1] == 0x00)
-      len -= 1;
-
-    if (len > fe->size) {
-      fe_zero(fe, r);
-      return 0;
-    }
-
-    if (len > 0)
-      memcpy(tmp, raw, len);
-
-    memset(tmp + len, 0x00, fe->size - len);
-  } else {
-    torsion_abort(); /* LCOV_EXCL_LINE */
-  }
-
+  ret &= byte_pad(tmp, fe->size, raw, len, fe->endian);
   ret &= fe_import(fe, r, tmp);
 
   cleanse(tmp, fe->size);
