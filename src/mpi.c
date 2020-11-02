@@ -2601,6 +2601,9 @@ mpz_cmp_ui(const mpz_t x, mp_limb_t y) {
 
 int
 mpz_cmpabs(const mpz_t x, const mpz_t y) {
+  if (x == y)
+    return 0;
+
   return mpv_cmp(x->limbs, MP_ABS(x->size),
                  y->limbs, MP_ABS(y->size));
 }
@@ -2662,7 +2665,7 @@ mpz_add_ui(mpz_t z, const mpz_t x, mp_limb_t y) {
     /* (-x) + y == y - x == -(x - y) */
     if (xn == 1 && x->limbs[0] < y) {
       z->limbs[0] = y - x->limbs[0];
-      zn = 1;
+      zn = -1;
     } else {
       zn = mpv_sub_1(z->limbs, x->limbs, xn, y);
     }
@@ -2714,14 +2717,17 @@ mpz_sub_ui(mpz_t z, const mpz_t x, mp_limb_t y) {
 
   mpz_grow(z, zn);
 
-  if (x->size <= 0) {
+  if (x->size < 0) {
     /* x - (-y) == x + y */
     /* (-x) - y == -(x + y) */
     zn = mpv_add_1(z->limbs, x->limbs, xn, y);
   } else {
     /* x - y == x - y == -(y - x) */
     /* (-x) - (-y) == y - x == -(x - y) */
-    if (xn == 1 && x->limbs[0] < y) {
+    if (xn == 0) {
+      z->limbs[0] = y;
+      zn = -(y != 0);
+    } else if (xn == 1 && x->limbs[0] < y) {
       z->limbs[0] = y - x->limbs[0];
       zn = -1;
     } else {
@@ -3589,7 +3595,7 @@ mpz_is_prime_mr(const mpz_t n, int reps, int force2, mp_rng_f *rng, void *arg) {
    *
    * [HANDBOOK] Algorithm 4.24, Page 139, Section 4.2.3.
    */
-  mpz_t nm1, nm3, q, x, y;
+  mpz_t nm1, nm3, q, x, y, t;
   int ret = 0;
   int i, j, k;
 
@@ -3610,6 +3616,7 @@ mpz_is_prime_mr(const mpz_t n, int reps, int force2, mp_rng_f *rng, void *arg) {
   mpz_init(q);
   mpz_init(x);
   mpz_init(y);
+  mpz_init(t);
 
   /* nm1 = n - 1 */
   mpz_sub_ui(nm1, n, 1);
@@ -3642,8 +3649,8 @@ mpz_is_prime_mr(const mpz_t n, int reps, int force2, mp_rng_f *rng, void *arg) {
 
     for (j = 1; j < k; j++) {
       /* y = y^2 mod n */
-      mpz_sqr(y, y);
-      mpz_mod(y, y, n);
+      mpz_sqr(t, y);
+      mpz_mod(y, t, n);
 
       /* if y == -1 mod n */
       if (mpz_cmp(y, nm1) == 0)
@@ -3666,6 +3673,7 @@ fail:
   mpz_clear(q);
   mpz_clear(x);
   mpz_clear(y);
+  mpz_clear(t);
   return ret;
 }
 
@@ -3777,21 +3785,21 @@ mpz_is_prime_lucas(const mpz_t n, mp_limb_t limit) {
     if (mpz_get_bit(s, i)) {
       /* vk = vk * vk1 - p mod n */
       /* vk1 = vk1^2 - 2 mod n */
-      mpz_mul(vk, vk, vk1);
-      mpz_sub_ui(vk, vk, p);
-      mpz_mod(vk, vk, n);
-      mpz_sqr(vk1, vk1);
-      mpz_sub_ui(vk1, vk1, 2);
-      mpz_mod(vk1, vk1, n);
+      mpz_mul(t1, vk, vk1);
+      mpz_sub_ui(t1, t1, p);
+      mpz_mod(vk, t1, n);
+      mpz_sqr(t1, vk1);
+      mpz_sub_ui(t1, t1, 2);
+      mpz_mod(vk1, t1, n);
     } else {
       /* vk1 = vk1 * vk - p mod n */
       /* vk = vk^2 - 2 mod n */
-      mpz_mul(vk1, vk1, vk);
-      mpz_sub_ui(vk1, vk1, p);
-      mpz_mod(vk1, vk1, n);
-      mpz_sqr(vk, vk);
-      mpz_sub_ui(vk, vk, 2);
-      mpz_mod(vk, vk, n);
+      mpz_mul(t1, vk1, vk);
+      mpz_sub_ui(t1, t1, p);
+      mpz_mod(vk1, t1, n);
+      mpz_sqr(t1, vk);
+      mpz_sub_ui(t1, t1, 2);
+      mpz_mod(vk, t1, n);
     }
   }
 
@@ -3818,9 +3826,9 @@ mpz_is_prime_lucas(const mpz_t n, mp_limb_t limit) {
       goto fail;
 
     /* vk = vk^2 - 2 mod n */
-    mpz_sqr(vk, vk);
-    mpz_sub_ui(vk, vk, 2);
-    mpz_mod(vk, vk, n);
+    mpz_sqr(t1, vk);
+    mpz_sub_ui(t1, t1, 2);
+    mpz_mod(vk, t1, n);
   }
 
   goto fail;
