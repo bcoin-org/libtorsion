@@ -95,12 +95,12 @@ U_FUNCS_251 = add             \
               to_bytes        \
               from_bytes
 
-AFTER = sed -e 's;$(FIAT);;g'                               \
-            -e 's/unsigned __int128/torsion_uint128_t/g'    \
-            -e 's/signed __int128/torsion_int128_t/g'       \
-            -e 's/x2 & arg3/fiat_barrier(x2) \& arg3/g'     \
-            -e 's/(~x2) & arg2/fiat_barrier(~x2) \& arg2/g' \
-            -e '$$ d' < $@ > $@.tmp;                        \
+AFTER = sed -e 's;$(FIAT);;g'                                  \
+            -e 's/unsigned __int128/torsion_uint128_t/g'       \
+            -e 's/signed __int128/torsion_int128_t/g'          \
+            -e 's/x2 & arg3/fe_word_barrier(x2) \& arg3/g'     \
+            -e 's/(~x2) & arg2/fe_word_barrier(~x2) \& arg2/g' \
+            -e '$$ d' < $@ > $@.tmp;                           \
         mv -f $@.tmp $@;
 
 all: $(OUTPUT)

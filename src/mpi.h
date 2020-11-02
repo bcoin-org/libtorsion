@@ -168,7 +168,7 @@ typedef uint64_t mp_wide_t;
 #define MP_LOW_MASK (MP_LIMB_MAX >> MP_LOW_BITS)
 #define MP_SIZE_MAX (INT_MAX / MP_LIMB_BITS)
 
-TORSION_BARRIER(mp_limb_t, mp_limb)
+TORSION_UNUSED TORSION_BARRIER(mp_limb_t, mp_limb)
 
 struct mpz_s {
   mp_limb_t *limbs;

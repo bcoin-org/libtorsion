@@ -173,7 +173,7 @@ typedef uint32_t fe_word_t;
 #endif
 
 TORSION_BARRIER(int, int)
-TORSION_BARRIER(fe_word_t, fiat)
+TORSION_BARRIER(fe_word_t, fe_word)
 
 #define MAX_FIELD_BITS 521
 #define MAX_FIELD_SIZE 66
@@ -1427,7 +1427,7 @@ fe_export(const prime_field_t *fe, unsigned char *raw, const fe_t a) {
 static void
 fe_swap(const prime_field_t *fe, fe_t a, fe_t b, int flag) {
   fe_word_t cond = (flag != 0);
-  fe_word_t mask = fiat_barrier(-cond);
+  fe_word_t mask = fe_word_barrier(-cond);
   int i;
 
   for (i = 0; i < fe->words; i++) {

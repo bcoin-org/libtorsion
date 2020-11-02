@@ -222,9 +222,9 @@ typedef struct rsa_priv_s {
  * Helpers
  */
 
-TORSION_BARRIER(uint32_t, u32)
+TORSION_BARRIER(uint32_t, uint32)
 
-#define B u32_barrier
+#define B uint32_barrier
 
 static TORSION_INLINE uint32_t
 safe_equal(uint32_t x, uint32_t y) {
