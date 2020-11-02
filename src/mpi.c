@@ -3675,7 +3675,7 @@ mpz_is_prime_lucas(const mpz_t n, mp_limb_t limit) {
    *
    * [LUCAS] Page 1401, Section 5.
    */
-  mpz_t d, s, nm2, vk, vk1, t1, t2, t3;
+  mpz_t d, s, nm2, vk, vk1, t1, t2;
   int i, j, r, t;
   int ret = 0;
   mp_limb_t p;
@@ -3687,7 +3687,6 @@ mpz_is_prime_lucas(const mpz_t n, mp_limb_t limit) {
   mpz_init(vk1);
   mpz_init(t1);
   mpz_init(t2);
-  mpz_init(t3);
 
   /* if n <= 1 */
   if (mpz_cmp_ui(n, 1) <= 0)
@@ -3723,11 +3722,11 @@ mpz_is_prime_lucas(const mpz_t n, mp_limb_t limit) {
 
     j = mpz_jacobi(d, n);
 
-    /* if d is not square mod n */
+    /* if d is not square in F(n) */
     if (j == -1)
       break;
 
-    /* if d == 0 mod n */
+    /* if d is zero in F(n) */
     if (j == 0) {
       /* if n == p + 2 */
       if (mpz_cmp_ui(n, p + 2) == 0)
@@ -3740,7 +3739,7 @@ mpz_is_prime_lucas(const mpz_t n, mp_limb_t limit) {
       mpz_set_bit(t2, mpz_bitlen(n) / 2 + 1);
 
       do {
-        mpz_swap(t1, t2);
+        mpz_set(t1, t2);
         mpz_quo(t2, n, t1);
         mpz_add(t2, t2, t1);
         mpz_rshift(t2, t2, 1);
@@ -3776,42 +3775,36 @@ mpz_is_prime_lucas(const mpz_t n, mp_limb_t limit) {
   for (i = mpz_bitlen(s); i >= 0; i--) {
     /* if floor(s / 2^i) mod 2 == 1 */
     if (mpz_get_bit(s, i)) {
-      /* vk = (vk * vk1 + n - p) mod n */
-      /* vk1 = (vk1^2 + nm2) mod n */
-      mpz_mul(t1, vk, vk1);
-      mpz_add(t1, t1, n);
-      mpz_sub_ui(t1, t1, p);
-      mpz_mod(vk, t1, n);
-      mpz_sqr(t1, vk1);
-      mpz_add(t1, t1, nm2);
-      mpz_mod(vk1, t1, n);
+      /* vk = vk * vk1 - p mod n */
+      /* vk1 = vk1^2 - 2 mod n */
+      mpz_mul(vk, vk, vk1);
+      mpz_sub_ui(vk, vk, p);
+      mpz_mod(vk, vk, n);
+      mpz_sqr(vk1, vk1);
+      mpz_sub_ui(vk1, vk1, 2);
+      mpz_mod(vk1, vk1, n);
     } else {
-      /* vk1 = (vk * vk1 + n - p) mod n */
-      /* vk = (vk^2 + nm2) mod n */
-      mpz_mul(t1, vk, vk1);
-      mpz_add(t1, t1, n);
-      mpz_sub_ui(t1, t1, p);
-      mpz_mod(vk1, t1, n);
-      mpz_sqr(t1, vk);
-      mpz_add(t1, t1, nm2);
-      mpz_mod(vk, t1, n);
+      /* vk1 = vk1 * vk - p mod n */
+      /* vk = vk^2 - 2 mod n */
+      mpz_mul(vk1, vk1, vk);
+      mpz_sub_ui(vk1, vk1, p);
+      mpz_mod(vk1, vk1, n);
+      mpz_sqr(vk, vk);
+      mpz_sub_ui(vk, vk, 2);
+      mpz_mod(vk, vk, n);
     }
   }
 
-  /* if vk == 2 or vk == nm2 */
+  /* if vk == +-2 mod n */
   if (mpz_cmp_ui(vk, 2) == 0 || mpz_cmp(vk, nm2) == 0) {
-    /* t3 = abs(vk * p - vk1 * 2) mod n */
     mpz_mul_ui(t1, vk, p);
     mpz_lshift(t2, vk1, 1);
 
-    if (mpz_cmp(t1, t2) < 0)
-      mpz_swap(t1, t2);
+    mpz_mod(t1, t1, n);
+    mpz_mod(t2, t2, n);
 
-    mpz_sub(t1, t1, t2);
-    mpz_mod(t3, t1, n);
-
-    /* if t3 == 0 */
-    if (mpz_sgn(t3) == 0)
+    /* if vk * p == vk1 * 2 mod n */
+    if (mpz_cmp(t1, t2) == 0)
       goto succeed;
   }
 
@@ -3824,10 +3817,10 @@ mpz_is_prime_lucas(const mpz_t n, mp_limb_t limit) {
     if (mpz_cmp_ui(vk, 2) == 0)
       goto fail;
 
-    /* vk = (vk^2 - 2) mod n */
-    mpz_sqr(t1, vk);
-    mpz_sub_ui(t1, t1, 2);
-    mpz_mod(vk, t1, n);
+    /* vk = vk^2 - 2 mod n */
+    mpz_sqr(vk, vk);
+    mpz_sub_ui(vk, vk, 2);
+    mpz_mod(vk, vk, n);
   }
 
   goto fail;
@@ -3841,7 +3834,6 @@ fail:
   mpz_clear(vk1);
   mpz_clear(t1);
   mpz_clear(t2);
-  mpz_clear(t3);
   return ret;
 }
 
