@@ -234,14 +234,14 @@ else()
   set(TORSION_HAS_TLS_FALLBACK 0)
 endif()
 
-set(TORSION_HAS_VALGRIND 0)
+set(TORSION_HAS_MEMCHECK 0)
 set(TORSION_HAS_ZLIB 0)
 
 if(BUILD_TESTING AND NOT TORSION_WASM AND NOT WIN32)
   check_include_file(valgrind/memcheck.h TORSION_HAS_MEMCHECK_H)
 
   if(TORSION_HAS_MEMCHECK_H)
-    set(TORSION_HAS_VALGRIND 1)
+    set(TORSION_HAS_MEMCHECK 1)
   endif()
 
   if (TORSION_ENABLE_RNG)
@@ -516,7 +516,7 @@ else()
                                                       ${test_libs})
     add_test(NAME test_static COMMAND torsion_test_static)
 
-    if(TORSION_HAS_VALGRIND)
+    if(TORSION_HAS_MEMCHECK)
       add_executable(torsion_ctgrind test/ctgrind.c test/utils.c)
       target_link_libraries(torsion_ctgrind PRIVATE torsion)
     endif()
@@ -524,7 +524,7 @@ else()
     find_program(TORSION_VALGRIND valgrind)
 
     if(TORSION_VALGRIND)
-      if(TORSION_HAS_VALGRIND)
+      if(TORSION_HAS_MEMCHECK AND NOT TORSION_ENABLE_DEBUG)
         add_test(NAME test_ctgrind COMMAND ${TORSION_VALGRIND}
                                             --leak-check=full
                                             --error-exitcode=1
@@ -542,7 +542,7 @@ else()
       add_custom_target(check COMMAND ${CMAKE_MAKE_PROGRAM} test)
 
       if(TORSION_VALGRIND)
-        if(TORSION_HAS_VALGRIND)
+        if(TORSION_HAS_MEMCHECK AND NOT TORSION_ENABLE_DEBUG)
           add_custom_target(ctgrind COMMAND ${TORSION_VALGRIND}
                                             --leak-check=full
                                             --error-exitcode=1

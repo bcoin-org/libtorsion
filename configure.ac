@@ -182,10 +182,10 @@ has_asm=no
 has_asm_x64=no
 has_int128=no
 has_fork=no
+has_memcheck=no
 has_pthread=no
 has_tls=no
 has_tls_fallback=no
-has_valgrind=no
 has_zlib=no
 
 AS_IF([test x"$enable_asm" = x"yes"], [
@@ -317,7 +317,7 @@ AS_IF([test x"$has_tls" != x"yes"], [
 ])
 
 AS_IF([test x"$enable_tests" = x"yes" -a x"$WASM" != x"yes"], [
-  AC_CHECK_HEADER([valgrind/memcheck.h], [has_valgrind=yes])
+  AC_CHECK_HEADER([valgrind/memcheck.h], [has_memcheck=yes])
 
   AS_IF([test x"$enable_rng" = x"yes"], [
     AC_CHECK_HEADER([zlib.h], [
@@ -396,7 +396,7 @@ AS_IF([test x"$has_tls_fallback" = x"yes"], [
 AC_SUBST(WASI)
 
 AM_CONDITIONAL([EMSCRIPTEN], [test x"$EMSCRIPTEN" != x""])
-AM_CONDITIONAL([ENABLE_CTGRIND], [test x"$has_valgrind" = x"yes"])
+AM_CONDITIONAL([ENABLE_CTGRIND], [test x"$has_memcheck" = x"yes"])
 AM_CONDITIONAL([ENABLE_PTHREAD], [test x"$has_pthread" = x"yes"])
 AM_CONDITIONAL([ENABLE_RNG], [test x"$enable_rng" = x"yes"])
 AM_CONDITIONAL([ENABLE_TESTS], [test x"$enable_tests" = x"yes"])
@@ -422,12 +422,12 @@ AC_MSG_NOTICE([Build Options:
   emscripten   = $EMSCRIPTEN
   fork         = $has_fork
   int128       = $has_int128
+  memcheck     = $has_memcheck
   pthread      = $has_pthread
   rng          = $enable_rng
   tests        = $enable_tests
   tls          = $has_tls
   tls fallback = $has_tls_fallback
-  valgrind     = $has_valgrind
   verify       = $enable_verify
   wasi         = $WASI
   zlib         = $has_zlib
