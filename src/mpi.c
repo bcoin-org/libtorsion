@@ -50,10 +50,6 @@
 #define MP_MAX(x, y) ((x) > (y) ? (x) : (y))
 #define MP_ABS(x) ((x) < 0 ? -(x) : (x))
 
-/* Max stack allocation size for alloca: */
-/* 1536 bytes (three 4096 bit RSA moduli). */
-#define MP_AM ((3 * 4096) / MP_LIMB_BITS + 1)
-
 #if defined(__GNUC__) || __has_builtin(__builtin_alloca)
 #  define mp_alloca __builtin_alloca
 #elif defined(_MSC_VER)
@@ -62,10 +58,16 @@
 #endif
 
 #if defined(mp_alloca)
+/* Max stack allocation size for alloca: */
+/* 1536 bytes (three 4096 bit RSA moduli). */
+#  define mp_alloca_max ((3 * 4096) / MP_LIMB_BITS + 1)
 #  define mp_alloca_limbs(n) ((mp_limb_t *)mp_alloca((n) * sizeof(mp_limb_t)))
-#  define mp_alloc_vla(n) ((n) > MP_AM ? mp_alloc_limbs(n) : mp_alloca_limbs(n))
-#  define mp_free_vla(p, n) do { if ((n) > MP_AM) mp_free_limbs(p); } while (0)
+#  define mp_alloc_vla(n) \
+     ((n) > mp_alloca_max ? mp_alloc_limbs(n) : mp_alloca_limbs(n))
+#  define mp_free_vla(p, n) \
+     do { if ((n) > mp_alloca_max) mp_free_limbs(p); } while (0)
 #else
+#  define mp_alloca_max 0
 #  define mp_alloc_vla(n) mp_alloc_limbs(n)
 #  define mp_free_vla(p, n) mp_free_limbs(p)
 #endif
@@ -2818,19 +2820,22 @@ mpz_sqr(mpz_t z, const mpz_t x) {
   if (xn == 1) {
     mp_sqr(z->limbs[1], z->limbs[0], x->limbs[0]);
     zn -= (z->limbs[1] == 0);
-  } else {
-    tn = z == x ? zn * 2 : zn;
+  } else if (z == x) {
+    tn = zn * 2;
     tp = mp_alloc_vla(tn);
+    zn = mpv_sqr(tp, x->limbs, xn, tp + zn);
 
-    if (z == x) {
-      zn = mpv_sqr(tp, x->limbs, xn, tp + zn);
-
-      mpn_copy(z->limbs, tp, zn);
-    } else {
-      zn = mpv_sqr(z->limbs, x->limbs, xn, tp);
-    }
+    mpn_copy(z->limbs, tp, zn);
 
     mp_free_vla(tp, tn);
+  } else if (zn <= mp_alloca_max) {
+    tn = zn;
+    tp = mp_alloc_vla(tn);
+    zn = mpv_sqr(z->limbs, x->limbs, xn, tp);
+
+    mp_free_vla(tp, tn);
+  } else {
+    zn = mpv_mul(z->limbs, x->limbs, xn, x->limbs, xn);
   }
 
   z->size = zn;
