@@ -775,8 +775,8 @@ rsa_priv_set_ned(rsa_priv_t *out,
   static const unsigned char default_entropy[ENTROPY_SIZE] = {0};
   mpz_t f, nm1, nm3, g, a, b, c, p, q;
   int i, j, s;
-  drbg_t rng;
   int ret = 0;
+  drbg_t rng;
 
   mpz_init(f);
   mpz_init(nm1);
@@ -840,7 +840,7 @@ rsa_priv_set_ned(rsa_priv_t *out,
 
     for (j = 1; j < s; j++) {
       /* c = b^2 mod n */
-      mpz_mul(c, b, b);
+      mpz_sqr(c, b);
       mpz_mod(c, c, n);
 
       if (mpz_cmp_ui(c, 1) == 0) {
@@ -1152,8 +1152,8 @@ rsa_pub_veil(const rsa_pub_t *k,
     goto fail;
 
   /* vmax = 1 << bits */
-  mpz_set_ui(vmax, 1);
-  mpz_lshift(vmax, vmax, bits);
+  mpz_set_ui(vmax, 0);
+  mpz_set_bit(vmax, bits);
 
   /* rmax = (vmax - c + n - 1) / n */
   mpz_sub(rmax, vmax, c);
