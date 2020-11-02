@@ -2864,11 +2864,11 @@ mpz_div_inner(mpz_t q, mpz_t r, const mpz_t n, const mpz_t d, int euclid) {
     torsion_abort(); /* LCOV_EXCL_LINE */
 
   if (nn == 0) {
-    if (r != NULL)
-      r->size = 0;
-
     if (q != NULL)
       q->size = 0;
+
+    if (r != NULL)
+      r->size = 0;
 
     return;
   }
