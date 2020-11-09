@@ -1428,10 +1428,11 @@ static void
 fe_swap(const prime_field_t *fe, fe_t a, fe_t b, int flag) {
   fe_word_t cond = (flag != 0);
   fe_word_t mask = fe_word_barrier(-cond);
+  fe_word_t word;
   int i;
 
   for (i = 0; i < fe->words; i++) {
-    fe_word_t word = (a[i] ^ b[i]) & mask;
+    word = (a[i] ^ b[i]) & mask;
 
     a[i] ^= word;
     b[i] ^= word;
