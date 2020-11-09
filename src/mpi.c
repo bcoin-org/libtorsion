@@ -749,6 +749,7 @@ mpn_mulshift(mp_limb_t *zp,
 
   /* Ensure L <= bits <= 2 * L. */
   ASSERT(sn >= n && sn <= n * 2);
+  ASSERT(zn <= n);
 
   /* t = x * y */
   mpn_mul_n(tp, xp, yp, n);
@@ -1732,7 +1733,7 @@ mpn_div_powm(mp_limb_t *zp, const mp_limb_t *xp, int xn,
     mpn_sqr(sp, ap, mn, tp);
     mpn_mod_inner(rp, sp, sn, &den);
 
-#define WND(i) &wp[(i) * mn]
+#define WND(i) (&wp[(i) * mn])
 
     mpn_copy(WND(0), ap, mn);
 
@@ -1830,7 +1831,7 @@ mpn_mont_powm(mp_limb_t *zp,
   if (yn > 2 && len >= MP_SLIDE_WIDTH) {
     mpn_montmul_var(rp, ap, ap, mp, mn, k, tp);
 
-#define WND(i) &wp[(i) * mn]
+#define WND(i) (&wp[(i) * mn])
 
     mpn_copy(WND(0), ap, mn);
 
@@ -1951,7 +1952,7 @@ mpn_sec_powm(mp_limb_t *zp,
 
   mpn_mont(&k, rr, mp, mn, tp);
 
-#define WND(i) &wp[(i) * mn]
+#define WND(i) (&wp[(i) * mn])
 
   mpn_set_1(WND(0), mn, 1);
   mpn_montmul(WND(0), WND(0), rr, mp, mn, k, tp);
@@ -2532,7 +2533,7 @@ mpz_set_u64(mpz_t z, uint64_t x) {
 
     z->limbs[0] = x;
     z->limbs[1] = x >> 32;
-    z->size = mpn_strip(z->limbs, 2);
+    z->size = 2 - (z->limbs[1] == 0);
   }
 #else
   mpz_set_ui(z, x);
@@ -3810,13 +3811,13 @@ mpz_is_prime_lucas(const mpz_t n, mp_limb_t limit) {
 
   /* if vk == +-2 mod n */
   if (mpz_cmp_ui(vk, 2) == 0 || mpz_cmp(vk, nm2) == 0) {
+    /* if vk * p == vk1 * 2 mod n */
     mpz_mul_ui(t1, vk, p);
     mpz_lshift(t2, vk1, 1);
 
     mpz_mod(t1, t1, n);
     mpz_mod(t2, t2, n);
 
-    /* if vk * p == vk1 * 2 mod n */
     if (mpz_cmp(t1, t2) == 0)
       goto succeed;
   }
@@ -4057,7 +4058,9 @@ mpz_random_bits(mpz_t z, int bits, mp_rng_f *rng, void *arg) {
 
   z->size = mpn_strip(z->limbs, zn);
 
+#ifdef TORSION_DEBUG
   ASSERT(mpz_bitlen(z) <= bits);
+#endif
 }
 
 void
