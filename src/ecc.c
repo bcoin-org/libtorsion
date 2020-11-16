@@ -957,13 +957,6 @@ sc_import(const scalar_field_t *sc, sc_t r, const unsigned char *raw) {
 }
 
 static int
-sc_import_weak(const scalar_field_t *sc, sc_t r, const unsigned char *raw) {
-  sc_import_raw(sc, r, raw);
-
-  return sc_reduce_weak(sc, r, r, 0) ^ 1;
-}
-
-static int
 sc_import_wide(const scalar_field_t *sc, sc_t r,
                const unsigned char *raw, size_t len) {
   mp_limb_t rp[MAX_REDUCE_LIMBS]; /* 160 bytes */
@@ -986,6 +979,13 @@ sc_import_wide(const scalar_field_t *sc, sc_t r,
 }
 
 static int
+sc_import_weak(const scalar_field_t *sc, sc_t r, const unsigned char *raw) {
+  sc_import_raw(sc, r, raw);
+
+  return sc_reduce_weak(sc, r, r, 0) ^ 1;
+}
+
+static int
 sc_import_strong(const scalar_field_t *sc, sc_t r, const unsigned char *raw) {
   return sc_import_wide(sc, r, raw, sc->size);
 }
@@ -1001,16 +1001,24 @@ sc_import_reduce(const scalar_field_t *sc, sc_t r, const unsigned char *raw) {
 static int
 sc_import_pad_raw(const scalar_field_t *sc, sc_t r,
                   const unsigned char *raw, size_t len) {
-  unsigned char tmp[MAX_SCALAR_SIZE];
-  int ret = 1;
+  if (sc->endian == 1) {
+    while (len > sc->size && raw[0] == 0x00) {
+      raw += 1;
+      len -= 1;
+    }
+  } else {
+    while (len > sc->size && raw[len - 1] == 0x00)
+      len -= 1;
+  }
 
-  ret &= byte_pad(tmp, sc->size, raw, len, sc->endian);
+  if (len > sc->size) {
+    mpn_zero(r, sc->limbs);
+    return 0;
+  }
 
-  sc_import_raw(sc, r, tmp);
+  mpn_import(r, sc->limbs, raw, len, sc->endian);
 
-  cleanse(tmp, sc->size);
-
-  return ret;
+  return 1;
 }
 
 static int
@@ -1807,16 +1815,16 @@ fe_is_square_var(const prime_field_t *fe, const fe_t a) {
 static int
 fe_is_square(const prime_field_t *fe, const fe_t a) {
   int ret = 1;
-  fe_t b;
+  fe_t r;
 
   if (fe->legendre != NULL) {
     /* Fast legendre chain (P224). */
-    fe->legendre(b, a);
+    fe->legendre(r, a);
 
-    ret &= fe_equal(fe, b, fe->mone) ^ 1;
+    ret &= fe_equal(fe, r, fe->mone) ^ 1;
   } else if (fe->sqrt != NULL) {
     /* Fast square root chain. */
-    ret &= fe->sqrt(b, a);
+    ret &= fe->sqrt(r, a);
   } else {
     /* Euler's criterion. */
     mp_limb_t e[MAX_FIELD_LIMBS];
@@ -1825,17 +1833,17 @@ fe_is_square(const prime_field_t *fe, const fe_t a) {
     mpn_sub_1(e, fe->p, fe->limbs, 1);
     mpn_rshift(e, e, fe->limbs, 1);
 
-    /* b = a^e mod p */
-    fe_pow(fe, b, a, e);
+    /* r = a^e mod p */
+    fe_pow(fe, r, a, e);
 
-    ret &= fe_equal(fe, b, fe->mone) ^ 1;
+    ret &= fe_equal(fe, r, fe->mone) ^ 1;
   }
 
 #ifdef TORSION_VERIFY
   if (fe->legendre != NULL || fe->sqrt == NULL) {
-    int x = fe_is_zero(fe, b);
-    int y = fe_equal(fe, b, fe->one);
-    int z = fe_equal(fe, b, fe->mone);
+    int x = fe_is_zero(fe, r);
+    int y = fe_equal(fe, r, fe->one);
+    int z = fe_equal(fe, r, fe->mone);
 
     ASSERT(x + y + z == 1);
   }
@@ -11001,43 +11009,20 @@ ecdsa_reduce(const wei_t *ec, sc_t r,
    * is more similar to the SEC1 behavior).
    */
   const scalar_field_t *sc = &ec->sc;
-  unsigned char tmp[MAX_SCALAR_SIZE];
-  int ret = 1;
 
   /* Truncate. */
   if (msg_len > sc->size)
     msg_len = sc->size;
 
-  /* Copy and pad. */
-  memset(tmp, 0x00, sc->size - msg_len);
-
-  if (msg_len > 0)
-    memcpy(tmp + sc->size - msg_len, msg, msg_len);
+  /* Import and pad. */
+  mpn_import(r, sc->limbs, msg, msg_len, sc->endian);
 
   /* Shift by the remaining bits. */
-  /* Note that the message length is not secret. */
-  if (msg_len * 8 > (size_t)sc->bits) {
-    unsigned int shift = msg_len * 8 - sc->bits;
-    unsigned int mask = (1 << shift) - 1;
-    unsigned int cy = 0;
-    size_t i;
+  if (msg_len * 8 > (size_t)sc->bits)
+    mpn_rshift(r, r, sc->limbs, msg_len * 8 - sc->bits);
 
-    ASSERT(shift > 0);
-    ASSERT(shift < 8);
-
-    for (i = 0; i < sc->size; i++) {
-      unsigned int ch = tmp[i];
-
-      tmp[i] = ((cy << (8 - shift)) | (ch >> shift)) & 0xff;
-      cy = ch & mask;
-    }
-  }
-
-  ret &= sc_import_weak(sc, r, tmp);
-
-  cleanse(tmp, sc->size);
-
-  return ret;
+  /* Reduce (r < 2^ceil(log2(n+1))). */
+  return sc_reduce_weak(sc, r, r, 0) ^ 1;
 }
 
 int
