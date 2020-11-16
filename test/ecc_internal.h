@@ -491,7 +491,7 @@ test_scalar_encoding_secq256k1(drbg_t *unused) {
   mpn_zero(r, ARRAY_SIZE(r));
   mpn_zero(t, ARRAY_SIZE(t));
 
-  mpn_copy(t, sc->n, sc->limbs);
+  mpn_copyi(t, sc->n, sc->limbs);
 
   sc_reduce(sc, r, t);
 
@@ -561,7 +561,7 @@ test_scalar_encoding_q25519(drbg_t *unused) {
   mpn_zero(r, ARRAY_SIZE(r));
   mpn_zero(t, ARRAY_SIZE(t));
 
-  mpn_copy(t, sc->n, sc->limbs);
+  mpn_copyi(t, sc->n, sc->limbs);
 
   sc_reduce(sc, r, t);
 

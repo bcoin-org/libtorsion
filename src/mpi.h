@@ -24,7 +24,8 @@
 #define mpn_zero __torsion_mpn_zero
 #define mpn_cleanse __torsion_mpn_cleanse
 #define mpn_set_1 __torsion_mpn_set_1
-#define mpn_copy __torsion_mpn_copy
+#define mpn_copyi __torsion_mpn_copyi
+#define mpn_copyd __torsion_mpn_copyd
 #define mpn_zero_p __torsion_mpn_zero_p
 #define mpn_cmp __torsion_mpn_cmp
 #define mpn_add_1 __torsion_mpn_add_1
@@ -164,6 +165,7 @@ typedef uint64_t mp_wide_t;
 #  define MP_LIMB_MAX MP_LIMB_C(0xffffffff)
 #endif
 
+#define MP_MASK(bits) ((MP_LIMB_C(1) << (bits)) - 1)
 #define MP_LOW_BITS (MP_LIMB_BITS / 2)
 #define MP_LOW_MASK (MP_LIMB_MAX >> MP_LOW_BITS)
 #define MP_SIZE_MAX (INT_MAX / MP_LIMB_BITS)
@@ -248,7 +250,10 @@ void
 mpn_set_1(mp_limb_t *xp, int xn, mp_limb_t y);
 
 void
-mpn_copy(mp_limb_t *zp, const mp_limb_t *xp, int xn);
+mpn_copyi(mp_limb_t *zp, const mp_limb_t *xp, int xn);
+
+void
+mpn_copyd(mp_limb_t *zp, const mp_limb_t *xp, int xn);
 
 /*
  * Comparison

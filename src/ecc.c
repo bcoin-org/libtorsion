@@ -747,7 +747,7 @@ sc_cleanse(const scalar_field_t *sc, sc_t r) {
 
 static void
 sc_set(const scalar_field_t *sc, sc_t r, const sc_t a) {
-  mpn_copy(r, a, sc->limbs);
+  mpn_copyi(r, a, sc->limbs);
 }
 
 static void
