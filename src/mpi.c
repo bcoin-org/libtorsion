@@ -2020,7 +2020,10 @@ mpn_strip(const mp_limb_t *xp, int xn) {
 
 int
 mpn_odd_p(const mp_limb_t *xp, int xn) {
-  return xn > 0 && (xp[0] & 1) != 0;
+  if (xn == 0)
+    return 0;
+
+  return xp[0] & 1;
 }
 
 int
@@ -2941,7 +2944,7 @@ mpz_div_inner(mpz_t q, mpz_t r, const mpz_t n, const mpz_t d, int euclid) {
   if (r != NULL)
     r->size = rs ? -rn : rn;
 
-  if (euclid) {
+  if (euclid && rs) {
     if (q != NULL) {
       CHECK(r != NULL);
 
@@ -3021,6 +3024,7 @@ mpz_div_ui_inner(mpz_t q, const mpz_t n, mp_limb_t d, int euclid) {
 
 void
 mpz_quorem(mpz_t q, mpz_t r, const mpz_t n, const mpz_t d) {
+  CHECK(q != NULL && r != NULL);
   mpz_div_inner(q, r, n, d, 0);
 }
 
@@ -3036,6 +3040,7 @@ mpz_rem(mpz_t r, const mpz_t n, const mpz_t d) {
 
 mp_limb_t
 mpz_quo_ui(mpz_t q, const mpz_t n, mp_limb_t d) {
+  CHECK(q != NULL);
   return mpz_div_ui_inner(q, n, d, 0);
 }
 
@@ -3050,12 +3055,22 @@ mpz_rem_ui(const mpz_t n, mp_limb_t d) {
 
 void
 mpz_divmod(mpz_t q, mpz_t r, const mpz_t n, const mpz_t d) {
+  CHECK(q != NULL && r != NULL);
   mpz_div_inner(q, r, n, d, 1);
 }
 
 void
 mpz_div(mpz_t q, const mpz_t n, const mpz_t d) {
-  mpz_div_inner(q, NULL, n, d, 1);
+  CHECK(q != NULL);
+
+  if (n->size < 0) {
+    mpz_t r;
+    mpz_init(r);
+    mpz_div_inner(q, r, n, d, 1);
+    mpz_clear(r);
+  } else {
+    mpz_div_inner(q, NULL, n, d, 1);
+  }
 }
 
 void
@@ -3065,6 +3080,7 @@ mpz_mod(mpz_t r, const mpz_t n, const mpz_t d) {
 
 mp_limb_t
 mpz_div_ui(mpz_t q, const mpz_t n, mp_limb_t d) {
+  CHECK(q != NULL);
   return mpz_div_ui_inner(q, n, d, 1);
 }
 
@@ -3172,7 +3188,7 @@ mpz_get_bit(const mpz_t x, int pos) {
 
 mp_limb_t
 mpz_get_bits(const mpz_t x, int pos, int width) {
-  CHECK(width <= 31);
+  CHECK(width < 32);
   return mpn_get_bits(x->limbs, MP_ABS(x->size), pos, width);
 }
 
@@ -3317,15 +3333,6 @@ mpz_gcdext(mpz_t g, mpz_t s, mpz_t t, const mpz_t x, const mpz_t y) {
   mpz_t u, v, A, B, C, D, up, vp;
   int i, j, shift;
 
-  mpz_init(u);
-  mpz_init(v);
-  mpz_init(A);
-  mpz_init(B);
-  mpz_init(C);
-  mpz_init(D);
-  mpz_init(up);
-  mpz_init(vp);
-
   if (x->size == 0) {
     if (g != NULL)
       mpz_abs(g, y);
@@ -3359,6 +3366,15 @@ mpz_gcdext(mpz_t g, mpz_t s, mpz_t t, const mpz_t x, const mpz_t y) {
 
     return;
   }
+
+  mpz_init(u);
+  mpz_init(v);
+  mpz_init(A);
+  mpz_init(B);
+  mpz_init(C);
+  mpz_init(D);
+  mpz_init(up);
+  mpz_init(vp);
 
   mpz_abs(u, x);
   mpz_abs(v, y);
@@ -3772,12 +3788,13 @@ mpz_is_prime_lucas(const mpz_t n, mp_limb_t limit) {
       goto fail;
     }
 
-    /* d = p * p - 4 */
+    /* d = p^2 - 4 */
     mpz_set_ui(d, p * p - 4);
 
+    /* j = jacobi(d) in F(n) */
     j = mpz_jacobi(d, n);
 
-    /* if d is not square in F(n) */
+    /* if d is non-square in F(n) */
     if (j == -1)
       break;
 
@@ -4107,6 +4124,8 @@ mpz_random_bits(mpz_t z, int bits, mp_rng_f *rng, void *arg) {
 void
 mpz_random_int(mpz_t z, const mpz_t max, mp_rng_f *rng, void *arg) {
   int bits = mpz_bitlen(max);
+
+  CHECK(z != max);
 
   if (bits > 0) {
     do {
