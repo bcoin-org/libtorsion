@@ -163,7 +163,7 @@
     : "cc"                    \
   )
 
-/* [z, c] = x * y + z + c */
+/* [z, c] = z + x * y + c */
 #define mp_addmul_1(z, c, x, y) \
   __asm__ (                     \
     "mulq %q3\n"                \
@@ -237,15 +237,15 @@
 } while (0)
 
 #define mp_addmul_1(z, c, x, y) do {               \
-  mp_wide_t _w = (mp_wide_t)(x) * (y) + (z) + (c); \
+  mp_wide_t _w = (z) + (mp_wide_t)(x) * (y) + (c); \
   (c) = _w >> MP_LIMB_BITS;                        \
   (z) = _w;                                        \
 } while (0)
 
-#define mp_submul_1(z, c, x, y) do {                          \
-  mp_wide_t _w = (mp_wide_t)(z) - (mp_wide_t)(x) * (y) - (c); \
-  (c) = -(_w >> MP_LIMB_BITS);                                \
-  (z) = _w;                                                   \
+#define mp_submul_1(z, c, x, y) do {               \
+  mp_wide_t _w = (z) - (mp_wide_t)(x) * (y) - (c); \
+  (c) = -(_w >> MP_LIMB_BITS);                     \
+  (z) = _w;                                        \
 } while (0)
 #endif /* !MPI_USE_ASM */
 
@@ -655,7 +655,7 @@ mpn_addmul_1(mp_limb_t *zp, const mp_limb_t *xp, int xn, mp_limb_t y) {
   int i;
 
   for (i = 0; i < xn; i++) {
-    /* [z, c] = x * y + z + c */
+    /* [z, c] = z + x * y + c */
     mp_addmul_1(zp[i], c, xp[i], y);
   }
 
