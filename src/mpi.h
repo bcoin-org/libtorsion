@@ -50,7 +50,6 @@
 #define mpn_divmod_1 __torsion_mpn_divmod_1
 #define mpn_div_1 __torsion_mpn_div_1
 #define mpn_mod_1 __torsion_mpn_mod_1
-#define mpn_mod_2 __torsion_mpn_mod_2
 #define mpn_divmod __torsion_mpn_divmod
 #define mpn_div __torsion_mpn_div
 #define mpn_mod __torsion_mpn_mod
@@ -88,9 +87,7 @@
 #define mpz_set __torsion_mpz_set
 #define mpz_roset __torsion_mpz_roset
 #define mpz_set_ui __torsion_mpz_set_ui
-#define mpz_set_u64 __torsion_mpz_set_u64
 #define mpz_get_ui __torsion_mpz_get_ui
-#define mpz_get_u64 __torsion_mpz_get_u64
 #define mpz_sgn __torsion_mpz_sgn
 #define mpz_cmp __torsion_mpz_cmp
 #define mpz_cmp_ui __torsion_mpz_cmp_ui
@@ -391,9 +388,6 @@ mpn_div_1(mp_limb_t *qp, const mp_limb_t *np, int nn, mp_limb_t d);
 mp_limb_t
 mpn_mod_1(const mp_limb_t *np, int nn, mp_limb_t d);
 
-mp_wide_t
-mpn_mod_2(const mp_limb_t *np, int nn, mp_wide_t d);
-
 void
 mpn_divmod(mp_limb_t *qp, mp_limb_t *rp,
            const mp_limb_t *np, int nn,
@@ -583,18 +577,12 @@ mpz_roset(mpz_t z, const mpz_t x);
 void
 mpz_set_ui(mpz_t z, mp_limb_t x);
 
-void
-mpz_set_u64(mpz_t z, uint64_t x);
-
 /*
  * Conversion
  */
 
 mp_limb_t
 mpz_get_ui(const mpz_t x);
-
-uint64_t
-mpz_get_u64(const mpz_t x);
 
 /*
  * Comparison

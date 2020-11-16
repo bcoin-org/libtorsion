@@ -1435,28 +1435,6 @@ mpn_mod_1(const mp_limb_t *np, int nn, mp_limb_t d) {
   return mpn_divmod_1(NULL, np, nn, d);
 }
 
-mp_wide_t
-mpn_mod_2(const mp_limb_t *np, int nn, mp_wide_t d) {
-  mp_limb_t dp[2];
-  mp_limb_t rp[2];
-  int dn;
-
-  dp[0] = d;
-  dp[1] = d >> MP_LIMB_BITS;
-
-  rp[0] = 0;
-  rp[1] = 0;
-
-  dn = mpn_strip(dp, 2);
-
-  if (nn >= dn)
-    mpn_mod(rp, np, nn, dp, dn);
-  else
-    mpn_copyi(rp, np, nn);
-
-  return ((mp_wide_t)rp[1] << MP_LIMB_BITS) | rp[0];
-}
-
 void
 mpn_divmod(mp_limb_t *qp, mp_limb_t *rp,
            const mp_limb_t *np, int nn,
@@ -2557,23 +2535,6 @@ mpz_set_ui(mpz_t z, mp_limb_t x) {
   }
 }
 
-void
-mpz_set_u64(mpz_t z, uint64_t x) {
-#if MP_LIMB_BITS == 32
-  if (x == 0) {
-    z->size = 0;
-  } else {
-    mpz_grow(z, 2);
-
-    z->limbs[0] = x;
-    z->limbs[1] = x >> 32;
-    z->size = 2 - (z->limbs[1] == 0);
-  }
-#else
-  mpz_set_ui(z, x);
-#endif
-}
-
 /*
  * Conversion
  */
@@ -2584,18 +2545,6 @@ mpz_get_ui(const mpz_t x) {
     return 0;
 
   return x->limbs[0];
-}
-
-uint64_t
-mpz_get_u64(const mpz_t x) {
-#if MP_LIMB_BITS == 32
-  if (MP_ABS(x->size) < 2)
-    return mpz_get_ui(x);
-
-  return ((uint64_t)x->limbs[1] << 32) | x->limbs[0];
-#else
-  return mpz_get_ui(x);
-#endif
 }
 
 /*
@@ -3935,13 +3884,13 @@ mpz_is_prime(const mpz_t n, int rounds, mp_rng_f *rng, void *arg) {
   if (mpz_even_p(n))
     return 0;
 
-#if MP_LIMB_BITS == 32
-  ra = mpz_rem_ui(n, primes_a);
-  rb = mpz_rem_ui(n, primes_b);
-#else
+#if MP_LIMB_BITS == 64
   r = mpz_rem_ui(n, primes_a * primes_b);
   ra = r % primes_a;
   rb = r % primes_b;
+#else
+  ra = mpz_rem_ui(n, primes_a);
+  rb = mpz_rem_ui(n, primes_b);
 #endif
 
   if (ra % 3 == 0
@@ -3975,8 +3924,14 @@ void
 mpz_random_prime(mpz_t z, int bits, mp_rng_f *rng, void *arg) {
   static const uint64_t primes[15] = { 3, 5, 7, 11, 13, 17, 19, 23,
                                        29, 31, 37, 41, 43, 47, 53 };
-  static const uint64_t product = UINT64_C(16294579238595022365);
-  uint64_t mod, delta, m, p;
+#if MP_LIMB_BITS == 64
+  static const mp_limb_t product = MP_LIMB_C(16294579238595022365);
+#else
+  static const mp_limb_t product[2] = { MP_LIMB_C(0x30e94e1d),
+                                        MP_LIMB_C(0xe221f97c) };
+  mp_limb_t tmp[2];
+#endif
+  uint64_t mod, delta, m;
   size_t i;
 
   CHECK(bits > 1);
@@ -3985,34 +3940,36 @@ mpz_random_prime(mpz_t z, int bits, mp_rng_f *rng, void *arg) {
     mpz_random_bits(z, bits, rng, arg);
 
     mpz_set_bit(z, bits - 1);
-    mpz_set_bit(z, bits - 2);
     mpz_set_bit(z, 0);
 
-#if MP_LIMB_BITS == 32
-    mod = mpn_mod_2(z->limbs, z->size, product);
+    if (bits > 64) {
+      mpz_set_bit(z, bits - 2);
+
+#if MP_LIMB_BITS == 64
+      mod = mpn_mod_1(z->limbs, z->size, product);
 #else
-    mod = mpz_rem_ui(z, product);
+      mpn_mod(tmp, z->limbs, z->size, product, 2);
+      mod = ((uint64_t)tmp[1] << 32) | tmp[0];
 #endif
 
-    for (delta = 0; delta < (UINT64_C(1) << 20); delta += 2) {
-      m = mod + delta;
+      for (delta = 0; delta < (UINT64_C(1) << 20); delta += 2) {
+        m = mod + delta;
 
-      for (i = 0; i < ARRAY_SIZE(primes); i++) {
-        p = primes[i];
+        for (i = 0; i < ARRAY_SIZE(primes); i++) {
+          if ((m % primes[i]) == 0)
+            goto next;
+        }
 
-        if ((m % p) == 0 && (bits > 6 || m != p))
-          goto next;
+        mpz_add_ui(z, z, (mp_limb_t)delta);
+
+        break;
+next:
+        ;
       }
 
-      mpz_add_ui(z, z, (mp_limb_t)delta);
-
-      break;
-next:
-      ;
+      if (mpz_bitlen(z) != bits)
+        continue;
     }
-
-    if (mpz_bitlen(z) != bits)
-      continue;
 
     if (!mpz_is_prime(z, 20, rng, arg))
       continue;
