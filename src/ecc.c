@@ -10880,6 +10880,28 @@ ecdsa_pubkey_tweak_mul(const wei_t *ec,
 }
 
 int
+ecdsa_pubkey_add(const wei_t *ec,
+                 unsigned char *out,
+                 size_t *out_len,
+                 const unsigned char *pub1,
+                 size_t pub_len1,
+                 const unsigned char *pub2,
+                 size_t pub_len2,
+                 int compact) {
+  int ret = 1;
+  wge_t P, Q;
+
+  ret &= wge_import(ec, &P, pub1, pub_len1);
+  ret &= wge_import(ec, &Q, pub2, pub_len2);
+
+  wge_add(ec, &P, &P, &Q);
+
+  ret &= wge_export(ec, out, out_len, &P, compact);
+
+  return ret;
+}
+
+int
 ecdsa_pubkey_combine(const wei_t *ec,
                      unsigned char *out,
                      size_t *out_len,
@@ -10892,9 +10914,15 @@ ecdsa_pubkey_combine(const wei_t *ec,
   wge_t A;
   jge_t P;
 
-  jge_zero(ec, &P);
+  if (len > 0) {
+    ret &= wge_import(ec, &A, pubs[0], pub_lens[0]);
 
-  for (i = 0; i < len; i++) {
+    jge_set_wge(ec, &P, &A);
+  } else {
+    jge_zero(ec, &P);
+  }
+
+  for (i = 1; i < len; i++) {
     ret &= wge_import(ec, &A, pubs[i], pub_lens[i]);
 
     jge_mixed_add(ec, &P, &P, &A);
@@ -12166,6 +12194,24 @@ schnorr_pubkey_tweak_mul_check(const wei_t *ec,
 }
 
 int
+schnorr_pubkey_add(const wei_t *ec,
+                   unsigned char *out,
+                   const unsigned char *pub1,
+                   const unsigned char *pub2) {
+  int ret = 1;
+  wge_t P, Q;
+
+  ret &= wge_import_even(ec, &P, pub1);
+  ret &= wge_import_even(ec, &Q, pub2);
+
+  wge_add(ec, &P, &P, &Q);
+
+  ret &= wge_export_x(ec, out, &P);
+
+  return ret;
+}
+
+int
 schnorr_pubkey_combine(const wei_t *ec,
                        unsigned char *out,
                        const unsigned char *const *pubs,
@@ -12175,9 +12221,15 @@ schnorr_pubkey_combine(const wei_t *ec,
   wge_t A;
   jge_t P;
 
-  jge_zero(ec, &P);
+  if (len > 0) {
+    ret &= wge_import_even(ec, &A, pubs[0]);
 
-  for (i = 0; i < len; i++) {
+    jge_set_wge(ec, &P, &A);
+  } else {
+    jge_zero(ec, &P);
+  }
+
+  for (i = 1; i < len; i++) {
     ret &= wge_import_even(ec, &A, pubs[i]);
 
     jge_mixed_add(ec, &P, &P, &A);
@@ -13452,6 +13504,24 @@ eddsa_pubkey_tweak_mul(const edwards_t *ec,
 }
 
 int
+eddsa_pubkey_add(const edwards_t *ec,
+                 unsigned char *out,
+                 const unsigned char *pub1,
+                 const unsigned char *pub2) {
+  int ret = 1;
+  xge_t P, Q;
+
+  ret &= xge_import(ec, &P, pub1);
+  ret &= xge_import(ec, &Q, pub2);
+
+  xge_mixed_add(ec, &P, &P, &Q);
+
+  xge_export(ec, out, &P);
+
+  return ret;
+}
+
+int
 eddsa_pubkey_combine(const edwards_t *ec,
                      unsigned char *out,
                      const unsigned char *const *pubs,
@@ -13460,12 +13530,15 @@ eddsa_pubkey_combine(const edwards_t *ec,
   xge_t P, A;
   size_t i;
 
-  xge_zero(ec, &P);
+  if (len > 0)
+    ret &= xge_import(ec, &P, pubs[0]);
+  else
+    xge_zero(ec, &P);
 
-  for (i = 0; i < len; i++) {
+  for (i = 1; i < len; i++) {
     ret &= xge_import(ec, &A, pubs[i]);
 
-    xge_add(ec, &P, &P, &A);
+    xge_mixed_add(ec, &P, &P, &A);
   }
 
   xge_export(ec, out, &P);
@@ -14383,6 +14456,24 @@ ristretto_pubkey_tweak_mul(const edwards_t *ec,
 }
 
 int
+ristretto_pubkey_add(const edwards_t *ec,
+                     unsigned char *out,
+                     const unsigned char *pub1,
+                     const unsigned char *pub2) {
+  int ret = 1;
+  rge_t P, Q;
+
+  ret &= rge_import(ec, &P, pub1);
+  ret &= rge_import(ec, &Q, pub2);
+
+  xge_mixed_add(ec, &P, &P, &Q);
+
+  rge_export(ec, out, &P);
+
+  return ret;
+}
+
+int
 ristretto_pubkey_combine(const edwards_t *ec,
                          unsigned char *out,
                          const unsigned char *const *pubs,
@@ -14391,12 +14482,15 @@ ristretto_pubkey_combine(const edwards_t *ec,
   rge_t P, A;
   size_t i;
 
-  xge_zero(ec, &P);
+  if (len > 0)
+    ret &= rge_import(ec, &P, pubs[0]);
+  else
+    xge_zero(ec, &P);
 
-  for (i = 0; i < len; i++) {
+  for (i = 1; i < len; i++) {
     ret &= rge_import(ec, &A, pubs[i]);
 
-    xge_add(ec, &P, &P, &A);
+    xge_mixed_add(ec, &P, &P, &A);
   }
 
   rge_export(ec, out, &P);
