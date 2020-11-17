@@ -1,5 +1,5 @@
 /*!
- * ecc-internal.h - ecc internal tests for libtorsion
+ * ecc_internal.h - ecc internal tests for libtorsion
  * Copyright (c) 2020, Christopher Jeffrey (MIT License).
  * https://github.com/bcoin-org/libtorsion
  */
@@ -845,99 +845,6 @@ test_bytes_lt(drbg_t *rng) {
       ASSERT(bytes_lt(b, b, 32) == 0);
       ASSERT(bytes_lt(a, b, 32) == (revcmp(a, b, 32) < 0));
       ASSERT(bytes_lt(b, a, 32) == (revcmp(b, a, 32) < 0));
-    }
-  }
-}
-
-static void
-test_mpn_sec_cmp(drbg_t *rng) {
-  printf("  - MPN comparison sanity check.\n");
-
-  {
-    static const mp_limb_t mod[4] = {4, 3, 2, 1};
-    static const mp_limb_t minus1[4] = {3, 3, 2, 1};
-    static const mp_limb_t plus1[4] = {5, 3, 2, 1};
-    static const mp_limb_t full[4] = {0xff, 0xff, 0xff, 0xff};
-
-    ASSERT(mpn_sec_lt(minus1, mod, 4));
-    ASSERT(!mpn_sec_lt(mod, mod, 4));
-    ASSERT(!mpn_sec_lt(plus1, mod, 4));
-    ASSERT(mpn_sec_lt(mod, full, 4));
-    ASSERT(!mpn_sec_lt(full, mod, 4));
-
-    ASSERT(mpn_sec_lte(minus1, mod, 4));
-    ASSERT(mpn_sec_lte(mod, mod, 4));
-    ASSERT(!mpn_sec_lte(plus1, mod, 4));
-    ASSERT(mpn_sec_lte(mod, full, 4));
-    ASSERT(!mpn_sec_lte(full, mod, 4));
-
-    ASSERT(!mpn_sec_gt(minus1, mod, 4));
-    ASSERT(!mpn_sec_gt(mod, mod, 4));
-    ASSERT(mpn_sec_gt(plus1, mod, 4));
-    ASSERT(!mpn_sec_gt(mod, full, 4));
-    ASSERT(mpn_sec_gt(full, mod, 4));
-
-    ASSERT(!mpn_sec_gte(minus1, mod, 4));
-    ASSERT(mpn_sec_gte(mod, mod, 4));
-    ASSERT(mpn_sec_gte(plus1, mod, 4));
-    ASSERT(!mpn_sec_gte(mod, full, 4));
-    ASSERT(mpn_sec_gte(full, mod, 4));
-
-    ASSERT(mpn_sec_cmp(minus1, mod, 4) == -1);
-    ASSERT(mpn_sec_cmp(mod, mod, 4) == 0);
-    ASSERT(mpn_sec_cmp(plus1, mod, 4) == 1);
-    ASSERT(mpn_sec_cmp(mod, full, 4) == -1);
-    ASSERT(mpn_sec_cmp(full, mod, 4) == 1);
-  }
-
-  {
-    size_t i;
-
-    for (i = 0; i < 1000; i++) {
-      mp_limb_t a[4];
-      mp_limb_t b[4];
-      int cab, cba;
-
-      drbg_generate(rng, a, sizeof(a));
-      drbg_generate(rng, b, sizeof(b));
-
-      ASSERT(mpn_sec_lt(a, a, 4) == 0);
-      ASSERT(mpn_sec_lt(b, b, 4) == 0);
-      ASSERT(mpn_sec_lt(a, b, 4) == (mpn_cmp(a, b, 4) < 0));
-      ASSERT(mpn_sec_lt(b, a, 4) == (mpn_cmp(b, a, 4) < 0));
-
-      ASSERT(mpn_sec_lte(a, a, 4) == 1);
-      ASSERT(mpn_sec_lte(b, b, 4) == 1);
-      ASSERT(mpn_sec_lte(a, b, 4) == (mpn_cmp(a, b, 4) <= 0));
-      ASSERT(mpn_sec_lte(b, a, 4) == (mpn_cmp(b, a, 4) <= 0));
-
-      ASSERT(mpn_sec_gt(a, a, 4) == 0);
-      ASSERT(mpn_sec_gt(b, b, 4) == 0);
-      ASSERT(mpn_sec_gt(a, b, 4) == (mpn_cmp(a, b, 4) > 0));
-      ASSERT(mpn_sec_gt(b, a, 4) == (mpn_cmp(b, a, 4) > 0));
-
-      ASSERT(mpn_sec_gte(a, a, 4) == 1);
-      ASSERT(mpn_sec_gte(b, b, 4) == 1);
-      ASSERT(mpn_sec_gte(a, b, 4) == (mpn_cmp(a, b, 4) >= 0));
-      ASSERT(mpn_sec_gte(b, a, 4) == (mpn_cmp(b, a, 4) >= 0));
-
-      cab = mpn_cmp(a, b, 4);
-      cba = mpn_cmp(b, a, 4);
-
-      if (cab < 0)
-        cab = -1;
-      else if (cab > 0)
-        cab = 1;
-
-      if (cba < 0)
-        cba = -1;
-      else if (cba > 0)
-        cba = 1;
-
-      ASSERT(mpn_sec_cmp(a, a, 4) == 0);
-      ASSERT(mpn_sec_cmp(b, b, 4) == 0);
-      ASSERT(mpn_sec_cmp(a, b, 4) == cab);
-      ASSERT(mpn_sec_cmp(b, a, 4) == cba);
     }
   }
 }
@@ -4093,6 +4000,10 @@ test_ristretto_batch_encode(drbg_t *unused) {
   edwards_curve_destroy(ec);
 }
 
+/*
+ * Test
+ */
+
 void
 test_ecc_internal(drbg_t *rng) {
   printf("Testing internal ECC functions...\n");
@@ -4115,7 +4026,6 @@ test_ecc_internal(drbg_t *rng) {
   /* Utils */
   test_bytes_zero(rng);
   test_bytes_lt(rng);
-  test_mpn_sec_cmp(rng);
 
   /* ECC */
   test_wei_points_p256(rng);

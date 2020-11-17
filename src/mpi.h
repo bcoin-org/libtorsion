@@ -12,6 +12,7 @@
 #include <limits.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <torsion/common.h>
 #include "internal.h"
 
 /*
@@ -141,6 +142,7 @@
 #define mpz_export __torsion_mpz_export
 #define mpz_random_bits __torsion_mpz_random_bits
 #define mpz_random_int __torsion_mpz_random_int
+#define test_mpi_internal __torsion_test_mpi_internal
 
 /*
  * Types
@@ -814,5 +816,12 @@ mpz_random_bits(mpz_t z, int bits, mp_rng_f *rng, void *arg);
 
 void
 mpz_random_int(mpz_t z, const mpz_t max, mp_rng_f *rng, void *arg);
+
+/*
+ * Testing
+ */
+
+TORSION_EXTERN void
+test_mpi_internal(mp_rng_f *rng, void *arg);
 
 #endif /* _TORSION_MPI_H */

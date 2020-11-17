@@ -4090,3 +4090,17 @@ mpz_random_int(mpz_t z, const mpz_t max, mp_rng_f *rng, void *arg) {
     z->size = 0;
   }
 }
+
+/*
+ * Testing
+ */
+
+#if defined(TORSION_DEBUG) && !defined(BUILDING_NODE_EXTENSION)
+#  include "../test/mpi_internal.h"
+#else
+void
+test_mpi_internal(mp_rng_f *rng, void *arg) {
+  (void)rng;
+  (void)arg;
+}
+#endif

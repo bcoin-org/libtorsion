@@ -3927,10 +3927,14 @@ test_mac_siphash(drbg_t *unused) {
  * MPI
  */
 
+typedef void mp_rng_f(void *out, size_t size, void *arg);
+
+void
+__torsion_test_mpi_internal(mp_rng_f *rng, void *arg);
+
 static void
-test_mpi_primes(drbg_t *unused) {
-  /* TODO */
-  (void)unused;
+test_mpi_internal(drbg_t *rng) {
+  __torsion_test_mpi_internal(drbg_rng, rng);
 }
 
 /*
@@ -4802,7 +4806,7 @@ static const torsion_test_t torsion_tests[] = {
   T(mac_siphash),
 
   /* MPI */
-  T(mpi_primes),
+  T(mpi_internal),
 
   /* Random */
 #ifdef TORSION_HAVE_RNG
