@@ -2893,7 +2893,7 @@ mpz_div_inner(mpz_t q, mpz_t r, const mpz_t n, const mpz_t d, int euclid) {
   if (r != NULL)
     r->size = rs ? -rn : rn;
 
-  if (euclid && rs) {
+  if (euclid) {
     if (q != NULL) {
       CHECK(r != NULL);
 
@@ -3010,15 +3010,16 @@ mpz_divmod(mpz_t q, mpz_t r, const mpz_t n, const mpz_t d) {
 
 void
 mpz_div(mpz_t q, const mpz_t n, const mpz_t d) {
+  mpz_t r;
+
   CHECK(q != NULL);
 
   if (n->size < 0) {
-    mpz_t r;
     mpz_init(r);
     mpz_div_inner(q, r, n, d, 1);
     mpz_clear(r);
   } else {
-    mpz_div_inner(q, NULL, n, d, 1);
+    mpz_div_inner(q, NULL, n, d, 0);
   }
 }
 
@@ -3700,6 +3701,16 @@ mpz_is_prime_lucas(const mpz_t n, mp_limb_t limit) {
   int ret = 0;
   mp_limb_t p;
 
+  /* if n <= 1 */
+  if (mpz_cmp_ui(n, 1) <= 0)
+    return 0;
+
+  /* if n mod 2 == 0 */
+  if (mpz_even_p(n)) {
+    /* n == 2 */
+    return mpz_cmp_ui(n, 2) == 0;
+  }
+
   mpz_init(d);
   mpz_init(s);
   mpz_init(nm2);
@@ -3708,23 +3719,8 @@ mpz_is_prime_lucas(const mpz_t n, mp_limb_t limit) {
   mpz_init(t1);
   mpz_init(t2);
 
-  /* if n <= 1 */
-  if (mpz_cmp_ui(n, 1) <= 0)
-    goto fail;
-
-  /* if n mod 2 == 0 */
-  if (mpz_even_p(n)) {
-    /* if n == 2 */
-    if (mpz_cmp_ui(n, 2) == 0)
-      goto succeed;
-    goto fail;
-  }
-
   /* p = 3 */
   p = 3;
-
-  /* d = 1 */
-  mpz_set_ui(d, 1);
 
   for (;;) {
     if (p > 10000) {
@@ -3940,11 +3936,10 @@ mpz_random_prime(mpz_t z, int bits, mp_rng_f *rng, void *arg) {
     mpz_random_bits(z, bits, rng, arg);
 
     mpz_set_bit(z, bits - 1);
+    mpz_set_bit(z, bits - 2);
     mpz_set_bit(z, 0);
 
     if (bits > 64) {
-      mpz_set_bit(z, bits - 2);
-
 #if MP_LIMB_BITS == 64
       mod = mpn_mod_1(z->limbs, z->size, product);
 #else
