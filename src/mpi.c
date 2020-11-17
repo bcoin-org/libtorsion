@@ -2561,16 +2561,16 @@ mpz_sgn(const mpz_t x) {
 
 int
 mpz_cmp(const mpz_t x, const mpz_t y) {
-  int xs = x->size < 0;
-  int ys = y->size < 0;
-  int cmp;
+  if (x == y)
+    return 0;
 
-  if (xs != ys)
-    return ys - xs;
+  if (x->size != y->size)
+    return x->size < y->size ? -1 : 1;
 
-  cmp = mpz_cmpabs(x, y);
+  if (x->size < 0)
+    return -mpn_cmp(x->limbs, y->limbs, -x->size);
 
-  return xs ? -cmp : cmp;
+  return mpn_cmp(x->limbs, y->limbs, x->size);
 }
 
 int
@@ -2578,7 +2578,7 @@ mpz_cmp_ui(const mpz_t x, mp_limb_t y) {
   if (x->size < 0)
     return -1;
 
-  return mpz_cmpabs_ui(x, y);
+  return mpv_cmp_1(x->limbs, x->size, y);
 }
 
 /*
