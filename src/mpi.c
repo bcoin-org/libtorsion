@@ -2219,12 +2219,14 @@ mpn_bytelen(const mp_limb_t *xp, int xn) {
 
 size_t
 mpn_sizeinbase(const mp_limb_t *xp, int xn, int base) {
-  if (xn == 0)
-    return 1;
-
   if (base >= 2 && (base & (base - 1)) == 0) {
-    int b = mp_bitlen(base - 1);
-    return (mpn_bitlen(xp, xn) + (b - 1)) / b;
+    int den = mp_bitlen(base - 1);
+    int len = mpn_bitlen(xp, xn);
+
+    if (len == 0)
+      return 1;
+
+    return (len + den - 1) / den;
   }
 
   return mpn_get_str(NULL, xp, xn, base);
