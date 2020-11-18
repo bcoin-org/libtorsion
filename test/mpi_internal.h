@@ -761,13 +761,13 @@ test_mpn_bits(mp_rng_f *rng, void *arg) {
 
   ap[0] = 1;
 
-  mpv_lshift(ap, ap, 1, 100);
+  mpv_lshift(ap, ap, 1, 87);
 
-  mpn_set_bit(bp, 100);
+  mpn_set_bit(bp, 87);
 
   ASSERT(mpn_cmp(ap, bp, 4) == 0);
 
-  mpn_clr_bit(bp, 100);
+  mpn_clr_bit(bp, 87);
 
   ASSERT(mpn_zero_p(bp, 4));
 }
@@ -1514,7 +1514,7 @@ test_mpz_cmp_signed(void) {
   mpz_set_si(mod, -0x01020304);
   mpz_set_si(minus1, -0x01020303);
   mpz_set_si(plus1, -0x01020305);
-  mpz_set_si(full, 0xffffffff);
+  mpz_set_ui(full, 0xffffffff);
 
   ASSERT(mpz_sgn(zero) == 0);
   ASSERT(mpz_sgn(mod) != 0);
@@ -1528,7 +1528,7 @@ test_mpz_cmp_signed(void) {
   ASSERT(mpz_cmp_si(minus1, -0x01020304) == 1);
   ASSERT(mpz_cmp_si(mod, -0x01020304) == 0);
   ASSERT(mpz_cmp_si(plus1, -0x01020304) == -1);
-  ASSERT(mpz_cmp_si(mod, 0xffffffff) == -1);
+  ASSERT(mpz_cmp_ui(mod, 0xffffffff) == -1);
   ASSERT(mpz_cmp_si(full, -0x01020304) == 1);
 
   ASSERT(mpz_cmpabs(minus1, mod) == -1);
@@ -1540,7 +1540,7 @@ test_mpz_cmp_signed(void) {
   ASSERT(mpz_cmpabs_si(minus1, 0x01020304) == -1);
   ASSERT(mpz_cmpabs_si(mod, 0x01020304) == 0);
   ASSERT(mpz_cmpabs_si(plus1, 0x01020304) == 1);
-  ASSERT(mpz_cmpabs_si(mod, 0xffffffff) == -1);
+  ASSERT(mpz_cmpabs_ui(mod, 0xffffffff) == -1);
   ASSERT(mpz_cmpabs_si(full, 0x01020304) == 1);
 
   mpz_clear(zero);
