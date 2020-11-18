@@ -34,6 +34,10 @@
  *   [BPSW] The Baillie-PSW Primality Test
  *     Thomas R. Nicely
  *     https://web.archive.org/web/20130828131627/http://www.trnicely.net/misc/bpsw.html
+ *
+ *   [ARITH] Modern Computer Arithmetic
+ *     Richard P. Brent, Paul Zimmermann
+ *     https://members.loria.fr/PZimmermann/mca/pub226.html
  */
 
 #include <stdint.h>
@@ -455,6 +459,14 @@ static TORSION_INLINE int
 mp_cast_size(size_t n) {
   CHECK(n <= (size_t)MP_SIZE_MAX);
   return n;
+}
+
+static TORSION_INLINE mp_limb_t
+mp_long_abs(mp_long_t x) {
+  if (x == MP_LONG_MIN)
+    return MP_LIMB_HI;
+
+  return MP_ABS(x);
 }
 
 static int
@@ -1506,6 +1518,81 @@ mpn_mod(mp_limb_t *rp, const mp_limb_t *np, int nn,
 }
 
 /*
+ * AND
+ */
+
+void
+mpn_and_n(mp_limb_t *zp, const mp_limb_t *xp, const mp_limb_t *yp, int n) {
+  int i;
+
+  for (i = 0; i < n; i++)
+    zp[i] = xp[i] & yp[i];
+}
+
+void
+mpn_and(mp_limb_t *zp, const mp_limb_t *xp, int xn,
+                       const mp_limb_t *yp, int yn) {
+  CHECK(xn >= yn);
+
+  mpn_and_n(zp, xp, yp, yn);
+  mpn_zero(zp + yn, xn - yn);
+}
+
+/*
+ * OR
+ */
+
+void
+mpn_ior_n(mp_limb_t *zp, const mp_limb_t *xp, const mp_limb_t *yp, int n) {
+  int i;
+
+  for (i = 0; i < n; i++)
+    zp[i] = xp[i] | yp[i];
+}
+
+void
+mpn_ior(mp_limb_t *zp, const mp_limb_t *xp, int xn,
+                       const mp_limb_t *yp, int yn) {
+  CHECK(xn >= yn);
+
+  mpn_ior_n(zp, xp, yp, yn);
+  mpn_copyi(zp + yn, xp + yn, xn - yn);
+}
+
+/*
+ * XOR
+ */
+
+void
+mpn_xor_n(mp_limb_t *zp, const mp_limb_t *xp, const mp_limb_t *yp, int n) {
+  int i;
+
+  for (i = 0; i < n; i++)
+    zp[i] = xp[i] ^ yp[i];
+}
+
+void
+mpn_xor(mp_limb_t *zp, const mp_limb_t *xp, int xn,
+                       const mp_limb_t *yp, int yn) {
+  CHECK(xn >= yn);
+
+  mpn_xor_n(zp, xp, yp, yn);
+  mpn_copyi(zp + yn, xp + yn, xn - yn);
+}
+
+/*
+ * NOT
+ */
+
+void
+mpn_com(mp_limb_t *zp, const mp_limb_t *xp, int xn) {
+  int i;
+
+  for (i = 0; i < xn; i++)
+    zp[i] = ~xp[i];
+}
+
+/*
  * Left Shift
  */
 
@@ -1585,6 +1672,54 @@ mpn_get_bits(const mp_limb_t *xp, int xn, int pos, int width) {
   }
 
   return bits;
+}
+
+void
+mpn_set_bit(mp_limb_t *zp, int pos) {
+  zp[pos / MP_LIMB_BITS] |= MP_LIMB_C(1) << (pos % MP_LIMB_BITS);
+}
+
+void
+mpn_clr_bit(mp_limb_t *zp, int pos) {
+  zp[pos / MP_LIMB_BITS] &= ~(MP_LIMB_C(1) << (pos % MP_LIMB_BITS));
+}
+
+void
+mpn_mask(mp_limb_t *zp, const mp_limb_t *xp, int xn, int bits) {
+  int zn = bits / MP_LIMB_BITS;
+  int lo = bits % MP_LIMB_BITS;
+
+  if (zn >= xn) {
+    mpn_copyi(zp, xp, xn);
+    return;
+  }
+
+  mpn_copyi(zp, xp, zn);
+
+  if (lo != 0) {
+    zp[zn] = xp[zn] & MP_MASK(lo);
+    zn += 1;
+  }
+
+  if (xn > zn)
+    mpn_zero(zp + zn, xn - zn);
+}
+
+/*
+ * Negation
+ */
+
+mp_limb_t
+mpn_neg(mp_limb_t *zp, const mp_limb_t *xp, int xn) {
+  mp_limb_t c = 0;
+  int i;
+
+  for (i = 0; i < xn; i++) {
+    /* [z, c] = 0 - x - c */
+    mp_sub_1(zp[i], c, MP_LIMB_C(0), xp[i]);
+  }
+
+  return c;
 }
 
 /*
@@ -2331,6 +2466,9 @@ mpn_set_str(mp_limb_t *zp, int zn, const char *str, int base) {
 
     seen = 1;
 
+    if (ch == '-')
+      continue;
+
     if (ch >= '0' && ch <= '9')
       ch -= '0';
     else if (ch >= 'A' && ch <= 'Z')
@@ -2427,6 +2565,15 @@ mpn_get_str(char *str, const mp_limb_t *xp, int xn, int base) {
   mp_free_vla(tp, tn);
 
   return len;
+}
+
+/*
+ * RNG
+ */
+
+void
+mpn_random(mp_limb_t *zp, int zn, mp_rng_f *rng, void *arg) {
+  rng(zp, zn * sizeof(mp_limb_t), arg);
 }
 
 /*
@@ -2720,6 +2867,18 @@ mpz_set_ui(mpz_t z, mp_limb_t x) {
   }
 }
 
+void
+mpz_set_si(mpz_t z, mp_long_t x) {
+  if (x == 0) {
+    z->size = 0;
+  } else {
+    mpz_grow(z, 1);
+
+    z->limbs[0] = mp_long_abs(x);
+    z->size = x < 0 ? -1 : 1;
+  }
+}
+
 /*
  * Conversion
  */
@@ -2730,6 +2889,19 @@ mpz_get_ui(const mpz_t x) {
     return 0;
 
   return x->limbs[0];
+}
+
+mp_long_t
+mpz_get_si(const mpz_t x) {
+  mp_limb_t w = mpz_get_ui(x);
+  mp_long_t z;
+
+  if (x->size < 0 && w == MP_LIMB_HI)
+    return MP_LONG_MIN;
+
+  z = w & (MP_LIMB_HI - 1);
+
+  return x->size < 0 ? -z : z;
 }
 
 /*
@@ -2766,6 +2938,18 @@ mpz_cmp_ui(const mpz_t x, mp_limb_t y) {
   return mpv_cmp_1(x->limbs, x->size, y);
 }
 
+int
+mpz_cmp_si(const mpz_t x, mp_long_t y) {
+  if (y < 0) {
+    if (x->size < 0)
+      return -mpz_cmpabs_si(x, y);
+
+    return 1;
+  }
+
+  return mpz_cmp_ui(x, y);
+}
+
 /*
  * Unsigned Comparison
  */
@@ -2782,6 +2966,11 @@ mpz_cmpabs(const mpz_t x, const mpz_t y) {
 int
 mpz_cmpabs_ui(const mpz_t x, mp_limb_t y) {
   return mpv_cmp_1(x->limbs, MP_ABS(x->size), y);
+}
+
+int
+mpz_cmpabs_si(const mpz_t x, mp_long_t y) {
+  return mpv_cmp_1(x->limbs, MP_ABS(x->size), mp_long_abs(y));
 }
 
 /*
@@ -2843,6 +3032,14 @@ mpz_add_ui(mpz_t z, const mpz_t x, mp_limb_t y) {
   }
 
   z->size = x->size < 0 ? -zn : zn;
+}
+
+void
+mpz_add_si(mpz_t z, const mpz_t x, mp_long_t y) {
+  if (y < 0)
+    mpz_sub_ui(z, x, mp_long_abs(y));
+  else
+    mpz_add_ui(z, x, y);
 }
 
 /*
@@ -2909,6 +3106,14 @@ mpz_sub_ui(mpz_t z, const mpz_t x, mp_limb_t y) {
   z->size = x->size < 0 ? -zn : zn;
 }
 
+void
+mpz_sub_si(mpz_t z, const mpz_t x, mp_long_t y) {
+  if (y < 0)
+    mpz_add_ui(z, x, mp_long_abs(y));
+  else
+    mpz_sub_ui(z, x, y);
+}
+
 /*
  * Multiplication
  */
@@ -2970,6 +3175,14 @@ mpz_mul_ui(mpz_t z, const mpz_t x, mp_limb_t y) {
   zn = mpv_mul_1(z->limbs, x->limbs, xn, y);
 
   z->size = x->size < 0 ? -zn : zn;
+}
+
+void
+mpz_mul_si(mpz_t z, const mpz_t x, mp_long_t y) {
+  mpz_mul_ui(z, x, mp_long_abs(y));
+
+  if (y < 0)
+    mpz_neg(z, z);
 }
 
 void
@@ -3133,7 +3346,7 @@ mpz_div_ui_inner(mpz_t q, const mpz_t n, mp_limb_t d, int euclid) {
     r = mpn_divmod_1(qp, n->limbs, nn, d);
 
     if (q != NULL)
-      qn = mpn_strip(qp, nn);
+      qn = nn - (qp[nn - 1] == 0);
   }
 
   if (q != NULL)
@@ -3147,6 +3360,68 @@ mpz_div_ui_inner(mpz_t q, const mpz_t n, mp_limb_t d, int euclid) {
 
     if (ns && r != 0)
       r = d - r;
+  }
+
+  return r;
+}
+
+static mp_long_t
+mpz_div_si_inner(mpz_t q, const mpz_t n, mp_long_t d, int euclid) {
+  int nn = MP_ABS(n->size);
+  int qs = (n->size < 0) ^ (d < 0);
+  int rs = n->size < 0;
+  mp_limb_t *qp = NULL;
+  mp_long_t r;
+  int qn = 0;
+
+  if (d == 0)
+    torsion_abort(); /* LCOV_EXCL_LINE */
+
+  if (nn == 0) {
+    if (q != NULL)
+      q->size = 0;
+
+    return 0;
+  }
+
+  if (mpz_cmpabs_si(n, d) < 0) {
+    r = n->limbs[0];
+
+    if (q != NULL)
+      q->size = 0;
+  } else {
+    if (q != NULL) {
+      mpz_grow(q, nn);
+      qp = q->limbs;
+    }
+
+    r = mpn_divmod_1(qp, n->limbs, nn, mp_long_abs(d));
+
+    if (q != NULL)
+      qn = nn - (qp[nn - 1] == 0);
+  }
+
+  if (q != NULL)
+    q->size = qs ? -qn : qn;
+
+  r = rs ? -r : r;
+
+  if (euclid) {
+    if (q != NULL) {
+      if (r < 0) {
+        if (d < 0)
+          mpz_add_ui(q, q, 1);
+        else
+          mpz_sub_ui(q, q, 1);
+      }
+    }
+
+    if (r < 0) {
+      if (d < 0)
+        r -= d;
+      else
+        r += d;
+    }
   }
 
   return r;
@@ -3181,6 +3456,17 @@ mpz_quo_ui(mpz_t q, const mpz_t n, mp_limb_t d) {
 mp_limb_t
 mpz_rem_ui(const mpz_t n, mp_limb_t d) {
   return mpz_div_ui_inner(NULL, n, d, 0);
+}
+
+mp_long_t
+mpz_quo_si(mpz_t q, const mpz_t n, mp_long_t d) {
+  CHECK(q != NULL);
+  return mpz_div_si_inner(q, n, d, 0);
+}
+
+mp_long_t
+mpz_rem_si(const mpz_t n, mp_long_t d) {
+  return mpz_div_si_inner(NULL, n, d, 0);
 }
 
 /*
@@ -3224,6 +3510,17 @@ mpz_mod_ui(const mpz_t n, mp_limb_t d) {
   return mpz_div_ui_inner(NULL, n, d, 1);
 }
 
+mp_long_t
+mpz_div_si(mpz_t q, const mpz_t n, mp_long_t d) {
+  CHECK(q != NULL);
+  return mpz_div_si_inner(q, n, d, 1);
+}
+
+mp_long_t
+mpz_mod_si(const mpz_t n, mp_long_t d) {
+  return mpz_div_si_inner(NULL, n, d, 1);
+}
+
 /*
  * Exact Division
  */
@@ -3244,6 +3541,214 @@ mpz_divexact(mpz_t q, const mpz_t n, const mpz_t d) {
 void
 mpz_divexact_ui(mpz_t q, const mpz_t n, mp_limb_t d) {
   CHECK(mpz_div_ui_inner(q, n, d, 0) == 0);
+}
+
+void
+mpz_divexact_si(mpz_t q, const mpz_t n, mp_long_t d) {
+  CHECK(mpz_div_si_inner(q, n, d, 0) == 0);
+}
+
+/*
+ * Roots
+ */
+
+void
+mpz_sqrt(mpz_t z, const mpz_t x) {
+  /* Integer Square Root.
+   *
+   * [ARITH] Algorithm 1.13, Page 27, Section 1.5
+   */
+  mpz_t u, s;
+
+  if (mpz_sgn(x) < 0)
+    torsion_abort(); /* LCOV_EXCL_LINE */
+
+  if (mpz_sgn(x) == 0) {
+    mpz_set(z, x);
+    return;
+  }
+
+  mpz_init(u);
+  mpz_init(s);
+
+  /* u >= floor(x^(1/2)) */
+  mpz_set_bit(u, mpz_bitlen(x) / 2 + 1);
+
+  do {
+    mpz_set(s, u);
+    mpz_quo(u, x, s);
+    mpz_add(u, s, u);
+    mpz_rshift(u, u, 1);
+  } while (mpz_cmpabs(u, s) < 0);
+
+  mpz_set(z, s);
+
+  mpz_clear(u);
+  mpz_clear(s);
+}
+
+int
+mpz_perfect_square_p(const mpz_t x) {
+  mpz_t z;
+  int ret;
+
+  if (mpz_sgn(x) < 0)
+    return 0;
+
+  mpz_init(z);
+
+  mpz_sqrt(z, x);
+  mpz_sqr(z, z);
+
+  ret = (mpz_cmpabs(z, x) == 0);
+
+  mpz_clear(z);
+
+  return ret;
+}
+
+/*
+ * AND
+ */
+
+void
+mpz_and(mpz_t z, const mpz_t x, const mpz_t y) {
+  int xn = MP_ABS(x->size);
+  int yn = MP_ABS(y->size);
+  int zn = MP_MIN(xn, yn);
+
+  mpz_grow(z, zn);
+
+  mpn_and_n(z->limbs, x->limbs, y->limbs, zn);
+
+  zn = mpn_strip(z->limbs, zn);
+
+  z->size = ((x->size < 0) & (y->size < 0)) ? -zn : zn;
+}
+
+mp_limb_t
+mpz_and_ui(const mpz_t x, mp_limb_t y) {
+  if (x->size == 0)
+    return 0;
+
+  return x->limbs[0] & y;
+}
+
+mp_long_t
+mpz_and_si(const mpz_t x, mp_long_t y) {
+  mp_limb_t w = mpz_and_ui(x, mp_long_abs(y));
+  mp_long_t z;
+
+  if (x->size < 0 && w == MP_LIMB_HI)
+    return MP_LONG_MIN;
+
+  z = w & (MP_LIMB_HI - 1);
+
+  return ((x->size < 0) & (y < 0)) ? -z : z;
+}
+
+/*
+ * OR
+ */
+
+void
+mpz_ior(mpz_t z, const mpz_t x, const mpz_t y) {
+  int xn = MP_ABS(x->size);
+  int yn = MP_ABS(y->size);
+  int zn = MP_MAX(xn, yn);
+
+  mpz_grow(z, zn);
+
+  if (xn >= yn)
+    mpn_ior(z->limbs, x->limbs, xn, y->limbs, yn);
+  else
+    mpn_ior(z->limbs, y->limbs, yn, x->limbs, xn);
+
+  zn = mpn_strip(z->limbs, zn);
+
+  z->size = ((x->size < 0) | (y->size < 0)) ? -zn : zn;
+}
+
+void
+mpz_ior_ui(mpz_t z, const mpz_t x, mp_limb_t y) {
+  int xn = MP_ABS(x->size);
+  int zn;
+
+  if (xn == 0) {
+    mpz_grow(z, 1);
+
+    z->limbs[0] = y;
+    zn = (y != 0);
+  } else {
+    mpz_set(z, x);
+
+    z->limbs[0] |= y;
+    zn = xn;
+  }
+
+  z->size = x->size < 0 ? -zn : zn;
+}
+
+void
+mpz_ior_si(mpz_t z, const mpz_t x, mp_long_t y) {
+  mpz_ior_ui(z, x, mp_long_abs(y));
+
+  if (z->size > 0 && y < 0)
+    mpz_neg(z, z);
+}
+
+/*
+ * XOR
+ */
+
+void
+mpz_xor(mpz_t z, const mpz_t x, const mpz_t y) {
+  int xn = MP_ABS(x->size);
+  int yn = MP_ABS(y->size);
+  int zn = MP_MAX(xn, yn);
+
+  mpz_grow(z, zn);
+
+  if (xn >= yn)
+    mpn_xor(z->limbs, x->limbs, xn, y->limbs, yn);
+  else
+    mpn_xor(z->limbs, y->limbs, yn, x->limbs, xn);
+
+  zn = mpn_strip(z->limbs, zn);
+
+  z->size = ((x->size < 0) ^ (y->size < 0)) ? -zn : zn;
+}
+
+void
+mpz_xor_ui(mpz_t z, const mpz_t x, mp_limb_t y) {
+  int xn = MP_ABS(x->size);
+  int zn;
+
+  if (xn == 0) {
+    mpz_grow(z, 1);
+
+    z->limbs[0] = y;
+    zn = (y != 0);
+  } else {
+    mpz_set(z, x);
+
+    z->limbs[0] ^= y;
+
+    if (xn == 1)
+      zn = (z->limbs[0] != 0);
+    else
+      zn = xn;
+  }
+
+  z->size = x->size < 0 ? -zn : zn;
+}
+
+void
+mpz_xor_si(mpz_t z, const mpz_t x, mp_long_t y) {
+  mpz_xor_ui(z, x, mp_long_abs(y));
+
+  if (y < 0)
+    mpz_neg(z, z);
 }
 
 /*
@@ -3356,6 +3861,20 @@ mpz_clr_bit(mpz_t x, int pos) {
 
     x->size = x->size < 0 ? -xn : xn;
   }
+}
+
+void
+mpz_mask(mpz_t z, const mpz_t x, int bits) {
+  int xn = MP_ABS(x->size);
+  int zn = xn;
+
+  mpz_grow(z, zn);
+
+  mpn_mask(z->limbs, x->limbs, xn, MP_ABS(bits));
+
+  zn = mpn_strip(z->limbs, zn);
+
+  z->size = ((x->size < 0) & (bits < 0)) ? -zn : zn;
 }
 
 /*
@@ -3481,12 +4000,8 @@ mpz_gcdext(mpz_t g, mpz_t s, mpz_t t, const mpz_t x, const mpz_t y) {
     if (s != NULL)
       s->size = 0;
 
-    if (t != NULL) {
-      mpz_set_ui(t, y->size != 0);
-
-      if (y->size < 0)
-        mpz_neg(t, t);
-    }
+    if (t != NULL)
+      mpz_set_si(t, mpz_sgn(y));
 
     return;
   }
@@ -3495,12 +4010,8 @@ mpz_gcdext(mpz_t g, mpz_t s, mpz_t t, const mpz_t x, const mpz_t y) {
     if (g != NULL)
       mpz_abs(g, x);
 
-    if (s != NULL) {
-      mpz_set_ui(s, x->size != 0);
-
-      if (x->size < 0)
-        mpz_neg(s, s);
-    }
+    if (s != NULL)
+      mpz_set_si(s, mpz_sgn(x));
 
     if (t != NULL)
       t->size = 0;
@@ -3947,18 +4458,7 @@ mpz_is_prime_lucas(const mpz_t n, mp_limb_t limit) {
 
     if (p == 40) {
       /* if floor(n^(1 / 2))^2 == n */
-      mpz_set_bit(t2, mpz_bitlen(n) / 2 + 1);
-
-      do {
-        mpz_set(t1, t2);
-        mpz_quo(t2, n, t1);
-        mpz_add(t2, t2, t1);
-        mpz_rshift(t2, t2, 1);
-      } while (mpz_cmpabs(t2, t1) < 0);
-
-      mpz_sqr(t2, t1);
-
-      if (mpz_cmp(t2, n) == 0)
+      if (mpz_perfect_square_p(n))
         goto fail;
     }
 
@@ -4219,6 +4719,14 @@ mpz_swap(mpz_t x, mpz_t y) {
   y->size = size;
 }
 
+mp_limb_t
+mpz_getlimbn(const mpz_t x, int n) {
+  if (n >= MP_ABS(x->size))
+    return 0;
+
+  return x->limbs[n];
+}
+
 /*
  * Import
  */
@@ -4318,7 +4826,7 @@ mpz_random_bits(mpz_t z, int bits, mp_rng_f *rng, void *arg) {
 
   mpz_grow(z, zn);
 
-  rng(z->limbs, zn * sizeof(mp_limb_t), arg);
+  mpn_random(z->limbs, zn, rng, arg);
 
   if (lo != 0)
     z->limbs[zn - 1] &= MP_MASK(lo);
