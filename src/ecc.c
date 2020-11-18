@@ -1331,21 +1331,22 @@ sc_jsf_endo_var(const scalar_field_t *sc,
 
 static void
 sc_random(const scalar_field_t *sc, sc_t k, drbg_t *rng) {
-  unsigned char bytes[MAX_SCALAR_SIZE];
+  mp_limb_t mask = MP_MASK(sc->bits % MP_LIMB_BITS);
+  int ok;
 
-  for (;;) {
-    drbg_generate(rng, bytes, sc->size);
+  if (mask == 0)
+    mask = MP_LIMB_MAX;
 
-    if (!sc_import(sc, k, bytes))
-      continue;
+  do {
+    ok = 1;
 
-    if (sc_is_zero(sc, k))
-      continue;
+    mpn_random(k, sc->limbs, drbg_rng, rng);
 
-    break;
-  }
+    k[sc->limbs - 1] &= mask;
 
-  cleanse(bytes, sc->size);
+    ok &= sc_is_canonical(sc, k);
+    ok &= sc_is_zero(sc, k) ^ 1;
+  } while (!ok);
 }
 
 /*
@@ -1912,19 +1913,20 @@ fe_rsqrt(const prime_field_t *fe, fe_t r, const fe_t u, const fe_t v) {
 
 TORSION_UNUSED static void
 fe_random(const prime_field_t *fe, fe_t x, drbg_t *rng) {
+  size_t i = fe->endian < 0 ? fe->size - 1 : 0;
   unsigned char bytes[MAX_FIELD_SIZE];
+  int ok;
 
-  for (;;) {
+  do {
+    ok = 1;
+
     drbg_generate(rng, bytes, fe->size);
 
-    if (!fe_import(fe, x, bytes))
-      continue;
+    bytes[i] &= fe->mask;
 
-    if (fe_is_zero(fe, x))
-      continue;
-
-    break;
-  }
+    ok &= fe_import(fe, x, bytes);
+    ok &= fe_is_zero(fe, x) ^ 1;
+  } while (!ok);
 
   cleanse(bytes, fe->size);
 }
