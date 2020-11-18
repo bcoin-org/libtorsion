@@ -96,6 +96,7 @@
 #define mpn_export __torsion_mpn_export
 #define mpn_set_str __torsion_mpn_set_str
 #define mpn_get_str __torsion_mpn_get_str
+#define mpn_print __torsion_mpn_print
 #define mpn_random __torsion_mpn_random
 #define mpz_init __torsion_mpz_init
 #define mpz_clear __torsion_mpz_clear
@@ -184,6 +185,7 @@
 #define mpz_export __torsion_mpz_export
 #define mpz_set_str __torsion_mpz_set_str
 #define mpz_get_str __torsion_mpz_get_str
+#define mpz_print __torsion_mpz_print
 #define mpz_random __torsion_mpz_random
 #define mpz_random_int __torsion_mpz_random_int
 #define test_mpi_internal __torsion_test_mpi_internal
@@ -231,6 +233,7 @@ struct mpz_s {
 
 typedef struct mpz_s mpz_t[1];
 
+typedef int mp_puts_f(const char *s);
 typedef void mp_rng_f(void *out, size_t size, void *arg);
 
 /*
@@ -672,6 +675,13 @@ size_t
 mpn_get_str(char *str, const mp_limb_t *xp, int xn, int base);
 
 /*
+ * STDIO
+ */
+
+void
+mpn_print(const mp_limb_t *xp, int xn, int base, mp_puts_f *mp_puts);
+
+/*
  * RNG
  */
 
@@ -1054,6 +1064,13 @@ mpz_set_str(mpz_t z, const char *str, int base);
 
 char *
 mpz_get_str(const mpz_t x, int base);
+
+/*
+ * STDIO
+ */
+
+void
+mpz_print(const mpz_t x, int base, mp_puts_f *mp_puts);
 
 /*
  * RNG

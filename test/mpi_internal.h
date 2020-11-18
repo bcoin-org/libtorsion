@@ -46,6 +46,12 @@ mp_random_long(mp_rng_f *rng, void *arg) {
   return (-s | 1) * w;
 }
 
+static int
+fake_puts(const char *s) {
+  CHECK(s != NULL);
+  return 0;
+}
+
 /*
  * P192
  */
@@ -1359,6 +1365,9 @@ test_mpn_io_str(mp_rng_f *rng, void *arg) {
 
     ASSERT(mpn_set_str(bp, 4, str, 16));
     ASSERT(mpn_cmp(ap, bp, 4) == 0);
+
+    mpn_print(ap, 4, 10, fake_puts);
+    mpn_print(ap, 4, 16, fake_puts);
   }
 }
 
@@ -3593,6 +3602,9 @@ test_mpz_io_str(mp_rng_f *rng, void *arg) {
     ASSERT(mpz_cmp(x, y) == 0);
 
     free(str);
+
+    mpz_print(x, 10, fake_puts);
+    mpz_print(x, 16, fake_puts);
   }
 
   mpz_clear(x);

@@ -70,10 +70,14 @@
      ((n) > mp_alloca_max ? mp_alloc_limbs(n) : mp_alloca_limbs(n))
 #  define mp_free_vla(p, n) \
      do { if ((n) > mp_alloca_max) mp_free_limbs(p); } while (0)
+#  define mp_alloc_str(n) ((char *)((n) > 1024 ? malloc(n) : mp_alloca(n)))
+#  define mp_free_str(p, n) do { if ((n) > 1024) free(p); } while (0)
 #else
 #  define mp_alloca_max 0
 #  define mp_alloc_vla(n) mp_alloc_limbs(n)
 #  define mp_free_vla(p, n) mp_free_limbs(p)
+#  define mp_alloc_str(n) ((char *)malloc(n))
+#  define mp_free_str(p, n) free(p)
 #endif
 
 #if defined(TORSION_HAVE_ASM_X64) && MP_LIMB_BITS == 64
@@ -2584,6 +2588,23 @@ mpn_get_str(char *str, const mp_limb_t *xp, int xn, int base) {
 }
 
 /*
+ * STDIO
+ */
+
+void
+mpn_print(const mp_limb_t *xp, int xn, int base, mp_puts_f *mp_puts) {
+  size_t size = mpn_sizeinbase(xp, xn, base);
+  char *str = mp_alloc_str(size + 1);
+
+  CHECK(str != NULL);
+
+  mpn_get_str(str, xp, xn, base);
+
+  mp_puts(str);
+  mp_free_str(str, size + 1);
+}
+
+/*
  * RNG
  */
 
@@ -4831,6 +4852,19 @@ mpz_get_str(const mpz_t x, int base) {
     str[0] = '-';
 
   return str;
+}
+
+/*
+ * STDIO
+ */
+
+void
+mpz_print(const mpz_t x, int base, mp_puts_f *mp_puts) {
+  char *str = mpz_get_str(x, base);
+
+  mp_puts(str);
+
+  free(str);
 }
 
 /*
