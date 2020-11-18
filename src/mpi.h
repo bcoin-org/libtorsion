@@ -151,6 +151,7 @@
 #define mpz_xor __torsion_mpz_xor
 #define mpz_xor_ui __torsion_mpz_xor_ui
 #define mpz_xor_si __torsion_mpz_xor_si
+#define mpz_com __torsion_mpz_com
 #define mpz_lshift __torsion_mpz_lshift
 #define mpz_rshift __torsion_mpz_rshift
 #define mpz_get_bit __torsion_mpz_get_bit
@@ -908,6 +909,13 @@ mpz_xor_ui(mpz_t z, const mpz_t x, mp_limb_t y);
 
 void
 mpz_xor_si(mpz_t z, const mpz_t x, mp_long_t y);
+
+/*
+ * NOT
+ */
+
+void
+mpz_com(mpz_t z, const mpz_t x);
 
 /*
  * Left Shift

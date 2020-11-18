@@ -3754,6 +3754,23 @@ mpz_xor_si(mpz_t z, const mpz_t x, mp_long_t y) {
 }
 
 /*
+ * NOT
+ */
+
+void
+mpz_com(mpz_t z, const mpz_t x) {
+  if (x->size < 0) {
+    /* ~(-x) == ~(~(x-1)) == x-1 */
+    mpz_neg(z, x);
+    mpz_sub_ui(z, z, 1);
+  } else {
+    /* ~x == -x-1 == -(x+1) */
+    mpz_add_ui(z, x, 1);
+    mpz_neg(z, z);
+  }
+}
+
+/*
  * Left Shift
  */
 

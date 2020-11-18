@@ -2819,6 +2819,32 @@ test_mpz_xor(mp_rng_f *rng, void *arg) {
 }
 
 static void
+test_mpz_com(mp_rng_f *rng, void *arg) {
+  mpz_t x, z;
+  int i;
+
+  printf("  - MPZ NOT.\n");
+
+  mpz_init(x);
+  mpz_init(z);
+
+  for (i = 0; i < 100; i++) {
+    mpz_random_bits(x, 250, rng, arg);
+
+    if (i & 1)
+      mpz_neg(x, x);
+
+    mpz_com(z, x);
+    mpz_com(z, z);
+
+    ASSERT(mpz_cmp(z, x) == 0);
+  }
+
+  mpz_clear(x);
+  mpz_clear(z);
+}
+
+static void
 test_mpz_lshift(mp_rng_f *rng, void *arg) {
   mpz_t x, y;
   int i;
@@ -3705,6 +3731,7 @@ test_mpi_internal(mp_rng_f *rng, void *arg) {
   test_mpz_and(rng, arg);
   test_mpz_ior(rng, arg);
   test_mpz_xor(rng, arg);
+  test_mpz_com(rng, arg);
   test_mpz_lshift(rng, arg);
   test_mpz_rshift(rng, arg);
   test_mpz_shift(rng, arg);
