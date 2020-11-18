@@ -1279,13 +1279,10 @@ test_wei_fuzzy_equality(int type, drbg_t *rng) {
   for (;;) {
     int bits = mpn_bitlen(ec->sc_p, sc->limbs);
     int rn = (bits + MP_LIMB_BITS - 1) / MP_LIMB_BITS;
-    int lo = bits % MP_LIMB_BITS;
 
     mpn_zero(r, ARRAY_SIZE(r));
     mpn_random(r, rn, drbg_rng, rng);
-
-    if (lo != 0)
-      r[rn - 1] &= MP_MASK(lo);
+    mpn_mask(r, r, rn, bits);
 
     if (mpn_cmp(r, ec->sc_p, fe->limbs) >= 0)
       continue;
