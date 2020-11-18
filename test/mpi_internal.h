@@ -63,8 +63,8 @@ mpn_p192_mod(mp_limb_t *zp) {
   mpn_zero(ap, MP_P192_LIMBS + 1);
   mpn_zero(bp, MP_P192_LIMBS + 1);
 
-  ap[192 / MP_LIMB_BITS] |= MP_LIMB_C(1) << (192 % MP_LIMB_BITS);
-  bp[64 / MP_LIMB_BITS] |= MP_LIMB_C(1) << (64 % MP_LIMB_BITS);
+  mpn_set_bit(ap, 192);
+  mpn_set_bit(bp, 64);
 
   mpn_sub_n(ap, ap, bp, MP_P192_LIMBS + 1);
   mpn_sub_1(zp, ap, MP_P192_LIMBS, 1);
@@ -72,6 +72,7 @@ mpn_p192_mod(mp_limb_t *zp) {
 
 static void
 mpn_p192_exp(mp_limb_t *zp) {
+  /* e = (p + 1) / 4 */
   mp_limb_t mp[MP_P192_LIMBS + 1];
   mp_limb_t ep[MP_P192_LIMBS + 1];
 
@@ -80,7 +81,6 @@ mpn_p192_exp(mp_limb_t *zp) {
 
   mpn_p192_mod(mp);
 
-  /* e = (p + 1) / 4 */
   mpn_add_1(ep, mp, MP_P192_LIMBS + 1, 1);
   mpn_rshift(ep, ep, MP_P192_LIMBS + 1, 2);
   mpn_copyi(zp, ep, MP_P192_LIMBS);
