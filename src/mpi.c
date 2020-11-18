@@ -2538,13 +2538,14 @@ mpn_get_str(char *str, const mp_limb_t *xp, int xn, int base) {
       ch = mpn_divmod_1(tp, tp, tn, base);
       tn -= (tp[tn - 1] == 0);
 
-      if (ch < 10)
-        ch += '0';
-      else
-        ch += 'a' - 10;
+      if (str != NULL) {
+        if (ch < 10)
+          ch += '0';
+        else
+          ch += 'a' - 10;
 
-      if (str != NULL)
         str[len] = ch;
+      }
 
       len += 1;
     } while (tn != 0);
