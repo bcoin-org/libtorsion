@@ -397,6 +397,67 @@ test_mpn_muldiv_1(mp_rng_f *rng, void *arg) {
 }
 
 static void
+test_mpn_addmul_1(mp_rng_f *rng, void *arg) {
+  mp_limb_t zp[5];
+  mp_limb_t xp[5];
+  mp_limb_t ep[5];
+  mp_limb_t tp[5];
+  mp_limb_t y;
+  int i;
+
+  printf("  - MPN add+mul.\n");
+
+  for (i = 0; i < 100; i++) {
+    mpn_random(zp, 4, rng, arg);
+    mpn_random(xp, 4, rng, arg);
+    mpn_random(&y, 1, rng, arg);
+
+    zp[4] = 0;
+    xp[4] = 0;
+
+    mpn_copyi(ep, zp, 5);
+
+    ASSERT(mpn_mul_1(tp, xp, 5, y) == 0);
+    ASSERT(mpn_add_n(ep, ep, tp, 5) == 0);
+
+    ASSERT(mpn_addmul_1(zp, xp, 5, y) == 0);
+
+    ASSERT(mpn_cmp(zp, ep, 5) == 0);
+  }
+}
+
+static void
+test_mpn_submul_1(mp_rng_f *rng, void *arg) {
+  mp_limb_t zp[6];
+  mp_limb_t xp[6];
+  mp_limb_t ep[6];
+  mp_limb_t tp[6];
+  mp_limb_t y;
+  int i;
+
+  printf("  - MPN sub+mul.\n");
+
+  for (i = 0; i < 100; i++) {
+    mpn_random(zp, 6, rng, arg);
+    mpn_random(xp, 4, rng, arg);
+    mpn_random(&y, 1, rng, arg);
+
+    zp[5] |= 1;
+    xp[4] = 0;
+    xp[5] = 0;
+
+    mpn_copyi(ep, zp, 6);
+
+    ASSERT(mpn_mul_1(tp, xp, 6, y) == 0);
+    ASSERT(mpn_sub_n(ep, ep, tp, 6) == 0);
+
+    ASSERT(mpn_submul_1(zp, xp, 6, y) == 0);
+
+    ASSERT(mpn_cmp(zp, ep, 6) == 0);
+  }
+}
+
+static void
 test_mpn_sqr(mp_rng_f *rng, void *arg) {
   mp_limb_t ap[4];
   mp_limb_t rp[8];
@@ -3583,6 +3644,8 @@ test_mpi_internal(mp_rng_f *rng, void *arg) {
   test_mpn_addsub_1(rng, arg);
   test_mpn_muldiv(rng, arg);
   test_mpn_muldiv_1(rng, arg);
+  test_mpn_addmul_1(rng, arg);
+  test_mpn_submul_1(rng, arg);
   test_mpn_sqr(rng, arg);
   test_mpn_mod(rng, arg);
   test_mpn_mod_1(rng, arg);
