@@ -457,7 +457,7 @@ mp_gt_2(mp_limb_t x1, mp_limb_t x0, mp_limb_t y1, mp_limb_t y0) {
 
 static TORSION_INLINE int
 mp_cast_size(size_t n) {
-  CHECK(n <= (size_t)MP_SIZE_MAX);
+  CHECK(n <= (size_t)INT_MAX);
   return n;
 }
 
@@ -467,6 +467,18 @@ mp_long_abs(mp_long_t x) {
     return MP_LIMB_HI;
 
   return MP_ABS(x);
+}
+
+static TORSION_INLINE mp_long_t
+mp_limb_cast(mp_limb_t x, int sign) {
+  if (sign) {
+    if (x == MP_LIMB_HI)
+      return MP_LONG_MIN;
+
+    return -((mp_long_t)(x & (MP_LIMB_HI - 1)));
+  }
+
+  return x & (MP_LIMB_HI - 1);
 }
 
 static int
@@ -2827,8 +2839,6 @@ mpz_cleanse(mpz_t x) {
 
 static void
 mpz_grow(mpz_t x, int size) {
-  CHECK(size <= MP_SIZE_MAX);
-
   if (size > x->alloc) {
     x->limbs = mp_realloc_limbs(x->limbs, size);
     x->alloc = size;
@@ -2897,15 +2907,7 @@ mpz_get_ui(const mpz_t x) {
 
 mp_long_t
 mpz_get_si(const mpz_t x) {
-  mp_limb_t w = mpz_get_ui(x);
-  mp_long_t z;
-
-  if (x->size < 0 && w == MP_LIMB_HI)
-    return MP_LONG_MIN;
-
-  z = w & (MP_LIMB_HI - 1);
-
-  return x->size < 0 ? -z : z;
+  return mp_limb_cast(mpz_get_ui(x), x->size < 0);
 }
 
 /*
@@ -3640,15 +3642,10 @@ mpz_and_ui(const mpz_t x, mp_limb_t y) {
 
 mp_long_t
 mpz_and_si(const mpz_t x, mp_long_t y) {
-  mp_limb_t w = mpz_and_ui(x, mp_long_abs(y));
-  mp_long_t z;
+  mp_limb_t z = mpz_and_ui(x, mp_long_abs(y));
+  int sign = (x->size < 0) & (y < 0);
 
-  if (x->size < 0 && w == MP_LIMB_HI)
-    return MP_LONG_MIN;
-
-  z = w & (MP_LIMB_HI - 1);
-
-  return ((x->size < 0) & (y < 0)) ? -z : z;
+  return mp_limb_cast(z, sign);
 }
 
 /*
@@ -4754,7 +4751,7 @@ mpz_getlimbn(const mpz_t x, int n) {
 
 void
 mpz_import(mpz_t z, const unsigned char *raw, size_t size, int endian) {
-  int zn = (mp_cast_size(size) + MP_LIMB_BYTES - 1) / MP_LIMB_BYTES;
+  int zn = mp_cast_size((size + MP_LIMB_BYTES - 1) / MP_LIMB_BYTES);
 
   if (zn == 0) {
     z->size = 0;

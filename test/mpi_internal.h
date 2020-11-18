@@ -31,21 +31,19 @@ mpn_random_nz(mp_limb_t *zp, int zn, mp_rng_f *rng, void *arg) {
 static mp_limb_t
 mp_random_limb(mp_rng_f *rng, void *arg) {
   mp_limb_t z;
+
   mpn_random(&z, 1, rng, arg);
+
   return z;
 }
 
 static mp_long_t
 mp_random_long(mp_rng_f *rng, void *arg) {
-  mp_limb_t w = mp_random_limb(rng, arg);
-  mp_long_t z;
+  mp_limb_t z = mp_random_limb(rng, arg);
+  mp_long_t s = z >> (MP_LIMB_BITS - 1);
+  mp_long_t w = z & (MP_LIMB_HI - 1);
 
-  if (w == MP_LIMB_HI)
-    return MP_LONG_MIN;
-
-  z = w & (MP_LIMB_HI - 1);
-
-  return (w & MP_LIMB_HI) ? -z : z;
+  return (-s | 1) * w;
 }
 
 /*
@@ -144,6 +142,22 @@ test_mp_helpers(void) {
   ASSERT(!mp_gt_2(1, 0, 1, 1));
   ASSERT(mp_gt_2(1, 1, 1, 0));
   ASSERT(mp_gt_2(1, 0, 0, 0));
+
+  ASSERT(mp_long_abs(0) == 0);
+  ASSERT(mp_limb_cast(0, 1) == 0);
+
+  ASSERT(mp_long_abs(-100) == 100);
+  ASSERT(mp_limb_cast(100, 1) == -100);
+
+  ASSERT(mp_limb_cast(MP_LIMB_HI, 0) == 0);
+  ASSERT(mp_limb_cast(MP_LIMB_HI + 1, 0) == 1);
+  ASSERT(mp_limb_cast(MP_LIMB_HI + 1, 1) == -1);
+
+  ASSERT(mp_long_abs(MP_LONG_MIN) == MP_LIMB_HI);
+  ASSERT(mp_limb_cast(MP_LIMB_HI, 1) == MP_LONG_MIN);
+
+  ASSERT(mp_long_abs(MP_LONG_MIN + 1) == MP_LIMB_HI - 1);
+  ASSERT(mp_limb_cast(MP_LIMB_HI - 1, 1) == MP_LONG_MIN + 1);
 }
 
 /*
