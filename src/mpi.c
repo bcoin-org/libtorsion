@@ -2518,13 +2518,14 @@ size_t
 mpn_get_str(char *str, const mp_limb_t *xp, int xn, int base) {
   size_t len = 0;
   size_t i, j, k;
+  int tn, sn, ch;
   mp_limb_t *tp;
-  int tn, ch;
 
   CHECK(base >= 2 && base <= 36);
 
   tn = mpn_strip(xp, xn);
-  tp = mp_alloc_vla(tn);
+  sn = MP_MAX(tn, 1);
+  tp = mp_alloc_vla(sn);
 
   mpn_copyi(tp, xp, tn);
 
@@ -2565,7 +2566,7 @@ mpn_get_str(char *str, const mp_limb_t *xp, int xn, int base) {
     str[len] = '\0';
   }
 
-  mp_free_vla(tp, tn);
+  mp_free_vla(tp, sn);
 
   return len;
 }
