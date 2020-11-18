@@ -232,11 +232,11 @@ typedef struct scalar_field_s {
   int shift;
   size_t size;
   unsigned int mask;
-  mp_limb_t n[MAX_REDUCE_LIMBS];
-  mp_limb_t nh[MAX_REDUCE_LIMBS];
-  mp_limb_t m[MAX_REDUCE_LIMBS];
+  mp_limb_t n[MAX_SCALAR_LIMBS];
+  mp_limb_t nh[MAX_SCALAR_LIMBS];
+  mp_limb_t m[MAX_REDUCE_LIMBS - MAX_SCALAR_LIMBS + 1];
   mp_limb_t k;
-  mp_limb_t r2[MAX_SCALAR_LIMBS * 2 + 1];
+  mp_limb_t r2[MAX_SCALAR_LIMBS];
   sc_invert_f *invert;
 } scalar_field_t;
 
@@ -281,7 +281,7 @@ typedef struct prime_field_s {
   size_t size;
   size_t adj_size;
   unsigned int mask;
-  mp_limb_t p[MAX_REDUCE_LIMBS];
+  mp_limb_t p[MAX_FIELD_LIMBS];
   unsigned char raw[MAX_FIELD_SIZE];
   fe_add_f *add;
   fe_sub_f *sub;
@@ -391,7 +391,7 @@ typedef struct wei_s {
   prime_field_t fe;
   scalar_field_t sc;
   unsigned int h;
-  mp_limb_t sc_p[MAX_REDUCE_LIMBS];
+  sc_t sc_p;
   fe_t fe_n;
   fe_t a;
   fe_t b;
@@ -857,6 +857,20 @@ sc_reduce(const scalar_field_t *sc, sc_t r, const mp_limb_t *a) {
   mp_limb_t scratch[MPN_REDUCE_ITCH(MAX_SCALAR_LIMBS, MAX_REDUCE_LIMBS)];
 
   mpn_reduce(r, a, sc->m, sc->n, sc->limbs, sc->shift, scratch);
+}
+
+static void
+sc_mod(const scalar_field_t *sc, sc_t r, const mp_limb_t *ap, int an) {
+  /* Called on initialization only. */
+  mp_limb_t rp[MAX_REDUCE_LIMBS]; /* 160 bytes */
+  int rn = sc->shift;
+
+  ASSERT(an <= rn);
+
+  mpn_copyi(rp, ap, an);
+  mpn_zero(rp + an, rn - an);
+
+  sc_reduce(sc, r, rp);
 }
 
 static void
@@ -1466,23 +1480,37 @@ fe_set(const prime_field_t *fe, fe_t r, const fe_t a) {
 }
 
 static int
-fe_set_limbs(const prime_field_t *fe, fe_t r, const mp_limb_t *p, int n) {
+fe_set_limbs(const prime_field_t *fe, fe_t r, const mp_limb_t *ap) {
   unsigned char tmp[MAX_FIELD_SIZE];
 
-  ASSERT(n <= fe->limbs);
-
-  mpn_export(tmp, fe->size, p, n, fe->endian);
+  mpn_export(tmp, fe->size, ap, fe->limbs, fe->endian);
 
   return fe_import(fe, r, tmp);
 }
 
 static void
-fe_get_limbs(const prime_field_t *fe, mp_limb_t *r, const fe_t a) {
+fe_get_limbs(const prime_field_t *fe, mp_limb_t *rp, const fe_t a) {
   unsigned char tmp[MAX_FIELD_SIZE];
 
   fe_export(fe, tmp, a);
 
-  mpn_import(r, fe->limbs, tmp, fe->size, fe->endian);
+  mpn_import(rp, fe->limbs, tmp, fe->size, fe->endian);
+}
+
+static void
+fe_mod(const prime_field_t *fe, fe_t r, const mp_limb_t *ap, int an) {
+  /* Called on initialization only. */
+  mp_limb_t rp[MAX_FIELD_LIMBS];
+  int rn = fe->limbs;
+
+  if (an >= fe->limbs) {
+    mpn_mod(rp, ap, an, fe->p, fe->limbs);
+  } else {
+    mpn_copyi(rp, ap, an);
+    mpn_zero(rp + an, rn - an);
+  }
+
+  ASSERT(fe_set_limbs(fe, r, rp));
 }
 
 static int
@@ -1531,6 +1559,19 @@ fe_set_word(const prime_field_t *fe, fe_t r, fe_word_t word) {
     fe->to_montgomery(r, r);
   else
     fe->carry(r, r);
+}
+
+static void
+fe_set_int(const prime_field_t *fe, fe_t r, int word) {
+  if (word < 0) {
+    fe_set_word(fe, r, -word);
+    fe->opp(r, r);
+
+    if (fe->carry != NULL)
+      fe->carry(r, r);
+  } else {
+    fe_set_word(fe, r, word);
+  }
 }
 
 static int
@@ -1726,7 +1767,7 @@ fe_invert_var(const prime_field_t *fe, fe_t r, const fe_t a) {
 
   ret &= mpn_invert_n(rp, rp, fe->p, fe->limbs, scratch);
 
-  ASSERT(fe_set_limbs(fe, r, rp, fe->limbs));
+  ASSERT(fe_set_limbs(fe, r, rp));
 
   return ret;
 }
@@ -1764,7 +1805,7 @@ fe_sqrt(const prime_field_t *fe, fe_t r, const fe_t a) {
 
     if ((fe->p[0] & 3) == 3) {
       /* e = (p + 1) / 4 */
-      mpn_add_1(e, fe->p, fe->limbs + 1, 1);
+      e[fe->limbs] = mpn_add_1(e, fe->p, fe->limbs, 1);
       mpn_rshift(e, e, fe->limbs + 1, 2);
 
       /* b = a^e mod p */
@@ -1956,10 +1997,10 @@ scalar_field_init(scalar_field_t *sc, const scalar_def_t *def, int endian) {
     sc->mask = (1 << (sc->bits & 7)) - 1;
 
   /* Deserialize order into limbs. */
-  mpn_import(sc->n, MAX_REDUCE_LIMBS, def->n, sc->size, 1);
+  mpn_import(sc->n, sc->limbs, def->n, sc->size, 1);
 
   /* Store `n / 2` for ECDSA checks and scalar minimization. */
-  mpn_rshift(sc->nh, sc->n, MAX_REDUCE_LIMBS, 1);
+  mpn_rshift(sc->nh, sc->n, sc->limbs, 1);
 
   /* Compute the barrett reduction constant `m`:
    *
@@ -2022,7 +2063,7 @@ prime_field_init(prime_field_t *fe, const prime_def_t *def, int endian) {
     fe->mask = (1 << (fe->bits & 7)) - 1;
 
   /* Deserialize prime into limbs. */
-  mpn_import(fe->p, MAX_REDUCE_LIMBS, def->p, fe->size, 1);
+  mpn_import(fe->p, fe->limbs, def->p, fe->size, 1);
 
   /* Keep a raw representation for byte comparisons. */
   mpn_export(fe->raw, fe->size, fe->p, fe->limbs, -1);
@@ -4009,19 +4050,13 @@ wei_init(wei_t *ec, const wei_def_t *def) {
   prime_field_init(fe, def->fe, 1);
   scalar_field_init(sc, def->sc, 1);
 
-  sc_reduce(sc, ec->sc_p, fe->p);
+  sc_mod(sc, ec->sc_p, fe->p, fe->limbs);
+  fe_mod(fe, ec->fe_n, sc->n, sc->limbs);
 
-  fe_set_limbs(fe, ec->fe_n, sc->n, fe->limbs);
   fe_import(fe, ec->a, def->a);
   fe_import(fe, ec->b, def->b);
   fe_import(fe, ec->c, def->c);
-
-  if (def->z < 0) {
-    fe_set_word(fe, ec->z, -def->z);
-    fe_neg(fe, ec->z, ec->z);
-  } else {
-    fe_set_word(fe, ec->z, def->z);
-  }
+  fe_set_int(fe, ec->z, def->z);
 
   fe_invert_var(fe, ec->ai, ec->a);
   fe_invert_var(fe, ec->zi, ec->z);
@@ -5912,13 +5947,7 @@ mont_init(mont_t *ec, const mont_def_t *def) {
 
   fe_import_be(fe, ec->a, def->a);
   fe_import_be(fe, ec->b, def->b);
-
-  if (def->z < 0) {
-    fe_set_word(fe, ec->z, -def->z);
-    fe_neg(fe, ec->z, ec->z);
-  } else {
-    fe_set_word(fe, ec->z, def->z);
-  }
+  fe_set_int(fe, ec->z, def->z);
 
   ec->b_one = fe_equal(fe, ec->b, fe->one);
 
@@ -7186,13 +7215,7 @@ edwards_init(edwards_t *ec, const edwards_def_t *def) {
   fe_import_be(fe, ec->a, def->a);
   fe_import_be(fe, ec->d, def->d);
   fe_add(fe, ec->k, ec->d, ec->d);
-
-  if (def->z < 0) {
-    fe_set_word(fe, ec->z, -def->z);
-    fe_neg(fe, ec->z, ec->z);
-  } else {
-    fe_set_word(fe, ec->z, def->z);
-  }
+  fe_set_int(fe, ec->z, def->z);
 
   edwards_init_isomorphism(ec, def);
 

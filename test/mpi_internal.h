@@ -57,6 +57,7 @@ fake_puts(const char *s) {
  */
 
 #define MP_P192_LIMBS ((192 + MP_LIMB_BITS - 1) / MP_LIMB_BITS)
+#define MP_P192_SHIFT (2 * MP_P192_LIMBS)
 
 static void
 mpn_p192_mod(mp_limb_t *zp) {
@@ -942,14 +943,14 @@ test_mpn_reduce_weak(mp_rng_f *rng, void *arg) {
 
 static void
 test_mpn_barrett(mp_rng_f *rng, void *arg) {
-  mp_limb_t ap[MP_P192_LIMBS * 2];
+  mp_limb_t ap[MP_P192_SHIFT];
   mp_limb_t bp[MP_P192_LIMBS];
   mp_limb_t rp[MP_P192_LIMBS];
   mp_limb_t np[MP_P192_LIMBS];
-  mp_limb_t mp[MPN_BARRETT_RESULT(MP_P192_LIMBS, MP_P192_LIMBS * 2)];
-  mp_limb_t scratch1[MPN_BARRETT_ITCH(MP_P192_LIMBS * 2)];
-  mp_limb_t scratch2[MPN_REDUCE_ITCH(MP_P192_LIMBS, MP_P192_LIMBS * 2)];
-  int shift = MP_P192_LIMBS * 2;
+  mp_limb_t mp[MP_P192_SHIFT - MP_P192_LIMBS + 1]; /* MP_P192_LIMBS + 1 */
+  mp_limb_t scratch1[MPN_BARRETT_ITCH(MP_P192_SHIFT)];
+  mp_limb_t scratch2[MPN_REDUCE_ITCH(MP_P192_LIMBS, MP_P192_SHIFT)];
+  int shift = MP_P192_SHIFT;
   int n = MP_P192_LIMBS;
   int i;
 

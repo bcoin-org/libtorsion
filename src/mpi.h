@@ -252,7 +252,6 @@ typedef void mp_rng_f(void *out, size_t size, void *arg);
 #define MPN_SQR_ITCH(n) (2 * (n))
 #define MPN_MULSHIFT_ITCH(n) (2 * (n))
 #define MPN_REDUCE_WEAK_ITCH(n) (n)
-#define MPN_BARRETT_RESULT(n, shift) ((shift) + 1 - (n) + 1)
 #define MPN_BARRETT_ITCH(shift) ((shift) + 1)
 #define MPN_REDUCE_ITCH(n, shift) (1 + (shift) + ((shift) - (n) + 1))
 #define MPN_MONT_ITCH(n) (2 * (n) + 1)

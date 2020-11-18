@@ -891,9 +891,7 @@ mpn_barrett(mp_limb_t *mp, const mp_limb_t *np,
    *
    * `shift + 1` limbs are required for scratch.
    *
-   * Must have `shift + 1 - n + 1` limbs at mp.
-   *
-   * Result will be `shift - n + 1` limbs.
+   * Must have `shift - n + 1` limbs at mp.
    */
   mp_limb_t *xp = scratch;
   int xn = shift + 1;
@@ -906,9 +904,11 @@ mpn_barrett(mp_limb_t *mp, const mp_limb_t *np,
 
   xp[shift] = 1;
 
-  mpn_div(mp, xp, xn, np, n);
+  mpn_div(xp, xp, xn, np, n);
 
-  CHECK(mpn_strip(mp, xn - n + 1) == shift - n + 1);
+  CHECK(mpn_strip(xp, xn - n + 1) == shift - n + 1);
+
+  mpn_copyi(mp, xp, shift - n + 1);
 }
 
 void
