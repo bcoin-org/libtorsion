@@ -184,7 +184,7 @@
 #define mpz_export __torsion_mpz_export
 #define mpz_set_str __torsion_mpz_set_str
 #define mpz_get_str __torsion_mpz_get_str
-#define mpz_random_bits __torsion_mpz_random_bits
+#define mpz_random __torsion_mpz_random
 #define mpz_random_int __torsion_mpz_random_int
 #define test_mpi_internal __torsion_test_mpi_internal
 
@@ -1062,7 +1062,7 @@ mpz_get_str(const mpz_t x, int base);
  */
 
 void
-mpz_random_bits(mpz_t z, int bits, mp_rng_f *rng, void *arg);
+mpz_random(mpz_t z, int bits, mp_rng_f *rng, void *arg);
 
 void
 mpz_random_int(mpz_t z, const mpz_t max, mp_rng_f *rng, void *arg);

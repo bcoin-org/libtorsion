@@ -194,7 +194,8 @@ dsa_group_generate(dsa_group_t *group, int bits, const unsigned char *entropy) {
   drbg_init(&rng, HASH_SHA256, entropy, ENTROPY_SIZE);
 
   for (;;) {
-    mpz_random_bits(q, N, drbg_rng, &rng);
+    mpz_random(q, N, drbg_rng, &rng);
+
     mpz_set_bit(q, 0);
     mpz_set_bit(q, N - 1);
 
@@ -202,7 +203,8 @@ dsa_group_generate(dsa_group_t *group, int bits, const unsigned char *entropy) {
       continue;
 
     for (i = 0; i < 4 * L; i++) {
-      mpz_random_bits(p, L, drbg_rng, &rng);
+      mpz_random(p, L, drbg_rng, &rng);
+
       mpz_set_bit(p, 0);
       mpz_set_bit(p, L - 1);
 

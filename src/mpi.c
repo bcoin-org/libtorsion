@@ -4648,7 +4648,7 @@ mpz_random_prime(mpz_t z, int bits, mp_rng_f *rng, void *arg) {
   CHECK(bits > 1);
 
   for (;;) {
-    mpz_random_bits(z, bits, rng, arg);
+    mpz_random(z, bits, rng, arg);
 
     mpz_set_bit(z, bits - 1);
     mpz_set_bit(z, bits - 2);
@@ -4841,7 +4841,7 @@ mpz_get_str(const mpz_t x, int base) {
  */
 
 void
-mpz_random_bits(mpz_t z, int bits, mp_rng_f *rng, void *arg) {
+mpz_random(mpz_t z, int bits, mp_rng_f *rng, void *arg) {
   int zn = (bits + MP_LIMB_BITS - 1) / MP_LIMB_BITS;
   int lo = bits % MP_LIMB_BITS;
 
@@ -4867,7 +4867,7 @@ mpz_random_int(mpz_t z, const mpz_t max, mp_rng_f *rng, void *arg) {
 
   if (bits > 0) {
     do {
-      mpz_random_bits(z, bits, rng, arg);
+      mpz_random(z, bits, rng, arg);
     } while (mpz_cmpabs(z, max) >= 0);
 
     if (mpz_sgn(max) < 0)
