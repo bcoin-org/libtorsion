@@ -1278,15 +1278,14 @@ test_wei_fuzzy_equality(int type, drbg_t *rng) {
   /* Generate a field element in the interval [n, p-1]. */
   for (;;) {
     int bits = mpn_bitlen(ec->sc_p, sc->limbs);
-    int limbs = (bits + MP_LIMB_BITS - 1) / MP_LIMB_BITS;
-    int low = bits % MP_LIMB_BITS;
+    int rn = (bits + MP_LIMB_BITS - 1) / MP_LIMB_BITS;
+    int lo = bits % MP_LIMB_BITS;
 
     mpn_zero(r, ARRAY_SIZE(r));
+    mpn_random(r, rn, drbg_rng, rng);
 
-    drbg_generate(rng, r, limbs * sizeof(mp_limb_t));
-
-    if (low != 0)
-      r[limbs - 1] &= (MP_LIMB_C(1) << low) - 1;
+    if (lo != 0)
+      r[rn - 1] &= MP_MASK(lo);
 
     if (mpn_cmp(r, ec->sc_p, fe->limbs) >= 0)
       continue;
