@@ -70,6 +70,7 @@
 #define mpn_ctz __torsion_mpn_ctz
 #define mpn_bitlen __torsion_mpn_bitlen
 #define mpn_bytelen __torsion_mpn_bytelen
+#define mpn_sizeinbase __torsion_mpn_sizeinbase
 #define mpn_swap __torsion_mpn_swap
 #define mpn_select __torsion_mpn_select
 #define mpn_select_zero __torsion_mpn_select_zero
@@ -82,6 +83,8 @@
 #define mpn_sec_gte __torsion_mpn_sec_gte
 #define mpn_import __torsion_mpn_import
 #define mpn_export __torsion_mpn_export
+#define mpn_set_str __torsion_mpn_set_str
+#define mpn_get_str __torsion_mpn_get_str
 #define mpz_init __torsion_mpz_init
 #define mpz_clear __torsion_mpz_clear
 #define mpz_cleanse __torsion_mpz_cleanse
@@ -137,9 +140,12 @@
 #define mpz_ctz __torsion_mpz_ctz
 #define mpz_bitlen __torsion_mpz_bitlen
 #define mpz_bytelen __torsion_mpz_bytelen
+#define mpz_sizeinbase __torsion_mpz_sizeinbase
 #define mpz_swap __torsion_mpz_swap
 #define mpz_import __torsion_mpz_import
 #define mpz_export __torsion_mpz_export
+#define mpz_set_str __torsion_mpz_set_str
+#define mpz_get_str __torsion_mpz_get_str
 #define mpz_random_bits __torsion_mpz_random_bits
 #define mpz_random_int __torsion_mpz_random_int
 #define test_mpi_internal __torsion_test_mpi_internal
@@ -197,7 +203,8 @@ typedef void mp_rng_f(void *out, size_t size, void *arg);
 #define MPN_SQR_ITCH(n) (2 * (n))
 #define MPN_MULSHIFT_ITCH(n) (2 * (n))
 #define MPN_REDUCE_WEAK_ITCH(n) (n)
-#define MPN_BARRETT_ITCH(n, shift) ((shift) + 1 - (n) + 1)
+#define MPN_BARRETT_RESULT(n, shift) ((shift) + 1 - (n) + 1)
+#define MPN_BARRETT_ITCH(shift) ((shift) + 1)
 #define MPN_REDUCE_ITCH(n, shift) (1 + (shift) + ((shift) - (n) + 1))
 #define MPN_MONT_ITCH(n) (2 * (n) + 1)
 #define MPN_MONTMUL_ITCH(n) (2 * (n))
@@ -490,6 +497,9 @@ mpn_bitlen(const mp_limb_t *xp, int xn);
 size_t
 mpn_bytelen(const mp_limb_t *xp, int xn);
 
+size_t
+mpn_sizeinbase(const mp_limb_t *xp, int xn, int base);
+
 void
 mpn_swap(mp_limb_t **xp, int *xn,
          mp_limb_t **yp, int *yn);
@@ -544,6 +554,20 @@ mpn_import(mp_limb_t *zp, int zn,
 void
 mpn_export(unsigned char *raw, size_t len,
            const mp_limb_t *xp, int xn, int endian);
+
+/*
+ * String Import
+ */
+
+int
+mpn_set_str(mp_limb_t *zp, int zn, const char *str, int base);
+
+/*
+ * String Export
+ */
+
+size_t
+mpn_get_str(char *str, const mp_limb_t *xp, int xn, int base);
 
 /*
  * MPZ Interface
@@ -790,6 +814,9 @@ mpz_bitlen(const mpz_t x);
 size_t
 mpz_bytelen(const mpz_t x);
 
+size_t
+mpz_sizeinbase(const mpz_t x, int base);
+
 void
 mpz_swap(mpz_t x, mpz_t y);
 
@@ -806,6 +833,20 @@ mpz_import(mpz_t z, const unsigned char *raw, size_t size, int endian);
 
 void
 mpz_export(unsigned char *raw, const mpz_t x, size_t size, int endian);
+
+/*
+ * String Import
+ */
+
+int
+mpz_set_str(mpz_t z, const char *str, int base);
+
+/*
+ * String Export
+ */
+
+char *
+mpz_get_str(const mpz_t x, int base);
 
 /*
  * RNG

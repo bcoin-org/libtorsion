@@ -83,13 +83,16 @@ noinst_HEADERS = src/asn1.h                         \
                  test/data/hkdf_vectors.h           \
                  test/data/hmac_drbg_vectors.h      \
                  test/data/hmac_vectors.h           \
+                 test/data/jacobi_vectors.h         \
                  test/data/pbkdf2_vectors.h         \
                  test/data/poly1305_vectors.h       \
+                 test/data/prime_vectors.h          \
                  test/data/rsa_vectors.h            \
                  test/data/schnorr_legacy_vectors.h \
                  test/data/schnorr_vectors.h        \
                  test/ecc_internal.h                \
                  test/hrtime.h                      \
+                 test/mpi_internal.h                \
                  test/thread.h                      \
                  test/utils.h
 

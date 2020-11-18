@@ -352,7 +352,7 @@ mp_free_limbs(mp_limb_t *ptr) {
 }
 
 /*
- * Limb Helpers
+ * Helpers
  */
 
 static TORSION_INLINE int
@@ -455,6 +455,50 @@ static TORSION_INLINE int
 mp_cast_size(size_t n) {
   CHECK(n <= (size_t)MP_SIZE_MAX);
   return n;
+}
+
+static int
+mp_str_limbs(const char *str, int base) {
+  mp_limb_t max, limb_pow;
+  int ch, limb_len;
+  int len = 0;
+
+  while (*str) {
+    ch = *str++;
+
+    switch (ch) {
+      case '\t':
+      case '\n':
+      case '\r':
+      case ' ':
+      case '-':
+        continue;
+    }
+
+    len += 1;
+  }
+
+  if (len == 0)
+    len = 1;
+
+  if (base < 2)
+    base = 2;
+  else if (base > 36)
+    base = 36;
+
+  if ((base & (base - 1)) == 0)
+    return (len * mp_bitlen(base - 1) + MP_LIMB_BITS - 1) / MP_LIMB_BITS;
+
+  max = MP_LIMB_MAX / base;
+  limb_pow = base;
+  limb_len = 1;
+
+  while (limb_pow <= max) {
+    limb_pow *= base;
+    limb_len += 1;
+  }
+
+  return (len + limb_len - 1) / limb_len;
 }
 
 /*
@@ -817,7 +861,7 @@ mpn_barrett(mp_limb_t *mp, const mp_limb_t *np,
    *
    * [HANDBOOK] Page 603, Section 14.3.3.
    *
-   * `shift` limbs are required for scratch.
+   * `shift + 1` limbs are required for scratch.
    *
    * Must have `shift + 1 - n + 1` limbs at mp.
    *
@@ -2038,6 +2082,19 @@ mpn_bytelen(const mp_limb_t *xp, int xn) {
   return (mpn_bitlen(xp, xn) + 7) / 8;
 }
 
+size_t
+mpn_sizeinbase(const mp_limb_t *xp, int xn, int base) {
+  if (xn == 0)
+    return 1;
+
+  if (base >= 2 && (base & (base - 1)) == 0) {
+    int b = mp_bitlen(base - 1);
+    return (mpn_bitlen(xp, xn) + (b - 1)) / b;
+  }
+
+  return mpn_get_str(NULL, xp, xn, base);
+}
+
 void
 mpn_swap(mp_limb_t **xp, int *xn,
          mp_limb_t **yp, int *yn) {
@@ -2242,6 +2299,134 @@ mpn_export(unsigned char *raw, size_t len,
     while (k < size)
       raw[k++] = 0;
   }
+}
+
+/*
+ * String Import
+ */
+
+int
+mpn_set_str(mp_limb_t *zp, int zn, const char *str, int base) {
+  mp_limb_t c;
+  int seen = 0;
+  int n = 0;
+  int ch;
+
+  if (base < 2 || base > 36)
+    goto fail;
+
+  while (*str) {
+    ch = *str++;
+
+    switch (ch) {
+      case '\t':
+      case '\n':
+      case '\r':
+      case ' ':
+        continue;
+    }
+
+    if (ch == '-' && seen)
+      goto fail;
+
+    seen = 1;
+
+    if (ch >= '0' && ch <= '9')
+      ch -= '0';
+    else if (ch >= 'A' && ch <= 'Z')
+      ch -= 'A' - 10;
+    else if (ch >= 'a' && ch <= 'z')
+      ch -= 'a' - 10;
+    else
+      ch = base;
+
+    if (ch >= base)
+      goto fail;
+
+    c = mpn_mul_1(zp, zp, n, base);
+
+    if (c != 0) {
+      if (n == zn)
+        return 0;
+
+      zp[n++] = c;
+    }
+
+    c = mpn_add_1(zp, zp, n, ch);
+
+    if (c != 0) {
+      if (n == zn)
+        return 0;
+
+      zp[n++] = c;
+    }
+  }
+
+  mpn_zero(zp + n, zn - n);
+
+  return 1;
+fail:
+  mpn_zero(zp, zn);
+  return 0;
+}
+
+/*
+ * String Export
+ */
+
+size_t
+mpn_get_str(char *str, const mp_limb_t *xp, int xn, int base) {
+  size_t len = 0;
+  size_t i, j, k;
+  mp_limb_t *tp;
+  int tn, ch;
+
+  CHECK(base >= 2 && base <= 36);
+
+  tn = mpn_strip(xp, xn);
+  tp = mp_alloc_vla(tn);
+
+  mpn_copyi(tp, xp, tn);
+
+  if (tn == 0) {
+    if (str != NULL)
+      str[len] = '0';
+
+    len += 1;
+  } else {
+    do {
+      ch = mpn_divmod_1(tp, tp, tn, base);
+      tn -= (tp[tn - 1] == 0);
+
+      if (ch < 10)
+        ch += '0';
+      else
+        ch += 'a' - 10;
+
+      if (str != NULL)
+        str[len] = ch;
+
+      len += 1;
+    } while (tn != 0);
+  }
+
+  if (str != NULL) {
+    i = 0;
+    j = len - 1;
+    k = len >> 1;
+
+    while (k--) {
+      ch = str[i];
+      str[i++] = str[j];
+      str[j--] = ch;
+    }
+
+    str[len] = '\0';
+  }
+
+  mp_free_vla(tp, tn);
+
+  return len;
 }
 
 /*
@@ -3162,9 +3347,15 @@ mpz_set_bit(mpz_t x, int pos) {
 void
 mpz_clr_bit(mpz_t x, int pos) {
   int index = pos / MP_LIMB_BITS;
+  int xn = MP_ABS(x->size);
 
-  if (index < MP_ABS(x->size))
+  if (index < xn) {
     x->limbs[index] &= ~(MP_LIMB_C(1) << (pos % MP_LIMB_BITS));
+
+    xn = mpn_strip(x->limbs, xn);
+
+    x->size = x->size < 0 ? -xn : xn;
+  }
 }
 
 /*
@@ -3516,6 +3707,9 @@ mpz_jacobi(const mpz_t x, const mpz_t y) {
   } else {
     j = mpz_jacobi_inner(x, y);
   }
+
+  if (x->size < 0 && y->size < 0)
+    j = -j;
 
   return j;
 }
@@ -4002,7 +4196,12 @@ mpz_bitlen(const mpz_t x) {
 
 size_t
 mpz_bytelen(const mpz_t x) {
-  return (mpz_bitlen(x) + 7) / 8;
+  return mpn_bytelen(x->limbs, MP_ABS(x->size));
+}
+
+size_t
+mpz_sizeinbase(const mpz_t x, int base) {
+  return mpn_sizeinbase(x->limbs, MP_ABS(x->size), base);
 }
 
 void
@@ -4048,6 +4247,64 @@ void
 mpz_export(unsigned char *raw, const mpz_t x, size_t size, int endian) {
   CHECK(size >= mpz_bytelen(x));
   mpn_export(raw, size, x->limbs, MP_ABS(x->size), endian);
+}
+
+/*
+ * String Import
+ */
+
+int
+mpz_set_str(mpz_t z, const char *str, int base) {
+  int zn = mp_str_limbs(str, base);
+  const char *s = str;
+  int ch = 0;
+
+  while (*s) {
+    ch = *s++;
+
+    switch (ch) {
+      case '\t':
+      case '\n':
+      case '\r':
+      case ' ':
+        continue;
+    }
+
+    break;
+  }
+
+  mpz_grow(z, zn);
+
+  if (!mpn_set_str(z->limbs, zn, str, base)) {
+    z->size = 0;
+    return 0;
+  }
+
+  zn = mpn_strip(z->limbs, zn);
+
+  z->size = (ch == '-') ? -zn : zn;
+
+  return 1;
+}
+
+/*
+ * String Export
+ */
+
+char *
+mpz_get_str(const mpz_t x, int base) {
+  size_t len = mpz_sizeinbase(x, base);
+  size_t neg = x->size < 0;
+  char *str = malloc(neg + len + 1);
+
+  CHECK(str != NULL);
+
+  mpn_get_str(str + neg, x->limbs, MP_ABS(x->size), base);
+
+  if (neg)
+    str[0] = '-';
+
+  return str;
 }
 
 /*

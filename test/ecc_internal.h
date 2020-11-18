@@ -17,67 +17,31 @@
  * Debug Helpers
  */
 
-static size_t
-mpn_out_str(FILE *stream, int base, const mp_limb_t *xp, int xn) {
-  mp_limb_t ch;
-  int bytes = 0;
-  int i;
+TORSION_UNUSED static void
+sc_out_str(const scalar_field_t *sc, const sc_t a) {
+  char str[(MAX_SCALAR_BITS + 3) / 4 + 1];
 
-  ASSERT(base == 16);
+  mpn_get_str(str, a, sc->limbs, 16);
 
-  if (xn < 0) {
-    fputc('-', stream);
-    xn = -xn;
-  }
-
-  xn = mpn_strip(xp, xn);
-
-  if (xn == 0) {
-    fputc('0', stream);
-    return 1;
-  }
-
-  while (xn--) {
-    i = MP_LIMB_BITS / 4;
-
-    while (i--) {
-      ch = (xp[xn] >> (i * 4)) & 0x0f;
-
-      if (bytes == 0 && ch == 0)
-        continue;
-
-      if (ch < 0x0a)
-        ch += '0';
-      else
-        ch += 'a' - 0x0a;
-
-      fputc(ch, stream);
-
-      bytes += 1;
-    }
-  }
-
-  return bytes;
-}
-
-TORSION_UNUSED static size_t
-mpz_out_str(FILE *stream, int base, const mpz_t x) {
-  return mpn_out_str(stream, base, x->limbs, x->size);
+  fputs(str, stdout);
 }
 
 TORSION_UNUSED static void
 sc_print(const scalar_field_t *sc, const sc_t a) {
-  mpn_out_str(stdout, 16, a, sc->limbs);
+  sc_out_str(sc, a);
   printf("\n");
 }
 
-static void
+TORSION_UNUSED static void
 fe_out_str(const prime_field_t *fe, const fe_t a) {
+  char str[(MAX_FIELD_BITS + 3) / 4 + 1];
   mp_limb_t xp[MAX_FIELD_LIMBS];
 
   fe_get_limbs(fe, xp, a);
 
-  mpn_out_str(stdout, 16, xp, fe->limbs);
+  mpn_get_str(str, xp, fe->limbs, 16);
+
+  fputs(str, stdout);
 }
 
 TORSION_UNUSED static void
