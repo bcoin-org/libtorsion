@@ -359,16 +359,6 @@ rge_normalize(const edwards_t *ec, rge_t *r, const rge_t *p) {
  */
 
 static int
-stupid_bytes_zero(const unsigned char *a, size_t n) {
-  while (n--) {
-    if (a[n] != 0)
-      return 0;
-  }
-
-  return 1;
-}
-
-static int
 revcmp(const unsigned char *a, const unsigned char *b, size_t n) {
   while (n--) {
     if (a[n] < b[n])
@@ -747,36 +737,6 @@ test_field_element(drbg_t *unused) {
 /*
  * Utils
  */
-
-static void
-test_bytes_zero(drbg_t *rng) {
-  printf("  - Zero bytes sanity check.\n");
-
-  {
-    static const unsigned char zero[4] = {0, 0, 0, 0};
-    static const unsigned char one[4] = {0, 0, 0, 1};
-    static const unsigned char full[4] = {0xff, 0xff, 0xff, 0xff};
-
-    ASSERT(bytes_zero(zero, 4));
-    ASSERT(!bytes_zero(one, 4));
-    ASSERT(!bytes_zero(full, 4));
-  }
-
-  {
-    size_t i;
-
-    for (i = 0; i < 1000; i++) {
-      unsigned char a[32];
-
-      drbg_generate(rng, a, sizeof(a));
-
-      if (i % 10 == 0)
-        memset(a, 0, sizeof(a));
-
-      ASSERT(bytes_zero(a, 32) == stupid_bytes_zero(a, 32));
-    }
-  }
-}
 
 static void
 test_bytes_lt(drbg_t *rng) {
@@ -3984,7 +3944,6 @@ test_ecc_internal(drbg_t *rng) {
   test_field_element(rng);
 
   /* Utils */
-  test_bytes_zero(rng);
   test_bytes_lt(rng);
 
   /* ECC */

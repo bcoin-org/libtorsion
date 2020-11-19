@@ -185,8 +185,6 @@ TORSION_BARRIER(fe_word_t, fe_word)
 #define MAX_REDUCE_LIMBS (MAX_SCALAR_LIMBS * 2 + 2)
 #define MAX_ENDO_BITS ((MAX_SCALAR_BITS + 1) / 2 + 1)
 
-#define MAX_ELEMENT_SIZE MAX_FIELD_SIZE
-
 #define MAX_PUB_SIZE (1 + MAX_FIELD_SIZE * 2)
 #define MAX_SIG_SIZE (MAX_FIELD_SIZE + MAX_SCALAR_SIZE)
 #define MAX_DER_SIZE (9 + MAX_SIG_SIZE)
@@ -607,18 +605,6 @@ typedef xge_t rge_t;
 /*
  * Helpers
  */
-
-static int
-bytes_zero(const unsigned char *x, size_t len) {
-  /* Compute (x == 0) in constant time. */
-  uint32_t z = 0;
-  size_t i;
-
-  for (i = 0; i < len; i++)
-    z |= (uint32_t)x[i];
-
-  return (z - 1) >> 31;
-}
 
 static int
 bytes_lt(const unsigned char *x, const unsigned char *y, size_t len) {
@@ -1056,32 +1042,19 @@ static int
 sc_set_fe(const scalar_field_t *sc,
           const prime_field_t *fe,
           sc_t z, const fe_t x) {
-  unsigned char raw[MAX_ELEMENT_SIZE];
-  int ret = 1;
+  unsigned char raw[MAX_FIELD_SIZE];
 
-  ASSERT(sc->endian == 1);
-  ASSERT(fe->endian == 1);
+  fe_export(fe, raw, x);
 
-  if (fe->size < sc->size) {
-    /* Left pad and import (no reduction). */
-    memset(raw, 0x00, sc->size - fe->size);
-
-    fe_export(fe, raw + sc->size - fe->size, x);
-
-    ret &= sc_import(sc, z, raw);
-  } else if (fe->size > sc->size) {
-    /* Import as scalar and reduce (wide). */
-    fe_export(fe, raw, x);
-
-    ret &= sc_import_wide(sc, z, raw, fe->size);
-  } else {
-    /* Import as scalar and reduce (normal). */
-    fe_export(fe, raw, x);
-
-    ret &= sc_import_reduce(sc, z, raw);
+  if (fe->bits < sc->bits) {
+    mpn_import(z, sc->limbs, raw, fe->size, fe->endian);
+    return 1;
   }
 
-  return ret;
+  if (fe->bits > sc->bits)
+    return sc_import_wide(sc, z, raw, fe->size);
+
+  return sc_import_weak(sc, z, raw);
 }
 
 static void
@@ -1516,31 +1489,17 @@ static int
 fe_set_sc(const prime_field_t *fe,
           const scalar_field_t *sc,
           fe_t z, const sc_t x) {
-  unsigned char raw[MAX_ELEMENT_SIZE];
+  unsigned char raw[MAX_FIELD_SIZE];
   int ret = 1;
 
-  ASSERT(fe->endian == 1);
-  ASSERT(sc->endian == 1);
+  mpn_export(raw, fe->size, x, sc->limbs, fe->endian);
 
-  if (sc->size < fe->size) {
-    /* Left pad and import. */
-    memset(raw, 0x00, fe->size - sc->size);
-
-    sc_export(sc, raw + fe->size - sc->size, x);
-
-    ret &= fe_import(fe, z, raw);
-  } else if (sc->size > fe->size) {
-    /* Ensure zero padded. */
-    sc_export(sc, raw, x);
-
-    ret &= bytes_zero(raw, sc->size - fe->size);
-    ret &= fe_import(fe, z, raw + sc->size - fe->size);
-  } else {
-    /* Import as field element. */
-    sc_export(sc, raw, x);
-
-    ret &= fe_import(fe, z, raw);
+  if (sc->size > fe->size) {
+    ret &= mpn_sec_lt(x, fe->p, fe->limbs);
+    ret &= mpn_sec_zero_p(x + fe->limbs, sc->limbs - fe->limbs);
   }
+
+  ret &= fe_import(fe, z, raw);
 
   return ret;
 }
