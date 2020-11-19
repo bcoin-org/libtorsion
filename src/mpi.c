@@ -274,7 +274,7 @@ typedef struct mp_divisor_s {
  */
 
 static TORSION_INLINE int
-mpv_set_1(mp_limb_t *xp, mp_limb_t y);
+mpv_set_1(mp_limb_t *zp, mp_limb_t x);
 
 static TORSION_INLINE int
 mpv_set(mp_limb_t *zp, const mp_limb_t *xp, int xn);
@@ -485,26 +485,26 @@ mp_limb_cast(mp_limb_t x, int sign) {
   return x & (MP_LIMB_HI - 1);
 }
 
+static TORSION_INLINE int
+mp_isspace(int ch) {
+  switch (ch) {
+    case '\t':
+    case '\n':
+    case '\r':
+    case ' ':
+      return 1;
+  }
+  return 0;
+}
+
 static int
 mp_str_limbs(const char *str, int base) {
   mp_limb_t max, limb_pow;
-  int ch, limb_len;
+  int limb_len;
   int len = 0;
 
-  while (*str) {
-    ch = *str++;
-
-    switch (ch) {
-      case '\t':
-      case '\n':
-      case '\r':
-      case ' ':
-      case '-':
-        continue;
-    }
-
-    len += 1;
-  }
+  while (*str)
+    len += !mp_isspace(*str++);
 
   if (len == 0)
     len = 1;
@@ -538,11 +538,11 @@ mp_str_limbs(const char *str, int base) {
  */
 
 void
-mpn_zero(mp_limb_t *xp, int xn) {
+mpn_zero(mp_limb_t *zp, int zn) {
   int i;
 
-  for (i = 0; i < xn; i++)
-    xp[i] = 0;
+  for (i = 0; i < zn; i++)
+    zp[i] = 0;
 }
 
 /*
@@ -553,8 +553,8 @@ void
 torsion_cleanse(void *, size_t);
 
 void
-mpn_cleanse(mp_limb_t *xp, int xn) {
-  torsion_cleanse(xp, xn * sizeof(mp_limb_t));
+mpn_cleanse(mp_limb_t *zp, int zn) {
+  torsion_cleanse(zp, zn * sizeof(mp_limb_t));
 }
 
 /*
@@ -562,12 +562,12 @@ mpn_cleanse(mp_limb_t *xp, int xn) {
  */
 
 void
-mpn_set_1(mp_limb_t *xp, int xn, mp_limb_t y) {
-  ASSERT(xn > 0);
+mpn_set_1(mp_limb_t *zp, int zn, mp_limb_t x) {
+  ASSERT(zn > 0);
 
-  xp[0] = y;
+  zp[0] = x;
 
-  mpn_zero(xp + 1, xn - 1);
+  mpn_zero(zp + 1, zn - 1);
 }
 
 void
@@ -2461,30 +2461,23 @@ mpn_export(unsigned char *raw, size_t len,
 int
 mpn_set_str(mp_limb_t *zp, int zn, const char *str, int base) {
   mp_limb_t c;
-  int seen = 0;
+  int shift = 0;
   int n = 0;
   int ch;
+
+  if (str == NULL)
+    goto fail;
 
   if (base < 2 || base > 36)
     goto fail;
 
+  if ((base & (base - 1)) == 0)
+    shift = mp_bitlen(base - 1);
+
   while (*str) {
     ch = *str++;
 
-    switch (ch) {
-      case '\t':
-      case '\n':
-      case '\r':
-      case ' ':
-        continue;
-    }
-
-    if (ch == '-' && seen)
-      goto fail;
-
-    seen = 1;
-
-    if (ch == '-')
+    if (mp_isspace(ch))
       continue;
 
     if (ch >= '0' && ch <= '9')
@@ -2499,22 +2492,42 @@ mpn_set_str(mp_limb_t *zp, int zn, const char *str, int base) {
     if (ch >= base)
       goto fail;
 
-    c = mpn_mul_1(zp, zp, n, base);
+    if (shift > 0) {
+      if (n > 0) {
+        c = mpn_lshift(zp, zp, n, shift);
 
-    if (c != 0) {
-      if (n == zn)
-        return 0;
+        if (c != 0) {
+          if (n == zn)
+            goto fail;
 
-      zp[n++] = c;
-    }
+          zp[n++] = c;
+        }
 
-    c = mpn_add_1(zp, zp, n, ch);
+        zp[0] |= ch;
+      } else if (ch != 0) {
+        if (n == zn)
+          goto fail;
 
-    if (c != 0) {
-      if (n == zn)
-        return 0;
+        zp[n++] = ch;
+      }
+    } else {
+      c = mpn_mul_1(zp, zp, n, base);
 
-      zp[n++] = c;
+      if (c != 0) {
+        if (n == zn)
+          goto fail;
+
+        zp[n++] = c;
+      }
+
+      c = mpn_add_1(zp, zp, n, ch);
+
+      if (c != 0) {
+        if (n == zn)
+          goto fail;
+
+        zp[n++] = c;
+      }
     }
   }
 
@@ -2536,6 +2549,7 @@ mpn_get_str(char *str, const mp_limb_t *xp, int xn, int base) {
   size_t i, j, k;
   int tn, sn, ch;
   mp_limb_t *tp;
+  int shift = 0;
 
   CHECK(base >= 2 && base <= 36);
 
@@ -2551,8 +2565,15 @@ mpn_get_str(char *str, const mp_limb_t *xp, int xn, int base) {
 
     len += 1;
   } else {
+    if ((base & (base - 1)) == 0)
+      shift = mp_bitlen(base - 1);
+
     do {
-      ch = mpn_divmod_1(tp, tp, tn, base);
+      if (shift > 0)
+        ch = mpn_rshift(tp, tp, tn, shift);
+      else
+        ch = mpn_divmod_1(tp, tp, tn, base);
+
       tn -= (tp[tn - 1] == 0);
 
       if (str != NULL) {
@@ -2622,9 +2643,9 @@ mpn_random(mp_limb_t *zp, int zn, mp_rng_f *rng, void *arg) {
  */
 
 static TORSION_INLINE int
-mpv_set_1(mp_limb_t *xp, mp_limb_t y) {
-  xp[0] = y;
-  return y != 0;
+mpv_set_1(mp_limb_t *zp, mp_limb_t x) {
+  zp[0] = x;
+  return x != 0;
 }
 
 static TORSION_INLINE int
@@ -2825,11 +2846,11 @@ mpv_rshift(mp_limb_t *zp, const mp_limb_t *xp, int xn, int bits) {
  */
 
 void
-mpz_init(mpz_t x) {
-  x->limbs = mp_alloc_limbs(1);
-  x->limbs[0] = 0;
-  x->alloc = 1;
-  x->size = 0;
+mpz_init(mpz_t z) {
+  z->limbs = mp_alloc_limbs(1);
+  z->limbs[0] = 0;
+  z->alloc = 1;
+  z->size = 0;
 }
 
 /*
@@ -2837,21 +2858,21 @@ mpz_init(mpz_t x) {
  */
 
 void
-mpz_clear(mpz_t x) {
-  if (x->alloc > 0)
-    mp_free_limbs(x->limbs);
+mpz_clear(mpz_t z) {
+  if (z->alloc > 0)
+    mp_free_limbs(z->limbs);
 
-  x->limbs = NULL;
-  x->alloc = 0;
-  x->size = 0;
+  z->limbs = NULL;
+  z->alloc = 0;
+  z->size = 0;
 }
 
 void
-mpz_cleanse(mpz_t x) {
-  if (x->alloc > 0)
-    mpn_cleanse(x->limbs, x->alloc);
+mpz_cleanse(mpz_t z) {
+  if (z->alloc > 0)
+    mpn_cleanse(z->limbs, z->alloc);
 
-  mpz_clear(x);
+  mpz_clear(z);
 }
 
 /*
@@ -2859,10 +2880,10 @@ mpz_cleanse(mpz_t x) {
  */
 
 static void
-mpz_grow(mpz_t x, int size) {
-  if (size > x->alloc) {
-    x->limbs = mp_realloc_limbs(x->limbs, size);
-    x->alloc = size;
+mpz_grow(mpz_t z, int size) {
+  if (size > z->alloc) {
+    z->limbs = mp_realloc_limbs(z->limbs, size);
+    z->alloc = size;
   }
 }
 
@@ -3872,33 +3893,33 @@ mpz_get_bits(const mpz_t x, int pos, int width) {
 }
 
 void
-mpz_set_bit(mpz_t x, int pos) {
+mpz_set_bit(mpz_t z, int pos) {
   int index = pos / MP_LIMB_BITS;
-  int xn = MP_ABS(x->size);
+  int zn = MP_ABS(z->size);
 
-  if (xn < index + 1) {
-    mpz_grow(x, index + 1);
+  if (zn < index + 1) {
+    mpz_grow(z, index + 1);
 
-    while (xn < index + 1)
-      x->limbs[xn++] = 0;
+    while (zn < index + 1)
+      z->limbs[zn++] = 0;
 
-    x->size = x->size < 0 ? -xn : xn;
+    z->size = z->size < 0 ? -zn : zn;
   }
 
-  x->limbs[index] |= MP_LIMB_C(1) << (pos % MP_LIMB_BITS);
+  z->limbs[index] |= MP_LIMB_C(1) << (pos % MP_LIMB_BITS);
 }
 
 void
-mpz_clr_bit(mpz_t x, int pos) {
+mpz_clr_bit(mpz_t z, int pos) {
   int index = pos / MP_LIMB_BITS;
-  int xn = MP_ABS(x->size);
+  int zn = MP_ABS(z->size);
 
-  if (index < xn) {
-    x->limbs[index] &= ~(MP_LIMB_C(1) << (pos % MP_LIMB_BITS));
+  if (index < zn) {
+    z->limbs[index] &= ~(MP_LIMB_C(1) << (pos % MP_LIMB_BITS));
 
-    xn = mpn_strip(x->limbs, xn);
+    zn = mpn_strip(z->limbs, zn);
 
-    x->size = x->size < 0 ? -xn : xn;
+    z->size = z->size < 0 ? -zn : zn;
   }
 }
 
@@ -4588,7 +4609,7 @@ fail:
 }
 
 int
-mpz_is_prime(const mpz_t n, int rounds, mp_rng_f *rng, void *arg) {
+mpz_is_prime(const mpz_t x, int rounds, mp_rng_f *rng, void *arg) {
   /* Baillie-PSW Primality Test.
    *
    * [BPSW] "Bibliography".
@@ -4604,22 +4625,22 @@ mpz_is_prime(const mpz_t n, int rounds, mp_rng_f *rng, void *arg) {
   mp_limb_t r;
 #endif
 
-  if (mpz_sgn(n) <= 0)
+  if (mpz_sgn(x) <= 0)
     return 0;
 
-  if (mpz_cmp_ui(n, 64) < 0)
-    return (prime_mask >> mpz_get_ui(n)) & 1;
+  if (mpz_cmp_ui(x, 64) < 0)
+    return (prime_mask >> mpz_get_ui(x)) & 1;
 
-  if (mpz_even_p(n))
+  if (mpz_even_p(x))
     return 0;
 
 #if MP_LIMB_BITS == 64
-  r = mpz_rem_ui(n, primes_a * primes_b);
+  r = mpz_rem_ui(x, primes_a * primes_b);
   ra = r % primes_a;
   rb = r % primes_b;
 #else
-  ra = mpz_rem_ui(n, primes_a);
-  rb = mpz_rem_ui(n, primes_b);
+  ra = mpz_rem_ui(x, primes_a);
+  rb = mpz_rem_ui(x, primes_b);
 #endif
 
   if (ra % 3 == 0
@@ -4640,10 +4661,10 @@ mpz_is_prime(const mpz_t n, int rounds, mp_rng_f *rng, void *arg) {
     return 0;
   }
 
-  if (!mpz_is_prime_mr(n, rounds + 1, 1, rng, arg))
+  if (!mpz_is_prime_mr(x, rounds + 1, 1, rng, arg))
     return 0;
 
-  if (!mpz_is_prime_lucas(n, 0))
+  if (!mpz_is_prime_lucas(x, 0))
     return 0;
 
   return 1;
@@ -4802,23 +4823,23 @@ mpz_export(unsigned char *raw, const mpz_t x, size_t size, int endian) {
 
 int
 mpz_set_str(mpz_t z, const char *str, int base) {
-  int zn = mp_str_limbs(str, base);
-  const char *s = str;
-  int ch = 0;
+  int neg = 0;
+  int zn;
 
-  while (*s) {
-    ch = *s++;
-
-    switch (ch) {
-      case '\t':
-      case '\n':
-      case '\r':
-      case ' ':
-        continue;
-    }
-
-    break;
+  if (str == NULL) {
+    z->size = 0;
+    return 0;
   }
+
+  while (mp_isspace(*str))
+    str++;
+
+  if (*str == '-') {
+    neg = 1;
+    str++;
+  }
+
+  zn = mp_str_limbs(str, base);
 
   mpz_grow(z, zn);
 
@@ -4829,7 +4850,7 @@ mpz_set_str(mpz_t z, const char *str, int base) {
 
   zn = mpn_strip(z->limbs, zn);
 
-  z->size = (ch == '-') ? -zn : zn;
+  z->size = neg ? -zn : zn;
 
   return 1;
 }

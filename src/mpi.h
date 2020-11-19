@@ -287,21 +287,21 @@ mp_free_limbs(mp_limb_t *ptr);
  */
 
 void
-mpn_zero(mp_limb_t *xp, int xn);
+mpn_zero(mp_limb_t *zp, int zn);
 
 /*
  * Uninitialization
  */
 
 void
-mpn_cleanse(mp_limb_t *xp, int xn);
+mpn_cleanse(mp_limb_t *zp, int zn);
 
 /*
  * Assignment
  */
 
 void
-mpn_set_1(mp_limb_t *xp, int xn, mp_limb_t y);
+mpn_set_1(mp_limb_t *zp, int zn, mp_limb_t x);
 
 void
 mpn_copyi(mp_limb_t *zp, const mp_limb_t *xp, int xn);
@@ -696,17 +696,17 @@ mpn_random(mp_limb_t *zp, int zn, mp_rng_f *rng, void *arg);
  */
 
 void
-mpz_init(mpz_t x);
+mpz_init(mpz_t z);
 
 /*
  * Uninitialization
  */
 
 void
-mpz_clear(mpz_t x);
+mpz_clear(mpz_t z);
 
 void
-mpz_cleanse(mpz_t x);
+mpz_cleanse(mpz_t z);
 
 /*
  * Assignment
@@ -949,10 +949,10 @@ mp_limb_t
 mpz_get_bits(const mpz_t x, int pos, int width);
 
 void
-mpz_set_bit(mpz_t x, int pos);
+mpz_set_bit(mpz_t z, int pos);
 
 void
-mpz_clr_bit(mpz_t x, int pos);
+mpz_clr_bit(mpz_t z, int pos);
 
 void
 mpz_mask(mpz_t z, const mpz_t x, int bits);
@@ -1003,7 +1003,7 @@ int
 mpz_is_prime_lucas(const mpz_t n, mp_limb_t limit);
 
 int
-mpz_is_prime(const mpz_t n, int rounds, mp_rng_f *rng, void *arg);
+mpz_is_prime(const mpz_t x, int rounds, mp_rng_f *rng, void *arg);
 
 void
 mpz_random_prime(mpz_t z, int bits, mp_rng_f *rng, void *arg);
