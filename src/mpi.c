@@ -871,10 +871,6 @@ mpn_reduce_weak(mp_limb_t *zp,
 
   mpn_select(zp, xp, tp, n, c == 0);
 
-#ifdef TORSION_VERIFY
-  ASSERT(mpn_cmp(zp, np, n) < 0);
-#endif
-
   return c == 0;
 }
 
@@ -941,6 +937,10 @@ mpn_reduce(mp_limb_t *zp, const mp_limb_t *xp,
 
   /* q = q - n if q >= n */
   mpn_reduce_weak(zp, qp, np, n, qp[n], hp);
+
+#ifdef TORSION_VERIFY
+  ASSERT(mpn_cmp(zp, np, n) < 0);
+#endif
 }
 
 /*
@@ -1036,6 +1036,10 @@ mpn_montmul(mp_limb_t *zp,
   mp_limb_t c = mpn_montmul_inner(xp, yp, mp, n, k, tp);
 
   mpn_reduce_weak(zp, tp + n, mp, n, c, tp);
+
+#ifdef TORSION_VERIFY
+  ASSERT(mpn_cmp(zp, mp, n) < 0);
+#endif
 }
 
 void
