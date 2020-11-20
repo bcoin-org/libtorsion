@@ -2773,7 +2773,7 @@ test_mpz_ior(mp_rng_f *rng, void *arg) {
 
     ASSERT(mpz_and_ui(z, UINT32_MAX) == mpz_get_ui(y));
 
-    mpz_rshift(z, z, 32);
+    mpz_urshift(z, z, 32);
 
     ASSERT(mpz_cmp(z, x) == 0);
 
@@ -3158,15 +3158,18 @@ test_mpz_lcm(mp_rng_f *rng, void *arg) {
 
 static void
 test_mpz_gcdext(mp_rng_f *rng, void *arg) {
-  mpz_t g, x, z, m;
+  mpz_t g, x, y, z, m, s, t;
   int i = 0;
 
   printf("  - MPZ gcdext.\n");
 
   mpz_init(g);
   mpz_init(x);
+  mpz_init(y);
   mpz_init(z);
   mpz_init(m);
+  mpz_init(s);
+  mpz_init(t);
 
   mpz_p192_mod(m);
 
@@ -3190,10 +3193,41 @@ test_mpz_gcdext(mp_rng_f *rng, void *arg) {
     i += 1;
   }
 
+  for (i = 0; i < 10; i++) {
+    mpz_set_ui(x, 0);
+    mpz_random(y, 192, rng, arg);
+
+    if (i & 1)
+      mpz_neg(y, y);
+
+    mpz_gcdext(g, s, t, x, y);
+
+    ASSERT(mpz_cmpabs(g, y) == 0 && mpz_sgn(g) >= 0);
+    ASSERT(mpz_sgn(s) == 0);
+    ASSERT(mpz_cmp_si(t, mpz_sgn(y)) == 0);
+  }
+
+  for (i = 0; i < 10; i++) {
+    mpz_random(x, 192, rng, arg);
+    mpz_set_ui(y, 0);
+
+    if (i & 1)
+      mpz_neg(x, x);
+
+    mpz_gcdext(g, s, t, x, y);
+
+    ASSERT(mpz_cmpabs(g, x) == 0 && mpz_sgn(g) >= 0);
+    ASSERT(mpz_cmp_si(s, mpz_sgn(x)) == 0);
+    ASSERT(mpz_sgn(t) == 0);
+  }
+
   mpz_clear(g);
   mpz_clear(x);
+  mpz_clear(y);
   mpz_clear(z);
   mpz_clear(m);
+  mpz_clear(s);
+  mpz_clear(t);
 }
 
 static void

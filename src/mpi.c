@@ -2989,9 +2989,6 @@ mpz_sgn(const mpz_t x) {
 
 int
 mpz_cmp(const mpz_t x, const mpz_t y) {
-  if (x == y)
-    return 0;
-
   if (x->size != y->size)
     return x->size < y->size ? -1 : 1;
 
@@ -3027,9 +3024,6 @@ mpz_cmp_si(const mpz_t x, mp_long_t y) {
 
 int
 mpz_cmpabs(const mpz_t x, const mpz_t y) {
-  if (x == y)
-    return 0;
-
   return mpv_cmp(x->limbs, MP_ABS(x->size),
                  y->limbs, MP_ABS(y->size));
 }
@@ -4076,7 +4070,7 @@ mpz_ior_si(mpz_t z, const mpz_t x, mp_long_t y) {
        */
       r = ((v - 1) & ~x->limbs[0]) + 1;
     } else {
-      /* 0 | (-y) = -(y) */
+      /* 0 | (-y) == -(y) */
       r = v;
     }
 
@@ -4218,6 +4212,15 @@ mpz_rshift(mpz_t z, const mpz_t x, int bits) {
   } else {
     mpz_rshift_abs(z, x, bits);
   }
+}
+
+/*
+ * Unsigned Right Shift
+ */
+
+void
+mpz_urshift(mpz_t z, const mpz_t x, int bits) {
+  mpz_rshift_abs(z, x, bits);
 }
 
 /*
@@ -4503,8 +4506,8 @@ mpz_gcdext(mpz_t g, mpz_t s, mpz_t t, const mpz_t x, const mpz_t y) {
         mpz_sub(B, B, up);
       }
 
-      mpz_rshift(A, A, 1);
-      mpz_rshift(B, B, 1);
+      mpz_urshift(A, A, 1);
+      mpz_urshift(B, B, 1);
     }
 
     while (j--) {
@@ -4513,8 +4516,8 @@ mpz_gcdext(mpz_t g, mpz_t s, mpz_t t, const mpz_t x, const mpz_t y) {
         mpz_sub(D, D, up);
       }
 
-      mpz_rshift(C, C, 1);
-      mpz_rshift(D, D, 1);
+      mpz_urshift(C, C, 1);
+      mpz_urshift(D, D, 1);
     }
 
     if (mpz_cmpabs(u, v) >= 0) {
@@ -4579,12 +4582,12 @@ mpz_invert(mpz_t z, const mpz_t x, const mpz_t y) {
   mpz_t t, g, s;
   int ret;
 
-  if (x->size == 0 || y->size <= 0) {
+  if (x->size == 0 || y->size == 0) {
     z->size = 0;
     return 0;
   }
 
-  if (y->size == 1 && y->limbs[0] == 1) {
+  if (mpz_cmpabs_ui(y, 1) == 0) {
     z->size = 0;
     return 0;
   }

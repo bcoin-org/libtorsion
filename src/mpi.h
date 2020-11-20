@@ -155,6 +155,7 @@
 #define mpz_com __torsion_mpz_com
 #define mpz_lshift __torsion_mpz_lshift
 #define mpz_rshift __torsion_mpz_rshift
+#define mpz_urshift __torsion_mpz_urshift
 #define mpz_tstbit __torsion_mpz_tstbit
 #define mpz_setbit __torsion_mpz_setbit
 #define mpz_clrbit __torsion_mpz_clrbit
@@ -937,6 +938,13 @@ mpz_lshift(mpz_t z, const mpz_t x, int bits);
 
 void
 mpz_rshift(mpz_t z, const mpz_t x, int bits);
+
+/*
+ * Unsigned Right Shift
+ */
+
+void
+mpz_urshift(mpz_t z, const mpz_t x, int bits);
 
 /*
  * Bit Manipulation
