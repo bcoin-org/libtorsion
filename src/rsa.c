@@ -1155,7 +1155,7 @@ rsa_pub_veil(const rsa_pub_t *k,
 
   /* vmax = 1 << bits */
   mpz_set_ui(vmax, 0);
-  mpz_set_bit(vmax, bits);
+  mpz_setbit(vmax, bits);
 
   /* rmax = (vmax - c + n - 1) / n */
   mpz_sub(rmax, vmax, c);

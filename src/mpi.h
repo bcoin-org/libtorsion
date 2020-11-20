@@ -63,10 +63,10 @@
 #define mpn_com __torsion_mpn_com
 #define mpn_lshift __torsion_mpn_lshift
 #define mpn_rshift __torsion_mpn_rshift
-#define mpn_get_bit __torsion_mpn_get_bit
-#define mpn_get_bits __torsion_mpn_get_bits
-#define mpn_set_bit __torsion_mpn_set_bit
-#define mpn_clr_bit __torsion_mpn_clr_bit
+#define mpn_getbit __torsion_mpn_getbit
+#define mpn_getbits __torsion_mpn_getbits
+#define mpn_setbit __torsion_mpn_setbit
+#define mpn_clrbit __torsion_mpn_clrbit
 #define mpn_mask __torsion_mask
 #define mpn_neg __torsion_mpn_neg
 #define mpn_invert __torsion_mpn_invert
@@ -155,10 +155,10 @@
 #define mpz_com __torsion_mpz_com
 #define mpz_lshift __torsion_mpz_lshift
 #define mpz_rshift __torsion_mpz_rshift
-#define mpz_get_bit __torsion_mpz_get_bit
-#define mpz_get_bits __torsion_mpz_get_bits
-#define mpz_set_bit __torsion_mpz_set_bit
-#define mpz_clr_bit __torsion_mpz_clr_bit
+#define mpz_tstbit __torsion_mpz_tstbit
+#define mpz_setbit __torsion_mpz_setbit
+#define mpz_clrbit __torsion_mpz_clrbit
+#define mpz_combit __torsion_mpz_combit
 #define mpz_mask __torsion_mpz_mask
 #define mpz_abs __torsion_mpz_abs
 #define mpz_neg __torsion_mpz_neg
@@ -517,16 +517,16 @@ mpn_rshift(mp_limb_t *zp, const mp_limb_t *xp, int xn, int bits);
  */
 
 mp_limb_t
-mpn_get_bit(const mp_limb_t *xp, int xn, int pos);
+mpn_getbit(const mp_limb_t *xp, int xn, int pos);
 
 mp_limb_t
-mpn_get_bits(const mp_limb_t *xp, int xn, int pos, int width);
+mpn_getbits(const mp_limb_t *xp, int xn, int pos, int width);
 
 void
-mpn_set_bit(mp_limb_t *zp, int pos);
+mpn_setbit(mp_limb_t *zp, int pos);
 
 void
-mpn_clr_bit(mp_limb_t *zp, int pos);
+mpn_clrbit(mp_limb_t *zp, int pos);
 
 void
 mpn_mask(mp_limb_t *zp, const mp_limb_t *xp, int xn, int bits);
@@ -888,8 +888,8 @@ mpz_and(mpz_t z, const mpz_t x, const mpz_t y);
 mp_limb_t
 mpz_and_ui(const mpz_t x, mp_limb_t y);
 
-mp_long_t
-mpz_and_si(const mpz_t x, mp_long_t y);
+void
+mpz_and_si(mpz_t z, const mpz_t x, mp_long_t y);
 
 /*
  * OR
@@ -942,17 +942,17 @@ mpz_rshift(mpz_t z, const mpz_t x, int bits);
  * Bit Manipulation
  */
 
-mp_limb_t
-mpz_get_bit(const mpz_t x, int pos);
-
-mp_limb_t
-mpz_get_bits(const mpz_t x, int pos, int width);
+int
+mpz_tstbit(const mpz_t x, int pos);
 
 void
-mpz_set_bit(mpz_t z, int pos);
+mpz_setbit(mpz_t z, int pos);
 
 void
-mpz_clr_bit(mpz_t z, int pos);
+mpz_clrbit(mpz_t z, int pos);
+
+void
+mpz_combit(mpz_t z, int pos);
 
 void
 mpz_mask(mpz_t z, const mpz_t x, int bits);

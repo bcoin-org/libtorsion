@@ -789,12 +789,12 @@ sc_bitlen_var(const scalar_field_t *sc, const sc_t x) {
 
 static int
 sc_get_bit(const scalar_field_t *sc, const sc_t x, int pos) {
-  return mpn_get_bit(x, sc->limbs, pos);
+  return mpn_getbit(x, sc->limbs, pos);
 }
 
 static int
 sc_get_bits(const scalar_field_t *sc, const sc_t x, int pos, int width) {
-  return mpn_get_bits(x, sc->limbs, pos, width);
+  return mpn_getbits(x, sc->limbs, pos, width);
 }
 
 static int
@@ -1076,7 +1076,7 @@ sc_pow(const scalar_field_t *sc, sc_t z, const sc_t x, const mp_limb_t *ep) {
   sc_set(sc, z, wnd[0]);
 
   for (i = steps - 1; i >= 0; i--) {
-    b = mpn_get_bits(ep, sc->limbs, i * WND_WIDTH, WND_WIDTH);
+    b = mpn_getbits(ep, sc->limbs, i * WND_WIDTH, WND_WIDTH);
 
     if (i == steps - 1) {
       sc_set(sc, z, wnd[b]);
@@ -1702,7 +1702,7 @@ fe_pow(const prime_field_t *fe, fe_t z, const fe_t x, const mp_limb_t *ep) {
   fe_set(fe, z, fe->one);
 
   for (i = steps - 1; i >= 0; i--) {
-    b = mpn_get_bits(ep, fe->limbs, i * WND_WIDTH, WND_WIDTH);
+    b = mpn_getbits(ep, fe->limbs, i * WND_WIDTH, WND_WIDTH);
 
     if (i == steps - 1) {
       fe_set(fe, z, wnd[b]);

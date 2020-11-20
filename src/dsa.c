@@ -196,8 +196,8 @@ dsa_group_generate(dsa_group_t *group, int bits, const unsigned char *entropy) {
   for (;;) {
     mpz_random(q, N, drbg_rng, &rng);
 
-    mpz_set_bit(q, 0);
-    mpz_set_bit(q, N - 1);
+    mpz_setbit(q, 0);
+    mpz_setbit(q, N - 1);
 
     if (!mpz_is_prime(q, 64, drbg_rng, &rng))
       continue;
@@ -205,8 +205,8 @@ dsa_group_generate(dsa_group_t *group, int bits, const unsigned char *entropy) {
     for (i = 0; i < 4 * L; i++) {
       mpz_random(p, L, drbg_rng, &rng);
 
-      mpz_set_bit(p, 0);
-      mpz_set_bit(p, L - 1);
+      mpz_setbit(p, 0);
+      mpz_setbit(p, L - 1);
 
       mpz_mod(t, p, q);
       mpz_sub_ui(t, t, 1);
