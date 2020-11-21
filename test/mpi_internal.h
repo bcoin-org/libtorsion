@@ -3604,6 +3604,66 @@ test_mpz_powm(mp_rng_f *rng, void *arg) {
 }
 
 static void
+test_mpz_sqrtm(mp_rng_f *rng, void *arg) {
+  mpz_t x, z, t, p;
+  int i, j, mode;
+
+  printf("  - MPZ sqrtm.\n");
+
+  mpz_init(x);
+  mpz_init(z);
+  mpz_init(t);
+  mpz_init(p);
+
+  for (mode = 0; mode < 3; mode++) {
+    for (;;) {
+      mpz_random_prime(p, 128, rng, arg);
+
+      if (mode == 0 && mpz_and_ui(p, 3) == 3)
+        break;
+
+      if (mode == 1 && mpz_and_ui(p, 7) == 5)
+        break;
+
+      if (mode == 2 && mpz_and_ui(p, 15) == 1)
+        break;
+    }
+
+    i = 0;
+    j = 0;
+
+    while (i < 20 || j < 20) {
+      mpz_random(x, 128, rng, arg);
+
+      if (i & 1)
+        mpz_neg(x, x);
+
+      mpz_mod(t, x, p);
+
+      if (!mpz_sqrtm(z, x, p)) {
+        ASSERT(mpz_jacobi(x, p) == -1);
+        j += 1;
+        continue;
+      }
+
+      ASSERT(mpz_jacobi(x, p) >= 0);
+
+      mpz_sqr(z, z);
+      mpz_mod(z, z, p);
+
+      ASSERT(mpz_cmp(z, t) == 0);
+
+      i += 1;
+    }
+  }
+
+  mpz_clear(x);
+  mpz_clear(z);
+  mpz_clear(t);
+  mpz_clear(p);
+}
+
+static void
 test_mpz_primes(mp_rng_f *rng, void *arg) {
   static const mp_limb_t mr_pseudos[] = {
     /* https://oeis.org/A001262 */
@@ -4437,6 +4497,7 @@ test_mpi_internal(mp_rng_f *rng, void *arg) {
   test_mpz_invert(rng, arg);
   test_mpz_jacobi();
   test_mpz_powm(rng, arg);
+  test_mpz_sqrtm(rng, arg);
   test_mpz_primes(rng, arg);
   test_mpz_random_prime(rng, arg);
   test_mpz_helpers();

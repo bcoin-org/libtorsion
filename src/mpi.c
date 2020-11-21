@@ -4749,6 +4749,205 @@ mpz_powm_sec(mpz_t z, const mpz_t x, const mpz_t y, const mpz_t m) {
   }
 }
 
+int
+mpz_sqrtm(mpz_t z, const mpz_t u, const mpz_t p) {
+  mpz_t x, e, t, a, s, n, y, b, g;
+  int i, f, k, m;
+  int ret = 0;
+
+  CHECK(z != p);
+
+  mpz_init(x);
+  mpz_init(e);
+  mpz_init(t);
+  mpz_init(a);
+  mpz_init(s);
+  mpz_init(n);
+  mpz_init(y);
+  mpz_init(b);
+  mpz_init(g);
+
+  /* x = u */
+  mpz_set(x, u);
+
+  /* z = 0 */
+  mpz_set_ui(z, 0);
+
+  /* if p <= 0 or p mod 2 == 0 */
+  if (mpz_sgn(p) <= 0 || mpz_even_p(p))
+    goto fail;
+
+  /* if x < 0 or x >= p */
+  if (mpz_sgn(x) < 0 || mpz_cmpabs(x, p) >= 0) {
+    /* x = x mod p */
+    mpz_mod(x, x, p);
+  }
+
+  /* if p mod 4 == 3 */
+  if ((p->limbs[0] & 3) == 3) {
+    /* b = x^((p + 1) / 4) mod p */
+    mpz_add_ui(e, p, 1);
+    mpz_rshift(e, e, 2);
+    mpz_powm(b, x, e, p);
+
+    /* g = b^2 mod p */
+    mpz_sqr(g, b);
+    mpz_mod(g, g, p);
+
+    /* g != x */
+    if (mpz_cmp(g, x) != 0)
+      goto fail;
+
+    /* z = b */
+    mpz_set(z, b);
+
+    goto succeed;
+  }
+
+  /* if p mod 8 == 5 */
+  if ((p->limbs[0] & 7) == 5) {
+    /* t = x * 2 mod p */
+    mpz_lshift(t, x, 1);
+    mpz_mod(t, t, p);
+
+    /* a = t^((p - 5) / 8) mod p */
+    mpz_rshift(e, p, 3);
+    mpz_powm(a, t, e, p);
+
+    /* b = (a^2 * t - 1) * x * a mod p */
+    mpz_sqr(b, a);
+    mpz_mod(b, b, p);
+    mpz_mul(b, b, t);
+    mpz_mod(b, b, p);
+    mpz_sub_ui(b, b, 1);
+    mpz_mul(b, b, x);
+    mpz_mod(b, b, p);
+    mpz_mul(b, b, a);
+    mpz_mod(b, b, p);
+
+    /* g = b^2 mod p */
+    mpz_sqr(g, b);
+    mpz_mod(g, g, p);
+
+    /* g != x */
+    if (mpz_cmp(g, x) != 0)
+      goto fail;
+
+    /* z = b */
+    mpz_set(z, b);
+
+    goto succeed;
+  }
+
+  /* if p == 1 */
+  if (mpz_cmp_ui(p, 1) == 0)
+    goto fail;
+
+  switch (mpz_jacobi(x, p)) {
+    case -1:
+      goto fail;
+    case 0:
+      goto succeed;
+    case 1:
+      break;
+  }
+
+  /* s = p - 1 */
+  mpz_sub_ui(s, p, 1);
+
+  /* f = s factors of 2 */
+  f = mpz_ctz(s);
+
+  /* s = s >> f */
+  mpz_rshift(s, s, f);
+
+  /* n = 2 */
+  mpz_set_ui(n, 2);
+
+  /* while n^((p - 1) / 2) != -1 mod p */
+  while (mpz_jacobi(n, p) != -1) {
+    /* n = n + 1 */
+    mpz_add_ui(n, n, 1);
+  }
+
+  /* y = x^((s + 1) / 2) mod p */
+  mpz_add_ui(y, s, 1);
+  mpz_rshift(y, y, 1);
+  mpz_powm(y, x, y, p);
+
+  /* b = x^s mod p */
+  mpz_powm(b, x, s, p);
+
+  /* g = n^s mod p */
+  mpz_powm(g, n, s, p);
+
+  /* k = f */
+  k = f;
+
+  for (;;) {
+    /* t = b */
+    mpz_set(t, b);
+
+    /* m = 0 */
+    m = 0;
+
+    /* while t != 1 */
+    while (mpz_cmp_ui(t, 1) != 0) {
+      /* t = t^2 mod p */
+      mpz_sqr(e, t);
+      mpz_mod(t, e, p);
+      m += 1;
+    }
+
+    /* if m == 0 */
+    if (m == 0)
+      break;
+
+    /* if m >= k */
+    if (m >= k)
+      goto fail;
+
+    /* t = g^(2^(k - m - 1)) mod p */
+    mpz_set(t, g);
+
+    for (i = 0; i < k - m - 1; i++) {
+      mpz_sqr(e, t);
+      mpz_mod(t, e, p);
+    }
+
+    /* g = t^2 mod p */
+    mpz_sqr(g, t);
+    mpz_mod(g, g, p);
+
+    /* y = y * t mod p */
+    mpz_mul(y, y, t);
+    mpz_mod(y, y, p);
+
+    /* b = b * g mod p */
+    mpz_mul(b, b, g);
+    mpz_mod(b, b, p);
+
+    /* k = m */
+    k = m;
+  }
+
+  /* z = y */
+  mpz_set(z, y);
+succeed:
+  ret = 1;
+fail:
+  mpz_clear(x);
+  mpz_clear(e);
+  mpz_clear(t);
+  mpz_clear(a);
+  mpz_clear(s);
+  mpz_clear(n);
+  mpz_clear(y);
+  mpz_clear(b);
+  mpz_clear(g);
+  return ret;
+}
+
 /*
  * Primality Testing (logic from golang)
  */

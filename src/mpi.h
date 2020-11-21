@@ -170,6 +170,7 @@
 #define mpz_jacobi __torsion_mpz_jacobi
 #define mpz_powm __torsion_mpz_powm
 #define mpz_powm_sec __torsion_mpz_powm_sec
+#define mpz_sqrtm __torsion_mpz_sqrtm
 #define mpz_is_prime_mr __torsion_mpz_is_prime_mr
 #define mpz_is_prime_lucas __torsion_mpz_is_prime_lucas
 #define mpz_is_prime __torsion_mpz_is_prime
@@ -999,6 +1000,9 @@ mpz_powm(mpz_t z, const mpz_t x, const mpz_t y, const mpz_t m);
 
 void
 mpz_powm_sec(mpz_t z, const mpz_t x, const mpz_t y, const mpz_t m);
+
+int
+mpz_sqrtm(mpz_t z, const mpz_t u, const mpz_t p);
 
 /*
  * Primality Testing
