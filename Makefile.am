@@ -84,6 +84,7 @@ noinst_HEADERS = src/asn1.h                         \
                  test/data/hmac_drbg_vectors.h      \
                  test/data/hmac_vectors.h           \
                  test/data/jacobi_vectors.h         \
+                 test/data/mpz_vectors.h            \
                  test/data/pbkdf2_vectors.h         \
                  test/data/poly1305_vectors.h       \
                  test/data/prime_vectors.h          \

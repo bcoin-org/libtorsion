@@ -4293,20 +4293,25 @@ mpz_combit(mpz_t z, int pos) {
 void
 mpz_mask(mpz_t z, const mpz_t x, int bits) {
   int xn = MP_ABS(x->size);
-  int zn;
+  int zn, lo;
 
   if (x->size < 0) {
     zn = (bits + MP_LIMB_BITS - 1) / MP_LIMB_BITS;
+    lo = bits % MP_LIMB_BITS;
 
     mpz_grow(z, zn);
 
-    mpn_sub_1(z->limbs, x->limbs, xn, 1);
-
-    if (xn > zn)
-      mpn_zero(z->limbs + xn, xn - zn);
+    if (zn > xn) {
+      mpn_sub_1(z->limbs, x->limbs, xn, 1);
+      mpn_zero(z->limbs + xn, zn - xn);
+    } else {
+      mpn_sub_1(z->limbs, x->limbs, zn, 1);
+    }
 
     mpn_com(z->limbs, z->limbs, zn);
-    mpn_mask(z->limbs, z->limbs, zn, bits);
+
+    if (lo != 0)
+      z->limbs[zn - 1] &= MP_MASK(lo);
   } else {
     zn = xn;
 
