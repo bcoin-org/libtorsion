@@ -250,17 +250,17 @@ mpn_powm_simple(mp_limb_t *zp,
 static void
 mpn_p192_mod(mp_limb_t *zp) {
   /* z = 2^192 - 2^64 - 1 */
-  mp_limb_t ap[MP_P192_LIMBS + 1];
-  mp_limb_t bp[MP_P192_LIMBS + 1];
+  mp_limb_t xp[MP_P192_LIMBS + 1];
+  mp_limb_t yp[MP_P192_LIMBS + 1];
 
-  mpn_zero(ap, MP_P192_LIMBS + 1);
-  mpn_zero(bp, MP_P192_LIMBS + 1);
+  mpn_zero(xp, MP_P192_LIMBS + 1);
+  mpn_zero(yp, MP_P192_LIMBS + 1);
 
-  mpn_setbit(ap, 192);
-  mpn_setbit(bp, 64);
+  mpn_setbit(xp, 192);
+  mpn_setbit(yp, 64);
 
-  mpn_sub_n(ap, ap, bp, MP_P192_LIMBS + 1);
-  mpn_sub_1(zp, ap, MP_P192_LIMBS, 1);
+  mpn_sub_n(xp, xp, yp, MP_P192_LIMBS + 1);
+  mpn_sub_1(zp, xp, MP_P192_LIMBS, 1);
 }
 
 static void
@@ -361,49 +361,49 @@ test_mp_helpers(void) {
 
 static void
 test_mpn_init(mp_rng_f *rng, void *arg) {
-  mp_limb_t ap[4];
+  mp_limb_t xp[4];
 
   printf("  - MPN init.\n");
 
-  mpn_random_nz(ap, 4, rng, arg);
+  mpn_random_nz(xp, 4, rng, arg);
 
-  ASSERT(!mpn_zero_p(ap, 4));
+  ASSERT(!mpn_zero_p(xp, 4));
 
-  mpn_zero(ap, 4);
+  mpn_zero(xp, 4);
 
-  ASSERT(mpn_zero_p(ap, 4));
+  ASSERT(mpn_zero_p(xp, 4));
 
-  mpn_cleanse(ap, 4);
+  mpn_cleanse(xp, 4);
 }
 
 static void
 test_mpn_assign(mp_rng_f *rng, void *arg) {
-  mp_limb_t ap[4];
-  mp_limb_t bp[4];
+  mp_limb_t xp[4];
+  mp_limb_t yp[4];
 
   printf("  - MPN assignment.\n");
 
-  mpn_random_nz(ap, 4, rng, arg);
-  mpn_zero(bp, 4);
+  mpn_random_nz(xp, 4, rng, arg);
+  mpn_zero(yp, 4);
 
-  ASSERT(mpn_cmp(ap, bp, 4) != 0);
+  ASSERT(mpn_cmp(xp, yp, 4) != 0);
 
-  mpn_copyi(bp, ap, 4);
+  mpn_copyi(yp, xp, 4);
 
-  ASSERT(mpn_cmp(ap, bp, 4) == 0);
+  ASSERT(mpn_cmp(xp, yp, 4) == 0);
 
-  mpn_zero(bp, 4);
+  mpn_zero(yp, 4);
 
-  ASSERT(mpn_cmp(ap, bp, 4) != 0);
+  ASSERT(mpn_cmp(xp, yp, 4) != 0);
 
-  mpn_copyd(bp, ap, 4);
+  mpn_copyd(yp, xp, 4);
 
-  ASSERT(mpn_cmp(ap, bp, 4) == 0);
+  ASSERT(mpn_cmp(xp, yp, 4) == 0);
 
-  mpn_set_1(bp, 4, 1);
+  mpn_set_1(yp, 4, 1);
 
-  ASSERT(bp[0] == 1);
-  ASSERT(mpn_zero_p(bp + 1, 3));
+  ASSERT(yp[0] == 1);
+  ASSERT(mpn_zero_p(yp + 1, 3));
 }
 
 static void
@@ -427,181 +427,181 @@ test_mpn_cmp(void) {
 
 static void
 test_mpn_addsub(mp_rng_f *rng, void *arg) {
-  mp_limb_t ap[4];
-  mp_limb_t bp[4];
-  mp_limb_t rp[6];
-  int i, an, bn, rn;
+  mp_limb_t xp[4];
+  mp_limb_t yp[4];
+  mp_limb_t zp[6];
+  int i, xn, yn, zn;
 
   printf("  - MPN add/sub.\n");
 
   for (i = 0; i < 100; i++) {
-    mpn_random_nz(ap, 4, rng, arg);
-    mpn_random_nz(bp, 4, rng, arg);
+    mpn_random_nz(xp, 4, rng, arg);
+    mpn_random_nz(yp, 4, rng, arg);
 
-    an = mpn_strip(ap, 4);
-    bn = mpn_strip(bp, 4);
-    rn = MP_MAX(an, bn);
+    xn = mpn_strip(xp, 4);
+    yn = mpn_strip(yp, 4);
+    zn = MP_MAX(xn, yn);
 
-    if (an >= bn)
-      rp[rn] = mpn_add(rp, ap, an, bp, bn);
+    if (xn >= yn)
+      zp[zn] = mpn_add(zp, xp, xn, yp, yn);
     else
-      rp[rn] = mpn_add(rp, bp, bn, ap, an);
+      zp[zn] = mpn_add(zp, yp, yn, xp, xn);
 
-    rn += (rp[rn] != 0);
+    zn += (zp[zn] != 0);
 
-    ASSERT(mpv_cmp(rp, rn, ap, an) > 0);
-    ASSERT(mpv_cmp(rp, rn, bp, bn) > 0);
+    ASSERT(mpv_cmp(zp, zn, xp, xn) > 0);
+    ASSERT(mpv_cmp(zp, zn, yp, yn) > 0);
 
-    rp[rn] = mpn_add(rp, rp, rn, bp, bn);
-    rn += (rp[rn] != 0);
+    zp[zn] = mpn_add(zp, zp, zn, yp, yn);
+    zn += (zp[zn] != 0);
 
-    ASSERT(mpv_cmp(rp, rn, ap, an) > 0);
-    ASSERT(mpv_cmp(rp, rn, bp, bn) > 0);
+    ASSERT(mpv_cmp(zp, zn, xp, xn) > 0);
+    ASSERT(mpv_cmp(zp, zn, yp, yn) > 0);
 
-    ASSERT(mpn_sub(rp, rp, rn, bp, bn) == 0);
-    rn = mpn_strip(rp, rn);
+    ASSERT(mpn_sub(zp, zp, zn, yp, yn) == 0);
+    zn = mpn_strip(zp, zn);
 
-    ASSERT(mpv_cmp(rp, rn, ap, an) > 0);
-    ASSERT(mpv_cmp(rp, rn, bp, bn) > 0);
+    ASSERT(mpv_cmp(zp, zn, xp, xn) > 0);
+    ASSERT(mpv_cmp(zp, zn, yp, yn) > 0);
 
-    ASSERT(mpn_sub(rp, rp, rn, bp, bn) == 0);
-    rn = mpn_strip(rp, rn);
+    ASSERT(mpn_sub(zp, zp, zn, yp, yn) == 0);
+    zn = mpn_strip(zp, zn);
 
-    ASSERT(mpv_cmp(rp, rn, ap, an) == 0);
+    ASSERT(mpv_cmp(zp, zn, xp, xn) == 0);
 
-    ASSERT(mpn_sub(rp, rp, rn, ap, an) == 0);
-    rn = mpn_strip(rp, rn);
+    ASSERT(mpn_sub(zp, zp, zn, xp, xn) == 0);
+    zn = mpn_strip(zp, zn);
 
-    ASSERT(rn == 0);
+    ASSERT(zn == 0);
   }
 }
 
 static void
 test_mpn_addsub_1(mp_rng_f *rng, void *arg) {
-  mp_limb_t ap[4];
+  mp_limb_t xp[4];
   mp_limb_t b;
-  mp_limb_t rp[6];
-  int i, an, rn;
+  mp_limb_t zp[6];
+  int i, xn, zn;
 
   printf("  - MPN add/sub (1 limb).\n");
 
   for (i = 0; i < 100; i++) {
-    mpn_random_nz(ap, 4, rng, arg);
+    mpn_random_nz(xp, 4, rng, arg);
     mpn_random_nz(&b, 1, rng, arg);
 
-    an = mpn_strip(ap, 4);
-    rn = an;
+    xn = mpn_strip(xp, 4);
+    zn = xn;
 
-    rp[rn] = mpn_add_1(rp, ap, an, b);
-    rn += (rp[rn] != 0);
+    zp[zn] = mpn_add_1(zp, xp, xn, b);
+    zn += (zp[zn] != 0);
 
-    ASSERT(mpv_cmp(rp, rn, ap, an) > 0);
-    ASSERT(mpv_cmp_1(rp, rn, b) > 0);
+    ASSERT(mpv_cmp(zp, zn, xp, xn) > 0);
+    ASSERT(mpv_cmp_1(zp, zn, b) > 0);
 
-    rp[rn] = mpn_add_1(rp, rp, rn, b);
-    rn += (rp[rn] != 0);
+    zp[zn] = mpn_add_1(zp, zp, zn, b);
+    zn += (zp[zn] != 0);
 
-    ASSERT(mpv_cmp(rp, rn, ap, an) > 0);
-    ASSERT(mpv_cmp_1(rp, rn, b) > 0);
+    ASSERT(mpv_cmp(zp, zn, xp, xn) > 0);
+    ASSERT(mpv_cmp_1(zp, zn, b) > 0);
 
-    ASSERT(mpn_sub_1(rp, rp, rn, b) == 0);
-    rn = mpn_strip(rp, rn);
+    ASSERT(mpn_sub_1(zp, zp, zn, b) == 0);
+    zn = mpn_strip(zp, zn);
 
-    ASSERT(mpv_cmp(rp, rn, ap, an) > 0);
-    ASSERT(mpv_cmp_1(rp, rn, b) > 0);
+    ASSERT(mpv_cmp(zp, zn, xp, xn) > 0);
+    ASSERT(mpv_cmp_1(zp, zn, b) > 0);
 
-    ASSERT(mpn_sub_1(rp, rp, rn, b) == 0);
-    rn = mpn_strip(rp, rn);
+    ASSERT(mpn_sub_1(zp, zp, zn, b) == 0);
+    zn = mpn_strip(zp, zn);
 
-    ASSERT(mpv_cmp(rp, rn, ap, an) == 0);
+    ASSERT(mpv_cmp(zp, zn, xp, xn) == 0);
 
-    ASSERT(mpn_sub(rp, rp, rn, ap, an) == 0);
-    rn = mpn_strip(rp, rn);
+    ASSERT(mpn_sub(zp, zp, zn, xp, xn) == 0);
+    zn = mpn_strip(zp, zn);
 
-    ASSERT(rn == 0);
+    ASSERT(zn == 0);
   }
 }
 
 static void
 test_mpn_muldiv(mp_rng_f *rng, void *arg) {
-  mp_limb_t ap[4];
-  mp_limb_t bp[4];
-  mp_limb_t rp[8 + 1];
+  mp_limb_t xp[4];
+  mp_limb_t yp[4];
+  mp_limb_t zp[8 + 1];
   mp_limb_t sp[12];
-  int i, an, bn, rn, sn;
+  int i, xn, yn, zn, sn;
 
   printf("  - MPN mul/div.\n");
 
   for (i = 0; i < 100; i++) {
-    mpn_random_nz(ap, 4, rng, arg);
-    mpn_random_nz(bp, 4, rng, arg);
+    mpn_random_nz(xp, 4, rng, arg);
+    mpn_random_nz(yp, 4, rng, arg);
 
-    an = mpn_strip(ap, 4);
-    bn = mpn_strip(bp, 4);
+    xn = mpn_strip(xp, 4);
+    yn = mpn_strip(yp, 4);
 
-    mpn_mul(rp, ap, an, bp, bn);
-    rn = an + bn - (rp[an + bn - 1] == 0);
+    mpn_mul(zp, xp, xn, yp, yn);
+    zn = xn + yn - (zp[xn + yn - 1] == 0);
 
-    ASSERT(mpv_cmp(rp, rn, ap, an) > 0);
-    ASSERT(mpv_cmp(rp, rn, bp, bn) > 0);
+    ASSERT(mpv_cmp(zp, zn, xp, xn) > 0);
+    ASSERT(mpv_cmp(zp, zn, yp, yn) > 0);
 
-    mpn_mul(sp, rp, rn, bp, bn);
-    sn = rn + bn - (sp[rn + bn - 1] == 0);
+    mpn_mul(sp, zp, zn, yp, yn);
+    sn = zn + yn - (sp[zn + yn - 1] == 0);
 
-    ASSERT(mpv_cmp(rp, rn, ap, an) > 0);
-    ASSERT(mpv_cmp(rp, rn, bp, bn) > 0);
+    ASSERT(mpv_cmp(zp, zn, xp, xn) > 0);
+    ASSERT(mpv_cmp(zp, zn, yp, yn) > 0);
 
-    mpn_div(rp, sp, sn, bp, bn);
-    rn = mpn_strip(rp, sn - bn + 1);
+    mpn_div(zp, sp, sn, yp, yn);
+    zn = mpn_strip(zp, sn - yn + 1);
 
-    ASSERT(mpv_cmp(rp, rn, ap, an) > 0);
-    ASSERT(mpv_cmp(rp, rn, bp, bn) > 0);
+    ASSERT(mpv_cmp(zp, zn, xp, xn) > 0);
+    ASSERT(mpv_cmp(zp, zn, yp, yn) > 0);
 
-    mpn_div(rp, rp, rn, bp, bn);
-    rn = mpn_strip(rp, rn - bn + 1);
+    mpn_div(zp, zp, zn, yp, yn);
+    zn = mpn_strip(zp, zn - yn + 1);
 
-    ASSERT(mpv_cmp(rp, rn, ap, an) == 0);
+    ASSERT(mpv_cmp(zp, zn, xp, xn) == 0);
   }
 }
 
 static void
 test_mpn_muldiv_1(mp_rng_f *rng, void *arg) {
-  mp_limb_t ap[4];
+  mp_limb_t xp[4];
   mp_limb_t b;
-  mp_limb_t rp[6];
-  int i, an, rn;
+  mp_limb_t zp[6];
+  int i, xn, zn;
 
   printf("  - MPN mul/div (1 limb).\n");
 
   for (i = 0; i < 100; i++) {
-    mpn_random_nz(ap, 4, rng, arg);
+    mpn_random_nz(xp, 4, rng, arg);
     mpn_random_nz(&b, 1, rng, arg);
 
-    an = mpn_strip(ap, 4);
-    rn = an;
+    xn = mpn_strip(xp, 4);
+    zn = xn;
 
-    rp[rn] = mpn_mul_1(rp, ap, an, b);
-    rn += (rp[rn] != 0);
+    zp[zn] = mpn_mul_1(zp, xp, xn, b);
+    zn += (zp[zn] != 0);
 
-    ASSERT(mpv_cmp(rp, rn, ap, an) > 0);
-    ASSERT(mpv_cmp_1(rp, rn, b) > 0);
+    ASSERT(mpv_cmp(zp, zn, xp, xn) > 0);
+    ASSERT(mpv_cmp_1(zp, zn, b) > 0);
 
-    rp[rn] = mpn_mul_1(rp, rp, rn, b);
-    rn += (rp[rn] != 0);
+    zp[zn] = mpn_mul_1(zp, zp, zn, b);
+    zn += (zp[zn] != 0);
 
-    ASSERT(mpv_cmp(rp, rn, ap, an) > 0);
-    ASSERT(mpv_cmp_1(rp, rn, b) > 0);
+    ASSERT(mpv_cmp(zp, zn, xp, xn) > 0);
+    ASSERT(mpv_cmp_1(zp, zn, b) > 0);
 
-    mpn_div_1(rp, rp, rn, b);
-    rn = mpn_strip(rp, rn);
+    mpn_div_1(zp, zp, zn, b);
+    zn = mpn_strip(zp, zn);
 
-    ASSERT(mpv_cmp(rp, rn, ap, an) > 0);
-    ASSERT(mpv_cmp_1(rp, rn, b) > 0);
+    ASSERT(mpv_cmp(zp, zn, xp, xn) > 0);
+    ASSERT(mpv_cmp_1(zp, zn, b) > 0);
 
-    mpn_div_1(rp, rp, rn, b);
-    rn = mpn_strip(rp, rn);
+    mpn_div_1(zp, zp, zn, b);
+    zn = mpn_strip(zp, zn);
 
-    ASSERT(mpv_cmp(rp, rn, ap, an) == 0);
+    ASSERT(mpv_cmp(zp, zn, xp, xn) == 0);
   }
 }
 
@@ -668,20 +668,20 @@ test_mpn_submul_1(mp_rng_f *rng, void *arg) {
 
 static void
 test_mpn_sqr(mp_rng_f *rng, void *arg) {
-  mp_limb_t ap[4];
-  mp_limb_t rp[8];
+  mp_limb_t xp[4];
+  mp_limb_t zp[8];
   mp_limb_t ep[8];
   int i;
 
   printf("  - MPN sqr.\n");
 
   for (i = 0; i < 100; i++) {
-    mpn_random(ap, 4, rng, arg);
+    mpn_random(xp, 4, rng, arg);
 
-    mpn_sqr(rp, ap, 4, ep);
-    mpn_mul_n(ep, ap, ap, 4);
+    mpn_sqr(zp, xp, 4, ep);
+    mpn_mul_n(ep, xp, xp, 4);
 
-    ASSERT(mpn_cmp(rp, ep, 8) == 0);
+    ASSERT(mpn_cmp(zp, ep, 8) == 0);
   }
 }
 
@@ -779,8 +779,8 @@ test_mpn_divround(void) {
 
 static void
 test_mpn_and(mp_rng_f *rng, void *arg) {
-  mp_limb_t ap[4];
-  mp_limb_t bp[4];
+  mp_limb_t xp[4];
+  mp_limb_t yp[4];
   mp_limb_t tp[4];
   mp_limb_t ep[4];
   int i, j;
@@ -788,40 +788,40 @@ test_mpn_and(mp_rng_f *rng, void *arg) {
   printf("  - MPN AND.\n");
 
   for (i = 0; i < 100; i++) {
-    mpn_random(ap, 4, rng, arg);
-    mpn_random(bp, 4, rng, arg);
+    mpn_random(xp, 4, rng, arg);
+    mpn_random(yp, 4, rng, arg);
     mpn_random(tp, 4, rng, arg);
 
     for (j = 0; j < 4; j++)
-      ep[j] = ap[j] & bp[j];
+      ep[j] = xp[j] & yp[j];
 
-    mpn_and_n(tp, ap, bp, 4);
+    mpn_and_n(tp, xp, yp, 4);
 
     ASSERT(mpn_cmp(tp, ep, 4) == 0);
   }
 
   for (i = 0; i < 100; i++) {
-    mpn_random(ap, 4, rng, arg);
-    mpn_random(bp, 4, rng, arg);
+    mpn_random(xp, 4, rng, arg);
+    mpn_random(yp, 4, rng, arg);
     mpn_random(tp, 4, rng, arg);
 
     for (j = 0; j < 4; j++)
-      ep[j] = ap[j] & ~bp[j];
+      ep[j] = xp[j] & ~yp[j];
 
-    mpn_andn_n(tp, ap, bp, 4);
+    mpn_andn_n(tp, xp, yp, 4);
 
     ASSERT(mpn_cmp(tp, ep, 4) == 0);
   }
 
   for (i = 0; i < 100; i++) {
-    mpn_random(ap, 4, rng, arg);
-    mpn_random(bp, 4, rng, arg);
+    mpn_random(xp, 4, rng, arg);
+    mpn_random(yp, 4, rng, arg);
     mpn_random(tp, 4, rng, arg);
 
     for (j = 0; j < 4; j++)
-      ep[j] = ~(ap[j] & bp[j]);
+      ep[j] = ~(xp[j] & yp[j]);
 
-    mpn_nand_n(tp, ap, bp, 4);
+    mpn_nand_n(tp, xp, yp, 4);
 
     ASSERT(mpn_cmp(tp, ep, 4) == 0);
   }
@@ -829,8 +829,8 @@ test_mpn_and(mp_rng_f *rng, void *arg) {
 
 static void
 test_mpn_ior(mp_rng_f *rng, void *arg) {
-  mp_limb_t ap[4];
-  mp_limb_t bp[4];
+  mp_limb_t xp[4];
+  mp_limb_t yp[4];
   mp_limb_t tp[4];
   mp_limb_t ep[4];
   int i, j;
@@ -838,40 +838,40 @@ test_mpn_ior(mp_rng_f *rng, void *arg) {
   printf("  - MPN OR.\n");
 
   for (i = 0; i < 100; i++) {
-    mpn_random(ap, 4, rng, arg);
-    mpn_random(bp, 4, rng, arg);
+    mpn_random(xp, 4, rng, arg);
+    mpn_random(yp, 4, rng, arg);
     mpn_random(tp, 4, rng, arg);
 
     for (j = 0; j < 4; j++)
-      ep[j] = ap[j] | bp[j];
+      ep[j] = xp[j] | yp[j];
 
-    mpn_ior_n(tp, ap, bp, 4);
+    mpn_ior_n(tp, xp, yp, 4);
 
     ASSERT(mpn_cmp(tp, ep, 4) == 0);
   }
 
   for (i = 0; i < 100; i++) {
-    mpn_random(ap, 4, rng, arg);
-    mpn_random(bp, 4, rng, arg);
+    mpn_random(xp, 4, rng, arg);
+    mpn_random(yp, 4, rng, arg);
     mpn_random(tp, 4, rng, arg);
 
     for (j = 0; j < 4; j++)
-      ep[j] = ap[j] | ~bp[j];
+      ep[j] = xp[j] | ~yp[j];
 
-    mpn_iorn_n(tp, ap, bp, 4);
+    mpn_iorn_n(tp, xp, yp, 4);
 
     ASSERT(mpn_cmp(tp, ep, 4) == 0);
   }
 
   for (i = 0; i < 100; i++) {
-    mpn_random(ap, 4, rng, arg);
-    mpn_random(bp, 4, rng, arg);
+    mpn_random(xp, 4, rng, arg);
+    mpn_random(yp, 4, rng, arg);
     mpn_random(tp, 4, rng, arg);
 
     for (j = 0; j < 4; j++)
-      ep[j] = ~(ap[j] | bp[j]);
+      ep[j] = ~(xp[j] | yp[j]);
 
-    mpn_nior_n(tp, ap, bp, 4);
+    mpn_nior_n(tp, xp, yp, 4);
 
     ASSERT(mpn_cmp(tp, ep, 4) == 0);
   }
@@ -879,8 +879,8 @@ test_mpn_ior(mp_rng_f *rng, void *arg) {
 
 static void
 test_mpn_xor(mp_rng_f *rng, void *arg) {
-  mp_limb_t ap[4];
-  mp_limb_t bp[4];
+  mp_limb_t xp[4];
+  mp_limb_t yp[4];
   mp_limb_t tp[4];
   mp_limb_t ep[4];
   int i, j;
@@ -888,27 +888,27 @@ test_mpn_xor(mp_rng_f *rng, void *arg) {
   printf("  - MPN XOR.\n");
 
   for (i = 0; i < 100; i++) {
-    mpn_random(ap, 4, rng, arg);
-    mpn_random(bp, 4, rng, arg);
+    mpn_random(xp, 4, rng, arg);
+    mpn_random(yp, 4, rng, arg);
     mpn_random(tp, 4, rng, arg);
 
     for (j = 0; j < 4; j++)
-      ep[j] = ap[j] ^ bp[j];
+      ep[j] = xp[j] ^ yp[j];
 
-    mpn_xor_n(tp, ap, bp, 4);
+    mpn_xor_n(tp, xp, yp, 4);
 
     ASSERT(mpn_cmp(tp, ep, 4) == 0);
   }
 
   for (i = 0; i < 100; i++) {
-    mpn_random(ap, 4, rng, arg);
-    mpn_random(bp, 4, rng, arg);
+    mpn_random(xp, 4, rng, arg);
+    mpn_random(yp, 4, rng, arg);
     mpn_random(tp, 4, rng, arg);
 
     for (j = 0; j < 4; j++)
-      ep[j] = ~(ap[j] ^ bp[j]);
+      ep[j] = ~(xp[j] ^ yp[j]);
 
-    mpn_nxor_n(tp, ap, bp, 4);
+    mpn_nxor_n(tp, xp, yp, 4);
 
     ASSERT(mpn_cmp(tp, ep, 4) == 0);
   }
@@ -916,7 +916,7 @@ test_mpn_xor(mp_rng_f *rng, void *arg) {
 
 static void
 test_mpn_com(mp_rng_f *rng, void *arg) {
-  mp_limb_t ap[4];
+  mp_limb_t xp[4];
   mp_limb_t tp[4];
   mp_limb_t ep[4];
   int i, j;
@@ -924,13 +924,13 @@ test_mpn_com(mp_rng_f *rng, void *arg) {
   printf("  - MPN NOT.\n");
 
   for (i = 0; i < 100; i++) {
-    mpn_random(ap, 4, rng, arg);
+    mpn_random(xp, 4, rng, arg);
     mpn_random(tp, 4, rng, arg);
 
     for (j = 0; j < 4; j++)
-      ep[j] = ~ap[j];
+      ep[j] = ~xp[j];
 
-    mpn_com(tp, ap, 4);
+    mpn_com(tp, xp, 4);
 
     ASSERT(mpn_cmp(tp, ep, 4) == 0);
   }
@@ -938,59 +938,59 @@ test_mpn_com(mp_rng_f *rng, void *arg) {
 
 static void
 test_mpn_lshift(mp_rng_f *rng, void *arg) {
-  mp_limb_t ap[5];
-  mp_limb_t bp[5];
+  mp_limb_t xp[5];
+  mp_limb_t yp[5];
   int i;
 
   printf("  - MPN lshift.\n");
 
   for (i = 0; i < 100; i++) {
-    mpn_random(ap, 4, rng, arg);
+    mpn_random(xp, 4, rng, arg);
 
-    bp[4] = mpn_mul_1(bp, ap, 4, 8);
-    ap[4] = mpn_lshift(ap, ap, 4, 3);
+    yp[4] = mpn_mul_1(yp, xp, 4, 8);
+    xp[4] = mpn_lshift(xp, xp, 4, 3);
 
-    ASSERT(mpn_cmp(ap, bp, 5) == 0);
+    ASSERT(mpn_cmp(xp, yp, 5) == 0);
   }
 }
 
 static void
 test_mpn_rshift(mp_rng_f *rng, void *arg) {
-  mp_limb_t ap[4];
-  mp_limb_t bp[4];
+  mp_limb_t xp[4];
+  mp_limb_t yp[4];
   int i;
 
   printf("  - MPN rshift.\n");
 
   for (i = 0; i < 100; i++) {
-    mpn_random(ap, 4, rng, arg);
+    mpn_random(xp, 4, rng, arg);
 
-    mpn_div_1(bp, ap, 4, 8);
-    mpn_rshift(ap, ap, 4, 3);
+    mpn_div_1(yp, xp, 4, 8);
+    mpn_rshift(xp, xp, 4, 3);
 
-    ASSERT(mpn_cmp(ap, bp, 4) == 0);
+    ASSERT(mpn_cmp(xp, yp, 4) == 0);
   }
 }
 
 static void
 test_mpn_shift(mp_rng_f *rng, void *arg) {
-  mp_limb_t ap[5];
-  mp_limb_t bp[5];
+  mp_limb_t xp[5];
+  mp_limb_t yp[5];
   int i;
 
   printf("  - MPN shift.\n");
 
   for (i = 0; i < 100; i++) {
-    mpn_random(ap, 4, rng, arg);
+    mpn_random(xp, 4, rng, arg);
 
-    ap[4] = 0;
-    bp[4] = mpn_lshift(bp, ap, 4, 15);
+    xp[4] = 0;
+    yp[4] = mpn_lshift(yp, xp, 4, 15);
 
-    ASSERT(mpn_cmp(bp, ap, 5) > 0);
+    ASSERT(mpn_cmp(yp, xp, 5) > 0);
 
-    mpn_rshift(bp, bp, 5, 15);
+    mpn_rshift(yp, yp, 5, 15);
 
-    ASSERT(mpn_cmp(bp, ap, 5) == 0);
+    ASSERT(mpn_cmp(yp, xp, 5) == 0);
   }
 }
 
@@ -1058,7 +1058,7 @@ test_mpn_bits(mp_rng_f *rng, void *arg) {
 
 static void
 test_mpn_mask(mp_rng_f *rng, void *arg) {
-  mp_limb_t ap[4];
+  mp_limb_t xp[4];
   mp_limb_t mp[4];
   mp_limb_t tp[4];
   mp_limb_t ep[4];
@@ -1071,10 +1071,10 @@ test_mpn_mask(mp_rng_f *rng, void *arg) {
   mpn_sub_1(mp, mp, 4, 1);
 
   for (i = 0; i < 100; i++) {
-    mpn_random(ap, 4, rng, arg);
+    mpn_random(xp, 4, rng, arg);
 
-    mpn_and_n(ep, ap, mp, 4);
-    mpn_mask(tp, ap, 4, 100);
+    mpn_and_n(ep, xp, mp, 4);
+    mpn_mask(tp, xp, 4, 100);
 
     ASSERT(mpn_cmp(tp, ep, 4) == 0);
   }
@@ -1082,8 +1082,8 @@ test_mpn_mask(mp_rng_f *rng, void *arg) {
 
 static void
 test_mpn_negate(mp_rng_f *rng, void *arg) {
-  mp_limb_t ap[4];
-  mp_limb_t bp[4];
+  mp_limb_t xp[4];
+  mp_limb_t yp[4];
   mp_limb_t cp[4];
   mp_limb_t c1, c2;
   int i;
@@ -1091,15 +1091,15 @@ test_mpn_negate(mp_rng_f *rng, void *arg) {
   printf("  - MPN negation.\n");
 
   for (i = 0; i < 100; i++) {
-    mpn_random(ap, 4, rng, arg);
-    mpn_copyi(bp, ap, 4);
+    mpn_random(xp, 4, rng, arg);
+    mpn_copyi(yp, xp, 4);
     mpn_zero(cp, 4);
 
-    c1 = mpn_sub_n(ap, cp, ap, 4);
-    c2 = mpn_neg(bp, bp, 4);
+    c1 = mpn_sub_n(xp, cp, xp, 4);
+    c2 = mpn_neg(yp, yp, 4);
 
     ASSERT(c1 == c2);
-    ASSERT(mpn_cmp(ap, bp, 4) == 0);
+    ASSERT(mpn_cmp(xp, yp, 4) == 0);
   }
 }
 
@@ -1210,9 +1210,9 @@ test_mpn_reduce_weak(mp_rng_f *rng, void *arg) {
 
 static void
 test_mpn_barrett(mp_rng_f *rng, void *arg) {
-  mp_limb_t ap[MP_P192_SHIFT];
-  mp_limb_t bp[MP_P192_LIMBS];
-  mp_limb_t rp[MP_P192_LIMBS];
+  mp_limb_t xp[MP_P192_SHIFT];
+  mp_limb_t ep[MP_P192_LIMBS];
+  mp_limb_t zp[MP_P192_LIMBS];
   mp_limb_t np[MP_P192_LIMBS];
   mp_limb_t mp[MP_P192_SHIFT - MP_P192_LIMBS + 1]; /* MP_P192_LIMBS + 1 */
   mp_limb_t scratch1[MPN_BARRETT_ITCH(MP_P192_SHIFT)];
@@ -1228,19 +1228,19 @@ test_mpn_barrett(mp_rng_f *rng, void *arg) {
   mpn_barrett(mp, np, n, shift, scratch1);
 
   for (i = 0; i < 100; i++) {
-    mpn_random(ap, n * 2, rng, arg);
-    mpn_mod(bp, ap, n * 2, np, n);
+    mpn_random(xp, n * 2, rng, arg);
+    mpn_mod(ep, xp, n * 2, np, n);
 
-    mpn_reduce(rp, ap, mp, np, n, shift, scratch2);
+    mpn_reduce(zp, xp, mp, np, n, shift, scratch2);
 
-    ASSERT(mpn_cmp(rp, bp, n) == 0);
+    ASSERT(mpn_cmp(zp, ep, n) == 0);
   }
 }
 
 static void
 test_mpn_mont(mp_rng_f *rng, void *arg) {
-  mp_limb_t ap[MP_P192_LIMBS * 2];
-  mp_limb_t bp[MP_P192_LIMBS * 2];
+  mp_limb_t up[MP_P192_LIMBS * 2];
+  mp_limb_t vp[MP_P192_LIMBS * 2];
   mp_limb_t xp[MP_P192_LIMBS];
   mp_limb_t yp[MP_P192_LIMBS];
   mp_limb_t rp[MP_P192_LIMBS];
@@ -1260,25 +1260,25 @@ test_mpn_mont(mp_rng_f *rng, void *arg) {
   mpn_mont(&k, rp, mp, mn, scratch1);
 
   for (i = 0; i < 100; i++) {
-    mpn_random(ap, mn * 2, rng, arg);
-    mpn_random(bp, mn * 2, rng, arg);
+    mpn_random(up, mn * 2, rng, arg);
+    mpn_random(vp, mn * 2, rng, arg);
 
-    mpn_mod(ap, ap, mn * 2, mp, mn);
-    mpn_mod(bp, bp, mn * 2, mp, mn);
+    mpn_mod(up, up, mn * 2, mp, mn);
+    mpn_mod(vp, vp, mn * 2, mp, mn);
 
-    mpn_mul_n(sp, ap, bp, mn);
+    mpn_mul_n(sp, up, vp, mn);
     mpn_mod(ep, sp, mn * 2, mp, mn);
 
-    mpn_montmul(xp, ap, rp, mp, mn, k, scratch2);
-    mpn_montmul(yp, bp, rp, mp, mn, k, scratch2);
+    mpn_montmul(xp, up, rp, mp, mn, k, scratch2);
+    mpn_montmul(yp, vp, rp, mp, mn, k, scratch2);
     mpn_montmul(sp, xp, yp, mp, mn, k, scratch2);
     mpn_set_1(yp, mn, 1);
     mpn_montmul(sp, sp, yp, mp, mn, k, scratch2);
 
     ASSERT(mpn_cmp(sp, ep, mn) == 0);
 
-    mpn_montmul_var(xp, ap, rp, mp, mn, k, scratch2);
-    mpn_montmul_var(yp, bp, rp, mp, mn, k, scratch2);
+    mpn_montmul_var(xp, up, rp, mp, mn, k, scratch2);
+    mpn_montmul_var(yp, vp, rp, mp, mn, k, scratch2);
     mpn_montmul_var(sp, xp, yp, mp, mn, k, scratch2);
     mpn_set_1(yp, mn, 1);
     mpn_montmul_var(sp, sp, yp, mp, mn, k, scratch2);
@@ -1290,9 +1290,9 @@ test_mpn_mont(mp_rng_f *rng, void *arg) {
 
 static void
 test_mpn_invert(mp_rng_f *rng, void *arg) {
-  mp_limb_t ap[MP_P192_LIMBS * 2];
-  mp_limb_t bp[MP_P192_LIMBS];
-  mp_limb_t cp[MP_P192_LIMBS * 2];
+  mp_limb_t xp[MP_P192_LIMBS * 2];
+  mp_limb_t zp[MP_P192_LIMBS];
+  mp_limb_t sp[MP_P192_LIMBS * 2];
   mp_limb_t mp[MP_P192_LIMBS];
   mp_limb_t scratch[MPN_INVERT_ITCH(MP_P192_LIMBS)];
   int mn = MP_P192_LIMBS;
@@ -1302,25 +1302,25 @@ test_mpn_invert(mp_rng_f *rng, void *arg) {
 
   mpn_p192_mod(mp);
 
-  mpn_zero(ap, mn);
-  ASSERT(mpn_invert_n(bp, ap, mp, mn, scratch) == 0);
+  mpn_zero(xp, mn);
+  ASSERT(mpn_invert_n(zp, xp, mp, mn, scratch) == 0);
 
   while (i < 100) {
-    mpn_random(ap, mn * 2, rng, arg);
-    mpn_mod(ap, ap, mn * 2, mp, mn);
+    mpn_random(xp, mn * 2, rng, arg);
+    mpn_mod(xp, xp, mn * 2, mp, mn);
 
-    if (mpn_zero_p(ap, mn)) {
-      ASSERT(mpn_invert_n(bp, ap, mp, mn, scratch) == 0);
+    if (mpn_zero_p(xp, mn)) {
+      ASSERT(mpn_invert_n(zp, xp, mp, mn, scratch) == 0);
       continue;
     }
 
-    ASSERT(mpn_invert_n(bp, ap, mp, mn, scratch) == 1);
+    ASSERT(mpn_invert_n(zp, xp, mp, mn, scratch) == 1);
 
-    mpn_mul_n(cp, ap, bp, mn);
-    mpn_mod(cp, cp, mn * 2, mp, mn);
+    mpn_mul_n(sp, xp, zp, mn);
+    mpn_mod(sp, sp, mn * 2, mp, mn);
 
-    ASSERT(cp[0] == 1);
-    ASSERT(mpn_zero_p(cp + 1, mn - 1));
+    ASSERT(sp[0] == 1);
+    ASSERT(mpn_zero_p(sp + 1, mn - 1));
 
     i += 1;
   }
@@ -1367,9 +1367,9 @@ test_mpn_powm(mp_rng_f *rng, void *arg) {
   mp_limb_t scratch2[MPN_POWM_ITCH(MP_P192_LIMBS, MP_P192_LIMBS)];
   mp_limb_t scratch3[MPN_SEC_POWM_ITCH(MP_P192_LIMBS)];
   int mn = MP_P192_LIMBS;
+  int j, xn, yn;
   int i = 0;
   int k = 0;
-  int j, an;
 
   printf("  - MPN powm.\n");
 
@@ -1386,7 +1386,7 @@ test_mpn_powm(mp_rng_f *rng, void *arg) {
     mpn_random(xp, mn * 2, rng, arg);
     mpn_mod(xp, xp, mn * 2, mp, mn);
 
-    an = mpn_strip(xp, mn);
+    xn = mpn_strip(xp, mn);
 
     j = mpn_jacobi_n(xp, mp, mn, scratch1);
 
@@ -1397,25 +1397,25 @@ test_mpn_powm(mp_rng_f *rng, void *arg) {
 
     ASSERT(j == 1 || j == -1);
 
-    mpn_powm(zp, xp, an, yp, mn, mp, mn, scratch2);
+    mpn_powm(zp, xp, xn, yp, mn, mp, mn, scratch2);
     mpn_sqr(sp, zp, mn, scratch1);
     mpn_mod(zp, sp, mn * 2, mp, mn);
 
     ASSERT((mpn_cmp(zp, xp, mn) == 0) == (j == 1));
 
-    mpn_sec_powm(zp, xp, an, yp, mn, mp, mn, scratch3);
+    mpn_sec_powm(zp, xp, xn, yp, mn, mp, mn, scratch3);
     mpn_sqr(sp, zp, mn, scratch1);
     mpn_mod(zp, sp, mn * 2, mp, mn);
 
     ASSERT((mpn_cmp(zp, xp, mn) == 0) == (j == 1));
 
-    mpn_mont_powm(zp, xp, an, yp, mn, mp, mn, scratch2);
+    mpn_mont_powm(zp, xp, xn, yp, mn, mp, mn, scratch2);
     mpn_sqr(sp, zp, mn, scratch1);
     mpn_mod(zp, sp, mn * 2, mp, mn);
 
     ASSERT((mpn_cmp(zp, xp, mn) == 0) == (j == 1));
 
-    mpn_div_powm(zp, xp, an, yp, mn, mp, mn, scratch2);
+    mpn_div_powm(zp, xp, xn, yp, mn, mp, mn, scratch2);
     mpn_sqr(sp, zp, mn, scratch1);
     mpn_mod(zp, sp, mn * 2, mp, mn);
 
@@ -1426,57 +1426,65 @@ test_mpn_powm(mp_rng_f *rng, void *arg) {
   }
 
   for (i = 0; i < 100; i++) {
-    mpn_random(xp, mn, rng, arg);
-    mpn_random_nz(yp, mn, rng, arg);
-    mpn_random_nz(mp, mn, rng, arg);
+    mpn_random(xp, MP_P192_LIMBS, rng, arg);
+    mpn_random_nz(yp, MP_P192_LIMBS, rng, arg);
+    mpn_random_nz(mp, MP_P192_LIMBS, rng, arg);
 
-    mpn_powm(zp, xp, an, yp, mn, mp, mn, scratch2);
-    mpn_powm_simple(sp, xp, an, yp, mn, mp, mn);
+    xn = mpn_strip(xp, MP_P192_LIMBS);
+    yn = mpn_strip(yp, MP_P192_LIMBS);
+    mn = mpn_strip(mp, MP_P192_LIMBS);
+
+    mpn_powm(zp, xp, xn, yp, mn, mp, mn, scratch2);
+    mpn_powm_simple(sp, xp, xn, yp, mn, mp, mn);
 
     ASSERT(mpn_cmp(zp, sp, mn) == 0);
 
     if (mp[0] & 1) {
-      mpn_sec_powm(zp, xp, an, yp, mn, mp, mn, scratch3);
-      mpn_powm_simple(sp, xp, an, yp, mn, mp, mn);
+      mpn_sec_powm(zp, xp, xn, yp, mn, mp, mn, scratch3);
+      mpn_powm_simple(sp, xp, xn, yp, mn, mp, mn);
 
       ASSERT(mpn_cmp(zp, sp, mn) == 0);
 
-      mpn_mont_powm(zp, xp, an, yp, mn, mp, mn, scratch2);
-      mpn_powm_simple(sp, xp, an, yp, mn, mp, mn);
+      mpn_mont_powm(zp, xp, xn, yp, mn, mp, mn, scratch2);
+      mpn_powm_simple(sp, xp, xn, yp, mn, mp, mn);
 
       ASSERT(mpn_cmp(zp, sp, mn) == 0);
     }
 
-    mpn_div_powm(zp, xp, an, yp, mn, mp, mn, scratch2);
-    mpn_powm_simple(zp, xp, an, yp, mn, mp, mn);
+    mpn_div_powm(zp, xp, xn, yp, mn, mp, mn, scratch2);
+    mpn_powm_simple(zp, xp, xn, yp, mn, mp, mn);
 
     ASSERT(mpn_cmp(zp, sp, mn) == 0);
   }
 
   for (i = 0; i < 100; i++) {
-    mpn_random(xp, mn, rng, arg);
+    mpn_random(xp, MP_P192_LIMBS, rng, arg);
     mpn_random_nz(yp, 1, rng, arg);
-    mpn_random_nz(mp, mn, rng, arg);
+    mpn_random_nz(mp, MP_P192_LIMBS, rng, arg);
 
-    mpn_powm(zp, xp, an, yp, 1, mp, mn, scratch2);
-    mpn_powm_simple(sp, xp, an, yp, 1, mp, mn);
+    xn = mpn_strip(xp, MP_P192_LIMBS);
+    yn = mpn_strip(yp, 1);
+    mn = mpn_strip(mp, MP_P192_LIMBS);
+
+    mpn_powm(zp, xp, xn, yp, yn, mp, mn, scratch2);
+    mpn_powm_simple(sp, xp, xn, yp, yn, mp, mn);
 
     ASSERT(mpn_cmp(zp, sp, mn) == 0);
 
     if (mp[0] & 1) {
-      mpn_sec_powm(zp, xp, an, yp, 1, mp, mn, scratch3);
-      mpn_powm_simple(sp, xp, an, yp, 1, mp, mn);
+      mpn_sec_powm(zp, xp, xn, yp, yn, mp, mn, scratch3);
+      mpn_powm_simple(sp, xp, xn, yp, yn, mp, mn);
 
       ASSERT(mpn_cmp(zp, sp, mn) == 0);
 
-      mpn_mont_powm(zp, xp, an, yp, 1, mp, mn, scratch2);
-      mpn_powm_simple(sp, xp, an, yp, 1, mp, mn);
+      mpn_mont_powm(zp, xp, xn, yp, yn, mp, mn, scratch2);
+      mpn_powm_simple(sp, xp, xn, yp, yn, mp, mn);
 
       ASSERT(mpn_cmp(zp, sp, mn) == 0);
     }
 
-    mpn_div_powm(zp, xp, an, yp, 1, mp, mn, scratch2);
-    mpn_powm_simple(zp, xp, an, yp, 1, mp, mn);
+    mpn_div_powm(zp, xp, xn, yp, yn, mp, mn, scratch2);
+    mpn_powm_simple(zp, xp, xn, yp, yn, mp, mn);
 
     ASSERT(mpn_cmp(zp, sp, mn) == 0);
   }
@@ -1488,9 +1496,9 @@ test_mpn_helpers(void) {
   static const mp_limb_t odd[4] = {3, 3, 2, 1};
   static const mp_limb_t even[4] = {4, 3, 2, 1};
   static const mp_limb_t tz[4] = {0, 3, 2, 1};
-  mp_limb_t ap[1], bp[2];
-  mp_limb_t *xp = ap;
-  mp_limb_t *yp = bp;
+  mp_limb_t up[1], vp[2];
+  mp_limb_t *xp = up;
+  mp_limb_t *yp = vp;
   int xn = 1;
   int yn = 2;
 
@@ -1508,42 +1516,42 @@ test_mpn_helpers(void) {
 
   mpn_swap(&xp, &xn, &yp, &yn);
 
-  ASSERT(xp == bp);
+  ASSERT(xp == vp);
   ASSERT(xn == 2);
-  ASSERT(yp == ap);
+  ASSERT(yp == up);
   ASSERT(yn == 1);
 }
 
 static void
 test_mpn_select(mp_rng_f *rng, void *arg) {
-  mp_limb_t ap[4];
-  mp_limb_t bp[4];
-  mp_limb_t rp[4];
+  mp_limb_t xp[4];
+  mp_limb_t yp[4];
+  mp_limb_t zp[4];
 
   printf("  - MPN select.\n");
 
-  mpn_random_nz(ap, 4, rng, arg);
-  mpn_random_nz(bp, 4, rng, arg);
+  mpn_random_nz(xp, 4, rng, arg);
+  mpn_random_nz(yp, 4, rng, arg);
 
-  mpn_select(rp, ap, bp, 4, 0);
+  mpn_select(zp, xp, yp, 4, 0);
 
-  ASSERT(mpn_cmp(rp, ap, 4) == 0);
-  ASSERT(mpn_cmp(rp, bp, 4) != 0);
+  ASSERT(mpn_cmp(zp, xp, 4) == 0);
+  ASSERT(mpn_cmp(zp, yp, 4) != 0);
 
-  mpn_select(rp, ap, bp, 4, 1);
+  mpn_select(zp, xp, yp, 4, 1);
 
-  ASSERT(mpn_cmp(rp, bp, 4) == 0);
-  ASSERT(mpn_cmp(rp, ap, 4) != 0);
+  ASSERT(mpn_cmp(zp, yp, 4) == 0);
+  ASSERT(mpn_cmp(zp, xp, 4) != 0);
 
-  mpn_select_zero(rp, ap, 4, 0);
+  mpn_select_zero(zp, xp, 4, 0);
 
-  ASSERT(mpn_cmp(rp, ap, 4) == 0);
-  ASSERT(!mpn_zero_p(rp, 4));
+  ASSERT(mpn_cmp(zp, xp, 4) == 0);
+  ASSERT(!mpn_zero_p(zp, 4));
 
-  mpn_select_zero(rp, ap, 4, 1);
+  mpn_select_zero(zp, xp, 4, 1);
 
-  ASSERT(mpn_cmp(rp, ap, 4) != 0);
-  ASSERT(mpn_zero_p(rp, 4));
+  ASSERT(mpn_cmp(zp, xp, 4) != 0);
+  ASSERT(mpn_zero_p(zp, 4));
 }
 
 static void
@@ -1595,72 +1603,72 @@ test_mpn_sec_cmp(void) {
 
 static void
 test_mpn_sec_cmp_rand(mp_rng_f *rng, void *arg) {
-  mp_limb_t ap[4];
-  mp_limb_t bp[4];
+  mp_limb_t xp[4];
+  mp_limb_t yp[4];
   int i;
 
   printf("  - MPN secure comparison (random).\n");
 
   for (i = 0; i < 1000; i++) {
-    mpn_random(ap, 4, rng, arg);
-    mpn_random(bp, 4, rng, arg);
+    mpn_random(xp, 4, rng, arg);
+    mpn_random(yp, 4, rng, arg);
 
-    ASSERT(mpn_sec_zero_p(ap, 4) == mpn_zero_p(ap, 4));
-    ASSERT(mpn_sec_zero_p(bp, 4) == mpn_zero_p(bp, 4));
+    ASSERT(mpn_sec_zero_p(xp, 4) == mpn_zero_p(xp, 4));
+    ASSERT(mpn_sec_zero_p(yp, 4) == mpn_zero_p(yp, 4));
 
-    ASSERT(mpn_sec_equal(ap, ap, 4));
-    ASSERT(mpn_sec_equal(ap, bp, 4) == (mpn_cmp(ap, bp, 4) == 0));
+    ASSERT(mpn_sec_equal(xp, xp, 4));
+    ASSERT(mpn_sec_equal(xp, yp, 4) == (mpn_cmp(xp, yp, 4) == 0));
 
-    ASSERT(mpn_sec_lt(ap, ap, 4) == 0);
-    ASSERT(mpn_sec_lt(bp, bp, 4) == 0);
-    ASSERT(mpn_sec_lt(ap, bp, 4) == (mpn_cmp(ap, bp, 4) < 0));
-    ASSERT(mpn_sec_lt(bp, ap, 4) == (mpn_cmp(bp, ap, 4) < 0));
+    ASSERT(mpn_sec_lt(xp, xp, 4) == 0);
+    ASSERT(mpn_sec_lt(yp, yp, 4) == 0);
+    ASSERT(mpn_sec_lt(xp, yp, 4) == (mpn_cmp(xp, yp, 4) < 0));
+    ASSERT(mpn_sec_lt(yp, xp, 4) == (mpn_cmp(yp, xp, 4) < 0));
 
-    ASSERT(mpn_sec_lte(ap, ap, 4) == 1);
-    ASSERT(mpn_sec_lte(bp, bp, 4) == 1);
-    ASSERT(mpn_sec_lte(ap, bp, 4) == (mpn_cmp(ap, bp, 4) <= 0));
-    ASSERT(mpn_sec_lte(bp, ap, 4) == (mpn_cmp(bp, ap, 4) <= 0));
+    ASSERT(mpn_sec_lte(xp, xp, 4) == 1);
+    ASSERT(mpn_sec_lte(yp, yp, 4) == 1);
+    ASSERT(mpn_sec_lte(xp, yp, 4) == (mpn_cmp(xp, yp, 4) <= 0));
+    ASSERT(mpn_sec_lte(yp, xp, 4) == (mpn_cmp(yp, xp, 4) <= 0));
 
-    ASSERT(mpn_sec_gt(ap, ap, 4) == 0);
-    ASSERT(mpn_sec_gt(bp, bp, 4) == 0);
-    ASSERT(mpn_sec_gt(ap, bp, 4) == (mpn_cmp(ap, bp, 4) > 0));
-    ASSERT(mpn_sec_gt(bp, ap, 4) == (mpn_cmp(bp, ap, 4) > 0));
+    ASSERT(mpn_sec_gt(xp, xp, 4) == 0);
+    ASSERT(mpn_sec_gt(yp, yp, 4) == 0);
+    ASSERT(mpn_sec_gt(xp, yp, 4) == (mpn_cmp(xp, yp, 4) > 0));
+    ASSERT(mpn_sec_gt(yp, xp, 4) == (mpn_cmp(yp, xp, 4) > 0));
 
-    ASSERT(mpn_sec_gte(ap, ap, 4) == 1);
-    ASSERT(mpn_sec_gte(bp, bp, 4) == 1);
-    ASSERT(mpn_sec_gte(ap, bp, 4) == (mpn_cmp(ap, bp, 4) >= 0));
-    ASSERT(mpn_sec_gte(bp, ap, 4) == (mpn_cmp(bp, ap, 4) >= 0));
+    ASSERT(mpn_sec_gte(xp, xp, 4) == 1);
+    ASSERT(mpn_sec_gte(yp, yp, 4) == 1);
+    ASSERT(mpn_sec_gte(xp, yp, 4) == (mpn_cmp(xp, yp, 4) >= 0));
+    ASSERT(mpn_sec_gte(yp, xp, 4) == (mpn_cmp(yp, xp, 4) >= 0));
 
-    ASSERT(mpn_sec_cmp(ap, ap, 4) == 0);
-    ASSERT(mpn_sec_cmp(bp, bp, 4) == 0);
-    ASSERT(mpn_sec_cmp(ap, bp, 4) == mpn_cmp(ap, bp, 4));
-    ASSERT(mpn_sec_cmp(bp, ap, 4) == mpn_cmp(bp, ap, 4));
+    ASSERT(mpn_sec_cmp(xp, xp, 4) == 0);
+    ASSERT(mpn_sec_cmp(yp, yp, 4) == 0);
+    ASSERT(mpn_sec_cmp(xp, yp, 4) == mpn_cmp(xp, yp, 4));
+    ASSERT(mpn_sec_cmp(yp, xp, 4) == mpn_cmp(yp, xp, 4));
   }
 }
 
 static void
 test_mpn_io(mp_rng_f *rng, void *arg) {
   unsigned char raw[4 * MP_LIMB_BYTES];
-  mp_limb_t ap[4];
-  mp_limb_t bp[4];
+  mp_limb_t xp[4];
+  mp_limb_t yp[4];
   int i;
 
   printf("  - MPN I/O.\n");
 
   for (i = 0; i < 100; i++) {
-    mpn_random(ap, 4, rng, arg);
+    mpn_random(xp, 4, rng, arg);
 
-    mpn_zero(bp, 4);
-    mpn_export(raw, sizeof(raw), ap, 4, 1);
-    mpn_import(bp, 4, raw, sizeof(raw), 1);
+    mpn_zero(yp, 4);
+    mpn_export(raw, sizeof(raw), xp, 4, 1);
+    mpn_import(yp, 4, raw, sizeof(raw), 1);
 
-    ASSERT(mpn_cmp(ap, bp, 4) == 0);
+    ASSERT(mpn_cmp(xp, yp, 4) == 0);
 
-    mpn_zero(bp, 4);
-    mpn_export(raw, sizeof(raw), ap, 4, -1);
-    mpn_import(bp, 4, raw, sizeof(raw), -1);
+    mpn_zero(yp, 4);
+    mpn_export(raw, sizeof(raw), xp, 4, -1);
+    mpn_import(yp, 4, raw, sizeof(raw), -1);
 
-    ASSERT(mpn_cmp(ap, bp, 4) == 0);
+    ASSERT(mpn_cmp(xp, yp, 4) == 0);
   }
 }
 
@@ -1668,44 +1676,44 @@ static void
 test_mpn_io_str(mp_rng_f *rng, void *arg) {
   /* Base-10 size = 78 + 1 */
   /* Base-16 size = 64 + 1 */
-  mp_limb_t ap[4];
-  mp_limb_t bp[4];
+  mp_limb_t xp[4];
+  mp_limb_t yp[4];
   char str[80];
   int i;
 
   printf("  - MPN string I/O.\n");
 
   for (i = 0; i < 100; i++) {
-    mpn_random(ap, 4, rng, arg);
+    mpn_random(xp, 4, rng, arg);
 
-    mpn_zero(bp, 4);
-    mpn_get_str(str, ap, 4, 10);
+    mpn_zero(yp, 4);
+    mpn_get_str(str, xp, 4, 10);
 
-    ASSERT(mpn_set_str(bp, 4, str, 10));
-    ASSERT(mpn_cmp(ap, bp, 4) == 0);
+    ASSERT(mpn_set_str(yp, 4, str, 10));
+    ASSERT(mpn_cmp(xp, yp, 4) == 0);
 
-    mpn_zero(bp, 4);
-    mpn_get_str(str, ap, 4, 16);
+    mpn_zero(yp, 4);
+    mpn_get_str(str, xp, 4, 16);
 
-    ASSERT(mpn_set_str(bp, 4, str, 16));
-    ASSERT(mpn_cmp(ap, bp, 4) == 0);
+    ASSERT(mpn_set_str(yp, 4, str, 16));
+    ASSERT(mpn_cmp(xp, yp, 4) == 0);
 
-    mpn_print(ap, 4, 10, fake_puts);
-    mpn_print(ap, 4, 16, fake_puts);
+    mpn_print(xp, 4, 10, fake_puts);
+    mpn_print(xp, 4, 16, fake_puts);
   }
 }
 
 static void
 test_mpn_random(mp_rng_f *rng, void *arg) {
-  mp_limb_t ap[8];
+  mp_limb_t xp[8];
   int i;
 
   printf("  - MPN RNG.\n");
 
   for (i = 0; i < 100; i++) {
-    mpn_random(ap, 8, rng, arg);
+    mpn_random(xp, 8, rng, arg);
 
-    ASSERT(!mpn_zero_p(ap, 8));
+    ASSERT(!mpn_zero_p(xp, 8));
   }
 }
 
