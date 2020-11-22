@@ -85,7 +85,7 @@ fake_puts(const char *s) {
 }
 
 /*
- * MPZ Functions
+ * MPN/MPZ Functions
  */
 
 static void
@@ -116,8 +116,8 @@ static void
 mpz_lcm_simple(mpz_t z, const mpz_t x, const mpz_t y) {
   mpz_t g, l;
 
-  if (x->size == 0 || y->size == 0) {
-    z->size = 0;
+  if (mpz_sgn(x) == 0 || mpz_sgn(y) == 0) {
+    mpz_set_ui(z, 0);
     return;
   }
 
@@ -131,6 +131,113 @@ mpz_lcm_simple(mpz_t z, const mpz_t x, const mpz_t y) {
 
   mpz_clear(g);
   mpz_clear(l);
+}
+
+static void
+mpz_pow5(mpz_t z, const mpz_t x) {
+  mpz_t t;
+
+  mpz_init(t);
+  mpz_set(t, x);
+
+  mpz_set(z, x);
+  mpz_sqr(z, z);
+  mpz_sqr(z, z);
+  mpz_mul(z, z, t);
+
+  mpz_clear(t);
+}
+
+static void
+mpz_powm_simple(mpz_t z, const mpz_t x, const mpz_t y, const mpz_t m) {
+  mpz_t r, u, v, t;
+  int i, bits;
+
+  mpz_init(r);
+  mpz_init(u);
+  mpz_init(v);
+  mpz_init(t);
+
+  mpz_set_ui(r, 1);
+
+  mpz_mod(r, r, m);
+  mpz_mod(u, x, m);
+  mpz_abs(v, y);
+
+  if (mpz_sgn(y) < 0)
+    ASSERT(mpz_invert(u, u, m));
+
+  bits = mpz_bitlen(v);
+
+  for (i = 0; i < bits; i++) {
+    if (mpz_tstbit(v, i)) {
+      mpz_mul(t, r, u);
+      mpz_mod(r, t, m);
+    }
+
+    mpz_sqr(t, u);
+    mpz_mod(u, t, m);
+  }
+
+  mpz_set(z, r);
+
+  mpz_clear(r);
+  mpz_clear(u);
+  mpz_clear(v);
+  mpz_clear(t);
+}
+
+static void
+mpz_powm_simple_ui(mpz_t z, const mpz_t x, mp_limb_t y, const mpz_t m) {
+  mpz_t r, u, t;
+
+  mpz_init(r);
+  mpz_init(u);
+  mpz_init(t);
+
+  mpz_set_ui(r, 1);
+
+  mpz_mod(r, r, m);
+  mpz_mod(u, x, m);
+
+  while (y > 0) {
+    if (y & 1) {
+      mpz_mul(t, r, u);
+      mpz_mod(r, t, m);
+    }
+
+    mpz_sqr(t, u);
+    mpz_mod(u, t, m);
+
+    y >>= 1;
+  }
+
+  mpz_set(z, r);
+
+  mpz_clear(r);
+  mpz_clear(u);
+  mpz_clear(t);
+}
+
+static void
+mpn_powm_simple(mp_limb_t *zp,
+                const mp_limb_t *xp, int xn,
+                const mp_limb_t *yp, int yn,
+                const mp_limb_t *mp, int mn) {
+  mpz_t z, x, y, m;
+
+  mpz_init(z);
+
+  mpz_roinit_n(x, xp, xn);
+  mpz_roinit_n(y, yp, yn);
+  mpz_roinit_n(m, mp, mn);
+
+  mpz_powm_simple(z, x, y, m);
+
+  mpn_copyi(zp, z->limbs, z->size);
+  mpn_zero(zp + z->size, mn - z->size);
+
+  mpz_clear(z);
 }
 
 /*
@@ -1251,10 +1358,10 @@ test_mpn_jacobi(void) {
 
 static void
 test_mpn_powm(mp_rng_f *rng, void *arg) {
-  mp_limb_t ap[MP_P192_LIMBS * 2];
-  mp_limb_t ep[MP_P192_LIMBS];
+  mp_limb_t xp[MP_P192_LIMBS * 2];
+  mp_limb_t yp[MP_P192_LIMBS];
   mp_limb_t mp[MP_P192_LIMBS];
-  mp_limb_t rp[MP_P192_LIMBS];
+  mp_limb_t zp[MP_P192_LIMBS];
   mp_limb_t sp[MP_P192_LIMBS * 2];
   mp_limb_t scratch1[MPN_JACOBI_ITCH(MP_P192_LIMBS)];
   mp_limb_t scratch2[MPN_POWM_ITCH(MP_P192_LIMBS, MP_P192_LIMBS)];
@@ -1267,55 +1374,111 @@ test_mpn_powm(mp_rng_f *rng, void *arg) {
   printf("  - MPN powm.\n");
 
   mpn_p192_mod(mp);
-  mpn_p192_exp(ep);
+  mpn_p192_exp(yp);
 
-  mpn_zero(ap, mn);
-  ASSERT(mpn_jacobi_n(ap, mp, mn, scratch1) == 0);
+  mpn_zero(xp, mn);
+  ASSERT(mpn_jacobi_n(xp, mp, mn, scratch1) == 0);
 
-  mpn_copyi(ap, mp, mn);
-  ASSERT(mpn_jacobi_n(ap, mp, mn, scratch1) == 0);
+  mpn_copyi(xp, mp, mn);
+  ASSERT(mpn_jacobi_n(xp, mp, mn, scratch1) == 0);
 
   while (i < 100 || k < 100) {
-    mpn_random(ap, mn * 2, rng, arg);
-    mpn_mod(ap, ap, mn * 2, mp, mn);
+    mpn_random(xp, mn * 2, rng, arg);
+    mpn_mod(xp, xp, mn * 2, mp, mn);
 
-    an = mpn_strip(ap, mn);
+    an = mpn_strip(xp, mn);
 
-    j = mpn_jacobi_n(ap, mp, mn, scratch1);
+    j = mpn_jacobi_n(xp, mp, mn, scratch1);
 
     if (j == 0) {
-      ASSERT(mpn_zero_p(ap, mn));
+      ASSERT(mpn_zero_p(xp, mn));
       continue;
     }
 
     ASSERT(j == 1 || j == -1);
 
-    mpn_powm(rp, ap, an, ep, mn, mp, mn, scratch2);
-    mpn_sqr(sp, rp, mn, scratch1);
-    mpn_mod(rp, sp, mn * 2, mp, mn);
+    mpn_powm(zp, xp, an, yp, mn, mp, mn, scratch2);
+    mpn_sqr(sp, zp, mn, scratch1);
+    mpn_mod(zp, sp, mn * 2, mp, mn);
 
-    ASSERT((mpn_cmp(rp, ap, mn) == 0) == (j == 1));
+    ASSERT((mpn_cmp(zp, xp, mn) == 0) == (j == 1));
 
-    mpn_sec_powm(rp, ap, an, ep, mn, mp, mn, scratch3);
-    mpn_sqr(sp, rp, mn, scratch1);
-    mpn_mod(rp, sp, mn * 2, mp, mn);
+    mpn_sec_powm(zp, xp, an, yp, mn, mp, mn, scratch3);
+    mpn_sqr(sp, zp, mn, scratch1);
+    mpn_mod(zp, sp, mn * 2, mp, mn);
 
-    ASSERT((mpn_cmp(rp, ap, mn) == 0) == (j == 1));
+    ASSERT((mpn_cmp(zp, xp, mn) == 0) == (j == 1));
 
-    mpn_mont_powm(rp, ap, an, ep, mn, mp, mn, scratch2);
-    mpn_sqr(sp, rp, mn, scratch1);
-    mpn_mod(rp, sp, mn * 2, mp, mn);
+    mpn_mont_powm(zp, xp, an, yp, mn, mp, mn, scratch2);
+    mpn_sqr(sp, zp, mn, scratch1);
+    mpn_mod(zp, sp, mn * 2, mp, mn);
 
-    ASSERT((mpn_cmp(rp, ap, mn) == 0) == (j == 1));
+    ASSERT((mpn_cmp(zp, xp, mn) == 0) == (j == 1));
 
-    mpn_div_powm(rp, ap, an, ep, mn, mp, mn, scratch2);
-    mpn_sqr(sp, rp, mn, scratch1);
-    mpn_mod(rp, sp, mn * 2, mp, mn);
+    mpn_div_powm(zp, xp, an, yp, mn, mp, mn, scratch2);
+    mpn_sqr(sp, zp, mn, scratch1);
+    mpn_mod(zp, sp, mn * 2, mp, mn);
 
-    ASSERT((mpn_cmp(rp, ap, mn) == 0) == (j == 1));
+    ASSERT((mpn_cmp(zp, xp, mn) == 0) == (j == 1));
 
     i += (j == 1);
     k += (j == -1);
+  }
+
+  for (i = 0; i < 100; i++) {
+    mpn_random(xp, mn, rng, arg);
+    mpn_random_nz(yp, mn, rng, arg);
+    mpn_random_nz(mp, mn, rng, arg);
+
+    mpn_powm(zp, xp, an, yp, mn, mp, mn, scratch2);
+    mpn_powm_simple(sp, xp, an, yp, mn, mp, mn);
+
+    ASSERT(mpn_cmp(zp, sp, mn) == 0);
+
+    if (mp[0] & 1) {
+      mpn_sec_powm(zp, xp, an, yp, mn, mp, mn, scratch3);
+      mpn_powm_simple(sp, xp, an, yp, mn, mp, mn);
+
+      ASSERT(mpn_cmp(zp, sp, mn) == 0);
+
+      mpn_mont_powm(zp, xp, an, yp, mn, mp, mn, scratch2);
+      mpn_powm_simple(sp, xp, an, yp, mn, mp, mn);
+
+      ASSERT(mpn_cmp(zp, sp, mn) == 0);
+    }
+
+    mpn_div_powm(zp, xp, an, yp, mn, mp, mn, scratch2);
+    mpn_powm_simple(zp, xp, an, yp, mn, mp, mn);
+
+    ASSERT(mpn_cmp(zp, sp, mn) == 0);
+  }
+
+  for (i = 0; i < 100; i++) {
+    mpn_random(xp, mn, rng, arg);
+    mpn_random_nz(yp, 1, rng, arg);
+    mpn_random_nz(mp, mn, rng, arg);
+
+    mpn_powm(zp, xp, an, yp, 1, mp, mn, scratch2);
+    mpn_powm_simple(sp, xp, an, yp, 1, mp, mn);
+
+    ASSERT(mpn_cmp(zp, sp, mn) == 0);
+
+    if (mp[0] & 1) {
+      mpn_sec_powm(zp, xp, an, yp, 1, mp, mn, scratch3);
+      mpn_powm_simple(sp, xp, an, yp, 1, mp, mn);
+
+      ASSERT(mpn_cmp(zp, sp, mn) == 0);
+
+      mpn_mont_powm(zp, xp, an, yp, 1, mp, mn, scratch2);
+      mpn_powm_simple(sp, xp, an, yp, 1, mp, mn);
+
+      ASSERT(mpn_cmp(zp, sp, mn) == 0);
+    }
+
+    mpn_div_powm(zp, xp, an, yp, 1, mp, mn, scratch2);
+    mpn_powm_simple(zp, xp, an, yp, 1, mp, mn);
+
+    ASSERT(mpn_cmp(zp, sp, mn) == 0);
   }
 }
 
@@ -2943,6 +3106,43 @@ test_mpz_divround(mp_rng_f *rng, void *arg) {
 }
 
 static void
+test_mpz_pow(mp_rng_f *rng, void *arg) {
+  mpz_t x, z1, z2;
+  mp_limb_t y;
+  int i;
+
+  printf("  - MPZ pow.\n");
+
+  mpz_init(x);
+  mpz_init(z1);
+  mpz_init(z2);
+
+  for (i = 0; i < 100; i++) {
+    mpz_random_nz(x, 32, rng, arg);
+
+    mpz_pow_ui(z1, x, 5);
+    mpz_pow5(z2, x);
+
+    ASSERT(mpz_cmp(z1, z2) == 0);
+  }
+
+  for (i = 0; i < 100; i++) {
+    y = mp_random_limb(rng, arg);
+
+    mpz_ui_pow_ui(z1, y, 5);
+
+    mpz_set_ui(z2, y);
+    mpz_pow5(z2, z2);
+
+    ASSERT(mpz_cmp(z1, z2) == 0);
+  }
+
+  mpz_clear(x);
+  mpz_clear(z1);
+  mpz_clear(z2);
+}
+
+static void
 test_mpz_roots(mp_rng_f *rng, void *arg) {
   static const int roots[][3] = {
     { 0, 0, 1 },
@@ -3429,6 +3629,7 @@ test_mpz_negate(mp_rng_f *rng, void *arg) {
 static void
 test_mpz_gcd(mp_rng_f *rng, void *arg) {
   mpz_t g1, g2, g3, x, y;
+  mp_limb_t g;
   int i;
 
   printf("  - MPZ gcd.\n");
@@ -3439,7 +3640,7 @@ test_mpz_gcd(mp_rng_f *rng, void *arg) {
   mpz_init(x);
   mpz_init(y);
 
-  for (i = 0; i < 100; i++) {
+  for (i = 0; i < 50; i++) {
     mpz_random_nz(x, 250, rng, arg);
     mpz_random_nz(y, 125, rng, arg);
 
@@ -3450,6 +3651,20 @@ test_mpz_gcd(mp_rng_f *rng, void *arg) {
     mpz_gcdext(g2, NULL, NULL, x, y);
     mpz_gcd_simple(g3, x, y);
 
+    ASSERT(mpz_cmp(g1, g2) == 0);
+    ASSERT(mpz_cmp(g1, g3) == 0);
+  }
+
+  for (i = 0; i < 50; i++) {
+    mpz_random_nz(x, 250, rng, arg);
+    mpz_random_nz(y, MP_LIMB_BITS, rng, arg);
+
+    g = mpz_gcd_ui(g1, x, mpz_get_ui(y));
+
+    mpz_gcdext(g2, NULL, NULL, x, y);
+    mpz_gcd_simple(g3, x, y);
+
+    ASSERT(mpz_cmp_ui(g1, g) == 0);
     ASSERT(mpz_cmp(g1, g2) == 0);
     ASSERT(mpz_cmp(g1, g3) == 0);
   }
@@ -3475,7 +3690,7 @@ test_mpz_lcm(mp_rng_f *rng, void *arg) {
   mpz_init(x);
   mpz_init(y);
 
-  for (i = 0; i < 100; i++) {
+  for (i = 0; i < 50; i++) {
     mpz_random_nz(x, 250, rng, arg);
     mpz_random_nz(y, 125, rng, arg);
 
@@ -3483,6 +3698,22 @@ test_mpz_lcm(mp_rng_f *rng, void *arg) {
       mpz_swap(x, y);
 
     mpz_lcm(l1, x, y);
+
+    mpz_gcd(g, x, y);
+    mpz_divexact(l2, x, g);
+    mpz_mul(l2, l2, y);
+
+    mpz_lcm_simple(l3, x, y);
+
+    ASSERT(mpz_cmp(l1, l2) == 0);
+    ASSERT(mpz_cmp(l1, l3) == 0);
+  }
+
+  for (i = 0; i < 50; i++) {
+    mpz_random_nz(x, 250, rng, arg);
+    mpz_random_nz(y, MP_LIMB_BITS, rng, arg);
+
+    mpz_lcm_ui(l1, x, mpz_get_ui(y));
 
     mpz_gcd(g, x, y);
     mpz_divexact(l2, x, g);
@@ -3508,7 +3739,7 @@ test_mpz_gcdext(mp_rng_f *rng, void *arg) {
   mpz_t g1, s1, t1;
   mpz_t g2, s2, t2;
   mpz_t q1, q2;
-  int i = 0;
+  int i, j, mode;
 
   printf("  - MPZ gcdext.\n");
 
@@ -3526,6 +3757,8 @@ test_mpz_gcdext(mp_rng_f *rng, void *arg) {
   mpz_init(q2);
 
   mpz_p192_mod(m);
+
+  i = 0;
 
   while (i < 100) {
     mpz_random_nz(x, 384, rng, arg);
@@ -3605,6 +3838,41 @@ test_mpz_gcdext(mp_rng_f *rng, void *arg) {
     ASSERT(mpz_cmp(g1, x) == 0);
     ASSERT(mpz_cmp_ui(g2, 1) == 0);
     ASSERT(mpz_cmp_ui(q1, 1) == 0);
+  }
+
+  for (mode = 0; mode < 3; mode++) {
+    i = 0;
+    j = 0;
+
+    while (i < 20 || j < 20) {
+      mpz_random_nz(x, 256, rng, arg);
+      mpz_random_nz(y, 256, rng, arg);
+
+      if (mp_random_limb(rng, arg) & 1)
+        mpz_neg(x, x);
+
+      if (mp_random_limb(rng, arg) & 1)
+        mpz_neg(y, y);
+
+      if (mode == 1)
+        mpz_clrbit(x, 0);
+      else if (mode == 2)
+        mpz_clrbit(y, 0);
+
+      mpz_gcdext(g1, s1, t1, x, y);
+
+      if (mpz_cmp_ui(g1, 1) != 0) {
+        j += 1;
+        continue;
+      }
+
+      mpz_mul(x, x, s1);
+      mpz_mod(x, x, y);
+
+      ASSERT(mpz_cmp_ui(x, 1) == 0);
+
+      i += 1;
+    }
   }
 
   mpz_clear(x);
@@ -3773,6 +4041,45 @@ test_mpz_powm(mp_rng_f *rng, void *arg) {
 
     i += (j == 1);
     k += (j == -1);
+  }
+
+  for (i = 0; i < 100; i++) {
+    mpz_random_nz(x, 192, rng, arg);
+    mpz_random_nz(y, 128, rng, arg);
+    mpz_random_nz(m, 192, rng, arg);
+
+    if (mp_random_limb(rng, arg) & 1)
+      mpz_neg(x, x);
+
+    if (mp_random_limb(rng, arg) & 1) {
+      if (mpz_invert(t, x, m))
+        mpz_neg(y, y);
+    }
+
+    if (mp_random_limb(rng, arg) & 1)
+      mpz_neg(m, m);
+
+    mpz_powm(z, x, y, m);
+    mpz_powm_simple(t, x, y, m);
+
+    ASSERT(mpz_cmp(z, t) == 0);
+  }
+
+  for (i = 0; i < 100; i++) {
+    mpz_random_nz(x, 192, rng, arg);
+    mpz_random_nz(y, MP_LIMB_BITS, rng, arg);
+    mpz_random_nz(m, 192, rng, arg);
+
+    if (mp_random_limb(rng, arg) & 1)
+      mpz_neg(x, x);
+
+    if (mp_random_limb(rng, arg) & 1)
+      mpz_neg(m, m);
+
+    mpz_powm_ui(z, x, mpz_get_ui(y), m);
+    mpz_powm_simple_ui(t, x, mpz_get_ui(y), m);
+
+    ASSERT(mpz_cmp(z, t) == 0);
   }
 
   mpz_clear(x);
@@ -4725,6 +5032,7 @@ test_mpi_internal(mp_rng_f *rng, void *arg) {
   test_mpz_mod_ui(rng, arg);
   test_mpz_mod_si(rng, arg);
   test_mpz_divround(rng, arg);
+  test_mpz_pow(rng, arg);
   test_mpz_roots(rng, arg);
   test_mpz_and(rng, arg);
   test_mpz_ior(rng, arg);

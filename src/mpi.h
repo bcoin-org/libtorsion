@@ -1083,7 +1083,7 @@ mpz_neg(mpz_t z, const mpz_t x);
 void
 mpz_gcd(mpz_t z, const mpz_t x, const mpz_t y);
 
-void
+mp_limb_t
 mpz_gcd_ui(mpz_t z, const mpz_t x, mp_limb_t y);
 
 void

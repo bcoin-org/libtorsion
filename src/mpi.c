@@ -3869,13 +3869,13 @@ mpz_sqrtrem(mpz_t z, mpz_t r, const mpz_t x) {
     mpz_rshift(u, u, 1);
   } while (mpz_cmpabs(u, s) < 0);
 
-  if (z != NULL)
-    mpz_set(z, s);
-
   if (r != NULL) {
     mpz_sqr(u, s);
     mpz_sub(r, x, u);
   }
+
+  if (z != NULL)
+    mpz_set(z, s);
 
   mpz_clear(u);
   mpz_clear(s);
@@ -4612,17 +4612,32 @@ mpz_gcd(mpz_t z, const mpz_t x, const mpz_t y) {
   mpz_clear(v);
 }
 
-void
+mp_limb_t
 mpz_gcd_ui(mpz_t z, const mpz_t x, mp_limb_t y) {
+  mp_limb_t g;
   mpz_t v;
 
-  mpz_roinit_n(v, &y, 1);
-  mpz_gcd(z, x, v);
+  mpz_init(v);
+  mpz_set_ui(v, y);
+
+  mpz_gcd(v, x, v);
+
+  g = mpz_get_ui(v);
+
+  if (z != NULL)
+    mpz_set(z, v);
+
+  mpz_clear(v);
+
+  if (y == 0)
+    g = 0;
+
+  return g;
 }
 
 void
 mpz_lcm(mpz_t z, const mpz_t x, const mpz_t y) {
-  mpz_t g, l;
+  mpz_t g, q;
 
   if (x->size == 0 || y->size == 0) {
     z->size = 0;
@@ -4630,23 +4645,33 @@ mpz_lcm(mpz_t z, const mpz_t x, const mpz_t y) {
   }
 
   mpz_init(g);
-  mpz_init(l);
+  mpz_init(q);
 
   mpz_gcd(g, x, y);
-  mpz_divexact(l, x, g);
-  mpz_mul(z, l, y);
+  mpz_divexact(q, x, g);
+  mpz_mul(z, y, q);
   mpz_abs(z, z);
 
   mpz_clear(g);
-  mpz_clear(l);
+  mpz_clear(q);
 }
 
 void
 mpz_lcm_ui(mpz_t z, const mpz_t x, mp_limb_t y) {
-  mpz_t v;
+  mp_limb_t g, q;
 
-  mpz_roinit_n(v, &y, 1);
-  mpz_lcm(z, x, v);
+  if (x->size == 0 || y == 0) {
+    z->size = 0;
+    return;
+  }
+
+  g = mpz_gcd_ui(NULL, x, y);
+  q = y / g;
+
+  CHECK(y % g == 0);
+
+  mpz_mul_ui(z, x, q);
+  mpz_abs(z, z);
 }
 
 void
