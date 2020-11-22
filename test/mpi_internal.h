@@ -333,10 +333,10 @@ test_mp_helpers(void) {
   ASSERT(mp_bitlen(1) == 1);
   ASSERT(mp_bitlen(2) == 2);
 
-  ASSERT(!mp_gt_2(0, 0, 0, 1));
-  ASSERT(!mp_gt_2(1, 0, 1, 1));
-  ASSERT(mp_gt_2(1, 1, 1, 0));
-  ASSERT(mp_gt_2(1, 0, 0, 0));
+  ASSERT(!mp_mul_gt_2(0, 0, 0, 1));
+  ASSERT(!mp_mul_gt_2(1, 0, 1, 1));
+  ASSERT(mp_mul_gt_2(2, MP_LIMB_MAX, 1, 0));
+  ASSERT(mp_mul_gt_2(1, 1, 0, 0));
 
   ASSERT(mp_long_abs(0) == 0);
   ASSERT(mp_limb_cast(0, 1) == 0);

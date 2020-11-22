@@ -462,7 +462,11 @@ mp_bitlen(mp_limb_t w) {
 }
 
 static TORSION_INLINE int
-mp_gt_2(mp_limb_t x1, mp_limb_t x0, mp_limb_t y1, mp_limb_t y0) {
+mp_mul_gt_2(mp_limb_t u, mp_limb_t v, mp_limb_t y1, mp_limb_t y0) {
+  mp_limb_t x1, x0;
+
+  mp_mul(x1, x0, u, v);
+
   return x1 > y1 || (x1 == y1 && x0 > y0);
 }
 
@@ -1383,10 +1387,9 @@ mpn_divmod_inner(mp_limb_t *qp, mp_limb_t *rp,
    * golang logic.
    */
   const mp_limb_t *vp = den->vp;
-  mp_limb_t qhat, rhat, prev;
+  mp_limb_t qhat, rhat, prev, c;
   mp_limb_t *up = den->up;
   mp_limb_t m = den->inv;
-  mp_limb_t c, hi, lo;
   int dn = den->size;
   int j;
 
@@ -1412,17 +1415,13 @@ mpn_divmod_inner(mp_limb_t *qp, mp_limb_t *rp,
     if (up[j + dn] != vp[dn - 1]) {
       mp_div_2by1(&qhat, &rhat, up[j + dn], up[j + dn - 1], vp[dn - 1], m);
 
-      mp_mul(hi, lo, qhat, vp[dn - 2]);
-
-      while (mp_gt_2(hi, lo, rhat, up[j + dn - 2])) {
+      while (mp_mul_gt_2(qhat, vp[dn - 2], rhat, up[j + dn - 2])) {
         prev = rhat;
         qhat -= 1;
         rhat += vp[dn - 1];
 
         if (rhat < prev)
           break;
-
-        mp_mul(hi, lo, qhat, vp[dn - 2]);
       }
     }
 
