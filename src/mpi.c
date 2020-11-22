@@ -5358,7 +5358,7 @@ fail:
  */
 
 int
-mpz_is_prime_mr(const mpz_t n, int reps, int force2, mp_rng_f *rng, void *arg) {
+mpz_mr_prime_p(const mpz_t n, int reps, int force2, mp_rng_f *rng, void *arg) {
   /* Miller-Rabin Primality Test.
    *
    * [HANDBOOK] Algorithm 4.24, Page 139, Section 4.2.3.
@@ -5404,7 +5404,7 @@ mpz_is_prime_mr(const mpz_t n, int reps, int force2, mp_rng_f *rng, void *arg) {
       mpz_set_ui(x, 2);
     } else {
       /* x = random integer in [2,n-1] */
-      mpz_random_int(x, nm3, rng, arg);
+      mpz_urandomm(x, nm3, rng, arg);
       mpz_add_ui(x, x, 2);
     }
 
@@ -5446,7 +5446,7 @@ fail:
 }
 
 int
-mpz_is_prime_lucas(const mpz_t n, mp_limb_t limit) {
+mpz_lucas_prime_p(const mpz_t n, mp_limb_t limit) {
   /* Lucas Primality Test.
    *
    * [LUCAS] Page 1401, Section 5.
@@ -5599,7 +5599,7 @@ fail:
 }
 
 int
-mpz_is_prime(const mpz_t x, int rounds, mp_rng_f *rng, void *arg) {
+mpz_probab_prime_p(const mpz_t x, int rounds, mp_rng_f *rng, void *arg) {
   /* Baillie-PSW Primality Test.
    *
    * [BPSW] "Bibliography".
@@ -5651,17 +5651,17 @@ mpz_is_prime(const mpz_t x, int rounds, mp_rng_f *rng, void *arg) {
     return 0;
   }
 
-  if (!mpz_is_prime_mr(x, rounds + 1, 1, rng, arg))
+  if (!mpz_mr_prime_p(x, rounds + 1, 1, rng, arg))
     return 0;
 
-  if (!mpz_is_prime_lucas(x, 0))
+  if (!mpz_lucas_prime_p(x, 0))
     return 0;
 
   return 1;
 }
 
 void
-mpz_random_prime(mpz_t z, int bits, mp_rng_f *rng, void *arg) {
+mpz_randprime(mpz_t z, int bits, mp_rng_f *rng, void *arg) {
   static const uint64_t primes[15] = { 3, 5, 7, 11, 13, 17, 19, 23,
                                        29, 31, 37, 41, 43, 47, 53 };
 #if MP_LIMB_BITS == 64
@@ -5677,7 +5677,7 @@ mpz_random_prime(mpz_t z, int bits, mp_rng_f *rng, void *arg) {
   CHECK(bits > 1);
 
   for (;;) {
-    mpz_random(z, bits, rng, arg);
+    mpz_urandomb(z, bits, rng, arg);
 
     mpz_setbit(z, bits - 1);
     mpz_setbit(z, bits - 2);
@@ -5710,7 +5710,7 @@ next:
         continue;
     }
 
-    if (!mpz_is_prime(z, 20, rng, arg))
+    if (!mpz_probab_prime_p(z, 20, rng, arg))
       continue;
 
     break;
@@ -5738,7 +5738,7 @@ mpz_nextprime(mpz_t z, const mpz_t x, int rounds,
   }
 
   for (; max == 0 || i <= max; i += 2) {
-    if (mpz_is_prime(z, rounds, rng, arg))
+    if (mpz_probab_prime_p(z, rounds, rng, arg))
       return 1;
 
     mpz_add_ui(z, z, 2);
@@ -5981,7 +5981,7 @@ mpz_print(const mpz_t x, int base, mp_puts_f *mp_puts) {
  */
 
 void
-mpz_random(mpz_t z, int bits, mp_rng_f *rng, void *arg) {
+mpz_urandomb(mpz_t z, int bits, mp_rng_f *rng, void *arg) {
   int zn = (bits + MP_LIMB_BITS - 1) / MP_LIMB_BITS;
   int lo = bits % MP_LIMB_BITS;
 
@@ -6000,14 +6000,14 @@ mpz_random(mpz_t z, int bits, mp_rng_f *rng, void *arg) {
 }
 
 void
-mpz_random_int(mpz_t z, const mpz_t max, mp_rng_f *rng, void *arg) {
+mpz_urandomm(mpz_t z, const mpz_t max, mp_rng_f *rng, void *arg) {
   int bits = mpz_bitlen(max);
 
   CHECK(z != max);
 
   if (bits > 0) {
     do {
-      mpz_random(z, bits, rng, arg);
+      mpz_urandomb(z, bits, rng, arg);
     } while (mpz_cmpabs(z, max) >= 0);
 
     if (mpz_sgn(max) < 0)

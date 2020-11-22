@@ -194,16 +194,16 @@ dsa_group_generate(dsa_group_t *group, int bits, const unsigned char *entropy) {
   drbg_init(&rng, HASH_SHA256, entropy, ENTROPY_SIZE);
 
   for (;;) {
-    mpz_random(q, N, drbg_rng, &rng);
+    mpz_urandomb(q, N, drbg_rng, &rng);
 
     mpz_setbit(q, 0);
     mpz_setbit(q, N - 1);
 
-    if (!mpz_is_prime(q, 64, drbg_rng, &rng))
+    if (!mpz_probab_prime_p(q, 64, drbg_rng, &rng))
       continue;
 
     for (i = 0; i < 4 * L; i++) {
-      mpz_random(p, L, drbg_rng, &rng);
+      mpz_urandomb(p, L, drbg_rng, &rng);
 
       mpz_setbit(p, 0);
       mpz_setbit(p, L - 1);
@@ -217,7 +217,7 @@ dsa_group_generate(dsa_group_t *group, int bits, const unsigned char *entropy) {
       if (b < L || b > DSA_MAX_BITS)
         continue;
 
-      if (!mpz_is_prime(p, 64, drbg_rng, &rng))
+      if (!mpz_probab_prime_p(p, 64, drbg_rng, &rng))
         continue;
 
       goto done;
@@ -615,7 +615,7 @@ dsa_priv_create(dsa_priv_t *k,
   drbg_init(&rng, HASH_SHA256, entropy, ENTROPY_SIZE);
 
   do {
-    mpz_random_int(k->x, k->q, drbg_rng, &rng);
+    mpz_urandomm(k->x, k->q, drbg_rng, &rng);
   } while (mpz_sgn(k->x) == 0);
 
   mpz_powm_sec(k->y, k->g, k->x, k->p);
@@ -1356,7 +1356,7 @@ dsa_sign(unsigned char *out, size_t *out_len,
   drbg_init(&rng, HASH_SHA256, entropy, ENTROPY_SIZE);
 
   for (;;) {
-    mpz_random_int(b, priv.q, drbg_rng, &rng);
+    mpz_urandomm(b, priv.q, drbg_rng, &rng);
 
     if (mpz_sgn(b) == 0)
       continue;

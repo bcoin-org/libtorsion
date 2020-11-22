@@ -199,10 +199,10 @@
 #define mpz_powm_sec __torsion_mpz_powm_sec
 #define mpz_sqrtm __torsion_mpz_sqrtm
 #define mpz_sqrtp __torsion_mpz_sqrtp
-#define mpz_is_prime_mr __torsion_mpz_is_prime_mr
-#define mpz_is_prime_lucas __torsion_mpz_is_prime_lucas
-#define mpz_is_prime __torsion_mpz_is_prime
-#define mpz_random_prime __torsion_mpz_random_prime
+#define mpz_mr_prime_p __torsion_mpz_mr_prime_p
+#define mpz_lucas_prime_p __torsion_mpz_lucas_prime_p
+#define mpz_probab_prime_p __torsion_mpz_probab_prime_p
+#define mpz_randprime __torsion_mpz_randprime
 #define mpz_nextprime __torsion_mpz_nextprime
 #define mpz_fits_ui_p __torsion_mpz_fits_ui_p
 #define mpz_fits_si_p __torsion_mpz_fits_si_p
@@ -224,8 +224,8 @@
 #define mpz_set_str __torsion_mpz_set_str
 #define mpz_get_str __torsion_mpz_get_str
 #define mpz_print __torsion_mpz_print
-#define mpz_random __torsion_mpz_random
-#define mpz_random_int __torsion_mpz_random_int
+#define mpz_urandomb __torsion_mpz_urandomb
+#define mpz_urandomm __torsion_mpz_urandomm
 #define test_mpi_internal __torsion_test_mpi_internal
 
 /*
@@ -1169,16 +1169,16 @@ mpz_sqrtpq(mpz_t z, const mpz_t x, const mpz_t p, const mpz_t q);
  */
 
 int
-mpz_is_prime_mr(const mpz_t n, int reps, int force2, mp_rng_f *rng, void *arg);
+mpz_mr_prime_p(const mpz_t n, int reps, int force2, mp_rng_f *rng, void *arg);
 
 int
-mpz_is_prime_lucas(const mpz_t n, mp_limb_t limit);
+mpz_lucas_prime_p(const mpz_t n, mp_limb_t limit);
 
 int
-mpz_is_prime(const mpz_t x, int rounds, mp_rng_f *rng, void *arg);
+mpz_probab_prime_p(const mpz_t x, int rounds, mp_rng_f *rng, void *arg);
 
 void
-mpz_random_prime(mpz_t z, int bits, mp_rng_f *rng, void *arg);
+mpz_randprime(mpz_t z, int bits, mp_rng_f *rng, void *arg);
 
 int
 mpz_nextprime(mpz_t z, const mpz_t x, int rounds,
@@ -1277,10 +1277,10 @@ mpz_print(const mpz_t x, int base, mp_puts_f *mp_puts);
  */
 
 void
-mpz_random(mpz_t z, int bits, mp_rng_f *rng, void *arg);
+mpz_urandomb(mpz_t z, int bits, mp_rng_f *rng, void *arg);
 
 void
-mpz_random_int(mpz_t z, const mpz_t max, mp_rng_f *rng, void *arg);
+mpz_urandomm(mpz_t z, const mpz_t max, mp_rng_f *rng, void *arg);
 
 /*
  * Testing

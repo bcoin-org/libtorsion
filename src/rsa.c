@@ -452,8 +452,8 @@ rsa_priv_generate(rsa_priv_t *k, int bits, uint64_t exp,
   mpz_ior_ui(k->e, k->e, exp & UINT32_MAX);
 
   for (;;) {
-    mpz_random_prime(k->p, (bits >> 1) + (bits & 1), drbg_rng, &rng);
-    mpz_random_prime(k->q, bits >> 1, drbg_rng, &rng);
+    mpz_randprime(k->p, (bits >> 1) + (bits & 1), drbg_rng, &rng);
+    mpz_randprime(k->q, bits >> 1, drbg_rng, &rng);
 
     if (mpz_cmp(k->p, k->q) == 0)
       continue;
@@ -831,7 +831,7 @@ rsa_priv_set_ned(rsa_priv_t *out,
 
   for (i = 0; i < 128; i++) {
     /* a = random int in [2,n-1] */
-    mpz_random_int(a, nm3, drbg_rng, &rng);
+    mpz_urandomm(a, nm3, drbg_rng, &rng);
     mpz_add_ui(a, a, 2);
 
     /* b = a^g mod n */
@@ -931,7 +931,7 @@ rsa_priv_decrypt(const rsa_priv_t *k,
   /* Generate blinding factor. */
   for (;;) {
     /* s = random integer in [1,n-1] */
-    mpz_random_int(s, t, drbg_rng, &rng);
+    mpz_urandomm(s, t, drbg_rng, &rng);
     mpz_add_ui(s, s, 1);
 
     /* bi = s^-1 mod n */
@@ -1170,7 +1170,7 @@ rsa_pub_veil(const rsa_pub_t *k,
   drbg_init(&rng, HASH_SHA256, entropy, ENTROPY_SIZE);
 
   while (mpz_cmp(v, vmax) >= 0) {
-    mpz_random_int(r, rmax, drbg_rng, &rng);
+    mpz_urandomm(r, rmax, drbg_rng, &rng);
 
     /* v = c + r * n */
     mpz_mul(r, r, k->n);

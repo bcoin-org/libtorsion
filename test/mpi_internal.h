@@ -74,7 +74,7 @@ mpz_random_nz(mpz_t z, int bits, mp_rng_f *rng, void *arg) {
   CHECK(bits != 0);
 
   do {
-    mpz_random(z, bits, rng, arg);
+    mpz_urandomb(z, bits, rng, arg);
   } while (mpz_sgn(z) == 0);
 }
 
@@ -4351,7 +4351,7 @@ test_mpz_sqrtm(mp_rng_f *rng, void *arg) {
 
   for (mode = 0; mode < 3; mode++) {
     for (;;) {
-      mpz_random_prime(p, 128, rng, arg);
+      mpz_randprime(p, 128, rng, arg);
 
       if (mode == 0 && mpz_and_ui(p, 3) == 3)
         break;
@@ -4410,8 +4410,8 @@ test_mpz_sqrtpq(mp_rng_f *rng, void *arg) {
   mpz_init(q);
   mpz_init(n);
 
-  mpz_random_prime(p, 96, rng, arg);
-  mpz_random_prime(q, 96, rng, arg);
+  mpz_randprime(p, 96, rng, arg);
+  mpz_randprime(q, 96, rng, arg);
   mpz_mul(n, p, q);
 
   while (i < 5) {
@@ -4484,12 +4484,12 @@ test_mpz_primes(mp_rng_f *rng, void *arg) {
 
     for (i = 0; i < ARRAY_SIZE(prime_vectors); i++) {
       ASSERT(mpz_set_str(p, prime_vectors[i], 10));
-      ASSERT(mpz_is_prime_mr(p, 16 + 1, 1, rng, arg));
-      ASSERT(mpz_is_prime_mr(p, 1, 1, rng, arg));
-      ASSERT(mpz_is_prime_mr(p, 1, 0, rng, arg));
-      ASSERT(mpz_is_prime_mr(p, 0, 1, rng, arg));
-      ASSERT(mpz_is_prime_lucas(p, 50));
-      ASSERT(mpz_is_prime(p, 20, rng, arg));
+      ASSERT(mpz_mr_prime_p(p, 16 + 1, 1, rng, arg));
+      ASSERT(mpz_mr_prime_p(p, 1, 1, rng, arg));
+      ASSERT(mpz_mr_prime_p(p, 1, 0, rng, arg));
+      ASSERT(mpz_mr_prime_p(p, 0, 1, rng, arg));
+      ASSERT(mpz_lucas_prime_p(p, 50));
+      ASSERT(mpz_probab_prime_p(p, 20, rng, arg));
     }
   }
 
@@ -4500,17 +4500,17 @@ test_mpz_primes(mp_rng_f *rng, void *arg) {
       ASSERT(mpz_set_str(p, composite_vectors[i], 10));
 
       /* Miller-Rabin. */
-      ASSERT(!mpz_is_prime_mr(p, 16 + 1, 1, rng, arg));
+      ASSERT(!mpz_mr_prime_p(p, 16 + 1, 1, rng, arg));
 
       if (i >= 8 && i <= 42) {
         /* Lucas pseudoprime. */
-        ASSERT(mpz_is_prime_lucas(p, 50));
+        ASSERT(mpz_lucas_prime_p(p, 50));
       } else {
-        ASSERT(!mpz_is_prime_lucas(p, 50));
+        ASSERT(!mpz_lucas_prime_p(p, 50));
       }
 
       /* No composite should ever pass Baillie-PSW. */
-      ASSERT(!mpz_is_prime(p, 20, rng, arg));
+      ASSERT(!mpz_probab_prime_p(p, 20, rng, arg));
     }
   }
 
@@ -4525,8 +4525,8 @@ test_mpz_primes(mp_rng_f *rng, void *arg) {
 
       mpz_set_ui(p, i);
 
-      pseudo = mpz_is_prime_mr(p, 1, 1, rng, arg)
-            && !mpz_is_prime_lucas(p, 50);
+      pseudo = mpz_mr_prime_p(p, 1, 1, rng, arg)
+            && !mpz_lucas_prime_p(p, 50);
 
       if (pseudo && (len == 0 || i != want[0]))
         ASSERT(0 && "miller-rabin: want false");
@@ -4553,8 +4553,8 @@ test_mpz_primes(mp_rng_f *rng, void *arg) {
 
       mpz_set_ui(p, i);
 
-      pseudo = mpz_is_prime_lucas(p, 50)
-           && !mpz_is_prime_mr(p, 1, 1, rng, arg);
+      pseudo = mpz_lucas_prime_p(p, 50)
+           && !mpz_mr_prime_p(p, 1, 1, rng, arg);
 
       if (pseudo && (len == 0 || i != want[0]))
         ASSERT(0 && "lucas: want false");
@@ -4581,15 +4581,15 @@ test_mpz_random_prime(mp_rng_f *rng, void *arg) {
 
   mpz_init(x);
 
-  mpz_random_prime(x, 128, rng, arg);
+  mpz_randprime(x, 128, rng, arg);
 
-  ASSERT(mpz_is_prime(x, 20, rng, arg));
+  ASSERT(mpz_probab_prime_p(x, 20, rng, arg));
 
-  mpz_random_prime(x, 32, rng, arg);
+  mpz_randprime(x, 32, rng, arg);
 
-  ASSERT(mpz_is_prime(x, 20, rng, arg));
+  ASSERT(mpz_probab_prime_p(x, 20, rng, arg));
   ASSERT(mpz_nextprime(x, x, 20, 0, rng, arg));
-  ASSERT(mpz_is_prime(x, 20, rng, arg));
+  ASSERT(mpz_probab_prime_p(x, 20, rng, arg));
 
   mpz_clear(x);
 }
@@ -4778,18 +4778,18 @@ test_mpz_random(mp_rng_f *rng, void *arg) {
   mpz_init(y);
 
   for (i = 0; i < 100; i++) {
-    mpz_random(x, 256, rng, arg);
+    mpz_urandomb(x, 256, rng, arg);
 
     ASSERT(mpz_sgn(x) != 0);
 
-    mpz_random_int(y, x, rng, arg);
+    mpz_urandomm(y, x, rng, arg);
 
     ASSERT(mpz_sgn(y) == 1);
     ASSERT(mpz_cmp(y, x) < 0);
 
     mpz_neg(x, x);
 
-    mpz_random_int(y, x, rng, arg);
+    mpz_urandomm(y, x, rng, arg);
 
     ASSERT(mpz_sgn(y) == -1);
     ASSERT(mpz_cmp(y, x) > 0);
