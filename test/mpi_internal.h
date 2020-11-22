@@ -4318,6 +4318,45 @@ test_mpz_sqrtm(mp_rng_f *rng, void *arg) {
 }
 
 static void
+test_mpz_sqrtpq(mp_rng_f *rng, void *arg) {
+  mpz_t z, x, p, q, n;
+  int i = 0;
+
+  printf("  - MPZ sqrtpq.\n");
+
+  mpz_init(z);
+  mpz_init(x);
+  mpz_init(p);
+  mpz_init(q);
+  mpz_init(n);
+
+  mpz_random_prime(p, 96, rng, arg);
+  mpz_random_prime(q, 96, rng, arg);
+  mpz_mul(n, p, q);
+
+  while (i < 5) {
+    mpz_random_nz(x, 192, rng, arg);
+    mpz_mod(x, x, n);
+
+    if (!mpz_sqrtpq(z, x, p, q))
+      continue;
+
+    mpz_sqr(z, z);
+    mpz_mod(z, z, n);
+
+    ASSERT(mpz_cmp(z, x) == 0);
+
+    i += 1;
+  }
+
+  mpz_clear(z);
+  mpz_clear(x);
+  mpz_clear(p);
+  mpz_clear(q);
+  mpz_clear(n);
+}
+
+static void
 test_mpz_primes(mp_rng_f *rng, void *arg) {
   static const mp_limb_t mr_pseudos[] = {
     /* https://oeis.org/A001262 */
@@ -5231,6 +5270,7 @@ test_mpi_internal(mp_rng_f *rng, void *arg) {
   test_mpz_jacobi();
   test_mpz_powm(rng, arg);
   test_mpz_sqrtm(rng, arg);
+  test_mpz_sqrtpq(rng, arg);
   test_mpz_primes(rng, arg);
   test_mpz_random_prime(rng, arg);
   test_mpz_helpers();

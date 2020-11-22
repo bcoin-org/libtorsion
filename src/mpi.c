@@ -5243,6 +5243,58 @@ fail:
   return ret;
 }
 
+int
+mpz_sqrtpq(mpz_t z, const mpz_t x, const mpz_t p, const mpz_t q) {
+  /* Compute x^(1 / 2) in F(p * q). */
+  mpz_t sp, sq, mp, mq, u, v;
+  int ret = 0;
+
+  mpz_init(sp);
+  mpz_init(sq);
+  mpz_init(mp);
+  mpz_init(mq);
+  mpz_init(u);
+  mpz_init(v);
+
+  /* sp = x^(1 / 2) in F(p) */
+  if (!mpz_sqrtm(sp, x, p))
+    goto fail;
+
+  /* sq = x^(1 / 2) in F(q) */
+  if (!mpz_sqrtm(sq, x, q))
+    goto fail;
+
+  /* (mp, mq) = bezout coefficients for egcd(p, q) */
+  mpz_gcdext(NULL, mp, mq, p, q);
+
+  /* u = sq * mp * p */
+  mpz_mul(u, sq, mp);
+  mpz_mul(u, u, p);
+
+  /* v = sp * mq * q */
+  mpz_mul(v, sp, mq);
+  mpz_mul(v, v, q);
+
+  /* u = u + v */
+  mpz_add(u, u, v);
+
+  /* v = p * q */
+  mpz_mul(v, p, q);
+
+  /* z = u mod v */
+  mpz_mod(z, u, v);
+
+  ret = 1;
+fail:
+  mpz_clear(sp);
+  mpz_clear(sq);
+  mpz_clear(mp);
+  mpz_clear(mq);
+  mpz_clear(u);
+  mpz_clear(v);
+  return ret;
+}
+
 /*
  * Primality Testing (logic from golang)
  */
