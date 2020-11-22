@@ -355,6 +355,38 @@ test_mp_helpers(void) {
   ASSERT(mp_limb_cast(MP_LIMB_HI - 1, 1) == MP_LONG_MIN + 1);
 }
 
+static void
+test_mp_div(mp_rng_f *rng, void *arg) {
+  mp_limb_t n, d, m, n1, n0, q, r;
+  int i, s;
+
+  printf("  - MPN div.\n");
+
+  for (i = 0; i < 100; i++) {
+    n = mp_random_limb(rng, arg);
+    d = mp_random_limb_nz(rng, arg);
+    s = mp_clz(d);
+    d <<= s;
+    m = mp_inv_2by1(d);
+
+    n1 = 0;
+    n0 = n;
+
+    if (s != 0) {
+      n1 = (n0 >> (MP_LIMB_BITS - s));
+      n0 <<= s;
+    }
+
+    mp_div_2by1(&q, &r, n1, n0, d, m);
+
+    r >>= s;
+    d >>= s;
+
+    ASSERT(n / d == q);
+    ASSERT(n % d == r);
+  }
+}
+
 /*
  * MPN
  */
@@ -5267,6 +5299,7 @@ test_mpi_internal(mp_rng_f *rng, void *arg) {
 
   /* MP */
   test_mp_helpers();
+  test_mp_div(rng, arg);
 
   /* MPN */
   test_mpn_init(rng, arg);
