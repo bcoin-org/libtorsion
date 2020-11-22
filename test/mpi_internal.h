@@ -2849,6 +2849,174 @@ test_mpz_sqr(mp_rng_f *rng, void *arg) {
 }
 
 static void
+test_mpz_addmul(mp_rng_f *rng, void *arg) {
+  mpz_t x, y, z, t;
+  int i;
+
+  printf("  - MPZ add+mul.\n");
+
+  mpz_init(x);
+  mpz_init(y);
+  mpz_init(z);
+  mpz_init(t);
+
+  for (i = 0; i < 100; i++) {
+    mpz_random_nz(x, 250, rng, arg);
+    mpz_random_nz(y, 125, rng, arg);
+    mpz_random_nz(z, 100, rng, arg);
+
+    if (i & 1)
+      mpz_swap(x, y);
+
+    if (mp_random_limb(rng, arg) & 1)
+      mpz_neg(x, x);
+
+    if (mp_random_limb(rng, arg) & 1)
+      mpz_neg(y, y);
+
+    if (mp_random_limb(rng, arg) & 1)
+      mpz_neg(z, z);
+
+    mpz_mul(t, x, y);
+    mpz_add(t, z, t);
+
+    mpz_addmul(z, x, y);
+
+    ASSERT(mpz_cmp(z, t) == 0);
+  }
+
+  for (i = 0; i < 100; i++) {
+    mpz_random_nz(x, 250, rng, arg);
+    mpz_random_nz(y, MP_LIMB_BITS, rng, arg);
+    mpz_random_nz(z, 100, rng, arg);
+
+    if (mp_random_limb(rng, arg) & 1)
+      mpz_neg(x, x);
+
+    if (mp_random_limb(rng, arg) & 1)
+      mpz_neg(z, z);
+
+    mpz_mul(t, x, y);
+    mpz_add(t, z, t);
+
+    mpz_addmul_ui(z, x, mpz_get_ui(y));
+
+    ASSERT(mpz_cmp(z, t) == 0);
+  }
+
+  for (i = 0; i < 100; i++) {
+    mpz_random_nz(x, 250, rng, arg);
+    mpz_random_nz(y, MP_LIMB_BITS - 1, rng, arg);
+    mpz_random_nz(z, 100, rng, arg);
+
+    if (mp_random_limb(rng, arg) & 1)
+      mpz_neg(x, x);
+
+    if (mp_random_limb(rng, arg) & 1)
+      mpz_neg(y, y);
+
+    if (mp_random_limb(rng, arg) & 1)
+      mpz_neg(z, z);
+
+    mpz_mul(t, x, y);
+    mpz_add(t, z, t);
+
+    mpz_addmul_si(z, x, mpz_get_si(y));
+
+    ASSERT(mpz_cmp(z, t) == 0);
+  }
+
+  mpz_clear(x);
+  mpz_clear(y);
+  mpz_clear(z);
+  mpz_clear(t);
+}
+
+static void
+test_mpz_submul(mp_rng_f *rng, void *arg) {
+  mpz_t x, y, z, t;
+  int i;
+
+  printf("  - MPZ sub+mul.\n");
+
+  mpz_init(x);
+  mpz_init(y);
+  mpz_init(z);
+  mpz_init(t);
+
+  for (i = 0; i < 100; i++) {
+    mpz_random_nz(x, 250, rng, arg);
+    mpz_random_nz(y, 125, rng, arg);
+    mpz_random_nz(z, 100, rng, arg);
+
+    if (i & 1)
+      mpz_swap(x, y);
+
+    if (mp_random_limb(rng, arg) & 1)
+      mpz_neg(x, x);
+
+    if (mp_random_limb(rng, arg) & 1)
+      mpz_neg(y, y);
+
+    if (mp_random_limb(rng, arg) & 1)
+      mpz_neg(z, z);
+
+    mpz_mul(t, x, y);
+    mpz_sub(t, z, t);
+
+    mpz_submul(z, x, y);
+
+    ASSERT(mpz_cmp(z, t) == 0);
+  }
+
+  for (i = 0; i < 100; i++) {
+    mpz_random_nz(x, 250, rng, arg);
+    mpz_random_nz(y, MP_LIMB_BITS, rng, arg);
+    mpz_random_nz(z, 100, rng, arg);
+
+    if (mp_random_limb(rng, arg) & 1)
+      mpz_neg(x, x);
+
+    if (mp_random_limb(rng, arg) & 1)
+      mpz_neg(z, z);
+
+    mpz_mul(t, x, y);
+    mpz_sub(t, z, t);
+
+    mpz_submul_ui(z, x, mpz_get_ui(y));
+
+    ASSERT(mpz_cmp(z, t) == 0);
+  }
+
+  for (i = 0; i < 100; i++) {
+    mpz_random_nz(x, 250, rng, arg);
+    mpz_random_nz(y, MP_LIMB_BITS - 1, rng, arg);
+    mpz_random_nz(z, 100, rng, arg);
+
+    if (mp_random_limb(rng, arg) & 1)
+      mpz_neg(x, x);
+
+    if (mp_random_limb(rng, arg) & 1)
+      mpz_neg(y, y);
+
+    if (mp_random_limb(rng, arg) & 1)
+      mpz_neg(z, z);
+
+    mpz_mul(t, x, y);
+    mpz_sub(t, z, t);
+
+    mpz_submul_si(z, x, mpz_get_si(y));
+
+    ASSERT(mpz_cmp(z, t) == 0);
+  }
+
+  mpz_clear(x);
+  mpz_clear(y);
+  mpz_clear(z);
+  mpz_clear(t);
+}
+
+static void
 test_mpz_rem(mp_rng_f *rng, void *arg) {
   mpz_t n, d, q, r, t;
   int i;
@@ -4298,6 +4466,12 @@ test_mpz_random_prime(mp_rng_f *rng, void *arg) {
 
   ASSERT(mpz_is_prime(x, 20, rng, arg));
 
+  mpz_random_prime(x, 32, rng, arg);
+
+  ASSERT(mpz_is_prime(x, 20, rng, arg));
+  ASSERT(mpz_nextprime(x, x, 20, 0, rng, arg));
+  ASSERT(mpz_is_prime(x, 20, rng, arg));
+
   mpz_clear(x);
 }
 
@@ -4335,6 +4509,10 @@ test_mpz_helpers(void) {
   ASSERT(mpz_getlimbn(trail, 0) == 4);
   ASSERT(mpz_size(trail) == 3);
   ASSERT(mpz_limbs_read(trail) == trailp);
+  ASSERT(!mpz_fits_ui_p(trail));
+  ASSERT(!mpz_fits_si_p(trail));
+  ASSERT(mpz_fits_ui_p(x));
+  ASSERT(mpz_fits_si_p(x));
 
   mpz_swap(x, y);
 
@@ -5025,6 +5203,8 @@ test_mpi_internal(mp_rng_f *rng, void *arg) {
   test_mpz_muldivexact_ui(rng, arg);
   test_mpz_muldivexact_si(rng, arg);
   test_mpz_sqr(rng, arg);
+  test_mpz_addmul(rng, arg);
+  test_mpz_submul(rng, arg);
   test_mpz_rem(rng, arg);
   test_mpz_rem_ui(rng, arg);
   test_mpz_rem_si(rng, arg);

@@ -134,6 +134,12 @@
 #define mpz_mul_ui __torsion_mpz_mul_ui
 #define mpz_mul_si __torsion_mpz_mul_si
 #define mpz_sqr __torsion_mpz_sqr
+#define mpz_addmul __torsion_mpz_addmul
+#define mpz_addmul_ui __torsion_mpz_addmul_ui
+#define mpz_addmul_si __torsion_mpz_addmul_si
+#define mpz_submul __torsion_mpz_submul
+#define mpz_submul_ui __torsion_mpz_submul_ui
+#define mpz_submul_si __torsion_mpz_submul_si
 #define mpz_quorem __torsion_mpz_quorem
 #define mpz_quo __torsion_mpz_quo
 #define mpz_rem __torsion_mpz_rem
@@ -192,6 +198,9 @@
 #define mpz_is_prime_lucas __torsion_mpz_is_prime_lucas
 #define mpz_is_prime __torsion_mpz_is_prime
 #define mpz_random_prime __torsion_mpz_random_prime
+#define mpz_nextprime __torsion_mpz_nextprime
+#define mpz_fits_ui_p __torsion_mpz_fits_ui_p
+#define mpz_fits_si_p __torsion_mpz_fits_si_p
 #define mpz_odd_p __torsion_mpz_odd_p
 #define mpz_even_p __torsion_mpz_even_p
 #define mpz_ctz __torsion_mpz_ctz
@@ -887,6 +896,24 @@ mpz_mul_si(mpz_t z, const mpz_t x, mp_long_t y);
 void
 mpz_sqr(mpz_t z, const mpz_t x);
 
+void
+mpz_addmul(mpz_t z, const mpz_t x, const mpz_t y);
+
+void
+mpz_addmul_ui(mpz_t z, const mpz_t x, mp_limb_t y);
+
+void
+mpz_addmul_si(mpz_t z, const mpz_t x, mp_long_t y);
+
+void
+mpz_submul(mpz_t z, const mpz_t x, const mpz_t y);
+
+void
+mpz_submul_ui(mpz_t z, const mpz_t x, mp_limb_t y);
+
+void
+mpz_submul_si(mpz_t z, const mpz_t x, mp_long_t y);
+
 /*
  * Truncation Division
  */
@@ -1129,9 +1156,19 @@ mpz_is_prime(const mpz_t x, int rounds, mp_rng_f *rng, void *arg);
 void
 mpz_random_prime(mpz_t z, int bits, mp_rng_f *rng, void *arg);
 
+int
+mpz_nextprime(mpz_t z, const mpz_t x, int rounds,
+              mp_limb_t max, mp_rng_f *rng, void *arg);
+
 /*
  * Helpers
  */
+
+int
+mpz_fits_ui_p(const mpz_t x);
+
+int
+mpz_fits_si_p(const mpz_t x);
 
 int
 mpz_odd_p(const mpz_t x);
