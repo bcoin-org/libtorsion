@@ -1383,9 +1383,9 @@ mpn_divmod_inner(mp_limb_t *qp, mp_limb_t *rp,
    * golang logic.
    */
   const mp_limb_t *vp = den->vp;
+  mp_limb_t qhat, rhat, prev;
   mp_limb_t *up = den->up;
   mp_limb_t m = den->inv;
-  mp_limb_t qhat, rhat;
   mp_limb_t c, hi, lo;
   int dn = den->size;
   int j;
@@ -1415,10 +1415,11 @@ mpn_divmod_inner(mp_limb_t *qp, mp_limb_t *rp,
       mp_mul(hi, lo, qhat, vp[dn - 2]);
 
       while (mp_gt_2(hi, lo, rhat, up[j + dn - 2])) {
+        prev = rhat;
         qhat -= 1;
         rhat += vp[dn - 1];
 
-        if (rhat < vp[dn - 1])
+        if (rhat < prev)
           break;
 
         mp_mul(hi, lo, qhat, vp[dn - 2]);
