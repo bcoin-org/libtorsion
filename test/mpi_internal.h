@@ -2816,6 +2816,59 @@ test_mpz_muldivexact_si(mp_rng_f *rng, void *arg) {
 }
 
 static void
+test_mpz_divisibility(mp_rng_f *rng, void *arg) {
+  mpz_t x, y, z;
+
+  printf("  - MPZ divisibility.\n");
+
+  mpz_init(x);
+  mpz_init(y);
+  mpz_init(z);
+
+  mpz_set_ui(x, 0);
+  mpz_setbit(x, 100);
+
+  ASSERT(mpz_divisible_2exp_p(x, 100));
+
+  mpz_sub_ui(x, x, 1);
+
+  ASSERT(!mpz_divisible_2exp_p(x, 100));
+
+  mpz_add_ui(x, x, 2);
+
+  ASSERT(!mpz_divisible_2exp_p(x, 100));
+
+  mpz_random_nz(x, 250, rng, arg);
+  mpz_random_nz(y, 250, rng, arg);
+
+  mpz_mul(z, x, y);
+
+  ASSERT(mpz_divisible_p(z, x));
+  ASSERT(mpz_divisible_p(z, y));
+
+  mpz_sub_ui(x, x, 1);
+  mpz_sub_ui(y, y, 1);
+
+  ASSERT(!mpz_divisible_p(z, x));
+  ASSERT(!mpz_divisible_p(z, y));
+
+  mpz_random_nz(x, 250, rng, arg);
+  mpz_random_nz(y, 32, rng, arg);
+
+  mpz_mul(z, x, y);
+
+  ASSERT(mpz_divisible_ui_p(z, mpz_get_ui(y)));
+
+  mpz_sub_ui(y, y, 1);
+
+  ASSERT(!mpz_divisible_ui_p(z, mpz_get_ui(y)));
+
+  mpz_clear(x);
+  mpz_clear(y);
+  mpz_clear(z);
+}
+
+static void
 test_mpz_sqr(mp_rng_f *rng, void *arg) {
   mpz_t x, y, z;
   int i;
@@ -3422,32 +3475,32 @@ test_mpz_ior(mp_rng_f *rng, void *arg) {
     mpz_random_nz(x, 250, rng, arg);
     mpz_random_nz(y, 31, rng, arg);
 
-    mpz_lshift(z, x, 32);
+    mpz_mul_2exp(z, x, 32);
     mpz_ior(z, z, y);
 
     ASSERT(mpz_and_ui(z, UINT32_MAX) == mpz_get_ui(y));
 
-    mpz_urshift(z, z, 32);
+    mpz_quo_2exp(z, z, 32);
 
     ASSERT(mpz_cmp(z, x) == 0);
 
-    mpz_lshift(z, x, 32);
+    mpz_mul_2exp(z, x, 32);
     mpz_ior_ui(z, z, mpz_get_ui(y));
 
     ASSERT(mpz_and_ui(z, UINT32_MAX) == mpz_get_ui(y));
 
-    mpz_rshift(z, z, 32);
+    mpz_div_2exp(z, z, 32);
 
     ASSERT(mpz_cmp(z, x) == 0);
 
-    mpz_lshift(z, x, 32);
+    mpz_mul_2exp(z, x, 32);
     mpz_ior_si(z, z, mpz_get_si(y));
 
     mpz_and_si(r, z, INT32_MAX);
 
     ASSERT(mpz_cmp(r, y) == 0);
 
-    mpz_rshift(z, z, 32);
+    mpz_div_2exp(z, z, 32);
 
     ASSERT(mpz_cmp(z, x) == 0);
   }
@@ -3474,32 +3527,32 @@ test_mpz_xor(mp_rng_f *rng, void *arg) {
     mpz_random_nz(x, 250, rng, arg);
     mpz_random_nz(y, 31, rng, arg);
 
-    mpz_lshift(z, x, 32);
+    mpz_mul_2exp(z, x, 32);
     mpz_xor(z, z, y);
 
     ASSERT(mpz_and_ui(z, UINT32_MAX) == mpz_get_ui(y));
 
-    mpz_rshift(z, z, 32);
+    mpz_div_2exp(z, z, 32);
 
     ASSERT(mpz_cmp(z, x) == 0);
 
-    mpz_lshift(z, x, 32);
+    mpz_mul_2exp(z, x, 32);
     mpz_xor_ui(z, z, mpz_get_ui(y));
 
     ASSERT(mpz_and_ui(z, UINT32_MAX) == mpz_get_ui(y));
 
-    mpz_rshift(z, z, 32);
+    mpz_div_2exp(z, z, 32);
 
     ASSERT(mpz_cmp(z, x) == 0);
 
-    mpz_lshift(z, x, 32);
+    mpz_mul_2exp(z, x, 32);
     mpz_xor_si(z, z, mpz_get_si(y));
 
     mpz_and_si(r, z, INT32_MAX);
 
     ASSERT(mpz_cmp(r, y) == 0);
 
-    mpz_rshift(z, z, 32);
+    mpz_div_2exp(z, z, 32);
 
     ASSERT(mpz_cmp(z, x) == 0);
   }
@@ -3553,7 +3606,7 @@ test_mpz_lshift(mp_rng_f *rng, void *arg) {
       mpz_neg(x, x);
 
     mpz_mul_ui(y, x, 8);
-    mpz_lshift(x, x, 3);
+    mpz_mul_2exp(x, x, 3);
 
     ASSERT(mpz_cmp(x, y) == 0);
   }
@@ -3582,7 +3635,7 @@ test_mpz_rshift(mp_rng_f *rng, void *arg) {
       mpz_quo_ui(y, x, 8);
     }
 
-    mpz_rshift(x, x, 3);
+    mpz_div_2exp(x, x, 3);
 
     ASSERT(mpz_cmp(x, y) == 0);
   }
@@ -3607,11 +3660,11 @@ test_mpz_shift(mp_rng_f *rng, void *arg) {
     if (i & 1)
       mpz_neg(x, x);
 
-    mpz_lshift(y, x, 173);
+    mpz_mul_2exp(y, x, 173);
 
     ASSERT(mpz_cmpabs(y, x) > 0);
 
-    mpz_rshift(y, y, 173);
+    mpz_div_2exp(y, y, 173);
 
     ASSERT(mpz_cmp(x, y) == 0);
   }
@@ -3641,9 +3694,9 @@ test_mpz_bits(mp_rng_f *rng, void *arg) {
     for (j = 0; j < bits; j++) {
       if (x->size < 0) {
         mpz_com(y, x);
-        mpz_rshift(y, y, j);
+        mpz_div_2exp(y, y, j);
       } else {
-        mpz_rshift(y, x, j);
+        mpz_div_2exp(y, x, j);
       }
 
       w = mpz_getlimbn(y, 0);
@@ -3712,6 +3765,33 @@ test_mpz_mask(mp_rng_f *rng, void *arg) {
   mpz_init(z);
   mpz_init(e);
 
+  mpz_set_ui(m, 0);
+  mpz_setbit(m, 100);
+  mpz_sub_ui(m, m, 1);
+
+  for (i = 0; i < 100; i++) {
+    mpz_random_nz(x, 250, rng, arg);
+
+    mpz_and(e, x, m);
+    mpz_rem_2exp(z, x, 100);
+
+    ASSERT(mpz_cmp(z, e) == 0);
+  }
+
+  mpz_set_ui(m, 0);
+  mpz_setbit(m, 500);
+  mpz_sub_ui(m, m, 1);
+
+  for (i = 0; i < 100; i++) {
+    mpz_random_nz(x, 250, rng, arg);
+
+    mpz_and(e, x, m);
+    mpz_rem_2exp(z, x, 500);
+
+    ASSERT(mpz_cmp(z, e) == 0);
+  }
+
+  mpz_set_ui(m, 0);
   mpz_setbit(m, 100);
   mpz_sub_ui(m, m, 1);
 
@@ -3722,7 +3802,7 @@ test_mpz_mask(mp_rng_f *rng, void *arg) {
       mpz_neg(x, x);
 
     mpz_and(e, x, m);
-    mpz_mask(z, x, 100);
+    mpz_mod_2exp(z, x, 100);
 
     ASSERT(mpz_cmp(z, e) == 0);
   }
@@ -3738,7 +3818,7 @@ test_mpz_mask(mp_rng_f *rng, void *arg) {
       mpz_neg(x, x);
 
     mpz_and(e, x, m);
-    mpz_mask(z, x, 500);
+    mpz_mod_2exp(z, x, 500);
 
     ASSERT(mpz_cmp(z, e) == 0);
   }
@@ -5241,6 +5321,7 @@ test_mpi_internal(mp_rng_f *rng, void *arg) {
   test_mpz_muldivexact(rng, arg);
   test_mpz_muldivexact_ui(rng, arg);
   test_mpz_muldivexact_si(rng, arg);
+  test_mpz_divisibility(rng, arg);
   test_mpz_sqr(rng, arg);
   test_mpz_addmul(rng, arg);
   test_mpz_submul(rng, arg);

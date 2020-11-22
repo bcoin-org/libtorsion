@@ -157,6 +157,9 @@
 #define mpz_divexact __torsion_mpz_divexact
 #define mpz_divexact_ui __torsion_mpz_divexact_ui
 #define mpz_divexact_si __torsion_mpz_divexact_si
+#define mpz_divisible_p __torsion_mpz_divisible_p
+#define mpz_divisible_ui_p __torsion_mpz_divisible_ui_p
+#define mpz_divisible_2exp_p __torsion_mpz_divisible_2exp_p
 #define mpz_divround __torsion_mpz_divround
 #define mpz_pow_ui __torsion_mpz_pow_ui
 #define mpz_ui_pow_ui __torsion_mpz_ui_pow_ui
@@ -173,14 +176,15 @@
 #define mpz_xor_ui __torsion_mpz_xor_ui
 #define mpz_xor_si __torsion_mpz_xor_si
 #define mpz_com __torsion_mpz_com
-#define mpz_lshift __torsion_mpz_lshift
-#define mpz_rshift __torsion_mpz_rshift
-#define mpz_urshift __torsion_mpz_urshift
+#define mpz_mul_2exp __torsion_mpz_mul_2exp
+#define mpz_quo_2exp __torsion_mpz_quo_2exp
+#define mpz_rem_2exp __torsion_mpz_rem_2exp
+#define mpz_div_2exp __torsion_mpz_div_2exp
+#define mpz_mod_2exp __torsion_mpz_mod_2exp
 #define mpz_tstbit __torsion_mpz_tstbit
 #define mpz_setbit __torsion_mpz_setbit
 #define mpz_clrbit __torsion_mpz_clrbit
 #define mpz_combit __torsion_mpz_combit
-#define mpz_mask __torsion_mpz_mask
 #define mpz_abs __torsion_mpz_abs
 #define mpz_neg __torsion_mpz_neg
 #define mpz_gcd __torsion_mpz_gcd
@@ -979,6 +983,19 @@ void
 mpz_divexact_si(mpz_t q, const mpz_t n, mp_long_t d);
 
 /*
+ * Divisibility
+ */
+
+int
+mpz_divisible_p(const mpz_t n, const mpz_t d);
+
+int
+mpz_divisible_ui_p(const mpz_t n, mp_limb_t d);
+
+int
+mpz_divisible_2exp_p(const mpz_t n, int bits);
+
+/*
  * Round Division
  */
 
@@ -1059,21 +1076,27 @@ mpz_com(mpz_t z, const mpz_t x);
  */
 
 void
-mpz_lshift(mpz_t z, const mpz_t x, int bits);
-
-/*
- * Right Shift
- */
-
-void
-mpz_rshift(mpz_t z, const mpz_t x, int bits);
+mpz_mul_2exp(mpz_t z, const mpz_t x, int bits);
 
 /*
  * Unsigned Right Shift
  */
 
 void
-mpz_urshift(mpz_t z, const mpz_t x, int bits);
+mpz_quo_2exp(mpz_t z, const mpz_t x, int bits);
+
+void
+mpz_rem_2exp(mpz_t z, const mpz_t x, int bits);
+
+/*
+ * Right Shift
+ */
+
+void
+mpz_div_2exp(mpz_t z, const mpz_t x, int bits);
+
+void
+mpz_mod_2exp(mpz_t z, const mpz_t x, int bits);
 
 /*
  * Bit Manipulation
@@ -1090,9 +1113,6 @@ mpz_clrbit(mpz_t z, int pos);
 
 void
 mpz_combit(mpz_t z, int pos);
-
-void
-mpz_mask(mpz_t z, const mpz_t x, int bits);
 
 /*
  * Negation

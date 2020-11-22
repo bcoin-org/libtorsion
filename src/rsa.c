@@ -448,8 +448,8 @@ rsa_priv_generate(rsa_priv_t *k, int bits, uint64_t exp,
   mpz_init(tmp);
 
   mpz_set_ui(k->e, exp >> 32);
-  mpz_lshift(k->e, k->e, 32);
-  mpz_add_ui(k->e, k->e, exp & UINT32_MAX);
+  mpz_mul_2exp(k->e, k->e, 32);
+  mpz_ior_ui(k->e, k->e, exp & UINT32_MAX);
 
   for (;;) {
     mpz_random_prime(k->p, (bits >> 1) + (bits & 1), drbg_rng, &rng);
@@ -820,7 +820,7 @@ rsa_priv_set_ned(rsa_priv_t *out,
   s = mpz_ctz(f);
 
   /* g = f >> s */
-  mpz_rshift(g, f, s);
+  mpz_quo_2exp(g, f, s);
 
   /* Use all zeroes if no entropy is available. */
   if (entropy == NULL)

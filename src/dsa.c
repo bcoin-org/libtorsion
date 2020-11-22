@@ -1254,7 +1254,7 @@ dsa_reduce(mpz_t m, const unsigned char *msg, size_t msg_len, const mpz_t q) {
 
   /* Shift by the remaining bits. */
   if (msg_len * 8 > bits)
-    mpz_rshift(m, m, msg_len * 8 - bits);
+    mpz_quo_2exp(m, m, msg_len * 8 - bits);
 
   /* Reduce (m < 2^ceil(log2(q+1))). */
   if (mpz_cmp(m, q) >= 0) {
