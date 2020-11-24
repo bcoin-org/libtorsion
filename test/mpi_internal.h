@@ -84,6 +84,61 @@ fake_puts(const char *s) {
   return 0;
 }
 
+static TORSION_INLINE int
+mp_popcount_simple(mp_limb_t x) {
+  int z = 0;
+
+  while (x != 0) {
+    z += (x & 1);
+    x >>= 1;
+  }
+
+  return z;
+}
+
+static TORSION_INLINE int
+mp_clz_simple(mp_limb_t x) {
+  mp_limb_t m = MP_LIMB_C(1) << (MP_LIMB_BITS - 1);
+  int z = 0;
+
+  if (x == 0)
+    return MP_LIMB_BITS;
+
+  while ((x & m) == 0) {
+    z += 1;
+    m >>= 1;
+  }
+
+  return z;
+}
+
+static TORSION_INLINE int
+mp_ctz_simple(mp_limb_t x) {
+  int z = 0;
+
+  if (x == 0)
+    return MP_LIMB_BITS;
+
+  while ((x & 1) == 0) {
+    z += 1;
+    x >>= 1;
+  }
+
+  return z;
+}
+
+static TORSION_INLINE int
+mp_bitlen_simple(mp_limb_t x) {
+  int z = 0;
+
+  while (x != 0) {
+    z += 1;
+    x >>= 1;
+  }
+
+  return z;
+}
+
 /*
  * MPN/MPZ Functions
  */
@@ -240,6 +295,154 @@ mpn_powm_simple(mp_limb_t *zp,
   mpz_clear(z);
 }
 
+static int
+mpn_gcd_simple(mp_limb_t *zp, const mp_limb_t *xp, int xn,
+                              const mp_limb_t *yp, int yn) {
+  mpz_t x, y, z;
+  int zn;
+
+  CHECK(xn >= yn);
+  CHECK(yn > 0);
+  CHECK(yp[yn - 1] != 0);
+
+  mpz_roinit_n(x, xp, xn);
+  mpz_roinit_n(y, yp, yn);
+  mpz_init(z);
+
+  mpz_gcd_simple(z, x, y);
+
+  zn = MP_ABS(z->size);
+
+  CHECK(zn <= yn);
+
+  mpn_copyi(zp, z->limbs, zn);
+  mpn_zero(zp + zn, yn - zn);
+
+  return zn;
+}
+
+/*
+ * To be implemented...
+ */
+
+static int
+mpn_sqrtrem(mp_limb_t *zp, mp_limb_t *rp, const mp_limb_t *xp, int xn) {
+  mpz_t x, z, r;
+  int zn, rn;
+
+  CHECK(zp != xp);
+  CHECK(xn == 0 || xp[xn - 1] != 0);
+
+  mpz_roinit_n(x, xp, xn);
+
+  mpz_init(z);
+  mpz_init(r);
+
+  mpz_sqrtrem(z, r, x);
+
+  zn = MP_ABS(z->size);
+  rn = MP_ABS(r->size);
+
+  CHECK(zn <= (xn + 1) / 2);
+  CHECK(rn <= xn);
+
+  if (zp != NULL) {
+    mpn_copyi(zp, z->limbs, zn);
+    mpn_zero(zp + zn, (xn + 1) / 2 - zn);
+  }
+
+  if (rp != NULL) {
+    mpn_copyi(rp, r->limbs, rn);
+    mpn_zero(rp + rn, xn - rn);
+  }
+
+  mpz_clear(z);
+  mpz_clear(r);
+
+  return rn;
+}
+
+static int
+mpn_perfect_square_p(const mp_limb_t *xp, int xn) {
+  return mpn_sqrtrem(NULL, NULL, xp, xn) == 0;
+}
+
+static int
+mpn_gcd(mp_limb_t *zp, const mp_limb_t *xp, int xn,
+                       const mp_limb_t *yp, int yn) {
+  mpz_t x, y, z;
+  int zn;
+
+  CHECK(xn >= yn);
+  CHECK(yn > 0);
+  CHECK(yp[yn - 1] != 0);
+
+  mpz_roinit_n(x, xp, xn);
+  mpz_roinit_n(y, yp, yn);
+  mpz_init(z);
+
+  mpz_gcd(z, x, y);
+
+  zn = MP_ABS(z->size);
+
+  CHECK(zn <= yn);
+
+  mpn_copyi(zp, z->limbs, zn);
+  mpn_zero(zp + zn, yn - zn);
+
+  mpz_clear(z);
+
+  return zn;
+}
+
+static mp_limb_t
+mpn_gcd_1(const mp_limb_t *xp, int xn, mp_limb_t y) {
+  mp_limb_t z;
+  mpn_gcd(&z, xp, xn, &y, y != 0);
+  return z;
+}
+
+static int
+mpn_gcdext(mp_limb_t *gp,
+           mp_limb_t *sp, int *sn,
+           mp_limb_t *xp, int xn,
+           mp_limb_t *yp, int yn) {
+  mpz_t x, y, g, s;
+  int gn, bn;
+
+  CHECK(xn >= yn);
+  CHECK(yn > 0);
+  CHECK(yp[yn - 1] != 0);
+
+  mpz_roinit_n(x, xp, xn);
+  mpz_roinit_n(y, yp, yn);
+  mpz_init(g);
+  mpz_init(s);
+
+  mpz_gcdext(g, s, NULL, x, y);
+
+  mpz_mod(s, s, y);
+
+  gn = MP_ABS(g->size);
+  bn = MP_ABS(s->size);
+
+  CHECK(gn <= yn);
+  CHECK(bn <= yn + 1);
+
+  mpn_copyi(gp, g->limbs, gn);
+  mpn_zero(gp + gn, yn - gn);
+
+  mpn_copyi(sp, s->limbs, bn);
+  mpn_zero(sp + bn, yn + 1 - bn);
+
+  *sn = s->size;
+
+  mpz_clear(g);
+  mpz_clear(s);
+
+  return gn;
+}
+
 /*
  * P192
  */
@@ -302,36 +505,100 @@ mpz_p192_exp(mpz_t z) {
  */
 
 static void
-test_mp_helpers(void) {
+test_mp_helpers(mp_rng_f *rng, void *arg) {
+  mp_limb_t *xp;
+  mp_limb_t x;
+  int i;
+
   printf("  - MP helpers.\n");
 
   {
-    mp_limb_t *ptr = mp_alloc_limbs(2);
+    xp = mp_alloc_limbs(2);
 
-    ptr[0] = 0;
-    ptr[1] = 0;
+    xp[0] = 0;
+    xp[1] = 0;
 
-    mp_free_limbs(ptr);
+    mp_free_limbs(xp);
   }
 
   {
-    mp_limb_t *ptr = mp_alloc_vla(2);
+    xp = mp_alloc_vla(2);
 
-    ptr[0] = 0;
-    ptr[1] = 0;
+    xp[0] = 0;
+    xp[1] = 0;
 
-    mp_free_vla(ptr, 2);
+    mp_free_vla(xp, 2);
   }
 
-  ASSERT(mp_clz(0) == MP_LIMB_BITS);
-  ASSERT(mp_ctz(0) == MP_LIMB_BITS);
-  ASSERT(mp_bitlen(0) == 0);
+  {
+    ASSERT(mp_popcount(0) == 0);
+    ASSERT(mp_popcount(0x01010101) == 4);
+    ASSERT(mp_popcount(0x0000ffff) == 16);
+    ASSERT(mp_popcount(0xffffffff) == 32);
+    ASSERT(mp_popcount(MP_LIMB_HI) == 1);
+    ASSERT(mp_popcount(MP_LIMB_HI - 1) == MP_LIMB_BITS - 1);
+    ASSERT(mp_popcount(MP_LIMB_MAX - 1) == MP_LIMB_BITS - 1);
+    ASSERT(mp_popcount(MP_LIMB_MAX) == MP_LIMB_BITS);
 
-  ASSERT(mp_clz(1) == MP_LIMB_BITS - 1);
-  ASSERT(mp_ctz(1) == 0);
-  ASSERT(mp_ctz(2) == 1);
-  ASSERT(mp_bitlen(1) == 1);
-  ASSERT(mp_bitlen(2) == 2);
+    for (i = 0; i < MP_LIMB_BITS; i++)
+      ASSERT(mp_popcount(MP_LIMB_MAX >> i) == MP_LIMB_BITS - i);
+
+    for (i = 0; i < 100; i++) {
+      x = mp_random_limb(rng, arg);
+
+      ASSERT(mp_popcount(x) == mp_popcount_simple(x));
+    }
+  }
+
+  {
+    ASSERT(mp_clz(0) == MP_LIMB_BITS);
+    ASSERT(mp_clz(1) == MP_LIMB_BITS - 1);
+    ASSERT(mp_clz(2) == MP_LIMB_BITS - 2);
+    ASSERT(mp_clz(MP_LIMB_MAX) == 0);
+
+    for (i = 0; i < MP_LIMB_BITS; i++)
+      ASSERT(mp_clz(MP_LIMB_HI >> i) == i);
+
+    for (i = 0; i < 100; i++) {
+      x = mp_random_limb(rng, arg);
+
+      ASSERT(mp_clz(x) == mp_clz_simple(x));
+    }
+  }
+
+  {
+    ASSERT(mp_ctz(0) == MP_LIMB_BITS);
+    ASSERT(mp_ctz(1) == 0);
+    ASSERT(mp_ctz(2) == 1);
+    ASSERT(mp_ctz(MP_LIMB_HI) == MP_LIMB_BITS - 1);
+    ASSERT(mp_ctz(MP_LIMB_MAX) == 0);
+
+    for (i = 0; i < MP_LIMB_BITS; i++)
+      ASSERT(mp_ctz(MP_LIMB_HI >> i) == MP_LIMB_BITS - 1 - i);
+
+    for (i = 0; i < 100; i++) {
+      x = mp_random_limb(rng, arg);
+
+      ASSERT(mp_ctz(x) == mp_ctz_simple(x));
+    }
+  }
+
+  {
+    ASSERT(mp_bitlen(0) == 0);
+    ASSERT(mp_bitlen(1) == 1);
+    ASSERT(mp_bitlen(2) == 2);
+    ASSERT(mp_bitlen(MP_LIMB_HI) == MP_LIMB_BITS);
+    ASSERT(mp_bitlen(MP_LIMB_MAX) == MP_LIMB_BITS);
+
+    for (i = 0; i < MP_LIMB_BITS; i++)
+      ASSERT(mp_bitlen(MP_LIMB_HI >> i) == MP_LIMB_BITS - i);
+
+    for (i = 0; i < 100; i++) {
+      x = mp_random_limb(rng, arg);
+
+      ASSERT(mp_bitlen(x) == mp_bitlen_simple(x));
+    }
+  }
 
   ASSERT(!mp_mul_gt_2(0, 0, 0, 1));
   ASSERT(!mp_mul_gt_2(1, 0, 1, 1));
@@ -810,6 +1077,34 @@ test_mpn_divround(void) {
 }
 
 static void
+test_mpn_roots(mp_rng_f *rng, void *arg) {
+  mp_limb_t xp[4];
+  mp_limb_t zp[4];
+  mp_limb_t rp[4];
+  mp_limb_t tp[4];
+  mp_limb_t sp[4];
+  int xn = 4;
+  int zn = 2;
+  int i, rn;
+
+  printf("  - MPN roots.\n");
+
+  for (i = 0; i < 50; i++) {
+    mpn_random_nz(tp, 2, rng, arg);
+
+    mpn_sqr(xp, tp, 2, sp);
+
+    ASSERT(mpn_perfect_square_p(xp, xn));
+
+    rn = mpn_sqrtrem(zp, rp, xp, xn);
+
+    ASSERT(mpn_cmp(zp, tp, zn) == 0);
+    ASSERT(rn == 0);
+    ASSERT(mpn_zero_p(rp, xn));
+  }
+}
+
+static void
 test_mpn_and(mp_rng_f *rng, void *arg) {
   mp_limb_t xp[4];
   mp_limb_t yp[4];
@@ -1089,6 +1384,120 @@ test_mpn_bits(mp_rng_f *rng, void *arg) {
 }
 
 static void
+test_mpn_scan(mp_rng_f *rng, void *arg) {
+  mp_limb_t xp[4], tp[4];
+  int xn = 1;
+  int i;
+
+  printf("  - MPN scan.\n");
+
+  ASSERT(mpn_set_str(xp, xn, "10101000", 2));
+
+  ASSERT(mpn_scan1(xp, xn, 0) == 3);
+  ASSERT(mpn_scan1(xp, xn, 1) == 3);
+  ASSERT(mpn_scan1(xp, xn, 2) == 3);
+  ASSERT(mpn_scan1(xp, xn, 3) == 3);
+  ASSERT(mpn_scan1(xp, xn, 4) == 5);
+  ASSERT(mpn_scan1(xp, xn, 5) == 5);
+  ASSERT(mpn_scan1(xp, xn, 6) == 7);
+  ASSERT(mpn_scan1(xp, xn, 7) == 7);
+  ASSERT(mpn_scan1(xp, xn, 8) == INT_MAX);
+
+  ASSERT(mpn_scan0(xp, xn, 0) == 0);
+  ASSERT(mpn_scan0(xp, xn, 1) == 1);
+  ASSERT(mpn_scan0(xp, xn, 2) == 2);
+  ASSERT(mpn_scan0(xp, xn, 3) == 4);
+  ASSERT(mpn_scan0(xp, xn, 4) == 4);
+  ASSERT(mpn_scan0(xp, xn, 5) == 6);
+  ASSERT(mpn_scan0(xp, xn, 6) == 6);
+  ASSERT(mpn_scan0(xp, xn, 7) == 8);
+  ASSERT(mpn_scan0(xp, xn, 8) == 8);
+
+  xn = mpv_lshift(xp, xp, xn, 64);
+
+  ASSERT(mpn_scan1(xp, xn, 0) == 64 + 3);
+  ASSERT(mpn_scan1(xp, xn, 64 + 0) == 64 + 3);
+  ASSERT(mpn_scan1(xp, xn, 64 + 1) == 64 + 3);
+  ASSERT(mpn_scan1(xp, xn, 64 + 2) == 64 + 3);
+  ASSERT(mpn_scan1(xp, xn, 64 + 3) == 64 + 3);
+  ASSERT(mpn_scan1(xp, xn, 64 + 4) == 64 + 5);
+  ASSERT(mpn_scan1(xp, xn, 64 + 5) == 64 + 5);
+  ASSERT(mpn_scan1(xp, xn, 64 + 6) == 64 + 7);
+  ASSERT(mpn_scan1(xp, xn, 64 + 7) == 64 + 7);
+  ASSERT(mpn_scan1(xp, xn, 64 + 8) == INT_MAX);
+
+  ASSERT(mpn_scan0(xp, xn, 0) == 0);
+  ASSERT(mpn_scan0(xp, xn, 64 + 0) == 64 + 0);
+  ASSERT(mpn_scan0(xp, xn, 64 + 1) == 64 + 1);
+  ASSERT(mpn_scan0(xp, xn, 64 + 2) == 64 + 2);
+  ASSERT(mpn_scan0(xp, xn, 64 + 3) == 64 + 4);
+  ASSERT(mpn_scan0(xp, xn, 64 + 4) == 64 + 4);
+  ASSERT(mpn_scan0(xp, xn, 64 + 5) == 64 + 6);
+  ASSERT(mpn_scan0(xp, xn, 64 + 6) == 64 + 6);
+  ASSERT(mpn_scan0(xp, xn, 64 + 7) == 64 + 8);
+  ASSERT(mpn_scan0(xp, xn, 64 + 8) == 64 + 8);
+
+  for (i = 0; i < 100; i++) {
+    mpn_random_nz(xp, 4, rng, arg);
+
+    ASSERT(mpn_scan1(xp, 4, 0) == mpn_ctz(xp, 4));
+
+    mpn_com(tp, xp, 4);
+
+    ASSERT(mpn_scan0(tp, 4, 0) == mpn_ctz(xp, 4));
+
+    mpn_random_nz(xp, 4, rng, arg);
+    mpn_zero(xp, 2);
+
+    ASSERT(mpn_scan1(xp, 4, 0) == mpn_ctz(xp, 4));
+
+    mpn_com(tp, xp, 4);
+
+    ASSERT(mpn_scan0(tp, 4, 0) == mpn_ctz(xp, 4));
+  }
+}
+
+static void
+test_mpn_popcount(mp_rng_f *rng, void *arg) {
+  mp_limb_t xp[4];
+  int i, j, c;
+
+  printf("  - MPN hamming weight.\n");
+
+  for (i = 0; i < 100; i++) {
+    mpn_random(xp, 4, rng, arg);
+
+    c = 0;
+
+    for (j = 0; j < 4; j++)
+      c += mp_popcount_simple(xp[j]);
+
+    ASSERT(mpn_popcount(xp, 4) == c);
+  }
+}
+
+static void
+test_mpn_hamdist(mp_rng_f *rng, void *arg) {
+  mp_limb_t xp[4];
+  mp_limb_t yp[4];
+  int i, j, c;
+
+  printf("  - MPN hamming distance.\n");
+
+  for (i = 0; i < 100; i++) {
+    mpn_random(xp, 4, rng, arg);
+    mpn_random(yp, 4, rng, arg);
+
+    c = 0;
+
+    for (j = 0; j < 4; j++)
+      c += mp_popcount_simple(xp[j] ^ yp[j]);
+
+    ASSERT(mpn_hamdist(xp, yp, 4) == c);
+  }
+}
+
+static void
 test_mpn_mask(mp_rng_f *rng, void *arg) {
   mp_limb_t xp[4];
   mp_limb_t mp[4];
@@ -1321,6 +1730,162 @@ test_mpn_mont(mp_rng_f *rng, void *arg) {
 }
 
 static void
+test_mpn_gcd(mp_rng_f *rng, void *arg) {
+  mp_limb_t xp[4];
+  mp_limb_t yp[4];
+  mp_limb_t gp[4];
+  mp_limb_t zp[4];
+  mp_limb_t g;
+  int n = 4;
+  int i;
+
+  printf("  - MPN gcd.\n");
+
+  i = 0;
+
+  while (i < 50) {
+    mpn_random_nz(xp, n, rng, arg);
+    mpn_random_nz(yp, n, rng, arg);
+
+    if (mpn_strip(yp, n) != n)
+      continue;
+
+    mpn_gcd(gp, xp, n, yp, n);
+    mpn_gcd_simple(zp, xp, n, yp, n);
+
+    ASSERT(mpn_cmp(gp, zp, n) == 0);
+    ASSERT(mpn_cmp(gp, zp, n) == 0);
+
+    i += 1;
+  }
+
+  for (i = 0; i < 50; i++) {
+    mpn_random_nz(xp, n, rng, arg);
+    mpn_random_nz(yp, 1, rng, arg);
+
+    g = mpn_gcd_1(xp, n, yp[0]);
+
+    mpn_gcd_simple(zp, xp, n, yp, 1);
+
+    ASSERT(g == zp[0]);
+  }
+}
+
+static void
+test_mpn_gcdext(mp_rng_f *rng, void *arg) {
+  mp_limb_t xp[MP_P192_LIMBS + 1];
+  mp_limb_t yp[MP_P192_LIMBS + 1];
+  mp_limb_t gp[MP_P192_LIMBS];
+  mp_limb_t sp[MP_P192_LIMBS + 1];
+  mp_limb_t tp[MP_P192_LIMBS * 2 + 2];
+  mp_limb_t up[MP_P192_LIMBS * 2];
+  mp_limb_t vp[MP_P192_LIMBS * 2];
+  mp_limb_t q1[MP_P192_LIMBS + 1];
+  mp_limb_t q2[MP_P192_LIMBS + 1];
+  int n = MP_P192_LIMBS;
+  int i, gn, sn, qn;
+
+  printf("  - MPN gcdext.\n");
+
+  mpn_p192_mod(yp);
+
+  for (i = 0; i < 100; i++) {
+    mpn_random_nz(xp, n, rng, arg);
+
+    gn = mpn_gcdext(gp, sp, &sn, xp, n, yp, n);
+
+    ASSERT(gn == 1);
+    ASSERT(gp[0] == 1);
+
+    if (sn < 0)
+      mpn_sub(sp, yp, n, sp, -sn);
+    else if (sn > n)
+      mpn_sub(sp, sp, -sn, yp, n);
+
+    mpn_mul_n(up, xp, sp, n);
+    mpn_mod(up, up, n * 2, yp, n);
+
+    ASSERT(mpn_strip(up, n) == 1);
+    ASSERT(up[0] == 1);
+  }
+
+  i = 0;
+
+  while (i < 100) {
+    mpn_random_nz(xp, n, rng, arg);
+    mpn_random_nz(yp, n, rng, arg);
+
+    if (mpn_strip(yp, n) != n)
+      continue;
+
+    gn = mpn_gcdext(gp, sp, &sn, xp, n, yp, n);
+
+    ASSERT(gn > 0);
+    ASSERT(mpn_strip(gp, n) == gn);
+
+    if (sn < 0)
+      mpn_sub(sp, yp, n, sp, -sn);
+    else if (sn > n)
+      mpn_sub(sp, sp, -sn, yp, n);
+
+    /* (g - x * s) / y == t */
+    mpn_mul_n(tp, xp, sp, n);
+    mpn_sub(tp, tp, n * 2, gp, n);
+    mpn_div(tp, tp, n * 2, yp, n);
+
+    /* x * s + y * t == g */
+    mpn_mul_n(up, xp, sp, n);
+    mpn_mul_n(vp, yp, tp, n);
+
+    if (mpn_cmp(up, vp, n * 2) >= 0)
+      mpn_sub_n(up, up, vp, n * 2);
+    else
+      mpn_sub_n(up, vp, up, n * 2);
+
+    ASSERT(mpn_cmp(up, gp, n) == 0);
+
+    mpn_div(q1, xp, n, gp, gn);
+    mpn_div(q2, yp, n, gp, gn);
+
+    qn = n - gn + 1;
+
+    mpn_zero(q1 + qn, n - qn);
+    mpn_zero(q2 + qn, n - qn);
+
+    qn = mpn_strip(q2, qn);
+
+    gn = mpn_gcdext(gp, sp, &sn, q1, n, q2, qn);
+
+    ASSERT(gn == 1);
+    ASSERT(gp[0] == 1);
+
+    if (sn < 0)
+      mpn_sub(sp, yp, n, sp, -sn);
+    else if (sn > n)
+      mpn_sub(sp, sp, -sn, yp, n);
+
+    /* (g - x * s) / y == t */
+    mpn_mul_n(tp, xp, sp, n);
+    mpn_sub(tp, tp, n * 2, gp, n);
+    mpn_div(tp, tp, n * 2, yp, n);
+
+    /* q1 * s + q2 * t == 1 */
+    mpn_mul_n(up, q1, sp, n);
+    mpn_mul_n(vp, q2, tp, n);
+
+    if (mpn_cmp(up, vp, n * 2) >= 0)
+      mpn_sub_n(up, up, vp, n * 2);
+    else
+      mpn_sub_n(up, vp, up, n * 2);
+
+    ASSERT(mpn_strip(up, n * 2) == 1);
+    ASSERT(up[0] == 1);
+
+    i += 1;
+  }
+}
+
+static void
 test_mpn_invert(mp_rng_f *rng, void *arg) {
   mp_limb_t xp[MP_P192_LIMBS * 2];
   mp_limb_t zp[MP_P192_LIMBS];
@@ -1529,10 +2094,14 @@ test_mpn_helpers(void) {
   static const mp_limb_t even[4] = {4, 3, 2, 1};
   static const mp_limb_t tz[4] = {0, 3, 2, 1};
   mp_limb_t up[1], vp[2];
+  const mp_limb_t *ap = up;
+  const mp_limb_t *bp = vp;
   mp_limb_t *xp = up;
   mp_limb_t *yp = vp;
   int xn = 1;
   int yn = 2;
+  int an = xn;
+  int bn = yn;
 
   printf("  - MPN helpers.\n");
 
@@ -1552,6 +2121,13 @@ test_mpn_helpers(void) {
   ASSERT(xn == 2);
   ASSERT(yp == up);
   ASSERT(yn == 1);
+
+  mpn_swap_const(&ap, &an, &bp, &bn);
+
+  ASSERT(ap == vp);
+  ASSERT(an == 2);
+  ASSERT(bp == up);
+  ASSERT(bn == 1);
 }
 
 static void
@@ -1792,6 +2368,12 @@ test_mpz_init(mp_rng_f *rng, void *arg) {
 
   ASSERT(mpz_init_set_str(x, "4", 10));
   ASSERT(mpz_cmp_ui(x, 4) == 0);
+  mpz_clear(x);
+
+  mpz_init2(x, 10 * MP_LIMB_BITS);
+
+  ASSERT(x->alloc == 10);
+
   mpz_clear(x);
 }
 
@@ -2909,6 +3491,125 @@ test_mpz_divisibility(mp_rng_f *rng, void *arg) {
 }
 
 static void
+test_mpz_congruence(mp_rng_f *rng, void *arg) {
+  mpz_t x, y, r1, r2, m;
+  mp_limb_t d;
+  int i, bits;
+
+  printf("  - MPZ congruence.\n");
+
+  mpz_init(x);
+  mpz_init(y);
+  mpz_init(r1);
+  mpz_init(r2);
+  mpz_init(m);
+
+  for (i = 0; i < 100; i++) {
+    mpz_random_nz(x, 250, rng, arg);
+    mpz_random_nz(r1, 250, rng, arg);
+    mpz_random_nz(r2, 250, rng, arg);
+    mpz_random_nz(m, 250, rng, arg);
+
+    if (mp_random_limb(rng, arg) & 1)
+      mpz_neg(x, x);
+
+    if (mp_random_limb(rng, arg) & 1)
+      mpz_neg(r1, r1);
+
+    if (mp_random_limb(rng, arg) & 1)
+      mpz_neg(r2, r2);
+
+    if (mp_random_limb(rng, arg) & 1)
+      mpz_neg(m, m);
+
+    mpz_set(y, x);
+
+    mpz_mul(r1, r1, m);
+    mpz_mul(r2, r2, m);
+
+    mpz_add(x, x, r1);
+    mpz_add(y, y, r2);
+
+    ASSERT(mpz_congruent_p(x, y, m));
+
+    mpz_add_ui(x, x, 1);
+
+    ASSERT(!mpz_congruent_p(x, y, m));
+  }
+
+  for (i = 0; i < 100; i++) {
+    mpz_random_nz(x, 250, rng, arg);
+    mpz_random_nz(r1, 250, rng, arg);
+    mpz_random_nz(r2, 250, rng, arg);
+
+    d = mp_random_limb_nz(rng, arg);
+
+    if (mp_random_limb(rng, arg) & 1)
+      mpz_neg(x, x);
+
+    if (mp_random_limb(rng, arg) & 1)
+      mpz_neg(r1, r1);
+
+    if (mp_random_limb(rng, arg) & 1)
+      mpz_neg(r2, r2);
+
+    mpz_set(y, x);
+
+    mpz_mul_ui(r1, r1, d);
+    mpz_mul_ui(r2, r2, d);
+
+    mpz_add(x, x, r1);
+    mpz_add(y, y, r2);
+
+    ASSERT(mpz_congruent_ui_p(x, y, d));
+
+    mpz_add_ui(x, x, 1);
+
+    ASSERT(!mpz_congruent_ui_p(x, y, d));
+  }
+
+  for (i = 0; i < 100; i++) {
+    mpz_random_nz(x, 250, rng, arg);
+    mpz_random_nz(r1, 250, rng, arg);
+    mpz_random_nz(r2, 250, rng, arg);
+
+    bits = mp_random_limb_nz(rng, arg) & 0xff;
+
+    if (bits == 0)
+      continue;
+
+    if (mp_random_limb(rng, arg) & 1)
+      mpz_neg(x, x);
+
+    if (mp_random_limb(rng, arg) & 1)
+      mpz_neg(r1, r1);
+
+    if (mp_random_limb(rng, arg) & 1)
+      mpz_neg(r2, r2);
+
+    mpz_set(y, x);
+
+    mpz_mul_2exp(r1, r1, bits);
+    mpz_mul_2exp(r2, r2, bits);
+
+    mpz_add(x, x, r1);
+    mpz_add(y, y, r2);
+
+    ASSERT(mpz_congruent_2exp_p(x, y, bits));
+
+    mpz_add_ui(x, x, 1);
+
+    ASSERT(!mpz_congruent_2exp_p(x, y, bits));
+  }
+
+  mpz_clear(x);
+  mpz_clear(y);
+  mpz_clear(r1);
+  mpz_clear(r2);
+  mpz_clear(m);
+}
+
+static void
 test_mpz_sqr(mp_rng_f *rng, void *arg) {
   mpz_t x, y, z;
   int i;
@@ -3794,6 +4495,216 @@ test_mpz_bits(mp_rng_f *rng, void *arg) {
 }
 
 static void
+test_mpz_scan(void) {
+  mpz_t x;
+
+  printf("  - MPZ scan.\n");
+
+  mpz_init(x);
+
+  ASSERT(mpz_set_str(x, "10101000", 2));
+
+  ASSERT(mpz_scan1(x, 0) == 3);
+  ASSERT(mpz_scan1(x, 1) == 3);
+  ASSERT(mpz_scan1(x, 2) == 3);
+  ASSERT(mpz_scan1(x, 3) == 3);
+  ASSERT(mpz_scan1(x, 4) == 5);
+  ASSERT(mpz_scan1(x, 5) == 5);
+  ASSERT(mpz_scan1(x, 6) == 7);
+  ASSERT(mpz_scan1(x, 7) == 7);
+  ASSERT(mpz_scan1(x, 8) == INT_MAX);
+
+  ASSERT(mpz_scan0(x, 0) == 0);
+  ASSERT(mpz_scan0(x, 1) == 1);
+  ASSERT(mpz_scan0(x, 2) == 2);
+  ASSERT(mpz_scan0(x, 3) == 4);
+  ASSERT(mpz_scan0(x, 4) == 4);
+  ASSERT(mpz_scan0(x, 5) == 6);
+  ASSERT(mpz_scan0(x, 6) == 6);
+  ASSERT(mpz_scan0(x, 7) == 8);
+  ASSERT(mpz_scan0(x, 8) == 8);
+
+  mpz_mul_2exp(x, x, 64);
+
+  ASSERT(mpz_scan1(x, 0) == 64 + 3);
+  ASSERT(mpz_scan1(x, 64 + 0) == 64 + 3);
+  ASSERT(mpz_scan1(x, 64 + 1) == 64 + 3);
+  ASSERT(mpz_scan1(x, 64 + 2) == 64 + 3);
+  ASSERT(mpz_scan1(x, 64 + 3) == 64 + 3);
+  ASSERT(mpz_scan1(x, 64 + 4) == 64 + 5);
+  ASSERT(mpz_scan1(x, 64 + 5) == 64 + 5);
+  ASSERT(mpz_scan1(x, 64 + 6) == 64 + 7);
+  ASSERT(mpz_scan1(x, 64 + 7) == 64 + 7);
+  ASSERT(mpz_scan1(x, 64 + 8) == INT_MAX);
+
+  ASSERT(mpz_scan0(x, 0) == 0);
+  ASSERT(mpz_scan0(x, 64 + 0) == 64 + 0);
+  ASSERT(mpz_scan0(x, 64 + 1) == 64 + 1);
+  ASSERT(mpz_scan0(x, 64 + 2) == 64 + 2);
+  ASSERT(mpz_scan0(x, 64 + 3) == 64 + 4);
+  ASSERT(mpz_scan0(x, 64 + 4) == 64 + 4);
+  ASSERT(mpz_scan0(x, 64 + 5) == 64 + 6);
+  ASSERT(mpz_scan0(x, 64 + 6) == 64 + 6);
+  ASSERT(mpz_scan0(x, 64 + 7) == 64 + 8);
+  ASSERT(mpz_scan0(x, 64 + 8) == 64 + 8);
+
+  ASSERT(mpz_set_str(x, "-10101000", 2)); /* 01011000 */
+
+  ASSERT(mpz_scan1(x, 0) == 3);
+  ASSERT(mpz_scan1(x, 1) == 3);
+  ASSERT(mpz_scan1(x, 2) == 3);
+  ASSERT(mpz_scan1(x, 3) == 3);
+  ASSERT(mpz_scan1(x, 4) == 4);
+  ASSERT(mpz_scan1(x, 5) == 6);
+  ASSERT(mpz_scan1(x, 6) == 6);
+  ASSERT(mpz_scan1(x, 7) == 8);
+  ASSERT(mpz_scan1(x, 8) == 8);
+
+  ASSERT(mpz_scan0(x, 0) == 0);
+  ASSERT(mpz_scan0(x, 1) == 1);
+  ASSERT(mpz_scan0(x, 2) == 2);
+  ASSERT(mpz_scan0(x, 3) == 5);
+  ASSERT(mpz_scan0(x, 4) == 5);
+  ASSERT(mpz_scan0(x, 5) == 5);
+  ASSERT(mpz_scan0(x, 6) == 7);
+  ASSERT(mpz_scan0(x, 7) == 7);
+  ASSERT(mpz_scan0(x, 8) == INT_MAX);
+
+  mpz_mul_2exp(x, x, 64);
+
+  ASSERT(mpz_scan1(x, 0) == 64 + 3);
+  ASSERT(mpz_scan1(x, 64 + 0) == 64 + 3);
+  ASSERT(mpz_scan1(x, 64 + 1) == 64 + 3);
+  ASSERT(mpz_scan1(x, 64 + 2) == 64 + 3);
+  ASSERT(mpz_scan1(x, 64 + 3) == 64 + 3);
+  ASSERT(mpz_scan1(x, 64 + 4) == 64 + 4);
+  ASSERT(mpz_scan1(x, 64 + 5) == 64 + 6);
+  ASSERT(mpz_scan1(x, 64 + 6) == 64 + 6);
+  ASSERT(mpz_scan1(x, 64 + 7) == 64 + 8);
+  ASSERT(mpz_scan1(x, 64 + 8) == 64 + 8);
+
+  ASSERT(mpz_scan0(x, 0) == 0);
+  ASSERT(mpz_scan0(x, 64 + 0) == 64 + 0);
+  ASSERT(mpz_scan0(x, 64 + 1) == 64 + 1);
+  ASSERT(mpz_scan0(x, 64 + 2) == 64 + 2);
+  ASSERT(mpz_scan0(x, 64 + 3) == 64 + 5);
+  ASSERT(mpz_scan0(x, 64 + 4) == 64 + 5);
+  ASSERT(mpz_scan0(x, 64 + 5) == 64 + 5);
+  ASSERT(mpz_scan0(x, 64 + 6) == 64 + 7);
+  ASSERT(mpz_scan0(x, 64 + 7) == 64 + 7);
+  ASSERT(mpz_scan0(x, 64 + 8) == INT_MAX);
+}
+
+static void
+test_mpz_popcount(mp_rng_f *rng, void *arg) {
+  int i, j, c, n;
+  mpz_t x, y;
+
+  printf("  - MPZ hamming weight.\n");
+
+  mpz_init(x);
+  mpz_init(y);
+
+  for (i = 0; i < 100; i++) {
+    mpz_random_nz(x, 250, rng, arg);
+
+    if (i & 1)
+      mpz_neg(x, x);
+
+    n = mpz_size(x);
+    c = 0;
+
+    if (mpz_sgn(x) < 0) {
+      mpz_com(y, x);
+
+      for (j = 0; j < n; j++)
+        c += mp_popcount_simple(~mpz_getlimbn(y, j));
+    } else {
+      for (j = 0; j < n; j++)
+        c += mp_popcount_simple(mpz_getlimbn(x, j));
+    }
+
+    ASSERT(mpz_popcount(x) == c);
+  }
+
+  mpz_clear(x);
+  mpz_clear(y);
+}
+
+static void
+test_mpz_hamdist(mp_rng_f *rng, void *arg) {
+  int i, j, c, n, xn, yn;
+  mpz_t x, y, xc, yc;
+  mp_limb_t xw, yw;
+
+  printf("  - MPZ hamming distance.\n");
+
+  mpz_init(x);
+  mpz_init(y);
+  mpz_init(xc);
+  mpz_init(yc);
+
+  for (i = 0; i < 100; i++) {
+    mpz_random_nz(x, 250, rng, arg);
+    mpz_random_nz(y, 150, rng, arg);
+
+    if (i & 1)
+      mpz_swap(x, y);
+
+    if (mp_random_limb(rng, arg) & 1)
+      mpz_neg(x, x);
+
+    if (mp_random_limb(rng, arg) & 1)
+      mpz_neg(y, y);
+
+    xn = mpz_size(x);
+    yn = mpz_size(y);
+    n = MP_MAX(xn, yn);
+    c = 0;
+
+    if (mpz_sgn(x) < 0 && mpz_sgn(y) < 0) {
+      mpz_com(xc, x);
+      mpz_com(yc, y);
+
+      for (j = 0; j < n; j++) {
+        xw = mpz_getlimbn(xc, j);
+        yw = mpz_getlimbn(yc, j);
+        c += mp_popcount_simple(~xw ^ ~yw);
+      }
+    } else if (mpz_sgn(x) < 0) {
+      mpz_com(xc, x);
+
+      for (j = 0; j < n; j++) {
+        xw = mpz_getlimbn(xc, j);
+        yw = mpz_getlimbn(y, j);
+        c += mp_popcount_simple(~xw ^ yw);
+      }
+    } else if (mpz_sgn(y) < 0) {
+      mpz_com(yc, y);
+
+      for (j = 0; j < n; j++) {
+        xw = mpz_getlimbn(x, j);
+        yw = mpz_getlimbn(yc, j);
+        c += mp_popcount_simple(xw ^ ~yw);
+      }
+    } else {
+      for (j = 0; j < n; j++) {
+        xw = mpz_getlimbn(x, j);
+        yw = mpz_getlimbn(y, j);
+        c += mp_popcount_simple(xw ^ yw);
+      }
+    }
+
+    ASSERT(mpz_hamdist(x, y) == c);
+  }
+
+  mpz_clear(x);
+  mpz_clear(y);
+  mpz_clear(xc);
+  mpz_clear(yc);
+}
+
+static void
 test_mpz_mask(mp_rng_f *rng, void *arg) {
   mpz_t x, m, z, e;
   int i;
@@ -4108,6 +5019,13 @@ test_mpz_gcdext(mp_rng_f *rng, void *arg) {
 
     mpz_gcdext(g1, s1, t1, x, y);
 
+    /* (g - x * s) / y == t */
+    mpz_set(z, g1);
+    mpz_submul(z, x, s1);
+    mpz_divexact(z, z, y);
+
+    ASSERT(mpz_cmp(z, t1) == 0);
+
     mpz_quo(q1, x, g1);
     mpz_quo(q2, y, g1);
 
@@ -4308,6 +5226,8 @@ test_mpz_powm(mp_rng_f *rng, void *arg) {
 
     j = mpz_jacobi(x, m);
 
+    ASSERT(j == mpz_legendre(x, m));
+
     if (j == 0) {
       ASSERT(mpz_sgn(x) == 0);
       continue;
@@ -4474,6 +5394,53 @@ test_mpz_sqrtpq(mp_rng_f *rng, void *arg) {
   mpz_clear(p);
   mpz_clear(q);
   mpz_clear(n);
+}
+
+static void
+test_mpz_remove(mp_rng_f *rng, void *arg) {
+  mpz_t x, y, z, t;
+  int i, j;
+
+  printf("  - MPZ removal of factors.\n");
+
+  mpz_init(x);
+  mpz_init(y);
+  mpz_init(z);
+  mpz_init(t);
+
+  for (i = 0; i < 100; i++) {
+    mpz_random_nz(x, 128, rng, arg);
+    mpz_random_nz(y, 32, rng, arg);
+
+    if (i & 1)
+      mpz_neg(x, x);
+
+    mpz_set_ui(t, 2);
+    mpz_mul_2exp(x, x, 11);
+    mpz_mul_2exp(y, y, 11);
+
+    ASSERT(mpz_remove(NULL, x, t) == mpz_ctz(x));
+    ASSERT(mpz_remove(NULL, y, t) == mpz_ctz(y));
+
+    mpz_quo_2exp(x, x, 11);
+    mpz_quo_2exp(y, y, 11);
+
+    if (mpz_remove(NULL, x, y) != 0)
+      continue;
+
+    mpz_set(t, x);
+
+    for (j = 0; j < 4; j++)
+      mpz_mul(t, t, y);
+
+    ASSERT(mpz_remove(z, t, y) == 4);
+    ASSERT(mpz_cmp(z, x) == 0);
+  }
+
+  mpz_clear(x);
+  mpz_clear(y);
+  mpz_clear(z);
+  mpz_clear(t);
 }
 
 static void
@@ -4698,6 +5665,40 @@ test_mpz_helpers(void) {
     mpz_limbs_modify(y, 1)[0] = 2;
     mpz_limbs_finish(y, 1);
     ASSERT(mpz_cmp_ui(y, 2) == 0);
+  }
+
+  {
+    mpz_mul_2exp(x, x, MP_LIMB_BITS);
+
+    ASSERT(x->alloc == 2);
+    ASSERT(x->size == 2);
+
+    _mpz_realloc(x, 10);
+
+    ASSERT(x->alloc == 10);
+    ASSERT(x->size == 2);
+
+    _mpz_realloc(x, 0);
+
+    ASSERT(x->alloc == 1);
+    ASSERT(x->size == 0);
+  }
+
+  {
+    mpz_mul_2exp(y, y, MP_LIMB_BITS);
+
+    ASSERT(y->alloc == 2);
+    ASSERT(y->size == 2);
+
+    mpz_realloc2(y, MP_LIMB_BITS * 10);
+
+    ASSERT(y->alloc == 10);
+    ASSERT(y->size == 2);
+
+    mpz_realloc2(y, 0);
+
+    ASSERT(y->alloc == 1);
+    ASSERT(y->size == 0);
   }
 
   mpz_clear(x);
@@ -5298,7 +6299,7 @@ test_mpi_internal(mp_rng_f *rng, void *arg) {
   printf("Testing internal MPI functions...\n");
 
   /* MP */
-  test_mp_helpers();
+  test_mp_helpers(rng, arg);
   test_mp_div(rng, arg);
 
   /* MPN */
@@ -5315,6 +6316,7 @@ test_mpi_internal(mp_rng_f *rng, void *arg) {
   test_mpn_mod(rng, arg);
   test_mpn_mod_1(rng, arg);
   test_mpn_divround();
+  test_mpn_roots(rng, arg);
   test_mpn_and(rng, arg);
   test_mpn_ior(rng, arg);
   test_mpn_xor(rng, arg);
@@ -5323,12 +6325,17 @@ test_mpi_internal(mp_rng_f *rng, void *arg) {
   test_mpn_rshift(rng, arg);
   test_mpn_shift(rng, arg);
   test_mpn_bits(rng, arg);
+  test_mpn_scan(rng, arg);
+  test_mpn_popcount(rng, arg);
+  test_mpn_hamdist(rng, arg);
   test_mpn_mask(rng, arg);
   test_mpn_negate(rng, arg);
   test_mpn_mulshift(rng, arg);
   test_mpn_reduce_weak(rng, arg);
   test_mpn_barrett(rng, arg);
   test_mpn_mont(rng, arg);
+  test_mpn_gcd(rng, arg);
+  test_mpn_gcdext(rng, arg);
   test_mpn_invert(rng, arg);
   test_mpn_jacobi();
   test_mpn_powm(rng, arg);
@@ -5363,6 +6370,7 @@ test_mpi_internal(mp_rng_f *rng, void *arg) {
   test_mpz_muldivexact_ui(rng, arg);
   test_mpz_muldivexact_si(rng, arg);
   test_mpz_divisibility(rng, arg);
+  test_mpz_congruence(rng, arg);
   test_mpz_sqr(rng, arg);
   test_mpz_addmul(rng, arg);
   test_mpz_submul(rng, arg);
@@ -5383,6 +6391,9 @@ test_mpi_internal(mp_rng_f *rng, void *arg) {
   test_mpz_rshift(rng, arg);
   test_mpz_shift(rng, arg);
   test_mpz_bits(rng, arg);
+  test_mpz_scan();
+  test_mpz_popcount(rng, arg);
+  test_mpz_hamdist(rng, arg);
   test_mpz_mask(rng, arg);
   test_mpz_negate(rng, arg);
   test_mpz_gcd(rng, arg);
@@ -5393,6 +6404,7 @@ test_mpi_internal(mp_rng_f *rng, void *arg) {
   test_mpz_powm(rng, arg);
   test_mpz_sqrtm(rng, arg);
   test_mpz_sqrtpq(rng, arg);
+  test_mpz_remove(rng, arg);
   test_mpz_primes(rng, arg);
   test_mpz_random_prime(rng, arg);
   test_mpz_helpers();

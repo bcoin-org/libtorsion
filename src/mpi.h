@@ -70,6 +70,10 @@
 #define mpn_getbits __torsion_mpn_getbits
 #define mpn_setbit __torsion_mpn_setbit
 #define mpn_clrbit __torsion_mpn_clrbit
+#define mpn_scan0 __torsion_mpn_scan0
+#define mpn_scan1 __torsion_mpn_scan1
+#define mpn_popcount __torsion_mpn_popcount
+#define mpn_hamdist __torsion_mpn_hamdist
 #define mpn_mask __torsion_mask
 #define mpn_neg __torsion_mpn_neg
 #define mpn_invert __torsion_mpn_invert
@@ -86,6 +90,7 @@
 #define mpn_bytelen __torsion_mpn_bytelen
 #define mpn_sizeinbase __torsion_mpn_sizeinbase
 #define mpn_swap __torsion_mpn_swap
+#define mpn_swap_const __torsion_mpn_swap_const
 #define mpn_select __torsion_mpn_select
 #define mpn_select_zero __torsion_mpn_select_zero
 #define mpn_sec_zero_p __torsion_mpn_sec_zero_p
@@ -102,6 +107,7 @@
 #define mpn_print __torsion_mpn_print
 #define mpn_random __torsion_mpn_random
 #define mpz_init __torsion_mpz_init
+#define mpz_init2 __torsion_mpz_init2
 #define mpz_init_set __torsion_mpz_init_set
 #define mpz_init_set_ui __torsion_mpz_init_set_ui
 #define mpz_init_set_si __torsion_mpz_init_set_si
@@ -160,6 +166,9 @@
 #define mpz_divisible_p __torsion_mpz_divisible_p
 #define mpz_divisible_ui_p __torsion_mpz_divisible_ui_p
 #define mpz_divisible_2exp_p __torsion_mpz_divisible_2exp_p
+#define mpz_congruent_p __torsion_mpz_congruent_p
+#define mpz_congruent_ui_p __torsion_mpz_congruent_ui_p
+#define mpz_congruent_2exp_p __torsion_mpz_congruent_2exp_p
 #define mpz_divround __torsion_mpz_divround
 #define mpz_pow_ui __torsion_mpz_pow_ui
 #define mpz_ui_pow_ui __torsion_mpz_ui_pow_ui
@@ -185,6 +194,10 @@
 #define mpz_setbit __torsion_mpz_setbit
 #define mpz_clrbit __torsion_mpz_clrbit
 #define mpz_combit __torsion_mpz_combit
+#define mpz_scan0 __torsion_mpz_scan0
+#define mpz_scan1 __torsion_mpz_scan1
+#define mpz_popcount __torsion_mpz_popcount
+#define mpz_hamdist __torsion_mpz_hamdist
 #define mpz_abs __torsion_mpz_abs
 #define mpz_neg __torsion_mpz_neg
 #define mpz_gcd __torsion_mpz_gcd
@@ -193,12 +206,14 @@
 #define mpz_lcm_ui __torsion_mpz_lcm_ui
 #define mpz_gcdext __torsion_mpz_gcdext
 #define mpz_invert __torsion_mpz_invert
+#define mpz_legendre __torsion_mpz_legendre
 #define mpz_jacobi __torsion_mpz_jacobi
 #define mpz_powm __torsion_mpz_powm
 #define mpz_powm_ui __torsion_mpz_powm_ui
 #define mpz_powm_sec __torsion_mpz_powm_sec
 #define mpz_sqrtm __torsion_mpz_sqrtm
-#define mpz_sqrtp __torsion_mpz_sqrtp
+#define mpz_sqrtpq __torsion_mpz_sqrtpq
+#define mpz_remove __torsion_mpz_remove
 #define mpz_mr_prime_p __torsion_mpz_mr_prime_p
 #define mpz_lucas_prime_p __torsion_mpz_lucas_prime_p
 #define mpz_probab_prime_p __torsion_mpz_probab_prime_p
@@ -213,6 +228,8 @@
 #define mpz_bytelen __torsion_mpz_bytelen
 #define mpz_sizeinbase __torsion_mpz_sizeinbase
 #define mpz_swap __torsion_mpz_swap
+#define _mpz_realloc __torsion__mpz_realloc
+#define mpz_realloc2 __torsion_mpz_realloc2
 #define mpz_getlimbn __torsion_mpz_getlimbn
 #define mpz_size __torsion_mpz_size
 #define mpz_limbs_read __torsion_mpz_limbs_read
@@ -603,6 +620,18 @@ mpn_setbit(mp_limb_t *zp, int pos);
 void
 mpn_clrbit(mp_limb_t *zp, int pos);
 
+int
+mpn_scan0(const mp_limb_t *xp, int xn, int pos);
+
+int
+mpn_scan1(const mp_limb_t *xp, int xn, int pos);
+
+int
+mpn_popcount(const mp_limb_t *xp, int xn);
+
+int
+mpn_hamdist(const mp_limb_t *xp, const mp_limb_t *yp, int n);
+
 void
 mpn_mask(mp_limb_t *zp, const mp_limb_t *xp, int xn, int bits);
 
@@ -682,6 +711,10 @@ mpn_sizeinbase(const mp_limb_t *xp, int xn, int base);
 void
 mpn_swap(mp_limb_t **xp, int *xn,
          mp_limb_t **yp, int *yn);
+
+void
+mpn_swap_const(const mp_limb_t **xp, int *xn,
+               const mp_limb_t **yp, int *yn);
 
 /*
  * Constant Time
@@ -772,6 +805,9 @@ mpn_random(mp_limb_t *zp, int zn, mp_rng_f *rng, void *arg);
 
 void
 mpz_init(mpz_t z);
+
+void
+mpz_init2(mpz_t z, int bits);
 
 void
 mpz_init_set(mpz_t z, const mpz_t x);
@@ -996,6 +1032,19 @@ int
 mpz_divisible_2exp_p(const mpz_t n, int bits);
 
 /*
+ * Congruence
+ */
+
+int
+mpz_congruent_p(const mpz_t x, const mpz_t y, const mpz_t d);
+
+int
+mpz_congruent_ui_p(const mpz_t x, const mpz_t y, mp_limb_t d);
+
+int
+mpz_congruent_2exp_p(const mpz_t x, const mpz_t y, int bits);
+
+/*
  * Round Division
  */
 
@@ -1114,6 +1163,18 @@ mpz_clrbit(mpz_t z, int pos);
 void
 mpz_combit(mpz_t z, int pos);
 
+int
+mpz_scan0(const mpz_t x, int pos);
+
+int
+mpz_scan1(const mpz_t x, int pos);
+
+int
+mpz_popcount(const mpz_t x);
+
+int
+mpz_hamdist(const mpz_t x, const mpz_t y);
+
 /*
  * Negation
  */
@@ -1147,6 +1208,9 @@ int
 mpz_invert(mpz_t z, const mpz_t x, const mpz_t y);
 
 int
+mpz_legendre(const mpz_t x, const mpz_t p);
+
+int
 mpz_jacobi(const mpz_t x, const mpz_t y);
 
 void
@@ -1163,6 +1227,9 @@ mpz_sqrtm(mpz_t z, const mpz_t u, const mpz_t p);
 
 int
 mpz_sqrtpq(mpz_t z, const mpz_t x, const mpz_t p, const mpz_t q);
+
+int
+mpz_remove(mpz_t z, const mpz_t x, const mpz_t y);
 
 /*
  * Primality Testing
@@ -1214,6 +1281,12 @@ mpz_sizeinbase(const mpz_t x, int base);
 
 void
 mpz_swap(mpz_t x, mpz_t y);
+
+void *
+_mpz_realloc(mpz_t z, int n);
+
+void
+mpz_realloc2(mpz_t z, int bits);
 
 /*
  * Limb Helpers

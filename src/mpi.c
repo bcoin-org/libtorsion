@@ -371,93 +371,110 @@ mp_free_limbs(mp_limb_t *ptr) {
  */
 
 static TORSION_INLINE int
-mp_clz(mp_limb_t w) {
+mp_popcount(mp_limb_t x) {
 #if defined(MP_HAVE_ASM)
-  mp_limb_t b;
-
-  if (w == 0)
-    return MP_LIMB_BITS;
+  mp_limb_t z;
 
   __asm__ (
-    "bsrq %q1, %q0\n"
-    : "=r" (b)
-    : "rm" (w)
+    "popcntq %q1, %q0\n"
+    : "=r" (z)
+    : "rm" (x)
     : "cc"
   );
 
-  return 63 - b;
+  return z;
 #else
-  mp_limb_t m = MP_LIMB_C(1) << (MP_LIMB_BITS - 1);
-  int b = 0;
+  /* https://graphics.stanford.edu/~seander/bithacks.html#CountBitsSetParallel */
+#if MP_LIMB_BITS == 64
+  static const mp_limb_t a = MP_LIMB_C(0x5555555555555555);
+  static const mp_limb_t b = MP_LIMB_C(0x3333333333333333);
+  static const mp_limb_t c = MP_LIMB_C(0x0f0f0f0f0f0f0f0f);
+  static const mp_limb_t d = MP_LIMB_C(0x0101010101010101);
+#else
+  static const mp_limb_t a = MP_LIMB_C(0x55555555);
+  static const mp_limb_t b = MP_LIMB_C(0x33333333);
+  static const mp_limb_t c = MP_LIMB_C(0x0f0f0f0f);
+  static const mp_limb_t d = MP_LIMB_C(0x01010101);
+#endif
 
-  if (w == 0)
-    return MP_LIMB_BITS;
+  x = x - ((x >> 1) & a);
+  x = (x & b) + ((x >> 2) & b);
+  x = ((x + (x >> 4)) & c) * d;
 
-  while ((w & m) == 0) {
-    b += 1;
-    m >>= 1;
-  }
-
-  return b;
+  return x >> (MP_LIMB_BITS - 8);
 #endif
 }
 
 static TORSION_INLINE int
-mp_ctz(mp_limb_t w) {
+mp_clz(mp_limb_t x) {
 #if defined(MP_HAVE_ASM)
-  mp_limb_t b;
+  mp_limb_t z;
 
-  if (w == 0)
+  if (x == 0)
+    return MP_LIMB_BITS;
+
+  __asm__ (
+    "bsrq %q1, %q0\n"
+    : "=r" (z)
+    : "rm" (x)
+    : "cc"
+  );
+
+  return 63 - z;
+#else
+  /* http://aggregate.org/MAGIC/#Leading%20Zero%20Count */
+  x |= (x >> 1);
+  x |= (x >> 2);
+  x |= (x >> 4);
+  x |= (x >> 8);
+  x |= (x >> 16);
+#if MP_LIMB_BITS == 64
+  x |= (x >> 32);
+#endif
+  return MP_LIMB_BITS - mp_popcount(x);
+#endif
+}
+
+static TORSION_INLINE int
+mp_ctz(mp_limb_t x) {
+#if defined(MP_HAVE_ASM)
+  mp_limb_t z;
+
+  if (x == 0)
     return MP_LIMB_BITS;
 
   __asm__ (
     "bsfq %q1, %q0\n"
-    : "=r" (b)
-    : "rm" (w)
+    : "=r" (z)
+    : "rm" (x)
     : "cc"
   );
 
-  return b;
+  return z;
 #else
-  int b = 0;
-
-  if (w == 0)
-    return MP_LIMB_BITS;
-
-  while ((w & 1) == 0) {
-    b += 1;
-    w >>= 1;
-  }
-
-  return b;
+  /* http://aggregate.org/MAGIC/#Trailing%20Zero%20Count */
+  return mp_popcount((x & -x) - 1);
 #endif
 }
 
 static TORSION_INLINE int
-mp_bitlen(mp_limb_t w) {
+mp_bitlen(mp_limb_t x) {
 #if defined(MP_HAVE_ASM)
-  mp_limb_t b;
+  mp_limb_t z;
 
-  if (w == 0)
+  if (x == 0)
     return 0;
 
   __asm__ (
     "bsrq %q1, %q0\n"
-    : "=r" (b)
-    : "rm" (w)
+    : "=r" (z)
+    : "rm" (x)
     : "cc"
   );
 
-  return b + 1;
+  return z + 1;
 #else
-  int b = 0;
-
-  while (w != 0) {
-    b += 1;
-    w >>= 1;
-  }
-
-  return b;
+  return MP_LIMB_BITS - mp_clz(x);
 #endif
 }
 
@@ -1800,6 +1817,73 @@ mpn_clrbit(mp_limb_t *zp, int pos) {
   zp[pos / MP_LIMB_BITS] &= ~(MP_LIMB_C(1) << (pos % MP_LIMB_BITS));
 }
 
+static int
+mpn_scan(const mp_limb_t *xp, int xn, mp_limb_t m, mp_limb_t c, int pos) {
+  int s = pos / MP_LIMB_BITS;
+  mp_limb_t z;
+  int r, b;
+
+  m -= 1;
+
+  if (s >= xn)
+    return m == 0 ? INT_MAX : pos;
+
+  mp_sub(z, c, xp[s], c);
+
+  r = pos % MP_LIMB_BITS;
+  z = (z ^ m) & ~MP_MASK(r);
+
+  if (z != 0) {
+    b = mp_ctz(z);
+
+    if (b >= r)
+      return s * MP_LIMB_BITS + b;
+  }
+
+  for (s++; s < xn; s++) {
+    mp_sub(z, c, xp[s], c);
+
+    if (z == m)
+      continue;
+
+    return s * MP_LIMB_BITS + mp_ctz(z ^ m);
+  }
+
+  return m == 0 ? INT_MAX : s * MP_LIMB_BITS;
+}
+
+int
+mpn_scan0(const mp_limb_t *xp, int xn, int pos) {
+  return mpn_scan(xp, xn, 0, 0, pos);
+}
+
+int
+mpn_scan1(const mp_limb_t *xp, int xn, int pos) {
+  return mpn_scan(xp, xn, 1, 0, pos);
+}
+
+int
+mpn_popcount(const mp_limb_t *xp, int xn) {
+  int c = 0;
+  int i;
+
+  for (i = 0; i < xn; i++)
+    c += mp_popcount(xp[i]);
+
+  return c;
+}
+
+int
+mpn_hamdist(const mp_limb_t *xp, const mp_limb_t *yp, int n) {
+  int c = 0;
+  int i;
+
+  for (i = 0; i < n; i++)
+    c += mp_popcount(xp[i] ^ yp[i]);
+
+  return c;
+}
+
 void
 mpn_mask(mp_limb_t *zp, const mp_limb_t *xp, int xn, int bits) {
   int zn = bits / MP_LIMB_BITS;
@@ -2352,6 +2436,18 @@ void
 mpn_swap(mp_limb_t **xp, int *xn,
          mp_limb_t **yp, int *yn) {
   mp_limb_t *tp = *xp;
+  int tn = *xn;
+
+  *xp = *yp;
+  *xn = *yn;
+  *yp = tp;
+  *yn = tn;
+}
+
+void
+mpn_swap_const(const mp_limb_t **xp, int *xn,
+               const mp_limb_t **yp, int *yn) {
+  const mp_limb_t *tp = *xp;
   int tn = *xn;
 
   *xp = *yp;
@@ -2950,6 +3046,16 @@ mpz_init(mpz_t z) {
   z->limbs = mp_alloc_limbs(1);
   z->limbs[0] = 0;
   z->alloc = 1;
+  z->size = 0;
+}
+
+void
+mpz_init2(mpz_t z, int bits) {
+  int n = MP_MAX(1, (bits + MP_LIMB_BITS - 1) / MP_LIMB_BITS);
+
+  z->limbs = mp_alloc_limbs(n);
+  z->limbs[0] = 0;
+  z->alloc = n;
   z->size = 0;
 }
 
@@ -3838,8 +3944,11 @@ mpz_divisible_p(const mpz_t n, const mpz_t d) {
   mpz_t r;
   int ret;
 
+  if (n->size == 0)
+    return 1;
+
   if (d->size == 0)
-    return n->size == 0;
+    return 0;
 
   mpz_init(r);
   mpz_rem(r, n, d);
@@ -3853,8 +3962,11 @@ mpz_divisible_p(const mpz_t n, const mpz_t d) {
 
 int
 mpz_divisible_ui_p(const mpz_t n, mp_limb_t d) {
+  if (n->size == 0)
+    return 1;
+
   if (d == 0)
-    return n->size == 0;
+    return 0;
 
   return mpz_rem_ui(n, d) == 0;
 }
@@ -3864,8 +3976,11 @@ mpz_divisible_2exp_p(const mpz_t n, int bits) {
   int s = bits / MP_LIMB_BITS;
   int r;
 
+  if (n->size == 0)
+    return 1;
+
   if (s >= MP_ABS(n->size))
-    return n->size >= 0;
+    return 0;
 
   r = bits % MP_LIMB_BITS;
 
@@ -3878,6 +3993,53 @@ mpz_divisible_2exp_p(const mpz_t n, int bits) {
   }
 
   return 1;
+}
+
+/*
+ * Congruence
+ */
+
+int
+mpz_congruent_p(const mpz_t x, const mpz_t y, const mpz_t d) {
+  mpz_t n;
+  int ret;
+
+  if (d->size == 0)
+    return mpz_cmp(x, y) == 0;
+
+  mpz_init(n);
+
+  mpz_sub(n, x, y);
+
+  ret = mpz_divisible_p(n, d);
+
+  mpz_clear(n);
+
+  return ret;
+}
+
+int
+mpz_congruent_ui_p(const mpz_t x, const mpz_t y, mp_limb_t d) {
+  if (d == 0)
+    return mpz_cmp(x, y) == 0;
+
+  return mpz_mod_ui(x, d) == mpz_mod_ui(y, d);
+}
+
+int
+mpz_congruent_2exp_p(const mpz_t x, const mpz_t y, int bits) {
+  mpz_t n;
+  int ret;
+
+  mpz_init(n);
+
+  mpz_sub(n, x, y);
+
+  ret = mpz_divisible_2exp_p(n, bits);
+
+  mpz_clear(n);
+
+  return ret;
 }
 
 /*
@@ -4656,6 +4818,94 @@ mpz_combit(mpz_t z, int pos) {
     mpz_clrbit(z, pos);
 }
 
+int
+mpz_scan0(const mpz_t x, int pos) {
+  const mp_limb_t *xp = x->limbs;
+  int xn = MP_ABS(x->size);
+  int s = pos / MP_LIMB_BITS;
+
+  if (s >= xn)
+    return x->size < 0 ? INT_MAX : pos;
+
+  if (x->size < 0)
+    return mpn_scan(xp, xn, 1, mpn_zero_p(xp, s), pos);
+
+  return mpn_scan(xp, xn, 0, 0, pos);
+}
+
+int
+mpz_scan1(const mpz_t x, int pos) {
+  const mp_limb_t *xp = x->limbs;
+  int xn = MP_ABS(x->size);
+  int s = pos / MP_LIMB_BITS;
+
+  if (s >= xn)
+    return x->size < 0 ? pos : INT_MAX;
+
+  if (x->size < 0)
+    return mpn_scan(xp, xn, 0, mpn_zero_p(xp, s), pos);
+
+  return mpn_scan(xp, xn, 1, 0, pos);
+}
+
+int
+mpz_popcount(const mpz_t x) {
+  int xn = MP_ABS(x->size);
+  mp_limb_t c = (x->size < 0);
+  mp_limb_t f = MP_LIMB_MAX & -c;
+  mp_limb_t z = 0;
+  int cnt = 0;
+  int i;
+
+  for (i = 0; i < xn; i++) {
+    mp_sub(z, c, x->limbs[i], c);
+
+    cnt += mp_popcount(z ^ f);
+  }
+
+  return cnt;
+}
+
+int
+mpz_hamdist(const mpz_t x, const mpz_t y) {
+  mp_limb_t cx, fx, zx, cy, fy, zy;
+  const mp_limb_t *xp = x->limbs;
+  const mp_limb_t *yp = y->limbs;
+  int xs = x->size;
+  int ys = y->size;
+  int i, xn, yn;
+  int cnt = 0;
+
+  if (MP_ABS(xs) < MP_ABS(ys))
+    mpn_swap_const(&xp, &xs, &yp, &ys);
+
+  xn = MP_ABS(xs);
+  yn = MP_ABS(ys);
+
+  cx = (xs < 0);
+  fx = MP_LIMB_MAX & -cx;
+  zx = 0;
+
+  cy = (ys < 0);
+  fy = MP_LIMB_MAX & -cy;
+  zy = 0;
+
+  for (i = 0; i < yn; i++) {
+    mp_sub(zx, cx, xp[i], cx);
+    mp_sub(zy, cy, yp[i], cy);
+
+    cnt += mp_popcount((zx ^ fx) ^ (zy ^ fy));
+  }
+
+  for (i = yn; i < xn; i++) {
+    mp_sub(zx, cx, xp[i], cx);
+
+    cnt += mp_popcount((zx ^ fx) ^ fy);
+  }
+
+  return cnt;
+}
+
 /*
  * Negation
  */
@@ -4758,7 +5008,7 @@ mpz_lcm(mpz_t z, const mpz_t x, const mpz_t y) {
   mpz_init(q);
 
   mpz_gcd(g, x, y);
-  mpz_divexact(q, x, g);
+  mpz_quo(q, x, g);
   mpz_mul(z, y, q);
   mpz_abs(z, z);
 
@@ -4768,19 +5018,12 @@ mpz_lcm(mpz_t z, const mpz_t x, const mpz_t y) {
 
 void
 mpz_lcm_ui(mpz_t z, const mpz_t x, mp_limb_t y) {
-  mp_limb_t g, q;
-
   if (x->size == 0 || y == 0) {
     z->size = 0;
     return;
   }
 
-  g = mpz_gcd_ui(NULL, x, y);
-  q = y / g;
-
-  CHECK(y % g == 0);
-
-  mpz_mul_ui(z, x, q);
+  mpz_mul_ui(z, x, y / mpz_gcd_ui(NULL, x, y));
   mpz_abs(z, z);
 }
 
@@ -4977,6 +5220,11 @@ mpz_invert(mpz_t z, const mpz_t x, const mpz_t y) {
   }
 
   return ret;
+}
+
+int
+mpz_legendre(const mpz_t x, const mpz_t p) {
+  return mpz_jacobi(x, p);
 }
 
 static int
@@ -5351,6 +5599,41 @@ fail:
   mpz_clear(u);
   mpz_clear(v);
   return ret;
+}
+
+int
+mpz_remove(mpz_t z, const mpz_t x, const mpz_t y) {
+  mpz_t q, r, n;
+  int cnt = 0;
+
+  if (y->size == 0)
+    torsion_abort(); /* LCOV_EXCL_LINE */
+
+  mpz_init(q);
+  mpz_init(r);
+  mpz_init(n);
+
+  mpz_set(n, x);
+
+  while (n->size != 0) {
+    mpz_quorem(q, r, n, y);
+
+    if (r->size != 0)
+      break;
+
+    mpz_swap(n, q);
+
+    cnt += 1;
+  }
+
+  if (z != NULL)
+    mpz_swap(z, n);
+
+  mpz_clear(q);
+  mpz_clear(r);
+  mpz_clear(n);
+
+  return cnt;
 }
 
 /*
@@ -5825,6 +6108,31 @@ mpz_swap(mpz_t x, mpz_t y) {
   y->size = size;
 }
 
+void *
+_mpz_realloc(mpz_t z, int n) {
+  if (n == 0)
+    n = 1;
+
+  if (n < z->alloc) {
+    z->limbs = mp_realloc_limbs(z->limbs, n);
+    z->alloc = n;
+
+    if (n < MP_ABS(z->size)) {
+      z->limbs[0] = 0;
+      z->size = 0;
+    }
+  } else {
+    mpz_grow(z, n);
+  }
+
+  return NULL;
+}
+
+void
+mpz_realloc2(mpz_t z, int bits) {
+  _mpz_realloc(z, (bits + MP_LIMB_BITS - 1) / MP_LIMB_BITS);
+}
+
 /*
  * Limb Helpers
  */
@@ -5839,7 +6147,7 @@ mpz_getlimbn(const mpz_t x, int n) {
 
 int
 mpz_size(const mpz_t x) {
-  return x->size;
+  return MP_ABS(x->size);
 }
 
 const mp_limb_t *
