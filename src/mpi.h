@@ -89,8 +89,6 @@
 #define mpn_bitlen __torsion_mpn_bitlen
 #define mpn_bytelen __torsion_mpn_bytelen
 #define mpn_sizeinbase __torsion_mpn_sizeinbase
-#define mpn_swap __torsion_mpn_swap
-#define mpn_swap_const __torsion_mpn_swap_const
 #define mpn_select __torsion_mpn_select
 #define mpn_select_zero __torsion_mpn_select_zero
 #define mpn_sec_zero_p __torsion_mpn_sec_zero_p
@@ -707,14 +705,6 @@ mpn_bytelen(const mp_limb_t *xp, int xn);
 
 size_t
 mpn_sizeinbase(const mp_limb_t *xp, int xn, int base);
-
-void
-mpn_swap(mp_limb_t **xp, int *xn,
-         mp_limb_t **yp, int *yn);
-
-void
-mpn_swap_const(const mp_limb_t **xp, int *xn,
-               const mp_limb_t **yp, int *yn);
 
 /*
  * Constant Time

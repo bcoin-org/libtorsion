@@ -2094,14 +2094,10 @@ test_mpn_helpers(void) {
   static const mp_limb_t even[4] = {4, 3, 2, 1};
   static const mp_limb_t tz[4] = {0, 3, 2, 1};
   mp_limb_t up[1], vp[2];
-  const mp_limb_t *ap = up;
-  const mp_limb_t *bp = vp;
   mp_limb_t *xp = up;
   mp_limb_t *yp = vp;
   int xn = 1;
   int yn = 2;
-  int an = xn;
-  int bn = yn;
 
   printf("  - MPN helpers.\n");
 
@@ -2121,13 +2117,6 @@ test_mpn_helpers(void) {
   ASSERT(xn == 2);
   ASSERT(yp == up);
   ASSERT(yn == 1);
-
-  mpn_swap_const(&ap, &an, &bp, &bn);
-
-  ASSERT(ap == vp);
-  ASSERT(an == 2);
-  ASSERT(bp == up);
-  ASSERT(bn == 1);
 }
 
 static void
@@ -4615,10 +4604,7 @@ test_mpz_popcount(mp_rng_f *rng, void *arg) {
     c = 0;
 
     if (mpz_sgn(x) < 0) {
-      mpz_com(y, x);
-
-      for (j = 0; j < n; j++)
-        c += mp_popcount_simple(~mpz_getlimbn(y, j));
+      c = INT_MAX;
     } else {
       for (j = 0; j < n; j++)
         c += mp_popcount_simple(mpz_getlimbn(x, j));
@@ -4671,22 +4657,8 @@ test_mpz_hamdist(mp_rng_f *rng, void *arg) {
         yw = mpz_getlimbn(yc, j);
         c += mp_popcount_simple(~xw ^ ~yw);
       }
-    } else if (mpz_sgn(x) < 0) {
-      mpz_com(xc, x);
-
-      for (j = 0; j < n; j++) {
-        xw = mpz_getlimbn(xc, j);
-        yw = mpz_getlimbn(y, j);
-        c += mp_popcount_simple(~xw ^ yw);
-      }
-    } else if (mpz_sgn(y) < 0) {
-      mpz_com(yc, y);
-
-      for (j = 0; j < n; j++) {
-        xw = mpz_getlimbn(x, j);
-        yw = mpz_getlimbn(yc, j);
-        c += mp_popcount_simple(xw ^ ~yw);
-      }
+    } else if (mpz_sgn(x) < 0 || mpz_sgn(y) < 0) {
+      c = INT_MAX;
     } else {
       for (j = 0; j < n; j++) {
         xw = mpz_getlimbn(x, j);
