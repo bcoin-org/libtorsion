@@ -84,6 +84,11 @@ fake_puts(const char *s) {
   return 0;
 }
 
+static void
+fake_rng(void *out, size_t size, void *arg) {
+  memset(out, ++(*((int *)arg)), size);
+}
+
 static TORSION_INLINE int
 mp_popcount_simple(mp_limb_t x) {
   int z = 0;
@@ -317,6 +322,8 @@ mpn_gcd_simple(mp_limb_t *zp, const mp_limb_t *xp, int xn,
 
   mpn_copyi(zp, z->limbs, zn);
   mpn_zero(zp + zn, yn - zn);
+
+  mpz_clear(z);
 
   return zn;
 }
@@ -4582,6 +4589,8 @@ test_mpz_scan(void) {
   ASSERT(mpz_scan0(x, 64 + 6) == 64 + 7);
   ASSERT(mpz_scan0(x, 64 + 7) == 64 + 7);
   ASSERT(mpz_scan0(x, 64 + 8) == INT_MAX);
+
+  mpz_clear(x);
 }
 
 static void
@@ -5453,6 +5462,7 @@ test_mpz_primes(mp_rng_f *rng, void *arg) {
     75077
   };
 
+  int count;
   size_t i;
   mpz_t p;
 
@@ -5478,8 +5488,13 @@ test_mpz_primes(mp_rng_f *rng, void *arg) {
     for (i = 0; i < ARRAY_SIZE(composite_vectors); i++) {
       ASSERT(mpz_set_str(p, composite_vectors[i], 10));
 
-      /* Miller-Rabin. */
-      ASSERT(!mpz_mr_prime_p(p, 16 + 1, 1, rng, arg));
+      /* Initialize fake RNG. */
+      count = 0;
+
+      /* Miller-Rabin with a deterministic RNG. */
+      ASSERT(!mpz_mr_prime_p(p, 16 + 1, 1, fake_rng, &count));
+      ASSERT(!mpz_mr_prime_p(p, 4, 1, fake_rng, &count));
+      ASSERT(!mpz_mr_prime_p(p, 4, 0, fake_rng, &count));
 
       if (i >= 8 && i <= 42) {
         /* Lucas pseudoprime. */
@@ -5488,7 +5503,8 @@ test_mpz_primes(mp_rng_f *rng, void *arg) {
         ASSERT(!mpz_lucas_prime_p(p, 50));
       }
 
-      /* No composite should ever pass Baillie-PSW. */
+      /* No composite should ever pass Baillie-PSW, random or otherwise. */
+      ASSERT(!mpz_probab_prime_p(p, 20, fake_rng, &count));
       ASSERT(!mpz_probab_prime_p(p, 20, rng, arg));
     }
   }
@@ -5567,6 +5583,9 @@ test_mpz_random_prime(mp_rng_f *rng, void *arg) {
   mpz_randprime(x, 32, rng, arg);
 
   ASSERT(mpz_probab_prime_p(x, 20, rng, arg));
+
+  mpz_add_ui(x, x, 1);
+
   ASSERT(mpz_nextprime(x, x, 20, 0, rng, arg));
   ASSERT(mpz_probab_prime_p(x, 20, rng, arg));
 
