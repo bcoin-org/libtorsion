@@ -5793,6 +5793,7 @@ test_mpz_random(mp_rng_f *rng, void *arg) {
   for (i = 0; i < 100; i++) {
     mpz_urandomb(x, 256, rng, arg);
 
+    ASSERT(mpz_bitlen(x) <= 256);
     ASSERT(mpz_sgn(x) != 0);
 
     mpz_urandomm(y, x, rng, arg);

@@ -1343,7 +1343,7 @@ void
 mpz_urandomb(mpz_t z, int bits, mp_rng_f *rng, void *arg);
 
 void
-mpz_urandomm(mpz_t z, const mpz_t max, mp_rng_f *rng, void *arg);
+mpz_urandomm(mpz_t z, const mpz_t x, mp_rng_f *rng, void *arg);
 
 /*
  * Testing

@@ -40,11 +40,23 @@
  *     https://members.loria.fr/PZimmermann/mca/pub226.html
  */
 
+#include <limits.h>
 #include <stdint.h>
 #include <stdlib.h>
 
 #include "internal.h"
 #include "mpi.h"
+
+/*
+ * Sanity Checks
+ */
+
+#if (-1 & 3) != 3
+#  error "Two's complement is required."
+#endif
+
+STATIC_ASSERT((-1 & 3) == 3);
+STATIC_ASSERT((0u - 1u) == UINT_MAX);
 
 /*
  * Macros
@@ -3234,7 +3246,7 @@ mpz_add(mpz_t z, const mpz_t x, const mpz_t y) {
 
   mpz_grow(z, zn);
 
-  if ((x->size < 0) == (y->size < 0)) {
+  if ((x->size ^ y->size) >= 0) {
     /* x + y == x + y */
     /* (-x) + (-y) == -(x + y) */
     zn = mpv_add(z->limbs, x->limbs, xn, y->limbs, yn);
@@ -3306,7 +3318,7 @@ mpz_sub(mpz_t z, const mpz_t x, const mpz_t y) {
 
   mpz_grow(z, zn);
 
-  if ((x->size < 0) != (y->size < 0)) {
+  if ((x->size ^ y->size) < 0) {
     /* x - (-y) == x + y */
     /* (-x) - y == -(x + y) */
     zn = mpv_add(z->limbs, x->limbs, xn, y->limbs, yn);
@@ -3458,7 +3470,7 @@ mpz_mul(mpz_t z, const mpz_t x, const mpz_t y) {
     zn = mpv_mul(z->limbs, x->limbs, xn, y->limbs, yn);
   }
 
-  z->size = ((x->size < 0) ^ (y->size < 0)) ? -zn : zn;
+  z->size = (x->size ^ y->size) < 0 ? -zn : zn;
 }
 
 void
@@ -3586,8 +3598,8 @@ static void
 mpz_div_inner(mpz_t q, mpz_t r, const mpz_t n, const mpz_t d, int euclid) {
   int nn = MP_ABS(n->size);
   int dn = MP_ABS(d->size);
-  int qs = (n->size < 0) ^ (d->size < 0);
-  int rs = n->size < 0;
+  int qs = ((n->size ^ d->size) < 0);
+  int rs = (n->size < 0);
   mp_limb_t *qp = NULL;
   mp_limb_t *rp = NULL;
   int qn = 0;
@@ -3672,7 +3684,7 @@ mpz_div_inner(mpz_t q, mpz_t r, const mpz_t n, const mpz_t d, int euclid) {
 static mp_limb_t
 mpz_div_ui_inner(mpz_t q, const mpz_t n, mp_limb_t d, int euclid) {
   int nn = MP_ABS(n->size);
-  int ns = n->size < 0;
+  int ns = (n->size < 0);
   mp_limb_t *qp = NULL;
   mp_limb_t r;
   int qn = 0;
@@ -3724,7 +3736,7 @@ static mp_long_t
 mpz_div_si_inner(mpz_t q, const mpz_t n, mp_long_t d, int euclid) {
   int nn = MP_ABS(n->size);
   int qs = (n->size < 0) ^ (d < 0);
-  int rs = n->size < 0;
+  int rs = (n->size < 0);
   mp_limb_t *qp = NULL;
   mp_long_t r;
   int qn = 0;
@@ -4024,7 +4036,7 @@ mpz_divround(mpz_t q, const mpz_t n, const mpz_t d) {
 
   mpz_quo_2exp(t, d, 1);
 
-  if ((n->size < 0) ^ (d->size < 0))
+  if ((n->size ^ d->size) < 0)
     mpz_sub(t, n, t);
   else
     mpz_add(t, n, t);
@@ -4208,7 +4220,7 @@ mpz_and(mpz_t z, const mpz_t x, const mpz_t y) {
 
   zn = mpn_strip(z->limbs, zn);
 
-  z->size = ((x->size & y->size) < 0) ? -zn : zn;
+  z->size = (x->size & y->size) < 0 ? -zn : zn;
 }
 
 mp_limb_t
@@ -4307,7 +4319,7 @@ mpz_ior(mpz_t z, const mpz_t x, const mpz_t y) {
 
   zn = mpn_strip(z->limbs, zn);
 
-  z->size = ((x->size | y->size) < 0) ? -zn : zn;
+  z->size = (x->size | y->size) < 0 ? -zn : zn;
 }
 
 void
@@ -4407,7 +4419,7 @@ mpz_xor(mpz_t z, const mpz_t x, const mpz_t y) {
 
   zn = mpn_strip(z->limbs, zn);
 
-  z->size = ((x->size ^ y->size) < 0) ? -zn : zn;
+  z->size = (x->size ^ y->size) < 0 ? -zn : zn;
 }
 
 void
@@ -4705,7 +4717,7 @@ mpz_hamdist(const mpz_t x, const mpz_t y) {
   int cnt = 0;
   int i;
 
-  if ((x->size < 0) != (y->size < 0))
+  if ((x->size ^ y->size) < 0)
     return INT_MAX;
 
   mpz_mswap(&x, &xn, &y, &yn);
@@ -5016,7 +5028,7 @@ mpz_invert(mpz_t z, const mpz_t x, const mpz_t y) {
   }
 
   if (mpz_odd_p(y)) {
-    if (mpz_sgn(x) < 0 || mpz_cmpabs(x, y) >= 0) {
+    if (x->size < 0 || mpz_cmpabs(x, y) >= 0) {
       mpz_init(t);
       mpz_mod(t, x, y);
 
@@ -5073,7 +5085,7 @@ mpz_jacobi(const mpz_t x, const mpz_t y) {
   mpz_t t;
   int j;
 
-  if (mpz_sgn(x) < 0 || mpz_cmpabs(x, y) >= 0) {
+  if (x->size < 0 || mpz_cmpabs(x, y) >= 0) {
     mpz_init(t);
     mpz_mod(t, x, y);
 
@@ -5084,7 +5096,7 @@ mpz_jacobi(const mpz_t x, const mpz_t y) {
     j = mpz_jacobi_inner(x, y);
   }
 
-  if (x->size < 0 && y->size < 0)
+  if ((x->size & y->size) < 0)
     j = -j;
 
   return j;
@@ -5114,10 +5126,10 @@ void
 mpz_powm(mpz_t z, const mpz_t x, const mpz_t y, const mpz_t m) {
   mpz_t t;
 
-  if (mpz_sgn(x) < 0 || mpz_cmpabs(x, m) >= 0 || mpz_sgn(y) < 0) {
+  if (x->size < 0 || mpz_cmpabs(x, m) >= 0 || y->size < 0) {
     mpz_init(t);
 
-    if (mpz_sgn(y) < 0) {
+    if (y->size < 0) {
       if (!mpz_invert(t, x, m))
         torsion_abort(); /* LCOV_EXCL_LINE */
     } else {
@@ -5166,7 +5178,7 @@ void
 mpz_powm_sec(mpz_t z, const mpz_t x, const mpz_t y, const mpz_t m) {
   mpz_t t;
 
-  if (mpz_sgn(x) < 0 || mpz_cmpabs(x, m) >= 0) {
+  if (x->size < 0 || mpz_cmpabs(x, m) >= 0) {
     mpz_init(t);
     mpz_mod(t, x, m);
     mpz_powm_sec_inner(z, t, y, m);
@@ -5201,11 +5213,11 @@ mpz_sqrtm(mpz_t z, const mpz_t u, const mpz_t p) {
   mpz_set_ui(z, 0);
 
   /* if p <= 0 or p mod 2 == 0 */
-  if (mpz_sgn(p) <= 0 || mpz_even_p(p))
+  if (p->size <= 0 || mpz_even_p(p))
     goto fail;
 
   /* if x < 0 or x >= p */
-  if (mpz_sgn(x) < 0 || mpz_cmpabs(x, p) >= 0) {
+  if (x->size < 0 || mpz_cmpabs(x, p) >= 0) {
     /* x = x mod p */
     mpz_mod(x, x, p);
   }
@@ -5680,7 +5692,7 @@ mpz_lucas_prime_p(const mpz_t n, mp_limb_t limit) {
 
   for (t = 0; t < r - 1; t++) {
     /* if vk == 0 */
-    if (mpz_sgn(vk) == 0)
+    if (vk->size == 0)
       goto succeed;
 
     /* if vk == 2 */
@@ -5724,7 +5736,7 @@ mpz_probab_prime_p(const mpz_t x, int rounds, mp_rng_f *rng, void *arg) {
   mp_limb_t r;
 #endif
 
-  if (mpz_sgn(x) <= 0)
+  if (x->size <= 0)
     return 0;
 
   if (mpz_cmp_ui(x, 64) < 0)
@@ -6097,7 +6109,7 @@ mpz_set_str(mpz_t z, const char *str, int base) {
 char *
 mpz_get_str(const mpz_t x, int base) {
   size_t len = mpz_sizeinbase(x, base);
-  size_t neg = x->size < 0;
+  size_t neg = (x->size < 0);
   char *str = malloc(neg + len + 1);
 
   CHECK(str != NULL);
@@ -6140,24 +6152,20 @@ mpz_urandomb(mpz_t z, int bits, mp_rng_f *rng, void *arg) {
     z->limbs[zn - 1] &= MP_MASK(lo);
 
   z->size = mpn_strip(z->limbs, zn);
-
-#ifdef TORSION_DEBUG
-  ASSERT(mpz_bitlen(z) <= bits);
-#endif
 }
 
 void
-mpz_urandomm(mpz_t z, const mpz_t max, mp_rng_f *rng, void *arg) {
-  int bits = mpz_bitlen(max);
+mpz_urandomm(mpz_t z, const mpz_t x, mp_rng_f *rng, void *arg) {
+  int bits = mpz_bitlen(x);
 
-  CHECK(z != max);
+  CHECK(z != x);
 
   if (bits > 0) {
     do {
       mpz_urandomb(z, bits, rng, arg);
-    } while (mpz_cmpabs(z, max) >= 0);
+    } while (mpz_cmpabs(z, x) >= 0);
 
-    if (mpz_sgn(max) < 0)
+    if (x->size < 0)
       mpz_neg(z, z);
   } else {
     z->size = 0;
