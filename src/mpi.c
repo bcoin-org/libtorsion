@@ -5683,10 +5683,10 @@ mpz_lucas_prime_p(const mpz_t n, mp_limb_t limit) {
     mpz_mul_ui(t1, vk, p);
     mpz_mul_2exp(t2, vk1, 1);
 
+    mpz_sub(t1, t1, t2);
     mpz_mod(t1, t1, n);
-    mpz_mod(t2, t2, n);
 
-    if (mpz_cmp(t1, t2) == 0)
+    if (t1->size == 0)
       goto succeed;
   }
 
@@ -5841,9 +5841,10 @@ next:
 int
 mpz_nextprime(mpz_t z, const mpz_t x, int rounds,
               mp_limb_t max, mp_rng_f *rng, void *arg) {
+  mp_limb_t one = (max != 0);
   mp_limb_t i;
 
-  if (mpz_cmp_ui(x, 2) < 0) {
+  if (max == 0 && mpz_cmp_ui(x, 2) < 0) {
     mpz_set_ui(z, 2);
     return 1;
   }
@@ -5855,9 +5856,9 @@ mpz_nextprime(mpz_t z, const mpz_t x, int rounds,
     max -= (max != 0);
   }
 
-  max /= 2;
+  max = (max / 2) + 1;
 
-  for (i = 0; max == 0 || i <= max; i++) {
+  for (i = 0; i < max; i += one) {
     if (mpz_probab_prime_p(z, rounds, rng, arg))
       return 1;
 
