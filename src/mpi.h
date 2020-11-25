@@ -217,6 +217,7 @@
 #define mpz_probab_prime_p __torsion_mpz_probab_prime_p
 #define mpz_randprime __torsion_mpz_randprime
 #define mpz_nextprime __torsion_mpz_nextprime
+#define mpz_findprime __torsion_mpz_findprime
 #define mpz_fits_ui_p __torsion_mpz_fits_ui_p
 #define mpz_fits_si_p __torsion_mpz_fits_si_p
 #define mpz_odd_p __torsion_mpz_odd_p
@@ -1237,9 +1238,11 @@ mpz_probab_prime_p(const mpz_t x, int rounds, mp_rng_f *rng, void *arg);
 void
 mpz_randprime(mpz_t z, int bits, mp_rng_f *rng, void *arg);
 
+void
+mpz_nextprime(mpz_t z, const mpz_t x, mp_rng_f *rng, void *arg);
+
 int
-mpz_nextprime(mpz_t z, const mpz_t x, int rounds,
-              mp_limb_t max, mp_rng_f *rng, void *arg);
+mpz_findprime(mpz_t z, const mpz_t x, mp_limb_t max, mp_rng_f *rng, void *arg);
 
 /*
  * Helpers

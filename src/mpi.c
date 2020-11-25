@@ -5524,7 +5524,7 @@ mpz_mr_prime_p(const mpz_t n, int reps, int force2, mp_rng_f *rng, void *arg) {
       /* x = 2 */
       mpz_set_ui(x, 2);
     } else {
-      /* x = random integer in [2,n-1] */
+      /* x = random integer in [2,n-2] */
       mpz_urandomm(x, nm3, rng, arg);
       mpz_add_ui(x, x, 2);
     }
@@ -5838,28 +5838,43 @@ next:
   }
 }
 
-int
-mpz_nextprime(mpz_t z, const mpz_t x, int rounds,
-              mp_limb_t max, mp_rng_f *rng, void *arg) {
-  mp_limb_t one = (max != 0);
-  mp_limb_t i;
-
-  if (max == 0 && mpz_cmp_ui(x, 2) < 0) {
+void
+mpz_nextprime(mpz_t z, const mpz_t x, mp_rng_f *rng, void *arg) {
+  if (mpz_cmp_ui(x, 2) < 0) {
     mpz_set_ui(z, 2);
-    return 1;
+    return;
   }
+
+  mpz_set(z, x);
+
+  if (mpz_even_p(z))
+    mpz_add_ui(z, z, 1);
+  else
+    mpz_add_ui(z, z, 2);
+
+  while (!mpz_probab_prime_p(z, 20, rng, arg))
+    mpz_add_ui(z, z, 2);
+}
+
+int
+mpz_findprime(mpz_t z, const mpz_t x, mp_limb_t max, mp_rng_f *rng, void *arg) {
+  mp_limb_t i;
 
   mpz_set(z, x);
 
   if (mpz_even_p(z)) {
     mpz_add_ui(z, z, 1);
-    max -= (max != 0);
+
+    if (max == 0)
+      return 0;
+
+    max -= 1;
   }
 
   max = (max / 2) + 1;
 
-  for (i = 0; i < max; i += one) {
-    if (mpz_probab_prime_p(z, rounds, rng, arg))
+  for (i = 0; i < max; i++) {
+    if (mpz_probab_prime_p(z, 20, rng, arg))
       return 1;
 
     mpz_add_ui(z, z, 2);
@@ -5911,9 +5926,10 @@ mpz_ctz(const mpz_t x) {
 
 static int
 mpz_ctz_common(const mpz_t x, const mpz_t y) {
-  int u = mpz_ctz(x);
-  int v = mpz_ctz(y);
-  return MP_MIN(u, v);
+  int xz = mpz_ctz(x);
+  int yz = mpz_ctz(y);
+
+  return MP_MIN(xz, yz);
 }
 
 int
