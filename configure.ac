@@ -179,6 +179,7 @@ dnl Feature Testing
 dnl
 
 has_asm=no
+has_asm_x86=no
 has_asm_x64=no
 has_int128=no
 has_fork=no
@@ -201,6 +202,34 @@ AS_IF([test x"$enable_asm" = x"yes"], [
     has_asm=yes
   ])
   AC_MSG_RESULT([$has_asm])
+])
+
+AS_IF([test x"$enable_asm" = x"yes"], [
+  AC_MSG_CHECKING(for x86 inline asm support)
+  AC_COMPILE_IFELSE([
+    AC_LANG_PROGRAM([[
+      #if defined(__amd64__) || defined(__x86_64__)
+      #  error "not an x86 platform"
+      #endif
+      #ifndef __i386__
+      #  error "not an x86 platform"
+      #endif
+      #include <stdint.h>
+    ]], [[
+      uint32_t n1 = 0;
+      uint32_t n0 = 100;
+      uint32_t d = 3;
+      uint32_t q0, r0;
+      __asm__ __volatile__(
+        "divl %k4\n"
+        : "=a" (q0), "=d" (r0)
+        : "0" (n0), "1" (n1), "rm" (d)
+      );
+    ]])
+  ], [
+    has_asm_x86=yes
+  ])
+  AC_MSG_RESULT([$has_asm_x86])
 ])
 
 AS_IF([test x"$enable_asm" = x"yes"], [
@@ -336,6 +365,10 @@ AS_IF([test x"$has_asm" = x"yes"], [
   AC_DEFINE(TORSION_HAVE_ASM)
 ])
 
+AS_IF([test x"$has_asm_x86" = x"yes"], [
+  AC_DEFINE(TORSION_HAVE_ASM_X86)
+])
+
 AS_IF([test x"$has_asm_x64" = x"yes"], [
   AC_DEFINE(TORSION_HAVE_ASM_X64)
 ])
@@ -416,6 +449,7 @@ AC_OUTPUT
 AC_MSG_NOTICE([Build Options:
 
   asm          = $has_asm
+  asm_x86      = $has_asm_x86
   asm_x64      = $has_asm_x64
   coverage     = $enable_coverage
   debug        = $enable_debug

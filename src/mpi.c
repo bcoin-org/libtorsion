@@ -67,6 +67,7 @@ STATIC_ASSERT((0u - 1u) == UINT_MAX);
 #define MP_ABS(x) ((x) < 0 ? -(x) : (x))
 
 #if defined(__GNUC__) || __has_builtin(__builtin_alloca)
+/* Available since at least gcc 1.41 (1992). */
 #  define mp_alloca __builtin_alloca
 #elif defined(_MSC_VER)
 #  include <malloc.h>
@@ -92,17 +93,42 @@ STATIC_ASSERT((0u - 1u) == UINT_MAX);
 #  define mp_free_str(p, n) free(p)
 #endif
 
+#if defined(TORSION_HAVE_ASM_X86) && MP_LIMB_BITS == 32
+#  define MP_HAVE_ASM_X86
+#endif
+
 #if defined(TORSION_HAVE_ASM_X64) && MP_LIMB_BITS == 64
-/* For some reason clang sucks at inlining ASM, but
-   is extremely good at generating 128 bit carry code.
-   GCC is the exact opposite! */
-#  define MP_HAVE_ASM
-#  ifndef __clang__
-#    define MP_USE_ASM
+#  define MP_HAVE_ASM_X64
+#endif
+
+#if TORSION_GNUC_PREREQ(3, 4) || (__has_builtin(__builtin_popcount)   \
+                               && __has_builtin(__builtin_popcountl)  \
+                               && __has_builtin(__builtin_popcountll) \
+                               && __has_builtin(__builtin_clz)        \
+                               && __has_builtin(__builtin_clzl)       \
+                               && __has_builtin(__builtin_clzll)      \
+                               && __has_builtin(__builtin_ctz)        \
+                               && __has_builtin(__builtin_ctzl)       \
+                               && __has_builtin(__builtin_ctzll))
+#  if MP_LIMB_MAX == UINT_MAX
+#    define mp_builtin_popcount __builtin_popcount
+#    define mp_builtin_clz __builtin_clz
+#    define mp_builtin_ctz __builtin_ctz
+#  elif MP_LIMB_MAX == ULONG_MAX
+#    define mp_builtin_popcount __builtin_popcountl
+#    define mp_builtin_clz __builtin_clzl
+#    define mp_builtin_ctz __builtin_ctzl
+#  elif defined(ULLONG_MAX) && MP_LIMB_MAX == ULLONG_MAX
+#    define mp_builtin_popcount __builtin_popcountll
+#    define mp_builtin_clz __builtin_clzll
+#    define mp_builtin_ctz __builtin_ctzll
 #  endif
 #endif
 
-#if defined(MP_USE_ASM)
+/* For some reason clang sucks at inlining ASM, but
+   is extremely good at generating 128 bit carry code.
+   GCC is the exact opposite! */
+#if defined(MP_HAVE_ASM_X64) && !defined(__clang__)
 /* [z, c] = x + y */
 #define mp_add(z, c, x, y) \
   __asm__ (                \
@@ -213,7 +239,7 @@ STATIC_ASSERT((0u - 1u) == UINT_MAX);
       "rm" (c)                  \
     : "cc", "rax", "rdx"        \
   )
-#else /* !MPI_USE_ASM */
+#else /* !MP_HAVE_ASM_X64 */
 #define mp_add(z, c, x, y) do {        \
   mp_wide_t _w = (mp_wide_t)(x) + (y); \
   (c) = _w >> MP_LIMB_BITS;            \
@@ -267,7 +293,7 @@ STATIC_ASSERT((0u - 1u) == UINT_MAX);
   (c) = -(_w >> MP_LIMB_BITS);                     \
   (z) = _w;                                        \
 } while (0)
-#endif /* !MPI_USE_ASM */
+#endif /* !MP_HAVE_ASM_X64 */
 
 /*
  * Types
@@ -391,7 +417,7 @@ mp_free_limbs(mp_limb_t *ptr) {
 
 static TORSION_INLINE int
 mp_popcount(mp_limb_t x) {
-#if defined(MP_HAVE_ASM)
+#if defined(MP_HAVE_ASM_X64)
   mp_limb_t z;
 
   __asm__ (
@@ -402,8 +428,11 @@ mp_popcount(mp_limb_t x) {
   );
 
   return z;
+#elif defined(mp_builtin_popcount)
+  return mp_builtin_popcount(x);
 #else
   /* https://graphics.stanford.edu/~seander/bithacks.html#CountBitsSetParallel */
+  /* https://en.wikipedia.org/wiki/Popcount#Efficient_implementation */
 #if MP_LIMB_BITS == 64
   static const mp_limb_t a = MP_LIMB_C(0x5555555555555555);
   static const mp_limb_t b = MP_LIMB_C(0x3333333333333333);
@@ -426,7 +455,7 @@ mp_popcount(mp_limb_t x) {
 
 static TORSION_INLINE int
 mp_clz(mp_limb_t x) {
-#if defined(MP_HAVE_ASM)
+#if defined(MP_HAVE_ASM_X64)
   mp_limb_t z;
 
   if (x == 0)
@@ -440,6 +469,11 @@ mp_clz(mp_limb_t x) {
   );
 
   return 63 - z;
+#elif defined(mp_builtin_clz)
+  if (x == 0)
+    return MP_LIMB_BITS;
+
+  return mp_builtin_clz(x);
 #else
   /* http://aggregate.org/MAGIC/#Leading%20Zero%20Count */
   x |= (x >> 1);
@@ -456,7 +490,7 @@ mp_clz(mp_limb_t x) {
 
 static TORSION_INLINE int
 mp_ctz(mp_limb_t x) {
-#if defined(MP_HAVE_ASM)
+#if defined(MP_HAVE_ASM_X64)
   mp_limb_t z;
 
   if (x == 0)
@@ -470,6 +504,11 @@ mp_ctz(mp_limb_t x) {
   );
 
   return z;
+#elif defined(mp_builtin_ctz)
+  if (x == 0)
+    return MP_LIMB_BITS;
+
+  return mp_builtin_ctz(x);
 #else
   /* http://aggregate.org/MAGIC/#Trailing%20Zero%20Count */
   return mp_popcount((x & -x) - 1);
@@ -478,7 +517,7 @@ mp_ctz(mp_limb_t x) {
 
 static TORSION_INLINE int
 mp_bitlen(mp_limb_t x) {
-#if defined(MP_HAVE_ASM)
+#if defined(MP_HAVE_ASM_X64)
   mp_limb_t z;
 
   if (x == 0)
@@ -1118,12 +1157,16 @@ mpn_montmul_var(mp_limb_t *zp,
 static void
 mp_div(mp_limb_t *q, mp_limb_t *r,
        mp_limb_t n1, mp_limb_t n0, mp_limb_t d) {
-#if defined(MP_HAVE_ASM)
+#if defined(MP_HAVE_ASM_X86) || defined(MP_HAVE_ASM_X64)
   mp_limb_t q0, r0;
 
   /* [q, r] = (n1 * B + n0) / d */
   __asm__ (
+#if defined(MP_HAVE_ASM_X64)
     "divq %q4\n"
+#else
+    "divl %k4\n"
+#endif
     : "=a" (q0), "=d" (r0)
     : "0" (n0), "1" (n1), "rm" (d)
   );

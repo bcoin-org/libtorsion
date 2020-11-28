@@ -145,6 +145,32 @@ endif()
 
 if(TORSION_ENABLE_ASM)
   check_c_source_compiles([=[
+    #if defined(__amd64__) || defined(__x86_64__)
+    #  error "not an x86 platform"
+    #endif
+    #ifndef __i386__
+    #  error "not an x86 platform"
+    #endif
+    #include <stdint.h>
+    int main(void) {
+      uint32_t n1 = 0;
+      uint32_t n0 = 100;
+      uint32_t d = 3;
+      uint32_t q0, r0;
+      __asm__ __volatile__(
+        "divl %k4\\n"
+        : "=a" (q0), "=d" (r0)
+        : "0" (n0), "1" (n1), "rm" (d)
+      );
+      return 0;
+    }
+  ]=] TORSION_HAS_ASM_X86)
+else()
+  set(TORSION_HAS_ASM_X86)
+endif()
+
+if(TORSION_ENABLE_ASM)
+  check_c_source_compiles([=[
     #if !defined(__amd64__) && !defined(__x86_64__)
     #  error "not an x64 platform"
     #endif
@@ -272,6 +298,10 @@ endif()
 
 if(TORSION_HAS_ASM)
   list(APPEND torsion_defines TORSION_HAVE_ASM)
+endif()
+
+if(TORSION_HAS_ASM_X86)
+  list(APPEND torsion_defines TORSION_HAVE_ASM_X86)
 endif()
 
 if(TORSION_HAS_ASM_X64)

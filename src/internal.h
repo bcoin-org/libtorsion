@@ -178,6 +178,8 @@ static const unsigned long __torsion_endian_check TORSION_UNUSED = 1;
 #  define TORSION_HAVE_ASM
 #  if defined(__amd64__) || defined(__x86_64__)
 #    define TORSION_HAVE_ASM_X64
+#  elif defined(__i386__)
+#    define TORSION_HAVE_ASM_X86
 #  endif
 #endif
 
@@ -208,6 +210,7 @@ static const unsigned long __torsion_endian_check TORSION_UNUSED = 1;
 /* Allow some overrides (for testing). */
 #ifdef TORSION_NO_ASM
 #  undef TORSION_HAVE_ASM
+#  undef TORSION_HAVE_ASM_X86
 #  undef TORSION_HAVE_ASM_X64
 #endif
 
