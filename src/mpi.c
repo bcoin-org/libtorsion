@@ -158,6 +158,7 @@ STATIC_ASSERT((0u - 1u) == UINT_MAX);
     "mulq %q3\n"             \
     : "=a" (lo), "=d" (hi)   \
     : "%0" (x), "rm" (y)     \
+    : "cc"                   \
   )
 
 /* [hi, lo] = x^2 */
@@ -166,6 +167,7 @@ STATIC_ASSERT((0u - 1u) == UINT_MAX);
     "mulq %%rax\n"         \
     : "=a" (lo), "=d" (hi) \
     : "0" (x)              \
+    : "cc"                 \
   )
 
 /* [z, c] = x + y + c */
@@ -228,16 +230,14 @@ STATIC_ASSERT((0u - 1u) == UINT_MAX);
   __asm__ (                     \
     "movq %q2, %%rax\n"         \
     "mulq %q3\n"                \
-    "xorl %k1, %k1\n"           \
+    "addq %q4, %%rax\n"         \
+    "adcq $0, %%rdx\n"          \
     "subq %%rax, %q0\n"         \
-    "sbbq %%rdx, %q1\n"         \
-    "subq %q4, %q0\n"           \
-    "sbbq $0, %q1\n"            \
-    "negq %q1\n"                \
-    : "+r" (z), "=&r" (c)       \
-    : "%rm" (x), "rm" (y),      \
+    "adcq $0, %%rdx\n"          \
+    : "+r" (z), "=&d" (c)       \
+    : "rm" (x), "rm" (y),       \
       "rm" (c)                  \
-    : "cc", "rax", "rdx"        \
+    : "cc", "rax"               \
   )
 #else /* !MP_HAVE_ASM_X64 */
 #define mp_add(z, c, x, y) do {        \
