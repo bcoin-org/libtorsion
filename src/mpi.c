@@ -373,6 +373,9 @@ mpn_swap(mp_limb_t **xp, int *xn,
 static int
 mpz_ctz_common(const mpz_t x, const mpz_t y);
 
+static TORSION_INLINE int
+mpz_add_size(const mpz_t x, const mpz_t y);
+
 static TORSION_INLINE void
 mpz_mswap(const struct mpz_s **x, int *xn, const struct mpz_s **y, int *yn);
 
@@ -4056,17 +4059,13 @@ mpz_divisible_2exp_p(const mpz_t n, int bits) {
 
 int
 mpz_congruent_p(const mpz_t x, const mpz_t y, const mpz_t d) {
-  int xn, yn, tn, ret;
   mpz_t t;
+  int ret;
 
   if (d->size == 0)
     return mpz_cmp(x, y) == 0;
 
-  xn = MP_ABS(x->size);
-  yn = MP_ABS(y->size);
-  tn = MP_MAX(xn, yn) + 1;
-
-  mpz_init_vla(t, tn);
+  mpz_init_vla(t, mpz_add_size(x, y));
 
   mpz_sub(t, x, y);
 
@@ -4079,25 +4078,32 @@ mpz_congruent_p(const mpz_t x, const mpz_t y, const mpz_t d) {
 
 int
 mpz_congruent_ui_p(const mpz_t x, const mpz_t y, mp_limb_t d) {
+  mpz_t t;
+  int ret;
+
   if (d == 0)
     return mpz_cmp(x, y) == 0;
 
-  return mpz_mod_ui(x, d) == mpz_mod_ui(y, d);
+  mpz_init_vla(t, mpz_add_size(x, y));
+
+  mpz_sub(t, x, y);
+
+  ret = mpz_divisible_ui_p(t, d);
+
+  mpz_clear_vla(t);
+
+  return ret;
 }
 
 int
 mpz_congruent_2exp_p(const mpz_t x, const mpz_t y, int bits) {
-  int xn, yn, tn, ret;
   mpz_t t;
+  int ret;
 
   if (bits == 0)
     return 1;
 
-  xn = MP_ABS(x->size);
-  yn = MP_ABS(y->size);
-  tn = MP_MAX(xn, yn) + 1;
-
-  mpz_init_vla(t, tn);
+  mpz_init_vla(t, mpz_add_size(x, y));
 
   mpz_sub(t, x, y);
 
@@ -4115,12 +4121,9 @@ mpz_congruent_2exp_p(const mpz_t x, const mpz_t y, int bits) {
 void
 mpz_divround(mpz_t q, const mpz_t n, const mpz_t d) {
   /* Computes q = (n +- (d >> 1)) / d. */
-  int nn = MP_ABS(n->size);
-  int dn = MP_ABS(d->size);
-  int tn = MP_MAX(nn, dn) + 1;
   mpz_t t;
 
-  mpz_init_vla(t, tn);
+  mpz_init_vla(t, mpz_add_size(n, d));
 
   mpz_quo_2exp(t, d, 1);
 
@@ -4651,13 +4654,19 @@ mpz_quo_2exp(mpz_t z, const mpz_t x, int bits) {
 void
 mpz_rem_2exp(mpz_t z, const mpz_t x, int bits) {
   int xn = MP_ABS(x->size);
+  int zn = xn;
 
-  mpz_grow(z, xn);
+  mpz_grow(z, zn);
 
-  /* x mod y == x & (y-1) */
+  /* (-x) mod y == -(x & (y-1))
+   *
+   * x mod y == x & (y-1)
+   */
   mpn_mask(z->limbs, x->limbs, xn, bits);
 
-  z->size = mpn_strip(z->limbs, xn);
+  zn = mpn_strip(z->limbs, zn);
+
+  z->size = x->size < 0 ? -zn : zn;
 }
 
 /*
@@ -5208,6 +5217,9 @@ mpz_jacobi(const mpz_t x, const mpz_t y) {
   mpz_t t;
   int j;
 
+  if (y->size == 0 || (y->limbs[0] & 1) == 0)
+    torsion_abort(); /* LCOV_EXCL_LINE */
+
   if (x->size < 0 || mpz_cmpabs(x, y) >= 0) {
     mpz_init_vla(t, MP_ABS(y->size) + 1);
     mpz_mod(t, x, y);
@@ -5249,6 +5261,9 @@ void
 mpz_powm(mpz_t z, const mpz_t x, const mpz_t y, const mpz_t m) {
   mpz_t t;
 
+  if (m->size == 0)
+    torsion_abort(); /* LCOV_EXCL_LINE */
+
   if (y->size < 0) {
     mpz_init(t);
 
@@ -5285,9 +5300,6 @@ mpz_powm_sec_inner(mpz_t z, const mpz_t x, const mpz_t y, const mpz_t m) {
 
   mpz_grow(z, mn);
 
-  if (y->size < 0 || m->size == 0 || (m->limbs[0] & 1) == 0)
-    torsion_abort(); /* LCOV_EXCL_LINE */
-
   mpn_sec_powm(z->limbs, x->limbs, xn,
                          y->limbs, yn,
                          m->limbs, mn,
@@ -5301,6 +5313,9 @@ mpz_powm_sec_inner(mpz_t z, const mpz_t x, const mpz_t y, const mpz_t m) {
 void
 mpz_powm_sec(mpz_t z, const mpz_t x, const mpz_t y, const mpz_t m) {
   mpz_t t;
+
+  if (y->size < 0 || m->size == 0 || (m->limbs[0] & 1) == 0)
+    torsion_abort(); /* LCOV_EXCL_LINE */
 
   if (x->size < 0 || mpz_cmpabs(x, m) >= 0) {
     mpz_init_vla(t, MP_ABS(m->size) + 1);
@@ -5318,8 +5333,6 @@ mpz_sqrtm(mpz_t z, const mpz_t u, const mpz_t p) {
   int i, f, k, m;
   int ret = 0;
 
-  CHECK(z != p);
-
   mpz_init(x);
   mpz_init(e);
   mpz_init(t);
@@ -5332,9 +5345,6 @@ mpz_sqrtm(mpz_t z, const mpz_t u, const mpz_t p) {
 
   /* x = u */
   mpz_set(x, u);
-
-  /* z = 0 */
-  mpz_set_ui(z, 0);
 
   /* if p <= 0 or p mod 2 == 0 */
   if (p->size <= 0 || mpz_even_p(p))
@@ -5410,6 +5420,7 @@ mpz_sqrtm(mpz_t z, const mpz_t u, const mpz_t p) {
     case -1:
       goto fail;
     case 0:
+      z->size = 0;
       goto succeed;
     case 1:
       break;
@@ -5508,6 +5519,10 @@ fail:
   mpz_clear(y);
   mpz_clear(b);
   mpz_clear(g);
+
+  if (!ret)
+    z->size = 0;
+
   return ret;
 }
 
@@ -6069,6 +6084,13 @@ mpz_bytelen(const mpz_t x) {
 size_t
 mpz_sizeinbase(const mpz_t x, int base) {
   return mpn_sizeinbase(x->limbs, MP_ABS(x->size), base);
+}
+
+static TORSION_INLINE int
+mpz_add_size(const mpz_t x, const mpz_t y) {
+  int xn = MP_ABS(x->size);
+  int yn = MP_ABS(y->size);
+  return MP_MAX(xn, yn) + 1;
 }
 
 void
