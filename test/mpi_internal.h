@@ -4175,12 +4175,13 @@ test_mpz_roots(mp_rng_f *rng, void *arg) {
 
   const int *v;
   size_t i;
-  mpz_t x, z;
+  mpz_t x, z, r;
 
   printf("  - MPZ roots.\n");
 
   mpz_init(x);
   mpz_init(z);
+  mpz_init(r);
 
   for (i = 0; i < ARRAY_SIZE(roots); i++) {
     v = roots[i];
@@ -4206,8 +4207,20 @@ test_mpz_roots(mp_rng_f *rng, void *arg) {
     ASSERT(mpz_cmp(x, z) == 0);
   }
 
+  for (i = 0; i < 100; i++) {
+    mpz_random_nz(x, 250, rng, arg);
+
+    mpz_sqrtrem(z, r, x);
+
+    mpz_sqr(z, z);
+    mpz_add(z, z, r);
+
+    ASSERT(mpz_cmp(z, x) == 0);
+  }
+
   mpz_clear(x);
   mpz_clear(z);
+  mpz_clear(r);
 }
 
 static void
