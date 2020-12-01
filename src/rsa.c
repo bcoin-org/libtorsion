@@ -774,8 +774,8 @@ rsa_priv_set_ned(rsa_priv_t *out,
    * [1] https://crypto.stackexchange.com/questions/11509
    * [2] https://crypto.stackexchange.com/questions/22374
    */
-  static const unsigned char default_entropy[ENTROPY_SIZE] = {0};
   mpz_t f, nm1, nm3, g, a, b, c, p, q;
+  size_t entropy_len = ENTROPY_SIZE;
   int i, j, s;
   int ret = 0;
   drbg_t rng;
@@ -822,15 +822,17 @@ rsa_priv_set_ned(rsa_priv_t *out,
   /* g = f >> s */
   mpz_quo_2exp(g, f, s);
 
-  /* Use all zeroes if no entropy is available. */
-  if (entropy == NULL)
-    entropy = default_entropy;
+  /* Seed RNG using the modulus as entropy. */
+  if (entropy == NULL) {
+    entropy = (const unsigned char *)mpz_limbs_read(n);
+    entropy_len = mpz_size(n) * sizeof(mp_limb_t);
+  }
 
   /* Seed RNG. */
-  drbg_init(&rng, HASH_SHA256, entropy, ENTROPY_SIZE);
+  drbg_init(&rng, HASH_SHA256, entropy, entropy_len);
 
   for (i = 0; i < 128; i++) {
-    /* a = random int in [2,n-1] */
+    /* a = random int in [2,n-2] */
     mpz_urandomm(a, nm3, drbg_rng, &rng);
     mpz_add_ui(a, a, 2);
 
