@@ -701,11 +701,23 @@ mpn_cmp(const mp_limb_t *xp, const mp_limb_t *yp, int n) {
 mp_limb_t
 mpn_add_1(mp_limb_t *zp, const mp_limb_t *xp, int xn, mp_limb_t y) {
   mp_limb_t c = y;
-  int i;
+  int i = 0;
 
-  for (i = 0; i < xn; i++) {
+  switch (xn & 3) {
+    case 3:
+      mp_add(zp[i], c, xp[i], c); i++;
+    case 2:
+      mp_add(zp[i], c, xp[i], c); i++;
+    case 1:
+      mp_add(zp[i], c, xp[i], c); i++;
+  }
+
+  while (i < xn) {
     /* [z, c] = x + c */
-    mp_add(zp[i], c, xp[i], c);
+    mp_add(zp[i], c, xp[i], c); i++;
+    mp_add(zp[i], c, xp[i], c); i++;
+    mp_add(zp[i], c, xp[i], c); i++;
+    mp_add(zp[i], c, xp[i], c); i++;
   }
 
   return c;
@@ -714,11 +726,23 @@ mpn_add_1(mp_limb_t *zp, const mp_limb_t *xp, int xn, mp_limb_t y) {
 mp_limb_t
 mpn_add_n(mp_limb_t *zp, const mp_limb_t *xp, const mp_limb_t *yp, int n) {
   mp_limb_t c = 0;
-  int i;
+  int i = 0;
 
-  for (i = 0; i < n; i++) {
+  switch (n & 3) {
+    case 3:
+      mp_add_1(zp[i], c, xp[i], yp[i]); i++;
+    case 2:
+      mp_add_1(zp[i], c, xp[i], yp[i]); i++;
+    case 1:
+      mp_add_1(zp[i], c, xp[i], yp[i]); i++;
+  }
+
+  while (i < n) {
     /* [z, c] = x + y + c */
-    mp_add_1(zp[i], c, xp[i], yp[i]);
+    mp_add_1(zp[i], c, xp[i], yp[i]); i++;
+    mp_add_1(zp[i], c, xp[i], yp[i]); i++;
+    mp_add_1(zp[i], c, xp[i], yp[i]); i++;
+    mp_add_1(zp[i], c, xp[i], yp[i]); i++;
   }
 
   return c;
@@ -746,11 +770,23 @@ mpn_add(mp_limb_t *zp, const mp_limb_t *xp, int xn,
 mp_limb_t
 mpn_sub_1(mp_limb_t *zp, const mp_limb_t *xp, int xn, mp_limb_t y) {
   mp_limb_t c = y;
-  int i;
+  int i = 0;
 
-  for (i = 0; i < xn; i++) {
+  switch (xn & 3) {
+    case 3:
+      mp_sub(zp[i], c, xp[i], c); i++;
+    case 2:
+      mp_sub(zp[i], c, xp[i], c); i++;
+    case 1:
+      mp_sub(zp[i], c, xp[i], c); i++;
+  }
+
+  while (i < xn) {
     /* [z, c] = x - c */
-    mp_sub(zp[i], c, xp[i], c);
+    mp_sub(zp[i], c, xp[i], c); i++;
+    mp_sub(zp[i], c, xp[i], c); i++;
+    mp_sub(zp[i], c, xp[i], c); i++;
+    mp_sub(zp[i], c, xp[i], c); i++;
   }
 
   return c;
@@ -759,11 +795,23 @@ mpn_sub_1(mp_limb_t *zp, const mp_limb_t *xp, int xn, mp_limb_t y) {
 mp_limb_t
 mpn_sub_n(mp_limb_t *zp, const mp_limb_t *xp, const mp_limb_t *yp, int n) {
   mp_limb_t c = 0;
-  int i;
+  int i = 0;
 
-  for (i = 0; i < n; i++) {
+  switch (n & 3) {
+    case 3:
+      mp_sub_1(zp[i], c, xp[i], yp[i]); i++;
+    case 2:
+      mp_sub_1(zp[i], c, xp[i], yp[i]); i++;
+    case 1:
+      mp_sub_1(zp[i], c, xp[i], yp[i]); i++;
+  }
+
+  while (i < n) {
     /* [z, c] = x - y - c */
-    mp_sub_1(zp[i], c, xp[i], yp[i]);
+    mp_sub_1(zp[i], c, xp[i], yp[i]); i++;
+    mp_sub_1(zp[i], c, xp[i], yp[i]); i++;
+    mp_sub_1(zp[i], c, xp[i], yp[i]); i++;
+    mp_sub_1(zp[i], c, xp[i], yp[i]); i++;
   }
 
   return c;
@@ -791,11 +839,23 @@ mpn_sub(mp_limb_t *zp, const mp_limb_t *xp, int xn,
 mp_limb_t
 mpn_mul_1(mp_limb_t *zp, const mp_limb_t *xp, int xn, mp_limb_t y) {
   mp_limb_t c = 0;
-  int i;
+  int i = 0;
 
-  for (i = 0; i < xn; i++) {
+  switch (xn & 3) {
+    case 3:
+      mp_mul_1(zp[i], c, xp[i], y); i++;
+    case 2:
+      mp_mul_1(zp[i], c, xp[i], y); i++;
+    case 1:
+      mp_mul_1(zp[i], c, xp[i], y); i++;
+  }
+
+  while (i < xn) {
     /* [z, c] = x * y + c */
-    mp_mul_1(zp[i], c, xp[i], y);
+    mp_mul_1(zp[i], c, xp[i], y); i++;
+    mp_mul_1(zp[i], c, xp[i], y); i++;
+    mp_mul_1(zp[i], c, xp[i], y); i++;
+    mp_mul_1(zp[i], c, xp[i], y); i++;
   }
 
   return c;
@@ -804,11 +864,23 @@ mpn_mul_1(mp_limb_t *zp, const mp_limb_t *xp, int xn, mp_limb_t y) {
 mp_limb_t
 mpn_addmul_1(mp_limb_t *zp, const mp_limb_t *xp, int xn, mp_limb_t y) {
   mp_limb_t c = 0;
-  int i;
+  int i = 0;
 
-  for (i = 0; i < xn; i++) {
+  switch (xn & 3) {
+    case 3:
+      mp_addmul_1(zp[i], c, xp[i], y); i++;
+    case 2:
+      mp_addmul_1(zp[i], c, xp[i], y); i++;
+    case 1:
+      mp_addmul_1(zp[i], c, xp[i], y); i++;
+  }
+
+  while (i < xn) {
     /* [z, c] = z + x * y + c */
-    mp_addmul_1(zp[i], c, xp[i], y);
+    mp_addmul_1(zp[i], c, xp[i], y); i++;
+    mp_addmul_1(zp[i], c, xp[i], y); i++;
+    mp_addmul_1(zp[i], c, xp[i], y); i++;
+    mp_addmul_1(zp[i], c, xp[i], y); i++;
   }
 
   return c;
@@ -817,11 +889,23 @@ mpn_addmul_1(mp_limb_t *zp, const mp_limb_t *xp, int xn, mp_limb_t y) {
 mp_limb_t
 mpn_submul_1(mp_limb_t *zp, const mp_limb_t *xp, int xn, mp_limb_t y) {
   mp_limb_t c = 0;
-  int i;
+  int i = 0;
 
-  for (i = 0; i < xn; i++) {
+  switch (xn & 3) {
+    case 3:
+      mp_submul_1(zp[i], c, xp[i], y); i++;
+    case 2:
+      mp_submul_1(zp[i], c, xp[i], y); i++;
+    case 1:
+      mp_submul_1(zp[i], c, xp[i], y); i++;
+  }
+
+  while (i < xn) {
     /* [z, c] = z - x * y - c */
-    mp_submul_1(zp[i], c, xp[i], y);
+    mp_submul_1(zp[i], c, xp[i], y); i++;
+    mp_submul_1(zp[i], c, xp[i], y); i++;
+    mp_submul_1(zp[i], c, xp[i], y); i++;
+    mp_submul_1(zp[i], c, xp[i], y); i++;
   }
 
   return c;
@@ -1760,6 +1844,7 @@ mpn_com(mp_limb_t *zp, const mp_limb_t *xp, int xn) {
 
 mp_limb_t
 mpn_lshift(mp_limb_t *zp, const mp_limb_t *xp, int xn, int bits) {
+  /* Note: this is not vectorized on clang for some reason. */
   mp_limb_t c;
   int i;
 
@@ -1956,11 +2041,23 @@ mpn_mask(mp_limb_t *zp, const mp_limb_t *xp, int xn, int bits) {
 mp_limb_t
 mpn_neg(mp_limb_t *zp, const mp_limb_t *xp, int xn) {
   mp_limb_t c = 0;
-  int i;
+  int i = 0;
 
-  for (i = 0; i < xn; i++) {
+  switch (xn & 3) {
+    case 3:
+      mp_sub_1(zp[i], c, MP_LIMB_C(0), xp[i]); i++;
+    case 2:
+      mp_sub_1(zp[i], c, MP_LIMB_C(0), xp[i]); i++;
+    case 1:
+      mp_sub_1(zp[i], c, MP_LIMB_C(0), xp[i]); i++;
+  }
+
+  while (i < xn) {
     /* [z, c] = 0 - x - c */
-    mp_sub_1(zp[i], c, MP_LIMB_C(0), xp[i]);
+    mp_sub_1(zp[i], c, MP_LIMB_C(0), xp[i]); i++;
+    mp_sub_1(zp[i], c, MP_LIMB_C(0), xp[i]); i++;
+    mp_sub_1(zp[i], c, MP_LIMB_C(0), xp[i]); i++;
+    mp_sub_1(zp[i], c, MP_LIMB_C(0), xp[i]); i++;
   }
 
   return c;
@@ -2988,7 +3085,10 @@ mpv_mul(mp_limb_t *zp, const mp_limb_t *xp, int xn,
 
   ASSERT(xn != 0 && yn != 0);
 
-  mpn_mul(zp, xp, xn, yp, yn);
+  if (xn >= yn)
+    mpn_mul(zp, xp, xn, yp, yn);
+  else
+    mpn_mul(zp, yp, yn, xp, xn);
 
   return zn - (zp[zn - 1] == 0);
 }
