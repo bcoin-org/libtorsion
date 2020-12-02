@@ -3877,7 +3877,7 @@ mpz_div_ui_inner(mpz_t q, const mpz_t n, mp_limb_t d, int euclid) {
     return 0;
   }
 
-  if (mpz_cmpabs_ui(n, d) < 0) {
+  if (nn == 1 && n->limbs[0] < d) {
     r = n->limbs[0];
 
     if (q != NULL)
@@ -3897,14 +3897,11 @@ mpz_div_ui_inner(mpz_t q, const mpz_t n, mp_limb_t d, int euclid) {
   if (q != NULL)
     q->size = ns ? -qn : qn;
 
-  if (euclid) {
-    if (q != NULL) {
-      if (ns && r != 0)
-        mpz_sub_ui(q, q, 1);
-    }
+  if (euclid && ns && r != 0) {
+    if (q != NULL)
+      mpz_sub_ui(q, q, 1);
 
-    if (ns && r != 0)
-      r = d - r;
+    r = d - r;
   }
 
   return r;
@@ -3916,6 +3913,7 @@ mpz_div_si_inner(mpz_t q, const mpz_t n, mp_long_t d, int euclid) {
   int qs = (n->size < 0) ^ (d < 0);
   int rs = (n->size < 0);
   mp_limb_t *qp = NULL;
+  mp_limb_t v;
   mp_long_t r;
   int qn = 0;
 
@@ -3929,7 +3927,9 @@ mpz_div_si_inner(mpz_t q, const mpz_t n, mp_long_t d, int euclid) {
     return 0;
   }
 
-  if (mpz_cmpabs_si(n, d) < 0) {
+  v = mp_limb_cast(d);
+
+  if (nn == 1 && n->limbs[0] < v) {
     r = n->limbs[0];
 
     if (q != NULL)
@@ -3940,7 +3940,7 @@ mpz_div_si_inner(mpz_t q, const mpz_t n, mp_long_t d, int euclid) {
       qp = q->limbs;
     }
 
-    r = mpn_divmod_1(qp, n->limbs, nn, mp_limb_cast(d));
+    r = mpn_divmod_1(qp, n->limbs, nn, v);
 
     if (q != NULL)
       qn = nn - (qp[nn - 1] == 0);
@@ -3949,25 +3949,47 @@ mpz_div_si_inner(mpz_t q, const mpz_t n, mp_long_t d, int euclid) {
   if (q != NULL)
     q->size = qs ? -qn : qn;
 
-  r = rs ? -r : r;
+  if (rs)
+    r = -r;
 
-  if (euclid) {
+  if (euclid && r < 0) {
     if (q != NULL) {
-      if (r < 0) {
-        if (d < 0)
-          mpz_add_ui(q, q, 1);
-        else
-          mpz_sub_ui(q, q, 1);
-      }
+      if (d < 0)
+        mpz_add_ui(q, q, 1);
+      else
+        mpz_sub_ui(q, q, 1);
     }
 
-    if (r < 0) {
-      if (d < 0)
-        r -= d;
-      else
-        r += d;
-    }
+    if (d < 0)
+      r -= d;
+    else
+      r += d;
   }
+
+  return r;
+}
+
+static mp_limb_t
+mpz_mod_2by1(const mpz_t x, mp_limb_t d, mp_limb_t m) {
+  int xn = MP_ABS(x->size);
+  mp_limb_t r = 0;
+  mp_limb_t q;
+  int j;
+
+  ASSERT(d >= MP_LIMB_HI);
+
+  if (xn == 0)
+    return 0;
+
+  if (xn == 1 && x->limbs[0] < d) {
+    r = x->limbs[0];
+  } else {
+    for (j = xn - 1; j >= 0; j--)
+      mp_div_2by1(&q, &r, r, x->limbs[j], d, m);
+  }
+
+  if (x->size < 0 && r != 0)
+    r = d - r;
 
   return r;
 }
@@ -6174,31 +6196,6 @@ fail:
   mpz_clear(t1);
   mpz_clear(t2);
   return ret;
-}
-
-static mp_limb_t
-mpz_mod_2by1(const mpz_t x, mp_limb_t d, mp_limb_t m) {
-  int xn = MP_ABS(x->size);
-  mp_limb_t r = 0;
-  mp_limb_t q;
-  int j;
-
-  ASSERT(d >= MP_LIMB_HI);
-
-  if (xn == 0)
-    return 0;
-
-  if (xn == 1 && x->limbs[0] < d) {
-    r = x->limbs[0];
-  } else {
-    for (j = xn - 1; j >= 0; j--)
-      mp_div_2by1(&q, &r, r, x->limbs[j], d, m);
-  }
-
-  if (x->size < 0 && r != 0)
-    r = d - r;
-
-  return r;
 }
 
 static void
