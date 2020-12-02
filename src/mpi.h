@@ -68,8 +68,10 @@
 #define mpn_rshift __torsion_mpn_rshift
 #define mpn_getbit __torsion_mpn_getbit
 #define mpn_getbits __torsion_mpn_getbits
+#define mpn_tstbit __torsion_mpn_tstbit
 #define mpn_setbit __torsion_mpn_setbit
 #define mpn_clrbit __torsion_mpn_clrbit
+#define mpn_combit __torsion_mpn_combit
 #define mpn_scan0 __torsion_mpn_scan0
 #define mpn_scan1 __torsion_mpn_scan1
 #define mpn_popcount __torsion_mpn_popcount
@@ -616,11 +618,17 @@ mpn_getbit(const mp_limb_t *xp, int xn, int pos);
 mp_limb_t
 mpn_getbits(const mp_limb_t *xp, int xn, int pos, int width);
 
+int
+mpn_tstbit(const mp_limb_t *xp, int pos);
+
 void
 mpn_setbit(mp_limb_t *zp, int pos);
 
 void
 mpn_clrbit(mp_limb_t *zp, int pos);
+
+void
+mpn_combit(mp_limb_t *zp, int pos);
 
 int
 mpn_scan0(const mp_limb_t *xp, int xn, int pos);

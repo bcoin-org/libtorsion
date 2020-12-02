@@ -1457,6 +1457,7 @@ test_mpn_bits(mp_rng_f *rng, void *arg) {
 
     for (j = 0; j < bits; j++) {
       ASSERT(mpn_getbit(xp, 4, j) == (yp[0] & 1));
+      ASSERT(mpn_tstbit(xp, j) == (int)(yp[0] & 1));
 
       mpn_rshift(yp, yp, 4, 1);
     }
@@ -1495,6 +1496,16 @@ test_mpn_bits(mp_rng_f *rng, void *arg) {
         mpn_setbit(yp, j);
       else
         mpn_clrbit(yp, j);
+
+      ASSERT(mpn_cmp(yp, xp, 4) == 0);
+      ASSERT(mpn_getbit(yp, 4, j) == b);
+
+      mpn_combit(yp, j);
+
+      ASSERT(mpn_cmp(yp, xp, 4) != 0);
+      ASSERT(mpn_getbit(yp, 4, j) == (b ^ 1));
+
+      mpn_combit(yp, j);
 
       ASSERT(mpn_cmp(yp, xp, 4) == 0);
       ASSERT(mpn_getbit(yp, 4, j) == b);

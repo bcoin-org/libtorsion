@@ -1847,6 +1847,11 @@ mpn_getbits(const mp_limb_t *xp, int xn, int pos, int width) {
   return bits;
 }
 
+int
+mpn_tstbit(const mp_limb_t *xp, int pos) {
+  return (xp[pos / MP_LIMB_BITS] >> (pos % MP_LIMB_BITS)) & 1;
+}
+
 void
 mpn_setbit(mp_limb_t *zp, int pos) {
   zp[pos / MP_LIMB_BITS] |= MP_LIMB_C(1) << (pos % MP_LIMB_BITS);
@@ -1855,6 +1860,16 @@ mpn_setbit(mp_limb_t *zp, int pos) {
 void
 mpn_clrbit(mp_limb_t *zp, int pos) {
   zp[pos / MP_LIMB_BITS] &= ~(MP_LIMB_C(1) << (pos % MP_LIMB_BITS));
+}
+
+void
+mpn_combit(mp_limb_t *zp, int pos) {
+  int s = pos / MP_LIMB_BITS;
+  int r = pos % MP_LIMB_BITS;
+  mp_limb_t b = (zp[s] >> r) & 1;
+
+  zp[s] &= ~(MP_LIMB_C(1) << r);
+  zp[s] |= (b ^ 1) << r;
 }
 
 static int
@@ -4319,7 +4334,7 @@ mpz_perfect_power_p(const mpz_t x) {
     sp[i] = MP_LIMB_MAX;
 
   for (p = 2; p * p <= n; p++) {
-    if (mpn_getbit(sp, sn, p)) {
+    if (mpn_tstbit(sp, p)) {
       for (i = p * p; i <= n; i += p)
         mpn_clrbit(sp, i);
     }
@@ -4327,7 +4342,7 @@ mpz_perfect_power_p(const mpz_t x) {
 
   /* Test prime exponents in [3,ceil(log2(x+1))]. */
   for (p = 3; p <= n; p += 2) {
-    if (mpn_getbit(sp, sn, p)) {
+    if (mpn_tstbit(sp, p)) {
       if (mpz_root(NULL, x, p))
         goto done;
     }
