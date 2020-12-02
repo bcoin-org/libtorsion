@@ -10,6 +10,7 @@
 #include <stdint.h>
 #include <limits.h>
 #include "data/jacobi_vectors.h"
+#include "data/kronecker_vectors.h"
 #include "data/mpz_vectors.h"
 #include "data/prime_vectors.h"
 
@@ -5374,6 +5375,38 @@ test_mpz_jacobi(void) {
 }
 
 static void
+test_mpz_kronecker(void) {
+  const int *v;
+  mpz_t x, y;
+  size_t i;
+
+  printf("  - MPZ kronecker.\n");
+
+  mpz_init(x);
+  mpz_init(y);
+
+  for (i = 0; i < ARRAY_SIZE(kronecker_vectors); i++) {
+    v = kronecker_vectors[i];
+
+    mpz_set_si(x, v[0]);
+    mpz_set_si(y, v[1]);
+
+    ASSERT(mpz_kronecker(x, y) == v[2]);
+    ASSERT(mpz_si_kronecker(v[0], y) == v[2]);
+    ASSERT(mpz_kronecker_si(x, v[1]) == v[2]);
+
+    if (v[0] >= 0)
+      ASSERT(mpz_ui_kronecker(v[0], y) == v[2]);
+
+    if (v[1] >= 0)
+      ASSERT(mpz_kronecker_ui(x, v[1]) == v[2]);
+  }
+
+  mpz_clear(x);
+  mpz_clear(y);
+}
+
+static void
 test_mpz_powm(mp_rng_f *rng, void *arg) {
   mpz_t x, y, z, t, m;
   int i = 0;
@@ -6634,6 +6667,7 @@ test_mpi_internal(mp_rng_f *rng, void *arg) {
   test_mpz_gcdext(rng, arg);
   test_mpz_invert(rng, arg);
   test_mpz_jacobi();
+  test_mpz_kronecker();
   test_mpz_powm(rng, arg);
   test_mpz_sqrtm(rng, arg);
   test_mpz_sqrtpq(rng, arg);

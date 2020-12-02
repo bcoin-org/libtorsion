@@ -2064,8 +2064,6 @@ mpn_invert_n(mp_limb_t *zp,
   int xn = mpn_strip(xp, n);
   int yn = n;
 
-  ASSERT(n > 0);
-
   return mpn_invert(zp, xp, xn, yp, yn, scratch);
 }
 
@@ -2126,8 +2124,6 @@ mpn_jacobi_n(const mp_limb_t *xp,
              mp_limb_t *scratch) {
   int xn = mpn_strip(xp, n);
   int yn = n;
-
-  ASSERT(n > 0);
 
   return mpn_jacobi(xp, xn, yp, yn, scratch);
 }
@@ -5353,6 +5349,9 @@ mpz_invert(mpz_t z, const mpz_t x, const mpz_t y) {
 
 int
 mpz_legendre(const mpz_t x, const mpz_t p) {
+  if (p->size < 0)
+    torsion_abort(); /* LCOV_EXCL_LINE */
+
   return mpz_jacobi(x, p);
 }
 
@@ -5394,6 +5393,66 @@ mpz_jacobi(const mpz_t x, const mpz_t y) {
     j = -j;
 
   return j;
+}
+
+int
+mpz_kronecker(const mpz_t x, const mpz_t y) {
+  static const int table[8] = {0, 1, 0, -1, 0, -1, 0, 1};
+  int k, bits;
+  mpz_t v;
+
+  if (x->size == 0)
+    return mpz_cmpabs_ui(y, 1) == 0;
+
+  if (y->size == 0)
+    return mpz_cmpabs_ui(x, 1) == 0;
+
+  if ((x->limbs[0] & 1) == 0 && (y->limbs[0] & 1) == 0)
+    return 0;
+
+  bits = mpz_ctz(y);
+
+  mpz_init_vla(v, MP_ABS(y->size));
+  mpz_quo_2exp(v, y, bits);
+
+  k = mpz_jacobi(x, v);
+
+  if (bits & 1)
+    k *= table[x->limbs[0] & 7];
+
+  mpz_clear_vla(v);
+
+  return k;
+}
+
+int
+mpz_kronecker_ui(const mpz_t x, mp_limb_t y) {
+  mpz_t t;
+  mpz_roinit_n(t, &y, 1);
+  return mpz_kronecker(x, t);
+}
+
+int
+mpz_kronecker_si(const mpz_t x, mp_long_t y) {
+  mp_limb_t v = mp_long_abs(y);
+  mpz_t t;
+  mpz_roinit_n(t, &v, y < 0 ? -1 : 1);
+  return mpz_kronecker(x, t);
+}
+
+int
+mpz_ui_kronecker(mp_limb_t x, const mpz_t y) {
+  mpz_t t;
+  mpz_roinit_n(t, &x, 1);
+  return mpz_kronecker(t, y);
+}
+
+int
+mpz_si_kronecker(mp_long_t x, const mpz_t y) {
+  mp_limb_t u = mp_long_abs(x);
+  mpz_t t;
+  mpz_roinit_n(t, &u, x < 0 ? -1 : 1);
+  return mpz_kronecker(t, y);
 }
 
 static void

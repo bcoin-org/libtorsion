@@ -211,6 +211,11 @@
 #define mpz_invert __torsion_mpz_invert
 #define mpz_legendre __torsion_mpz_legendre
 #define mpz_jacobi __torsion_mpz_jacobi
+#define mpz_kronecker __torsion_mpz_kronecker
+#define mpz_kronecker_ui __torsion_mpz_kronecker_ui
+#define mpz_kronecker_si __torsion_mpz_kronecker_si
+#define mpz_ui_kronecker __torsion_mpz_ui_kronecker
+#define mpz_si_kronecker __torsion_mpz_si_kronecker
 #define mpz_powm __torsion_mpz_powm
 #define mpz_powm_ui __torsion_mpz_powm_ui
 #define mpz_powm_sec __torsion_mpz_powm_sec
@@ -1223,6 +1228,21 @@ mpz_legendre(const mpz_t x, const mpz_t p);
 
 int
 mpz_jacobi(const mpz_t x, const mpz_t y);
+
+int
+mpz_kronecker(const mpz_t x, const mpz_t y);
+
+int
+mpz_kronecker_ui(const mpz_t x, mp_limb_t y);
+
+int
+mpz_kronecker_si(const mpz_t x, mp_long_t y);
+
+int
+mpz_ui_kronecker(mp_limb_t x, const mpz_t y);
+
+int
+mpz_si_kronecker(mp_long_t x, const mpz_t y);
 
 void
 mpz_powm(mpz_t z, const mpz_t x, const mpz_t y, const mpz_t m);
