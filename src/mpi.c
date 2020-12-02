@@ -6176,40 +6176,84 @@ fail:
   return ret;
 }
 
+static mp_limb_t
+mpz_mod_2by1(const mpz_t x, mp_limb_t d, mp_limb_t m) {
+  int xn = MP_ABS(x->size);
+  mp_limb_t r = 0;
+  mp_limb_t q;
+  int j;
+
+  ASSERT(d >= MP_LIMB_HI);
+
+  if (xn == 0)
+    return 0;
+
+  if (xn == 1 && x->limbs[0] < d) {
+    r = x->limbs[0];
+  } else {
+    for (j = xn - 1; j >= 0; j--)
+      mp_div_2by1(&q, &r, r, x->limbs[j], d, m);
+  }
+
+  if (x->size < 0 && r != 0)
+    r = d - r;
+
+  return r;
+}
+
+static void
+mpz_mod_primorial(mp_limb_t *ra, mp_limb_t *rb, const mpz_t x) {
+#if MP_LIMB_BITS == 64
+  /* 3 * 5 * 7 * 11 * 13 * 17 * 19 * 23 * 29 * 31 * 37 * 41 * 43 * 47 * 53 */
+  static const mp_limb_t d = MP_LIMB_C(16294579238595022365);
+  static const mp_limb_t m = MP_LIMB_C(2436419703539282795);
+  /* 3 * 5 * 7 * 11 * 13 * 17 * 19 * 23 * 37 */
+  static const mp_limb_t d1 = MP_LIMB_C(4127218095);
+  /* 29 * 31 * 41 * 43 * 47 * 53 */
+  static const mp_limb_t d2 = MP_LIMB_C(3948078067);
+  mp_limb_t r = mpz_mod_2by1(x, d, m);
+
+  *ra = r % d1;
+  *rb = r % d2;
+#else
+  /* 3 * 5 * 7 * 11 * 13 * 17 * 19 * 23 * 37 */
+  static const mp_limb_t d1 = MP_LIMB_C(4127218095);
+  static const mp_limb_t m1 = MP_LIMB_C(174567303);
+  /* 29 * 31 * 41 * 43 * 47 * 53 */
+  static const mp_limb_t d2 = MP_LIMB_C(3948078067);
+  static const mp_limb_t m2 = MP_LIMB_C(377367891);
+
+  *ra = mpz_mod_2by1(x, d1, m1);
+  *rb = mpz_mod_2by1(x, d2, m2);
+#endif
+}
+
 int
 mpz_probab_prime_p(const mpz_t x, int rounds, mp_rng_f *rng, void *arg) {
   /* Baillie-PSW Primality Test.
    *
    * [BPSW] "Bibliography".
    */
-  /* 3 * 5 * 7 * 11 * 13 * 17 * 19 * 23 * 37 */
-  static const mp_limb_t primes_a = MP_LIMB_C(4127218095);
-  /* 29 * 31 * 41 * 43 * 47 * 53 */
-  static const mp_limb_t primes_b = MP_LIMB_C(3948078067);
   /* First 18 primes in a mask (2-61). */
-  static const uint64_t prime_mask = UINT64_C(0x28208a20a08a28ac);
+  static const mp_limb_t primes_lo = MP_LIMB_C(0xa08a28ac);
+  static const mp_limb_t primes_hi = MP_LIMB_C(0x28208a20);
   mp_limb_t ra, rb;
-#if MP_LIMB_BITS == 64
-  mp_limb_t r;
-#endif
 
   if (x->size <= 0)
     return 0;
 
-  if (mpz_cmp_ui(x, 64) < 0)
-    return (prime_mask >> mpz_get_ui(x)) & 1;
+  if (x->size == 1) {
+    if (x->limbs[0] < 32)
+      return (primes_lo >> x->limbs[0]) & 1;
+
+    if (x->limbs[0] < 64)
+      return (primes_hi >> (x->limbs[0] - 32)) & 1;
+  }
 
   if (mpz_even_p(x))
     return 0;
 
-#if MP_LIMB_BITS == 64
-  r = mpz_rem_ui(x, primes_a * primes_b);
-  ra = r % primes_a;
-  rb = r % primes_b;
-#else
-  ra = mpz_rem_ui(x, primes_a);
-  rb = mpz_rem_ui(x, primes_b);
-#endif
+  mpz_mod_primorial(&ra, &rb, x);
 
   if (ra % 3 == 0
       || ra % 5 == 0
@@ -6240,17 +6284,8 @@ mpz_probab_prime_p(const mpz_t x, int rounds, mp_rng_f *rng, void *arg) {
 
 void
 mpz_randprime(mpz_t z, int bits, mp_rng_f *rng, void *arg) {
-  static const uint64_t primes[15] = { 3, 5, 7, 11, 13, 17, 19, 23,
-                                       29, 31, 37, 41, 43, 47, 53 };
-#if MP_LIMB_BITS == 64
-  static const mp_limb_t product = MP_LIMB_C(16294579238595022365);
-#else
-  static const mp_limb_t product[2] = { MP_LIMB_C(0x30e94e1d),
-                                        MP_LIMB_C(0xe221f97c) };
-  mp_limb_t tmp[2];
-#endif
-  uint64_t mod, delta, m;
-  size_t i;
+  static const mp_limb_t max = MP_LIMB_C(1) << 20;
+  mp_limb_t r, ra, rb, delta;
 
   CHECK(bits > 1);
 
@@ -6261,27 +6296,38 @@ mpz_randprime(mpz_t z, int bits, mp_rng_f *rng, void *arg) {
     mpz_setbit(z, bits - 2);
     mpz_setbit(z, 0);
 
-    if (bits > 64) {
-#if MP_LIMB_BITS == 64
-      mod = mpn_mod_1(z->limbs, z->size, product);
-#else
-      mpn_mod(tmp, z->limbs, z->size, product, 2);
-      mod = ((uint64_t)tmp[1] << 32) | tmp[0];
-#endif
+    if (bits > 6) {
+      mpz_mod_primorial(&ra, &rb, z);
 
-      for (delta = 0; delta < (UINT64_C(1) << 20); delta += 2) {
-        m = mod + delta;
+      for (delta = 0; delta < max; delta += 2) {
+        r = ra + delta;
 
-        for (i = 0; i < ARRAY_SIZE(primes); i++) {
-          if ((m % primes[i]) == 0)
-            goto next;
+        if (r % 3 == 0
+            || r % 5 == 0
+            || r % 7 == 0
+            || r % 11 == 0
+            || r % 13 == 0
+            || r % 17 == 0
+            || r % 19 == 0
+            || r % 23 == 0
+            || r % 37 == 0) {
+          continue;
         }
 
-        mpz_add_ui(z, z, (mp_limb_t)delta);
+        r = rb + delta;
+
+        if (r % 29 == 0
+            || r % 31 == 0
+            || r % 41 == 0
+            || r % 43 == 0
+            || r % 47 == 0
+            || r % 53 == 0) {
+          continue;
+        }
+
+        mpz_add_ui(z, z, delta);
 
         break;
-next:
-        ;
       }
 
       if (mpz_bitlen(z) != bits)
