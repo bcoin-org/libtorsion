@@ -4306,6 +4306,9 @@ mpz_perfect_power_p(const mpz_t x) {
   if (mpz_cmpabs_ui(x, 1) <= 0)
     return 1;
 
+  if (mpz_perfect_square_p(x))
+    return 1;
+
   /* Allocate bit array. */
   n = mpz_bitlen(x);
   sn = (n + 1 + MP_LIMB_BITS - 1) / MP_LIMB_BITS;
@@ -4322,8 +4325,8 @@ mpz_perfect_power_p(const mpz_t x) {
     }
   }
 
-  /* Test prime exponents in [2,ceil(log2(x+1))]. */
-  for (p = 2 + (x->size < 0); p <= n; p++) {
+  /* Test prime exponents in [3,ceil(log2(x+1))]. */
+  for (p = 3; p <= n; p += 2) {
     if (mpn_getbit(sp, sn, p)) {
       if (mpz_root(NULL, x, p))
         goto done;
