@@ -4754,7 +4754,8 @@ mpz_ior_si(mpz_t z, const mpz_t x, mp_long_t y) {
       r = v;
     }
 
-    mpz_set_si(z, mp_long_cast(r, -1));
+    mpz_set_ui(z, r);
+    mpz_neg(z, z);
   } else {
     mpz_ior_ui(z, x, v);
   }
