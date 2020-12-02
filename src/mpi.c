@@ -4208,12 +4208,141 @@ mpz_ui_pow_ui(mpz_t z, mp_limb_t x, mp_limb_t y) {
  */
 
 void
+mpz_rootrem(mpz_t z, mpz_t r, const mpz_t x, mp_limb_t k) {
+  /* Integer k-th root.
+   *
+   * [ARITH] Algorithm 1.14, Page 27, Section 1.5.2
+   */
+  mpz_t u, s, t;
+
+  if (k == 0)
+    torsion_abort(); /* LCOV_EXCL_LINE */
+
+  if (x->size < 0 && (k & 1) == 0)
+    torsion_abort(); /* LCOV_EXCL_LINE */
+
+  if (x->size == 0) {
+    if (z != NULL)
+      z->size = 0;
+
+    if (r != NULL)
+      r->size = 0;
+
+    return;
+  }
+
+  mpz_init(u);
+  mpz_init(s);
+  mpz_init(t);
+
+  /* Algorithm:
+   *
+   *   u <- x (or any value >= floor(x^(1/k)))
+   *
+   *   repeat
+   *     s <- u
+   *     t <- (k - 1) * s + floor(x / s^(k - 1))
+   *     u <- floor(t / k)
+   *   until u >= s
+   *
+   *   return s
+   */
+  mpz_setbit(u, (mpz_bitlen(x) + k - 1) / k + 1);
+
+  if (x->size < 0)
+    mpz_neg(u, u);
+
+  do {
+    mpz_swap(s, u);
+    mpz_pow_ui(t, s, k - 1);
+    mpz_quo(u, x, t);
+    mpz_mul_ui(t, s, k - 1);
+    mpz_add(t, t, u);
+    mpz_quo_ui(u, t, k);
+  } while (mpz_cmpabs(u, s) < 0);
+
+  if (r != NULL) {
+    mpz_pow_ui(t, s, k);
+    mpz_sub(r, x, t);
+  }
+
+  if (z != NULL)
+    mpz_swap(z, s);
+
+  mpz_clear(u);
+  mpz_clear(s);
+  mpz_clear(t);
+}
+
+int
+mpz_root(mpz_t z, const mpz_t x, mp_limb_t k) {
+  mpz_t r;
+  int ret;
+
+  if (z == NULL) {
+    if (k == 0)
+      return 0;
+
+    if (x->size < 0 && (k & 1) == 0)
+      return 0;
+  }
+
+  mpz_init(r);
+  mpz_rootrem(z, r, x, k);
+
+  ret = (r->size == 0);
+
+  mpz_clear(r);
+
+  return ret;
+}
+
+int
+mpz_perfect_power_p(const mpz_t x) {
+  mp_limb_t n, sn, i, p;
+  mp_limb_t *sp;
+  int ret = 1;
+
+  if (mpz_cmpabs_ui(x, 1) <= 0)
+    return 1;
+
+  /* Allocate bit array. */
+  n = mpz_bitlen(x);
+  sn = (n + 1 + MP_LIMB_BITS - 1) / MP_LIMB_BITS;
+  sp = mp_alloc_limbs(sn);
+
+  /* Sieve of Eratosthenes. */
+  for (i = 0; i < sn; i++)
+    sp[i] = MP_LIMB_MAX;
+
+  for (p = 2; p * p <= n; p++) {
+    if (mpn_getbit(sp, sn, p)) {
+      for (i = p * p; i <= n; i += p)
+        mpn_clrbit(sp, i);
+    }
+  }
+
+  /* Test prime exponents in [2,ceil(log2(x+1))]. */
+  for (p = 2 + (x->size < 0); p <= n; p++) {
+    if (mpn_getbit(sp, sn, p)) {
+      if (mpz_root(NULL, x, p))
+        goto done;
+    }
+  }
+
+  ret = 0;
+done:
+  mp_free_limbs(sp);
+  return ret;
+}
+
+void
 mpz_sqrtrem(mpz_t z, mpz_t r, const mpz_t x) {
   /* Integer Square Root.
    *
    * [ARITH] Algorithm 1.13, Page 27, Section 1.5
    */
-  mpz_t u, s;
+  mpz_t u, s, t;
 
   if (x->size < 0)
     torsion_abort(); /* LCOV_EXCL_LINE */
@@ -4230,20 +4359,32 @@ mpz_sqrtrem(mpz_t z, mpz_t r, const mpz_t x) {
 
   mpz_init(u);
   mpz_init(s);
+  mpz_init(t);
 
-  /* u >= floor(x^(1/2)) */
-  mpz_setbit(u, mpz_bitlen(x) / 2 + 1);
+  /* Algorithm:
+   *
+   *   u <- x (or any value >= floor(x^(1/2)))
+   *
+   *   repeat
+   *     s <- u
+   *     t <- s + floor(x / s)
+   *     u <- floor(t / 2)
+   *   until u >= s
+   *
+   *   return s
+   */
+  mpz_setbit(u, (mpz_bitlen(x) + 1) / 2 + 1);
 
   do {
     mpz_swap(s, u);
-    mpz_quo(u, x, s);
-    mpz_add(u, s, u);
-    mpz_quo_2exp(u, u, 1);
+    mpz_quo(t, x, s);
+    mpz_add(t, s, t);
+    mpz_quo_2exp(u, t, 1);
   } while (mpz_cmpabs(u, s) < 0);
 
   if (r != NULL) {
-    mpz_sqr(u, s);
-    mpz_sub(r, x, u);
+    mpz_sqr(t, s);
+    mpz_sub(r, x, t);
   }
 
   if (z != NULL)
@@ -4251,6 +4392,7 @@ mpz_sqrtrem(mpz_t z, mpz_t r, const mpz_t x) {
 
   mpz_clear(u);
   mpz_clear(s);
+  mpz_clear(t);
 }
 
 void
@@ -4267,7 +4409,6 @@ mpz_perfect_square_p(const mpz_t x) {
     return 0;
 
   mpz_init(r);
-
   mpz_sqrtrem(NULL, r, x);
 
   ret = (r->size == 0);

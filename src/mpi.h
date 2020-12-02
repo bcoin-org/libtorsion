@@ -170,6 +170,9 @@
 #define mpz_divround __torsion_mpz_divround
 #define mpz_pow_ui __torsion_mpz_pow_ui
 #define mpz_ui_pow_ui __torsion_mpz_ui_pow_ui
+#define mpz_rootrem __torsion_mpz_rootrem
+#define mpz_root __torsion_mpz_root
+#define mpz_perfect_power_p __torsion_mpz_perfect_power_p
 #define mpz_sqrtrem __torsion_mpz_sqrtrem
 #define mpz_sqrt __torsion_mpz_sqrt
 #define mpz_perfect_square_p __torsion_mpz_perfect_square_p
@@ -1055,6 +1058,15 @@ mpz_ui_pow_ui(mpz_t z, mp_limb_t x, mp_limb_t y);
 /*
  * Roots
  */
+
+void
+mpz_rootrem(mpz_t z, mpz_t r, const mpz_t x, mp_limb_t k);
+
+int
+mpz_root(mpz_t z, const mpz_t x, mp_limb_t k);
+
+int
+mpz_perfect_power_p(const mpz_t x);
 
 void
 mpz_sqrtrem(mpz_t z, mpz_t r, const mpz_t x);
