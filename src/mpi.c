@@ -1403,11 +1403,12 @@ mp_div_2by1(mp_limb_t *q, mp_limb_t *r,
    * divisor to be normalized and does not
    * de-normalize the remainder.
    */
-  mp_limb_t q0, q1, r0, c;
+  mp_limb_t q0, q1, r0;
 
   mp_mul(q1, q0, v, u1);
-  mp_add(q0, c, q0, u0);
-  mp_add_1(q1, c, q1, u1);
+
+  q0 += u0;
+  q1 += u1 + (q0 < u0);
 
   /* At this point, we have computed:
    *
