@@ -4392,7 +4392,7 @@ test_mpz_and(mp_rng_f *rng, void *arg) {
 
     mpz_and_si(r, x, 13);
 
-    ASSERT(mpz_get_ui(r) == (mp_long_t)(mpz_getlimbn(x, 0) & 13));
+    ASSERT(mpz_get_si(r) == (mp_long_t)(mpz_getlimbn(x, 0) & 13));
   }
 
   mpz_clear(x);
