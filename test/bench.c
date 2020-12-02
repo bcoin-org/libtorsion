@@ -304,6 +304,24 @@ bench_eddsa_derive(drbg_t *rng) {
 }
 
 static void
+bench_rsa_generate(drbg_t *rng) {
+  static const unsigned char entropy[ENTROPY_SIZE] = {0};
+  unsigned char priv[RSA_MAX_PRIV_SIZE];
+  size_t priv_len;
+  bench_t tv;
+  int i;
+
+  (void)rng;
+
+  bench_start(&tv, "rsa_generate");
+
+  for (i = 0; i < 100; i++)
+    ASSERT(rsa_privkey_generate(priv, &priv_len, 1024, 65537, entropy));
+
+  bench_end(&tv, i);
+}
+
+static void
 bench_rsa_sign(drbg_t *rng) {
   static const unsigned char priv[] = {
     0x30, 0x82, 0x04, 0xa5, 0x02, 0x01, 0x00, 0x02, 0x82, 0x01, 0x01, 0x00,
@@ -593,6 +611,7 @@ static const struct {
   B(eddsa_sign),
   B(eddsa_verify),
   B(eddsa_derive),
+  B(rsa_generate),
   B(rsa_sign),
   B(rsa_verify),
   B(hash),
