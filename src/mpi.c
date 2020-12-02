@@ -5845,17 +5845,21 @@ mpz_mr_prime_p(const mpz_t n, int reps, int force2, mp_rng_f *rng, void *arg) {
   int ret = 0;
   int i, j, k;
 
-  /* if n < 7 */
-  if (mpz_cmp_ui(n, 7) < 0) {
-    /* n == 2 or n == 3 or n == 5 */
-    return mpz_cmp_ui(n, 2) == 0
-        || mpz_cmp_ui(n, 3) == 0
-        || mpz_cmp_ui(n, 5) == 0;
-  }
+  /* if n < 2 */
+  if (mpz_cmp_ui(n, 2) < 0)
+    return 0;
 
   /* if n mod 2 == 0 */
-  if (mpz_even_p(n))
-    return 0;
+  if (mpz_even_p(n)) {
+    /* n == 2 */
+    return mpz_cmp_ui(n, 2) == 0;
+  }
+
+  /* if n <= 7 */
+  if (mpz_cmp_ui(n, 7) <= 0) {
+    /* n == 3 or n == 5 or n == 7 */
+    return 1;
+  }
 
   mpz_init(nm1);
   mpz_init(nm3);
@@ -5934,14 +5938,20 @@ mpz_lucas_prime_p(const mpz_t n, mp_limb_t limit) {
   int ret = 0;
   mp_limb_t p;
 
-  /* if n <= 1 */
-  if (mpz_cmp_ui(n, 1) <= 0)
+  /* if n < 2 */
+  if (mpz_cmp_ui(n, 2) < 0)
     return 0;
 
   /* if n mod 2 == 0 */
   if (mpz_even_p(n)) {
     /* n == 2 */
     return mpz_cmp_ui(n, 2) == 0;
+  }
+
+  /* if n <= 7 */
+  if (mpz_cmp_ui(n, 7) <= 0) {
+    /* n == 3 or n == 5 or n == 7 */
+    return 1;
   }
 
   mpz_init(d);
