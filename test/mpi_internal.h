@@ -725,21 +725,21 @@ test_mp_helpers(mp_rng_f *rng, void *arg) {
   ASSERT(mp_mul_gt_2(2, MP_LIMB_MAX, 1, 0));
   ASSERT(mp_mul_gt_2(1, 1, 0, 0));
 
-  ASSERT(mp_long_abs(0) == 0);
-  ASSERT(mp_limb_cast(0, 1) == 0);
+  ASSERT(mp_limb_cast(0) == 0);
+  ASSERT(mp_long_cast(0, -1) == 0);
 
-  ASSERT(mp_long_abs(-100) == 100);
-  ASSERT(mp_limb_cast(100, 1) == -100);
+  ASSERT(mp_limb_cast(-100) == 100);
+  ASSERT(mp_long_cast(100, -1) == -100);
 
-  ASSERT(mp_limb_cast(MP_LIMB_HI, 0) == 0);
-  ASSERT(mp_limb_cast(MP_LIMB_HI + 1, 0) == 1);
-  ASSERT(mp_limb_cast(MP_LIMB_HI + 1, 1) == -1);
+  ASSERT(mp_long_cast(MP_LIMB_HI, 1) == 0);
+  ASSERT(mp_long_cast(MP_LIMB_HI + 1, 1) == 1);
+  ASSERT(mp_long_cast(MP_LIMB_HI + 1, -1) == -1);
 
-  ASSERT(mp_long_abs(MP_LONG_MIN) == MP_LIMB_HI);
-  ASSERT(mp_limb_cast(MP_LIMB_HI, 1) == MP_LONG_MIN);
+  ASSERT(mp_limb_cast(MP_LONG_MIN) == MP_LIMB_HI);
+  ASSERT(mp_long_cast(MP_LIMB_HI, -1) == MP_LONG_MIN);
 
-  ASSERT(mp_long_abs(MP_LONG_MIN + 1) == MP_LIMB_HI - 1);
-  ASSERT(mp_limb_cast(MP_LIMB_HI - 1, 1) == MP_LONG_MIN + 1);
+  ASSERT(mp_limb_cast(MP_LONG_MIN + 1) == MP_LIMB_HI - 1);
+  ASSERT(mp_long_cast(MP_LIMB_HI - 1, -1) == MP_LONG_MIN + 1);
 }
 
 static void

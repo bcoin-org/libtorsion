@@ -538,13 +538,13 @@ mp_mul_gt_2(mp_limb_t u, mp_limb_t v, mp_limb_t y1, mp_limb_t y0) {
 }
 
 static TORSION_INLINE int
-mp_cast_size(size_t n) {
+mp_int_cast(size_t n) {
   CHECK(n <= (size_t)INT_MAX);
   return n;
 }
 
 static TORSION_INLINE mp_limb_t
-mp_long_abs(mp_long_t x) {
+mp_limb_cast(mp_long_t x) {
   if (x == MP_LONG_MIN)
     return MP_LIMB_HI;
 
@@ -552,8 +552,8 @@ mp_long_abs(mp_long_t x) {
 }
 
 static TORSION_INLINE mp_long_t
-mp_limb_cast(mp_limb_t x, int sign) {
-  if (sign) {
+mp_long_cast(mp_limb_t x, int sign) {
+  if (sign < 0) {
     if (x == MP_LIMB_HI)
       return MP_LONG_MIN;
 
@@ -2714,7 +2714,7 @@ void
 mpn_import(mp_limb_t *zp, int zn,
            const unsigned char *raw,
            size_t len, int endian) {
-  int size = mp_cast_size(len);
+  int size = mp_int_cast(len);
   int i, j, k;
 
   CHECK(endian == 1 || endian == -1);
@@ -2748,7 +2748,7 @@ mpn_import(mp_limb_t *zp, int zn,
 void
 mpn_export(unsigned char *raw, size_t len,
            const mp_limb_t *xp, int xn, int endian) {
-  int size = mp_cast_size(len);
+  int size = mp_int_cast(len);
   int i, j, k;
 
   CHECK(endian == 1 || endian == -1);
@@ -3311,7 +3311,7 @@ mpz_set_si(mpz_t z, mp_long_t x) {
   } else {
     mpz_grow(z, 1);
 
-    z->limbs[0] = mp_long_abs(x);
+    z->limbs[0] = mp_limb_cast(x);
     z->size = x < 0 ? -1 : 1;
   }
 }
@@ -3330,7 +3330,7 @@ mpz_get_ui(const mpz_t x) {
 
 mp_long_t
 mpz_get_si(const mpz_t x) {
-  return mp_limb_cast(mpz_get_ui(x), x->size < 0);
+  return mp_long_cast(mpz_get_ui(x), x->size);
 }
 
 /*
@@ -3393,7 +3393,7 @@ mpz_cmpabs_ui(const mpz_t x, mp_limb_t y) {
 
 int
 mpz_cmpabs_si(const mpz_t x, mp_long_t y) {
-  return mpv_cmp_1(x->limbs, MP_ABS(x->size), mp_long_abs(y));
+  return mpv_cmp_1(x->limbs, MP_ABS(x->size), mp_limb_cast(y));
 }
 
 /*
@@ -3463,7 +3463,7 @@ mpz_add_ui(mpz_t z, const mpz_t x, mp_limb_t y) {
 void
 mpz_add_si(mpz_t z, const mpz_t x, mp_long_t y) {
   if (y < 0)
-    mpz_sub_ui(z, x, mp_long_abs(y));
+    mpz_sub_ui(z, x, mp_limb_cast(y));
   else
     mpz_add_ui(z, x, y);
 }
@@ -3539,7 +3539,7 @@ mpz_sub_ui(mpz_t z, const mpz_t x, mp_limb_t y) {
 void
 mpz_sub_si(mpz_t z, const mpz_t x, mp_long_t y) {
   if (y < 0)
-    mpz_add_ui(z, x, mp_long_abs(y));
+    mpz_add_ui(z, x, mp_limb_cast(y));
   else
     mpz_sub_ui(z, x, y);
 }
@@ -3574,7 +3574,7 @@ mpz_ui_sub(mpz_t z, mp_limb_t x, const mpz_t y) {
 
 void
 mpz_si_sub(mpz_t z, mp_long_t x, const mpz_t y) {
-  mp_limb_t u = mp_long_abs(x);
+  mp_limb_t u = mp_limb_cast(x);
 
   if (x < 0) {
     if (y->size < 0) {
@@ -3656,7 +3656,7 @@ mpz_mul_ui(mpz_t z, const mpz_t x, mp_limb_t y) {
 
 void
 mpz_mul_si(mpz_t z, const mpz_t x, mp_long_t y) {
-  mpz_mul_ui(z, x, mp_long_abs(y));
+  mpz_mul_ui(z, x, mp_limb_cast(y));
 
   if (y < 0)
     mpz_neg(z, z);
@@ -3729,7 +3729,7 @@ mpz_addmul_ui(mpz_t z, const mpz_t x, mp_limb_t y) {
 void
 mpz_addmul_si(mpz_t z, const mpz_t x, mp_long_t y) {
   if (y < 0)
-    mpz_submul_ui(z, x, mp_long_abs(y));
+    mpz_submul_ui(z, x, mp_limb_cast(y));
   else
     mpz_addmul_ui(z, x, y);
 }
@@ -3763,7 +3763,7 @@ mpz_submul_ui(mpz_t z, const mpz_t x, mp_limb_t y) {
 void
 mpz_submul_si(mpz_t z, const mpz_t x, mp_long_t y) {
   if (y < 0)
-    mpz_addmul_ui(z, x, mp_long_abs(y));
+    mpz_addmul_ui(z, x, mp_limb_cast(y));
   else
     mpz_submul_ui(z, x, y);
 }
@@ -3940,7 +3940,7 @@ mpz_div_si_inner(mpz_t q, const mpz_t n, mp_long_t d, int euclid) {
       qp = q->limbs;
     }
 
-    r = mpn_divmod_1(qp, n->limbs, nn, mp_long_abs(d));
+    r = mpn_divmod_1(qp, n->limbs, nn, mp_limb_cast(d));
 
     if (q != NULL)
       qn = nn - (qp[nn - 1] == 0);
@@ -4609,7 +4609,7 @@ mpz_and_ui(const mpz_t x, mp_limb_t y) {
 
 void
 mpz_and_si(mpz_t z, const mpz_t x, mp_long_t y) {
-  mp_limb_t v = mp_long_abs(y);
+  mp_limb_t v = mp_limb_cast(y);
   mpz_t t;
 
   if (y < 0) {
@@ -4711,7 +4711,7 @@ mpz_ior_ui(mpz_t z, const mpz_t x, mp_limb_t y) {
 
 void
 mpz_ior_si(mpz_t z, const mpz_t x, mp_long_t y) {
-  mp_limb_t v = mp_long_abs(y);
+  mp_limb_t v = mp_limb_cast(y);
   mp_limb_t r;
 
   if (y < 0) {
@@ -4732,7 +4732,7 @@ mpz_ior_si(mpz_t z, const mpz_t x, mp_long_t y) {
       r = v;
     }
 
-    mpz_set_si(z, mp_limb_cast(r, 1));
+    mpz_set_si(z, mp_long_cast(r, -1));
   } else {
     mpz_ior_ui(z, x, v);
   }
@@ -4812,7 +4812,7 @@ mpz_xor_ui(mpz_t z, const mpz_t x, mp_limb_t y) {
 
 void
 mpz_xor_si(mpz_t z, const mpz_t x, mp_long_t y) {
-  mp_limb_t v = mp_long_abs(y);
+  mp_limb_t v = mp_limb_cast(y);
   mpz_t t;
 
   if (y < 0) {
@@ -5524,7 +5524,7 @@ mpz_kronecker_ui(const mpz_t x, mp_limb_t y) {
 
 int
 mpz_kronecker_si(const mpz_t x, mp_long_t y) {
-  mp_limb_t v = mp_long_abs(y);
+  mp_limb_t v = mp_limb_cast(y);
   mpz_t t;
   mpz_roinit_n(t, &v, y < 0 ? -1 : 1);
   return mpz_kronecker(x, t);
@@ -5539,7 +5539,7 @@ mpz_ui_kronecker(mp_limb_t x, const mpz_t y) {
 
 int
 mpz_si_kronecker(mp_long_t x, const mpz_t y) {
-  mp_limb_t u = mp_long_abs(x);
+  mp_limb_t u = mp_limb_cast(x);
   mpz_t t;
   mpz_roinit_n(t, &u, x < 0 ? -1 : 1);
   return mpz_kronecker(t, y);
@@ -6563,7 +6563,7 @@ mpz_limbs_finish(mpz_t z, int n) {
 
 void
 mpz_import(mpz_t z, const unsigned char *raw, size_t size, int endian) {
-  int zn = mp_cast_size((size + MP_LIMB_BYTES - 1) / MP_LIMB_BYTES);
+  int zn = mp_int_cast((size + MP_LIMB_BYTES - 1) / MP_LIMB_BYTES);
 
   if (zn == 0) {
     z->size = 0;
