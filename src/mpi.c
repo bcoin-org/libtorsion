@@ -420,18 +420,7 @@ mp_free_limbs(mp_limb_t *ptr) {
 
 static TORSION_INLINE int
 mp_popcount(mp_limb_t x) {
-#if defined(MP_HAVE_ASM_X64)
-  mp_limb_t z;
-
-  __asm__ (
-    "popcntq %q1, %q0\n"
-    : "=r" (z)
-    : "rm" (x)
-    : "cc"
-  );
-
-  return z;
-#elif defined(mp_builtin_popcount)
+#if defined(mp_builtin_popcount)
   return mp_builtin_popcount(x);
 #else
   /* https://graphics.stanford.edu/~seander/bithacks.html#CountBitsSetParallel */
