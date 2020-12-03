@@ -774,45 +774,6 @@ test_mp_div(mp_rng_f *rng, void *arg) {
   }
 }
 
-static void
-mpz_mod_primorial_simple(mp_limb_t *ra, mp_limb_t *rb, const mpz_t x) {
-  static const mp_limb_t d1 = MP_LIMB_C(4127218095);
-  static const mp_limb_t d2 = MP_LIMB_C(3948078067);
-#if MP_LIMB_BITS == 64
-  static const mp_limb_t d = MP_LIMB_C(16294579238595022365);
-  mp_limb_t r = mpz_rem_ui(x, d);
-
-  ASSERT(d1 * d2 == d);
-
-  *ra = r % d1;
-  *rb = r % d2;
-#else
-  *ra = mpz_rem_ui(x, d1);
-  *rb = mpz_rem_ui(x, d2);
-#endif
-}
-
-static void
-test_mpz_div_primorial(mp_rng_f *rng, void *arg) {
-  mp_limb_t ra1, rb1, ra2, rb2;
-  mpz_t x;
-  int i;
-
-  printf("  - MPZ div primorial.\n");
-
-  mpz_init(x);
-
-  for (i = 0; i < 100; i++) {
-    mpz_urandomb(x, 256, rng, arg);
-
-    mpz_mod_primorial(&ra1, &rb1, x);
-    mpz_mod_primorial_simple(&ra2, &rb2, x);
-
-    ASSERT(ra1 == ra2);
-    ASSERT(rb1 == rb2);
-  }
-}
-
 /*
  * MPN
  */
@@ -5702,6 +5663,30 @@ test_mpz_remove(mp_rng_f *rng, void *arg) {
 }
 
 static void
+test_mpz_mod_primorial(mp_rng_f *rng, void *arg) {
+  static const mp_limb_t d1 = MP_LIMB_C(4127218095);
+  static const mp_limb_t d2 = MP_LIMB_C(3948078067);
+  mp_limb_t ra, rb;
+  mpz_t x;
+  int i;
+
+  printf("  - MPZ mod primorial.\n");
+
+  mpz_init(x);
+
+  for (i = 0; i < 100; i++) {
+    mpz_urandomb(x, 256, rng, arg);
+
+    mpz_mod_primorial(&ra, &rb, x);
+
+    ASSERT(ra == mpz_rem_ui(x, d1));
+    ASSERT(rb == mpz_rem_ui(x, d2));
+  }
+
+  mpz_clear(x);
+}
+
+static void
 test_mpz_primes(mp_rng_f *rng, void *arg) {
   static const mp_limb_t mr_pseudos[] = {
     /* https://oeis.org/A001262 */
@@ -6606,7 +6591,6 @@ test_mpi_internal(mp_rng_f *rng, void *arg) {
   /* MP */
   test_mp_helpers(rng, arg);
   test_mp_div(rng, arg);
-  test_mpz_div_primorial(rng, arg);
 
   /* MPN */
   test_mpn_init(rng, arg);
@@ -6712,6 +6696,7 @@ test_mpi_internal(mp_rng_f *rng, void *arg) {
   test_mpz_sqrtm(rng, arg);
   test_mpz_sqrtpq(rng, arg);
   test_mpz_remove(rng, arg);
+  test_mpz_mod_primorial(rng, arg);
   test_mpz_primes(rng, arg);
   test_mpz_randprime(rng, arg);
   test_mpz_nextprime(rng, arg);

@@ -6201,23 +6201,31 @@ fail:
 
 static void
 mpz_mod_primorial(mp_limb_t *ra, mp_limb_t *rb, const mpz_t x) {
+  /* Compute x mod (p(16)# / 2).
+   *
+   * Where p(16)# = 32589158477190044730.
+   *
+   * See: https://oeis.org/A002110
+   *      https://oeis.org/A070826
+   *
+   * This function avoids division. Our 2-by-1
+   * inverses are precomputed and the modulo's
+   * below are strength-reduced by GCC.
+   */
 #if MP_LIMB_BITS == 64
-  /* 3 * 5 * 7 * 11 * 13 * 17 * 19 * 23 * 29 * 31 * 37 * 41 * 43 * 47 * 53 */
+  /* d = p(16)# / 2 */
   static const mp_limb_t d = MP_LIMB_C(16294579238595022365);
   static const mp_limb_t m = MP_LIMB_C(2436419703539282795);
-  /* 3 * 5 * 7 * 11 * 13 * 17 * 19 * 23 * 37 */
-  static const mp_limb_t d1 = MP_LIMB_C(4127218095);
-  /* 29 * 31 * 41 * 43 * 47 * 53 */
-  static const mp_limb_t d2 = MP_LIMB_C(3948078067);
   mp_limb_t r = mpz_mod_2by1(x, d, m);
 
-  *ra = r % d1;
-  *rb = r % d2;
+  *ra = r % MP_LIMB_C(4127218095);
+  *rb = r % MP_LIMB_C(3948078067);
 #else
-  /* 3 * 5 * 7 * 11 * 13 * 17 * 19 * 23 * 37 */
+  /* d1 = 3 * 5 * 7 * 11 * 13 * 17 * 19 * 23 * 37 */
+  /* d2 = 29 * 31 * 41 * 43 * 47 * 53 */
+  /* d1 * d2 = p(16)# / 2 */
   static const mp_limb_t d1 = MP_LIMB_C(4127218095);
   static const mp_limb_t m1 = MP_LIMB_C(174567303);
-  /* 29 * 31 * 41 * 43 * 47 * 53 */
   static const mp_limb_t d2 = MP_LIMB_C(3948078067);
   static const mp_limb_t m2 = MP_LIMB_C(377367891);
 
@@ -6452,6 +6460,7 @@ static TORSION_INLINE int
 mpz_add_size(const mpz_t x, const mpz_t y) {
   int xn = MP_ABS(x->size);
   int yn = MP_ABS(y->size);
+
   return MP_MAX(xn, yn) + 1;
 }
 
