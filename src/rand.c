@@ -315,13 +315,13 @@ torsion_uniform(uint32_t *num, uint32_t max) {
  */
 
 int
-torsion_reentrancy(void) {
+torsion_threadsafety(void) {
 #if defined(TORSION_HAVE_TLS)
-  return TORSION_REENT_TLS;
+  return TORSION_THREAD_SAFETY_TLS;
 #elif defined(TORSION_HAVE_PTHREAD)
-  return TORSION_REENT_MUTEX;
+  return TORSION_THREAD_SAFETY_MUTEX;
 #else
-  return TORSION_REENT_NONE;
+  return TORSION_THREAD_SAFETY_NONE;
 #endif
 }
 

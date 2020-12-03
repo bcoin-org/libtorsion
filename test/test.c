@@ -4108,14 +4108,14 @@ test_rand_thread_safety(drbg_t *unused) {
   memset(&x1, 0, sizeof(x1));
   memset(&x2, 0, sizeof(x2));
 
-  switch (torsion_reentrancy()) {
-    case TORSION_REENT_NONE:
-      printf("  - Skipping RNG test (not reentrant).\n");
+  switch (torsion_threadsafety()) {
+    case TORSION_THREAD_SAFETY_NONE:
+      printf("  - Skipping RNG test (not thread safe).\n");
       return;
-    case TORSION_REENT_TLS:
+    case TORSION_THREAD_SAFETY_TLS:
       name = "TLS";
       break;
-    case TORSION_REENT_MUTEX:
+    case TORSION_THREAD_SAFETY_MUTEX:
       name = "MUTEX";
       break;
     default:
@@ -4123,7 +4123,7 @@ test_rand_thread_safety(drbg_t *unused) {
       break;
   }
 
-  printf("  - Testing reentrancy (%s)\n", name);
+  printf("  - Testing thread safety (%s)\n", name);
 
   t1 = torsion_thread_alloc();
   t2 = torsion_thread_alloc();
@@ -4141,7 +4141,7 @@ test_rand_thread_safety(drbg_t *unused) {
 
   ASSERT(x0.ptr && x1.ptr && x2.ptr);
 
-  if (torsion_reentrancy() == TORSION_REENT_TLS) {
+  if (torsion_threadsafety() == TORSION_THREAD_SAFETY_TLS) {
     ASSERT(x0.ptr != x1.ptr);
     ASSERT(x0.ptr != x2.ptr);
 
