@@ -221,9 +221,7 @@ endif()
 
 if(TORSION_ENABLE_INT128)
   check_c_source_compiles([=[
-    #ifndef __wasm__
-    typedef char check_64bit_t[sizeof(void *) == 8 ? 1 : -1];
-    #endif
+    typedef char check_64bit_t[sizeof(void *) >= 8 ? 1 : -1];
     typedef signed __int128 int128_t;
     typedef unsigned __int128 uint128_t;
     int main(void) {

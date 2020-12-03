@@ -290,9 +290,7 @@ AS_IF([test x"$enable_int128" = x"yes"], [
   AC_MSG_CHECKING(for int128 support)
   AC_COMPILE_IFELSE([
     AC_LANG_PROGRAM([[
-      #ifndef __wasm__
-      typedef char check_64bit_t[sizeof(void *) == 8 ? 1 : -1];
-      #endif
+      typedef char check_64bit_t[sizeof(void *) >= 8 ? 1 : -1];
       typedef signed __int128 int128_t;
       typedef unsigned __int128 uint128_t;
     ]], [[

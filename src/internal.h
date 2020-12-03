@@ -202,7 +202,7 @@ static const unsigned long __torsion_endian_check TORSION_UNUSED = 1;
  * See: https://stackoverflow.com/a/54815033
  */
 #if defined(__GNUC__) && defined(__SIZEOF_INT128__)
-#  if defined(__amd64__) || defined(__x86_64__) || defined(__wasm__)
+#  if defined(__amd64__) || defined(__x86_64__)
 #    define TORSION_HAVE_INT128
 #  endif
 #endif
