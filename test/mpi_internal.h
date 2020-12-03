@@ -774,6 +774,30 @@ test_mp_div(mp_rng_f *rng, void *arg) {
   }
 }
 
+static void
+test_mp_eratosthenes(void) {
+  int len = ARRAY_SIZE(mpz_test_primes);
+  mp_limb_t n = mpz_test_primes[len - 1];
+  mp_limb_t *sieve;
+  mp_limb_t p;
+  int i = 0;
+
+  printf("  - Sieve of Eratosthenes.\n");
+
+  sieve = mp_eratosthenes(n);
+
+  for (p = 0; p <= n; p++) {
+    if (mpn_tstbit(sieve, p)) {
+      ASSERT(i < len);
+      ASSERT(p == (mp_limb_t)mpz_test_primes[i++]);
+    }
+  }
+
+  ASSERT(i == len);
+
+  mp_free_limbs(sieve);
+}
+
 /*
  * MPN
  */
@@ -5663,6 +5687,107 @@ test_mpz_remove(mp_rng_f *rng, void *arg) {
 }
 
 static void
+test_mpz_factorial(void) {
+  mpz_t z;
+
+  printf("  - MPZ factorial.\n");
+
+  mpz_init(z);
+
+  mpz_fac_ui(z, 10);
+
+  ASSERT(mpz_cmp_ui(z, 3628800) == 0);
+
+  mpz_2fac_ui(z, 10);
+
+  ASSERT(mpz_cmp_ui(z, 945) == 0);
+
+  mpz_mfac_uiui(z, 10, 3);
+
+  ASSERT(mpz_cmp_ui(z, 280) == 0);
+
+  mpz_clear(z);
+}
+
+static void
+test_mpz_primorial(void) {
+  mpz_t z, x;
+
+  printf("  - MPZ primorial.\n");
+
+  mpz_init(z);
+  mpz_init(x);
+
+  /* p(16)# */
+  ASSERT(mpz_set_str(x, "32589158477190044730", 10));
+
+  mpz_primorial_ui(z, 53);
+
+  ASSERT(mpz_cmp(z, x) == 0);
+
+  mpz_clear(z);
+  mpz_clear(x);
+}
+
+static void
+test_mpz_binomial(void) {
+  mpz_t n, z;
+
+  printf("  - MPZ binomial coefficient.\n");
+
+  mpz_init(n);
+  mpz_init(z);
+
+  mpz_set_ui(n, 9);
+  mpz_bin_ui(z, n, 3);
+
+  ASSERT(mpz_cmp_ui(z, 84) == 0);
+
+  mpz_set_si(n, -9);
+  mpz_bin_ui(z, n, 3);
+
+  ASSERT(mpz_cmp_si(z, -165) == 0);
+
+  mpz_bin_uiui(z, 9, 3);
+
+  ASSERT(mpz_cmp_ui(z, 84) == 0);
+
+  mpz_clear(n);
+  mpz_clear(z);
+}
+
+static void
+test_mpz_fibonacci(void) {
+  mpz_t z, r;
+
+  printf("  - MPZ fibonacci sequences.\n");
+
+  mpz_init(z);
+  mpz_init(r);
+
+  mpz_fib_ui(z, 12);
+
+  ASSERT(mpz_cmp_ui(z, 144) == 0);
+
+  mpz_fib2_ui(z, r, 12);
+
+  ASSERT(mpz_cmp_ui(z, 144) == 0);
+  ASSERT(mpz_cmp_ui(r, 89) == 0);
+
+  mpz_lucnum_ui(z, 10);
+
+  ASSERT(mpz_cmp_ui(z, 123) == 0);
+
+  mpz_lucnum2_ui(z, r, 10);
+
+  ASSERT(mpz_cmp_ui(z, 123) == 0);
+  ASSERT(mpz_cmp_ui(r, 76) == 0);
+
+  mpz_clear(z);
+  mpz_clear(r);
+}
+
+static void
 test_mpz_mod_primorial(mp_rng_f *rng, void *arg) {
   static const mp_limb_t d1 = MP_LIMB_C(4127218095);
   static const mp_limb_t d2 = MP_LIMB_C(3948078067);
@@ -6591,6 +6716,7 @@ test_mpi_internal(mp_rng_f *rng, void *arg) {
   /* MP */
   test_mp_helpers(rng, arg);
   test_mp_div(rng, arg);
+  test_mp_eratosthenes();
 
   /* MPN */
   test_mpn_init(rng, arg);
@@ -6696,6 +6822,10 @@ test_mpi_internal(mp_rng_f *rng, void *arg) {
   test_mpz_sqrtm(rng, arg);
   test_mpz_sqrtpq(rng, arg);
   test_mpz_remove(rng, arg);
+  test_mpz_factorial();
+  test_mpz_primorial();
+  test_mpz_binomial();
+  test_mpz_fibonacci();
   test_mpz_mod_primorial(rng, arg);
   test_mpz_primes(rng, arg);
   test_mpz_randprime(rng, arg);

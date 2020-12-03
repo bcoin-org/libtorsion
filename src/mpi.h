@@ -222,6 +222,16 @@
 #define mpz_sqrtm __torsion_mpz_sqrtm
 #define mpz_sqrtpq __torsion_mpz_sqrtpq
 #define mpz_remove __torsion_mpz_remove
+#define mpz_fac_ui __torsion_mpz_fac_ui
+#define mpz_2fac_ui __torsion_mpz_2fac_ui
+#define mpz_mfac_uiui __torsion_mpz_mfac_uiui
+#define mpz_primorial_ui __torsion_mpz_primorial_ui
+#define mpz_bin_ui __torsion_mpz_bin_ui
+#define mpz_bin_uiui __torsion_mpz_bin_uiui
+#define mpz_fib_ui __torsion_mpz_fib_ui
+#define mpz_fib2_ui __torsion_mpz_fib2_ui
+#define mpz_lucnum_ui __torsion_mpz_lucnum_ui
+#define mpz_lucnum2_ui __torsion_mpz_lucnum2_ui
 #define mpz_mr_prime_p __torsion_mpz_mr_prime_p
 #define mpz_lucas_prime_p __torsion_mpz_lucas_prime_p
 #define mpz_probab_prime_p __torsion_mpz_probab_prime_p
@@ -1261,6 +1271,36 @@ mpz_sqrtpq(mpz_t z, const mpz_t x, const mpz_t p, const mpz_t q);
 
 int
 mpz_remove(mpz_t z, const mpz_t x, const mpz_t y);
+
+void
+mpz_fac_ui(mpz_t z, mp_limb_t n);
+
+void
+mpz_2fac_ui(mpz_t z, mp_limb_t n);
+
+void
+mpz_mfac_uiui(mpz_t z, mp_limb_t n, mp_limb_t m);
+
+void
+mpz_primorial_ui(mpz_t z, mp_limb_t n);
+
+void
+mpz_bin_ui(mpz_t z, const mpz_t n, mp_limb_t k);
+
+void
+mpz_bin_uiui(mpz_t z, mp_limb_t n, mp_limb_t k);
+
+void
+mpz_fib_ui(mpz_t z, mp_limb_t n);
+
+void
+mpz_fib2_ui(mpz_t z, mpz_t p, mp_limb_t n);
+
+void
+mpz_lucnum_ui(mpz_t z, mp_limb_t n);
+
+void
+mpz_lucnum2_ui(mpz_t z, mpz_t p, mp_limb_t n);
 
 /*
  * Primality Testing

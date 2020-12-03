@@ -609,6 +609,43 @@ mp_str_limbs(const char *str, int base) {
   return (len + limb_len - 1) / limb_len;
 }
 
+static mp_limb_t *
+mp_eratosthenes(mp_limb_t n) {
+  /* Sieve of Eratosthenes. */
+  mp_limb_t sn, i, p;
+  mp_limb_t *sp;
+  int lo;
+
+  CHECK(n < MP_LOW_MASK * MP_LOW_MASK);
+  CHECK(n <= MP_LIMB_MAX - MP_LIMB_BITS);
+  CHECK(n <= INT_MAX);
+
+  sn = (n + 1 + MP_LIMB_BITS - 1) / MP_LIMB_BITS;
+
+  CHECK(sn <= INT_MAX);
+
+  sp = mp_alloc_limbs(sn);
+
+  for (i = 0; i < sn; i++)
+    sp[i] = MP_LIMB_MAX;
+
+  for (p = 2; p * p <= n; p++) {
+    if (mpn_tstbit(sp, p)) {
+      for (i = p * p; i <= n; i += p)
+        mpn_clrbit(sp, i);
+    }
+  }
+
+  sp[0] &= ~MP_LIMB_C(3);
+
+  lo = (n + 1) % MP_LIMB_BITS;
+
+  if (lo != 0)
+    sp[sn - 1] &= MP_MASK(lo);
+
+  return sp;
+}
+
 /*
  * MPN Interface
  */
@@ -4422,35 +4459,22 @@ mpz_root(mpz_t z, const mpz_t x, mp_limb_t k) {
 
 int
 mpz_perfect_power_p(const mpz_t x) {
-  mp_limb_t n, sn, i, p;
-  mp_limb_t *sp;
+  mp_limb_t n = mpz_bitlen(x);
+  mp_limb_t *sieve;
+  mp_limb_t p;
   int ret = 1;
 
-  if (mpz_cmpabs_ui(x, 1) <= 0)
+  if (n <= 1)
     return 1;
 
   if (mpz_perfect_square_p(x))
     return 1;
 
-  /* Allocate bit array. */
-  n = mpz_bitlen(x);
-  sn = (n + 1 + MP_LIMB_BITS - 1) / MP_LIMB_BITS;
-  sp = mp_alloc_limbs(sn);
-
-  /* Sieve of Eratosthenes. */
-  for (i = 0; i < sn; i++)
-    sp[i] = MP_LIMB_MAX;
-
-  for (p = 2; p * p <= n; p++) {
-    if (mpn_tstbit(sp, p)) {
-      for (i = p * p; i <= n; i += p)
-        mpn_clrbit(sp, i);
-    }
-  }
-
   /* Test prime exponents in [3,ceil(log2(x+1))]. */
+  sieve = mp_eratosthenes(n);
+
   for (p = 3; p <= n; p += 2) {
-    if (mpn_tstbit(sp, p)) {
+    if (mpn_tstbit(sieve, p)) {
       if (mpz_root(NULL, x, p))
         goto done;
     }
@@ -4458,7 +4482,7 @@ mpz_perfect_power_p(const mpz_t x) {
 
   ret = 0;
 done:
-  mp_free_limbs(sp);
+  mp_free_limbs(sieve);
   return ret;
 }
 
@@ -5942,6 +5966,173 @@ mpz_remove(mpz_t z, const mpz_t x, const mpz_t y) {
   mpz_clear(n);
 
   return cnt;
+}
+
+void
+mpz_fac_ui(mpz_t z, mp_limb_t n) {
+  mpz_mfac_uiui(z, n, 1);
+}
+
+void
+mpz_2fac_ui(mpz_t z, mp_limb_t n) {
+  mpz_mfac_uiui(z, n, 2);
+}
+
+void
+mpz_mfac_uiui(mpz_t z, mp_limb_t n, mp_limb_t m) {
+  mp_limb_t i;
+
+  CHECK(m != 0);
+  CHECK(n <= MP_LIMB_MAX - m);
+
+  mpz_set_ui(z, 1);
+
+  for (i = 1; i <= n; i += m)
+    mpz_mul_ui(z, z, i);
+}
+
+void
+mpz_primorial_ui(mpz_t z, mp_limb_t n) {
+  mp_limb_t *sieve;
+  mp_limb_t p;
+
+  if (n < 2) {
+    mpz_set_ui(z, 1);
+    return;
+  }
+
+  sieve = mp_eratosthenes(n);
+
+  mpz_set_ui(z, 2);
+
+  for (p = 3; p <= n; p += 2) {
+    if (mpn_tstbit(sieve, p))
+      mpz_mul_ui(z, z, p);
+  }
+
+  mp_free_limbs(sieve);
+}
+
+void
+mpz_bin_ui(mpz_t z, const mpz_t n, mp_limb_t k) {
+  /* bin(n, k) = n! / (k! * (n - k)!) */
+  mpz_t m, t;
+  int neg = 0;
+  mp_limb_t i;
+
+  mpz_init(m);
+  mpz_init(t);
+
+  /* bin(-n, k) = (-1)^k * bin(n + k - 1, k) */
+  if (n->size < 0) {
+    mpz_neg(m, n);
+    mpz_add_ui(m, m, k);
+    mpz_sub_ui(m, m, 1);
+    neg = (k & 1);
+  } else {
+    mpz_set(m, n);
+  }
+
+  if (mpz_cmp_ui(m, k) < 0) {
+    z->size = 0;
+    goto done;
+  }
+
+  /* bin(n, k) = bin(n, n - k) */
+  mpz_sub_ui(t, m, k);
+
+  if (mpz_cmp_ui(t, k) < 0)
+    k = mpz_get_ui(t);
+
+  mpz_set_ui(z, 1);
+
+  for (i = 0; i < k; i++) {
+    mpz_mul(t, z, m);
+    mpz_quo_ui(z, t, i + 1);
+    mpz_sub_ui(m, m, 1);
+  }
+
+  if (neg)
+    mpz_neg(z, z);
+
+done:
+  mpz_clear(m);
+  mpz_clear(t);
+}
+
+void
+mpz_bin_uiui(mpz_t z, mp_limb_t n, mp_limb_t k) {
+  /* bin(n, k) = n! / (k! * (n - k)!) */
+  mp_limb_t i;
+
+  if (n < k) {
+    z->size = 0;
+    return;
+  }
+
+  /* bin(n, k) = bin(n, n - k) */
+  if (k > n - k)
+    k = n - k;
+
+  mpz_set_ui(z, 1);
+
+  for (i = 0; i < k; i++) {
+    mpz_mul_ui(z, z, n - i);
+    mpz_quo_ui(z, z, i + 1);
+  }
+}
+
+static void
+mpz_fibonacci(mpz_t z, mpz_t p, mp_limb_t n, mp_limb_t f0, mp_limb_t f1) {
+  mpz_t a, b, c;
+  mp_limb_t i;
+
+  mpz_init(a);
+  mpz_init(b);
+  mpz_init(c);
+
+  if (n == 0) {
+    mpz_set_ui(a, 0);
+    mpz_set_ui(b, f0);
+  } else {
+    mpz_set_ui(a, f0);
+    mpz_set_ui(b, f1);
+  }
+
+  for (i = 1; i < n; i++) {
+    mpz_add(c, a, b);
+    mpz_swap(a, b);
+    mpz_swap(b, c);
+  }
+
+  if (p != NULL)
+    mpz_swap(p, a);
+
+  mpz_swap(z, b);
+
+  mpz_clear(a);
+  mpz_clear(b);
+  mpz_clear(c);
+}
+
+void
+mpz_fib_ui(mpz_t z, mp_limb_t n) {
+  mpz_fibonacci(z, NULL, n, 0, 1);
+}
+
+void
+mpz_fib2_ui(mpz_t z, mpz_t p, mp_limb_t n) {
+  mpz_fibonacci(z, p, n, 0, 1);
+}
+
+void
+mpz_lucnum_ui(mpz_t z, mp_limb_t n) {
+  mpz_fibonacci(z, NULL, n, 2, 1);
+}
+
+void
+mpz_lucnum2_ui(mpz_t z, mpz_t p, mp_limb_t n) {
+  mpz_fibonacci(z, p, n, 2, 1);
 }
 
 /*
