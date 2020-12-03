@@ -3266,23 +3266,29 @@ mpz_init_set_str(mpz_t z, const char *str, int base) {
 
 void
 mpz_clear(mpz_t z) {
-  if (z->alloc > 0)
-    mp_free_limbs(z->limbs);
+  ASSERT(z->alloc > 0);
 
-  z->limbs = NULL;
-  z->alloc = 0;
-  z->size = 0;
+  mp_free_limbs(z->limbs);
 }
 
-#define mpz_clear_vla(z) mp_free_vla((z)->limbs, (z)->alloc)
+#define mpz_clear_vla(z) do {          \
+  ASSERT((z)->alloc > 0);              \
+  mp_free_vla((z)->limbs, (z)->alloc); \
+} while (0)
 
 void
 mpz_cleanse(mpz_t z) {
-  if (z->alloc > 0)
-    mpn_cleanse(z->limbs, z->alloc);
+  ASSERT(z->alloc > 0);
 
-  mpz_clear(z);
+  mpn_cleanse(z->limbs, z->alloc);
+  mp_free_limbs(z->limbs);
 }
+
+#define mpz_cleanse_vla(z) do {        \
+  ASSERT((z)->alloc > 0);              \
+  mpn_cleanse((z)->limbs, (z)->alloc); \
+  mp_free_vla((z)->limbs, (z)->alloc); \
+} while (0)
 
 /*
  * Internal
@@ -3290,6 +3296,8 @@ mpz_cleanse(mpz_t z) {
 
 static void
 mpz_grow(mpz_t z, int n) {
+  ASSERT(z->alloc > 0);
+
   if (n > z->alloc) {
     z->limbs = mp_realloc_limbs(z->limbs, n);
     z->alloc = n;
@@ -6688,6 +6696,8 @@ void *
 _mpz_realloc(mpz_t z, int n) {
   n = MP_MAX(1, n);
 
+  ASSERT(z->alloc > 0);
+
   if (n < z->alloc) {
     z->limbs = mp_realloc_limbs(z->limbs, n);
     z->alloc = n;
@@ -6733,9 +6743,7 @@ mpz_limbs_read(const mpz_t x) {
 mp_limb_t *
 mpz_limbs_write(mpz_t z, int n) {
   if (n > z->alloc) {
-    if (z->alloc > 0)
-      mp_free_limbs(z->limbs);
-
+    mpz_clear(z);
     mpz_init_n(z, n);
   }
 
