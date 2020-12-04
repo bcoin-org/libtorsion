@@ -1740,12 +1740,7 @@ static TORSION_INLINE void
 mpn_mod_inner(mp_limb_t *rp, const mp_limb_t *np,
                              mp_size_t nn,
                              mp_divisor_t *den) {
-  nn = mpn_strip(np, nn);
-
-  if (nn > den->size)
-    mpn_divmod_inner(NULL, rp, np, nn, den);
-  else
-    mpn_copyi(rp, np, den->size);
+  mpn_divmod_inner(NULL, rp, np, nn, den);
 }
 
 /*
@@ -2451,7 +2446,7 @@ mpn_div_powm(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn,
   }
 
   if (mpn_cmp(rp, mp, mn) >= 0)
-    mpn_divmod_inner(NULL, zp, rp, mn, &den);
+    mpn_mod_inner(zp, rp, mn, &den);
   else
     mpn_copyi(zp, rp, mn);
 
