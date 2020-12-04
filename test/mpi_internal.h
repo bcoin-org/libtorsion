@@ -776,6 +776,85 @@ test_mp_div(mp_rng_f *rng, void *arg) {
 }
 
 static void
+test_mp_div_3by2(mp_rng_f *rng, void *arg) {
+  mp_limb_t np[10], qp[9];
+  mp_size_t nn = 10;
+  mp_size_t dn = 2;
+  mp_size_t qn = nn - dn + 1;
+  mp_limb_t n2, n1, n0;
+  mp_limb_t d1, d0;
+  mp_limb_t r1, r0;
+  mp_limb_t m;
+  mp_bits_t s;
+  mp_size_t j;
+  int i;
+
+  printf("  - MP div (3-by-2).\n");
+
+  ASSERT(qn == 9);
+
+  for (i = 0; i < 100; i++) {
+    mpn_random(np, nn, rng, arg);
+
+    np[nn - 1] |= (np[nn - 1] == 0);
+
+    d1 = mp_random_limb(rng, arg);
+    d0 = mp_random_limb(rng, arg);
+
+    d1 |= (d1 == 0);
+
+    s = mp_clz(d1);
+
+    if (s != 0) {
+      d1 = (d1 << s) | (d0 >> (MP_LIMB_BITS - s));
+      d0 <<= s;
+    }
+
+    m = mp_inv_3by2(d1, d0);
+
+    r1 = 0;
+    r0 = np[nn - 1];
+
+    for (j = nn - dn; j >= 0; j--) {
+      n2 = r1;
+      n1 = r0;
+      n0 = np[j];
+
+      if (s != 0) {
+        n2 = (n2 << s) | (n1 >> (MP_LIMB_BITS - s));
+        n1 = (n1 << s) | (n0 >> (MP_LIMB_BITS - s));
+        n0 <<= s;
+      }
+
+      mp_div_3by2(&qp[j], &r1, &r0, n2, n1, n0, d1, d0, m);
+
+      if (s != 0) {
+        r0 = (r0 >> s) | (r1 << (MP_LIMB_BITS - s));
+        r1 >>= s;
+      }
+    }
+
+    if (s != 0) {
+      d0 = (d0 >> s) | (d1 << (MP_LIMB_BITS - s));
+      d1 >>= s;
+    }
+
+    {
+      mp_limb_t zp[9], rp[2], dp[2];
+
+      dp[0] = d0;
+      dp[1] = d1;
+
+      mpn_divmod(zp, rp, np, nn, dp, dn);
+
+      ASSERT(mpn_cmp(qp, zp, qn) == 0);
+      ASSERT(r0 == rp[0]);
+      ASSERT(r1 == rp[1]);
+    }
+  }
+}
+
+static void
 test_mp_eratosthenes(void) {
   mp_size_t len = ARRAY_SIZE(mpz_test_primes);
   mp_limb_t n = mpz_test_primes[len - 1];
@@ -6736,6 +6815,7 @@ test_mpi_internal(mp_rng_f *rng, void *arg) {
   /* MP */
   test_mp_helpers(rng, arg);
   test_mp_div(rng, arg);
+  test_mp_div_3by2(rng, arg);
   test_mp_eratosthenes();
 
   /* MPN */

@@ -1481,13 +1481,16 @@ mp_inv_2by1(mp_limb_t d) {
    * more specialized inverse function. See
    * the discussion here[1][2].
    *
+   * Note that `d` must be normalized.
+   *
    * [1] https://go-review.googlesource.com/c/go/+/250417
    * [2] https://go-review.googlesource.com/c/go/+/250417/comment/380e8f18_ad97735c/
    */
-  mp_limb_t u = d << mp_clz(d);
   mp_limb_t q;
 
-  mp_div(&q, NULL, ~u, MP_LIMB_MAX, u);
+  ASSERT(d >= MP_LIMB_HI);
+
+  mp_div(&q, NULL, ~d, MP_LIMB_MAX, d);
 
   return q;
 }
@@ -1582,6 +1585,181 @@ mp_div_2by1(mp_limb_t *q, mp_limb_t *r,
   *r = r0;
 }
 
+TORSION_UNUSED static TORSION_INLINE mp_limb_t
+mp_inv_3by2(mp_limb_t d1, mp_limb_t d0) {
+  /* [DIV] Algorithm 6, Page 6, Section A.
+   *
+   * The approximate reciprocal is defined as:
+   *
+   *   v = ((B^3 - 1) / (d1, d0)) - B
+   *
+   * According to Möller & Granlund, this can
+   * be implemented as follows:
+   *
+   *   v <- reciprocal_word(d1)
+   *   p <- d1 * v mod B
+   *   p <- (p + d0) mod B
+   *
+   *   if p < d0
+   *     v <- v - 1
+   *     if p >= d1
+   *       v <- v - 1
+   *       p <- p - d1
+   *     p <- (p - d1) mod B
+   *
+   *   (t1, t0) <- v * d0
+   *
+   *   p <- (p + t1) mod B
+   *
+   *   if p < t1
+   *     v <- v - 1
+   *     if (p, t0) >= (d1, d0)
+   *       v <- v - 1
+   *
+   *   return v
+   *
+   * Note that (d1, d0) must be normalized.
+   */
+  mp_limb_t v = mp_inv_2by1(d1);
+  mp_limb_t p = d1 * v;
+  mp_limb_t t1, t0;
+
+  p += d0;
+
+  if (p < d0) {
+    v -= 1;
+
+    if (p >= d1) {
+      v -= 1;
+      p -= d1;
+    }
+
+    p -= d1;
+  }
+
+  mp_mul(t1, t0, v, d0);
+
+  p += t1;
+
+  if (p < t1) {
+    v -= 1;
+
+    if (p > d1 || (p == d1 && t0 >= d0))
+      v -= 1;
+  }
+
+  return v;
+}
+
+TORSION_UNUSED static TORSION_INLINE void
+mp_div_3by2(mp_limb_t *q, mp_limb_t *k1, mp_limb_t *k0,
+            mp_limb_t u2, mp_limb_t u1, mp_limb_t u0,
+            mp_limb_t d1, mp_limb_t d0, mp_limb_t v) {
+  /* [DIV] Algorithm 5, Page 5, Section IV.
+   *
+   * The 3-by-2 division is defined by
+   * Möller & Granlund as:
+   *
+   *   (q1, q0) <- v * u2
+   *   (q1, q0) <- (q1, q0) + (u2, u1)
+   *
+   *   r1 <- (u1 - q1 * d1) mod B
+   *
+   *   (t1, t0) <- d0 * q1
+   *   (r1, r0) <- ((r1, u0) - (t1, t0) - (d1, d0)) mod B^2
+   *
+   *   q1 <- (q1 + 1) mod B
+   *
+   *   if r1 >= q0 (unpredictable)
+   *     q1 <- (q1 - 1) mod B
+   *     (r1, r0) <- ((r1, r0) + (d1, d0)) mod B^2
+   *
+   *   if (r1, r0) >= (d1, d0) (unlikely)
+   *     q1 <- q1 + 1
+   *     (r1, r0) <- (r1, r0) - (d1, d0)
+   *
+   *   return q1, (r1, r0)
+   *
+   * Note that this function expects the
+   * divisor to be normalized and does not
+   * de-normalize the remainder.
+   */
+  mp_limb_t q1, q0, r1, r0, t1, t0;
+
+  mp_mul(q1, q0, v, u2);
+
+  q0 += u1;
+  q1 += u2 + (q0 < u1);
+
+  r1 = u1 - d1 * q1;
+
+  mp_mul(t1, t0, d0, q1);
+
+  t0 += d0;
+  t1 += d1 + (t0 < d0);
+
+  r0 = u0 - t0;
+  r1 = r1 - t1 - (r0 > u0);
+
+  /* At this point, we have computed:
+   *
+   *   q = (((B^3 - 1) / d) - B) * (u / B^2) + (u / B)
+   *     = ((B^3 - 1) * u) / (B^2 * d)
+   *
+   * On an 8-bit machine, this implies:
+   *
+   *   q = (u * 0xffffff) / (d << 16)
+   *
+   * For example, if we want to compute:
+   *
+   *   [q, r] = 0x421 / 0x83 = [0x08, 0x09]
+   *
+   * We first compute:
+   *
+   *   q = 0x0420fffbdf / 0x830000 = 0x0811
+   *
+   * Note that the actual quotient is
+   * in the high bits of the result.
+   *
+   * Our remainder is trickier. We now
+   * compute:
+   *
+   *   r = (u1 - q1 * d1) mod B
+   *     = 0x04 - 0x08 * 0x00
+   *     = 0x04
+   *
+   *   r = (r * B + u0 - (d0 * q1) - d) mod B^2
+   *     = 0x0400 + 0x21 - 0x83 * 0x08 - 0x83
+   *     = -0x7a (allowed to underflow)
+   *     = 0xff86 mod B^2
+   *
+   * Since 0xff >= 0x11, the first branch
+   * is triggered, computing:
+   *
+   *   r = r + d
+   *     = 0xff86 + 0x83
+   *     = 0x09 mod B^2
+   */
+  q1 += 1;
+
+  if (r1 >= q0) {
+    q1 -= 1;
+    r0 += d0;
+    r1 += d1 + (r0 < d0);
+  }
+
+  if (UNLIKELY(r1 > d1 || (r1 == d1 && r0 >= d0))) {
+    q1 += 1;
+    t0 = r0 - d0;
+    r1 = r1 - d1 - (t0 > r0);
+    r0 = t0;
+  }
+
+  *q = q1;
+  *k1 = r1;
+  *k0 = r0;
+}
+
 /*
  * Division Engine
  */
@@ -1624,6 +1802,7 @@ static void
 mpn_divmod_small(mp_limb_t *qp, mp_limb_t *rp,
                  const mp_limb_t *np, mp_size_t nn,
                  const mp_divisor_t *den) {
+  /* [DIV] Algorithm 7, Page 7, Section C. */
   mp_bits_t s = den->shift;
   mp_limb_t d = den->vp[0];
   mp_limb_t m = den->inv;
@@ -1749,6 +1928,7 @@ mpn_mod_inner(mp_limb_t *rp, const mp_limb_t *np,
 
 mp_limb_t
 mpn_divmod_1(mp_limb_t *qp, const mp_limb_t *np, mp_size_t nn, mp_limb_t d) {
+  /* [DIV] Algorithm 7, Page 7, Section C. */
   mp_limb_t q, r, n0, n1, m;
   mp_size_t i;
   mp_bits_t s;
@@ -1768,9 +1948,8 @@ mpn_divmod_1(mp_limb_t *qp, const mp_limb_t *np, mp_size_t nn, mp_limb_t d) {
 
   r = 0;
   s = mp_clz(d);
-  m = mp_inv_2by1(d);
-
   d <<= s;
+  m = mp_inv_2by1(d);
 
   for (i = nn - 1; i >= 0; i--) {
     n1 = r;
