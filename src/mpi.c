@@ -303,88 +303,89 @@ typedef struct mp_divisor_s {
   mp_limb_t *up;
   mp_limb_t *vp;
   mp_limb_t inv;
-  int shift;
-  int size;
+  mp_bits_t shift;
+  mp_size_t size;
 } mp_divisor_t;
 
 /*
  * MPV Declarations
  */
 
-static TORSION_INLINE int
+static TORSION_INLINE mp_size_t
 mpv_set_1(mp_limb_t *zp, mp_limb_t x);
 
-static TORSION_INLINE int
-mpv_set(mp_limb_t *zp, const mp_limb_t *xp, int xn);
+static TORSION_INLINE mp_size_t
+mpv_set(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn);
 
 static TORSION_INLINE int
-mpv_cmp_1(const mp_limb_t *xp, int xn, mp_limb_t y);
+mpv_cmp_1(const mp_limb_t *xp, mp_size_t xn, mp_limb_t y);
 
 static TORSION_INLINE int
-mpv_cmp(const mp_limb_t *xp, int xn,
-        const mp_limb_t *yp, int yn);
+mpv_cmp(const mp_limb_t *xp, mp_size_t xn,
+        const mp_limb_t *yp, mp_size_t yn);
 
-static TORSION_INLINE int
-mpv_add_1(mp_limb_t *zp, const mp_limb_t *xp, int xn, mp_limb_t y);
+static TORSION_INLINE mp_size_t
+mpv_add_1(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn, mp_limb_t y);
 
-static TORSION_INLINE int
-mpv_add(mp_limb_t *zp, const mp_limb_t *xp, int xn,
-                       const mp_limb_t *yp, int yn);
+static TORSION_INLINE mp_size_t
+mpv_add(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn,
+                       const mp_limb_t *yp, mp_size_t yn);
 
-static TORSION_INLINE int
-mpv_sub_1(mp_limb_t *zp, const mp_limb_t *xp, int xn, mp_limb_t y);
+static TORSION_INLINE mp_size_t
+mpv_sub_1(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn, mp_limb_t y);
 
-static TORSION_INLINE int
-mpv_sub(mp_limb_t *zp, const mp_limb_t *xp, int xn,
-                       const mp_limb_t *yp, int yn);
+static TORSION_INLINE mp_size_t
+mpv_sub(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn,
+                       const mp_limb_t *yp, mp_size_t yn);
 
-static TORSION_INLINE int
-mpv_sub_mod(mp_limb_t *zp, const mp_limb_t *xp, int xn,
-                           const mp_limb_t *yp, int yn,
-                           const mp_limb_t *mp, int mn);
+static TORSION_INLINE mp_size_t
+mpv_sub_mod(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn,
+                           const mp_limb_t *yp, mp_size_t yn,
+                           const mp_limb_t *mp, mp_size_t mn);
 
-static TORSION_INLINE int
-mpv_mul_1(mp_limb_t *zp, const mp_limb_t *xp, int xn, mp_limb_t y);
+static TORSION_INLINE mp_size_t
+mpv_mul_1(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn, mp_limb_t y);
 
-static TORSION_INLINE int
-mpv_mul(mp_limb_t *zp, const mp_limb_t *xp, int xn,
-                       const mp_limb_t *yp, int yn);
+static TORSION_INLINE mp_size_t
+mpv_mul(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn,
+                       const mp_limb_t *yp, mp_size_t yn);
 
-static TORSION_INLINE int
+static TORSION_INLINE mp_size_t
 mpv_sqr_1(mp_limb_t *zp, mp_limb_t x);
 
-static TORSION_INLINE int
-mpv_sqr(mp_limb_t *zp, const mp_limb_t *xp, int xn, mp_limb_t *scratch);
+static TORSION_INLINE mp_size_t
+mpv_sqr(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn, mp_limb_t *scratch);
 
-static TORSION_INLINE int
-mpv_lshift(mp_limb_t *zp, const mp_limb_t *xp, int xn, int bits);
+static TORSION_INLINE mp_size_t
+mpv_lshift(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn, mp_bits_t bits);
 
-static TORSION_INLINE int
-mpv_rshift(mp_limb_t *zp, const mp_limb_t *xp, int xn, int bits);
+static TORSION_INLINE mp_size_t
+mpv_rshift(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn, mp_bits_t bits);
 
 /*
  * Internal Helpers
  */
 
 static TORSION_INLINE void
-mpn_swap(mp_limb_t **xp, int *xn,
-         mp_limb_t **yp, int *yn);
+mpn_swap(mp_limb_t **xp, mp_size_t *xn,
+         mp_limb_t **yp, mp_size_t *yn);
 
-static int
+static mp_bits_t
 mpz_ctz_common(const mpz_t x, const mpz_t y);
 
-static TORSION_INLINE int
+static TORSION_INLINE mp_size_t
 mpz_add_size(const mpz_t x, const mpz_t y);
 
 static TORSION_INLINE void
-mpz_mswap(const struct mpz_s **x, int *xn, const struct mpz_s **y, int *yn);
+mpz_mswap(const struct mpz_s **x, mp_size_t *xn,
+          const struct mpz_s **y, mp_size_t *yn);
 
 /*
  * Allocation
  */
 
 mp_limb_t *
-mp_alloc_limbs(int size) {
+mp_alloc_limbs(mp_size_t size) {
   mp_limb_t *ptr;
 
   CHECK(size > 0);
@@ -398,7 +399,7 @@ mp_alloc_limbs(int size) {
 }
 
 mp_limb_t *
-mp_realloc_limbs(mp_limb_t *ptr, int size) {
+mp_realloc_limbs(mp_limb_t *ptr, mp_size_t size) {
   CHECK(size > 0);
 
   ptr = realloc(ptr, size * sizeof(mp_limb_t));
@@ -418,7 +419,7 @@ mp_free_limbs(mp_limb_t *ptr) {
  * Helpers
  */
 
-static TORSION_INLINE int
+static TORSION_INLINE mp_bits_t
 mp_popcount(mp_limb_t x) {
 #if defined(mp_builtin_popcount)
   return mp_builtin_popcount(x);
@@ -445,7 +446,7 @@ mp_popcount(mp_limb_t x) {
 #endif
 }
 
-static TORSION_INLINE int
+static TORSION_INLINE mp_bits_t
 mp_clz(mp_limb_t x) {
 #if defined(MP_HAVE_ASM_X64)
   mp_limb_t z;
@@ -480,7 +481,7 @@ mp_clz(mp_limb_t x) {
 #endif
 }
 
-static TORSION_INLINE int
+static TORSION_INLINE mp_bits_t
 mp_ctz(mp_limb_t x) {
 #if defined(MP_HAVE_ASM_X64)
   mp_limb_t z;
@@ -507,7 +508,7 @@ mp_ctz(mp_limb_t x) {
 #endif
 }
 
-static TORSION_INLINE int
+static TORSION_INLINE mp_bits_t
 mp_bitlen(mp_limb_t x) {
 #if defined(MP_HAVE_ASM_X64)
   mp_limb_t z;
@@ -537,9 +538,9 @@ mp_mul_gt_2(mp_limb_t u, mp_limb_t v, mp_limb_t y1, mp_limb_t y0) {
   return x1 > y1 || (x1 == y1 && x0 > y0);
 }
 
-static TORSION_INLINE int
-mp_int_cast(size_t n) {
-  CHECK(n <= (size_t)INT_MAX);
+static TORSION_INLINE mp_size_t
+mp_size_cast(size_t n) {
+  CHECK(n <= (size_t)MP_SIZE_MAX);
   return n;
 }
 
@@ -552,7 +553,7 @@ mp_limb_cast(mp_long_t x) {
 }
 
 static TORSION_INLINE mp_long_t
-mp_long_cast(mp_limb_t x, int sign) {
+mp_long_cast(mp_limb_t x, mp_size_t sign) {
   if (sign < 0) {
     if (x == MP_LIMB_HI)
       return MP_LONG_MIN;
@@ -577,11 +578,11 @@ mp_isspace(int ch) {
   return 0;
 }
 
-static int
+static mp_size_t
 mp_str_limbs(const char *str, int base) {
   mp_limb_t max, limb_pow;
-  int limb_len;
-  int len = 0;
+  mp_size_t limb_len;
+  mp_size_t len = 0;
 
   while (*str)
     len += !mp_isspace(*str++);
@@ -614,15 +615,15 @@ mp_eratosthenes(mp_limb_t n) {
   /* Sieve of Eratosthenes. */
   mp_limb_t sn, i, p;
   mp_limb_t *sp;
-  int lo;
+  mp_bits_t lo;
 
   CHECK(n < MP_LOW_MASK * MP_LOW_MASK);
   CHECK(n <= MP_LIMB_MAX - MP_LIMB_BITS);
-  CHECK(n <= INT_MAX);
+  CHECK(n <= MP_BITS_MAX);
 
   sn = (n + 1 + MP_LIMB_BITS - 1) / MP_LIMB_BITS;
 
-  CHECK(sn <= INT_MAX);
+  CHECK(sn <= MP_SIZE_MAX);
 
   sp = mp_alloc_limbs(sn);
 
@@ -655,8 +656,8 @@ mp_eratosthenes(mp_limb_t n) {
  */
 
 void
-mpn_zero(mp_limb_t *zp, int zn) {
-  int i;
+mpn_zero(mp_limb_t *zp, mp_size_t zn) {
+  mp_size_t i;
 
   for (i = 0; i < zn; i++)
     zp[i] = 0;
@@ -670,7 +671,7 @@ void
 torsion_cleanse(void *, size_t);
 
 void
-mpn_cleanse(mp_limb_t *zp, int zn) {
+mpn_cleanse(mp_limb_t *zp, mp_size_t zn) {
   torsion_cleanse(zp, zn * sizeof(mp_limb_t));
 }
 
@@ -679,7 +680,7 @@ mpn_cleanse(mp_limb_t *zp, int zn) {
  */
 
 void
-mpn_set_1(mp_limb_t *zp, int zn, mp_limb_t x) {
+mpn_set_1(mp_limb_t *zp, mp_size_t zn, mp_limb_t x) {
   ASSERT(zn > 0);
 
   zp[0] = x;
@@ -688,16 +689,16 @@ mpn_set_1(mp_limb_t *zp, int zn, mp_limb_t x) {
 }
 
 void
-mpn_copyi(mp_limb_t *zp, const mp_limb_t *xp, int xn) {
-  int i;
+mpn_copyi(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn) {
+  mp_size_t i;
 
   for (i = 0; i < xn; i++)
     zp[i] = xp[i];
 }
 
 void
-mpn_copyd(mp_limb_t *zp, const mp_limb_t *xp, int xn) {
-  int i;
+mpn_copyd(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn) {
+  mp_size_t i;
 
   for (i = xn - 1; i >= 0; i--)
     zp[i] = xp[i];
@@ -708,8 +709,8 @@ mpn_copyd(mp_limb_t *zp, const mp_limb_t *xp, int xn) {
  */
 
 int
-mpn_zero_p(const mp_limb_t *xp, int xn) {
-  int i;
+mpn_zero_p(const mp_limb_t *xp, mp_size_t xn) {
+  mp_size_t i;
 
   for (i = 0; i < xn; i++) {
     if (xp[i] != 0)
@@ -720,8 +721,8 @@ mpn_zero_p(const mp_limb_t *xp, int xn) {
 }
 
 int
-mpn_cmp(const mp_limb_t *xp, const mp_limb_t *yp, int n) {
-  int i;
+mpn_cmp(const mp_limb_t *xp, const mp_limb_t *yp, mp_size_t n) {
+  mp_size_t i;
 
   for (i = n - 1; i >= 0; i--) {
     if (xp[i] != yp[i])
@@ -736,9 +737,9 @@ mpn_cmp(const mp_limb_t *xp, const mp_limb_t *yp, int n) {
  */
 
 mp_limb_t
-mpn_add_1(mp_limb_t *zp, const mp_limb_t *xp, int xn, mp_limb_t y) {
+mpn_add_1(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn, mp_limb_t y) {
   mp_limb_t c = y;
-  int i = 0;
+  mp_size_t i = 0;
 
   switch (xn & 3) {
     case 3:
@@ -761,9 +762,11 @@ mpn_add_1(mp_limb_t *zp, const mp_limb_t *xp, int xn, mp_limb_t y) {
 }
 
 mp_limb_t
-mpn_add_n(mp_limb_t *zp, const mp_limb_t *xp, const mp_limb_t *yp, int n) {
+mpn_add_n(mp_limb_t *zp, const mp_limb_t *xp,
+                         const mp_limb_t *yp,
+                         mp_size_t n) {
   mp_limb_t c = 0;
-  int i = 0;
+  mp_size_t i = 0;
 
   switch (n & 3) {
     case 3:
@@ -786,8 +789,8 @@ mpn_add_n(mp_limb_t *zp, const mp_limb_t *xp, const mp_limb_t *yp, int n) {
 }
 
 mp_limb_t
-mpn_add(mp_limb_t *zp, const mp_limb_t *xp, int xn,
-                       const mp_limb_t *yp, int yn) {
+mpn_add(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn,
+                       const mp_limb_t *yp, mp_size_t yn) {
   mp_limb_t c;
 
   CHECK(xn >= yn);
@@ -805,9 +808,9 @@ mpn_add(mp_limb_t *zp, const mp_limb_t *xp, int xn,
  */
 
 mp_limb_t
-mpn_sub_1(mp_limb_t *zp, const mp_limb_t *xp, int xn, mp_limb_t y) {
+mpn_sub_1(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn, mp_limb_t y) {
   mp_limb_t c = y;
-  int i = 0;
+  mp_size_t i = 0;
 
   switch (xn & 3) {
     case 3:
@@ -830,9 +833,11 @@ mpn_sub_1(mp_limb_t *zp, const mp_limb_t *xp, int xn, mp_limb_t y) {
 }
 
 mp_limb_t
-mpn_sub_n(mp_limb_t *zp, const mp_limb_t *xp, const mp_limb_t *yp, int n) {
+mpn_sub_n(mp_limb_t *zp, const mp_limb_t *xp,
+                         const mp_limb_t *yp,
+                         mp_size_t n) {
   mp_limb_t c = 0;
-  int i = 0;
+  mp_size_t i = 0;
 
   switch (n & 3) {
     case 3:
@@ -855,8 +860,8 @@ mpn_sub_n(mp_limb_t *zp, const mp_limb_t *xp, const mp_limb_t *yp, int n) {
 }
 
 mp_limb_t
-mpn_sub(mp_limb_t *zp, const mp_limb_t *xp, int xn,
-                       const mp_limb_t *yp, int yn) {
+mpn_sub(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn,
+                       const mp_limb_t *yp, mp_size_t yn) {
   mp_limb_t c;
 
   CHECK(xn >= yn);
@@ -874,9 +879,9 @@ mpn_sub(mp_limb_t *zp, const mp_limb_t *xp, int xn,
  */
 
 mp_limb_t
-mpn_mul_1(mp_limb_t *zp, const mp_limb_t *xp, int xn, mp_limb_t y) {
+mpn_mul_1(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn, mp_limb_t y) {
   mp_limb_t c = 0;
-  int i = 0;
+  mp_size_t i = 0;
 
   switch (xn & 3) {
     case 3:
@@ -899,9 +904,9 @@ mpn_mul_1(mp_limb_t *zp, const mp_limb_t *xp, int xn, mp_limb_t y) {
 }
 
 mp_limb_t
-mpn_addmul_1(mp_limb_t *zp, const mp_limb_t *xp, int xn, mp_limb_t y) {
+mpn_addmul_1(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn, mp_limb_t y) {
   mp_limb_t c = 0;
-  int i = 0;
+  mp_size_t i = 0;
 
   switch (xn & 3) {
     case 3:
@@ -924,9 +929,9 @@ mpn_addmul_1(mp_limb_t *zp, const mp_limb_t *xp, int xn, mp_limb_t y) {
 }
 
 mp_limb_t
-mpn_submul_1(mp_limb_t *zp, const mp_limb_t *xp, int xn, mp_limb_t y) {
+mpn_submul_1(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn, mp_limb_t y) {
   mp_limb_t c = 0;
-  int i = 0;
+  mp_size_t i = 0;
 
   switch (xn & 3) {
     case 3:
@@ -949,14 +954,16 @@ mpn_submul_1(mp_limb_t *zp, const mp_limb_t *xp, int xn, mp_limb_t y) {
 }
 
 void
-mpn_mul_n(mp_limb_t *zp, const mp_limb_t *xp, const mp_limb_t *yp, int n) {
+mpn_mul_n(mp_limb_t *zp, const mp_limb_t *xp,
+                         const mp_limb_t *yp,
+                         mp_size_t n) {
   mpn_mul(zp, xp, n, yp, n);
 }
 
 void
-mpn_mul(mp_limb_t *zp, const mp_limb_t *xp, int xn,
-                       const mp_limb_t *yp, int yn) {
-  int i;
+mpn_mul(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn,
+                       const mp_limb_t *yp, mp_size_t yn) {
+  mp_size_t i;
 
   if (yn == 0) {
     mpn_zero(zp, xn);
@@ -970,12 +977,12 @@ mpn_mul(mp_limb_t *zp, const mp_limb_t *xp, int xn,
 }
 
 void
-mpn_sqr(mp_limb_t *zp, const mp_limb_t *xp, int xn, mp_limb_t *scratch) {
+mpn_sqr(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn, mp_limb_t *scratch) {
   /* `2 * xn` limbs are required for scratch. */
   mp_limb_t *tp = scratch;
   mp_limb_t c = 0;
   mp_limb_t w;
-  int i;
+  mp_size_t i;
 
   if (xn == 0)
     return;
@@ -1013,22 +1020,22 @@ mpn_sqr(mp_limb_t *zp, const mp_limb_t *xp, int xn, mp_limb_t *scratch) {
  */
 
 mp_limb_t
-mpn_mulshift(mp_limb_t *zp,
-             const mp_limb_t *xp,
-             const mp_limb_t *yp,
-             int n, int bits,
-             mp_limb_t *scratch) {
+mpn_mulshift(mp_limb_t *zp, const mp_limb_t *xp,
+                            const mp_limb_t *yp,
+                            mp_size_t n,
+                            mp_bits_t bits,
+                            mp_limb_t *scratch) {
   /* Computes `z = round((x * y) / 2^bits)`.
    *
    * Constant time assuming `bits` is constant.
    *
    * `2 * n` limbs are required for scratch.
    */
-  int s = bits / MP_LIMB_BITS;
-  int r = bits % MP_LIMB_BITS;
+  mp_size_t s = bits / MP_LIMB_BITS;
+  mp_bits_t r = bits % MP_LIMB_BITS;
   mp_limb_t *tp = scratch;
-  int tn = n * 2;
-  int zn = tn - s;
+  mp_size_t tn = n * 2;
+  mp_size_t zn = tn - s;
   mp_limb_t b;
 
   /* Ensure L <= bits <= 2 * L. */
@@ -1059,11 +1066,11 @@ mpn_mulshift(mp_limb_t *zp,
  */
 
 int
-mpn_reduce_weak(mp_limb_t *zp,
-                const mp_limb_t *xp,
-                const mp_limb_t *np,
-                int n, mp_limb_t hi,
-                mp_limb_t *scratch) {
+mpn_reduce_weak(mp_limb_t *zp, const mp_limb_t *xp,
+                               const mp_limb_t *np,
+                               mp_size_t n,
+                               mp_limb_t hi,
+                               mp_limb_t *scratch) {
   /* `n` limbs are required for scratch. */
   mp_limb_t *tp = scratch;
   mp_limb_t c = mpn_sub_n(tp, xp, np, n);
@@ -1081,7 +1088,9 @@ mpn_reduce_weak(mp_limb_t *zp,
 
 void
 mpn_barrett(mp_limb_t *mp, const mp_limb_t *np,
-            int n, int shift, mp_limb_t *scratch) {
+                           mp_size_t n,
+                           mp_size_t shift,
+                           mp_limb_t *scratch) {
   /* Barrett precomputation.
    *
    * [HANDBOOK] Page 603, Section 14.3.3.
@@ -1091,7 +1100,7 @@ mpn_barrett(mp_limb_t *mp, const mp_limb_t *np,
    * Must have `shift - n + 1` limbs at mp.
    */
   mp_limb_t *xp = scratch;
-  int xn = shift + 1;
+  mp_size_t xn = shift + 1;
 
   CHECK(n > 0);
   CHECK(shift >= n * 2);
@@ -1112,7 +1121,8 @@ void
 mpn_reduce(mp_limb_t *zp, const mp_limb_t *xp,
                           const mp_limb_t *mp,
                           const mp_limb_t *np,
-                          int n, int shift,
+                          mp_size_t n,
+                          mp_size_t shift,
                           mp_limb_t *scratch) {
   /* Barrett reduction.
    *
@@ -1122,7 +1132,7 @@ mpn_reduce(mp_limb_t *zp, const mp_limb_t *xp,
    *
    * In other words: `2 * (shift + 1) - n` limbs.
    */
-  int mn = shift - n + 1;
+  mp_size_t mn = shift - n + 1;
   mp_limb_t *qp = scratch;
   mp_limb_t *hp = scratch + 1;
 
@@ -1149,8 +1159,10 @@ mpn_reduce(mp_limb_t *zp, const mp_limb_t *xp,
  */
 
 void
-mpn_mont(mp_limb_t *kp, mp_limb_t *rp,
-         const mp_limb_t *mp, int n,
+mpn_mont(mp_limb_t *kp,
+         mp_limb_t *rp,
+         const mp_limb_t *mp,
+         mp_size_t n,
          mp_limb_t *scratch) {
   /* Montgomery precomputation.
    *
@@ -1159,9 +1171,9 @@ mpn_mont(mp_limb_t *kp, mp_limb_t *rp,
    * `2 * n + 1` limbs are required for scratch.
    */
   mp_limb_t *xp = scratch;
-  int xn = n * 2 + 1;
+  mp_size_t xn = n * 2 + 1;
   mp_limb_t k, t;
-  int i;
+  mp_size_t i;
 
   CHECK(n > 0);
 
@@ -1188,7 +1200,8 @@ static TORSION_INLINE mp_limb_t
 mpn_montmul_inner(const mp_limb_t *xp,
                   const mp_limb_t *yp,
                   const mp_limb_t *mp,
-                  int n, mp_limb_t k,
+                  mp_size_t n,
+                  mp_limb_t k,
                   mp_limb_t *scratch) {
   /* Montgomery multiplication.
    *
@@ -1198,7 +1211,7 @@ mpn_montmul_inner(const mp_limb_t *xp,
    */
   mp_limb_t *tp = scratch;
   mp_limb_t c1, c2, c3, cx, cy;
-  int i;
+  mp_size_t i;
 
   ASSERT(n > 0);
 
@@ -1223,12 +1236,12 @@ mpn_montmul_inner(const mp_limb_t *xp,
 }
 
 void
-mpn_montmul(mp_limb_t *zp,
-            const mp_limb_t *xp,
-            const mp_limb_t *yp,
-            const mp_limb_t *mp,
-            int n, mp_limb_t k,
-            mp_limb_t *scratch) {
+mpn_montmul(mp_limb_t *zp, const mp_limb_t *xp,
+                           const mp_limb_t *yp,
+                           const mp_limb_t *mp,
+                           mp_size_t n,
+                           mp_limb_t k,
+                           mp_limb_t *scratch) {
   /* Word-by-Word Montgomery Multiplication.
    *
    * [MONT] Algorithm 4, Page 5, Section 3.
@@ -1244,12 +1257,12 @@ mpn_montmul(mp_limb_t *zp,
 }
 
 void
-mpn_montmul_var(mp_limb_t *zp,
-                const mp_limb_t *xp,
-                const mp_limb_t *yp,
-                const mp_limb_t *mp,
-                int n, mp_limb_t k,
-                mp_limb_t *scratch) {
+mpn_montmul_var(mp_limb_t *zp, const mp_limb_t *xp,
+                               const mp_limb_t *yp,
+                               const mp_limb_t *mp,
+                               mp_size_t n,
+                               mp_limb_t k,
+                               mp_limb_t *scratch) {
   /* Word-by-Word Almost Montgomery Multiplication.
    *
    * [MONT] Algorithm 4, Page 5, Section 3.
@@ -1269,7 +1282,8 @@ mpn_montmul_var(mp_limb_t *zp,
 
 static void
 mp_div(mp_limb_t *q, mp_limb_t *r,
-       mp_limb_t n1, mp_limb_t n0, mp_limb_t d) {
+       mp_limb_t n1, mp_limb_t n0,
+       mp_limb_t d) {
 #if defined(MP_HAVE_ASM_X86) || defined(MP_HAVE_ASM_X64)
   mp_limb_t q0, r0;
 
@@ -1302,7 +1316,7 @@ mp_div(mp_limb_t *q, mp_limb_t *r,
    */
   static const mp_limb_t b = MP_LIMB_C(1) << MP_LOW_BITS;
   mp_limb_t q0, q1, un0, un1, vn0, vn1, rhat;
-  int s;
+  mp_bits_t s;
 
   if (d == 0 || n1 >= d)
     torsion_abort(); /* LCOV_EXCL_LINE */
@@ -1516,8 +1530,8 @@ mp_div_2by1(mp_limb_t *q, mp_limb_t *r,
 } while (0)
 
 static void
-mpn_divmod_precomp(mp_divisor_t *den, const mp_limb_t *dp, int dn) {
-  int shift;
+mpn_divmod_precomp(mp_divisor_t *den, const mp_limb_t *dp, mp_size_t dn) {
+  mp_bits_t shift;
 
   if (dn <= 0 || dp[dn - 1] == 0)
     torsion_abort(); /* LCOV_EXCL_LINE */
@@ -1540,14 +1554,14 @@ mpn_divmod_precomp(mp_divisor_t *den, const mp_limb_t *dp, int dn) {
 
 static void
 mpn_divmod_small(mp_limb_t *qp, mp_limb_t *rp,
-                 const mp_limb_t *np, int nn,
+                 const mp_limb_t *np, mp_size_t nn,
                  const mp_divisor_t *den) {
   mp_limb_t d = den->vp[0];
   mp_limb_t m = den->inv;
   mp_limb_t q, n1, n0;
   mp_limb_t r = 0;
-  int s = den->shift;
-  int j;
+  mp_bits_t s = den->shift;
+  mp_size_t j;
 
   for (j = nn - 1; j >= 0; j--) {
     n1 = r;
@@ -1572,7 +1586,7 @@ mpn_divmod_small(mp_limb_t *qp, mp_limb_t *rp,
 
 static void
 mpn_divmod_inner(mp_limb_t *qp, mp_limb_t *rp,
-                 const mp_limb_t *np, int nn,
+                 const mp_limb_t *np, mp_size_t nn,
                  mp_divisor_t *den) {
   /* Division of nonnegative integers.
    *
@@ -1587,8 +1601,8 @@ mpn_divmod_inner(mp_limb_t *qp, mp_limb_t *rp,
   mp_limb_t qhat, rhat, prev, c;
   mp_limb_t *up = den->up;
   mp_limb_t m = den->inv;
-  int dn = den->size;
-  int j;
+  mp_size_t dn = den->size;
+  mp_size_t j;
 
   if (nn < dn)
     torsion_abort(); /* LCOV_EXCL_LINE */
@@ -1648,7 +1662,9 @@ mpn_divmod_inner(mp_limb_t *qp, mp_limb_t *rp,
 }
 
 static TORSION_INLINE void
-mpn_mod_inner(mp_limb_t *rp, const mp_limb_t *np, int nn, mp_divisor_t *den) {
+mpn_mod_inner(mp_limb_t *rp, const mp_limb_t *np,
+                             mp_size_t nn,
+                             mp_divisor_t *den) {
   nn = mpn_strip(np, nn);
 
   if (nn > den->size)
@@ -1662,9 +1678,10 @@ mpn_mod_inner(mp_limb_t *rp, const mp_limb_t *np, int nn, mp_divisor_t *den) {
  */
 
 mp_limb_t
-mpn_divmod_1(mp_limb_t *qp, const mp_limb_t *np, int nn, mp_limb_t d) {
+mpn_divmod_1(mp_limb_t *qp, const mp_limb_t *np, mp_size_t nn, mp_limb_t d) {
   mp_limb_t q, r, n0, n1, m;
-  int i, s;
+  mp_size_t i;
+  mp_bits_t s;
 
   if (nn <= 0 || d == 0)
     torsion_abort(); /* LCOV_EXCL_LINE */
@@ -1706,19 +1723,19 @@ mpn_divmod_1(mp_limb_t *qp, const mp_limb_t *np, int nn, mp_limb_t d) {
 }
 
 void
-mpn_div_1(mp_limb_t *qp, const mp_limb_t *np, int nn, mp_limb_t d) {
+mpn_div_1(mp_limb_t *qp, const mp_limb_t *np, mp_size_t nn, mp_limb_t d) {
   mpn_divmod_1(qp, np, nn, d);
 }
 
 mp_limb_t
-mpn_mod_1(const mp_limb_t *np, int nn, mp_limb_t d) {
+mpn_mod_1(const mp_limb_t *np, mp_size_t nn, mp_limb_t d) {
   return mpn_divmod_1(NULL, np, nn, d);
 }
 
 void
 mpn_divmod(mp_limb_t *qp, mp_limb_t *rp,
-           const mp_limb_t *np, int nn,
-           const mp_limb_t *dp, int dn) {
+           const mp_limb_t *np, mp_size_t nn,
+           const mp_limb_t *dp, mp_size_t dn) {
   mp_divisor_t den;
 
   if (dn <= 0 || nn < dn)
@@ -1730,14 +1747,14 @@ mpn_divmod(mp_limb_t *qp, mp_limb_t *rp,
 }
 
 void
-mpn_div(mp_limb_t *qp, const mp_limb_t *np, int nn,
-                       const mp_limb_t *dp, int dn) {
+mpn_div(mp_limb_t *qp, const mp_limb_t *np, mp_size_t nn,
+                       const mp_limb_t *dp, mp_size_t dn) {
   mpn_divmod(qp, NULL, np, nn, dp, dn);
 }
 
 void
-mpn_mod(mp_limb_t *rp, const mp_limb_t *np, int nn,
-                       const mp_limb_t *dp, int dn) {
+mpn_mod(mp_limb_t *rp, const mp_limb_t *np, mp_size_t nn,
+                       const mp_limb_t *dp, mp_size_t dn) {
   mpn_divmod(NULL, rp, np, nn, dp, dn);
 }
 
@@ -1746,12 +1763,12 @@ mpn_mod(mp_limb_t *rp, const mp_limb_t *np, int nn,
  */
 
 void
-mpn_divround(mp_limb_t *qp, const mp_limb_t *np, int nn,
-                            const mp_limb_t *dp, int dn) {
+mpn_divround(mp_limb_t *qp, const mp_limb_t *np, mp_size_t nn,
+                            const mp_limb_t *dp, mp_size_t dn) {
   /* Computes q = (n + (d >> 1)) / d. */
   /* Requires nn - dn + 2 limbs at qp. */
   mp_limb_t *tp;
-  int tn;
+  mp_size_t tn;
 
   if (dn <= 0 || nn < dn)
     torsion_abort(); /* LCOV_EXCL_LINE */
@@ -1773,8 +1790,10 @@ mpn_divround(mp_limb_t *qp, const mp_limb_t *np, int nn,
  */
 
 void
-mpn_and_n(mp_limb_t *zp, const mp_limb_t *xp, const mp_limb_t *yp, int n) {
-  int i;
+mpn_and_n(mp_limb_t *zp, const mp_limb_t *xp,
+                         const mp_limb_t *yp,
+                         mp_size_t n) {
+  mp_size_t i;
 
   for (i = 0; i < n; i++)
     zp[i] = xp[i] & yp[i];
@@ -1785,8 +1804,10 @@ mpn_and_n(mp_limb_t *zp, const mp_limb_t *xp, const mp_limb_t *yp, int n) {
  */
 
 void
-mpn_ior_n(mp_limb_t *zp, const mp_limb_t *xp, const mp_limb_t *yp, int n) {
-  int i;
+mpn_ior_n(mp_limb_t *zp, const mp_limb_t *xp,
+                         const mp_limb_t *yp,
+                         mp_size_t n) {
+  mp_size_t i;
 
   for (i = 0; i < n; i++)
     zp[i] = xp[i] | yp[i];
@@ -1797,8 +1818,10 @@ mpn_ior_n(mp_limb_t *zp, const mp_limb_t *xp, const mp_limb_t *yp, int n) {
  */
 
 void
-mpn_xor_n(mp_limb_t *zp, const mp_limb_t *xp, const mp_limb_t *yp, int n) {
-  int i;
+mpn_xor_n(mp_limb_t *zp, const mp_limb_t *xp,
+                         const mp_limb_t *yp,
+                         mp_size_t n) {
+  mp_size_t i;
 
   for (i = 0; i < n; i++)
     zp[i] = xp[i] ^ yp[i];
@@ -1809,8 +1832,10 @@ mpn_xor_n(mp_limb_t *zp, const mp_limb_t *xp, const mp_limb_t *yp, int n) {
  */
 
 void
-mpn_andn_n(mp_limb_t *zp, const mp_limb_t *xp, const mp_limb_t *yp, int n) {
-  int i;
+mpn_andn_n(mp_limb_t *zp, const mp_limb_t *xp,
+                          const mp_limb_t *yp,
+                          mp_size_t n) {
+  mp_size_t i;
 
   for (i = 0; i < n; i++)
     zp[i] = xp[i] & ~yp[i];
@@ -1821,8 +1846,10 @@ mpn_andn_n(mp_limb_t *zp, const mp_limb_t *xp, const mp_limb_t *yp, int n) {
  */
 
 void
-mpn_iorn_n(mp_limb_t *zp, const mp_limb_t *xp, const mp_limb_t *yp, int n) {
-  int i;
+mpn_iorn_n(mp_limb_t *zp, const mp_limb_t *xp,
+                          const mp_limb_t *yp,
+                          mp_size_t n) {
+  mp_size_t i;
 
   for (i = 0; i < n; i++)
     zp[i] = xp[i] | ~yp[i];
@@ -1833,8 +1860,10 @@ mpn_iorn_n(mp_limb_t *zp, const mp_limb_t *xp, const mp_limb_t *yp, int n) {
  */
 
 void
-mpn_nand_n(mp_limb_t *zp, const mp_limb_t *xp, const mp_limb_t *yp, int n) {
-  int i;
+mpn_nand_n(mp_limb_t *zp, const mp_limb_t *xp,
+                          const mp_limb_t *yp,
+                          mp_size_t n) {
+  mp_size_t i;
 
   for (i = 0; i < n; i++)
     zp[i] = ~(xp[i] & yp[i]);
@@ -1845,8 +1874,10 @@ mpn_nand_n(mp_limb_t *zp, const mp_limb_t *xp, const mp_limb_t *yp, int n) {
  */
 
 void
-mpn_nior_n(mp_limb_t *zp, const mp_limb_t *xp, const mp_limb_t *yp, int n) {
-  int i;
+mpn_nior_n(mp_limb_t *zp, const mp_limb_t *xp,
+                          const mp_limb_t *yp,
+                          mp_size_t n) {
+  mp_size_t i;
 
   for (i = 0; i < n; i++)
     zp[i] = ~(xp[i] | yp[i]);
@@ -1857,8 +1888,10 @@ mpn_nior_n(mp_limb_t *zp, const mp_limb_t *xp, const mp_limb_t *yp, int n) {
  */
 
 void
-mpn_nxor_n(mp_limb_t *zp, const mp_limb_t *xp, const mp_limb_t *yp, int n) {
-  int i;
+mpn_nxor_n(mp_limb_t *zp, const mp_limb_t *xp,
+                          const mp_limb_t *yp,
+                          mp_size_t n) {
+  mp_size_t i;
 
   for (i = 0; i < n; i++)
     zp[i] = ~(xp[i] ^ yp[i]);
@@ -1869,8 +1902,8 @@ mpn_nxor_n(mp_limb_t *zp, const mp_limb_t *xp, const mp_limb_t *yp, int n) {
  */
 
 void
-mpn_com(mp_limb_t *zp, const mp_limb_t *xp, int xn) {
-  int i;
+mpn_com(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn) {
+  mp_size_t i;
 
   for (i = 0; i < xn; i++)
     zp[i] = ~xp[i];
@@ -1881,10 +1914,10 @@ mpn_com(mp_limb_t *zp, const mp_limb_t *xp, int xn) {
  */
 
 mp_limb_t
-mpn_lshift(mp_limb_t *zp, const mp_limb_t *xp, int xn, int bits) {
+mpn_lshift(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn, mp_bits_t bits) {
   /* Note: this is not vectorized on clang for some reason. */
   mp_limb_t c;
-  int i;
+  mp_size_t i;
 
   ASSERT(xn > 0);
   ASSERT(bits > 0 && bits < MP_LIMB_BITS);
@@ -1904,9 +1937,9 @@ mpn_lshift(mp_limb_t *zp, const mp_limb_t *xp, int xn, int bits) {
  */
 
 mp_limb_t
-mpn_rshift(mp_limb_t *zp, const mp_limb_t *xp, int xn, int bits) {
+mpn_rshift(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn, mp_bits_t bits) {
   mp_limb_t c;
-  int i;
+  mp_size_t i;
 
   ASSERT(xn > 0);
   ASSERT(bits > 0 && bits < MP_LIMB_BITS);
@@ -1926,8 +1959,8 @@ mpn_rshift(mp_limb_t *zp, const mp_limb_t *xp, int xn, int bits) {
  */
 
 mp_limb_t
-mpn_getbit(const mp_limb_t *xp, int xn, int pos) {
-  int index = pos / MP_LIMB_BITS;
+mpn_getbit(const mp_limb_t *xp, mp_size_t xn, mp_bits_t pos) {
+  mp_size_t index = pos / MP_LIMB_BITS;
 
   if (index >= xn)
     return 0;
@@ -1936,10 +1969,10 @@ mpn_getbit(const mp_limb_t *xp, int xn, int pos) {
 }
 
 mp_limb_t
-mpn_getbits(const mp_limb_t *xp, int xn, int pos, int width) {
-  int index = pos / MP_LIMB_BITS;
+mpn_getbits(const mp_limb_t *xp, mp_size_t xn, mp_bits_t pos, mp_bits_t width) {
+  mp_size_t index = pos / MP_LIMB_BITS;
   mp_limb_t bits, next;
-  int shift, more;
+  mp_bits_t shift, more;
 
   ASSERT(width < MP_LIMB_BITS);
 
@@ -1960,40 +1993,41 @@ mpn_getbits(const mp_limb_t *xp, int xn, int pos, int width) {
 }
 
 int
-mpn_tstbit(const mp_limb_t *xp, int pos) {
+mpn_tstbit(const mp_limb_t *xp, mp_bits_t pos) {
   return (xp[pos / MP_LIMB_BITS] >> (pos % MP_LIMB_BITS)) & 1;
 }
 
 void
-mpn_setbit(mp_limb_t *zp, int pos) {
+mpn_setbit(mp_limb_t *zp, mp_bits_t pos) {
   zp[pos / MP_LIMB_BITS] |= MP_LIMB_C(1) << (pos % MP_LIMB_BITS);
 }
 
 void
-mpn_clrbit(mp_limb_t *zp, int pos) {
+mpn_clrbit(mp_limb_t *zp, mp_bits_t pos) {
   zp[pos / MP_LIMB_BITS] &= ~(MP_LIMB_C(1) << (pos % MP_LIMB_BITS));
 }
 
 void
-mpn_combit(mp_limb_t *zp, int pos) {
-  int s = pos / MP_LIMB_BITS;
-  int r = pos % MP_LIMB_BITS;
+mpn_combit(mp_limb_t *zp, mp_bits_t pos) {
+  mp_size_t s = pos / MP_LIMB_BITS;
+  mp_bits_t r = pos % MP_LIMB_BITS;
   mp_limb_t b = (zp[s] >> r) & 1;
 
   zp[s] &= ~(MP_LIMB_C(1) << r);
   zp[s] |= (b ^ 1) << r;
 }
 
-static int
-mpn_scan(const mp_limb_t *xp, int xn, mp_limb_t m, mp_limb_t c, int pos) {
-  int s = pos / MP_LIMB_BITS;
+static mp_bits_t
+mpn_scan(const mp_limb_t *xp, mp_size_t xn,
+         mp_limb_t m, mp_limb_t c, mp_bits_t pos) {
+  mp_size_t s = pos / MP_LIMB_BITS;
+  mp_bits_t r, b;
   mp_limb_t z;
-  int r, b;
 
   m -= 1;
 
   if (s >= xn)
-    return m == 0 ? INT_MAX : pos;
+    return m == 0 ? MP_BITS_MAX : pos;
 
   mp_sub(z, c, xp[s], c);
 
@@ -2016,23 +2050,23 @@ mpn_scan(const mp_limb_t *xp, int xn, mp_limb_t m, mp_limb_t c, int pos) {
     return s * MP_LIMB_BITS + mp_ctz(z ^ m);
   }
 
-  return m == 0 ? INT_MAX : s * MP_LIMB_BITS;
+  return m == 0 ? MP_BITS_MAX : s * MP_LIMB_BITS;
 }
 
-int
-mpn_scan0(const mp_limb_t *xp, int xn, int pos) {
+mp_bits_t
+mpn_scan0(const mp_limb_t *xp, mp_size_t xn, mp_bits_t pos) {
   return mpn_scan(xp, xn, 0, 0, pos);
 }
 
-int
-mpn_scan1(const mp_limb_t *xp, int xn, int pos) {
+mp_bits_t
+mpn_scan1(const mp_limb_t *xp, mp_size_t xn, mp_bits_t pos) {
   return mpn_scan(xp, xn, 1, 0, pos);
 }
 
-int
-mpn_popcount(const mp_limb_t *xp, int xn) {
-  int c = 0;
-  int i;
+mp_bits_t
+mpn_popcount(const mp_limb_t *xp, mp_size_t xn) {
+  mp_bits_t c = 0;
+  mp_size_t i;
 
   for (i = 0; i < xn; i++)
     c += mp_popcount(xp[i]);
@@ -2040,10 +2074,10 @@ mpn_popcount(const mp_limb_t *xp, int xn) {
   return c;
 }
 
-int
-mpn_hamdist(const mp_limb_t *xp, const mp_limb_t *yp, int n) {
-  int c = 0;
-  int i;
+mp_bits_t
+mpn_hamdist(const mp_limb_t *xp, const mp_limb_t *yp, mp_size_t n) {
+  mp_bits_t c = 0;
+  mp_size_t i;
 
   for (i = 0; i < n; i++)
     c += mp_popcount(xp[i] ^ yp[i]);
@@ -2052,9 +2086,9 @@ mpn_hamdist(const mp_limb_t *xp, const mp_limb_t *yp, int n) {
 }
 
 void
-mpn_mask(mp_limb_t *zp, const mp_limb_t *xp, int xn, int bits) {
-  int zn = bits / MP_LIMB_BITS;
-  int lo = bits % MP_LIMB_BITS;
+mpn_mask(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn, mp_bits_t bits) {
+  mp_size_t zn = bits / MP_LIMB_BITS;
+  mp_bits_t lo = bits % MP_LIMB_BITS;
 
   if (zn >= xn) {
     mpn_copyi(zp, xp, xn);
@@ -2077,9 +2111,9 @@ mpn_mask(mp_limb_t *zp, const mp_limb_t *xp, int xn, int bits) {
  */
 
 mp_limb_t
-mpn_neg(mp_limb_t *zp, const mp_limb_t *xp, int xn) {
+mpn_neg(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn) {
   mp_limb_t c = 0;
-  int i = 0;
+  mp_size_t i = 0;
 
   switch (xn & 3) {
     case 3:
@@ -2106,10 +2140,9 @@ mpn_neg(mp_limb_t *zp, const mp_limb_t *xp, int xn) {
  */
 
 int
-mpn_invert(mp_limb_t *zp,
-           const mp_limb_t *xp, int xn,
-           const mp_limb_t *yp, int yn,
-           mp_limb_t *scratch) {
+mpn_invert(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn,
+                          const mp_limb_t *yp, mp_size_t yn,
+                          mp_limb_t *scratch) {
   /* Penk's right shift binary EGCD.
    *
    * [KNUTH] Exercise 4.5.2.39, Page 646.
@@ -2118,7 +2151,8 @@ mpn_invert(mp_limb_t *zp,
   mp_limb_t *bp = &scratch[1 * (yn + 1)];
   mp_limb_t *up = &scratch[2 * (yn + 1)];
   mp_limb_t *vp = &scratch[3 * (yn + 1)];
-  int an, bn, un, vn, shift;
+  mp_size_t an, bn, un, vn;
+  mp_bits_t shift;
 
   if (!mpn_odd_p(yp, yn) || xn > yn)
     torsion_abort(); /* LCOV_EXCL_LINE */
@@ -2180,20 +2214,19 @@ mpn_invert(mp_limb_t *zp,
 }
 
 int
-mpn_invert_n(mp_limb_t *zp,
-             const mp_limb_t *xp,
-             const mp_limb_t *yp,
-             int n,
-             mp_limb_t *scratch) {
-  int xn = mpn_strip(xp, n);
-  int yn = n;
+mpn_invert_n(mp_limb_t *zp, const mp_limb_t *xp,
+                            const mp_limb_t *yp,
+                            mp_size_t n,
+                            mp_limb_t *scratch) {
+  mp_size_t xn = mpn_strip(xp, n);
+  mp_size_t yn = n;
 
   return mpn_invert(zp, xp, xn, yp, yn, scratch);
 }
 
 int
-mpn_jacobi(const mp_limb_t *xp, int xn,
-           const mp_limb_t *yp, int yn,
+mpn_jacobi(const mp_limb_t *xp, mp_size_t xn,
+           const mp_limb_t *yp, mp_size_t yn,
            mp_limb_t *scratch) {
   /* Binary Jacobi Symbol.
    *
@@ -2201,7 +2234,8 @@ mpn_jacobi(const mp_limb_t *xp, int xn,
    */
   mp_limb_t *ap = &scratch[0 * yn];
   mp_limb_t *bp = &scratch[1 * yn];
-  int an, bn, bits;
+  mp_size_t an, bn;
+  mp_bits_t bits;
   int j = 1;
 
   if (!mpn_odd_p(yp, yn) || xn > yn)
@@ -2244,18 +2278,18 @@ mpn_jacobi(const mp_limb_t *xp, int xn,
 int
 mpn_jacobi_n(const mp_limb_t *xp,
              const mp_limb_t *yp,
-             int n,
+             mp_size_t n,
              mp_limb_t *scratch) {
-  int xn = mpn_strip(xp, n);
-  int yn = n;
+  mp_size_t xn = mpn_strip(xp, n);
+  mp_size_t yn = n;
 
   return mpn_jacobi(xp, xn, yp, yn, scratch);
 }
 
 static void
-mpn_div_powm(mp_limb_t *zp, const mp_limb_t *xp, int xn,
-                            const mp_limb_t *yp, int yn,
-                            const mp_limb_t *mp, int mn,
+mpn_div_powm(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn,
+                            const mp_limb_t *yp, mp_size_t yn,
+                            const mp_limb_t *mp, mp_size_t mn,
                             mp_limb_t *scratch) {
   /* Sliding window with division. */
   mp_limb_t *ap = &scratch[0 * mn]; /* mn */
@@ -2263,9 +2297,9 @@ mpn_div_powm(mp_limb_t *zp, const mp_limb_t *xp, int xn,
   mp_limb_t *sp = &scratch[2 * mn]; /* 2 * mn */
   mp_limb_t *tp = &scratch[4 * mn]; /* 2 * mn */
   mp_limb_t *wp = &scratch[6 * mn]; /* wnd_size * mn */
-  int i, j, len, width, bits, shift;
+  mp_bits_t i, j, len, width, bits, shift;
   mp_divisor_t den;
-  int sn = mn * 2;
+  mp_size_t sn = mn * 2;
 
   if (mn <= 0 || xn > mn)
     torsion_abort(); /* LCOV_EXCL_LINE */
@@ -2350,18 +2384,17 @@ mpn_div_powm(mp_limb_t *zp, const mp_limb_t *xp, int xn,
 }
 
 static void
-mpn_mont_powm(mp_limb_t *zp,
-              const mp_limb_t *xp, int xn,
-              const mp_limb_t *yp, int yn,
-              const mp_limb_t *mp, int mn,
-              mp_limb_t *scratch) {
+mpn_mont_powm(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn,
+                             const mp_limb_t *yp, mp_size_t yn,
+                             const mp_limb_t *mp, mp_size_t mn,
+                             mp_limb_t *scratch) {
   /* Sliding window with montgomery. */
   mp_limb_t *ap = &scratch[0 * mn]; /* mn */
   mp_limb_t *rp = &scratch[1 * mn]; /* mn */
   mp_limb_t *tp = &scratch[2 * mn]; /* 2 * mn + 1 */
   mp_limb_t *rr = &scratch[4 * mn + 1]; /* mn */
   mp_limb_t *wp = &scratch[5 * mn + 1]; /* wnd_size * mn */
-  int i, j, len, width, bits, shift;
+  mp_bits_t i, j, len, width, bits, shift;
   mp_limb_t k;
 
   if (!mpn_odd_p(mp, mn))
@@ -2444,9 +2477,9 @@ mpn_mont_powm(mp_limb_t *zp,
 }
 
 void
-mpn_powm(mp_limb_t *zp, const mp_limb_t *xp, int xn,
-                        const mp_limb_t *yp, int yn,
-                        const mp_limb_t *mp, int mn,
+mpn_powm(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn,
+                        const mp_limb_t *yp, mp_size_t yn,
+                        const mp_limb_t *mp, mp_size_t mn,
                         mp_limb_t *scratch) {
   /* x^y mod 0 = abort */
   if (mn <= 0 || xn > mn || mp[mn - 1] == 0)
@@ -2480,18 +2513,17 @@ mpn_powm(mp_limb_t *zp, const mp_limb_t *xp, int xn,
 }
 
 void
-mpn_sec_powm(mp_limb_t *zp,
-             const mp_limb_t *xp, int xn,
-             const mp_limb_t *yp, int yn,
-             const mp_limb_t *mp, int mn,
-             mp_limb_t *scratch) {
+mpn_sec_powm(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn,
+                            const mp_limb_t *yp, mp_size_t yn,
+                            const mp_limb_t *mp, mp_size_t mn,
+                            mp_limb_t *scratch) {
   /* Fixed window montgomery. */
   mp_limb_t *rp = &scratch[0 * mn]; /* mn */
   mp_limb_t *tp = &scratch[1 * mn]; /* 2 * mn + 1 */
   mp_limb_t *sp = &scratch[3 * mn + 1]; /* mn */
   mp_limb_t *rr = &scratch[4 * mn + 1]; /* mn */
   mp_limb_t *wp = &scratch[5 * mn + 1]; /* wnd_size * mn */
-  int i, j, b, steps;
+  mp_bits_t i, j, b, steps;
   mp_limb_t k;
 
   if (!mpn_odd_p(mp, mn) || xn > mn)
@@ -2542,8 +2574,8 @@ mpn_sec_powm(mp_limb_t *zp,
  * Helpers
  */
 
-int
-mpn_strip(const mp_limb_t *xp, int xn) {
+mp_size_t
+mpn_strip(const mp_limb_t *xp, mp_size_t xn) {
   while (xn > 0 && xp[xn - 1] == 0)
     xn -= 1;
 
@@ -2551,7 +2583,7 @@ mpn_strip(const mp_limb_t *xp, int xn) {
 }
 
 int
-mpn_odd_p(const mp_limb_t *xp, int xn) {
+mpn_odd_p(const mp_limb_t *xp, mp_size_t xn) {
   if (xn == 0)
     return 0;
 
@@ -2559,13 +2591,13 @@ mpn_odd_p(const mp_limb_t *xp, int xn) {
 }
 
 int
-mpn_even_p(const mp_limb_t *xp, int xn) {
+mpn_even_p(const mp_limb_t *xp, mp_size_t xn) {
   return !mpn_odd_p(xp, xn);
 }
 
-int
-mpn_ctz(const mp_limb_t *xp, int xn) {
-  int i;
+mp_bits_t
+mpn_ctz(const mp_limb_t *xp, mp_size_t xn) {
+  mp_size_t i;
 
   for (i = 0; i < xn; i++) {
     if (xp[i] != 0)
@@ -2575,9 +2607,9 @@ mpn_ctz(const mp_limb_t *xp, int xn) {
   return xn * MP_LIMB_BITS;
 }
 
-int
-mpn_bitlen(const mp_limb_t *xp, int xn) {
-  int i;
+mp_bits_t
+mpn_bitlen(const mp_limb_t *xp, mp_size_t xn) {
+  mp_size_t i;
 
   for (i = xn - 1; i >= 0; i--) {
     if (xp[i] != 0)
@@ -2588,15 +2620,15 @@ mpn_bitlen(const mp_limb_t *xp, int xn) {
 }
 
 size_t
-mpn_bytelen(const mp_limb_t *xp, int xn) {
+mpn_bytelen(const mp_limb_t *xp, mp_size_t xn) {
   return (mpn_bitlen(xp, xn) + 7) / 8;
 }
 
 size_t
-mpn_sizeinbase(const mp_limb_t *xp, int xn, int base) {
+mpn_sizeinbase(const mp_limb_t *xp, mp_size_t xn, int base) {
   if (base >= 2 && (base & (base - 1)) == 0) {
-    int den = mp_bitlen(base - 1);
-    int len = mpn_bitlen(xp, xn);
+    mp_bits_t den = mp_bitlen(base - 1);
+    mp_bits_t len = mpn_bitlen(xp, xn);
 
     if (len == 0)
       return 1;
@@ -2608,10 +2640,10 @@ mpn_sizeinbase(const mp_limb_t *xp, int xn, int base) {
 }
 
 static TORSION_INLINE void
-mpn_swap(mp_limb_t **xp, int *xn,
-         mp_limb_t **yp, int *yn) {
+mpn_swap(mp_limb_t **xp, mp_size_t *xn,
+         mp_limb_t **yp, mp_size_t *yn) {
   mp_limb_t *tp = *xp;
-  int tn = *xn;
+  mp_size_t tn = *xn;
 
   *xp = *yp;
   *xn = *yn;
@@ -2624,34 +2656,34 @@ mpn_swap(mp_limb_t **xp, int *xn,
  */
 
 void
-mpn_select(mp_limb_t *zp,
-           const mp_limb_t *xp,
-           const mp_limb_t *yp,
-           int n, int flag) {
+mpn_select(mp_limb_t *zp, const mp_limb_t *xp,
+                          const mp_limb_t *yp,
+                          mp_size_t n,
+                          int flag) {
   mp_limb_t cond = (flag != 0);
   mp_limb_t mask0 = mp_limb_barrier(cond - 1);
   mp_limb_t mask1 = mp_limb_barrier(~mask0);
-  int i;
+  mp_size_t i;
 
   for (i = 0; i < n; i++)
     zp[i] = (xp[i] & mask0) | (yp[i] & mask1);
 }
 
 void
-mpn_select_zero(mp_limb_t *zp, const mp_limb_t *xp, int n, int flag) {
+mpn_select_zero(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t n, int flag) {
   mp_limb_t cond = (flag != 0);
   mp_limb_t mask = mp_limb_barrier(cond - 1);
-  int i;
+  mp_size_t i;
 
   for (i = 0; i < n; i++)
     zp[i] = xp[i] & mask;
 }
 
 int
-mpn_sec_zero_p(const mp_limb_t *xp, int xn) {
+mpn_sec_zero_p(const mp_limb_t *xp, mp_size_t xn) {
   /* Compute (x == y) in constant time. */
   mp_limb_t w = 0;
-  int i;
+  mp_size_t i;
 
   for (i = 0; i < xn; i++)
     w |= xp[i];
@@ -2662,10 +2694,10 @@ mpn_sec_zero_p(const mp_limb_t *xp, int xn) {
 }
 
 int
-mpn_sec_equal(const mp_limb_t *xp, const mp_limb_t *yp, int n) {
+mpn_sec_equal(const mp_limb_t *xp, const mp_limb_t *yp, mp_size_t n) {
   /* Compute (x == y) in constant time. */
   mp_limb_t w = 0;
-  int i;
+  mp_size_t i;
 
   for (i = 0; i < n; i++)
     w |= xp[i] ^ yp[i];
@@ -2676,12 +2708,12 @@ mpn_sec_equal(const mp_limb_t *xp, const mp_limb_t *yp, int n) {
 }
 
 static int
-mpn_sec_compare(const mp_limb_t *xp, const mp_limb_t *yp, int n) {
+mpn_sec_compare(const mp_limb_t *xp, const mp_limb_t *yp, mp_size_t n) {
   /* Compare in constant time. */
   mp_limb_t eq = 1;
   mp_limb_t lt = 0;
   mp_limb_t a, b;
-  int i = n * 2;
+  mp_size_t i = n * 2;
 
   while (i--) {
     a = (xp[i / 2] >> ((i % 2) * MP_LOW_BITS)) & MP_LOW_MASK;
@@ -2694,7 +2726,7 @@ mpn_sec_compare(const mp_limb_t *xp, const mp_limb_t *yp, int n) {
 }
 
 int
-mpn_sec_cmp(const mp_limb_t *xp, const mp_limb_t *yp, int n) {
+mpn_sec_cmp(const mp_limb_t *xp, const mp_limb_t *yp, mp_size_t n) {
   /* Compute mpn_cmp(x, y) in constant time. */
   int cmp = mpn_sec_compare(xp, yp, n);
   int lt = cmp >> 1;
@@ -2704,7 +2736,7 @@ mpn_sec_cmp(const mp_limb_t *xp, const mp_limb_t *yp, int n) {
 }
 
 int
-mpn_sec_lt(const mp_limb_t *xp, const mp_limb_t *yp, int n) {
+mpn_sec_lt(const mp_limb_t *xp, const mp_limb_t *yp, mp_size_t n) {
   /* Compute (x < y) in constant time. */
   int cmp = mpn_sec_compare(xp, yp, n);
   int lt = cmp >> 1;
@@ -2714,7 +2746,7 @@ mpn_sec_lt(const mp_limb_t *xp, const mp_limb_t *yp, int n) {
 }
 
 int
-mpn_sec_lte(const mp_limb_t *xp, const mp_limb_t *yp, int n) {
+mpn_sec_lte(const mp_limb_t *xp, const mp_limb_t *yp, mp_size_t n) {
   /* Compute (x <= y) in constant time. */
   int cmp = mpn_sec_compare(xp, yp, n);
   int lt = cmp >> 1;
@@ -2724,7 +2756,7 @@ mpn_sec_lte(const mp_limb_t *xp, const mp_limb_t *yp, int n) {
 }
 
 int
-mpn_sec_gt(const mp_limb_t *xp, const mp_limb_t *yp, int n) {
+mpn_sec_gt(const mp_limb_t *xp, const mp_limb_t *yp, mp_size_t n) {
   /* Compute (x > y) in constant time. */
   int cmp = mpn_sec_compare(xp, yp, n);
   int lt = cmp >> 1;
@@ -2734,7 +2766,7 @@ mpn_sec_gt(const mp_limb_t *xp, const mp_limb_t *yp, int n) {
 }
 
 int
-mpn_sec_gte(const mp_limb_t *xp, const mp_limb_t *yp, int n) {
+mpn_sec_gte(const mp_limb_t *xp, const mp_limb_t *yp, mp_size_t n) {
   /* Compute (x >= y) in constant time. */
   int cmp = mpn_sec_compare(xp, yp, n);
   int lt = cmp >> 1;
@@ -2748,11 +2780,11 @@ mpn_sec_gte(const mp_limb_t *xp, const mp_limb_t *yp, int n) {
  */
 
 void
-mpn_import(mp_limb_t *zp, int zn,
-           const unsigned char *raw,
-           size_t len, int endian) {
-  int size = mp_int_cast(len);
-  int i, j, k;
+mpn_import(mp_limb_t *zp, mp_size_t zn,
+           const unsigned char *raw, size_t len,
+           int endian) {
+  mp_size_t size = mp_size_cast(len);
+  mp_size_t i, j, k;
 
   CHECK(endian == 1 || endian == -1);
 
@@ -2784,9 +2816,10 @@ mpn_import(mp_limb_t *zp, int zn,
 
 void
 mpn_export(unsigned char *raw, size_t len,
-           const mp_limb_t *xp, int xn, int endian) {
-  int size = mp_int_cast(len);
-  int i, j, k;
+           const mp_limb_t *xp, mp_size_t xn,
+           int endian) {
+  mp_size_t size = mp_size_cast(len);
+  mp_size_t i, j, k;
 
   CHECK(endian == 1 || endian == -1);
 
@@ -2818,10 +2851,10 @@ mpn_export(unsigned char *raw, size_t len,
  */
 
 int
-mpn_set_str(mp_limb_t *zp, int zn, const char *str, int base) {
+mpn_set_str(mp_limb_t *zp, mp_size_t zn, const char *str, int base) {
+  mp_bits_t shift = 0;
+  mp_size_t n = 0;
   mp_limb_t c;
-  int shift = 0;
-  int n = 0;
   int ch;
 
   if (str == NULL)
@@ -2903,12 +2936,13 @@ fail:
  */
 
 size_t
-mpn_get_str(char *str, const mp_limb_t *xp, int xn, int base) {
+mpn_get_str(char *str, const mp_limb_t *xp, mp_size_t xn, int base) {
+  mp_bits_t shift = 0;
+  mp_size_t tn, sn;
   size_t len = 0;
   size_t i, j, k;
-  int tn, sn, ch;
   mp_limb_t *tp;
-  int shift = 0;
+  int ch;
 
   CHECK(base >= 2 && base <= 36);
 
@@ -2972,7 +3006,7 @@ mpn_get_str(char *str, const mp_limb_t *xp, int xn, int base) {
  */
 
 void
-mpn_print(const mp_limb_t *xp, int xn, int base, mp_puts_f *mp_puts) {
+mpn_print(const mp_limb_t *xp, mp_size_t xn, int base, mp_puts_f *mp_puts) {
   size_t size = mpn_sizeinbase(xp, xn, base);
   char *str = mp_alloc_str(size + 1);
 
@@ -2989,7 +3023,7 @@ mpn_print(const mp_limb_t *xp, int xn, int base, mp_puts_f *mp_puts) {
  */
 
 void
-mpn_random(mp_limb_t *zp, int zn, mp_rng_f *rng, void *arg) {
+mpn_random(mp_limb_t *zp, mp_size_t zn, mp_rng_f *rng, void *arg) {
   rng(zp, zn * sizeof(mp_limb_t), arg);
 }
 
@@ -3001,14 +3035,14 @@ mpn_random(mp_limb_t *zp, int zn, mp_rng_f *rng, void *arg) {
  * Assignment
  */
 
-static TORSION_INLINE int
+static TORSION_INLINE mp_size_t
 mpv_set_1(mp_limb_t *zp, mp_limb_t x) {
   zp[0] = x;
   return x != 0;
 }
 
-static TORSION_INLINE int
-mpv_set(mp_limb_t *zp, const mp_limb_t *xp, int xn) {
+static TORSION_INLINE mp_size_t
+mpv_set(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn) {
   mpn_copyi(zp, xp, xn);
   return xn;
 }
@@ -3018,7 +3052,7 @@ mpv_set(mp_limb_t *zp, const mp_limb_t *xp, int xn) {
  */
 
 static TORSION_INLINE int
-mpv_cmp_1(const mp_limb_t *xp, int xn, mp_limb_t y) {
+mpv_cmp_1(const mp_limb_t *xp, mp_size_t xn, mp_limb_t y) {
   mp_limb_t x;
 
   if (xn > 1)
@@ -3033,8 +3067,8 @@ mpv_cmp_1(const mp_limb_t *xp, int xn, mp_limb_t y) {
 }
 
 static TORSION_INLINE int
-mpv_cmp(const mp_limb_t *xp, int xn,
-        const mp_limb_t *yp, int yn) {
+mpv_cmp(const mp_limb_t *xp, mp_size_t xn,
+        const mp_limb_t *yp, mp_size_t yn) {
   if (xn != yn)
     return xn < yn ? -1 : 1;
 
@@ -3045,16 +3079,16 @@ mpv_cmp(const mp_limb_t *xp, int xn,
  * Addition
  */
 
-static TORSION_INLINE int
-mpv_add_1(mp_limb_t *zp, const mp_limb_t *xp, int xn, mp_limb_t y) {
+static TORSION_INLINE mp_size_t
+mpv_add_1(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn, mp_limb_t y) {
   zp[xn] = mpn_add_1(zp, xp, xn, y);
   return xn + (zp[xn] != 0);
 }
 
-static TORSION_INLINE int
-mpv_add(mp_limb_t *zp, const mp_limb_t *xp, int xn,
-                       const mp_limb_t *yp, int yn) {
-  int zn = MP_MAX(xn, yn);
+static TORSION_INLINE mp_size_t
+mpv_add(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn,
+                       const mp_limb_t *yp, mp_size_t yn) {
+  mp_size_t zn = MP_MAX(xn, yn);
 
   if (xn >= yn)
     zp[zn] = mpn_add(zp, xp, xn, yp, yn);
@@ -3068,8 +3102,8 @@ mpv_add(mp_limb_t *zp, const mp_limb_t *xp, int xn,
  * Subtraction
  */
 
-static TORSION_INLINE int
-mpv_sub_1(mp_limb_t *zp, const mp_limb_t *xp, int xn, mp_limb_t y) {
+static TORSION_INLINE mp_size_t
+mpv_sub_1(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn, mp_limb_t y) {
   CHECK(mpn_sub_1(zp, xp, xn, y) == 0);
 
   if (xn == 0)
@@ -3078,18 +3112,18 @@ mpv_sub_1(mp_limb_t *zp, const mp_limb_t *xp, int xn, mp_limb_t y) {
   return xn - (zp[xn - 1] == 0);
 }
 
-static TORSION_INLINE int
-mpv_sub(mp_limb_t *zp, const mp_limb_t *xp, int xn,
-                       const mp_limb_t *yp, int yn) {
+static TORSION_INLINE mp_size_t
+mpv_sub(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn,
+                       const mp_limb_t *yp, mp_size_t yn) {
   CHECK(mpn_sub(zp, xp, xn, yp, yn) == 0);
   return mpn_strip(zp, xn);
 }
 
-static TORSION_INLINE int
-mpv_sub_mod(mp_limb_t *zp, const mp_limb_t *xp, int xn,
-                           const mp_limb_t *yp, int yn,
-                           const mp_limb_t *mp, int mn) {
-  int zn;
+static TORSION_INLINE mp_size_t
+mpv_sub_mod(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn,
+                           const mp_limb_t *yp, mp_size_t yn,
+                           const mp_limb_t *mp, mp_size_t mn) {
+  mp_size_t zn;
 
   if (mpv_cmp(xp, xn, yp, yn) >= 0) {
     /* z = x - y */
@@ -3107,8 +3141,8 @@ mpv_sub_mod(mp_limb_t *zp, const mp_limb_t *xp, int xn,
  * Multiplication
  */
 
-static TORSION_INLINE int
-mpv_mul_1(mp_limb_t *zp, const mp_limb_t *xp, int xn, mp_limb_t y) {
+static TORSION_INLINE mp_size_t
+mpv_mul_1(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn, mp_limb_t y) {
   ASSERT(xn != 0 && y != 0);
 
   zp[xn] = mpn_mul_1(zp, xp, xn, y);
@@ -3116,10 +3150,10 @@ mpv_mul_1(mp_limb_t *zp, const mp_limb_t *xp, int xn, mp_limb_t y) {
   return xn + (zp[xn] != 0);
 }
 
-static TORSION_INLINE int
-mpv_mul(mp_limb_t *zp, const mp_limb_t *xp, int xn,
-                       const mp_limb_t *yp, int yn) {
-  int zn = xn + yn;
+static TORSION_INLINE mp_size_t
+mpv_mul(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn,
+                       const mp_limb_t *yp, mp_size_t yn) {
+  mp_size_t zn = xn + yn;
 
   ASSERT(xn != 0 && yn != 0);
 
@@ -3131,7 +3165,7 @@ mpv_mul(mp_limb_t *zp, const mp_limb_t *xp, int xn,
   return zn - (zp[zn - 1] == 0);
 }
 
-static TORSION_INLINE int
+static TORSION_INLINE mp_size_t
 mpv_sqr_1(mp_limb_t *zp, mp_limb_t x) {
   ASSERT(x != 0);
 
@@ -3140,9 +3174,9 @@ mpv_sqr_1(mp_limb_t *zp, mp_limb_t x) {
   return 2 - (zp[1] == 0);
 }
 
-static TORSION_INLINE int
-mpv_sqr(mp_limb_t *zp, const mp_limb_t *xp, int xn, mp_limb_t *scratch) {
-  int zn = xn * 2;
+static TORSION_INLINE mp_size_t
+mpv_sqr(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn, mp_limb_t *scratch) {
+  mp_size_t zn = xn * 2;
 
   ASSERT(xn != 0);
 
@@ -3155,11 +3189,11 @@ mpv_sqr(mp_limb_t *zp, const mp_limb_t *xp, int xn, mp_limb_t *scratch) {
  * Left Shift
  */
 
-static TORSION_INLINE int
-mpv_lshift(mp_limb_t *zp, const mp_limb_t *xp, int xn, int bits) {
-  int s = bits / MP_LIMB_BITS;
-  int r = bits % MP_LIMB_BITS;
-  int zn = xn + s;
+static TORSION_INLINE mp_size_t
+mpv_lshift(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn, mp_bits_t bits) {
+  mp_size_t s = bits / MP_LIMB_BITS;
+  mp_bits_t r = bits % MP_LIMB_BITS;
+  mp_size_t zn = xn + s;
 
   if (xn == 0)
     return 0;
@@ -3180,11 +3214,11 @@ mpv_lshift(mp_limb_t *zp, const mp_limb_t *xp, int xn, int bits) {
  * Right Shift
  */
 
-static TORSION_INLINE int
-mpv_rshift(mp_limb_t *zp, const mp_limb_t *xp, int xn, int bits) {
-  int s = bits / MP_LIMB_BITS;
-  int r = bits % MP_LIMB_BITS;
-  int zn = xn - s;
+static TORSION_INLINE mp_size_t
+mpv_rshift(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn, mp_bits_t bits) {
+  mp_size_t s = bits / MP_LIMB_BITS;
+  mp_bits_t r = bits % MP_LIMB_BITS;
+  mp_size_t zn = xn - s;
 
   if (zn <= 0)
     return 0;
@@ -3208,7 +3242,7 @@ mpv_rshift(mp_limb_t *zp, const mp_limb_t *xp, int xn, int bits) {
  */
 
 static void
-mpz_init_n(mpz_t z, int n) {
+mpz_init_n(mpz_t z, mp_size_t n) {
   n = MP_MAX(1, n);
 
   z->limbs = mp_alloc_limbs(n);
@@ -3218,7 +3252,7 @@ mpz_init_n(mpz_t z, int n) {
 }
 
 #define mpz_init_vla(z, n) do {  \
-  int _n = (n);                  \
+  mp_size_t _n = (n);            \
   _n = MP_MAX(1, _n);            \
   (z)->limbs = mp_alloc_vla(_n); \
   (z)->limbs[0] = 0;             \
@@ -3232,7 +3266,7 @@ mpz_init(mpz_t z) {
 }
 
 void
-mpz_init2(mpz_t z, int bits) {
+mpz_init2(mpz_t z, mp_bits_t bits) {
   mpz_init_n(z, (bits + MP_LIMB_BITS - 1) / MP_LIMB_BITS);
 }
 
@@ -3295,7 +3329,7 @@ mpz_cleanse(mpz_t z) {
  */
 
 static void
-mpz_grow(mpz_t z, int n) {
+mpz_grow(mpz_t z, mp_size_t n) {
   ASSERT(z->alloc > 0);
 
   if (n > z->alloc) {
@@ -3311,7 +3345,7 @@ mpz_grow(mpz_t z, int n) {
 void
 mpz_set(mpz_t z, const mpz_t x) {
   if (z != x) {
-    int xn = MP_ABS(x->size);
+    mp_size_t xn = MP_ABS(x->size);
 
     mpz_grow(z, xn);
 
@@ -3329,8 +3363,8 @@ mpz_roset(mpz_t z, const mpz_t x) {
 }
 
 void
-mpz_roinit_n(mpz_t z, const mp_limb_t *xp, int xs) {
-  int zn = mpn_strip(xp, MP_ABS(xs));
+mpz_roinit_n(mpz_t z, const mp_limb_t *xp, mp_size_t xs) {
+  mp_size_t zn = mpn_strip(xp, MP_ABS(xs));
 
   z->limbs = (mp_limb_t *)xp;
   z->alloc = 0;
@@ -3447,9 +3481,9 @@ mpz_cmpabs_si(const mpz_t x, mp_long_t y) {
 
 void
 mpz_add(mpz_t z, const mpz_t x, const mpz_t y) {
-  int xn = MP_ABS(x->size);
-  int yn = MP_ABS(y->size);
-  int zn = MP_MAX(xn, yn) + 1;
+  mp_size_t xn = MP_ABS(x->size);
+  mp_size_t yn = MP_ABS(y->size);
+  mp_size_t zn = MP_MAX(xn, yn) + 1;
 
   mpz_grow(z, zn);
 
@@ -3483,8 +3517,8 @@ mpz_add(mpz_t z, const mpz_t x, const mpz_t y) {
 
 void
 mpz_add_ui(mpz_t z, const mpz_t x, mp_limb_t y) {
-  int xn = MP_ABS(x->size);
-  int zn = MP_MAX(xn, 1) + 1;
+  mp_size_t xn = MP_ABS(x->size);
+  mp_size_t zn = MP_MAX(xn, 1) + 1;
 
   mpz_grow(z, zn);
 
@@ -3519,9 +3553,9 @@ mpz_add_si(mpz_t z, const mpz_t x, mp_long_t y) {
 
 void
 mpz_sub(mpz_t z, const mpz_t x, const mpz_t y) {
-  int xn = MP_ABS(x->size);
-  int yn = MP_ABS(y->size);
-  int zn = MP_MAX(xn, yn) + 1;
+  mp_size_t xn = MP_ABS(x->size);
+  mp_size_t yn = MP_ABS(y->size);
+  mp_size_t zn = MP_MAX(xn, yn) + 1;
 
   mpz_grow(z, zn);
 
@@ -3555,8 +3589,8 @@ mpz_sub(mpz_t z, const mpz_t x, const mpz_t y) {
 
 void
 mpz_sub_ui(mpz_t z, const mpz_t x, mp_limb_t y) {
-  int xn = MP_ABS(x->size);
-  int zn = MP_MAX(xn, 1) + 1;
+  mp_size_t xn = MP_ABS(x->size);
+  mp_size_t zn = MP_MAX(xn, 1) + 1;
 
   mpz_grow(z, zn);
 
@@ -3591,8 +3625,8 @@ mpz_sub_si(mpz_t z, const mpz_t x, mp_long_t y) {
 
 void
 mpz_ui_sub(mpz_t z, mp_limb_t x, const mpz_t y) {
-  int yn = MP_ABS(y->size);
-  int zn = MP_MAX(1, yn) + 1;
+  mp_size_t yn = MP_ABS(y->size);
+  mp_size_t zn = MP_MAX(1, yn) + 1;
 
   mpz_grow(z, zn);
 
@@ -3642,7 +3676,7 @@ mpz_si_sub(mpz_t z, mp_long_t x, const mpz_t y) {
 
 void
 mpz_mul(mpz_t z, const mpz_t x, const mpz_t y) {
-  int xn, yn, zn, tn;
+  mp_size_t xn, yn, zn, tn;
   mp_limb_t *tp;
 
   if (x == y) {
@@ -3682,7 +3716,7 @@ mpz_mul(mpz_t z, const mpz_t x, const mpz_t y) {
 
 void
 mpz_mul_ui(mpz_t z, const mpz_t x, mp_limb_t y) {
-  int xn, zn;
+  mp_size_t xn, zn;
 
   if (x->size == 0 || y == 0) {
     z->size = 0;
@@ -3709,7 +3743,7 @@ mpz_mul_si(mpz_t z, const mpz_t x, mp_long_t y) {
 
 void
 mpz_sqr(mpz_t z, const mpz_t x) {
-  int xn, zn, tn;
+  mp_size_t xn, zn, tn;
   mp_limb_t *tp;
 
   if (x->size == 0) {
@@ -3819,14 +3853,14 @@ mpz_submul_si(mpz_t z, const mpz_t x, mp_long_t y) {
 
 static void
 mpz_div_inner(mpz_t q, mpz_t r, const mpz_t n, const mpz_t d, int euclid) {
-  int nn = MP_ABS(n->size);
-  int dn = MP_ABS(d->size);
+  mp_size_t nn = MP_ABS(n->size);
+  mp_size_t dn = MP_ABS(d->size);
   int qs = ((n->size ^ d->size) < 0);
   int rs = (n->size < 0);
   mp_limb_t *qp = NULL;
   mp_limb_t *rp = NULL;
-  int qn = 0;
-  int rn = 0;
+  mp_size_t qn = 0;
+  mp_size_t rn = 0;
 
   CHECK(q != r);
   CHECK(q != d);
@@ -3906,11 +3940,11 @@ mpz_div_inner(mpz_t q, mpz_t r, const mpz_t n, const mpz_t d, int euclid) {
 
 static mp_limb_t
 mpz_div_ui_inner(mpz_t q, const mpz_t n, mp_limb_t d, int euclid) {
-  int nn = MP_ABS(n->size);
+  mp_size_t nn = MP_ABS(n->size);
   int ns = (n->size < 0);
   mp_limb_t *qp = NULL;
   mp_limb_t r;
-  int qn = 0;
+  mp_size_t qn = 0;
 
   if (d == 0)
     torsion_abort(); /* LCOV_EXCL_LINE */
@@ -3954,13 +3988,13 @@ mpz_div_ui_inner(mpz_t q, const mpz_t n, mp_limb_t d, int euclid) {
 
 static mp_long_t
 mpz_div_si_inner(mpz_t q, const mpz_t n, mp_long_t d, int euclid) {
-  int nn = MP_ABS(n->size);
+  mp_size_t nn = MP_ABS(n->size);
   int qs = (n->size < 0) ^ (d < 0);
   int rs = (n->size < 0);
   mp_limb_t *qp = NULL;
   mp_limb_t v;
   mp_long_t r;
-  int qn = 0;
+  mp_size_t qn = 0;
 
   if (d == 0)
     torsion_abort(); /* LCOV_EXCL_LINE */
@@ -4016,10 +4050,10 @@ mpz_div_si_inner(mpz_t q, const mpz_t n, mp_long_t d, int euclid) {
 
 static mp_limb_t
 mpz_mod_2by1(const mpz_t x, mp_limb_t d, mp_limb_t m) {
-  int xn = MP_ABS(x->size);
+  mp_size_t xn = MP_ABS(x->size);
   mp_limb_t r = 0;
   mp_limb_t q;
-  int j;
+  mp_size_t j;
 
   ASSERT(d >= MP_LIMB_HI);
 
@@ -4198,9 +4232,9 @@ mpz_divisible_ui_p(const mpz_t n, mp_limb_t d) {
 }
 
 int
-mpz_divisible_2exp_p(const mpz_t n, int bits) {
-  int s = bits / MP_LIMB_BITS;
-  int r;
+mpz_divisible_2exp_p(const mpz_t n, mp_bits_t bits) {
+  mp_size_t s = bits / MP_LIMB_BITS;
+  mp_bits_t r;
 
   if (n->size == 0)
     return 1;
@@ -4264,7 +4298,7 @@ mpz_congruent_ui_p(const mpz_t x, const mpz_t y, mp_limb_t d) {
 }
 
 int
-mpz_congruent_2exp_p(const mpz_t x, const mpz_t y, int bits) {
+mpz_congruent_2exp_p(const mpz_t x, const mpz_t y, mp_bits_t bits) {
   mpz_t t;
   int ret;
 
@@ -4582,13 +4616,13 @@ mpz_perfect_square_p(const mpz_t x) {
 
 void
 mpz_and(mpz_t z, const mpz_t x, const mpz_t y) {
-  int xn = MP_ABS(x->size);
-  int yn = MP_ABS(y->size);
-  int zn = MP_MAX(xn, yn);
+  mp_size_t xn = MP_ABS(x->size);
+  mp_size_t yn = MP_ABS(y->size);
+  mp_size_t zn = MP_MAX(xn, yn);
   mp_limb_t cx, cy, cz;
   mp_limb_t fx, fy;
   mp_limb_t zx, zy;
-  int i;
+  mp_size_t i;
 
   mpz_mswap(&x, &xn, &y, &yn);
 
@@ -4680,13 +4714,13 @@ mpz_and_si(mpz_t z, const mpz_t x, mp_long_t y) {
 
 void
 mpz_ior(mpz_t z, const mpz_t x, const mpz_t y) {
-  int xn = MP_ABS(x->size);
-  int yn = MP_ABS(y->size);
-  int zn = MP_MAX(xn, yn);
+  mp_size_t xn = MP_ABS(x->size);
+  mp_size_t yn = MP_ABS(y->size);
+  mp_size_t zn = MP_MAX(xn, yn);
   mp_limb_t cx, cy, cz;
   mp_limb_t fx, fy;
   mp_limb_t zx, zy;
-  int i;
+  mp_size_t i;
 
   mpz_mswap(&x, &xn, &y, &yn);
 
@@ -4799,12 +4833,12 @@ mpz_ior_si(mpz_t z, const mpz_t x, mp_long_t y) {
 
 void
 mpz_xor(mpz_t z, const mpz_t x, const mpz_t y) {
-  int xn = MP_ABS(x->size);
-  int yn = MP_ABS(y->size);
-  int zn = MP_MAX(xn, yn);
+  mp_size_t xn = MP_ABS(x->size);
+  mp_size_t yn = MP_ABS(y->size);
+  mp_size_t zn = MP_MAX(xn, yn);
   mp_limb_t cx, cy, cz;
   mp_limb_t zx, zy;
-  int i;
+  mp_size_t i;
 
   mpz_mswap(&x, &xn, &y, &yn);
 
@@ -4900,8 +4934,8 @@ mpz_com(mpz_t z, const mpz_t x) {
  */
 
 void
-mpz_mul_2exp(mpz_t z, const mpz_t x, int bits) {
-  int xn, zn;
+mpz_mul_2exp(mpz_t z, const mpz_t x, mp_bits_t bits) {
+  mp_size_t xn, zn;
 
   if (x->size == 0) {
     z->size = 0;
@@ -4928,8 +4962,8 @@ mpz_mul_2exp(mpz_t z, const mpz_t x, int bits) {
  */
 
 void
-mpz_quo_2exp(mpz_t z, const mpz_t x, int bits) {
-  int xn, zn;
+mpz_quo_2exp(mpz_t z, const mpz_t x, mp_bits_t bits) {
+  mp_size_t xn, zn;
 
   if (x->size == 0) {
     z->size = 0;
@@ -4952,9 +4986,9 @@ mpz_quo_2exp(mpz_t z, const mpz_t x, int bits) {
 }
 
 void
-mpz_rem_2exp(mpz_t z, const mpz_t x, int bits) {
-  int xn = MP_ABS(x->size);
-  int zn = xn;
+mpz_rem_2exp(mpz_t z, const mpz_t x, mp_bits_t bits) {
+  mp_size_t xn = MP_ABS(x->size);
+  mp_size_t zn = xn;
 
   mpz_grow(z, zn);
 
@@ -4974,7 +5008,7 @@ mpz_rem_2exp(mpz_t z, const mpz_t x, int bits) {
  */
 
 void
-mpz_div_2exp(mpz_t z, const mpz_t x, int bits) {
+mpz_div_2exp(mpz_t z, const mpz_t x, mp_bits_t bits) {
   if (x->size < 0) {
     /* (-x) >> y == ~(x-1) >> y
      *           == ~((x-1) >> y)
@@ -4992,12 +5026,13 @@ mpz_div_2exp(mpz_t z, const mpz_t x, int bits) {
 }
 
 void
-mpz_mod_2exp(mpz_t z, const mpz_t x, int bits) {
-  int zn = (bits + MP_LIMB_BITS - 1) / MP_LIMB_BITS;
-  int xn = MP_ABS(x->size);
-  int mn = MP_MIN(xn, zn);
+mpz_mod_2exp(mpz_t z, const mpz_t x, mp_bits_t bits) {
+  mp_size_t zn = (bits + MP_LIMB_BITS - 1) / MP_LIMB_BITS;
+  mp_size_t xn = MP_ABS(x->size);
+  mp_size_t mn = MP_MIN(xn, zn);
   mp_limb_t cx, fx, zx;
-  int i, lo;
+  mp_bits_t lo;
+  mp_size_t i;
 
   mpz_grow(z, zn);
 
@@ -5031,8 +5066,8 @@ mpz_mod_2exp(mpz_t z, const mpz_t x, int bits) {
  */
 
 int
-mpz_tstbit(const mpz_t x, int pos) {
-  int s = pos / MP_LIMB_BITS;
+mpz_tstbit(const mpz_t x, mp_bits_t pos) {
+  mp_size_t s = pos / MP_LIMB_BITS;
   int b;
 
   if (s >= MP_ABS(x->size))
@@ -5047,9 +5082,9 @@ mpz_tstbit(const mpz_t x, int pos) {
 }
 
 static void
-mpz_setbit_abs(mpz_t z, int pos) {
-  int index = pos / MP_LIMB_BITS;
-  int zn = MP_ABS(z->size);
+mpz_setbit_abs(mpz_t z, mp_bits_t pos) {
+  mp_size_t index = pos / MP_LIMB_BITS;
+  mp_size_t zn = MP_ABS(z->size);
 
   if (zn < index + 1) {
     mpz_grow(z, index + 1);
@@ -5064,9 +5099,9 @@ mpz_setbit_abs(mpz_t z, int pos) {
 }
 
 static void
-mpz_clrbit_abs(mpz_t z, int pos) {
-  int index = pos / MP_LIMB_BITS;
-  int zn = MP_ABS(z->size);
+mpz_clrbit_abs(mpz_t z, mp_bits_t pos) {
+  mp_size_t index = pos / MP_LIMB_BITS;
+  mp_size_t zn = MP_ABS(z->size);
 
   if (index < zn) {
     z->limbs[index] &= ~(MP_LIMB_C(1) << (pos % MP_LIMB_BITS));
@@ -5078,7 +5113,7 @@ mpz_clrbit_abs(mpz_t z, int pos) {
 }
 
 void
-mpz_setbit(mpz_t z, int pos) {
+mpz_setbit(mpz_t z, mp_bits_t pos) {
   if (z->size < 0 && !mpz_divisible_2exp_p(z, pos))
     mpz_clrbit_abs(z, pos);
   else
@@ -5086,7 +5121,7 @@ mpz_setbit(mpz_t z, int pos) {
 }
 
 void
-mpz_clrbit(mpz_t z, int pos) {
+mpz_clrbit(mpz_t z, mp_bits_t pos) {
   if (z->size < 0 && !mpz_divisible_2exp_p(z, pos))
     mpz_setbit_abs(z, pos);
   else
@@ -5094,21 +5129,21 @@ mpz_clrbit(mpz_t z, int pos) {
 }
 
 void
-mpz_combit(mpz_t z, int pos) {
+mpz_combit(mpz_t z, mp_bits_t pos) {
   if (!mpz_tstbit(z, pos))
     mpz_setbit(z, pos);
   else
     mpz_clrbit(z, pos);
 }
 
-int
-mpz_scan0(const mpz_t x, int pos) {
+mp_bits_t
+mpz_scan0(const mpz_t x, mp_bits_t pos) {
   const mp_limb_t *xp = x->limbs;
-  int xn = MP_ABS(x->size);
-  int s = pos / MP_LIMB_BITS;
+  mp_size_t xn = MP_ABS(x->size);
+  mp_size_t s = pos / MP_LIMB_BITS;
 
   if (s >= xn)
-    return x->size < 0 ? INT_MAX : pos;
+    return x->size < 0 ? MP_BITS_MAX : pos;
 
   if (x->size < 0)
     return mpn_scan(xp, xn, 1, mpn_zero_p(xp, s), pos);
@@ -5116,14 +5151,14 @@ mpz_scan0(const mpz_t x, int pos) {
   return mpn_scan(xp, xn, 0, 0, pos);
 }
 
-int
-mpz_scan1(const mpz_t x, int pos) {
+mp_bits_t
+mpz_scan1(const mpz_t x, mp_bits_t pos) {
   const mp_limb_t *xp = x->limbs;
-  int xn = MP_ABS(x->size);
-  int s = pos / MP_LIMB_BITS;
+  mp_size_t xn = MP_ABS(x->size);
+  mp_size_t s = pos / MP_LIMB_BITS;
 
   if (s >= xn)
-    return x->size < 0 ? pos : INT_MAX;
+    return x->size < 0 ? pos : MP_BITS_MAX;
 
   if (x->size < 0)
     return mpn_scan(xp, xn, 0, mpn_zero_p(xp, s), pos);
@@ -5131,26 +5166,26 @@ mpz_scan1(const mpz_t x, int pos) {
   return mpn_scan(xp, xn, 1, 0, pos);
 }
 
-int
+mp_bits_t
 mpz_popcount(const mpz_t x) {
   if (x->size < 0)
-    return INT_MAX;
+    return MP_BITS_MAX;
 
   return mpn_popcount(x->limbs, x->size);
 }
 
-int
+mp_bits_t
 mpz_hamdist(const mpz_t x, const mpz_t y) {
-  int xn = MP_ABS(x->size);
-  int yn = MP_ABS(y->size);
+  mp_size_t xn = MP_ABS(x->size);
+  mp_size_t yn = MP_ABS(y->size);
+  mp_bits_t cnt = 0;
   mp_limb_t cx, cy;
   mp_limb_t fx, fy;
   mp_limb_t zx, zy;
-  int cnt = 0;
-  int i;
+  mp_size_t i;
 
   if ((x->size ^ y->size) < 0)
-    return INT_MAX;
+    return MP_BITS_MAX;
 
   mpz_mswap(&x, &xn, &y, &yn);
 
@@ -5202,8 +5237,8 @@ mpz_gcd(mpz_t z, const mpz_t x, const mpz_t y) {
    *
    * [KNUTH] Algorithm B, Page 338, Section 4.5.2.
    */
+  mp_bits_t shift;
   mpz_t u, v;
-  int shift;
 
   if (x->size == 0) {
     mpz_abs(z, y);
@@ -5304,7 +5339,7 @@ mpz_gcdext(mpz_t g, mpz_t s, mpz_t t, const mpz_t x, const mpz_t y) {
    * [KNUTH] Algorithm L, Page 347, Section 4.5.2.
    */
   mpz_t u, v, A, B, C, D, up, vp;
-  int i, j, shift;
+  mp_bits_t i, j, shift;
 
   if (x->size == 0) {
     if (g != NULL)
@@ -5425,9 +5460,9 @@ mpz_gcdext(mpz_t g, mpz_t s, mpz_t t, const mpz_t x, const mpz_t y) {
 
 static int
 mpz_invert_inner(mpz_t z, const mpz_t x, const mpz_t y) {
-  int xn = MP_ABS(x->size);
-  int yn = MP_ABS(y->size);
-  int itch = MPN_INVERT_ITCH(yn);
+  mp_size_t xn = MP_ABS(x->size);
+  mp_size_t yn = MP_ABS(y->size);
+  mp_size_t itch = MPN_INVERT_ITCH(yn);
   mp_limb_t *scratch = mp_alloc_vla(itch);
   int ret;
 
@@ -5502,9 +5537,9 @@ mpz_legendre(const mpz_t x, const mpz_t p) {
 
 static int
 mpz_jacobi_inner(const mpz_t x, const mpz_t y) {
-  int xn = MP_ABS(x->size);
-  int yn = MP_ABS(y->size);
-  int itch = MPN_JACOBI_ITCH(yn);
+  mp_size_t xn = MP_ABS(x->size);
+  mp_size_t yn = MP_ABS(y->size);
+  mp_size_t itch = MPN_JACOBI_ITCH(yn);
   mp_limb_t *scratch = mp_alloc_vla(itch);
   int j;
 
@@ -5543,8 +5578,9 @@ mpz_jacobi(const mpz_t x, const mpz_t y) {
 int
 mpz_kronecker(const mpz_t x, const mpz_t y) {
   static const int table[8] = {0, 1, 0, -1, 0, -1, 0, 1};
-  int k, bits;
+  mp_bits_t bits;
   mpz_t v;
+  int k;
 
   if (x->size == 0)
     return mpz_cmpabs_ui(y, 1) == 0;
@@ -5602,10 +5638,10 @@ mpz_si_kronecker(mp_long_t x, const mpz_t y) {
 
 static void
 mpz_powm_inner(mpz_t z, const mpz_t x, const mpz_t y, const mpz_t m) {
-  int xn = MP_ABS(x->size);
-  int yn = MP_ABS(y->size);
-  int mn = MP_ABS(m->size);
-  int itch = MPN_POWM_ITCH(yn, mn);
+  mp_size_t xn = MP_ABS(x->size);
+  mp_size_t yn = MP_ABS(y->size);
+  mp_size_t mn = MP_ABS(m->size);
+  mp_size_t itch = MPN_POWM_ITCH(yn, mn);
   mp_limb_t *scratch = mp_alloc_limbs(itch);
 
   mpz_grow(z, mn);
@@ -5655,10 +5691,10 @@ mpz_powm_ui(mpz_t z, const mpz_t x, mp_limb_t y, const mpz_t m) {
 
 static void
 mpz_powm_sec_inner(mpz_t z, const mpz_t x, const mpz_t y, const mpz_t m) {
-  int xn = MP_ABS(x->size);
-  int yn = MP_ABS(y->size);
-  int mn = MP_ABS(m->size);
-  int itch = MPN_SEC_POWM_ITCH(mn);
+  mp_size_t xn = MP_ABS(x->size);
+  mp_size_t yn = MP_ABS(y->size);
+  mp_size_t mn = MP_ABS(m->size);
+  mp_size_t itch = MPN_SEC_POWM_ITCH(mn);
   mp_limb_t *scratch = mp_alloc_limbs(itch);
 
   mpz_grow(z, mn);
@@ -5693,7 +5729,7 @@ mpz_powm_sec(mpz_t z, const mpz_t x, const mpz_t y, const mpz_t m) {
 int
 mpz_sqrtm(mpz_t z, const mpz_t u, const mpz_t p) {
   mpz_t x, e, t, a, s, n, y, b, g;
-  int i, f, k, m;
+  mp_bits_t i, f, k, m;
   int ret = 0;
 
   mpz_init(x);
@@ -5941,10 +5977,10 @@ fail:
   return ret;
 }
 
-int
+mp_bits_t
 mpz_remove(mpz_t z, const mpz_t x, const mpz_t y) {
+  mp_bits_t cnt = 0;
   mpz_t q, r, n;
-  int cnt = 0;
 
   if (y->size == 0)
     torsion_abort(); /* LCOV_EXCL_LINE */
@@ -6024,9 +6060,9 @@ mpz_primorial_ui(mpz_t z, mp_limb_t n) {
 void
 mpz_bin_ui(mpz_t z, const mpz_t n, mp_limb_t k) {
   /* bin(n, k) = n! / (k! * (n - k)!) */
-  mpz_t m, t;
   int neg = 0;
   mp_limb_t i;
+  mpz_t m, t;
 
   mpz_init(m);
   mpz_init(t);
@@ -6154,8 +6190,9 @@ mpz_mr_prime_p(const mpz_t n, int reps, int force2, mp_rng_f *rng, void *arg) {
    * [HANDBOOK] Algorithm 4.24, Page 139, Section 4.2.3.
    */
   mpz_t nm1, nm3, q, x, y, t;
+  mp_bits_t j, k;
   int ret = 0;
-  int i, j, k;
+  int i;
 
   /* if n < 2 */
   if (mpz_cmp_ui(n, 2) < 0)
@@ -6246,9 +6283,10 @@ mpz_lucas_prime_p(const mpz_t n, mp_limb_t limit) {
    * [LUCAS] Page 1401, Section 5.
    */
   mpz_t d, s, nm2, vk, vk1, t1, t2;
-  int i, j, r, t;
-  int ret = 0;
+  mp_bits_t i, r, t;
   mp_limb_t p;
+  int ret = 0;
+  int j;
 
   /* if n < 2 */
   if (mpz_cmp_ui(n, 2) < 0)
@@ -6488,7 +6526,7 @@ mpz_probab_prime_p(const mpz_t x, int rounds, mp_rng_f *rng, void *arg) {
 }
 
 void
-mpz_randprime(mpz_t z, int bits, mp_rng_f *rng, void *arg) {
+mpz_randprime(mpz_t z, mp_bits_t bits, mp_rng_f *rng, void *arg) {
   static const mp_limb_t max = MP_LIMB_C(1) << 20;
   mp_limb_t r, ra, rb, delta;
 
@@ -6627,20 +6665,20 @@ mpz_even_p(const mpz_t x) {
   return !mpz_odd_p(x);
 }
 
-int
+mp_bits_t
 mpz_ctz(const mpz_t x) {
   return mpn_ctz(x->limbs, MP_ABS(x->size));
 }
 
-static int
+static mp_bits_t
 mpz_ctz_common(const mpz_t x, const mpz_t y) {
-  int xz = mpz_ctz(x);
-  int yz = mpz_ctz(y);
+  mp_bits_t xz = mpz_ctz(x);
+  mp_bits_t yz = mpz_ctz(y);
 
   return MP_MIN(xz, yz);
 }
 
-int
+mp_bits_t
 mpz_bitlen(const mpz_t x) {
   return mpn_bitlen(x->limbs, MP_ABS(x->size));
 }
@@ -6655,10 +6693,10 @@ mpz_sizeinbase(const mpz_t x, int base) {
   return mpn_sizeinbase(x->limbs, MP_ABS(x->size), base);
 }
 
-static TORSION_INLINE int
+static TORSION_INLINE mp_size_t
 mpz_add_size(const mpz_t x, const mpz_t y) {
-  int xn = MP_ABS(x->size);
-  int yn = MP_ABS(y->size);
+  mp_size_t xn = MP_ABS(x->size);
+  mp_size_t yn = MP_ABS(y->size);
 
   return MP_MAX(xn, yn) + 1;
 }
@@ -6666,8 +6704,8 @@ mpz_add_size(const mpz_t x, const mpz_t y) {
 void
 mpz_swap(mpz_t x, mpz_t y) {
   mp_limb_t *limbs = x->limbs;
-  int alloc = x->alloc;
-  int size = x->size;
+  mp_size_t alloc = x->alloc;
+  mp_size_t size = x->size;
 
   x->limbs = y->limbs;
   x->alloc = y->alloc;
@@ -6679,10 +6717,11 @@ mpz_swap(mpz_t x, mpz_t y) {
 }
 
 static TORSION_INLINE void
-mpz_mswap(const struct mpz_s **x, int *xn, const struct mpz_s **y, int *yn) {
+mpz_mswap(const struct mpz_s **x, mp_size_t *xn,
+          const struct mpz_s **y, mp_size_t *yn) {
   if (*xn < *yn) {
     const struct mpz_s *t = *x;
-    int tn = *xn;
+    mp_size_t tn = *xn;
 
     *x = *y;
     *y = t;
@@ -6693,7 +6732,7 @@ mpz_mswap(const struct mpz_s **x, int *xn, const struct mpz_s **y, int *yn) {
 }
 
 void *
-_mpz_realloc(mpz_t z, int n) {
+_mpz_realloc(mpz_t z, mp_size_t n) {
   n = MP_MAX(1, n);
 
   ASSERT(z->alloc > 0);
@@ -6714,7 +6753,7 @@ _mpz_realloc(mpz_t z, int n) {
 }
 
 void
-mpz_realloc2(mpz_t z, int bits) {
+mpz_realloc2(mpz_t z, mp_bits_t bits) {
   _mpz_realloc(z, (bits + MP_LIMB_BITS - 1) / MP_LIMB_BITS);
 }
 
@@ -6723,14 +6762,14 @@ mpz_realloc2(mpz_t z, int bits) {
  */
 
 mp_limb_t
-mpz_getlimbn(const mpz_t x, int n) {
+mpz_getlimbn(const mpz_t x, mp_size_t n) {
   if (n >= MP_ABS(x->size))
     return 0;
 
   return x->limbs[n];
 }
 
-int
+mp_size_t
 mpz_size(const mpz_t x) {
   return MP_ABS(x->size);
 }
@@ -6741,7 +6780,7 @@ mpz_limbs_read(const mpz_t x) {
 }
 
 mp_limb_t *
-mpz_limbs_write(mpz_t z, int n) {
+mpz_limbs_write(mpz_t z, mp_size_t n) {
   if (n > z->alloc) {
     mpz_clear(z);
     mpz_init_n(z, n);
@@ -6751,14 +6790,14 @@ mpz_limbs_write(mpz_t z, int n) {
 }
 
 mp_limb_t *
-mpz_limbs_modify(mpz_t z, int n) {
+mpz_limbs_modify(mpz_t z, mp_size_t n) {
   mpz_grow(z, n);
   return z->limbs;
 }
 
 void
-mpz_limbs_finish(mpz_t z, int n) {
-  int zn = mpn_strip(z->limbs, MP_ABS(n));
+mpz_limbs_finish(mpz_t z, mp_size_t n) {
+  mp_size_t zn = mpn_strip(z->limbs, MP_ABS(n));
 
   z->size = n < 0 ? -zn : zn;
 }
@@ -6769,7 +6808,7 @@ mpz_limbs_finish(mpz_t z, int n) {
 
 void
 mpz_import(mpz_t z, const unsigned char *raw, size_t size, int endian) {
-  int zn = mp_int_cast((size + MP_LIMB_BYTES - 1) / MP_LIMB_BYTES);
+  mp_size_t zn = mp_size_cast((size + MP_LIMB_BYTES - 1) / MP_LIMB_BYTES);
 
   if (zn == 0) {
     z->size = 0;
@@ -6799,8 +6838,8 @@ mpz_export(unsigned char *raw, const mpz_t x, size_t size, int endian) {
 
 int
 mpz_set_str(mpz_t z, const char *str, int base) {
+  mp_size_t zn;
   int neg = 0;
-  int zn;
 
   if (str == NULL) {
     z->size = 0;
@@ -6869,9 +6908,9 @@ mpz_print(const mpz_t x, int base, mp_puts_f *mp_puts) {
  */
 
 void
-mpz_urandomb(mpz_t z, int bits, mp_rng_f *rng, void *arg) {
-  int zn = (bits + MP_LIMB_BITS - 1) / MP_LIMB_BITS;
-  int lo = bits % MP_LIMB_BITS;
+mpz_urandomb(mpz_t z, mp_bits_t bits, mp_rng_f *rng, void *arg) {
+  mp_size_t zn = (bits + MP_LIMB_BITS - 1) / MP_LIMB_BITS;
+  mp_bits_t lo = bits % MP_LIMB_BITS;
 
   mpz_grow(z, zn);
 
@@ -6885,7 +6924,7 @@ mpz_urandomb(mpz_t z, int bits, mp_rng_f *rng, void *arg) {
 
 void
 mpz_urandomm(mpz_t z, const mpz_t x, mp_rng_f *rng, void *arg) {
-  int bits = mpz_bitlen(x);
+  mp_bits_t bits = mpz_bitlen(x);
 
   CHECK(z != x);
 
