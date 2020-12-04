@@ -761,6 +761,25 @@ mpn_add_1(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn, mp_limb_t y) {
   return c;
 }
 
+static TORSION_INLINE mp_limb_t
+mpn_add_var_1(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn, mp_limb_t y) {
+  mp_limb_t c = y;
+  mp_limb_t z;
+  mp_size_t i;
+
+  for (i = 0; i < xn && c != 0; i++) {
+    /* [z, c] = x + c */
+    z = xp[i] + c;
+    c = (z < c);
+    zp[i] = z;
+  }
+
+  if (zp != xp && i < xn)
+    mpn_copyi(zp + i, xp + i, xn - i);
+
+  return c;
+}
+
 mp_limb_t
 mpn_add_n(mp_limb_t *zp, const mp_limb_t *xp,
                          const mp_limb_t *yp,
@@ -803,6 +822,21 @@ mpn_add(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn,
   return c;
 }
 
+static TORSION_INLINE mp_limb_t
+mpn_add_var(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn,
+                           const mp_limb_t *yp, mp_size_t yn) {
+  mp_limb_t c;
+
+  CHECK(xn >= yn);
+
+  c = mpn_add_n(zp, xp, yp, yn);
+
+  if (xn > yn)
+    c = mpn_add_var_1(zp + yn, xp + yn, xn - yn, c);
+
+  return c;
+}
+
 /*
  * Subtraction
  */
@@ -828,6 +862,25 @@ mpn_sub_1(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn, mp_limb_t y) {
     mp_sub(zp[i], c, xp[i], c); i++;
     mp_sub(zp[i], c, xp[i], c); i++;
   }
+
+  return c;
+}
+
+static TORSION_INLINE mp_limb_t
+mpn_sub_var_1(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn, mp_limb_t y) {
+  mp_limb_t c = y;
+  mp_limb_t z;
+  mp_size_t i;
+
+  for (i = 0; i < xn && c != 0; i++) {
+    /* [z, c] = x - c */
+    z = xp[i] - c;
+    c = (z > xp[i]);
+    zp[i] = z;
+  }
+
+  if (zp != xp && i < xn)
+    mpn_copyi(zp + i, xp + i, xn - i);
 
   return c;
 }
@@ -870,6 +923,21 @@ mpn_sub(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn,
 
   if (xn > yn)
     c = mpn_sub_1(zp + yn, xp + yn, xn - yn, c);
+
+  return c;
+}
+
+static TORSION_INLINE mp_limb_t
+mpn_sub_var(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn,
+                           const mp_limb_t *yp, mp_size_t yn) {
+  mp_limb_t c;
+
+  CHECK(xn >= yn);
+
+  c = mpn_sub_n(zp, xp, yp, yn);
+
+  if (xn > yn)
+    c = mpn_sub_var_1(zp + yn, xp + yn, xn - yn, c);
 
   return c;
 }
@@ -1556,11 +1624,11 @@ static void
 mpn_divmod_small(mp_limb_t *qp, mp_limb_t *rp,
                  const mp_limb_t *np, mp_size_t nn,
                  const mp_divisor_t *den) {
+  mp_bits_t s = den->shift;
   mp_limb_t d = den->vp[0];
   mp_limb_t m = den->inv;
   mp_limb_t q, n1, n0;
   mp_limb_t r = 0;
-  mp_bits_t s = den->shift;
   mp_size_t j;
 
   for (j = nn - 1; j >= 0; j--) {
@@ -2710,10 +2778,10 @@ mpn_sec_equal(const mp_limb_t *xp, const mp_limb_t *yp, mp_size_t n) {
 static int
 mpn_sec_compare(const mp_limb_t *xp, const mp_limb_t *yp, mp_size_t n) {
   /* Compare in constant time. */
+  mp_size_t i = n * 2;
   mp_limb_t eq = 1;
   mp_limb_t lt = 0;
   mp_limb_t a, b;
-  mp_size_t i = n * 2;
 
   while (i--) {
     a = (xp[i / 2] >> ((i % 2) * MP_LOW_BITS)) & MP_LOW_MASK;
@@ -2912,7 +2980,7 @@ mpn_set_str(mp_limb_t *zp, mp_size_t zn, const char *str, int base) {
         zp[n++] = c;
       }
 
-      c = mpn_add_1(zp, zp, n, ch);
+      c = mpn_add_var_1(zp, zp, n, ch);
 
       if (c != 0) {
         if (n == zn)
@@ -3081,7 +3149,7 @@ mpv_cmp(const mp_limb_t *xp, mp_size_t xn,
 
 static TORSION_INLINE mp_size_t
 mpv_add_1(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn, mp_limb_t y) {
-  zp[xn] = mpn_add_1(zp, xp, xn, y);
+  zp[xn] = mpn_add_var_1(zp, xp, xn, y);
   return xn + (zp[xn] != 0);
 }
 
@@ -3091,9 +3159,9 @@ mpv_add(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn,
   mp_size_t zn = MP_MAX(xn, yn);
 
   if (xn >= yn)
-    zp[zn] = mpn_add(zp, xp, xn, yp, yn);
+    zp[zn] = mpn_add_var(zp, xp, xn, yp, yn);
   else
-    zp[zn] = mpn_add(zp, yp, yn, xp, xn);
+    zp[zn] = mpn_add_var(zp, yp, yn, xp, xn);
 
   return zn + (zp[zn] != 0);
 }
@@ -3104,7 +3172,7 @@ mpv_add(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn,
 
 static TORSION_INLINE mp_size_t
 mpv_sub_1(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn, mp_limb_t y) {
-  CHECK(mpn_sub_1(zp, xp, xn, y) == 0);
+  CHECK(mpn_sub_var_1(zp, xp, xn, y) == 0);
 
   if (xn == 0)
     return 0;
@@ -3115,7 +3183,7 @@ mpv_sub_1(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn, mp_limb_t y) {
 static TORSION_INLINE mp_size_t
 mpv_sub(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn,
                        const mp_limb_t *yp, mp_size_t yn) {
-  CHECK(mpn_sub(zp, xp, xn, yp, yn) == 0);
+  CHECK(mpn_sub_var(zp, xp, xn, yp, yn) == 0);
   return mpn_strip(zp, xn);
 }
 
@@ -3481,13 +3549,14 @@ mpz_cmpabs_si(const mpz_t x, mp_long_t y) {
 
 void
 mpz_add(mpz_t z, const mpz_t x, const mpz_t y) {
+  int same = ((x->size ^ y->size) >= 0);
   mp_size_t xn = MP_ABS(x->size);
   mp_size_t yn = MP_ABS(y->size);
-  mp_size_t zn = MP_MAX(xn, yn) + 1;
+  mp_size_t zn = MP_MAX(xn, yn) + same;
 
   mpz_grow(z, zn);
 
-  if ((x->size ^ y->size) >= 0) {
+  if (same) {
     /* x + y == x + y */
     /* (-x) + (-y) == -(x + y) */
     zn = mpv_add(z->limbs, x->limbs, xn, y->limbs, yn);
@@ -3518,7 +3587,7 @@ mpz_add(mpz_t z, const mpz_t x, const mpz_t y) {
 void
 mpz_add_ui(mpz_t z, const mpz_t x, mp_limb_t y) {
   mp_size_t xn = MP_ABS(x->size);
-  mp_size_t zn = MP_MAX(xn, 1) + 1;
+  mp_size_t zn = MP_MAX(xn, 1) + (x->size >= 0);
 
   mpz_grow(z, zn);
 
@@ -3553,13 +3622,14 @@ mpz_add_si(mpz_t z, const mpz_t x, mp_long_t y) {
 
 void
 mpz_sub(mpz_t z, const mpz_t x, const mpz_t y) {
+  int diff = ((x->size ^ y->size) < 0);
   mp_size_t xn = MP_ABS(x->size);
   mp_size_t yn = MP_ABS(y->size);
-  mp_size_t zn = MP_MAX(xn, yn) + 1;
+  mp_size_t zn = MP_MAX(xn, yn) + diff;
 
   mpz_grow(z, zn);
 
-  if ((x->size ^ y->size) < 0) {
+  if (diff) {
     /* x - (-y) == x + y */
     /* (-x) - y == -(x + y) */
     zn = mpv_add(z->limbs, x->limbs, xn, y->limbs, yn);
@@ -3590,7 +3660,7 @@ mpz_sub(mpz_t z, const mpz_t x, const mpz_t y) {
 void
 mpz_sub_ui(mpz_t z, const mpz_t x, mp_limb_t y) {
   mp_size_t xn = MP_ABS(x->size);
-  mp_size_t zn = MP_MAX(xn, 1) + 1;
+  mp_size_t zn = MP_MAX(xn, 1) + (x->size < 0);
 
   mpz_grow(z, zn);
 
@@ -3626,7 +3696,7 @@ mpz_sub_si(mpz_t z, const mpz_t x, mp_long_t y) {
 void
 mpz_ui_sub(mpz_t z, mp_limb_t x, const mpz_t y) {
   mp_size_t yn = MP_ABS(y->size);
-  mp_size_t zn = MP_MAX(1, yn) + 1;
+  mp_size_t zn = MP_MAX(1, yn) + (y->size < 0);
 
   mpz_grow(z, zn);
 
