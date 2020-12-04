@@ -1653,7 +1653,7 @@ mpn_divmod_small(mp_limb_t *qp, mp_limb_t *rp,
 }
 
 static void
-mpn_divmod_inner(mp_limb_t *qp, mp_limb_t *rp,
+mpn_divmod_large(mp_limb_t *qp, mp_limb_t *rp,
                  const mp_limb_t *np, mp_size_t nn,
                  mp_divisor_t *den) {
   /* Division of nonnegative integers.
@@ -1672,14 +1672,6 @@ mpn_divmod_inner(mp_limb_t *qp, mp_limb_t *rp,
   mp_size_t dn = den->size;
   mp_size_t j;
 
-  if (nn < dn)
-    torsion_abort(); /* LCOV_EXCL_LINE */
-
-  if (dn == 1) {
-    mpn_divmod_small(qp, rp, np, nn, den);
-    return;
-  }
-
   if (den->shift != 0) {
     up[nn] = mpn_lshift(up, np, nn, den->shift);
   } else {
@@ -1691,7 +1683,7 @@ mpn_divmod_inner(mp_limb_t *qp, mp_limb_t *rp,
     /* Compute estimate qhat of qp[j]. */
     qhat = MP_LIMB_MAX;
 
-    if (up[j + dn] != vp[dn - 1]) {
+    if (LIKELY(up[j + dn] != vp[dn - 1])) {
       mp_div_2by1(&qhat, &rhat, up[j + dn], up[j + dn - 1], vp[dn - 1], m);
 
       while (mp_mul_gt_2(qhat, vp[dn - 2], rhat, up[j + dn - 2])) {
@@ -1720,13 +1712,28 @@ mpn_divmod_inner(mp_limb_t *qp, mp_limb_t *rp,
       qp[j] = qhat;
   }
 
-  /* Unnormalize. */
+  /* De-normalize. */
   if (rp != NULL) {
     if (den->shift != 0)
       mpn_rshift(rp, up, dn, den->shift);
     else
       mpn_copyi(rp, up, dn);
   }
+}
+
+static TORSION_INLINE void
+mpn_divmod_inner(mp_limb_t *qp, mp_limb_t *rp,
+                 const mp_limb_t *np, mp_size_t nn,
+                 mp_divisor_t *den) {
+  mp_size_t dn = den->size;
+
+  if (nn < dn)
+    torsion_abort(); /* LCOV_EXCL_LINE */
+
+  if (dn == 1)
+    mpn_divmod_small(qp, rp, np, nn, den);
+  else
+    mpn_divmod_large(qp, rp, np, nn, den);
 }
 
 static TORSION_INLINE void
