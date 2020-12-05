@@ -1956,6 +1956,60 @@ mp_div_2by1(mp_limb_t *q, mp_limb_t *r,
    * divisor to be normalized and does not
    * de-normalize the remainder.
    */
+#if defined(MP_HAVE_ASM_X64) && defined(MP_DIV_2BY1_ASM)
+  /* Register Layout:
+   *
+   *   %q0 = q1 (*q)
+   *   %q1 = r0 (*r)
+   *   %q2 = u1
+   *   %q3 = u0
+   *   %q4 = d
+   *   %q5 = v
+   *   %rax = q1t (after step 3)
+   *   %rdx = r0t (after step 3)
+   *   %r8 = q0
+   */
+  __asm__ __volatile__ (
+    /* (q1, q0) = v * u1 + (u1, u0) */
+    "movq %q2, %%rax\n"   /* rax = u1 */
+    "mulq %q5\n"          /* (rdx, rax) = v * rax */
+    "movq %%rax, %%r8\n"  /* q0 = rax */
+    "movq %%rdx, %q0\n"   /* q1 = rdx */
+    "addq %q3, %%r8\n"    /* q0 += u0 */
+    "adcq %q2, %q0\n"     /* q1 += u1 + cf */
+
+    /* q1 += 1 */
+    "addq $1, %q0\n"      /* q1 += 1 */
+
+    /* r0 = u0 - q1 * d */
+    "movq %q0, %%rax\n"   /* rax = q1 */
+    "mulq %q4\n"          /* (, rax) = d * rax */
+    "movq %q3, %q1\n"     /* r0 = u0 */
+    "subq %%rax, %q1\n"   /* r0 -= rax */
+
+    /* q1 -= 1 if r0 > q0 */
+    /* r0 += d if r0 > q0 */
+    "movq %q0, %%rax\n"   /* q1t = q1 */
+    "movq %q1, %%rdx\n"   /* r0t = r0 */
+    "subq $1, %%rax\n"    /* q1t -= 1 */
+    "addq %q4, %%rdx\n"   /* r0t += d */
+    "cmpq %%r8, %q1\n"    /* cmp(r0, q0) */
+    "cmovaq %%rax, %q0\n" /* q1 = q1t if r0 > q0 */
+    "cmovaq %%rdx, %q1\n" /* r0 = r1t if r0 > q0 */
+
+    /* q1 += 1 if r0 >= d */
+    /* r0 -= d if r0 >= d */
+    "cmpq %q4, %q1\n"     /* cmp(r0, d) */
+    "jb 1f\n"             /* skip if r0 < d */
+    "addq $1, %q0\n"      /* q1 += 1 if r0 >= d */
+    "subq %q4, %q1\n"     /* r0 -= d if r0 >= d */
+    "1:\n"
+    : "=&r" (*q), "=&r" (*r)
+    : "rm" (u1), "rm" (u0),
+      "rm" (d), "rm" (v)
+    : "cc", "rax", "rdx", "r8"
+  );
+#else /* !MP_HAVE_ASM_X64 */
   mp_limb_t q0, q1, r0;
 
   mp_mul(q1, q0, v, u1);
@@ -2014,6 +2068,7 @@ mp_div_2by1(mp_limb_t *q, mp_limb_t *r,
 
   *q = q1;
   *r = r0;
+#endif /* !MP_HAVE_ASM_X64 */
 }
 
 TORSION_UNUSED static TORSION_INLINE mp_limb_t
