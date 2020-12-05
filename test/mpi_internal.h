@@ -740,92 +740,6 @@ test_mp_helpers(mp_rng_f *rng, void *arg) {
 
   ASSERT(mp_limb_cast(MP_LONG_MIN + 1) == MP_LIMB_HI - 1);
   ASSERT(mp_long_cast(MP_LIMB_HI - 1, -1) == MP_LONG_MIN + 1);
-
-  {
-    mp_limb_t ap[4] = {1, 2, 3, 4};
-    mp_limb_t ep[4] = {2, 2, 3, 4};
-    mp_limb_t zp[4];
-    mp_limb_t c = 1;
-
-    mp_add_x4(zp, c, ap, c);
-
-    ASSERT(c == 0);
-    ASSERT(mpn_cmp(zp, ep, 4) == 0);
-
-    mpn_zero(zp, 4);
-
-    ASSERT(mpn_add_1(zp, ap, 4, 1) == 0);
-    mpn_print(zp, 4, 16, puts);
-    ASSERT(mpn_cmp(zp, ep, 4) == 0);
-  }
-
-  {
-    mp_limb_t ap[4] = {MP_LIMB_MAX, 2, 3, 4};
-    mp_limb_t ep[4] = {0, 3, 3, 4};
-    mp_limb_t zp[4];
-    mp_limb_t c = 1;
-
-    mp_add_x4(zp, c, ap, c);
-
-    ASSERT(c == 0);
-    ASSERT(mpn_cmp(zp, ep, 4) == 0);
-
-    mpn_zero(zp, 4);
-
-    ASSERT(mpn_add_1(zp, ap, 4, 1) == 0);
-    ASSERT(mpn_cmp(zp, ep, 4) == 0);
-  }
-
-  {
-    mp_limb_t ap[4] = {MP_LIMB_MAX, MP_LIMB_MAX, MP_LIMB_MAX, MP_LIMB_MAX};
-    mp_limb_t ep[4] = {0, 0, 0, 0};
-    mp_limb_t zp[4];
-    mp_limb_t c = 1;
-
-    mp_add_x4(zp, c, ap, c);
-
-    ASSERT(c == 1);
-    ASSERT(mpn_cmp(zp, ep, 4) == 0);
-
-    mpn_zero(zp, 4);
-
-    ASSERT(mpn_add_1(zp, ap, 4, 1) == 1);
-    ASSERT(mpn_cmp(zp, ep, 4) == 0);
-  }
-
-  {
-    mp_limb_t ap[4] = {MP_LIMB_MAX, MP_LIMB_MAX, MP_LIMB_MAX, MP_LIMB_MAX};
-    mp_limb_t ep[4] = {MP_LIMB_MAX - 1, 0, 0, 0};
-    mp_limb_t zp[4];
-    mp_limb_t c = MP_LIMB_MAX;
-
-    mp_add_x4(zp, c, ap, c);
-
-    ASSERT(c == 1);
-    ASSERT(mpn_cmp(zp, ep, 4) == 0);
-
-    mpn_zero(zp, 4);
-
-    ASSERT(mpn_add_1(zp, ap, 4, MP_LIMB_MAX) == 1);
-    ASSERT(mpn_cmp(zp, ep, 4) == 0);
-  }
-
-  {
-    mp_limb_t ap[4] = {MP_LIMB_MAX, 1, 0, 0};
-    mp_limb_t ep[4] = {MP_LIMB_MAX - 1, 2, 0, 0};
-    mp_limb_t zp[4];
-    mp_limb_t c = MP_LIMB_MAX;
-
-    mp_add_x4(zp, c, ap, c);
-
-    ASSERT(c == 0);
-    ASSERT(mpn_cmp(zp, ep, 4) == 0);
-
-    mpn_zero(zp, 4);
-
-    ASSERT(mpn_add_1(zp, ap, 4, MP_LIMB_MAX) == 0);
-    ASSERT(mpn_cmp(zp, ep, 4) == 0);
-  }
 }
 
 static void
@@ -1130,6 +1044,66 @@ test_mpn_addsub_1(mp_rng_f *rng, void *arg) {
     zn = mpn_strip(zp, zn);
 
     ASSERT(zn == 0);
+  }
+}
+
+static void
+test_mpn_add_1(void) {
+  printf("  - MPN add (1 limb).\n");
+
+  {
+    mp_limb_t xp[4] = {1, 2, 3, 4};
+    mp_limb_t ep[4] = {2, 2, 3, 4};
+    mp_limb_t zp[4];
+
+    mpn_zero(zp, 4);
+
+    ASSERT(mpn_add_1(zp, xp, 4, 1) == 0);
+    ASSERT(mpn_cmp(zp, ep, 4) == 0);
+  }
+
+  {
+    mp_limb_t xp[4] = {MP_LIMB_MAX, 2, 3, 4};
+    mp_limb_t ep[4] = {0, 3, 3, 4};
+    mp_limb_t zp[4];
+
+    mpn_zero(zp, 4);
+
+    ASSERT(mpn_add_1(zp, xp, 4, 1) == 0);
+    ASSERT(mpn_cmp(zp, ep, 4) == 0);
+  }
+
+  {
+    mp_limb_t xp[4] = {MP_LIMB_MAX, MP_LIMB_MAX, MP_LIMB_MAX, MP_LIMB_MAX};
+    mp_limb_t ep[4] = {0, 0, 0, 0};
+    mp_limb_t zp[4];
+
+    mpn_zero(zp, 4);
+
+    ASSERT(mpn_add_1(zp, xp, 4, 1) == 1);
+    ASSERT(mpn_cmp(zp, ep, 4) == 0);
+  }
+
+  {
+    mp_limb_t xp[4] = {MP_LIMB_MAX, MP_LIMB_MAX, MP_LIMB_MAX, MP_LIMB_MAX};
+    mp_limb_t ep[4] = {MP_LIMB_MAX - 1, 0, 0, 0};
+    mp_limb_t zp[4];
+
+    mpn_zero(zp, 4);
+
+    ASSERT(mpn_add_1(zp, xp, 4, MP_LIMB_MAX) == 1);
+    ASSERT(mpn_cmp(zp, ep, 4) == 0);
+  }
+
+  {
+    mp_limb_t xp[4] = {MP_LIMB_MAX, 1, 0, 0};
+    mp_limb_t ep[4] = {MP_LIMB_MAX - 1, 2, 0, 0};
+    mp_limb_t zp[4];
+
+    mpn_zero(zp, 4);
+
+    ASSERT(mpn_add_1(zp, xp, 4, MP_LIMB_MAX) == 0);
+    ASSERT(mpn_cmp(zp, ep, 4) == 0);
   }
 }
 
@@ -6910,6 +6884,7 @@ test_mpi_internal(mp_rng_f *rng, void *arg) {
   test_mpn_cmp();
   test_mpn_addsub(rng, arg);
   test_mpn_addsub_1(rng, arg);
+  test_mpn_add_1();
   test_mpn_muldiv(rng, arg);
   test_mpn_muldiv_1(rng, arg);
   test_mpn_addmul_1(rng, arg);
