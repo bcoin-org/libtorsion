@@ -273,6 +273,102 @@ STATIC_ASSERT((0u - 1u) == UINT_MAX);
 #define mp_sub_x4(zp, c, xp, y) \
   mp_op_x4("subq", "sbbq", zp, c, xp, y)
 
+/* [z, c] = x + y */
+#define mp_op_1n(op, zp, c, xp, xn, y) \
+  __asm__ __volatile__ (               \
+    "testq %%rcx, %%rcx\n"             \
+    "jz 5f\n"                          \
+                                       \
+    "movq (%%rsi), %%r8\n"             \
+    "xorq %q0, %q0\n"                  \
+    op " %q4, %%r8\n"                  \
+    "setc %b0\n"                       \
+    "movq %%r8, (%%rdi)\n"             \
+    "leaq 8(%%rsi), %%rsi\n"           \
+    "leaq 8(%%rdi), %%rdi\n"           \
+    "decq %%rcx\n"                     \
+    "jz 5f\n"                          \
+                                       \
+    "movq %%rcx, %%r9\n"               \
+    "shrq $2, %%rcx\n"                 \
+    "andq $3, %%r9\n"                  \
+    "jz 1f\n"                          \
+                                       \
+    "shrq %q0\n"                       \
+                                       \
+    "movq (%%rsi), %%r8\n"             \
+    op " $0, %%r8\n"                   \
+    "movq %%r8, (%%rdi)\n"             \
+    "leaq 8(%%rsi), %%rsi\n"           \
+    "leaq 8(%%rdi), %%rdi\n"           \
+    "decq %%r9\n"                      \
+    "jz 2f\n"                          \
+                                       \
+    "movq (%%rsi), %%r8\n"             \
+    op " $0, %%r8\n"                   \
+    "movq %%r8, (%%rdi)\n"             \
+    "leaq 8(%%rsi), %%rsi\n"           \
+    "leaq 8(%%rdi), %%rdi\n"           \
+    "decq %%r9\n"                      \
+    "jz 2f\n"                          \
+                                       \
+    "movq (%%rsi), %%r8\n"             \
+    op " $0, %%r8\n"                   \
+    "movq %%r8, (%%rdi)\n"             \
+    "leaq 8(%%rsi), %%rsi\n"           \
+    "leaq 8(%%rdi), %%rdi\n"           \
+    "decq %%r9\n"                      \
+    "jz 2f\n"                          \
+                                       \
+    "1:\n"                             \
+    "shrq %q0\n"                       \
+                                       \
+    "2:\n"                             \
+    "jrcxz 4f\n"                       \
+                                       \
+    ".align 16\n"                      \
+    "3:\n"                             \
+    "movq (%%rsi), %%r8\n"             \
+    op " $0, %%r8\n"                   \
+    "movq %%r8, (%%rdi)\n"             \
+                                       \
+    "movq 8(%%rsi), %%r8\n"            \
+    op " $0, %%r8\n"                   \
+    "movq %%r8, 8(%%rdi)\n"            \
+                                       \
+    "movq 16(%%rsi), %%r8\n"           \
+    op " $0, %%r8\n"                   \
+    "movq %%r8, 16(%%rdi)\n"           \
+                                       \
+    "movq 24(%%rsi), %%r8\n"           \
+    op " $0, %%r8\n"                   \
+    "movq %%r8, 24(%%rdi)\n"           \
+                                       \
+    "leaq 32(%%rsi), %%rsi\n"          \
+    "leaq 32(%%rdi), %%rdi\n"          \
+    "decq %%rcx\n"                     \
+    "jnz 3b\n"                         \
+                                       \
+    "4:\n"                             \
+    "setc %b0\n"                       \
+                                       \
+    "5:\n"                             \
+    : "+&r" (c),                       \
+      "+D" (zp), "+S" (xp),            \
+      "+c" (xn)                        \
+    : "rm" (y)                         \
+    : "cc", "memory",                  \
+      "r8", "r9"                       \
+  )
+
+/* [z, c] = x + y */
+#define mp_add_1n(zp, c, xp, xn, y) \
+  mp_op_1n("adcq", zp, c, xp, xn, y)
+
+/* [z, c] = x - y */
+#define mp_sub_1n(zp, c, xp, xn, y) \
+  mp_op_1n("sbbq", zp, c, xp, xn, y)
+
 /* [z, c] = x +- y +- c */
 #define mp_op_1x4(op, zp, c, xp, yp) \
   __asm__ __volatile__ (             \
@@ -1239,6 +1335,11 @@ mpn_cmp(const mp_limb_t *xp, const mp_limb_t *yp, mp_size_t n) {
 
 mp_limb_t
 mpn_add_1(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn, mp_limb_t y) {
+#if defined(MP_HAVE_ASM_X64)
+  mp_limb_t c = y;
+  mp_add_1n(zp, c, xp, xn, y);
+  return c;
+#else
   mp_limb_t c = y;
 
   switch (xn & 3) {
@@ -1260,6 +1361,7 @@ mpn_add_1(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn, mp_limb_t y) {
   }
 
   return c;
+#endif
 }
 
 static TORSION_INLINE mp_limb_t

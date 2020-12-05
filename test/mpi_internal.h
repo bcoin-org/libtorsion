@@ -755,6 +755,7 @@ test_mp_helpers(mp_rng_f *rng, void *arg) {
     mpn_zero(zp, 4);
 
     ASSERT(mpn_add_1(zp, ap, 4, 1) == 0);
+    mpn_print(zp, 4, 16, puts);
     ASSERT(mpn_cmp(zp, ep, 4) == 0);
   }
 
