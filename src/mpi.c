@@ -368,7 +368,9 @@ STATIC_ASSERT((0u - 1u) == UINT_MAX);
     "shrq %q0\n" /* cf=q0, q0=0 */     \
                                        \
     "2:\n"                             \
-    "jrcxz 4f\n"                       \
+    "incq %%rcx\n"                     \
+    "decq %%rcx\n"                     \
+    "jz 4f\n"                          \
                                        \
     ".align 16\n"                      \
     "3:\n"                             \
@@ -444,7 +446,9 @@ STATIC_ASSERT((0u - 1u) == UINT_MAX);
     "leaq 8(%q3), %q3\n"               \
                                        \
     "1:\n"                             \
-    "jrcxz 3f\n"                       \
+    "incq %%rcx\n"                     \
+    "decq %%rcx\n"                     \
+    "jz 3f\n"                          \
                                        \
     ".align 16\n"                      \
     "2:\n"                             \
@@ -526,7 +530,9 @@ STATIC_ASSERT((0u - 1u) == UINT_MAX);
     "leaq 8(%%rdi), %%rdi\n"        \
                                     \
     "1:\n"                          \
-    "jrcxz 3f\n"                    \
+    "incq %%rcx\n"                  \
+    "decq %%rcx\n"                  \
+    "jz 3f\n"                       \
                                     \
     ".align 16\n"                   \
     "2:\n"                          \
@@ -615,7 +621,9 @@ STATIC_ASSERT((0u - 1u) == UINT_MAX);
     "leaq 8(%%rdi), %%rdi\n"              \
                                           \
     "1:\n"                                \
-    "jrcxz 3f\n"                          \
+    "incq %%rcx\n"                        \
+    "decq %%rcx\n"                        \
+    "jz 3f\n"                             \
                                           \
     ".align 16\n"                         \
     "2:\n"                                \
@@ -706,7 +714,9 @@ STATIC_ASSERT((0u - 1u) == UINT_MAX);
     "leaq 8(%%rdi), %%rdi\n"     \
                                  \
     "1:\n"                       \
-    "jrcxz 3f\n"                 \
+    "incq %%rcx\n"               \
+    "decq %%rcx\n"               \
+    "jz 3f\n"                    \
                                  \
     ".align 16\n"                \
     "2:\n"                       \
