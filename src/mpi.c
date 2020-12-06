@@ -412,70 +412,70 @@ STATIC_ASSERT((0u - 1u) == UINT_MAX);
 
 /* [z, c] = x +- y +- c */
 #define asm_op_n(op, zp, c, xp, yp, n) \
-  __asm__ __volatile__ (              \
-    "movq %%rcx, %%r9\n"              \
-    "shrq $2, %%rcx\n"                \
-    "andq $3, %%r9\n" /* cf=0 */      \
-    "jz 1f\n"                         \
-                                      \
-    "movq (%%rsi), %%r8\n"            \
-    op " (%q3), %%r8\n"               \
-    "movq %%r8, (%%rdi)\n"            \
-    "leaq 8(%%rsi), %%rsi\n"          \
-    "leaq 8(%%rdi), %%rdi\n"          \
-    "leaq 8(%q3), %q3\n"              \
-    "decq %%r9\n"                     \
-    "jz 1f\n"                         \
-                                      \
-    "movq (%%rsi), %%r8\n"            \
-    op " (%q3), %%r8\n"               \
-    "movq %%r8, (%%rdi)\n"            \
-    "leaq 8(%%rsi), %%rsi\n"          \
-    "leaq 8(%%rdi), %%rdi\n"          \
-    "leaq 8(%q3), %q3\n"              \
-    "decq %%r9\n"                     \
-    "jz 1f\n"                         \
-                                      \
-    "movq (%%rsi), %%r8\n"            \
-    op " (%q3), %%r8\n"               \
-    "movq %%r8, (%%rdi)\n"            \
-    "leaq 8(%%rsi), %%rsi\n"          \
-    "leaq 8(%%rdi), %%rdi\n"          \
-    "leaq 8(%q3), %q3\n"              \
-                                      \
-    "1:\n"                            \
-    "jrcxz 3f\n"                      \
-                                      \
-    ".align 16\n"                     \
-    "2:\n"                            \
-    "movq (%%rsi), %%r8\n"            \
-    "movq 8(%%rsi), %%r9\n"           \
-    "movq 16(%%rsi), %%r10\n"         \
-    "movq 24(%%rsi), %%r11\n"         \
-    op " (%q3), %%r8\n"               \
-    op " 8(%q3), %%r9\n"              \
-    op " 16(%q3), %%r10\n"            \
-    op " 24(%q3), %%r11\n"            \
-    "movq %%r8, (%%rdi)\n"            \
-    "movq %%r9, 8(%%rdi)\n"           \
-    "movq %%r10, 16(%%rdi)\n"         \
-    "movq %%r11, 24(%%rdi)\n"         \
-                                      \
-    "leaq 32(%%rsi), %%rsi\n"         \
-    "leaq 32(%%rdi), %%rdi\n"         \
-    "leaq 32(%q3), %q3\n"             \
-    "decq %%rcx\n"                    \
-    "jnz 2b\n"                        \
-                                      \
-    "3:\n"                            \
-    "movq $0, %q0\n"                  \
-    "setc %b0\n"                      \
-    : "=r" (c),                       \
-      "+D" (zp), "+S" (xp),           \
-      "+r" (yp), "+c" (n)             \
-    :                                 \
-    : "cc", "memory",                 \
-      "r8", "r9", "r10", "r11"        \
+  __asm__ __volatile__ (               \
+    "movq %%rcx, %%r9\n"               \
+    "shrq $2, %%rcx\n"                 \
+    "andq $3, %%r9\n" /* cf=0 */       \
+    "jz 1f\n"                          \
+                                       \
+    "movq (%%rsi), %%r8\n"             \
+    op " (%q3), %%r8\n"                \
+    "movq %%r8, (%%rdi)\n"             \
+    "leaq 8(%%rsi), %%rsi\n"           \
+    "leaq 8(%%rdi), %%rdi\n"           \
+    "leaq 8(%q3), %q3\n"               \
+    "decq %%r9\n"                      \
+    "jz 1f\n"                          \
+                                       \
+    "movq (%%rsi), %%r8\n"             \
+    op " (%q3), %%r8\n"                \
+    "movq %%r8, (%%rdi)\n"             \
+    "leaq 8(%%rsi), %%rsi\n"           \
+    "leaq 8(%%rdi), %%rdi\n"           \
+    "leaq 8(%q3), %q3\n"               \
+    "decq %%r9\n"                      \
+    "jz 1f\n"                          \
+                                       \
+    "movq (%%rsi), %%r8\n"             \
+    op " (%q3), %%r8\n"                \
+    "movq %%r8, (%%rdi)\n"             \
+    "leaq 8(%%rsi), %%rsi\n"           \
+    "leaq 8(%%rdi), %%rdi\n"           \
+    "leaq 8(%q3), %q3\n"               \
+                                       \
+    "1:\n"                             \
+    "jrcxz 3f\n"                       \
+                                       \
+    ".align 16\n"                      \
+    "2:\n"                             \
+    "movq (%%rsi), %%r8\n"             \
+    "movq 8(%%rsi), %%r9\n"            \
+    "movq 16(%%rsi), %%r10\n"          \
+    "movq 24(%%rsi), %%r11\n"          \
+    op " (%q3), %%r8\n"                \
+    op " 8(%q3), %%r9\n"               \
+    op " 16(%q3), %%r10\n"             \
+    op " 24(%q3), %%r11\n"             \
+    "movq %%r8, (%%rdi)\n"             \
+    "movq %%r9, 8(%%rdi)\n"            \
+    "movq %%r10, 16(%%rdi)\n"          \
+    "movq %%r11, 24(%%rdi)\n"          \
+                                       \
+    "leaq 32(%%rsi), %%rsi\n"          \
+    "leaq 32(%%rdi), %%rdi\n"          \
+    "leaq 32(%q3), %q3\n"              \
+    "decq %%rcx\n"                     \
+    "jnz 2b\n"                         \
+                                       \
+    "3:\n"                             \
+    "movq $0, %q0\n"                   \
+    "setc %b0\n"                       \
+    : "=r" (c),                        \
+      "+D" (zp), "+S" (xp),            \
+      "+r" (yp), "+c" (n)              \
+    :                                  \
+    : "cc", "memory",                  \
+      "r8", "r9", "r10", "r11"         \
   )
 
 /* [z, c] = x + y + c */
@@ -488,88 +488,88 @@ STATIC_ASSERT((0u - 1u) == UINT_MAX);
 
 /* [z, c] = x * y + c */
 #define asm_mul_1(zp, c, xp, xn, y) \
-  __asm__ __volatile__ (           \
-    "movq $0, %q0\n"               \
-                                   \
-    "movq %%rcx, %%r8\n"           \
-    "shrq $2, %%rcx\n"             \
-    "andq $3, %%r8\n"              \
-    "jz 1f\n"                      \
-                                   \
-    "movq (%%rsi), %%rax\n"        \
-    "mulq %q4\n"                   \
-    "movq %%rax, (%%rdi)\n"        \
-    "movq %%rdx, %q0\n"            \
-    "leaq 8(%%rsi), %%rsi\n"       \
-    "leaq 8(%%rdi), %%rdi\n"       \
-    "decq %%r8\n"                  \
-    "jz 1f\n"                      \
-                                   \
-    "movq (%%rsi), %%rax\n"        \
-    "mulq %q4\n"                   \
-    "addq %q0, %%rax\n"            \
-    "adcq $0, %%rdx\n"             \
-    "movq %%rax, (%%rdi)\n"        \
-    "movq %%rdx, %q0\n"            \
-    "leaq 8(%%rsi), %%rsi\n"       \
-    "leaq 8(%%rdi), %%rdi\n"       \
-    "decq %%r8\n"                  \
-    "jz 1f\n"                      \
-                                   \
-    "movq (%%rsi), %%rax\n"        \
-    "mulq %q4\n"                   \
-    "addq %q0, %%rax\n"            \
-    "adcq $0, %%rdx\n"             \
-    "movq %%rax, (%%rdi)\n"        \
-    "movq %%rdx, %q0\n"            \
-    "leaq 8(%%rsi), %%rsi\n"       \
-    "leaq 8(%%rdi), %%rdi\n"       \
-                                   \
-    "1:\n"                         \
-    "jrcxz 3f\n"                   \
-                                   \
-    ".align 16\n"                  \
-    "2:\n"                         \
-    "movq (%%rsi), %%rax\n"        \
-    "mulq %q4\n"                   \
-    "addq %q0, %%rax\n"            \
-    "adcq $0, %%rdx\n"             \
-    "movq %%rax, (%%rdi)\n"        \
-    "movq %%rdx, %q0\n"            \
-                                   \
-    "movq 8(%%rsi), %%rax\n"       \
-    "mulq %q4\n"                   \
-    "addq %q0, %%rax\n"            \
-    "adcq $0, %%rdx\n"             \
-    "movq %%rax, 8(%%rdi)\n"       \
-    "movq %%rdx, %q0\n"            \
-                                   \
-    "movq 16(%%rsi), %%rax\n"      \
-    "mulq %q4\n"                   \
-    "addq %q0, %%rax\n"            \
-    "adcq $0, %%rdx\n"             \
-    "movq %%rax, 16(%%rdi)\n"      \
-    "movq %%rdx, %q0\n"            \
-                                   \
-    "movq 24(%%rsi), %%rax\n"      \
-    "mulq %q4\n"                   \
-    "addq %q0, %%rax\n"            \
-    "adcq $0, %%rdx\n"             \
-    "movq %%rax, 24(%%rdi)\n"      \
-    "movq %%rdx, %q0\n"            \
-                                   \
-    "leaq 32(%%rsi), %%rsi\n"      \
-    "leaq 32(%%rdi), %%rdi\n"      \
-    "decq %%rcx\n"                 \
-    "jnz 2b\n"                     \
-                                   \
-    "3:\n"                         \
-    : "=&r" (c),                   \
-      "+&D" (zp), "+&S" (xp),      \
-      "+&c" (xn)                   \
-    : "r" (y)                      \
-    : "cc", "memory",              \
-      "rax", "rdx", "r8"           \
+  __asm__ __volatile__ (            \
+    "movq $0, %q0\n"                \
+                                    \
+    "movq %%rcx, %%r8\n"            \
+    "shrq $2, %%rcx\n"              \
+    "andq $3, %%r8\n"               \
+    "jz 1f\n"                       \
+                                    \
+    "movq (%%rsi), %%rax\n"         \
+    "mulq %q4\n"                    \
+    "movq %%rax, (%%rdi)\n"         \
+    "movq %%rdx, %q0\n"             \
+    "leaq 8(%%rsi), %%rsi\n"        \
+    "leaq 8(%%rdi), %%rdi\n"        \
+    "decq %%r8\n"                   \
+    "jz 1f\n"                       \
+                                    \
+    "movq (%%rsi), %%rax\n"         \
+    "mulq %q4\n"                    \
+    "addq %q0, %%rax\n"             \
+    "adcq $0, %%rdx\n"              \
+    "movq %%rax, (%%rdi)\n"         \
+    "movq %%rdx, %q0\n"             \
+    "leaq 8(%%rsi), %%rsi\n"        \
+    "leaq 8(%%rdi), %%rdi\n"        \
+    "decq %%r8\n"                   \
+    "jz 1f\n"                       \
+                                    \
+    "movq (%%rsi), %%rax\n"         \
+    "mulq %q4\n"                    \
+    "addq %q0, %%rax\n"             \
+    "adcq $0, %%rdx\n"              \
+    "movq %%rax, (%%rdi)\n"         \
+    "movq %%rdx, %q0\n"             \
+    "leaq 8(%%rsi), %%rsi\n"        \
+    "leaq 8(%%rdi), %%rdi\n"        \
+                                    \
+    "1:\n"                          \
+    "jrcxz 3f\n"                    \
+                                    \
+    ".align 16\n"                   \
+    "2:\n"                          \
+    "movq (%%rsi), %%rax\n"         \
+    "mulq %q4\n"                    \
+    "addq %q0, %%rax\n"             \
+    "adcq $0, %%rdx\n"              \
+    "movq %%rax, (%%rdi)\n"         \
+    "movq %%rdx, %q0\n"             \
+                                    \
+    "movq 8(%%rsi), %%rax\n"        \
+    "mulq %q4\n"                    \
+    "addq %q0, %%rax\n"             \
+    "adcq $0, %%rdx\n"              \
+    "movq %%rax, 8(%%rdi)\n"        \
+    "movq %%rdx, %q0\n"             \
+                                    \
+    "movq 16(%%rsi), %%rax\n"       \
+    "mulq %q4\n"                    \
+    "addq %q0, %%rax\n"             \
+    "adcq $0, %%rdx\n"              \
+    "movq %%rax, 16(%%rdi)\n"       \
+    "movq %%rdx, %q0\n"             \
+                                    \
+    "movq 24(%%rsi), %%rax\n"       \
+    "mulq %q4\n"                    \
+    "addq %q0, %%rax\n"             \
+    "adcq $0, %%rdx\n"              \
+    "movq %%rax, 24(%%rdi)\n"       \
+    "movq %%rdx, %q0\n"             \
+                                    \
+    "leaq 32(%%rsi), %%rsi\n"       \
+    "leaq 32(%%rdi), %%rdi\n"       \
+    "decq %%rcx\n"                  \
+    "jnz 2b\n"                      \
+                                    \
+    "3:\n"                          \
+    : "=&r" (c),                    \
+      "+&D" (zp), "+&S" (xp),       \
+      "+&c" (xn)                    \
+    : "r" (y)                       \
+    : "cc", "memory",               \
+      "rax", "rdx", "r8"            \
   )
 
 /* [z, c] = x * y + c */
@@ -666,11 +666,11 @@ STATIC_ASSERT((0u - 1u) == UINT_MAX);
   )
 
 /* [z, c] = z + x * y + c */
-#define asm_addmul_1(zp, c, xp, xn, y) \
+#define asm_addmul_1(zp, c, xp, xn, y)  \
   asm_opmul_1("addq", zp, c, xp, xn, y)
 
 /* [z, c] = z - x * y - c = z - (x * y + c) */
-#define asm_submul_1(zp, c, xp, xn, y) \
+#define asm_submul_1(zp, c, xp, xn, y)  \
   asm_opmul_1("subq", zp, c, xp, xn, y)
 
 /* [z, c] = 0 - x - c = -(x + c) */
