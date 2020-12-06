@@ -1772,6 +1772,7 @@ mp_div(mp_limb_t *q, mp_limb_t *r,
 #endif
     : "=a" (q0), "=d" (r0)
     : "0" (n0), "1" (n1), "rm" (d)
+    : "cc"
   );
 
   if (q != NULL)
