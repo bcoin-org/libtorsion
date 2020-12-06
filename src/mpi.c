@@ -321,6 +321,7 @@ STATIC_ASSERT((0u - 1u) == UINT_MAX);
 /* [z, c] = x + y */
 #define asm_op_1(op, zp, c, xp, xn, y) \
   __asm__ __volatile__ (               \
+    /* Note: cant't use jrcxz here. */ \
     "testq %%rcx, %%rcx\n"             \
     "jz 5f\n"                          \
                                        \
@@ -374,20 +375,17 @@ STATIC_ASSERT((0u - 1u) == UINT_MAX);
     ".align 16\n"                      \
     "3:\n"                             \
     "movq (%%rsi), %%r8\n"             \
+    "movq 8(%%rsi), %%r9\n"            \
+    "movq 16(%%rsi), %%r10\n"          \
+    "movq 24(%%rsi), %%r11\n"          \
     op " $0, %%r8\n"                   \
+    op " $0, %%r9\n"                   \
+    op " $0, %%r10\n"                  \
+    op " $0, %%r11\n"                  \
     "movq %%r8, (%%rdi)\n"             \
-                                       \
-    "movq 8(%%rsi), %%r8\n"            \
-    op " $0, %%r8\n"                   \
-    "movq %%r8, 8(%%rdi)\n"            \
-                                       \
-    "movq 16(%%rsi), %%r8\n"           \
-    op " $0, %%r8\n"                   \
-    "movq %%r8, 16(%%rdi)\n"           \
-                                       \
-    "movq 24(%%rsi), %%r8\n"           \
-    op " $0, %%r8\n"                   \
-    "movq %%r8, 24(%%rdi)\n"           \
+    "movq %%r9, 8(%%rdi)\n"            \
+    "movq %%r10, 16(%%rdi)\n"          \
+    "movq %%r11, 24(%%rdi)\n"          \
                                        \
     "leaq 32(%%rsi), %%rsi\n"          \
     "leaq 32(%%rdi), %%rdi\n"          \
@@ -403,7 +401,7 @@ STATIC_ASSERT((0u - 1u) == UINT_MAX);
       "+c" (xn)                        \
     : "rm" (y)                         \
     : "cc", "memory",                  \
-      "r8", "r9"                       \
+      "r8", "r9", "r10", "r11"         \
   )
 
 /* [z, c] = x + y */
@@ -455,20 +453,17 @@ STATIC_ASSERT((0u - 1u) == UINT_MAX);
     ".align 16\n"                     \
     "2:\n"                            \
     "movq (%%rsi), %%r8\n"            \
+    "movq 8(%%rsi), %%r9\n"           \
+    "movq 16(%%rsi), %%r10\n"         \
+    "movq 24(%%rsi), %%r11\n"         \
     op " (%q3), %%r8\n"               \
+    op " 8(%q3), %%r9\n"              \
+    op " 16(%q3), %%r10\n"            \
+    op " 24(%q3), %%r11\n"            \
     "movq %%r8, (%%rdi)\n"            \
-                                      \
-    "movq 8(%%rsi), %%r8\n"           \
-    op " 8(%q3), %%r8\n"              \
-    "movq %%r8, 8(%%rdi)\n"           \
-                                      \
-    "movq 16(%%rsi), %%r8\n"          \
-    op " 16(%q3), %%r8\n"             \
-    "movq %%r8, 16(%%rdi)\n"          \
-                                      \
-    "movq 24(%%rsi), %%r8\n"          \
-    op " 24(%q3), %%r8\n"             \
-    "movq %%r8, 24(%%rdi)\n"          \
+    "movq %%r9, 8(%%rdi)\n"           \
+    "movq %%r10, 16(%%rdi)\n"         \
+    "movq %%r11, 24(%%rdi)\n"         \
                                       \
     "leaq 32(%%rsi), %%rsi\n"         \
     "leaq 32(%%rdi), %%rdi\n"         \
@@ -484,7 +479,7 @@ STATIC_ASSERT((0u - 1u) == UINT_MAX);
       "+r" (yp), "+c" (n)             \
     :                                 \
     : "cc", "memory",                 \
-      "r8", "r9"                      \
+      "r8", "r9", "r10", "r11"        \
   )
 
 /* [z, c] = x + y + c */
@@ -731,24 +726,21 @@ STATIC_ASSERT((0u - 1u) == UINT_MAX);
     ".align 16\n"                \
     "2:\n"                       \
     "movq (%%rsi), %%r8\n"       \
+    "movq 8(%%rsi), %%r9\n"      \
+    "movq 16(%%rsi), %%r10\n"    \
+    "movq 24(%%rsi), %%r11\n"    \
     "adcq $0, %%r8\n"            \
     "negq %%r8\n"                \
+    "adcq $0, %%r9\n"            \
+    "negq %%r9\n"                \
+    "adcq $0, %%r10\n"           \
+    "negq %%r10\n"               \
+    "adcq $0, %%r11\n"           \
+    "negq %%r11\n"               \
     "movq %%r8, (%%rdi)\n"       \
-                                 \
-    "movq 8(%%rsi), %%r8\n"      \
-    "adcq $0, %%r8\n"            \
-    "negq %%r8\n"                \
-    "movq %%r8, 8(%%rdi)\n"      \
-                                 \
-    "movq 16(%%rsi), %%r8\n"     \
-    "adcq $0, %%r8\n"            \
-    "negq %%r8\n"                \
-    "movq %%r8, 16(%%rdi)\n"     \
-                                 \
-    "movq 24(%%rsi), %%r8\n"     \
-    "adcq $0, %%r8\n"            \
-    "negq %%r8\n"                \
-    "movq %%r8, 24(%%rdi)\n"     \
+    "movq %%r9, 8(%%rdi)\n"      \
+    "movq %%r10, 16(%%rdi)\n"    \
+    "movq %%r11, 24(%%rdi)\n"    \
                                  \
     "leaq 32(%%rsi), %%rsi\n"    \
     "leaq 32(%%rdi), %%rdi\n"    \
@@ -763,7 +755,7 @@ STATIC_ASSERT((0u - 1u) == UINT_MAX);
       "+c" (xn)                  \
     :                            \
     : "cc", "memory",            \
-      "r8", "r9"                 \
+      "r8", "r9", "r10", "r11"   \
   )
 
 #endif /* !MP_HAVE_ASM_X64 */
