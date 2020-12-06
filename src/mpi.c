@@ -318,27 +318,9 @@ STATIC_ASSERT((0u - 1u) == UINT_MAX);
 
 #ifdef MP_HAVE_ASM_X64
 
-#if defined(__clang__)
-/* A poor man's jrcxz...
- *
- * For some reason clang's assembler generates
- * bigger loop bodies than gcc. They exceed the
- * signed byte limit for jrcxz. We use the inc/dec
- * hack on clang for this reason.
- */
-#define jrcxz(label) \
-  "incq %%rcx\n"     \
-  "decq %%rcx\n"     \
-  "jz " label "\n"
-#else
-#define jrcxz(label) \
-  "jrcxz " label "\n"
-#endif
-
 /* [z, c] = x + y */
 #define asm_op_1(op, zp, c, xp, xn, y) \
   __asm__ __volatile__ (               \
-    /* Note: cant't use jrcxz here. */ \
     "testq %%rcx, %%rcx\n"             \
     "jz 5f\n"                          \
                                        \
@@ -380,8 +362,7 @@ STATIC_ASSERT((0u - 1u) == UINT_MAX);
     "movq %%r8, (%%rdi)\n"             \
     "leaq 8(%%rsi), %%rsi\n"           \
     "leaq 8(%%rdi), %%rdi\n"           \
-    "decq %%r9\n"                      \
-    "jz 2f\n"                          \
+    "jmp 2f\n"                         \
                                        \
     "1:\n"                             \
     "shrq %q0\n" /* cf=q0, q0=0 */     \
@@ -461,8 +442,6 @@ STATIC_ASSERT((0u - 1u) == UINT_MAX);
     "leaq 8(%%rsi), %%rsi\n"          \
     "leaq 8(%%rdi), %%rdi\n"          \
     "leaq 8(%q3), %q3\n"              \
-    "decq %%r9\n"                     \
-    "jz 1f\n"                         \
                                       \
     "1:\n"                            \
     "jrcxz 3f\n"                      \
@@ -519,8 +498,6 @@ STATIC_ASSERT((0u - 1u) == UINT_MAX);
                                    \
     "movq (%%rsi), %%rax\n"        \
     "mulq %q4\n"                   \
- /* "addq %q0, %%rax\n" */         \
- /* "adcq $0, %%rdx\n" */          \
     "movq %%rax, (%%rdi)\n"        \
     "movq %%rdx, %q0\n"            \
     "leaq 8(%%rsi), %%rsi\n"       \
@@ -547,11 +524,9 @@ STATIC_ASSERT((0u - 1u) == UINT_MAX);
     "movq %%rdx, %q0\n"            \
     "leaq 8(%%rsi), %%rsi\n"       \
     "leaq 8(%%rdi), %%rdi\n"       \
-    "decq %%r8\n"                  \
-    "jz 1f\n"                      \
                                    \
     "1:\n"                         \
-    jrcxz("3f")                    \
+    "jrcxz 3f\n"                   \
                                    \
     ".align 16\n"                  \
     "2:\n"                         \
@@ -592,7 +567,7 @@ STATIC_ASSERT((0u - 1u) == UINT_MAX);
     : "=&r" (c),                   \
       "+D" (zp), "+S" (xp),        \
       "+c" (xn)                    \
-    : "rm" (y)                     \
+    : "r" (y)                      \
     : "cc", "memory",              \
       "rax", "rdx", "r8"           \
   )
@@ -609,8 +584,6 @@ STATIC_ASSERT((0u - 1u) == UINT_MAX);
                                           \
     "movq (%%rsi), %%rax\n"               \
     "mulq %q4\n"                          \
- /* "addq %q0, %%rax\n" */                \
- /* "adcq $0, %%rdx\n" */                 \
     op " %%rax, (%%rdi)\n"                \
     "adcq $0, %%rdx\n"                    \
     "movq %%rdx, %q0\n"                   \
@@ -640,11 +613,9 @@ STATIC_ASSERT((0u - 1u) == UINT_MAX);
     "movq %%rdx, %q0\n"                   \
     "leaq 8(%%rsi), %%rsi\n"              \
     "leaq 8(%%rdi), %%rdi\n"              \
-    "decq %%r8\n"                         \
-    "jz 1f\n"                             \
                                           \
     "1:\n"                                \
-    jrcxz("3f")                           \
+    "jrcxz 3f\n"                          \
                                           \
     ".align 16\n"                         \
     "2:\n"                                \
@@ -689,7 +660,7 @@ STATIC_ASSERT((0u - 1u) == UINT_MAX);
     : "=&r" (c),                          \
       "+D" (zp), "+S" (xp),               \
       "+c" (xn)                           \
-    : "rm" (y)                            \
+    : "r" (y)                             \
     : "cc", "memory",                     \
       "rax", "rdx", "r8"                  \
   )
@@ -711,7 +682,6 @@ STATIC_ASSERT((0u - 1u) == UINT_MAX);
     "jz 1f\n"                    \
                                  \
     "movq (%%rsi), %%r8\n"       \
- /* "adcq $0, %%r8\n" */         \
     "negq %%r8\n"                \
     "movq %%r8, (%%rdi)\n"       \
     "leaq 8(%%rsi), %%rsi\n"     \
@@ -734,8 +704,6 @@ STATIC_ASSERT((0u - 1u) == UINT_MAX);
     "movq %%r8, (%%rdi)\n"       \
     "leaq 8(%%rsi), %%rsi\n"     \
     "leaq 8(%%rdi), %%rdi\n"     \
-    "decq %%r9\n"                \
-    "jz 1f\n"                    \
                                  \
     "1:\n"                       \
     "jrcxz 3f\n"                 \
