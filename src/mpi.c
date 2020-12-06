@@ -4742,8 +4742,8 @@ mpz_div_ui_inner(mpz_t q, const mpz_t n, mp_limb_t d, int euclid) {
   mp_size_t nn = MP_ABS(n->size);
   int ns = (n->size < 0);
   mp_limb_t *qp = NULL;
-  mp_limb_t r;
   mp_size_t qn = 0;
+  mp_limb_t r;
 
   if (d == 0)
     torsion_abort(); /* LCOV_EXCL_LINE */
@@ -4788,12 +4788,12 @@ mpz_div_ui_inner(mpz_t q, const mpz_t n, mp_limb_t d, int euclid) {
 static mp_long_t
 mpz_div_si_inner(mpz_t q, const mpz_t n, mp_long_t d, int euclid) {
   mp_size_t nn = MP_ABS(n->size);
-  int qs = (n->size < 0) ^ (d < 0);
+  int qs = ((n->size ^ d) < 0);
   int rs = (n->size < 0);
   mp_limb_t *qp = NULL;
+  mp_size_t qn = 0;
   mp_limb_t v;
   mp_long_t r;
-  mp_size_t qn = 0;
 
   if (d == 0)
     torsion_abort(); /* LCOV_EXCL_LINE */
