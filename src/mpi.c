@@ -318,6 +318,23 @@ STATIC_ASSERT((0u - 1u) == UINT_MAX);
 
 #ifdef MP_HAVE_ASM_X64
 
+#if defined(__clang__)
+/* A poor man's jrcxz...
+ *
+ * For some reason clang's assembler generates
+ * bigger loop bodies than gcc. They exceed the
+ * signed byte limit for jrcxz. We use the inc/dec
+ * hack on clang for this reason.
+ */
+#define jrcxz(label) \
+  "incq %%rcx\n"     \
+  "decq %%rcx\n"     \
+  "jz " label "\n"
+#else
+#define jrcxz(label) \
+  "jrcxz " label "\n"
+#endif
+
 /* [z, c] = x + y */
 #define asm_op_1(op, zp, c, xp, xn, y) \
   __asm__ __volatile__ (               \
@@ -534,7 +551,7 @@ STATIC_ASSERT((0u - 1u) == UINT_MAX);
     "jz 1f\n"                      \
                                    \
     "1:\n"                         \
-    "jrcxz 3f\n"                   \
+    jrcxz("3f")                    \
                                    \
     ".align 16\n"                  \
     "2:\n"                         \
@@ -627,7 +644,7 @@ STATIC_ASSERT((0u - 1u) == UINT_MAX);
     "jz 1f\n"                             \
                                           \
     "1:\n"                                \
-    "jrcxz 3f\n"                          \
+    jrcxz("3f")                           \
                                           \
     ".align 16\n"                         \
     "2:\n"                                \
