@@ -565,8 +565,8 @@ STATIC_ASSERT((0u - 1u) == UINT_MAX);
                                    \
     "3:\n"                         \
     : "=&r" (c),                   \
-      "+D" (zp), "+S" (xp),        \
-      "+c" (xn)                    \
+      "+&D" (zp), "+&S" (xp),      \
+      "+&c" (xn)                   \
     : "r" (y)                      \
     : "cc", "memory",              \
       "rax", "rdx", "r8"           \
@@ -658,8 +658,8 @@ STATIC_ASSERT((0u - 1u) == UINT_MAX);
                                           \
     "3:\n"                                \
     : "=&r" (c),                          \
-      "+D" (zp), "+S" (xp),               \
-      "+c" (xn)                           \
+      "+&D" (zp), "+&S" (xp),             \
+      "+&c" (xn)                          \
     : "r" (y)                             \
     : "cc", "memory",                     \
       "rax", "rdx", "r8"                  \
