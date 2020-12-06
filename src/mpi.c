@@ -2148,6 +2148,87 @@ mp_div_3by2(mp_limb_t *q, mp_limb_t *k1, mp_limb_t *k0,
    * divisor to be normalized and does not
    * de-normalize the remainder.
    */
+#if defined(MP_HAVE_ASM_X64) && defined(MP_DIV_3BY2_ASM)
+  /* Register Layout:
+   *
+   *   %q0 = q1 (*q)
+   *   %q1 = r1 (*k1)
+   *   %q2 = r0 (*k0)
+   *   %q3 = u2
+   *   %q4 = u1
+   *   %q5 = u0
+   *   %q6 = d1
+   *   %q7 = d0
+   *   %q8 = v
+   *   %rax = t0 (after step 3)
+   *   %rdx = t1 (after step 3)
+   *   %rax = q1t (after step 6)
+   *   %rdx = r0t (after step 6)
+   *   %r8 = q0
+   *   %r9 = r1t (after step 6)
+   */
+  __asm__ __volatile__ (
+    /* (q1, q0) = v * u2 + (u2, u1) */
+    "movq %q3, %%rax\n"    /* rax = u2 */
+    "mulq %q8\n"           /* (rdx, rax) = v * rax */
+    "movq %%rax, %%r8\n"   /* q0 = rax */
+    "movq %%rdx, %q0\n"    /* q1 = rdx */
+    "addq %q4, %%r8\n"     /* q0 += u1 */
+    "adcq %q3, %q0\n"      /* q1 += u2 + cf */
+
+    /* r1 = u1 - d1 * q1 */
+    "movq %q0, %%rax\n"    /* rax = q1 */
+    "mulq %q6\n"           /* (, rax) = d1 * rax */
+    "movq %q4, %q1\n"      /* r1 = u1 */
+    "subq %%rax, %q1\n"    /* r1 -= rax */
+
+    /* (t1, t0) = d0 * q1 */
+    "movq %q0, %%rax\n"    /* rax = q1 */
+    "mulq %q7\n"           /* (rax, rdx) = d0 * rax */
+    "movq %%rax, %%rax\n"  /* t0 = rax */
+    "movq %%rdx, %%rdx\n"  /* t1 = rdx */
+
+    /* (r1, r0) = (r1, u0) - ((t1, t0) + (d1, d0)) */
+    "addq %q7, %%rax\n"    /* t0 += d0 */
+    "adcq %q6, %%rdx\n"    /* t1 += d1 + cf */
+    "movq %q5, %q2\n"      /* r0 = u0 */
+    "subq %%rax, %q2\n"    /* r0 -= t0 */
+    "sbbq %%rdx, %q1\n"    /* r1 -= t1 + cf */
+
+    /* q1 += 1 */
+    "addq $1, %q0\n" /* q1 += 1 */
+
+    /* q1 -= 1 if r1 >= q0 */
+    /* (r1, r0) += (d1, d0) if r1 >= q0 */
+    "movq %q0, %%rax\n"    /* q1t = q1 */
+    "movq %q2, %%rdx\n"    /* r0t = r0 */
+    "movq %q1, %%r9\n"     /* r1t = r1 */
+    "subq $1, %%rax\n"     /* q1t -= 1 */
+    "addq %q7, %%rdx\n"    /* r0t += d0 */
+    "adcq %q6, %%r9\n"     /* r1t += d1 + cf */
+    "cmpq %%r8, %q1\n"     /* cmp(r1, q0) */
+    "cmovaeq %%rax, %q0\n" /* q1 = q1t if r1 >= q0 */
+    "cmovaeq %%rdx, %q2\n" /* r0 = r0t if r1 >= q0 */
+    "cmovaeq %%r9, %q1\n"  /* r1 = r1t if r1 >= q0 */
+
+    /* q1 += 1 if (r1, r0) >= (d1, d0) */
+    /* (r1, r0) -= (d1, d0) if (r1, r0) >= (d1, d0) */
+    "cmpq %q6, %q1\n"      /* cmp(r1, d1) */
+    "jb 3f\n"              /* skip if r1 < d1 */
+    "ja 2f\n"              /* do if r1 > d1 */
+    "cmpq %q7, %q2\n"      /* cmp(r0, d0) */
+    "jb 3f\n"              /* skip if r0 < d0 */
+    "2:\n"
+    "addq $1, %q0\n"       /* q1 += 1 */
+    "subq %q7, %q2\n"      /* r0 -= d0 */
+    "sbbq %q6, %q1\n"      /* r1 -= d1 + cf */
+    "3:\n"
+    : "=&r" (*q), "=&r" (*k1), "=&r" (*k0)
+    : "rm" (u2), "rm" (u1), "rm" (u0),
+      "rm" (d1), "rm" (d0), "rm" (v)
+    : "cc", "rax", "rdx", "r8", "r9"
+  );
+#else /* !MP_HAVE_ASM_X64 */
   mp_limb_t q1, q0, r1, r0, t1, t0;
 
   mp_mul(q1, q0, v, u2);
@@ -2222,6 +2303,7 @@ mp_div_3by2(mp_limb_t *q, mp_limb_t *k1, mp_limb_t *k0,
   *q = q1;
   *k1 = r1;
   *k0 = r0;
+#endif /* !MP_HAVE_ASM_X64 */
 }
 
 /*
