@@ -1971,7 +1971,7 @@ mp_div_2by1(mp_limb_t *q, mp_limb_t *r,
 
     /* r0 = u0 - q1 * d */
     "movq %q0, %%rax\n"   /* rax = q1 */
-    "mulq %q4\n"          /* (, rax) = d * rax */
+    "imulq %q4, %%rax\n"  /* rax = d * rax */
     "movq %q3, %q1\n"     /* r0 = u0 */
     "subq %%rax, %q1\n"   /* r0 -= rax */
 
@@ -2188,7 +2188,7 @@ mp_div_3by2(mp_limb_t *q, mp_limb_t *k1, mp_limb_t *k0,
 
     /* r1 = u1 - d1 * q1 */
     "movq %q0, %%rax\n"    /* rax = q1 */
-    "mulq %q6\n"           /* (, rax) = d1 * rax */
+    "imulq %q6, %%rax\n"   /* rax = d1 * rax */
     "movq %q4, %q1\n"      /* r1 = u1 */
     "subq %%rax, %q1\n"    /* r1 -= rax */
 
