@@ -59,6 +59,14 @@ STATIC_ASSERT((-1 & 3) == 3);
 STATIC_ASSERT((0u - 1u) == UINT_MAX);
 
 /*
+ * Options
+ */
+
+#undef MP_USE_DIV_2BY1_ASM
+#undef MP_USE_DIV_3BY2_ASM
+#undef MP_USE_DIV_3BY2
+
+/*
  * Macros
  */
 
@@ -1773,7 +1781,7 @@ mp_div(mp_limb_t *q, mp_limb_t *r,
 #if defined(MP_HAVE_ASM_X86) || defined(MP_HAVE_ASM_X64)
   mp_limb_t q0, r0;
 
-  /* [q, r] = (n1 * B + n0) / d */
+  /* [q, r] = (n1, n0) / d */
   __asm__ (
 #if defined(MP_HAVE_ASM_X64)
     "divq %q4\n"
@@ -1791,39 +1799,58 @@ mp_div(mp_limb_t *q, mp_limb_t *r,
   if (r != NULL)
     *r = r0;
 #elif MP_LIMB_BITS == 64
-  /* [DIV] Algorithm 1, Page 2, Section A.
-   *
-   * This code is basically an unrolled version
-   * of the `divlu` code from Hacker's Delight.
+  /* Code adapted from the `divlu2` function
+   * in Hacker's Delight[1].
    *
    * Having this here allows us to avoid using
    * __int128 division on non-x64 platforms.
    *
-   * Logic borrowed from golang's arith.go.
+   * [1] https://gist.github.com/chjj/d59b19c32b2ccbb1a7b397cd77cc7025
    */
   static const mp_limb_t b = MP_LIMB_C(1) << MP_LOW_BITS;
-  mp_limb_t q0, q1, un0, un1, vn0, vn1, rhat;
+  mp_limb_t un1, un0, vn1, vn0, q1, q0;
+  mp_limb_t un32, un21, un10, rhat;
   mp_bits_t s;
 
-  if (d == 0 || n1 >= d)
-    torsion_abort(); /* LCOV_EXCL_LINE */
+  if (n1 == 0) {
+    q0 = n0 / d;
 
-  s = mp_clz(d);
+    if (q != NULL)
+      *q = q0;
 
-  if (s != 0) {
-    n1 = (n1 << s) | (n0 >> (MP_LIMB_BITS - s));
-    n0 = n0 << s;
-    d <<= s;
+    if (r != NULL)
+      *r = n0 - q0 * d;
+
+    return;
   }
 
+  if (n1 >= d)
+    torsion_abort(); /* LCOV_EXCL_LINE */
+
+  /* Normalize divisor. */
+  s = mp_clz(d);
+  d <<= s;
+
+  /* Break divisor up into two half-limb digits. */
   vn1 = d >> MP_LOW_BITS;
   vn0 = d & MP_LOW_MASK;
 
-  un1 = n0 >> MP_LOW_BITS;
-  un0 = n0 & MP_LOW_MASK;
+  /* Shift dividend left. */
+  if (s != 0) {
+    un32 = (n1 << s) | (n0 >> (MP_LIMB_BITS - s));
+    un10 = n0 << s;
+  } else {
+    un32 = n1;
+    un10 = n0;
+  }
 
-  q1 = n1 / vn1;
-  rhat = n1 - q1 * vn1;
+  /* Break right half of dividend into two digits. */
+  un1 = un10 >> MP_LOW_BITS;
+  un0 = un10 & MP_LOW_MASK;
+
+  /* Compute the first quotient digit, q1. */
+  q1 = un32 / vn1;
+  rhat = un32 - q1 * vn1;
 
   while (q1 >= b || q1 * vn0 > rhat * b + un1) {
     q1 -= 1;
@@ -1833,9 +1860,12 @@ mp_div(mp_limb_t *q, mp_limb_t *r,
       break;
   }
 
-  un1 = n1 * b + un1 - q1 * d;
-  q0 = un1 / vn1;
-  rhat = un1 - q0 * vn1;
+  /* Multiply and subtract. */
+  un21 = un32 * b + un1 - q1 * d;
+
+  /* Compute the second quotient digit, q0. */
+  q0 = un21 / vn1;
+  rhat = un21 - q0 * vn1;
 
   while (q0 >= b || q0 * vn0 > rhat * b + un0) {
     q0 -= 1;
@@ -1848,8 +1878,9 @@ mp_div(mp_limb_t *q, mp_limb_t *r,
   if (q != NULL)
     *q = q1 * b + q0;
 
+  /* If remainder is wanted, return it. */
   if (r != NULL)
-    *r = (un1 * b + un0 - q0 * d) >> s;
+    *r = (un21 * b + un0 - q0 * d) >> s;
 #else
   mp_wide_t n = ((mp_wide_t)n1 << MP_LIMB_BITS) | n0;
   mp_limb_t q0 = n / d;
@@ -1898,7 +1929,10 @@ mp_inv_2by1(mp_limb_t d) {
    * This trick was utilized by the golang
    * developers when switching away from a
    * more specialized inverse function. See
-   * the discussion here[1][2].
+   * the discussion here[1][2]. As an aside,
+   * they seem to think (incorrectly?) that
+   * the proof presented for the 2-by-1
+   * division in [DIV] is flawed.
    *
    * Note that `d` must be normalized.
    *
@@ -1944,7 +1978,7 @@ mp_div_2by1(mp_limb_t *q, mp_limb_t *r,
    * divisor to be normalized and does not
    * de-normalize the remainder.
    */
-#if defined(MP_HAVE_ASM_X64) && defined(MP_DIV_2BY1_ASM)
+#if defined(MP_HAVE_ASM_X64) && defined(MP_USE_DIV_2BY1_ASM)
   /* Register Layout:
    *
    *   %q0 = q1 (*q)
@@ -2158,7 +2192,7 @@ mp_div_3by2(mp_limb_t *q, mp_limb_t *k1, mp_limb_t *k0,
    * divisor to be normalized and does not
    * de-normalize the remainder.
    */
-#if defined(MP_HAVE_ASM_X64) && defined(MP_DIV_3BY2_ASM)
+#if defined(MP_HAVE_ASM_X64) && defined(MP_USE_DIV_3BY2_ASM)
   /* Register Layout:
    *
    *   %q0 = q1 (*q)
@@ -2195,6 +2229,7 @@ mp_div_3by2(mp_limb_t *q, mp_limb_t *k1, mp_limb_t *k0,
     /* (t1, t0) = d0 * q1 */
     "movq %q0, %%rax\n"    /* rax = q1 */
     "mulq %q7\n"           /* (rax, rdx) = d0 * rax */
+                           /* (t1, t0) = (rdx, rax) */
 
     /* (r1, r0) = (r1, u0) - ((t1, t0) + (d1, d0)) */
     "addq %q7, %%rax\n"    /* t0 += d0 */
@@ -2336,6 +2371,7 @@ mpn_divmod_precomp(mp_divisor_t *den, const mp_limb_t *dp, mp_size_t dn) {
   if (dn <= 0 || dp[dn - 1] == 0)
     torsion_abort(); /* LCOV_EXCL_LINE */
 
+  /* Normalize the denominator. */
   shift = mp_clz(dp[dn - 1]);
 
   if (dn == 1) {
@@ -2347,15 +2383,24 @@ mpn_divmod_precomp(mp_divisor_t *den, const mp_limb_t *dp, mp_size_t dn) {
       mpn_copyi(den->vp, dp, dn);
   }
 
+  /* Compute inverse of top limb. */
+#if defined(MP_USE_DIV_3BY2)
+  if (dn == 1)
+    den->inv = mp_inv_2by1(den->vp[dn - 1]);
+  else
+    den->inv = mp_inv_3by2(den->vp[dn - 1], den->vp[dn - 2]);
+#else
   den->inv = mp_inv_2by1(den->vp[dn - 1]);
+#endif
+
   den->shift = shift;
   den->size = dn;
 }
 
 static void
-mpn_divmod_small(mp_limb_t *qp, mp_limb_t *rp,
-                 const mp_limb_t *np, mp_size_t nn,
-                 const mp_divisor_t *den) {
+mpn_divmod_small_2by1(mp_limb_t *qp, mp_limb_t *rp,
+                      const mp_limb_t *np, mp_size_t nn,
+                      const mp_divisor_t *den) {
   /* [DIV] Algorithm 7, Page 7, Section C. */
   mp_bits_t s = den->shift;
   mp_limb_t d = den->vp[0];
@@ -2373,6 +2418,7 @@ mpn_divmod_small(mp_limb_t *qp, mp_limb_t *rp,
       n0 <<= s;
     }
 
+    /* [q, r] = (n1, n0) / d */
     mp_div_2by1(&q, &r, n1, n0, d, m);
 
     r >>= s;
@@ -2385,26 +2431,88 @@ mpn_divmod_small(mp_limb_t *qp, mp_limb_t *rp,
     rp[0] = r;
 }
 
-static void
-mpn_divmod_large(mp_limb_t *qp, mp_limb_t *rp,
-                 const mp_limb_t *np, mp_size_t nn,
-                 mp_divisor_t *den) {
+TORSION_UNUSED static void
+mpn_divmod_small_3by2(mp_limb_t *qp, mp_limb_t *rp,
+                      const mp_limb_t *np, mp_size_t nn,
+                      mp_divisor_t *den) {
+  /* [DIV] Algorithm 7, Page 7, Section C. */
+  mp_limb_t n2, n1, n0, q, r1, r0;
+  mp_bits_t s = den->shift;
+  mp_limb_t d1 = den->vp[1];
+  mp_limb_t d0 = den->vp[0];
+  mp_limb_t *up = den->up;
+  mp_limb_t m = den->inv;
+  mp_size_t j;
+
+  /* Normalize. */
+  if (s != 0) {
+    up[nn] = mpn_lshift(up, np, nn, s);
+  } else {
+    mpn_copyi(up, np, nn);
+    up[nn] = 0;
+  }
+
+  r1 = up[nn - 0];
+  r0 = up[nn - 1];
+
+  for (j = nn - 2; j >= 0; j--) {
+    n2 = r1;
+    n1 = r0;
+    n0 = up[j];
+
+    /* [q, (r1, r0)] = (n2, n1, n0) / (d1, d0) */
+    mp_div_3by2(&q, &r1, &r0, n2, n1, n0, d1, d0, m);
+
+    if (qp != NULL)
+      qp[j] = q;
+  }
+
+  /* Unnormalize. */
+  if (rp != NULL) {
+    if (s != 0) {
+      r0 = (r0 >> s) | (r1 << (MP_LIMB_BITS - s));
+      r1 >>= s;
+    }
+
+    rp[0] = r0;
+    rp[1] = r1;
+  }
+}
+
+TORSION_UNUSED static void
+mpn_divmod_large_2by1(mp_limb_t *qp, mp_limb_t *rp,
+                      const mp_limb_t *np, mp_size_t nn,
+                      mp_divisor_t *den) {
   /* Division of nonnegative integers.
    *
    * [KNUTH] Algorithm D, Page 272, Section 4.3.1.
    *
-   * Originally based on the Hacker's Delight
-   * `divmnu64` function, the code below has
-   * taken on some modifications based on the
-   * golang logic.
+   * Originally based on the `divmnu64` function[1]
+   * in Hacker's Delight, the code below has taken
+   * on some modifications:
+   *
+   *   1. The 2-by-1 inverse is used instead of
+   *      hardware division[2].
+   *   2. Wide limb arithmetic is avoided in the
+   *      quotient estimation loop.
+   *   3. The `qhat >= B` case is accounted for
+   *      separately.
+   *
+   * The last two make this more similar to Knuth's
+   * conceptual implementation of Algorithm D, which
+   * was more wary of machine word size.
+   *
+   * [1] https://gist.github.com/chjj/d59b19c32b2ccbb1a7b397cd77cc7025
+   * [2] [DIV] Algorithm 4, Page 4, Section A.
    */
   const mp_limb_t *vp = den->vp;
-  mp_limb_t qhat, rhat, prev, c;
   mp_limb_t *up = den->up;
   mp_limb_t m = den->inv;
   mp_size_t dn = den->size;
+  mp_limb_t qhat, rhat, c;
   mp_size_t j;
 
+  /* D1. Normalize. */
   if (den->shift != 0) {
     up[nn] = mpn_lshift(up, np, nn, den->shift);
   } else {
@@ -2412,30 +2520,106 @@ mpn_divmod_large(mp_limb_t *qp, mp_limb_t *rp,
     up[nn] = 0;
   }
 
+  /* D2. Initialize j. */
   for (j = nn - dn; j >= 0; j--) {
-    /* Compute estimate qhat of qp[j]. */
-    qhat = MP_LIMB_MAX;
-
-    if (LIKELY(up[j + dn] != vp[dn - 1])) {
+    /* D3. Calculate qhat. */
+    if (UNLIKELY(up[j + dn] == vp[dn - 1])) {
+      /* This algorithm always ensures:
+       *
+       *   up[j + dn] <= vp[dn - 1]
+       *
+       * It's the equals part we need to worry about.
+       *
+       * In this case, qhat would overflow beyond the
+       * limb width. The `divmnu64` code would subtract
+       * until qhat equals the maximum word. We can
+       * simply assign it instead. In other words,
+       * covers the `qhat >= B` check in `divmnu64`.
+       *
+       * Knuth's code (but not algorithm) implements
+       * this, skipping beyond the estimation loop and
+       * setting qhat to B-1 if the division overflows.
+       * Furthermore, it sets rhat to up[j+dn-1] and
+       * then jumps into the middle of the estimation
+       * loop, bypassing the `qhat -= 1` instruction.
+       *
+       * See line 040 (JOV 1F) for the beginning of
+       * this behavior. I've never seen this explained
+       * anywhere, but I suspect Knuth does this for
+       * the following reasons...
+       *
+       * In the case of `qhat == B` we have:
+       *
+       *   qhat = B
+       *   rhat = up[j + dn - 1] mod vp[dn - 1]
+       *
+       * Since `vp` is normalized, we could compute:
+       *
+       *   rhat = up[j + dn - 1];
+       *
+       *   if (rhat >= vp[dn - 1])
+       *     rhat -= vp[dn - 1];
+       *
+       * However, since we set qhat to B-1, we have:
+       *
+       *   qhat = B - 1
+       *   rhat = (up[j + dn - 1] mod vp[dn - 1]) + vp[dn - 1]
+       *
+       * Which would change the computation to:
+       *
+       *   rhat = up[j + dn - 1];
+       *
+       *   if (rhat < vp[dn - 1])
+       *      rhat += vp[dn - 1];
+       *
+       * The estimation loop may still not be entered,
+       * as it _now_ hinges on the assumption of:
+       *
+       *   vp[dn - 2] > rhat (with qhat = B)
+       *
+       * So we must bypass the initial check, and
+       * since we already computed `qhat -= 1` we must
+       * enter into the middle of the loop.
+       *
+       * To emulate this behavior (while avoiding a
+       * goto statement), we could add the following
+       * lines below:
+       *
+       *   rhat = up[j + dn - 1];
+       *
+       *   if (rhat < vp[dn - 1]) {
+       *     rhat += vp[dn - 1];
+       *     qhat -= mp_mul_gt_2(qhat, vp[dn - 2], rhat, up[j + dn - 2]);
+       *   }
+       *
+       * But, to keep the code simple, we allow for
+       * the overestimation, and let the "Add back"
+       * step handle the adjustment.
+       */
+      qhat = MP_LIMB_MAX;
+    } else {
+      /* [qhat, rhat] = (up[j + dn], up[j + dn - 1]) / vp[dn - 1] */
       mp_div_2by1(&qhat, &rhat, up[j + dn], up[j + dn - 1], vp[dn - 1], m);
 
+      /* Repeat while: qhat * vp[dn - 2] > (rhat, up[j + dn - 2])
+                until: rhat >= B */
       while (mp_mul_gt_2(qhat, vp[dn - 2], rhat, up[j + dn - 2])) {
-        prev = rhat;
         qhat -= 1;
         rhat += vp[dn - 1];
 
-        if (rhat < prev)
+        if (rhat < vp[dn - 1])
           break;
       }
     }
 
-    /* Multiply and subtract. */
+    /* D4. Multiply and subtract. */
     c = mpn_submul_1(up + j, vp, dn, qhat);
 
     mp_sub(up[j + dn], c, up[j + dn], c);
 
-    /* Correct off-by-one error. */
+    /* D5. Test remainder. */
     if (c != 0) {
+      /* D6. Add back. */
       up[j + dn] += mpn_add_n(up + j, up + j, vp, dn);
 
       qhat -= 1;
@@ -2443,9 +2627,191 @@ mpn_divmod_large(mp_limb_t *qp, mp_limb_t *rp,
 
     if (qp != NULL)
       qp[j] = qhat;
+
+    /* D7. Loop on j. */
   }
 
-  /* De-normalize. */
+  /* D8. Unnormalize. */
+  if (rp != NULL) {
+    if (den->shift != 0)
+      mpn_rshift(rp, up, dn, den->shift);
+    else
+      mpn_copyi(rp, up, dn);
+  }
+}
+
+TORSION_UNUSED static void
+mpn_divmod_large_3by2(mp_limb_t *qp, mp_limb_t *rp,
+                      const mp_limb_t *np, mp_size_t nn,
+                      mp_divisor_t *den) {
+  /* Division of nonnegative integers.
+   *
+   * [KNUTH] Algorithm D, Page 272, Section 4.3.1.
+   *
+   * Modified for 3-by-2 division[1].
+   *
+   * Read the above comments before reading this.
+   *
+   * This function should be faster than the 2-by-1
+   * version for three reasons in particular:
+   *
+   *   1. It does not require a quotient estimation
+   *      loop after our division.
+   *
+   *   2. The "Add back" step is less likely to be
+   *      triggered.
+   *
+   *   3. Since our 2-limb remainder (r1, r0) is
+   *      computed with our division, we can skip
+   *      two iterations in the multiply+subtract
+   *      step (since all it is doing is computing
+   *      a remainder anyway).
+   *
+   * This implementation originally overlooked the
+   * final optimization, but it seems to appear in
+   * other libraries[2] which implement the 3-by-2
+   * division.
+   *
+   * Note that although this function _should_ be
+   * faster, it currently seems slower in practice.
+   *
+   * [1] [DIV] Algorithm 5, Page 5, Section IV.
+   * [2] https://github.com/chfast/intx/blob/58e8907/include/intx/intx.hpp#L824
+   */
+  mp_limb_t n2, n1, n0, q, r2, r1, r0, c;
+  const mp_limb_t *vp = den->vp;
+  mp_limb_t *up = den->up;
+  mp_limb_t m = den->inv;
+  mp_size_t dn = den->size;
+  mp_limb_t d1 = vp[dn - 1];
+  mp_limb_t d0 = vp[dn - 2];
+  mp_size_t j;
+
+  /* D1. Normalize. */
+  if (den->shift != 0) {
+    up[nn] = mpn_lshift(up, np, nn, den->shift);
+  } else {
+    mpn_copyi(up, np, nn);
+    up[nn] = 0;
+  }
+
+  /* D2. Initialize j. */
+  for (j = nn - dn; j >= 0; j--) {
+    n2 = up[j + dn - 0];
+    n1 = up[j + dn - 1];
+    n0 = up[j + dn - 2];
+
+    /* D3. Calculate qhat. */
+    if (UNLIKELY(n2 == d1 && n1 == d0)) {
+      /* This differs from Knuth's algorithm in the
+       * following way...
+       *
+       * Because we skip the estimation loop, we
+       * have our exact remainder available from
+       * inside the else clause. We must calculate
+       * it for this clause for reasons stated in
+       * the above description.
+       *
+       * As the result of this operation we should
+       * have computed:
+       *
+       *   q = B
+       *   r = n0
+       *
+       * Note that unlike the 2-by-1 function, no
+       * modulo is necessary for `r` as `r` is
+       * always less than `(d1, d0)`.
+       *
+       * However, our quotient must be reduced, and
+       * this means our remainder must be updated
+       * as well. This gives us:
+       *
+       *   q = B - 1
+       *   r = (0, n0) + (d1, d0)
+       *
+       * This is strange as it gives us a potential
+       * 3-word remainder, particularly in the case
+       * where the following conditions are true:
+       *
+       *   - d0 >= B/2
+       *   - d1 == B-1
+       *   - n0 >= B/2
+       *   - n1 >= B/2 (implied by d0)
+       *   - n2 == B-1 (implied by d1)
+       *
+       * An 8-bit example (with B=0x100):
+       *
+       *   n = 0xff8197
+       *   d = 0xff81
+       *   n / d = B
+       *   n % d = 0x97 = n0
+       *   n0 + d = n % d + d = 0x97 + d = 0x010018
+       *   n - (B - 1) * d = 0x010018
+       *
+       *   r0 = 0x97 - (0x81 * 0xff + 0x00) = 0x18
+       *   r1 = 0x81 - (0xff * 0xff + 0x80) = 0x00
+       *   r2 = 0xff - (0x00 * 0xff + 0x02) = 0x01
+       *
+       * We must account for the extra word in the
+       * multiply and subtract step below.
+       */
+      q = MP_LIMB_MAX;
+      r0 = n0 + d0;
+      r1 = d1 + (r0 < d0);
+      r2 = (r1 < d1);
+    } else {
+      /* [q, (r1, r0)] = (n2, n1, n0) / (d1, d0) */
+      mp_div_3by2(&q, &r1, &r0, n2, n1, n0, d1, d0, m);
+
+      /* No high limb. */
+      r2 = 0;
+    }
+
+    /* D4. Multiply and subtract. */
+    c = mpn_submul_1(up + j, vp, dn - 2, q);
+
+    /* Utilize the remainder for a small speedup
+     * in avoiding 2 iterations of submul.
+     *
+     * For our last 2(+1) iterations of submul,
+     * we want to compute:
+     *
+     *   up[j + dn - 2] -= vp[dn - 2] * q + c
+     *   up[j + dn - 1] -= vp[dn - 1] * q + c
+     *   up[j + dn - 0] -= vp[dn - 0] * q + c
+     *
+     * We're in luck because this was already
+     * mostly computed with our divison, meaning:
+     *
+     *   r0 = up[j + dn - 2] - vp[dn - 2] * q
+     *   r1 = up[j + dn - 1] - vp[dn - 1] * q - c
+     *   r2 = up[j + dn - 0] - vp[dn - 0] * q - c
+     *
+     * Therefore, we only need to compute:
+     *
+     *   up[j + dn - 2] = r0 - c
+     *   up[j + dn - 1] = r1 - c
+     *   up[j + dn - 0] = r2 - c
+     */
+    mp_sub(up[j + dn - 2], c, r0, c);
+    mp_sub(up[j + dn - 1], c, r1, c);
+    mp_sub(up[j + dn - 0], c, r2, c);
+
+    /* D5. Test remainder. */
+    if (UNLIKELY(c != 0)) {
+      /* D6. Add back. */
+      up[j + dn] += mpn_add_n(up + j, up + j, vp, dn);
+
+      q -= 1;
+    }
+
+    if (qp != NULL)
+      qp[j] = q;
+
+    /* D7. Loop on j. */
+  }
+
+  /* D8. Unnormalize. */
   if (rp != NULL) {
     if (den->shift != 0)
       mpn_rshift(rp, up, dn, den->shift);
@@ -2463,10 +2829,19 @@ mpn_divmod_inner(mp_limb_t *qp, mp_limb_t *rp,
   if (nn < dn)
     torsion_abort(); /* LCOV_EXCL_LINE */
 
+#if defined(MP_USE_DIV_3BY2)
   if (dn == 1)
-    mpn_divmod_small(qp, rp, np, nn, den);
+    mpn_divmod_small_2by1(qp, rp, np, nn, den);
+  else if (dn == 2)
+    mpn_divmod_small_3by2(qp, rp, np, nn, den);
   else
-    mpn_divmod_large(qp, rp, np, nn, den);
+    mpn_divmod_large_3by2(qp, rp, np, nn, den);
+#else
+  if (dn == 1)
+    mpn_divmod_small_2by1(qp, rp, np, nn, den);
+  else
+    mpn_divmod_large_2by1(qp, rp, np, nn, den);
+#endif
 }
 
 static TORSION_INLINE void
@@ -2484,11 +2859,14 @@ mp_limb_t
 mpn_divmod_1(mp_limb_t *qp, const mp_limb_t *np, mp_size_t nn, mp_limb_t d) {
   /* [DIV] Algorithm 7, Page 7, Section C. */
   mp_limb_t q, r, n0, n1, m;
-  mp_size_t i;
+  mp_size_t j;
   mp_bits_t s;
 
-  if (nn <= 0 || d == 0)
+  if (nn < 0 || d == 0)
     torsion_abort(); /* LCOV_EXCL_LINE */
+
+  if (nn == 0)
+    return 0;
 
   if (nn == 1) {
     q = np[0] / d;
@@ -2505,21 +2883,22 @@ mpn_divmod_1(mp_limb_t *qp, const mp_limb_t *np, mp_size_t nn, mp_limb_t d) {
   d <<= s;
   m = mp_inv_2by1(d);
 
-  for (i = nn - 1; i >= 0; i--) {
+  for (j = nn - 1; j >= 0; j--) {
     n1 = r;
-    n0 = np[i];
+    n0 = np[j];
 
     if (s != 0) {
       n1 = (n1 << s) | (n0 >> (MP_LIMB_BITS - s));
       n0 <<= s;
     }
 
+    /* [q, r] = (n1, n0) / d */
     mp_div_2by1(&q, &r, n1, n0, d, m);
 
     r >>= s;
 
     if (qp != NULL)
-      qp[i] = q;
+      qp[j] = q;
   }
 
   return r;

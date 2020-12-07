@@ -544,7 +544,7 @@ bench_rsa_verify(drbg_t *rng) {
 
   bench_start(&tv, "rsa_verify");
 
-  for (i = 0; i < 10000; i++) {
+  for (i = 0; i < 50000; i++) {
     ASSERT(rsa_verify(HASH_SHA256, msg, sizeof(msg),
                                    sig, sizeof(sig),
                                    pub, sizeof(pub)));
