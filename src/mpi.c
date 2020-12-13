@@ -6261,28 +6261,30 @@ mpz_tstbit(const mpz_t x, mp_bits_t pos) {
 
 static void
 mpz_setbit_abs(mpz_t z, mp_bits_t pos) {
-  mp_size_t index = pos / MP_LIMB_BITS;
+  mp_size_t s = pos / MP_LIMB_BITS;
+  mp_bits_t r = pos % MP_LIMB_BITS;
   mp_size_t zn = MP_ABS(z->size);
 
-  if (zn < index + 1) {
-    mpz_grow(z, index + 1);
+  if (zn < s + 1) {
+    mpz_grow(z, s + 1);
 
-    while (zn < index + 1)
+    while (zn < s + 1)
       z->limbs[zn++] = 0;
 
     z->size = z->size < 0 ? -zn : zn;
   }
 
-  z->limbs[index] |= MP_LIMB_C(1) << (pos % MP_LIMB_BITS);
+  z->limbs[s] |= MP_LIMB_C(1) << r;
 }
 
 static void
 mpz_clrbit_abs(mpz_t z, mp_bits_t pos) {
-  mp_size_t index = pos / MP_LIMB_BITS;
+  mp_size_t s = pos / MP_LIMB_BITS;
+  mp_bits_t r = pos % MP_LIMB_BITS;
   mp_size_t zn = MP_ABS(z->size);
 
-  if (index < zn) {
-    z->limbs[index] &= ~(MP_LIMB_C(1) << (pos % MP_LIMB_BITS));
+  if (s < zn) {
+    z->limbs[s] &= ~(MP_LIMB_C(1) << r);
 
     zn = mpn_strip(z->limbs, zn);
 
