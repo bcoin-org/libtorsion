@@ -109,6 +109,21 @@ STATIC_ASSERT((0u - 1u) == UINT_MAX);
 #  define MP_HAVE_ASM_X64
 #endif
 
+#if defined(MP_HAVE_ASM_X64) && !defined(__clang__)
+/* For some reason clang sucks at inlining ASM, but
+   is extremely good at generating 128 bit carry code.
+   GCC is the exact opposite! */
+#  define MP_GCC_ASM_X64
+#endif
+
+#if defined(__clang__) && defined(__clang_major__)
+/* Clang 5.0 and above produce efficient
+   carry code with wider types and shifts. */
+#  if __clang_major__ >= 5
+#    define MP_HAVE_CLANG
+#  endif
+#endif
+
 #if TORSION_GNUC_PREREQ(3, 4) || (__has_builtin(__builtin_popcount)   \
                                && __has_builtin(__builtin_popcountl)  \
                                && __has_builtin(__builtin_popcountll) \
@@ -133,10 +148,12 @@ STATIC_ASSERT((0u - 1u) == UINT_MAX);
 #  endif
 #endif
 
-/* For some reason clang sucks at inlining ASM, but
-   is extremely good at generating 128 bit carry code.
-   GCC is the exact opposite! */
-#if defined(MP_HAVE_ASM_X64) && !defined(__clang__)
+/*
+ * Arithmetic Macros
+ */
+
+#if defined(MP_GCC_ASM_X64)
+
 /* [z, c] = x + y */
 #define mp_add(z, c, x, y) \
   __asm__ (                \
@@ -258,70 +275,174 @@ STATIC_ASSERT((0u - 1u) == UINT_MAX);
     : "rm" (x)            \
     : "cc"                \
   )
-#else /* !MP_HAVE_ASM_X64 */
+
+#elif defined(MP_HAVE_CLANG) /* !MP_GCC_ASM_X64 */
+
+/* [z, c] = x + y */
 #define mp_add(z, c, x, y) do {        \
   mp_wide_t _w = (mp_wide_t)(x) + (y); \
   (c) = _w >> MP_LIMB_BITS;            \
   (z) = _w;                            \
 } while (0)
 
+/* [z, c] = x - y */
 #define mp_sub(z, c, x, y) do {        \
   mp_wide_t _w = (mp_wide_t)(x) - (y); \
   (c) = -(_w >> MP_LIMB_BITS);         \
   (z) = _w;                            \
 } while (0)
 
+/* [hi, lo] = x * y */
 #define mp_mul(hi, lo, x, y) do {      \
   mp_wide_t _w = (mp_wide_t)(x) * (y); \
   (hi) = _w >> MP_LIMB_BITS;           \
   (lo) = _w;                           \
 } while (0)
 
+/* [hi, lo] = x^2 */
 #define mp_sqr(hi, lo, x) do {         \
   mp_wide_t _w = (mp_wide_t)(x) * (x); \
   (hi) = _w >> MP_LIMB_BITS;           \
   (lo) = _w;                           \
 } while (0)
 
+/* [z, c] = x + y + c */
 #define mp_add_1(z, c, x, y) do {            \
   mp_wide_t _w = (mp_wide_t)(x) + (y) + (c); \
   (c) = _w >> MP_LIMB_BITS;                  \
   (z) = _w;                                  \
 } while (0)
 
+/* [z, c] = x - y - c */
 #define mp_sub_1(z, c, x, y) do {            \
   mp_wide_t _w = (mp_wide_t)(x) - (y) - (c); \
   (c) = -(_w >> MP_LIMB_BITS);               \
   (z) = _w;                                  \
 } while (0)
 
+/* [z, c] = x * y + c */
 #define mp_mul_1(z, c, x, y) do {            \
   mp_wide_t _w = (mp_wide_t)(x) * (y) + (c); \
   (c) = _w >> MP_LIMB_BITS;                  \
   (z) = _w;                                  \
 } while (0)
 
+/* [z, c] = z + x * y + c */
 #define mp_addmul_1(z, c, x, y) do {               \
   mp_wide_t _w = (z) + (mp_wide_t)(x) * (y) + (c); \
   (c) = _w >> MP_LIMB_BITS;                        \
   (z) = _w;                                        \
 } while (0)
 
+/* [z, c] = z - x * y - c = z - (x * y + c) */
 #define mp_submul_1(z, c, x, y) do {               \
   mp_wide_t _w = (z) - (mp_wide_t)(x) * (y) - (c); \
   (c) = -(_w >> MP_LIMB_BITS);                     \
   (z) = _w;                                        \
 } while (0)
 
+/* [z, c] = 0 - x - c = -(x + c) */
 #define mp_neg_1(z, c, x) do {          \
   mp_wide_t _w = -(mp_wide_t)(x) - (c); \
   (c) = -(_w >> MP_LIMB_BITS);          \
   (z) = _w;                             \
 } while (0)
-#endif /* !MP_HAVE_ASM_X64 */
+
+#else /* !MP_HAVE_CLANG */
+
+/* [z, c] = x + y */
+#define mp_add(z, c, x, y) do { \
+  mp_limb_t _z = (x) + (y);     \
+  (c) = (_z < (y));             \
+  (z) = _z;                     \
+} while (0)
+
+/* [z, c] = x - y */
+#define mp_sub(z, c, x, y) do { \
+  mp_limb_t _z = (x) - (y);     \
+  (c) = (_z > (x));             \
+  (z) = _z;                     \
+} while (0)
+
+/* [hi, lo] = x * y */
+#define mp_mul(hi, lo, x, y) do {      \
+  mp_wide_t _w = (mp_wide_t)(x) * (y); \
+  (hi) = _w >> MP_LIMB_BITS;           \
+  (lo) = _w;                           \
+} while (0)
+
+/* [hi, lo] = x^2 */
+#define mp_sqr(hi, lo, x) do {         \
+  mp_wide_t _w = (mp_wide_t)(x) * (x); \
+  (hi) = _w >> MP_LIMB_BITS;           \
+  (lo) = _w;                           \
+} while (0)
+
+/* [z, c] = x + y + c */
+#define mp_add_1(z, c, x, y) do { \
+  mp_limb_t _z = (x) + (c);       \
+  mp_limb_t _c = (_z < (c));      \
+  _z += (y);                      \
+  _c += (_z < (y));               \
+  (c) = _c;                       \
+  (z) = _z;                       \
+} while (0)
+
+/* [z, c] = x - y - c */
+#define mp_sub_1(z, c, x, y) do { \
+  mp_limb_t _z = (y) + (c);       \
+  mp_limb_t _c = (_z < (c));      \
+  _z = (x) - _z;                  \
+  _c += (_z > (x));               \
+  (c) = _c;                       \
+  (z) = _z;                       \
+} while (0)
+
+/* [z, c] = x * y + c */
+#define mp_mul_1(z, c, x, y) do { \
+  mp_limb_t _hi, _lo;             \
+  mp_mul(_hi, _lo, x, y);         \
+  _lo += (c);                     \
+  (c) = _hi + (_lo < (c));        \
+  (z) = _lo;                      \
+} while (0)
+
+/* [z, c] = z + x * y + c */
+#define mp_addmul_1(z, c, x, y) do { \
+  mp_limb_t _hi, _lo;                \
+  mp_mul(_hi, _lo, x, y);            \
+  _lo += (c);                        \
+  _hi += (_lo < (c));                \
+  _lo += (z);                        \
+  (c) = _hi + (_lo < (z));           \
+  (z) = _lo;                         \
+} while (0)
+
+/* [z, c] = z - x * y - c */
+#define mp_submul_1(z, c, x, y) do { \
+  mp_limb_t _hi, _lo;                \
+  mp_mul(_hi, _lo, x, y);            \
+  _lo += (c);                        \
+  _hi += (_lo < (c));                \
+  _lo = (z) - _lo;                   \
+  (c) = _hi + (_lo > (z));           \
+  (z) = _lo;                         \
+} while (0)
+
+/* [z, c] = 0 - x - c = -(x + c) */
+#define mp_neg_1(z, c, x) do { \
+  mp_limb_t _z = (x) + (c);    \
+  mp_limb_t _c = (_z < (c));   \
+  _z = -_z;                    \
+  _c += (_z > 0);              \
+  (c) = _c;                    \
+  (z) = _z;                    \
+} while (0)
+
+#endif /* !MP_HAVE_CLANG */
 
 /*
- * x86-64 arithmetic implementations
+ * ASM Implementations (x86-64)
  */
 
 #ifdef MP_HAVE_ASM_X64
