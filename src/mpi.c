@@ -41,8 +41,8 @@
  */
 
 #include <limits.h>
-#include <stdint.h>
 #include <stdlib.h>
+#include <stdint.h>
 
 #include "internal.h"
 #include "mpi.h"
@@ -99,6 +99,12 @@ STATIC_ASSERT((0u - 1u) == UINT_MAX);
 #  define mp_free_vla(p, n) mp_free_limbs(p)
 #  define mp_alloc_str(n) ((char *)malloc(n))
 #  define mp_free_str(p, n) free(p)
+#endif
+
+#if defined(UINTPTR_MAX) && defined(UINT64_MAX)
+#  if UINTPTR_MAX == UINT64_MAX
+#    define MP_HAVE_64BIT
+#  endif
 #endif
 
 #if defined(TORSION_HAVE_ASM_X86) && MP_LIMB_BITS == 32
@@ -1919,12 +1925,24 @@ mp_div(mp_limb_t *q, mp_limb_t *r,
 
   if (r != NULL)
     *r = r0;
-#elif MP_LIMB_BITS == 64
+#elif MP_LIMB_BITS == 32 && defined(MP_HAVE_64BIT)
+  /* This platform supports a wide division,
+     so have the compiler do it for us. */
+  mp_wide_t n = ((mp_wide_t)n1 << MP_LIMB_BITS) | n0;
+  mp_limb_t q0 = n / d;
+
+  if (q != NULL)
+    *q = q0;
+
+  if (r != NULL)
+    *r = n - (mp_wide_t)q0 * d;
+#else
   /* Code adapted from the `divlu2` function
    * in Hacker's Delight[1].
    *
-   * Having this here allows us to avoid using
-   * __int128 division on non-x64 platforms.
+   * Having this here allows us to avoid linking
+   * to libgcc or libgcc-like libs on platforms
+   * which don't support a wide division.
    *
    * [1] https://gist.github.com/chjj/d59b19c32b2ccbb1a7b397cd77cc7025
    */
@@ -2002,15 +2020,6 @@ mp_div(mp_limb_t *q, mp_limb_t *r,
   /* If remainder is wanted, return it. */
   if (r != NULL)
     *r = (un21 * b + un0 - q0 * d) >> s;
-#else
-  mp_wide_t n = ((mp_wide_t)n1 << MP_LIMB_BITS) | n0;
-  mp_limb_t q0 = n / d;
-
-  if (q != NULL)
-    *q = q0;
-
-  if (r != NULL)
-    *r = n - (mp_wide_t)q0 * d;
 #endif
 }
 
