@@ -236,6 +236,154 @@ mpz_mul_simple(mpz_t z, const mpz_t x, const mpz_t y) {
   z->size = (x->size ^ y->size) < 0 ? -zn : zn;
 }
 
+static mp_limb_t
+mpn_divmod_1_simple(mp_limb_t *qp,
+                    const mp_limb_t *np,
+                    mp_size_t nn,
+                    mp_limb_t d) {
+  mp_bits_t s = mp_clz(d);
+  mp_limb_t q, n1, n0;
+  mp_limb_t r = 0;
+  mp_size_t j;
+
+  d <<= s;
+
+  for (j = nn - 1; j >= 0; j--) {
+    n1 = r;
+    n0 = np[j];
+
+    if (s != 0) {
+      n1 = (n1 << s) | (n0 >> (MP_LIMB_BITS - s));
+      n0 <<= s;
+    }
+
+    mp_div(&q, &r, n1, n0, d);
+
+    r >>= s;
+
+    if (qp != NULL)
+      qp[j] = q;
+  }
+
+  return r;
+}
+
+static void
+mpn_divmod_simple(mp_limb_t *qp, mp_limb_t *rp,
+                  const mp_limb_t *np, mp_size_t nn,
+                  const mp_limb_t *dp, mp_size_t dn) {
+  mp_bits_t shift = mp_clz(dp[dn - 1]);
+  mp_limb_t *up = mp_alloc_vla(nn + 1);
+  mp_limb_t *vp = mp_alloc_vla(dn);
+  mp_limb_t qhat, rhat, c;
+  mp_size_t j;
+
+  if (shift != 0) {
+    mpn_lshift(vp, dp, dn, shift);
+    up[nn] = mpn_lshift(up, np, nn, shift);
+  } else {
+    mpn_copyi(vp, dp, dn);
+    mpn_copyi(up, np, nn);
+    up[nn] = 0;
+  }
+
+  for (j = nn - dn; j >= 0; j--) {
+    qhat = MP_LIMB_MAX;
+
+    if (up[j + dn] != vp[dn - 1]) {
+      mp_div(&qhat, &rhat, up[j + dn], up[j + dn - 1], vp[dn - 1]);
+
+      while (mp_mul_gt_2(qhat, vp[dn - 2], rhat, up[j + dn - 2])) {
+        qhat -= 1;
+        rhat += vp[dn - 1];
+
+        if (rhat < vp[dn - 1])
+          break;
+      }
+    }
+
+    c = mpn_submul_1(up + j, vp, dn, qhat);
+
+    mp_sub(up[j + dn], c, up[j + dn], c);
+
+    if (c != 0) {
+      up[j + dn] += mpn_add_n(up + j, up + j, vp, dn);
+
+      qhat -= 1;
+    }
+
+    ASSERT(up[j + dn] == 0);
+
+    if (qp != NULL)
+      qp[j] = qhat;
+  }
+
+  if (rp != NULL) {
+    if (shift != 0)
+      mpn_rshift(rp, up, dn, shift);
+    else
+      mpn_copyi(rp, up, dn);
+  }
+
+  mp_free_vla(up, nn + 1);
+  mp_free_vla(vp, dn);
+}
+
+static void
+mp_div_2by1_simple(mp_limb_t *q, mp_limb_t *r,
+                   mp_limb_t n1, mp_limb_t n0,
+                   mp_limb_t d) {
+  mp_limb_t np[2], qp[2];
+  mp_limb_t r0;
+
+  ASSERT(d != 0);
+
+  np[0] = n0;
+  np[1] = n1;
+
+  r0 = mpn_divmod_1_simple(qp, np, 2, d);
+
+  ASSERT(qp[1] == 0);
+
+  *q = qp[0];
+  *r = r0;
+}
+
+static void
+mp_div_3by2_simple(mp_limb_t *q, mp_limb_t *r1, mp_limb_t *r0,
+                   mp_limb_t n2, mp_limb_t n1, mp_limb_t n0,
+                   mp_limb_t d1, mp_limb_t d0) {
+  mp_limb_t np[3], dp[2], qp[3], rp[2];
+
+  ASSERT((d0 | d1) != 0);
+
+  np[0] = n0;
+  np[1] = n1;
+  np[2] = n2;
+
+  dp[0] = d0;
+  dp[1] = d1;
+
+  if (d1 == 0) {
+    rp[0] = mpn_divmod_1_simple(qp, np, 3, d0);
+
+    ASSERT(qp[1] == 0);
+    ASSERT(qp[2] == 0);
+
+    *q = qp[0];
+    *r0 = rp[0];
+    *r1 = 0;
+  } else {
+    mpn_divmod_simple(qp, rp, np, 3, dp, 2);
+
+    ASSERT(qp[1] == 0);
+
+    *q = qp[0];
+    *r0 = rp[0];
+    *r1 = rp[1];
+  }
+}
+
 static void
 mpz_gcd_simple(mpz_t g, const mpz_t x, const mpz_t y) {
   mpz_t u, v, t;
@@ -744,24 +892,110 @@ test_mp_helpers(mp_rng_f *rng, void *arg) {
 
 static void
 test_mp_div(mp_rng_f *rng, void *arg) {
-  mp_limb_t n, d, m, n1, n0, q, r;
-  mp_bits_t s;
-  int i;
+  mp_limb_t z1, z0, n1, n0, d, q, r;
+  int i = 0;
 
   printf("  - MP div.\n");
 
+  while (i < 100) {
+    n1 = mp_random_limb(rng, arg);
+    n0 = mp_random_limb(rng, arg);
+    d = mp_random_limb(rng, arg);
+
+    if (n1 >= d)
+      continue;
+
+    ASSERT(d != 0);
+
+    mp_div(&q, &r, n1, n0, d);
+
+    z0 = r;
+    z1 = mpn_addmul_1(&z0, &d, 1, q);
+
+    ASSERT(z0 == n0);
+    ASSERT(z1 == n1);
+
+    i += 1;
+  }
+
   for (i = 0; i < 100; i++) {
-    n = mp_random_limb(rng, arg);
+    n1 = 0;
+    n0 = mp_random_limb(rng, arg);
     d = mp_random_limb_nz(rng, arg);
+
+    mp_div(&q, &r, n1, n0, d);
+
+    ASSERT(q == n0 / d);
+    ASSERT(r == n0 % d);
+  }
+}
+
+static void
+test_mp_inv_2by1(mp_rng_f *rng, void *arg) {
+  mp_limb_t bp[2], np[2], dp[2], qp[2];
+  mp_limb_t d, v, q;
+  int i;
+
+  printf("  - MP inv (2-by-1).\n");
+
+  bp[0] = 0;
+  bp[1] = 1;
+
+  np[0] = MP_LIMB_MAX;
+  np[1] = MP_LIMB_MAX;
+
+  for (i = 0; i < 100; i++) {
+    /* v = (B^2 - 1) / d - B */
+    /* d = (B^2 - 1) / (B + v) */
+    d = mp_random_limb(rng, arg) | MP_LIMB_HI;
+    v = mp_inv_2by1(d);
+
+    mpn_divmod_1_simple(qp, np, 2, d);
+    mpn_sub_n(qp, qp, bp, 2);
+
+    ASSERT(qp[0] == v);
+    ASSERT(qp[1] == 0);
+  }
+
+  for (i = 0; i < 100; i++) {
+    /* v = (B^2 - 1) / d - B */
+    /* d = (B^2 - 1) / (B + v) */
+    d = mp_random_limb(rng, arg) | MP_LIMB_HI;
+    v = mp_inv_2by1(d);
+
+    dp[0] = v;
+    dp[1] = 1;
+
+    mpn_divmod_simple(&q, NULL, np, 2, dp, 2);
+
+    ASSERT(q == d);
+  }
+}
+
+static void
+test_mp_div_2by1(mp_rng_f *rng, void *arg) {
+  mp_limb_t z1, z0, n1, n0, d, m, q, r;
+  mp_bits_t s;
+  int i = 0;
+
+  printf("  - MP div (2-by-1).\n");
+
+  while (i < 100) {
+    n1 = mp_random_limb(rng, arg);
+    n0 = mp_random_limb(rng, arg);
+    d = mp_random_limb(rng, arg);
+
+    if (n1 >= d)
+      continue;
+
+    ASSERT(d != 0);
+
     s = mp_clz(d);
     d <<= s;
     m = mp_inv_2by1(d);
 
-    n1 = 0;
-    n0 = n;
-
     if (s != 0) {
-      n1 = (n0 >> (MP_LIMB_BITS - s));
+      n1 = (n1 << s) | (n0 >> (MP_LIMB_BITS - s));
       n0 <<= s;
     }
 
@@ -770,38 +1004,101 @@ test_mp_div(mp_rng_f *rng, void *arg) {
     r >>= s;
     d >>= s;
 
-    ASSERT(n / d == q);
-    ASSERT(n % d == r);
+    if (s != 0) {
+      n0 = (n0 >> s) | (n1 << (MP_LIMB_BITS - s));
+      n1 >>= s;
+    }
+
+    z0 = r;
+    z1 = mpn_addmul_1(&z0, &d, 1, q);
+
+    ASSERT(z0 == n0);
+    ASSERT(z1 == n1);
+
+    mp_div(&z0, &z1, n1, n0, d);
+
+    ASSERT(z0 == q);
+    ASSERT(z1 == r);
+
+    mp_div_2by1_simple(&z0, &z1, n1, n0, d);
+
+    ASSERT(z0 == q);
+    ASSERT(z1 == r);
+
+    i += 1;
+  }
+}
+
+static void
+test_mp_inv_3by2(mp_rng_f *rng, void *arg) {
+  mp_limb_t bp[2], np[3], dp[2], qp[2];
+  mp_limb_t d1, d0, v;
+  int i;
+
+  printf("  - MP inv (3-by-2).\n");
+
+  bp[0] = 0;
+  bp[1] = 1;
+
+  np[0] = MP_LIMB_MAX;
+  np[1] = MP_LIMB_MAX;
+  np[2] = MP_LIMB_MAX;
+
+  for (i = 0; i < 100; i++) {
+    /* v = (B^3 - 1) / (d1, d0) - B */
+    /* (d1, d0) = (B^3 - 1) / (B + v) */
+    d1 = mp_random_limb(rng, arg) | MP_LIMB_HI;
+    d0 = mp_random_limb(rng, arg);
+    v = mp_inv_3by2(d1, d0);
+
+    dp[0] = d0;
+    dp[1] = d1;
+
+    mpn_divmod_simple(qp, NULL, np, 3, dp, 2);
+    mpn_sub_n(qp, qp, bp, 2);
+
+    ASSERT(qp[0] == v);
+    ASSERT(qp[1] == 0);
+  }
+
+  for (i = 0; i < 100; i++) {
+    /* v = (B^3 - 1) / (d1, d0) - B */
+    /* (d1, d0) = (B^3 - 1) / (B + v) */
+    d1 = mp_random_limb(rng, arg) | MP_LIMB_HI;
+    d0 = mp_random_limb(rng, arg);
+    v = mp_inv_3by2(d1, d0);
+
+    dp[0] = v;
+    dp[1] = 1;
+
+    mpn_divmod_simple(qp, NULL, np, 3, dp, 2);
+
+    ASSERT(qp[1] == d1 - 1
+        || qp[1] == d1 + 0
+        || qp[1] == d1 + 1);
   }
 }
 
 static void
 test_mp_div_3by2(mp_rng_f *rng, void *arg) {
-  mp_limb_t np[10], qp[9];
-  mp_size_t nn = 10;
-  mp_size_t dn = 2;
-  mp_size_t qn = nn - dn + 1;
-  mp_limb_t n2, n1, n0;
-  mp_limb_t d1, d0;
-  mp_limb_t r1, r0;
-  mp_limb_t m;
+  mp_limb_t n2, n1, n0, d1, d0, m, q, r1, r0;
+  mp_limb_t zp[3], dp[2];
   mp_bits_t s;
-  mp_size_t j;
-  int i;
+  int i = 0;
 
   printf("  - MP div (3-by-2).\n");
 
-  ASSERT(qn == 9);
-
-  for (i = 0; i < 100; i++) {
-    mpn_random(np, nn, rng, arg);
-
-    np[nn - 1] |= (np[nn - 1] == 0);
-
+  while (i < 100) {
+    n2 = mp_random_limb(rng, arg);
+    n1 = mp_random_limb(rng, arg);
+    n0 = mp_random_limb(rng, arg);
     d1 = mp_random_limb(rng, arg);
     d0 = mp_random_limb(rng, arg);
 
-    d1 |= (d1 == 0);
+    if (n2 > d1 || (n2 == d1 && n1 >= d0))
+      continue;
+
+    ASSERT((d0 | d1) != 0);
 
     s = mp_clz(d1);
 
@@ -812,45 +1109,45 @@ test_mp_div_3by2(mp_rng_f *rng, void *arg) {
 
     m = mp_inv_3by2(d1, d0);
 
-    r1 = 0;
-    r0 = np[nn - 1];
-
-    for (j = nn - dn; j >= 0; j--) {
-      n2 = r1;
-      n1 = r0;
-      n0 = np[j];
-
-      if (s != 0) {
-        n2 = (n2 << s) | (n1 >> (MP_LIMB_BITS - s));
-        n1 = (n1 << s) | (n0 >> (MP_LIMB_BITS - s));
-        n0 <<= s;
-      }
-
-      mp_div_3by2(&qp[j], &r1, &r0, n2, n1, n0, d1, d0, m);
-
-      if (s != 0) {
-        r0 = (r0 >> s) | (r1 << (MP_LIMB_BITS - s));
-        r1 >>= s;
-      }
+    if (s != 0) {
+      n2 = (n2 << s) | (n1 >> (MP_LIMB_BITS - s));
+      n1 = (n1 << s) | (n0 >> (MP_LIMB_BITS - s));
+      n0 <<= s;
     }
+
+    mp_div_3by2(&q, &r1, &r0, n2, n1, n0, d1, d0, m);
 
     if (s != 0) {
+      r0 = (r0 >> s) | (r1 << (MP_LIMB_BITS - s));
+      r1 >>= s;
+
       d0 = (d0 >> s) | (d1 << (MP_LIMB_BITS - s));
       d1 >>= s;
+
+      n0 = (n0 >> s) | (n1 << (MP_LIMB_BITS - s));
+      n1 = (n1 >> s) | (n2 << (MP_LIMB_BITS - s));
+      n2 >>= s;
     }
 
-    {
-      mp_limb_t zp[9], rp[2], dp[2];
+    dp[0] = d0;
+    dp[1] = d1;
 
-      dp[0] = d0;
-      dp[1] = d1;
+    zp[0] = r0;
+    zp[1] = r1;
+    zp[2] = mpn_addmul_1(zp, dp, 2, q);
 
-      mpn_divmod(zp, rp, np, nn, dp, dn);
+    ASSERT(zp[0] == n0);
+    ASSERT(zp[1] == n1);
+    ASSERT(zp[2] == n2);
 
-      ASSERT(mpn_cmp(qp, zp, qn) == 0);
-      ASSERT(r0 == rp[0]);
-      ASSERT(r1 == rp[1]);
-    }
+    mp_div_3by2_simple(&zp[0], &zp[1], &zp[2],
+                       n2, n1, n0, d1, d0);
+
+    ASSERT(zp[0] == q);
+    ASSERT(zp[1] == r1);
+    ASSERT(zp[2] == r0);
+
+    i += 1;
   }
 }
 
@@ -6875,6 +7172,9 @@ test_mpi_internal(mp_rng_f *rng, void *arg) {
   /* MP */
   test_mp_helpers(rng, arg);
   test_mp_div(rng, arg);
+  test_mp_inv_2by1(rng, arg);
+  test_mp_div_2by1(rng, arg);
+  test_mp_inv_3by2(rng, arg);
   test_mp_div_3by2(rng, arg);
   test_mp_eratosthenes();
 
