@@ -1356,7 +1356,7 @@ mpn_add_1(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn, mp_limb_t y) {
 
   xn >>= 2;
 
-  while (xn > 0) {
+  while (xn--) {
     /* [z, c] = x + c */
     mp_add(zp[0], c, xp[0], c);
     mp_add(zp[1], c, xp[1], c);
@@ -1365,8 +1365,6 @@ mpn_add_1(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn, mp_limb_t y) {
 
     zp += 4;
     xp += 4;
-
-    xn--;
   }
 
   return c;
@@ -1414,7 +1412,7 @@ mpn_add_n(mp_limb_t *zp, const mp_limb_t *xp,
 
   n >>= 2;
 
-  while (n > 0) {
+  while (n--) {
     /* [z, c] = x + y + c */
     mp_add_1(zp[0], c, xp[0], yp[0]);
     mp_add_1(zp[1], c, xp[1], yp[1]);
@@ -1424,8 +1422,6 @@ mpn_add_n(mp_limb_t *zp, const mp_limb_t *xp,
     zp += 4;
     xp += 4;
     yp += 4;
-
-    n--;
   }
 
   return c;
@@ -1491,7 +1487,7 @@ mpn_sub_1(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn, mp_limb_t y) {
 
   xn >>= 2;
 
-  while (xn > 0) {
+  while (xn--) {
     /* [z, c] = x - c */
     mp_sub(zp[0], c, xp[0], c);
     mp_sub(zp[1], c, xp[1], c);
@@ -1500,8 +1496,6 @@ mpn_sub_1(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn, mp_limb_t y) {
 
     zp += 4;
     xp += 4;
-
-    xn--;
   }
 
   return c;
@@ -1549,7 +1543,7 @@ mpn_sub_n(mp_limb_t *zp, const mp_limb_t *xp,
 
   n >>= 2;
 
-  while (n > 0) {
+  while (n--) {
     /* [z, c] = x - y - c */
     mp_sub_1(zp[0], c, xp[0], yp[0]);
     mp_sub_1(zp[1], c, xp[1], yp[1]);
@@ -1559,8 +1553,6 @@ mpn_sub_n(mp_limb_t *zp, const mp_limb_t *xp,
     zp += 4;
     xp += 4;
     yp += 4;
-
-    n--;
   }
 
   return c;
@@ -1621,7 +1613,7 @@ mpn_mul_1(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn, mp_limb_t y) {
 
   xn >>= 2;
 
-  while (xn > 0) {
+  while (xn--) {
     /* [z, c] = x * y + c */
     mp_mul_1(zp[0], c, xp[0], y);
     mp_mul_1(zp[1], c, xp[1], y);
@@ -1630,8 +1622,6 @@ mpn_mul_1(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn, mp_limb_t y) {
 
     zp += 4;
     xp += 4;
-
-    xn--;
   }
 
   return c;
@@ -1658,7 +1648,7 @@ mpn_addmul_1(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn, mp_limb_t y) {
 
   xn >>= 2;
 
-  while (xn > 0) {
+  while (xn--) {
     /* [z, c] = z + x * y + c */
     mp_addmul_1(zp[0], c, xp[0], y);
     mp_addmul_1(zp[1], c, xp[1], y);
@@ -1667,8 +1657,6 @@ mpn_addmul_1(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn, mp_limb_t y) {
 
     zp += 4;
     xp += 4;
-
-    xn--;
   }
 
   return c;
@@ -1695,7 +1683,7 @@ mpn_submul_1(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn, mp_limb_t y) {
 
   xn >>= 2;
 
-  while (xn > 0) {
+  while (xn--) {
     /* [z, c] = z - x * y - c = z - (x * y + c) */
     mp_submul_1(zp[0], c, xp[0], y);
     mp_submul_1(zp[1], c, xp[1], y);
@@ -1704,8 +1692,6 @@ mpn_submul_1(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn, mp_limb_t y) {
 
     zp += 4;
     xp += 4;
-
-    xn--;
   }
 
   return c;
@@ -3572,7 +3558,7 @@ mpn_neg(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn) {
 
   xn >>= 2;
 
-  while (xn > 0) {
+  while (xn--) {
     /* [z, c] = 0 - x - c = -(x + c) */
     mp_neg_1(zp[0], c, xp[0]);
     mp_neg_1(zp[1], c, xp[1]);
@@ -3581,8 +3567,6 @@ mpn_neg(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn) {
 
     zp += 4;
     xp += 4;
-
-    xn--;
   }
 
   return c;
