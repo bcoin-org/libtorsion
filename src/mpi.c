@@ -67,6 +67,22 @@ STATIC_ASSERT((0u - 1u) == UINT_MAX);
 #undef MP_USE_DIV_3BY2
 
 /*
+ * Types
+ */
+
+#if MP_LIMB_BITS == 64
+#  ifdef TORSION_HAVE_INT128
+typedef torsion_uint128_t mp_wide_t;
+#    define MP_HAVE_WIDE
+#  endif
+#else
+typedef uint64_t mp_wide_t;
+#  define MP_HAVE_WIDE
+#endif
+
+TORSION_BARRIER(mp_limb_t, mp_limb)
+
+/*
  * Macros
  */
 
@@ -101,12 +117,6 @@ STATIC_ASSERT((0u - 1u) == UINT_MAX);
 #  define mp_free_str(p, n) free(p)
 #endif
 
-#if defined(UINTPTR_MAX) && defined(UINT64_MAX)
-#  if UINTPTR_MAX == UINT64_MAX
-#    define MP_HAVE_64BIT
-#  endif
-#endif
-
 #if defined(TORSION_HAVE_ASM_X86) && MP_LIMB_BITS == 32
 #  define MP_HAVE_ASM_X86
 #endif
@@ -125,7 +135,7 @@ STATIC_ASSERT((0u - 1u) == UINT_MAX);
 #if defined(__clang__) && defined(__clang_major__)
 /* Clang 5.0 and above produce efficient
    carry code with wider types and shifts. */
-#  if __clang_major__ >= 5
+#  if __clang_major__ >= 5 && defined(MP_HAVE_WIDE)
 #    define MP_HAVE_CLANG
 #  endif
 #endif
@@ -151,6 +161,42 @@ STATIC_ASSERT((0u - 1u) == UINT_MAX);
 #    define mp_builtin_popcount __builtin_popcountll
 #    define mp_builtin_clz __builtin_clzll
 #    define mp_builtin_ctz __builtin_ctzll
+#  endif
+#endif
+
+#if defined(_MSC_VER) && _MSC_VER >= 1400 /* VS 2005 */
+#  include <intrin.h>
+#  if MP_LIMB_MAX == ULONG_MAX
+#    pragma intrinsic(_BitScanReverse)
+#    pragma intrinsic(_BitScanForward)
+#    define mp_intrin_bsr _BitScanReverse
+#    define mp_intrin_bsf _BitScanForward
+#  elif MP_LIMB_BITS == 64 && (defined(_M_AMD64)  \
+                            || defined(_M_X64)    \
+                            || defined(_M_ARM64))
+#    pragma intrinsic(_BitScanReverse64)
+#    pragma intrinsic(_BitScanForward64)
+#    define mp_intrin_bsr _BitScanReverse64
+#    define mp_intrin_bsf _BitScanForward64
+#  endif
+#  if MP_LIMB_BITS == 64 && (defined(_M_AMD64) || defined(_M_X64))
+#    pragma intrinsic(_umul128)
+#    define MP_HAVE_UMUL128
+#  endif
+#  if MP_LIMB_BITS == 64 && defined(_M_ARM64)
+#    pragma intrinsic(__umulh)
+#    define MP_HAVE_UMULH
+#  endif
+#  if _MSC_VER >= 1920 /* VS 2019 RTM */
+#    include <immintrin.h>
+#    if MP_LIMB_BITS == 32 && MP_LIMB_MAX == UINT_MAX && defined(_M_IX86)
+#      pragma intrinsic(_udiv64)
+#      define MP_HAVE_UDIV64
+#    endif
+#    if MP_LIMB_BITS == 64 && (defined(_M_AMD64) || defined(_M_X64))
+#      pragma intrinsic(_udiv128)
+#      define MP_HAVE_UDIV128
+#    endif
 #  endif
 #endif
 
@@ -370,6 +416,8 @@ STATIC_ASSERT((0u - 1u) == UINT_MAX);
   (z) = _z;                     \
 } while (0)
 
+#if defined(MP_HAVE_WIDE)
+
 /* [hi, lo] = x * y */
 #define mp_mul(hi, lo, x, y) do {      \
   mp_wide_t _w = (mp_wide_t)(x) * (y); \
@@ -383,6 +431,87 @@ STATIC_ASSERT((0u - 1u) == UINT_MAX);
   (hi) = _w >> MP_LIMB_BITS;           \
   (lo) = _w;                           \
 } while (0)
+
+#elif defined(MP_HAVE_UMUL128) /* !MP_HAVE_WIDE */
+
+/* [hi, lo] = x * y */
+#define mp_mul(hi, lo, x, y) do { \
+  (lo) = _umul128(x, y, &(hi));   \
+} while (0)
+
+/* [hi, lo] = x^2 */
+#define mp_sqr(hi, lo, x) do {  \
+  (lo) = _umul128(x, x, &(hi)); \
+} while (0)
+
+#elif defined(MP_HAVE_UMULH) /* !MP_HAVE_WIDE */
+
+/* [hi, lo] = x * y */
+#define mp_mul(hi, lo, x, y) do { \
+  mp_limb_t _lo = (x) * (y);      \
+  (hi) = __umulh(x, y);           \
+  (lo) = _lo;                     \
+} while (0)
+
+/* [hi, lo] = x^2 */
+#define mp_sqr(hi, lo, x) do { \
+  mp_limb_t _lo = (x) * (x);   \
+  (hi) = __umulh(x, x);        \
+  (lo) = _lo;                  \
+} while (0)
+
+#else /* !MP_HAVE_WIDE */
+
+/* [hi, lo] = x * y (muldwu.c in Hacker's Delight) */
+#define mp_mul(hi, lo, x, y) do {       \
+  mp_limb_t _u0, _u1, _v0, _v1, _k, _t; \
+  mp_limb_t _w1, _w2, _w3;              \
+                                        \
+  _u0 = (x) >> MP_LOW_BITS;             \
+  _u1 = (x) & MP_LOW_MASK;              \
+  _v0 = (y) >> MP_LOW_BITS;             \
+  _v1 = (y) & MP_LOW_MASK;              \
+                                        \
+  _t = _u1 * _v1;                       \
+  _w3 = _t & MP_LOW_MASK;               \
+  _k = _t >> MP_LOW_BITS;               \
+                                        \
+  _t = _u0 * _v1 + _k;                  \
+  _w2 = _t & MP_LOW_MASK;               \
+  _w1 = _t >> MP_LOW_BITS;              \
+                                        \
+  _t = _u1 * _v0 + _w2;                 \
+  _k = _t >> MP_LOW_BITS;               \
+                                        \
+  (hi) = _u0 * _v0 + _w1 + _k;          \
+  (lo) = (_t << MP_LOW_BITS) + _w3;     \
+} while (0)
+
+/* [hi, lo] = x^2 (muldwu.c in Hacker's Delight) */
+#define mp_sqr(hi, lo, x) do {      \
+  mp_limb_t _u0, _u1, _u2, _k, _t;  \
+  mp_limb_t _w1, _w2, _w3;          \
+                                    \
+  _u0 = (x) >> MP_LOW_BITS;         \
+  _u1 = (x) & MP_LOW_MASK;          \
+  _u2 = _u0 * _u1;                  \
+                                    \
+  _t = _u1 * _u1;                   \
+  _w3 = _t & MP_LOW_MASK;           \
+  _k = _t >> MP_LOW_BITS;           \
+                                    \
+  _t = _u2 + _k;                    \
+  _w2 = _t & MP_LOW_MASK;           \
+  _w1 = _t >> MP_LOW_BITS;          \
+                                    \
+  _t = _u2 + _w2;                   \
+  _k = _t >> MP_LOW_BITS;           \
+                                    \
+  (hi) = _u0 * _u0 + _w1 + _k;      \
+  (lo) = (_t << MP_LOW_BITS) + _w3; \
+} while (0)
+
+#endif /* !MP_HAVE_WIDE */
 
 /* [z, c] = x + y + c */
 #define mp_add_1(z, c, x, y) do { \
@@ -1065,6 +1194,13 @@ mp_clz(mp_limb_t x) {
     return MP_LIMB_BITS;
 
   return mp_builtin_clz(x);
+#elif defined(mp_intrin_bsr)
+  unsigned long z;
+
+  if (!mp_intrin_bsr(&z, x))
+    return MP_LIMB_BITS;
+
+  return (MP_LIMB_BITS - 1) - z;
 #else
   /* http://aggregate.org/MAGIC/#Leading%20Zero%20Count */
   x |= (x >> 1);
@@ -1100,6 +1236,13 @@ mp_ctz(mp_limb_t x) {
     return MP_LIMB_BITS;
 
   return mp_builtin_ctz(x);
+#elif defined(mp_intrin_bsf)
+  unsigned long z;
+
+  if (!mp_intrin_bsf(&z, x))
+    return MP_LIMB_BITS;
+
+  return z;
 #else
   /* http://aggregate.org/MAGIC/#Trailing%20Zero%20Count */
   return mp_popcount((x & -x) - 1);
@@ -2044,17 +2187,23 @@ mp_div(mp_limb_t *q, mp_limb_t *r,
 
   if (r != NULL)
     *r = r0;
-#elif MP_LIMB_BITS == 32 && defined(MP_HAVE_64BIT)
-  /* This platform supports a wide division,
-     so have the compiler do it for us. */
+#elif defined(MP_HAVE_UDIV64) || defined(MP_HAVE_UDIV128)
+  mp_limb_t q0, r0;
+
+  /* [q, r] = (n1, n0) / d */
+#if defined(MP_HAVE_UDIV128)
+  q0 = _udiv128(n1, n0, d, &r0);
+#else
   mp_wide_t n = ((mp_wide_t)n1 << MP_LIMB_BITS) | n0;
-  mp_limb_t q0 = n / d;
+
+  q0 = _udiv64(n, d, &r0);
+#endif
 
   if (q != NULL)
     *q = q0;
 
   if (r != NULL)
-    *r = n - (mp_wide_t)q0 * d;
+    *r = r0;
 #else
   /* Code adapted from the `divlu2` function
    * in Hacker's Delight[1].

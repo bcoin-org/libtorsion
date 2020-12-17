@@ -13,7 +13,6 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <torsion/common.h>
-#include "internal.h"
 
 /*
  * Symbol Aliases
@@ -268,9 +267,14 @@
  * Types
  */
 
-#if defined(TORSION_HAVE_INT128)
+#if defined(UINTPTR_MAX) && defined(UINT64_MAX)
+#  if UINTPTR_MAX == UINT64_MAX
+#    define MP__HAVE_64BIT
+#  endif
+#endif
+
+#if defined(MP__HAVE_64BIT)
 typedef uint64_t mp_limb_t;
-typedef torsion_uint128_t mp_wide_t;
 typedef int64_t mp_long_t;
 #  define MP_LIMB_BITS 64
 #  define MP_LIMB_BYTES 8
@@ -281,7 +285,6 @@ typedef int64_t mp_long_t;
 #  define MP_LONG_MAX INT64_MAX
 #else
 typedef uint32_t mp_limb_t;
-typedef uint64_t mp_wide_t;
 typedef int32_t mp_long_t;
 #  define MP_LIMB_BITS 32
 #  define MP_LIMB_BYTES 4
@@ -308,8 +311,6 @@ typedef mp_bits_t mp_bitcnt_t; /* compat */
 #define MP_MASK(bits) ((MP_LIMB_C(1) << (bits)) - 1)
 #define MP_LOW_BITS (MP_LIMB_BITS / 2)
 #define MP_LOW_MASK (MP_LIMB_MAX >> MP_LOW_BITS)
-
-TORSION_UNUSED TORSION_BARRIER(mp_limb_t, mp_limb)
 
 struct mpz_s {
   mp_limb_t *limbs;
