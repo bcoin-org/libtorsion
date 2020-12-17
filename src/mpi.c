@@ -214,7 +214,7 @@ STATIC_ASSERT((0u - 1u) == UINT_MAX);
     : "cc"                   \
   )
 
-/* [z, c] = x - y - c */
+/* [z, c] = x - y - c = x - (y + c) */
 #define mp_sub_1(z, c, x, y) \
   __asm__ (                  \
     "subq %q1, %q0\n"        \
@@ -319,7 +319,7 @@ STATIC_ASSERT((0u - 1u) == UINT_MAX);
   (z) = _w;                                  \
 } while (0)
 
-/* [z, c] = x - y - c */
+/* [z, c] = x - y - c = x - (y + c) */
 #define mp_sub_1(z, c, x, y) do {            \
   mp_wide_t _w = (mp_wide_t)(x) - (y) - (c); \
   (c) = -(_w >> MP_LIMB_BITS);               \
@@ -386,15 +386,15 @@ STATIC_ASSERT((0u - 1u) == UINT_MAX);
 
 /* [z, c] = x + y + c */
 #define mp_add_1(z, c, x, y) do { \
-  mp_limb_t _z = (x) + (c);       \
+  mp_limb_t _z = (y) + (c);       \
   mp_limb_t _c = (_z < (c));      \
-  _z += (y);                      \
-  _c += (_z < (y));               \
+  _z += (x);                      \
+  _c += (_z < (x));               \
   (c) = _c;                       \
   (z) = _z;                       \
 } while (0)
 
-/* [z, c] = x - y - c */
+/* [z, c] = x - y - c = x - (y + c) */
 #define mp_sub_1(z, c, x, y) do { \
   mp_limb_t _z = (y) + (c);       \
   mp_limb_t _c = (_z < (c));      \
@@ -409,7 +409,8 @@ STATIC_ASSERT((0u - 1u) == UINT_MAX);
   mp_limb_t _hi, _lo;             \
   mp_mul(_hi, _lo, x, y);         \
   _lo += (c);                     \
-  (c) = _hi + (_lo < (c));        \
+  _hi += (_lo < (c));             \
+  (c) = _hi;                      \
   (z) = _lo;                      \
 } while (0)
 
@@ -420,18 +421,20 @@ STATIC_ASSERT((0u - 1u) == UINT_MAX);
   _lo += (c);                        \
   _hi += (_lo < (c));                \
   _lo += (z);                        \
-  (c) = _hi + (_lo < (z));           \
+  _hi += (_lo < (z));                \
+  (c) = _hi;                         \
   (z) = _lo;                         \
 } while (0)
 
-/* [z, c] = z - x * y - c */
+/* [z, c] = z - x * y - c = z - (x * y + c) */
 #define mp_submul_1(z, c, x, y) do { \
   mp_limb_t _hi, _lo;                \
   mp_mul(_hi, _lo, x, y);            \
   _lo += (c);                        \
   _hi += (_lo < (c));                \
   _lo = (z) - _lo;                   \
-  (c) = _hi + (_lo > (z));           \
+  _hi += (_lo > (z));                \
+  (c) = _hi;                         \
   (z) = _lo;                         \
 } while (0)
 
@@ -1544,7 +1547,7 @@ mpn_sub_n(mp_limb_t *zp, const mp_limb_t *xp,
   n >>= 2;
 
   while (n--) {
-    /* [z, c] = x - y - c */
+    /* [z, c] = x - y - c = x - (y + c) */
     mp_sub_1(zp[0], c, xp[0], yp[0]);
     mp_sub_1(zp[1], c, xp[1], yp[1]);
     mp_sub_1(zp[2], c, xp[2], yp[2]);
