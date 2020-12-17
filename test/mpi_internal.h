@@ -1510,7 +1510,8 @@ test_mpn_addmul_1(mp_rng_f *rng, void *arg) {
 
     mpn_copyi(ep, zp, 5);
 
-    ASSERT(mpn_mul_1(tp, xp, 5, y) == 0);
+    tp[4] = mpn_mul_1(tp, xp, 4, y);
+
     ASSERT(mpn_add_n(ep, ep, tp, 5) == 0);
 
     ASSERT(mpn_addmul_1(zp, xp, 5, y) == 0);
