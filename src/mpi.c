@@ -451,7 +451,7 @@ STATIC_ASSERT((0u - 1u) == UINT_MAX);
  * ASM Implementations (x86-64)
  */
 
-#ifdef MP_HAVE_ASM_X64
+#if defined(MP_HAVE_ASM_X64) && defined(MP_USE_ASM_IMPL)
 
 /* [z, c] = x + y */
 #define asm_op_1(op, zp, c, xp, xn, y) \
@@ -1333,7 +1333,7 @@ mpn_cmp(const mp_limb_t *xp, const mp_limb_t *yp, mp_size_t n) {
 
 mp_limb_t
 mpn_add_1(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn, mp_limb_t y) {
-#if defined(MP_HAVE_ASM_X64)
+#if defined(asm_add_1)
   mp_limb_t c = y;
   asm_add_1(zp, c, xp, xn, y);
   return c;
@@ -1394,7 +1394,7 @@ mp_limb_t
 mpn_add_n(mp_limb_t *zp, const mp_limb_t *xp,
                          const mp_limb_t *yp,
                          mp_size_t n) {
-#if defined(MP_HAVE_ASM_X64)
+#if defined(asm_add_n)
   mp_limb_t c;
   asm_add_n(zp, c, xp, yp, n);
   return c;
@@ -1464,7 +1464,7 @@ mpn_add_var(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn,
 
 mp_limb_t
 mpn_sub_1(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn, mp_limb_t y) {
-#if defined(MP_HAVE_ASM_X64)
+#if defined(asm_sub_1)
   mp_limb_t c = y;
   asm_sub_1(zp, c, xp, xn, y);
   return c;
@@ -1525,7 +1525,7 @@ mp_limb_t
 mpn_sub_n(mp_limb_t *zp, const mp_limb_t *xp,
                          const mp_limb_t *yp,
                          mp_size_t n) {
-#if defined(MP_HAVE_ASM_X64)
+#if defined(asm_sub_n)
   mp_limb_t c;
   asm_sub_n(zp, c, xp, yp, n);
   return c;
@@ -1595,7 +1595,7 @@ mpn_sub_var(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn,
 
 mp_limb_t
 mpn_mul_1(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn, mp_limb_t y) {
-#if defined(MP_HAVE_ASM_X64)
+#if defined(asm_mul_1)
   mp_limb_t c;
   asm_mul_1(zp, c, xp, xn, y);
   return c;
@@ -1630,7 +1630,7 @@ mpn_mul_1(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn, mp_limb_t y) {
 
 mp_limb_t
 mpn_addmul_1(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn, mp_limb_t y) {
-#if defined(MP_HAVE_ASM_X64)
+#if defined(asm_addmul_1)
   mp_limb_t c;
   asm_addmul_1(zp, c, xp, xn, y);
   return c;
@@ -1665,7 +1665,7 @@ mpn_addmul_1(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn, mp_limb_t y) {
 
 mp_limb_t
 mpn_submul_1(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn, mp_limb_t y) {
-#if defined(MP_HAVE_ASM_X64)
+#if defined(asm_submul_1)
   mp_limb_t c;
   asm_submul_1(zp, c, xp, xn, y);
   return c;
@@ -3540,7 +3540,7 @@ mpn_mask(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn, mp_bits_t bits) {
 
 mp_limb_t
 mpn_neg(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn) {
-#if defined(MP_HAVE_ASM_X64)
+#if defined(asm_neg)
   mp_limb_t c;
   asm_neg(zp, c, xp, xn);
   return c;
