@@ -272,8 +272,6 @@
 typedef uint64_t mp_limb_t;
 typedef torsion_uint128_t mp_wide_t;
 typedef int64_t mp_long_t;
-typedef int64_t mp_size_t;
-typedef int64_t mp_bits_t;
 #  define MP_LIMB_BITS 64
 #  define MP_LIMB_BYTES 8
 #  define MP_LIMB_C(x) UINT64_C(x)
@@ -281,18 +279,10 @@ typedef int64_t mp_bits_t;
 #  define MP_LONG_C(x) INT64_C(x)
 #  define MP_LONG_MIN INT64_MIN
 #  define MP_LONG_MAX INT64_MAX
-#  define MP_SIZE_C(x) INT64_C(x)
-#  define MP_SIZE_MIN INT64_MIN
-#  define MP_SIZE_MAX INT64_MAX
-#  define MP_BITS_C(x) INT64_C(x)
-#  define MP_BITS_MIN INT64_MIN
-#  define MP_BITS_MAX INT64_MAX
 #else
 typedef uint32_t mp_limb_t;
 typedef uint64_t mp_wide_t;
 typedef int32_t mp_long_t;
-typedef int32_t mp_size_t;
-typedef int32_t mp_bits_t;
 #  define MP_LIMB_BITS 32
 #  define MP_LIMB_BYTES 4
 #  define MP_LIMB_C(x) UINT32_C(x)
@@ -300,13 +290,19 @@ typedef int32_t mp_bits_t;
 #  define MP_LONG_C(x) INT32_C(x)
 #  define MP_LONG_MIN INT32_MIN
 #  define MP_LONG_MAX INT32_MAX
-#  define MP_SIZE_C(x) INT32_C(x)
-#  define MP_SIZE_MIN INT32_MIN
-#  define MP_SIZE_MAX INT32_MAX
-#  define MP_BITS_C(x) INT32_C(x)
-#  define MP_BITS_MIN INT32_MIN
-#  define MP_BITS_MAX INT32_MAX
 #endif
+
+typedef long mp_size_t;
+typedef long mp_bits_t;
+
+#define MP_SIZE_C(x) x ## L
+#define MP_SIZE_MIN LONG_MIN
+#define MP_SIZE_MAX LONG_MAX
+#define MP_BITS_C(x) x ## L
+#define MP_BITS_MIN LONG_MIN
+#define MP_BITS_MAX LONG_MAX
+
+typedef mp_bits_t mp_bitcnt_t; /* compat */
 
 #define MP_LIMB_HI (MP_LIMB_C(1) << (MP_LIMB_BITS - 1))
 #define MP_MASK(bits) ((MP_LIMB_C(1) << (bits)) - 1)

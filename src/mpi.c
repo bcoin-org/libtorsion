@@ -459,22 +459,22 @@ STATIC_ASSERT((0u - 1u) == UINT_MAX);
 /* [z, c] = x + y */
 #define asm_op_1(op, zp, c, xp, xn, y) \
   __asm__ __volatile__ (               \
-    "testq %%rcx, %%rcx\n"             \
+    "testl %%ecx, %%ecx\n"             \
     "jz 5f\n"                          \
                                        \
     "movq (%%rsi), %%r8\n"             \
-    "xorq %q0, %q0\n" /* cf=0 */       \
+    "xorl %k0, %k0\n" /* cf=0 */       \
     op " %q4, %%r8\n"                  \
     "setc %b0\n" /* q0=cf */           \
     "movq %%r8, (%%rdi)\n"             \
     "leaq 8(%%rsi), %%rsi\n"           \
     "leaq 8(%%rdi), %%rdi\n"           \
-    "decq %%rcx\n"                     \
+    "decl %%ecx\n"                     \
     "jz 5f\n"                          \
                                        \
-    "movq %%rcx, %%r9\n"               \
-    "shrq $2, %%rcx\n"                 \
-    "andq $3, %%r9\n" /* cf=0 */       \
+    "movl %%ecx, %%r9d\n"              \
+    "shrl $2, %%ecx\n"                 \
+    "andl $3, %%r9d\n" /* cf=0 */      \
     "jz 1f\n"                          \
                                        \
     "shrq %q0\n" /* cf=q0, q0=0 */     \
@@ -484,7 +484,7 @@ STATIC_ASSERT((0u - 1u) == UINT_MAX);
     "movq %%r8, (%%rdi)\n"             \
     "leaq 8(%%rsi), %%rsi\n"           \
     "leaq 8(%%rdi), %%rdi\n"           \
-    "decq %%r9\n"                      \
+    "decl %%r9d\n"                     \
     "jz 2f\n"                          \
                                        \
     "movq (%%rsi), %%r8\n"             \
@@ -492,7 +492,7 @@ STATIC_ASSERT((0u - 1u) == UINT_MAX);
     "movq %%r8, (%%rdi)\n"             \
     "leaq 8(%%rsi), %%rsi\n"           \
     "leaq 8(%%rdi), %%rdi\n"           \
-    "decq %%r9\n"                      \
+    "decl %%r9d\n"                     \
     "jz 2f\n"                          \
                                        \
     "movq (%%rsi), %%r8\n"             \
@@ -506,8 +506,8 @@ STATIC_ASSERT((0u - 1u) == UINT_MAX);
     "shrq %q0\n" /* cf=q0, q0=0 */     \
                                        \
     "2:\n"                             \
-    "incq %%rcx\n"                     \
-    "decq %%rcx\n"                     \
+    "incl %%ecx\n"                     \
+    "decl %%ecx\n"                     \
     "jz 4f\n"                          \
                                        \
     ".align 16\n"                      \
@@ -527,7 +527,7 @@ STATIC_ASSERT((0u - 1u) == UINT_MAX);
                                        \
     "leaq 32(%%rsi), %%rsi\n"          \
     "leaq 32(%%rdi), %%rdi\n"          \
-    "decq %%rcx\n"                     \
+    "decl %%ecx\n"                     \
     "jnz 3b\n"                         \
                                        \
     "4:\n"                             \
@@ -553,9 +553,9 @@ STATIC_ASSERT((0u - 1u) == UINT_MAX);
 /* [z, c] = x +- y +- c */
 #define asm_op_n(op, zp, c, xp, yp, n) \
   __asm__ __volatile__ (               \
-    "movq %%rcx, %%r9\n"               \
-    "shrq $2, %%rcx\n"                 \
-    "andq $3, %%r9\n" /* cf=0 */       \
+    "movl %%ecx, %%r9d\n"              \
+    "shrl $2, %%ecx\n"                 \
+    "andl $3, %%r9d\n" /* cf=0 */      \
     "jz 1f\n"                          \
                                        \
     "movq (%%rsi), %%r8\n"             \
@@ -564,7 +564,7 @@ STATIC_ASSERT((0u - 1u) == UINT_MAX);
     "leaq 8(%%rsi), %%rsi\n"           \
     "leaq 8(%%rdi), %%rdi\n"           \
     "leaq 8(%q3), %q3\n"               \
-    "decq %%r9\n"                      \
+    "decl %%r9d\n"                     \
     "jz 1f\n"                          \
                                        \
     "movq (%%rsi), %%r8\n"             \
@@ -573,7 +573,7 @@ STATIC_ASSERT((0u - 1u) == UINT_MAX);
     "leaq 8(%%rsi), %%rsi\n"           \
     "leaq 8(%%rdi), %%rdi\n"           \
     "leaq 8(%q3), %q3\n"               \
-    "decq %%r9\n"                      \
+    "decl %%r9d\n"                     \
     "jz 1f\n"                          \
                                        \
     "movq (%%rsi), %%r8\n"             \
@@ -584,8 +584,8 @@ STATIC_ASSERT((0u - 1u) == UINT_MAX);
     "leaq 8(%q3), %q3\n"               \
                                        \
     "1:\n"                             \
-    "incq %%rcx\n"                     \
-    "decq %%rcx\n"                     \
+    "incl %%ecx\n"                     \
+    "decl %%ecx\n"                     \
     "jz 3f\n"                          \
                                        \
     ".align 16\n"                      \
@@ -606,7 +606,7 @@ STATIC_ASSERT((0u - 1u) == UINT_MAX);
     "leaq 32(%%rsi), %%rsi\n"          \
     "leaq 32(%%rdi), %%rdi\n"          \
     "leaq 32(%q3), %q3\n"              \
-    "decq %%rcx\n"                     \
+    "decl %%ecx\n"                     \
     "jnz 2b\n"                         \
                                        \
     "3:\n"                             \
@@ -633,9 +633,9 @@ STATIC_ASSERT((0u - 1u) == UINT_MAX);
   __asm__ __volatile__ (            \
     "movq $0, %q0\n"                \
                                     \
-    "movq %%rcx, %%r8\n"            \
-    "shrq $2, %%rcx\n"              \
-    "andq $3, %%r8\n"               \
+    "movl %%ecx, %%r8d\n"           \
+    "shrl $2, %%ecx\n"              \
+    "andl $3, %%r8d\n"              \
     "jz 1f\n"                       \
                                     \
     "movq (%%rsi), %%rax\n"         \
@@ -644,7 +644,7 @@ STATIC_ASSERT((0u - 1u) == UINT_MAX);
     "movq %%rdx, %q0\n"             \
     "leaq 8(%%rsi), %%rsi\n"        \
     "leaq 8(%%rdi), %%rdi\n"        \
-    "decq %%r8\n"                   \
+    "decl %%r8d\n"                  \
     "jz 1f\n"                       \
                                     \
     "movq (%%rsi), %%rax\n"         \
@@ -655,7 +655,7 @@ STATIC_ASSERT((0u - 1u) == UINT_MAX);
     "movq %%rdx, %q0\n"             \
     "leaq 8(%%rsi), %%rsi\n"        \
     "leaq 8(%%rdi), %%rdi\n"        \
-    "decq %%r8\n"                   \
+    "decl %%r8d\n"                  \
     "jz 1f\n"                       \
                                     \
     "movq (%%rsi), %%rax\n"         \
@@ -668,8 +668,8 @@ STATIC_ASSERT((0u - 1u) == UINT_MAX);
     "leaq 8(%%rdi), %%rdi\n"        \
                                     \
     "1:\n"                          \
-    "incq %%rcx\n"                  \
-    "decq %%rcx\n"                  \
+    "incl %%ecx\n"                  \
+    "decl %%ecx\n"                  \
     "jz 3f\n"                       \
                                     \
     ".align 16\n"                   \
@@ -704,7 +704,7 @@ STATIC_ASSERT((0u - 1u) == UINT_MAX);
                                     \
     "leaq 32(%%rsi), %%rsi\n"       \
     "leaq 32(%%rdi), %%rdi\n"       \
-    "decq %%rcx\n"                  \
+    "decl %%ecx\n"                  \
     "jnz 2b\n"                      \
                                     \
     "3:\n"                          \
@@ -721,9 +721,9 @@ STATIC_ASSERT((0u - 1u) == UINT_MAX);
   __asm__ __volatile__ (                  \
     "movq $0, %q0\n"                      \
                                           \
-    "movq %%rcx, %%r8\n"                  \
-    "shrq $2, %%rcx\n"                    \
-    "andq $3, %%r8\n"                     \
+    "movl %%ecx, %%r8d\n"                 \
+    "shrl $2, %%ecx\n"                    \
+    "andl $3, %%r8d\n"                    \
     "jz 1f\n"                             \
                                           \
     "movq (%%rsi), %%rax\n"               \
@@ -733,7 +733,7 @@ STATIC_ASSERT((0u - 1u) == UINT_MAX);
     "movq %%rdx, %q0\n"                   \
     "leaq 8(%%rsi), %%rsi\n"              \
     "leaq 8(%%rdi), %%rdi\n"              \
-    "decq %%r8\n"                         \
+    "decl %%r8d\n"                        \
     "jz 1f\n"                             \
                                           \
     "movq (%%rsi), %%rax\n"               \
@@ -745,7 +745,7 @@ STATIC_ASSERT((0u - 1u) == UINT_MAX);
     "movq %%rdx, %q0\n"                   \
     "leaq 8(%%rsi), %%rsi\n"              \
     "leaq 8(%%rdi), %%rdi\n"              \
-    "decq %%r8\n"                         \
+    "decl %%r8d\n"                        \
     "jz 1f\n"                             \
                                           \
     "movq (%%rsi), %%rax\n"               \
@@ -759,8 +759,8 @@ STATIC_ASSERT((0u - 1u) == UINT_MAX);
     "leaq 8(%%rdi), %%rdi\n"              \
                                           \
     "1:\n"                                \
-    "incq %%rcx\n"                        \
-    "decq %%rcx\n"                        \
+    "incl %%ecx\n"                        \
+    "decl %%ecx\n"                        \
     "jz 3f\n"                             \
                                           \
     ".align 16\n"                         \
@@ -799,7 +799,7 @@ STATIC_ASSERT((0u - 1u) == UINT_MAX);
                                           \
     "leaq 32(%%rsi), %%rsi\n"             \
     "leaq 32(%%rdi), %%rdi\n"             \
-    "decq %%rcx\n"                        \
+    "decl %%ecx\n"                        \
     "jnz 2b\n"                            \
                                           \
     "3:\n"                                \
@@ -822,9 +822,9 @@ STATIC_ASSERT((0u - 1u) == UINT_MAX);
 /* [z, c] = 0 - x - c = -(x + c) */
 #define asm_neg(zp, c, xp, xn)   \
   __asm__ __volatile__ (         \
-    "movq %%rcx, %%r9\n"         \
-    "shrq $2, %%rcx\n"           \
-    "andq $3, %%r9\n" /* cf=0 */ \
+    "movl %%ecx, %%r9d\n"        \
+    "shrl $2, %%ecx\n"           \
+    "andl $3, %%r9d\n" /* cf=0 */\
     "jz 1f\n"                    \
                                  \
     "movq (%%rsi), %%r8\n"       \
@@ -832,7 +832,7 @@ STATIC_ASSERT((0u - 1u) == UINT_MAX);
     "movq %%r8, (%%rdi)\n"       \
     "leaq 8(%%rsi), %%rsi\n"     \
     "leaq 8(%%rdi), %%rdi\n"     \
-    "decq %%r9\n"                \
+    "decl %%r9d\n"               \
     "jz 1f\n"                    \
                                  \
     "movq (%%rsi), %%r8\n"       \
@@ -841,7 +841,7 @@ STATIC_ASSERT((0u - 1u) == UINT_MAX);
     "movq %%r8, (%%rdi)\n"       \
     "leaq 8(%%rsi), %%rsi\n"     \
     "leaq 8(%%rdi), %%rdi\n"     \
-    "decq %%r9\n"                \
+    "decl %%r9d\n"               \
     "jz 1f\n"                    \
                                  \
     "movq (%%rsi), %%r8\n"       \
@@ -852,8 +852,8 @@ STATIC_ASSERT((0u - 1u) == UINT_MAX);
     "leaq 8(%%rdi), %%rdi\n"     \
                                  \
     "1:\n"                       \
-    "incq %%rcx\n"               \
-    "decq %%rcx\n"               \
+    "incl %%ecx\n"               \
+    "decl %%ecx\n"               \
     "jz 3f\n"                    \
                                  \
     ".align 16\n"                \
@@ -877,7 +877,7 @@ STATIC_ASSERT((0u - 1u) == UINT_MAX);
                                  \
     "leaq 32(%%rsi), %%rsi\n"    \
     "leaq 32(%%rdi), %%rdi\n"    \
-    "decq %%rcx\n"               \
+    "decl %%ecx\n"               \
     "jnz 2b\n"                   \
                                  \
     "3:\n"                       \
