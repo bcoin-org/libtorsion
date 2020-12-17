@@ -1739,8 +1739,6 @@ void
 mpn_sqr(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn, mp_limb_t *scratch) {
   /* `2 * xn` limbs are required for scratch. */
   mp_limb_t *tp = scratch;
-  mp_limb_t c = 0;
-  mp_limb_t w;
   mp_size_t i;
 
   if (xn == 0)
@@ -1763,15 +1761,9 @@ mpn_sqr(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn, mp_limb_t *scratch) {
     tp[2 * i - 0] = mpn_addmul_1(tp + i, xp, i, xp[i]);
   }
 
-  tp[2 * xn - 1] = 0;
+  tp[2 * xn - 1] = mpn_lshift(tp + 1, tp + 1, 2 * xn - 2, 1);
 
-  for (i = 1; i < 2 * xn; i++) {
-    w = (tp[i] << 1) | (tp[i - 1] >> (MP_LIMB_BITS - 1));
-
-    mp_add_1(zp[i], c, zp[i], w);
-  }
-
-  ASSERT(c == 0);
+  ASSERT(mpn_add_n(zp, zp, tp, 2 * xn) == 0);
 }
 
 /*
