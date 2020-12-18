@@ -3495,7 +3495,6 @@ mpn_com(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn) {
 
 mp_limb_t
 mpn_lshift(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn, mp_bits_t bits) {
-  /* Note: this is not vectorized on clang for some reason. */
   mp_limb_t c;
   mp_size_t i;
 
@@ -3507,7 +3506,7 @@ mpn_lshift(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn, mp_bits_t bits) {
   for (i = xn - 1; i >= 1; i--)
     zp[i] = (xp[i] << bits) | (xp[i - 1] >> (MP_LIMB_BITS - bits));
 
-  zp[i] = xp[i] << bits;
+  zp[0] = xp[0] << bits;
 
   return c;
 }
@@ -3529,7 +3528,7 @@ mpn_rshift(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn, mp_bits_t bits) {
   for (i = 0; i < xn - 1; i++)
     zp[i] = (xp[i + 1] << (MP_LIMB_BITS - bits)) | (xp[i] >> bits);
 
-  zp[i] = xp[i] >> bits;
+  zp[xn - 1] = xp[xn - 1] >> bits;
 
   return c >> (MP_LIMB_BITS - bits);
 }
