@@ -2655,15 +2655,15 @@ mp_div_3by2(mp_limb_t *q, mp_limb_t *k1, mp_limb_t *k0,
     /* q1 += 1 if (r1, r0) >= (d1, d0) */
     /* (r1, r0) -= (d1, d0) if (r1, r0) >= (d1, d0) */
     "cmpq %q6, %q1\n"      /* cmp(r1, d1) */
-    "jb 3f\n"              /* skip if r1 < d1 */
-    "ja 2f\n"              /* do if r1 > d1 */
+    "jb 2f\n"              /* skip if r1 < d1 */
+    "ja 1f\n"              /* do if r1 > d1 */
     "cmpq %q7, %q2\n"      /* cmp(r0, d0) */
-    "jb 3f\n"              /* skip if r0 < d0 */
-    "2:\n"
+    "jb 2f\n"              /* skip if r0 < d0 */
+    "1:\n"
     "addq $1, %q0\n"       /* q1 += 1 */
     "subq %q7, %q2\n"      /* r0 -= d0 */
     "sbbq %q6, %q1\n"      /* r1 -= d1 + cf */
-    "3:\n"
+    "2:\n"
     : "=&r" (*q), "=&r" (*k1), "=&r" (*k0)
     : "rm" (u2), "rm" (u1), "rm" (u0),
       "rm" (d1), "rm" (d0), "rm" (v)
