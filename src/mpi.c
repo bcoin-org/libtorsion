@@ -62,7 +62,6 @@ STATIC_ASSERT((0u - 1u) == UINT_MAX);
  * Options
  */
 
-#undef MP_USE_ASM_IMPL
 #undef MP_USE_DIV_2BY1_ASM
 #undef MP_USE_DIV_3BY2_ASM
 #undef MP_USE_DIV_3BY2
@@ -210,23 +209,69 @@ TORSION_BARRIER(mp_limb_t, mp_limb)
 /* [z, c] = x + y */
 #define mp_add(z, c, x, y) \
   __asm__ (                \
-    "addq %q1, %q0\n"      \
+    "addq %q3, %q0\n"      \
     "movq $0, %q1\n"       \
     "setc %b1\n"           \
-    : "=r" (z), "=r" (c)   \
-    : "0" (x), "1" (y)     \
+    : "=&r" (z), "=r" (c)  \
+    : "%0" (x), "1" (y)    \
     : "cc"                 \
+  )
+
+/* [z, c] = x + c */
+#define mp_add_x4(zp, c, xp) \
+  __asm__ __volatile__ (     \
+    "shrq %q0\n"             \
+    "movq (%q2), %%r8\n"     \
+    "adcq $0, %%r8\n"        \
+    "movq %%r8, (%q1)\n"     \
+    "movq 8(%q2), %%r8\n"    \
+    "adcq $0, %%r8\n"        \
+    "movq %%r8, 8(%q1)\n"    \
+    "movq 16(%q2), %%r8\n"   \
+    "adcq $0, %%r8\n"        \
+    "movq %%r8, 16(%q1)\n"   \
+    "movq 24(%q2), %%r8\n"   \
+    "adcq $0, %%r8\n"        \
+    "movq %%r8, 24(%q1)\n"   \
+    "setb %b0\n"             \
+    : "+&r" (c)              \
+    : "r" (zp), "r" (xp)     \
+    : "cc", "memory",        \
+      "r8"                   \
   )
 
 /* [z, c] = x - y */
 #define mp_sub(z, c, x, y) \
   __asm__ (                \
-    "subq %q1, %q0\n"      \
+    "subq %q3, %q0\n"      \
     "movq $0, %q1\n"       \
     "setc %b1\n"           \
-    : "=r" (z), "=r" (c)   \
+    : "=&r" (z), "=r" (c)  \
     : "0" (x), "1" (y)     \
     : "cc"                 \
+  )
+
+/* [z, c] = x - c */
+#define mp_sub_x4(zp, c, xp) \
+  __asm__ __volatile__ (     \
+    "shrq %q0\n"             \
+    "movq (%q2), %%r8\n"     \
+    "sbbq $0, %%r8\n"        \
+    "movq %%r8, (%q1)\n"     \
+    "movq 8(%q2), %%r8\n"    \
+    "sbbq $0, %%r8\n"        \
+    "movq %%r8, 8(%q1)\n"    \
+    "movq 16(%q2), %%r8\n"   \
+    "sbbq $0, %%r8\n"        \
+    "movq %%r8, 16(%q1)\n"   \
+    "movq 24(%q2), %%r8\n"   \
+    "sbbq $0, %%r8\n"        \
+    "movq %%r8, 24(%q1)\n"   \
+    "setb %b0\n"             \
+    : "+&r" (c)              \
+    : "r" (zp), "r" (xp)     \
+    : "cc", "memory",        \
+      "r8"                   \
   )
 
 /* [hi, lo] = x * y */
@@ -251,28 +296,72 @@ TORSION_BARRIER(mp_limb_t, mp_limb)
 #define mp_add_1(z, c, x, y) \
   __asm__ (                  \
     "addq %q1, %q0\n"        \
-    "movq $0, %q1\n"         \
     "setc %b1\n"             \
-    "addq %q4, %q0\n"        \
+    "addq %q3, %q0\n"        \
     "adcq $0, %q1\n"         \
-    : "=r" (z), "=r" (c)     \
-    : "0" (x), "1" (y),      \
-      "rm" (c)               \
+    : "=&r" (z), "+&r" (c)   \
+    : "%0" (x), "rm" (y)     \
     : "cc"                   \
+  )
+
+/* [z, c] = x + y + c */
+#define mp_add_1x4(zp, c, xp, yp) \
+  __asm__ __volatile__ (          \
+    "shrq %q0\n"                  \
+    "movq (%q2), %%r8\n"          \
+    "adcq (%q3), %%r8\n"          \
+    "movq %%r8, (%q1)\n"          \
+    "movq 8(%q2), %%r8\n"         \
+    "adcq 8(%q3), %%r8\n"         \
+    "movq %%r8, 8(%q1)\n"         \
+    "movq 16(%q2), %%r8\n"        \
+    "adcq 16(%q3), %%r8\n"        \
+    "movq %%r8, 16(%q1)\n"        \
+    "movq 24(%q2), %%r8\n"        \
+    "adcq 24(%q3), %%r8\n"        \
+    "movq %%r8, 24(%q1)\n"        \
+    "setb %b0\n"                  \
+    : "+&r" (c)                   \
+    : "r" (zp), "r" (xp),         \
+      "r" (yp)                    \
+    : "cc", "memory",             \
+      "r8"                        \
   )
 
 /* [z, c] = x - y - c = x - (y + c) */
 #define mp_sub_1(z, c, x, y) \
   __asm__ (                  \
     "subq %q1, %q0\n"        \
-    "movq $0, %q1\n"         \
     "setc %b1\n"             \
-    "subq %q4, %q0\n"        \
+    "subq %q3, %q0\n"        \
     "adcq $0, %q1\n"         \
-    : "=r" (z), "=r" (c)     \
-    : "0" (x), "1" (y),      \
-      "rm" (c)               \
+    : "=&r" (z), "+&r" (c)   \
+    : "0" (x), "rm" (y)      \
     : "cc"                   \
+  )
+
+/* [z, c] = x - y - c = x - (y + c) */
+#define mp_sub_1x4(zp, c, xp, yp) \
+  __asm__ __volatile__ (          \
+    "shrq %q0\n"                  \
+    "movq (%q2), %%r8\n"          \
+    "sbbq (%q3), %%r8\n"          \
+    "movq %%r8, (%q1)\n"          \
+    "movq 8(%q2), %%r8\n"         \
+    "sbbq 8(%q3), %%r8\n"         \
+    "movq %%r8, 8(%q1)\n"         \
+    "movq 16(%q2), %%r8\n"        \
+    "sbbq 16(%q3), %%r8\n"        \
+    "movq %%r8, 16(%q1)\n"        \
+    "movq 24(%q2), %%r8\n"        \
+    "sbbq 24(%q3), %%r8\n"        \
+    "movq %%r8, 24(%q1)\n"        \
+    "setb %b0\n"                  \
+    : "+&r" (c)                   \
+    : "r" (zp), "r" (xp),         \
+      "r" (yp)                    \
+    : "cc", "memory",             \
+      "r8"                        \
   )
 
 /* [z, c] = x * y + c */
@@ -281,7 +370,7 @@ TORSION_BARRIER(mp_limb_t, mp_limb)
     "mulq %q3\n"              \
     "addq %q4, %%rax\n"       \
     "adcq $0, %%rdx\n"        \
-    : "=a" (z), "=&d" (c)     \
+    : "=&a" (z), "=&d" (c)    \
     : "%0" (x), "rm" (y),     \
       "rm" (c)                \
     : "cc"                    \
@@ -295,7 +384,7 @@ TORSION_BARRIER(mp_limb_t, mp_limb)
     "adcq $0, %%rdx\n"          \
     "addq %q4, %%rax\n"         \
     "adcq $0, %%rdx\n"          \
-    : "=a" (z), "=&d" (c)       \
+    : "=&a" (z), "=&d" (c)      \
     : "%0" (x), "rm" (y),       \
       "rm" (z), "rm" (c)        \
     : "cc"                      \
@@ -311,22 +400,48 @@ TORSION_BARRIER(mp_limb_t, mp_limb)
     "subq %%rax, %q0\n"         \
     "adcq $0, %%rdx\n"          \
     : "+r" (z), "=&d" (c)       \
-    : "rm" (x), "rm" (y),       \
+    : "%rm" (x), "rm" (y),      \
       "rm" (c)                  \
     : "cc", "rax"               \
   )
 
 /* [z, c] = 0 - x - c = -(x + c) */
-#define mp_neg_1(z, c, x) \
-  __asm__ (               \
-    "movq %q2, %q0\n"     \
-    "addq %q1, %q0\n"     \
-    "negq %q0\n"          \
-    "movq $0, %q1\n"      \
-    "setc %b1\n"          \
-    : "=&r" (z), "+r" (c) \
-    : "rm" (x)            \
-    : "cc"                \
+#define mp_neg_1(z, c, x)  \
+  __asm__ (                \
+    "addq %q1, %q0\n"      \
+    "setc %b1\n"           \
+    "negq %q0\n"           \
+    "adcq $0, %q1\n"       \
+    : "=&r" (z), "+&r" (c) \
+    : "0" (x)              \
+    : "cc"                 \
+  )
+
+/* [z, c] = 0 - x - c = -(x + c) */
+#define mp_neg_1x4(zp, c, xp) \
+  __asm__ __volatile__ (      \
+    "shrq %q0\n"              \
+    "movq (%q2), %%r8\n"      \
+    "adcq $0, %%r8\n"         \
+    "negq %%r8\n"             \
+    "movq %%r8, (%q1)\n"      \
+    "movq 8(%q2), %%r8\n"     \
+    "adcq $0, %%r8\n"         \
+    "negq %%r8\n"             \
+    "movq %%r8, 8(%q1)\n"     \
+    "movq 16(%q2), %%r8\n"    \
+    "adcq $0, %%r8\n"         \
+    "negq %%r8\n"             \
+    "movq %%r8, 16(%q1)\n"    \
+    "movq 24(%q2), %%r8\n"    \
+    "adcq $0, %%r8\n"         \
+    "negq %%r8\n"             \
+    "movq %%r8, 24(%q1)\n"    \
+    "setb %b0\n"              \
+    : "+&r" (c)               \
+    : "r" (zp), "r" (xp)      \
+    : "cc", "memory",         \
+      "r8"                    \
   )
 
 #elif defined(MP_HAVE_CLANG) /* !MP_GCC_ASM_X64 */
@@ -579,449 +694,6 @@ TORSION_BARRIER(mp_limb_t, mp_limb)
 } while (0)
 
 #endif /* !MP_HAVE_CLANG */
-
-/*
- * ASM Implementations (x86-64)
- */
-
-#if defined(MP_HAVE_ASM_X64) && defined(MP_USE_ASM_IMPL)
-
-/* [z, c] = x + y */
-#define asm_op_1(op, zp, c, xp, xn, y) \
-  __asm__ __volatile__ (               \
-    "testl %%ecx, %%ecx\n"             \
-    "jz 5f\n"                          \
-                                       \
-    "movq (%%rsi), %%r8\n"             \
-    "xorl %k0, %k0\n" /* cf=0 */       \
-    op " %q4, %%r8\n"                  \
-    "setc %b0\n" /* q0=cf */           \
-    "movq %%r8, (%%rdi)\n"             \
-    "leaq 8(%%rsi), %%rsi\n"           \
-    "leaq 8(%%rdi), %%rdi\n"           \
-    "decl %%ecx\n"                     \
-    "jz 5f\n"                          \
-                                       \
-    "movl %%ecx, %%r9d\n"              \
-    "shrl $2, %%ecx\n"                 \
-    "andl $3, %%r9d\n" /* cf=0 */      \
-    "jz 1f\n"                          \
-                                       \
-    "shrq %q0\n" /* cf=q0, q0=0 */     \
-                                       \
-    "movq (%%rsi), %%r8\n"             \
-    op " $0, %%r8\n"                   \
-    "movq %%r8, (%%rdi)\n"             \
-    "leaq 8(%%rsi), %%rsi\n"           \
-    "leaq 8(%%rdi), %%rdi\n"           \
-    "decl %%r9d\n"                     \
-    "jz 2f\n"                          \
-                                       \
-    "movq (%%rsi), %%r8\n"             \
-    op " $0, %%r8\n"                   \
-    "movq %%r8, (%%rdi)\n"             \
-    "leaq 8(%%rsi), %%rsi\n"           \
-    "leaq 8(%%rdi), %%rdi\n"           \
-    "decl %%r9d\n"                     \
-    "jz 2f\n"                          \
-                                       \
-    "movq (%%rsi), %%r8\n"             \
-    op " $0, %%r8\n"                   \
-    "movq %%r8, (%%rdi)\n"             \
-    "leaq 8(%%rsi), %%rsi\n"           \
-    "leaq 8(%%rdi), %%rdi\n"           \
-    "jmp 2f\n"                         \
-                                       \
-    "1:\n"                             \
-    "shrq %q0\n" /* cf=q0, q0=0 */     \
-                                       \
-    "2:\n"                             \
-    "incl %%ecx\n"                     \
-    "decl %%ecx\n"                     \
-    "jz 4f\n"                          \
-                                       \
-    ".align 16\n"                      \
-    "3:\n"                             \
-    "movq (%%rsi), %%r8\n"             \
-    "movq 8(%%rsi), %%r9\n"            \
-    "movq 16(%%rsi), %%r10\n"          \
-    "movq 24(%%rsi), %%r11\n"          \
-    op " $0, %%r8\n"                   \
-    op " $0, %%r9\n"                   \
-    op " $0, %%r10\n"                  \
-    op " $0, %%r11\n"                  \
-    "movq %%r8, (%%rdi)\n"             \
-    "movq %%r9, 8(%%rdi)\n"            \
-    "movq %%r10, 16(%%rdi)\n"          \
-    "movq %%r11, 24(%%rdi)\n"          \
-                                       \
-    "leaq 32(%%rsi), %%rsi\n"          \
-    "leaq 32(%%rdi), %%rdi\n"          \
-    "decl %%ecx\n"                     \
-    "jnz 3b\n"                         \
-                                       \
-    "4:\n"                             \
-    "setc %b0\n"                       \
-                                       \
-    "5:\n"                             \
-    : "+&r" (c),                       \
-      "+D" (zp), "+S" (xp),            \
-      "+c" (xn)                        \
-    : "rm" (y)                         \
-    : "cc", "memory",                  \
-      "r8", "r9", "r10", "r11"         \
-  )
-
-/* [z, c] = x + y */
-#define asm_add_1(zp, c, xp, xn, y) \
-  asm_op_1("adcq", zp, c, xp, xn, y)
-
-/* [z, c] = x - y */
-#define asm_sub_1(zp, c, xp, xn, y) \
-  asm_op_1("sbbq", zp, c, xp, xn, y)
-
-/* [z, c] = x +- y +- c */
-#define asm_op_n(op, zp, c, xp, yp, n) \
-  __asm__ __volatile__ (               \
-    "movl %%ecx, %%r9d\n"              \
-    "shrl $2, %%ecx\n"                 \
-    "andl $3, %%r9d\n" /* cf=0 */      \
-    "jz 1f\n"                          \
-                                       \
-    "movq (%%rsi), %%r8\n"             \
-    op " (%q3), %%r8\n"                \
-    "movq %%r8, (%%rdi)\n"             \
-    "leaq 8(%%rsi), %%rsi\n"           \
-    "leaq 8(%%rdi), %%rdi\n"           \
-    "leaq 8(%q3), %q3\n"               \
-    "decl %%r9d\n"                     \
-    "jz 1f\n"                          \
-                                       \
-    "movq (%%rsi), %%r8\n"             \
-    op " (%q3), %%r8\n"                \
-    "movq %%r8, (%%rdi)\n"             \
-    "leaq 8(%%rsi), %%rsi\n"           \
-    "leaq 8(%%rdi), %%rdi\n"           \
-    "leaq 8(%q3), %q3\n"               \
-    "decl %%r9d\n"                     \
-    "jz 1f\n"                          \
-                                       \
-    "movq (%%rsi), %%r8\n"             \
-    op " (%q3), %%r8\n"                \
-    "movq %%r8, (%%rdi)\n"             \
-    "leaq 8(%%rsi), %%rsi\n"           \
-    "leaq 8(%%rdi), %%rdi\n"           \
-    "leaq 8(%q3), %q3\n"               \
-                                       \
-    "1:\n"                             \
-    "incl %%ecx\n"                     \
-    "decl %%ecx\n"                     \
-    "jz 3f\n"                          \
-                                       \
-    ".align 16\n"                      \
-    "2:\n"                             \
-    "movq (%%rsi), %%r8\n"             \
-    "movq 8(%%rsi), %%r9\n"            \
-    "movq 16(%%rsi), %%r10\n"          \
-    "movq 24(%%rsi), %%r11\n"          \
-    op " (%q3), %%r8\n"                \
-    op " 8(%q3), %%r9\n"               \
-    op " 16(%q3), %%r10\n"             \
-    op " 24(%q3), %%r11\n"             \
-    "movq %%r8, (%%rdi)\n"             \
-    "movq %%r9, 8(%%rdi)\n"            \
-    "movq %%r10, 16(%%rdi)\n"          \
-    "movq %%r11, 24(%%rdi)\n"          \
-                                       \
-    "leaq 32(%%rsi), %%rsi\n"          \
-    "leaq 32(%%rdi), %%rdi\n"          \
-    "leaq 32(%q3), %q3\n"              \
-    "decl %%ecx\n"                     \
-    "jnz 2b\n"                         \
-                                       \
-    "3:\n"                             \
-    "movq $0, %q0\n"                   \
-    "setc %b0\n"                       \
-    : "=r" (c),                        \
-      "+D" (zp), "+S" (xp),            \
-      "+r" (yp), "+c" (n)              \
-    :                                  \
-    : "cc", "memory",                  \
-      "r8", "r9", "r10", "r11"         \
-  )
-
-/* [z, c] = x + y + c */
-#define asm_add_n(zp, c, xp, yp, n)  \
-  asm_op_n("adcq", zp, c, xp, yp, n)
-
-/* [z, c] = x - y - c */
-#define asm_sub_n(zp, c, xp, yp, n)  \
-  asm_op_n("sbbq", zp, c, xp, yp, n)
-
-/* [z, c] = x * y + c */
-#define asm_mul_1(zp, c, xp, xn, y) \
-  __asm__ __volatile__ (            \
-    "movq $0, %q0\n"                \
-                                    \
-    "movl %%ecx, %%r8d\n"           \
-    "shrl $2, %%ecx\n"              \
-    "andl $3, %%r8d\n"              \
-    "jz 1f\n"                       \
-                                    \
-    "movq (%%rsi), %%rax\n"         \
-    "mulq %q4\n"                    \
-    "movq %%rax, (%%rdi)\n"         \
-    "movq %%rdx, %q0\n"             \
-    "leaq 8(%%rsi), %%rsi\n"        \
-    "leaq 8(%%rdi), %%rdi\n"        \
-    "decl %%r8d\n"                  \
-    "jz 1f\n"                       \
-                                    \
-    "movq (%%rsi), %%rax\n"         \
-    "mulq %q4\n"                    \
-    "addq %q0, %%rax\n"             \
-    "adcq $0, %%rdx\n"              \
-    "movq %%rax, (%%rdi)\n"         \
-    "movq %%rdx, %q0\n"             \
-    "leaq 8(%%rsi), %%rsi\n"        \
-    "leaq 8(%%rdi), %%rdi\n"        \
-    "decl %%r8d\n"                  \
-    "jz 1f\n"                       \
-                                    \
-    "movq (%%rsi), %%rax\n"         \
-    "mulq %q4\n"                    \
-    "addq %q0, %%rax\n"             \
-    "adcq $0, %%rdx\n"              \
-    "movq %%rax, (%%rdi)\n"         \
-    "movq %%rdx, %q0\n"             \
-    "leaq 8(%%rsi), %%rsi\n"        \
-    "leaq 8(%%rdi), %%rdi\n"        \
-                                    \
-    "1:\n"                          \
-    "incl %%ecx\n"                  \
-    "decl %%ecx\n"                  \
-    "jz 3f\n"                       \
-                                    \
-    ".align 16\n"                   \
-    "2:\n"                          \
-    "movq (%%rsi), %%rax\n"         \
-    "mulq %q4\n"                    \
-    "addq %q0, %%rax\n"             \
-    "adcq $0, %%rdx\n"              \
-    "movq %%rax, (%%rdi)\n"         \
-    "movq %%rdx, %q0\n"             \
-                                    \
-    "movq 8(%%rsi), %%rax\n"        \
-    "mulq %q4\n"                    \
-    "addq %q0, %%rax\n"             \
-    "adcq $0, %%rdx\n"              \
-    "movq %%rax, 8(%%rdi)\n"        \
-    "movq %%rdx, %q0\n"             \
-                                    \
-    "movq 16(%%rsi), %%rax\n"       \
-    "mulq %q4\n"                    \
-    "addq %q0, %%rax\n"             \
-    "adcq $0, %%rdx\n"              \
-    "movq %%rax, 16(%%rdi)\n"       \
-    "movq %%rdx, %q0\n"             \
-                                    \
-    "movq 24(%%rsi), %%rax\n"       \
-    "mulq %q4\n"                    \
-    "addq %q0, %%rax\n"             \
-    "adcq $0, %%rdx\n"              \
-    "movq %%rax, 24(%%rdi)\n"       \
-    "movq %%rdx, %q0\n"             \
-                                    \
-    "leaq 32(%%rsi), %%rsi\n"       \
-    "leaq 32(%%rdi), %%rdi\n"       \
-    "decl %%ecx\n"                  \
-    "jnz 2b\n"                      \
-                                    \
-    "3:\n"                          \
-    : "=&r" (c),                    \
-      "+&D" (zp), "+&S" (xp),       \
-      "+&c" (xn)                    \
-    : "r" (y)                       \
-    : "cc", "memory",               \
-      "rax", "rdx", "r8"            \
-  )
-
-/* [z, c] = x * y + c */
-#define asm_opmul_1(op, zp, c, xp, xn, y) \
-  __asm__ __volatile__ (                  \
-    "movq $0, %q0\n"                      \
-                                          \
-    "movl %%ecx, %%r8d\n"                 \
-    "shrl $2, %%ecx\n"                    \
-    "andl $3, %%r8d\n"                    \
-    "jz 1f\n"                             \
-                                          \
-    "movq (%%rsi), %%rax\n"               \
-    "mulq %q4\n"                          \
-    op " %%rax, (%%rdi)\n"                \
-    "adcq $0, %%rdx\n"                    \
-    "movq %%rdx, %q0\n"                   \
-    "leaq 8(%%rsi), %%rsi\n"              \
-    "leaq 8(%%rdi), %%rdi\n"              \
-    "decl %%r8d\n"                        \
-    "jz 1f\n"                             \
-                                          \
-    "movq (%%rsi), %%rax\n"               \
-    "mulq %q4\n"                          \
-    "addq %q0, %%rax\n"                   \
-    "adcq $0, %%rdx\n"                    \
-    op " %%rax, (%%rdi)\n"                \
-    "adcq $0, %%rdx\n"                    \
-    "movq %%rdx, %q0\n"                   \
-    "leaq 8(%%rsi), %%rsi\n"              \
-    "leaq 8(%%rdi), %%rdi\n"              \
-    "decl %%r8d\n"                        \
-    "jz 1f\n"                             \
-                                          \
-    "movq (%%rsi), %%rax\n"               \
-    "mulq %q4\n"                          \
-    "addq %q0, %%rax\n"                   \
-    "adcq $0, %%rdx\n"                    \
-    op " %%rax, (%%rdi)\n"                \
-    "adcq $0, %%rdx\n"                    \
-    "movq %%rdx, %q0\n"                   \
-    "leaq 8(%%rsi), %%rsi\n"              \
-    "leaq 8(%%rdi), %%rdi\n"              \
-                                          \
-    "1:\n"                                \
-    "incl %%ecx\n"                        \
-    "decl %%ecx\n"                        \
-    "jz 3f\n"                             \
-                                          \
-    ".align 16\n"                         \
-    "2:\n"                                \
-    "movq (%%rsi), %%rax\n"               \
-    "mulq %q4\n"                          \
-    "addq %q0, %%rax\n"                   \
-    "adcq $0, %%rdx\n"                    \
-    op " %%rax, (%%rdi)\n"                \
-    "adcq $0, %%rdx\n"                    \
-    "movq %%rdx, %q0\n"                   \
-                                          \
-    "movq 8(%%rsi), %%rax\n"              \
-    "mulq %q4\n"                          \
-    "addq %q0, %%rax\n"                   \
-    "adcq $0, %%rdx\n"                    \
-    op " %%rax, 8(%%rdi)\n"               \
-    "adcq $0, %%rdx\n"                    \
-    "movq %%rdx, %q0\n"                   \
-                                          \
-    "movq 16(%%rsi), %%rax\n"             \
-    "mulq %q4\n"                          \
-    "addq %q0, %%rax\n"                   \
-    "adcq $0, %%rdx\n"                    \
-    op " %%rax, 16(%%rdi)\n"              \
-    "adcq $0, %%rdx\n"                    \
-    "movq %%rdx, %q0\n"                   \
-                                          \
-    "movq 24(%%rsi), %%rax\n"             \
-    "mulq %q4\n"                          \
-    "addq %q0, %%rax\n"                   \
-    "adcq $0, %%rdx\n"                    \
-    op " %%rax, 24(%%rdi)\n"              \
-    "adcq $0, %%rdx\n"                    \
-    "movq %%rdx, %q0\n"                   \
-                                          \
-    "leaq 32(%%rsi), %%rsi\n"             \
-    "leaq 32(%%rdi), %%rdi\n"             \
-    "decl %%ecx\n"                        \
-    "jnz 2b\n"                            \
-                                          \
-    "3:\n"                                \
-    : "=&r" (c),                          \
-      "+&D" (zp), "+&S" (xp),             \
-      "+&c" (xn)                          \
-    : "r" (y)                             \
-    : "cc", "memory",                     \
-      "rax", "rdx", "r8"                  \
-  )
-
-/* [z, c] = z + x * y + c */
-#define asm_addmul_1(zp, c, xp, xn, y)  \
-  asm_opmul_1("addq", zp, c, xp, xn, y)
-
-/* [z, c] = z - x * y - c = z - (x * y + c) */
-#define asm_submul_1(zp, c, xp, xn, y)  \
-  asm_opmul_1("subq", zp, c, xp, xn, y)
-
-/* [z, c] = 0 - x - c = -(x + c) */
-#define asm_neg(zp, c, xp, xn)   \
-  __asm__ __volatile__ (         \
-    "movl %%ecx, %%r9d\n"        \
-    "shrl $2, %%ecx\n"           \
-    "andl $3, %%r9d\n" /* cf=0 */\
-    "jz 1f\n"                    \
-                                 \
-    "movq (%%rsi), %%r8\n"       \
-    "negq %%r8\n"                \
-    "movq %%r8, (%%rdi)\n"       \
-    "leaq 8(%%rsi), %%rsi\n"     \
-    "leaq 8(%%rdi), %%rdi\n"     \
-    "decl %%r9d\n"               \
-    "jz 1f\n"                    \
-                                 \
-    "movq (%%rsi), %%r8\n"       \
-    "adcq $0, %%r8\n"            \
-    "negq %%r8\n"                \
-    "movq %%r8, (%%rdi)\n"       \
-    "leaq 8(%%rsi), %%rsi\n"     \
-    "leaq 8(%%rdi), %%rdi\n"     \
-    "decl %%r9d\n"               \
-    "jz 1f\n"                    \
-                                 \
-    "movq (%%rsi), %%r8\n"       \
-    "adcq $0, %%r8\n"            \
-    "negq %%r8\n"                \
-    "movq %%r8, (%%rdi)\n"       \
-    "leaq 8(%%rsi), %%rsi\n"     \
-    "leaq 8(%%rdi), %%rdi\n"     \
-                                 \
-    "1:\n"                       \
-    "incl %%ecx\n"               \
-    "decl %%ecx\n"               \
-    "jz 3f\n"                    \
-                                 \
-    ".align 16\n"                \
-    "2:\n"                       \
-    "movq (%%rsi), %%r8\n"       \
-    "movq 8(%%rsi), %%r9\n"      \
-    "movq 16(%%rsi), %%r10\n"    \
-    "movq 24(%%rsi), %%r11\n"    \
-    "adcq $0, %%r8\n"            \
-    "negq %%r8\n"                \
-    "adcq $0, %%r9\n"            \
-    "negq %%r9\n"                \
-    "adcq $0, %%r10\n"           \
-    "negq %%r10\n"               \
-    "adcq $0, %%r11\n"           \
-    "negq %%r11\n"               \
-    "movq %%r8, (%%rdi)\n"       \
-    "movq %%r9, 8(%%rdi)\n"      \
-    "movq %%r10, 16(%%rdi)\n"    \
-    "movq %%r11, 24(%%rdi)\n"    \
-                                 \
-    "leaq 32(%%rsi), %%rsi\n"    \
-    "leaq 32(%%rdi), %%rdi\n"    \
-    "decl %%ecx\n"               \
-    "jnz 2b\n"                   \
-                                 \
-    "3:\n"                       \
-    "movq $0, %q0\n"             \
-    "setc %b0\n"                 \
-    : "=r" (c),                  \
-      "+D" (zp), "+S" (xp),      \
-      "+c" (xn)                  \
-    :                            \
-    : "cc", "memory",            \
-      "r8", "r9", "r10", "r11"   \
-  )
-
-#endif /* !MP_HAVE_ASM_X64 */
 
 /*
  * Types
@@ -1480,11 +1152,6 @@ mpn_cmp(const mp_limb_t *xp, const mp_limb_t *yp, mp_size_t n) {
 
 mp_limb_t
 mpn_add_1(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn, mp_limb_t y) {
-#if defined(asm_add_1)
-  mp_limb_t c = y;
-  asm_add_1(zp, c, xp, xn, y);
-  return c;
-#else
   mp_limb_t c;
 
   if (xn == 0)
@@ -1505,17 +1172,20 @@ mpn_add_1(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn, mp_limb_t y) {
 
   while (xn--) {
     /* [z, c] = x + c */
+#if defined(mp_add_x4)
+    mp_add_x4(zp, c, xp);
+#else
     mp_add(zp[0], c, xp[0], c);
     mp_add(zp[1], c, xp[1], c);
     mp_add(zp[2], c, xp[2], c);
     mp_add(zp[3], c, xp[3], c);
+#endif
 
     zp += 4;
     xp += 4;
   }
 
   return c;
-#endif
 }
 
 static TORSION_INLINE mp_limb_t
@@ -1541,11 +1211,6 @@ mp_limb_t
 mpn_add_n(mp_limb_t *zp, const mp_limb_t *xp,
                          const mp_limb_t *yp,
                          mp_size_t n) {
-#if defined(asm_add_n)
-  mp_limb_t c;
-  asm_add_n(zp, c, xp, yp, n);
-  return c;
-#else
   mp_limb_t c = 0;
 
   switch (n & 3) {
@@ -1561,10 +1226,14 @@ mpn_add_n(mp_limb_t *zp, const mp_limb_t *xp,
 
   while (n--) {
     /* [z, c] = x + y + c */
+#if defined(mp_add_1x4)
+    mp_add_1x4(zp, c, xp, yp);
+#else
     mp_add_1(zp[0], c, xp[0], yp[0]);
     mp_add_1(zp[1], c, xp[1], yp[1]);
     mp_add_1(zp[2], c, xp[2], yp[2]);
     mp_add_1(zp[3], c, xp[3], yp[3]);
+#endif
 
     zp += 4;
     xp += 4;
@@ -1572,7 +1241,6 @@ mpn_add_n(mp_limb_t *zp, const mp_limb_t *xp,
   }
 
   return c;
-#endif
 }
 
 mp_limb_t
@@ -1611,11 +1279,6 @@ mpn_add_var(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn,
 
 mp_limb_t
 mpn_sub_1(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn, mp_limb_t y) {
-#if defined(asm_sub_1)
-  mp_limb_t c = y;
-  asm_sub_1(zp, c, xp, xn, y);
-  return c;
-#else
   mp_limb_t c;
 
   if (xn == 0)
@@ -1636,17 +1299,20 @@ mpn_sub_1(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn, mp_limb_t y) {
 
   while (xn--) {
     /* [z, c] = x - c */
+#if defined(mp_sub_x4)
+    mp_sub_x4(zp, c, xp);
+#else
     mp_sub(zp[0], c, xp[0], c);
     mp_sub(zp[1], c, xp[1], c);
     mp_sub(zp[2], c, xp[2], c);
     mp_sub(zp[3], c, xp[3], c);
+#endif
 
     zp += 4;
     xp += 4;
   }
 
   return c;
-#endif
 }
 
 static TORSION_INLINE mp_limb_t
@@ -1672,11 +1338,6 @@ mp_limb_t
 mpn_sub_n(mp_limb_t *zp, const mp_limb_t *xp,
                          const mp_limb_t *yp,
                          mp_size_t n) {
-#if defined(asm_sub_n)
-  mp_limb_t c;
-  asm_sub_n(zp, c, xp, yp, n);
-  return c;
-#else
   mp_limb_t c = 0;
 
   switch (n & 3) {
@@ -1692,10 +1353,14 @@ mpn_sub_n(mp_limb_t *zp, const mp_limb_t *xp,
 
   while (n--) {
     /* [z, c] = x - y - c = x - (y + c) */
+#if defined(mp_sub_1x4)
+    mp_sub_1x4(zp, c, xp, yp);
+#else
     mp_sub_1(zp[0], c, xp[0], yp[0]);
     mp_sub_1(zp[1], c, xp[1], yp[1]);
     mp_sub_1(zp[2], c, xp[2], yp[2]);
     mp_sub_1(zp[3], c, xp[3], yp[3]);
+#endif
 
     zp += 4;
     xp += 4;
@@ -1703,7 +1368,6 @@ mpn_sub_n(mp_limb_t *zp, const mp_limb_t *xp,
   }
 
   return c;
-#endif
 }
 
 mp_limb_t
@@ -1742,11 +1406,6 @@ mpn_sub_var(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn,
 
 mp_limb_t
 mpn_mul_1(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn, mp_limb_t y) {
-#if defined(asm_mul_1)
-  mp_limb_t c;
-  asm_mul_1(zp, c, xp, xn, y);
-  return c;
-#else
   mp_limb_t c = 0;
 
   switch (xn & 3) {
@@ -1772,16 +1431,10 @@ mpn_mul_1(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn, mp_limb_t y) {
   }
 
   return c;
-#endif
 }
 
 mp_limb_t
 mpn_addmul_1(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn, mp_limb_t y) {
-#if defined(asm_addmul_1)
-  mp_limb_t c;
-  asm_addmul_1(zp, c, xp, xn, y);
-  return c;
-#else
   mp_limb_t c = 0;
 
   switch (xn & 3) {
@@ -1807,16 +1460,10 @@ mpn_addmul_1(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn, mp_limb_t y) {
   }
 
   return c;
-#endif
 }
 
 mp_limb_t
 mpn_submul_1(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn, mp_limb_t y) {
-#if defined(asm_submul_1)
-  mp_limb_t c;
-  asm_submul_1(zp, c, xp, xn, y);
-  return c;
-#else
   mp_limb_t c = 0;
 
   switch (xn & 3) {
@@ -1842,7 +1489,6 @@ mpn_submul_1(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn, mp_limb_t y) {
   }
 
   return c;
-#endif
 }
 
 void
@@ -3692,11 +3338,6 @@ mpn_mask(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn, mp_bits_t bits) {
 
 mp_limb_t
 mpn_neg(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn) {
-#if defined(asm_neg)
-  mp_limb_t c;
-  asm_neg(zp, c, xp, xn);
-  return c;
-#else
   mp_limb_t c = 0;
 
   switch (xn & 3) {
@@ -3712,17 +3353,20 @@ mpn_neg(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn) {
 
   while (xn--) {
     /* [z, c] = 0 - x - c = -(x + c) */
+#if defined(mp_neg_1x4)
+    mp_neg_1x4(zp, c, xp);
+#else
     mp_neg_1(zp[0], c, xp[0]);
     mp_neg_1(zp[1], c, xp[1]);
     mp_neg_1(zp[2], c, xp[2]);
     mp_neg_1(zp[3], c, xp[3]);
+#endif
 
     zp += 4;
     xp += 4;
   }
 
   return c;
-#endif
 }
 
 /*
