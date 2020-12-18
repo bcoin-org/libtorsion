@@ -62,6 +62,7 @@ STATIC_ASSERT((0u - 1u) == UINT_MAX);
  * Options
  */
 
+#undef MP_USE_ASM_IMPL
 #undef MP_USE_DIV_2BY1_ASM
 #undef MP_USE_DIV_3BY2_ASM
 #undef MP_USE_DIV_3BY2
