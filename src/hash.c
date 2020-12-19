@@ -758,7 +758,6 @@ hash256_final(hash256_t *ctx, unsigned char *out) {
  *   https://keccak.team/specifications.html
  *   https://csrc.nist.gov/projects/hash-functions/sha-3-project/sha-3-standardization
  *   http://dx.doi.org/10.6028/NIST.FIPS.202
- *   https://github.com/gnutls/nettle/blob/master/sha3-permute.c
  */
 
 void
@@ -777,433 +776,6 @@ keccak_init(keccak_t *ctx, unsigned int bits) {
 
 static void
 keccak_permute(keccak_t *ctx) {
-#if defined(TORSION_HAVE_ASM_X64)
-  /* Borrowed from:
-   * https://github.com/gnutls/nettle/blob/master/x86_64/sha3-permute.asm
-   *
-   * Registers:
-   *
-   *   %rdi = state pointer (ctx->state)
-   *   %rsi = round constants pointer (reversed)
-   *   %r8 = round counter (starts at 24, decrements)
-   *
-   * For reference, our full range of clobbered registers:
-   *
-   *   %rax, %rbx, %rcx, %rdx, %rdi, %rsi, %r[8-13], %xmm[0-15]
-   */
-  static const uint64_t rc[25] = {
-    UINT64_C(0x0000000000000000),
-    UINT64_C(0x8000000080008008), UINT64_C(0x0000000080000001),
-    UINT64_C(0x8000000000008080), UINT64_C(0x8000000080008081),
-    UINT64_C(0x800000008000000a), UINT64_C(0x000000000000800a),
-    UINT64_C(0x8000000000000080), UINT64_C(0x8000000000008002),
-    UINT64_C(0x8000000000008003), UINT64_C(0x8000000000008089),
-    UINT64_C(0x800000000000008b), UINT64_C(0x000000008000808b),
-    UINT64_C(0x000000008000000a), UINT64_C(0x0000000080008009),
-    UINT64_C(0x0000000000000088), UINT64_C(0x000000000000008a),
-    UINT64_C(0x8000000000008009), UINT64_C(0x8000000080008081),
-    UINT64_C(0x0000000080000001), UINT64_C(0x000000000000808b),
-    UINT64_C(0x8000000080008000), UINT64_C(0x800000000000808a),
-    UINT64_C(0x0000000000008082), UINT64_C(0x0000000000000001)
-  };
-
-  __asm__ __volatile__(
-    "movl $24, %%r8d\n"
-
-    "movq (%%rdi), %%rax\n"
-    "movups 8(%%rdi), %%xmm0\n"
-    "movups 24(%%rdi), %%xmm1\n"
-    "movq %%rax, %%r10\n"
-
-    "movq 40(%%rdi), %%rcx\n"
-    "movdqa %%xmm0, %%xmm10\n"
-    "movups 48(%%rdi), %%xmm2\n"
-    "movdqa %%xmm1, %%xmm11\n"
-    "movups 64(%%rdi), %%xmm3\n"
-    "xorq %%rcx, %%r10\n"
-
-    "movq 80(%%rdi), %%rdx\n"
-    "pxor %%xmm2, %%xmm10\n"
-    "movups 88(%%rdi), %%xmm4\n"
-    "pxor %%xmm3, %%xmm11\n"
-    "movups 104(%%rdi), %%xmm5\n"
-    "xorq %%rdx, %%r10\n"
-
-    "movq 120(%%rdi), %%rbx\n"
-    "pxor %%xmm4, %%xmm10\n"
-    "movups 128(%%rdi), %%xmm6\n"
-    "pxor %%xmm5, %%xmm11\n"
-    "movups 144(%%rdi), %%xmm7\n"
-    "xorq %%rbx, %%r10\n"
-
-    "movq 160(%%rdi), %%r9\n"
-    "pxor %%xmm6, %%xmm10\n"
-    "movups 168(%%rdi), %%xmm8\n"
-    "pxor %%xmm7, %%xmm11\n"
-    "movups 184(%%rdi), %%xmm9\n"
-    "xorq %%r9, %%r10\n"
-    "pxor %%xmm8, %%xmm10\n"
-    "pxor %%xmm9, %%xmm11\n"
-
-    ".align 16\n"
-    "1:\n"
-
-    "pshufd $0x4e, %%xmm11, %%xmm11\n"
-    "movdqa %%xmm10, %%xmm13\n"
-
-    "movq %%r10, (%%rdi)\n"
-    "movq (%%rdi), %%xmm12\n"
-
-    "punpcklqdq %%xmm10, %%xmm12\n"
-    "punpckhqdq %%xmm11, %%xmm13\n"
-    "punpcklqdq %%xmm12, %%xmm11\n"
-
-    "movq %%xmm11, (%%rdi)\n"
-    "movq (%%rdi), %%r11\n"
-
-    "movq %%xmm10, (%%rdi)\n"
-    "movq (%%rdi), %%r12\n"
-
-    "rolq $1, %%r12\n"
-    "xorq %%r12, %%r11\n"
-
-    "movdqa %%xmm13, %%xmm14\n"
-    "movdqa %%xmm13, %%xmm15\n"
-    "psllq $1, %%xmm14\n"
-    "psrlq $63, %%xmm15\n"
-    "pxor %%xmm14, %%xmm12\n"
-    "pxor %%xmm15, %%xmm12\n"
-
-    "movdqa %%xmm11, %%xmm10\n"
-    "psrlq $63, %%xmm11\n"
-    "psllq $1, %%xmm10\n"
-    "pxor %%xmm11, %%xmm13\n"
-    "pxor %%xmm10, %%xmm13\n"
-
-    "xorq %%r11, %%rax\n"
-    "xorq %%r11, %%rcx\n"
-    "xorq %%r11, %%rdx\n"
-    "xorq %%r11, %%rbx\n"
-    "xorq %%r11, %%r9\n"
-    "pxor %%xmm12, %%xmm0\n"
-    "pxor %%xmm12, %%xmm2\n"
-    "pxor %%xmm12, %%xmm4\n"
-    "pxor %%xmm12, %%xmm6\n"
-    "pxor %%xmm12, %%xmm8\n"
-    "pxor %%xmm13, %%xmm1\n"
-    "pxor %%xmm13, %%xmm3\n"
-    "pxor %%xmm13, %%xmm5\n"
-    "pxor %%xmm13, %%xmm7\n"
-    "pxor %%xmm13, %%xmm9\n"
-
-    "movdqa %%xmm0, %%xmm14\n"
-    "movdqa %%xmm0, %%xmm15\n"
-    "movdqa %%xmm0, %%xmm12\n"
-    "psllq $1, %%xmm0\n"
-    "psrlq $63, %%xmm14\n"
-    "psllq $62, %%xmm15\n"
-    "por %%xmm0, %%xmm14\n"
-    "psrlq $2, %%xmm12\n"
-    "por %%xmm15, %%xmm12\n"
-
-    "movdqa %%xmm1, %%xmm0\n"
-    "movdqa %%xmm1, %%xmm15\n"
-    "psllq $28, %%xmm0\n"
-    "psrlq $36, %%xmm15\n"
-    "por %%xmm15, %%xmm0\n"
-    "movdqa %%xmm1, %%xmm15\n"
-    "psllq $27, %%xmm1\n"
-    "psrlq $37, %%xmm15\n"
-    "por %%xmm15, %%xmm1\n"
-
-    "punpcklqdq %%xmm14, %%xmm0\n"
-    "punpckhqdq %%xmm12, %%xmm1\n"
-
-    "rolq $36, %%rcx\n"
-
-    "movq %%rcx, (%%rdi)\n"
-    "movq (%%rdi), %%xmm14\n"
-
-    "movq %%xmm2, (%%rdi)\n"
-    "movq (%%rdi), %%rcx\n"
-
-    "rolq $44, %%rcx\n"
-
-    "movdqa %%xmm2, %%xmm15\n"
-    "psllq $6, %%xmm2\n"
-    "psrlq $58, %%xmm15\n"
-
-    "por %%xmm2, %%xmm15\n"
-    "movdqa %%xmm3, %%xmm2\n"
-
-    "movdqa %%xmm2, %%xmm12\n"
-    "psllq $20, %%xmm2\n"
-    "psrlq $44, %%xmm12\n"
-
-    "por %%xmm12, %%xmm2\n"
-    "punpckhqdq %%xmm15, %%xmm2\n"
-
-    "movdqa %%xmm3, %%xmm15\n"
-    "psllq $55, %%xmm3\n"
-    "psrlq $9, %%xmm15\n"
-
-    "por %%xmm3, %%xmm15\n"
-    "movdqa %%xmm14, %%xmm3\n"
-    "punpcklqdq %%xmm15, %%xmm3\n"
-
-    "rolq $42, %%rdx\n"
-    "pshufd $0x4e, %%xmm4, %%xmm14\n"
-
-    "movq %%rdx, (%%rdi)\n"
-    "movq (%%rdi), %%xmm4\n"
-
-    "movq %%xmm14, (%%rdi)\n"
-    "movq (%%rdi), %%rdx\n"
-
-    "rolq $43, %%rdx\n"
-
-    "punpcklqdq %%xmm5, %%xmm4\n"
-
-    "movdqa %%xmm4, %%xmm15\n"
-    "psllq $25, %%xmm4\n"
-    "psrlq $39, %%xmm15\n"
-
-    "por %%xmm15, %%xmm4\n"
-
-    "movdqa %%xmm5, %%xmm12\n"
-    "psllq $39, %%xmm5\n"
-    "psrlq $25, %%xmm12\n"
-
-    "por %%xmm5, %%xmm12\n"
-
-    "movdqa %%xmm14, %%xmm5\n"
-    "psllq $10, %%xmm14\n"
-    "psrlq $54, %%xmm5\n"
-
-    "por %%xmm14, %%xmm5\n"
-    "punpckhqdq %%xmm12, %%xmm5\n"
-
-    "pshufd $0x4e, %%xmm7, %%xmm14\n"
-    "rolq $41, %%rbx\n"
-
-    "movq %%rbx, (%%rdi)\n"
-    "movq (%%rdi), %%xmm15\n"
-
-    "movq %%xmm7, (%%rdi)\n"
-    "movq (%%rdi), %%rbx\n"
-
-    "rolq $21, %%rbx\n"
-    "pshufd $0x4e, %%xmm6, %%xmm7\n"
-
-    "movdqa %%xmm6, %%xmm12\n"
-    "psllq $45, %%xmm6\n"
-    "psrlq $19, %%xmm12\n"
-
-    "por %%xmm12, %%xmm6\n"
-
-    "movdqa %%xmm14, %%xmm13\n"
-    "psllq $8, %%xmm14\n"
-    "psrlq $56, %%xmm13\n"
-
-    "por %%xmm13, %%xmm14\n"
-    "punpcklqdq %%xmm14, %%xmm6\n"
-
-    "movdqa %%xmm7, %%xmm12\n"
-    "psllq $15, %%xmm7\n"
-    "psrlq $49, %%xmm12\n"
-
-    "por %%xmm12, %%xmm7\n"
-    "punpcklqdq %%xmm15, %%xmm7\n"
-
-    "rolq $18, %%r9\n"
-
-    "movq %%r9, (%%rdi)\n"
-    "movq (%%rdi), %%xmm14\n"
-
-    "pshufd $0x4e, %%xmm9, %%xmm15\n"
-    "movd %%xmm15, %%r9\n"
-    "rolq $14, %%r9\n"
-
-    "movdqa %%xmm9, %%xmm15\n"
-    "psllq $56, %%xmm9\n"
-    "psrlq $8, %%xmm15\n"
-
-    "por %%xmm15, %%xmm9\n"
-
-    "movdqa %%xmm8, %%xmm12\n"
-
-    "movdqa %%xmm12, %%xmm15\n"
-    "psllq $2, %%xmm12\n"
-    "psrlq $62, %%xmm15\n"
-
-    "por %%xmm15, %%xmm12\n"
-    "punpcklqdq %%xmm12, %%xmm9\n"
-
-    "movdqa %%xmm8, %%xmm15\n"
-    "psllq $61, %%xmm8\n"
-    "psrlq $3, %%xmm15\n"
-
-    "por %%xmm15, %%xmm8\n"
-    "psrldq $8, %%xmm8\n"
-    "punpcklqdq %%xmm14, %%xmm8\n"
-
-    "movq %%rcx, %%r12\n"
-    "notq %%r12\n"
-    "andq %%rdx, %%r12\n"
-    "movq %%rdx, %%r13\n"
-    "notq %%r13\n"
-    "andq %%rbx, %%r13\n"
-    "movq %%rbx, %%r11\n"
-    "notq %%r11\n"
-    "andq %%r9, %%r11\n"
-    "xorq %%r11, %%rdx\n"
-    "movq %%r9, %%r10\n"
-    "notq %%r10\n"
-    "andq %%rax, %%r10\n"
-    "xorq %%r10, %%rbx\n"
-    "movq %%rax, %%r11\n"
-    "notq %%r11\n"
-    "andq %%rcx, %%r11\n"
-    "xorq %%r11, %%r9\n"
-    "xorq %%r12, %%rax\n"
-    "xorq %%r13, %%rcx\n"
-
-    "movdqa %%xmm2, %%xmm14\n"
-    "pandn %%xmm4, %%xmm14\n"
-    "movdqa %%xmm4, %%xmm15\n"
-    "pandn %%xmm6, %%xmm15\n"
-    "movdqa %%xmm6, %%xmm12\n"
-    "pandn %%xmm8, %%xmm12\n"
-    "pxor %%xmm12, %%xmm4\n"
-    "movdqa %%xmm8, %%xmm13\n"
-    "pandn %%xmm0, %%xmm13\n"
-    "pxor %%xmm13, %%xmm6\n"
-    "movdqa %%xmm0, %%xmm12\n"
-    "pandn %%xmm2, %%xmm12\n"
-    "pxor %%xmm12, %%xmm8\n"
-    "pxor %%xmm14, %%xmm0\n"
-    "pxor %%xmm15, %%xmm2\n"
-
-    "movdqa %%xmm3, %%xmm14\n"
-    "pandn %%xmm5, %%xmm14\n"
-    "movdqa %%xmm5, %%xmm15\n"
-    "pandn %%xmm7, %%xmm15\n"
-    "movdqa %%xmm7, %%xmm12\n"
-    "pandn %%xmm9, %%xmm12\n"
-    "pxor %%xmm12, %%xmm5\n"
-    "movdqa %%xmm9, %%xmm13\n"
-    "pandn %%xmm1, %%xmm13\n"
-    "pxor %%xmm13, %%xmm7\n"
-    "movdqa %%xmm1, %%xmm12\n"
-    "pandn %%xmm3, %%xmm12\n"
-    "pxor %%xmm12, %%xmm9\n"
-    "pxor %%xmm14, %%xmm1\n"
-    "pxor %%xmm15, %%xmm3\n"
-
-    "xorq (%%rsi, %%r8, 8), %%rax\n"
-
-    "movq %%rcx, (%%rdi)\n"
-    "movq (%%rdi), %%xmm10\n"
-
-    "movq %%rbx, (%%rdi)\n"
-    "movq (%%rdi), %%xmm11\n"
-
-    "movq %%rdx, (%%rdi)\n"
-    "movq (%%rdi), %%xmm14\n"
-
-    "movq %%r9, (%%rdi)\n"
-    "movq (%%rdi), %%xmm15\n"
-
-    "movq %%rax, %%r10\n"
-    "punpcklqdq %%xmm14, %%xmm10\n"
-    "punpcklqdq %%xmm15, %%xmm11\n"
-
-    "movq %%xmm0, (%%rdi)\n"
-    "movq (%%rdi), %%rcx\n"
-
-    "movq %%xmm1, (%%rdi)\n"
-    "movq (%%rdi), %%rbx\n"
-
-    "psrldq $8, %%xmm0\n"
-    "psrldq $8, %%xmm1\n"
-    "xorq %%rcx, %%r10\n"
-    "xorq %%rbx, %%r10\n"
-
-    "movq %%xmm0, (%%rdi)\n"
-    "movq (%%rdi), %%rdx\n"
-
-    "movq %%xmm1, (%%rdi)\n"
-    "movq (%%rdi), %%r9\n"
-
-    "movdqa %%xmm10, %%xmm0\n"
-    "movdqa %%xmm11, %%xmm1\n"
-
-    "movdqa %%xmm2, %%xmm14\n"
-    "punpcklqdq %%xmm4, %%xmm2\n"
-    "xorq %%rdx, %%r10\n"
-    "xorq %%r9, %%r10\n"
-    "punpckhqdq %%xmm14, %%xmm4\n"
-    "pshufd $0x4e, %%xmm4, %%xmm4\n"
-
-    "movdqa %%xmm7, %%xmm14\n"
-    "punpcklqdq %%xmm9, %%xmm7\n"
-    "pxor %%xmm2, %%xmm10\n"
-    "pxor %%xmm4, %%xmm10\n"
-    "punpckhqdq %%xmm14, %%xmm9\n"
-    "pshufd $0x4e, %%xmm9, %%xmm9\n"
-
-    "movdqa %%xmm3, %%xmm14\n"
-    "movdqa %%xmm5, %%xmm15\n"
-    "movdqa %%xmm6, %%xmm3\n"
-    "movdqa %%xmm8, %%xmm5\n"
-    "pxor %%xmm7, %%xmm11\n"
-    "pxor %%xmm9, %%xmm11\n"
-    "punpcklqdq %%xmm8, %%xmm3\n"
-    "punpckhqdq %%xmm6, %%xmm5\n"
-    "pshufd $0x4e, %%xmm5, %%xmm5\n"
-    "movdqa %%xmm14, %%xmm6\n"
-    "movdqa %%xmm15, %%xmm8\n"
-    "pxor %%xmm3, %%xmm11\n"
-    "pxor %%xmm5, %%xmm11\n"
-    "punpcklqdq %%xmm15, %%xmm6\n"
-    "punpckhqdq %%xmm14, %%xmm8\n"
-    "pshufd $0x4e, %%xmm8, %%xmm8\n"
-
-    "decl %%r8d\n"
-    "pxor %%xmm6, %%xmm10\n"
-    "pxor %%xmm8, %%xmm10\n"
-    "jnz 1b\n"
-
-    "movq %%rax, (%%rdi)\n"
-    "movups %%xmm0, 8(%%rdi)\n"
-    "movups %%xmm1, 24(%%rdi)\n"
-
-    "movq %%rcx, 40(%%rdi)\n"
-    "movups %%xmm2, 48(%%rdi)\n"
-    "movups %%xmm3, 64(%%rdi)\n"
-
-    "movq %%rdx, 80(%%rdi)\n"
-    "movups %%xmm4, 88(%%rdi)\n"
-    "movups %%xmm5, 104(%%rdi)\n"
-
-    "movq %%rbx, 120(%%rdi)\n"
-    "movups %%xmm6, 128(%%rdi)\n"
-    "movups %%xmm7, 144(%%rdi)\n"
-
-    "movq %%r9, 160(%%rdi)\n"
-    "movups %%xmm8, 168(%%rdi)\n"
-    "movups %%xmm9, 184(%%rdi)\n"
-    :
-    : "D" (ctx->state), "S" (rc)
-    : "rax", "rbx", "rcx", "rdx",
-      "r8", "r9", "r10", "r11", "r12", "r13",
-      "xmm0", "xmm1", "xmm2", "xmm3",
-      "xmm4", "xmm5", "xmm6", "xmm7",
-      "xmm8", "xmm9", "xmm10", "xmm11",
-      "xmm12", "xmm13", "xmm14", "xmm15",
-      "cc", "memory"
-  );
-#else
   static const uint64_t rc[24] = {
     UINT64_C(0x0000000000000001), UINT64_C(0x0000000000008082),
     UINT64_C(0x800000000000808a), UINT64_C(0x8000000080008000),
@@ -1219,79 +791,126 @@ keccak_permute(keccak_t *ctx) {
     UINT64_C(0x0000000080000001), UINT64_C(0x8000000080008008)
   };
 
-  uint64_t C[5], D[5], T, X;
-  int i, y;
+#define A (ctx->state)
 
-#define A ctx->state
-
-  C[0] = A[0] ^ A[5 + 0] ^ A[10 + 0] ^ A[15 + 0] ^ A[20 + 0];
-  C[1] = A[1] ^ A[5 + 1] ^ A[10 + 1] ^ A[15 + 1] ^ A[20 + 1];
-  C[2] = A[2] ^ A[5 + 2] ^ A[10 + 2] ^ A[15 + 2] ^ A[20 + 2];
-  C[3] = A[3] ^ A[5 + 3] ^ A[10 + 3] ^ A[15 + 3] ^ A[20 + 3];
-  C[4] = A[4] ^ A[5 + 4] ^ A[10 + 4] ^ A[15 + 4] ^ A[20 + 4];
+  uint64_t T[5];
+  uint64_t X, Y;
+  int i;
 
   for (i = 0; i < 24; i++) {
-    D[0] = C[4] ^ ROTL64(1, C[1]);
-    D[1] = C[0] ^ ROTL64(1, C[2]);
-    D[2] = C[1] ^ ROTL64(1, C[3]);
-    D[3] = C[2] ^ ROTL64(1, C[4]);
-    D[4] = C[3] ^ ROTL64(1, C[0]);
+    /* Theta */
+    T[0] = A[0] ^ A[5] ^ A[10] ^ A[15] ^ A[20];
+    T[1] = A[1] ^ A[6] ^ A[11] ^ A[16] ^ A[21];
+    T[2] = A[2] ^ A[7] ^ A[12] ^ A[17] ^ A[22];
+    T[3] = A[3] ^ A[8] ^ A[13] ^ A[18] ^ A[23];
+    T[4] = A[4] ^ A[9] ^ A[14] ^ A[19] ^ A[24];
 
-    A[0] ^= D[0];
-    X = A[ 1] ^ D[1];     T = ROTL64( 1, X);
-    X = A[ 6] ^ D[1]; A[ 1] = ROTL64(44, X);
-    X = A[ 9] ^ D[4]; A[ 6] = ROTL64(20, X);
-    X = A[22] ^ D[2]; A[ 9] = ROTL64(61, X);
-    X = A[14] ^ D[4]; A[22] = ROTL64(39, X);
-    X = A[20] ^ D[0]; A[14] = ROTL64(18, X);
-    X = A[ 2] ^ D[2]; A[20] = ROTL64(62, X);
-    X = A[12] ^ D[2]; A[ 2] = ROTL64(43, X);
-    X = A[13] ^ D[3]; A[12] = ROTL64(25, X);
-    X = A[19] ^ D[4]; A[13] = ROTL64( 8, X);
-    X = A[23] ^ D[3]; A[19] = ROTL64(56, X);
-    X = A[15] ^ D[0]; A[23] = ROTL64(41, X);
-    X = A[ 4] ^ D[4]; A[15] = ROTL64(27, X);
-    X = A[24] ^ D[4]; A[ 4] = ROTL64(14, X);
-    X = A[21] ^ D[1]; A[24] = ROTL64( 2, X);
-    X = A[ 8] ^ D[3]; A[21] = ROTL64(55, X);
-    X = A[16] ^ D[1]; A[ 8] = ROTL64(45, X);
-    X = A[ 5] ^ D[0]; A[16] = ROTL64(36, X);
-    X = A[ 3] ^ D[3]; A[ 5] = ROTL64(28, X);
-    X = A[18] ^ D[3]; A[ 3] = ROTL64(21, X);
-    X = A[17] ^ D[2]; A[18] = ROTL64(15, X);
-    X = A[11] ^ D[1]; A[17] = ROTL64(10, X);
-    X = A[ 7] ^ D[2]; A[11] = ROTL64( 6, X);
-    X = A[10] ^ D[0]; A[ 7] = ROTL64( 3, X);
-    A[10] = T;
+    A[ 0] ^= T[4] ^ ROTL64(1, T[1]);
+    A[ 5] ^= T[4] ^ ROTL64(1, T[1]);
+    A[10] ^= T[4] ^ ROTL64(1, T[1]);
+    A[15] ^= T[4] ^ ROTL64(1, T[1]);
+    A[20] ^= T[4] ^ ROTL64(1, T[1]);
 
-    D[0] = ~A[1] & A[2];
-    D[1] = ~A[2] & A[3];
-    D[2] = ~A[3] & A[4];
-    D[3] = ~A[4] & A[0];
-    D[4] = ~A[0] & A[1];
+    A[ 1] ^= T[0] ^ ROTL64(1, T[2]);
+    A[ 6] ^= T[0] ^ ROTL64(1, T[2]);
+    A[11] ^= T[0] ^ ROTL64(1, T[2]);
+    A[16] ^= T[0] ^ ROTL64(1, T[2]);
+    A[21] ^= T[0] ^ ROTL64(1, T[2]);
 
-    A[0] ^= D[0] ^ rc[i]; C[0] = A[0];
-    A[1] ^= D[1]; C[1] = A[1];
-    A[2] ^= D[2]; C[2] = A[2];
-    A[3] ^= D[3]; C[3] = A[3];
-    A[4] ^= D[4]; C[4] = A[4];
+    A[ 2] ^= T[1] ^ ROTL64(1, T[3]);
+    A[ 7] ^= T[1] ^ ROTL64(1, T[3]);
+    A[12] ^= T[1] ^ ROTL64(1, T[3]);
+    A[17] ^= T[1] ^ ROTL64(1, T[3]);
+    A[22] ^= T[1] ^ ROTL64(1, T[3]);
 
-    for (y = 5; y < 25; y += 5) {
-      D[0] = ~A[y + 1] & A[y + 2];
-      D[1] = ~A[y + 2] & A[y + 3];
-      D[2] = ~A[y + 3] & A[y + 4];
-      D[3] = ~A[y + 4] & A[y + 0];
-      D[4] = ~A[y + 0] & A[y + 1];
+    A[ 3] ^= T[2] ^ ROTL64(1, T[4]);
+    A[ 8] ^= T[2] ^ ROTL64(1, T[4]);
+    A[13] ^= T[2] ^ ROTL64(1, T[4]);
+    A[18] ^= T[2] ^ ROTL64(1, T[4]);
+    A[23] ^= T[2] ^ ROTL64(1, T[4]);
 
-      A[y + 0] ^= D[0]; C[0] ^= A[y + 0];
-      A[y + 1] ^= D[1]; C[1] ^= A[y + 1];
-      A[y + 2] ^= D[2]; C[2] ^= A[y + 2];
-      A[y + 3] ^= D[3]; C[3] ^= A[y + 3];
-      A[y + 4] ^= D[4]; C[4] ^= A[y + 4];
-    }
+    A[ 4] ^= T[3] ^ ROTL64(1, T[0]);
+    A[ 9] ^= T[3] ^ ROTL64(1, T[0]);
+    A[14] ^= T[3] ^ ROTL64(1, T[0]);
+    A[19] ^= T[3] ^ ROTL64(1, T[0]);
+    A[24] ^= T[3] ^ ROTL64(1, T[0]);
+
+    /* Rho + Phi */
+    Y = A[1];
+    X = A[10]; A[10] = ROTL64( 1, Y); Y = X;
+    X = A[ 7]; A[ 7] = ROTL64( 3, Y); Y = X;
+    X = A[11]; A[11] = ROTL64( 6, Y); Y = X;
+    X = A[17]; A[17] = ROTL64(10, Y); Y = X;
+    X = A[18]; A[18] = ROTL64(15, Y); Y = X;
+    X = A[ 3]; A[ 3] = ROTL64(21, Y); Y = X;
+    X = A[ 5]; A[ 5] = ROTL64(28, Y); Y = X;
+    X = A[16]; A[16] = ROTL64(36, Y); Y = X;
+    X = A[ 8]; A[ 8] = ROTL64(45, Y); Y = X;
+    X = A[21]; A[21] = ROTL64(55, Y); Y = X;
+    X = A[24]; A[24] = ROTL64( 2, Y); Y = X;
+    X = A[ 4]; A[ 4] = ROTL64(14, Y); Y = X;
+    X = A[15]; A[15] = ROTL64(27, Y); Y = X;
+    X = A[23]; A[23] = ROTL64(41, Y); Y = X;
+    X = A[19]; A[19] = ROTL64(56, Y); Y = X;
+    X = A[13]; A[13] = ROTL64( 8, Y); Y = X;
+    X = A[12]; A[12] = ROTL64(25, Y); Y = X;
+    X = A[ 2]; A[ 2] = ROTL64(43, Y); Y = X;
+    X = A[20]; A[20] = ROTL64(62, Y); Y = X;
+    X = A[14]; A[14] = ROTL64(18, Y); Y = X;
+    X = A[22]; A[22] = ROTL64(39, Y); Y = X;
+    X = A[ 9]; A[ 9] = ROTL64(61, Y); Y = X;
+    X = A[ 6]; A[ 6] = ROTL64(20, Y); Y = X;
+    X = A[ 1]; A[ 1] = ROTL64(44, Y); Y = X;
+
+    /* Chi */
+    T[0] = A[0];
+    T[1] = A[1];
+
+    A[0] ^= (~A[1] & A[2]);
+    A[1] ^= (~A[2] & A[3]);
+    A[2] ^= (~A[3] & A[4]);
+    A[3] ^= (~A[4] & T[0]);
+    A[4] ^= (~T[0] & T[1]);
+
+    T[0] = A[5];
+    T[1] = A[6];
+
+    A[5] ^= (~A[6] & A[7]);
+    A[6] ^= (~A[7] & A[8]);
+    A[7] ^= (~A[8] & A[9]);
+    A[8] ^= (~A[9] & T[0]);
+    A[9] ^= (~T[0] & T[1]);
+
+    T[0] = A[10];
+    T[1] = A[11];
+
+    A[10] ^= (~A[11] & A[12]);
+    A[11] ^= (~A[12] & A[13]);
+    A[12] ^= (~A[13] & A[14]);
+    A[13] ^= (~A[14] & T[ 0]);
+    A[14] ^= (~T[ 0] & T[ 1]);
+
+    T[0] = A[15];
+    T[1] = A[16];
+
+    A[15] ^= (~A[16] & A[17]);
+    A[16] ^= (~A[17] & A[18]);
+    A[17] ^= (~A[18] & A[19]);
+    A[18] ^= (~A[19] & T[ 0]);
+    A[19] ^= (~T[ 0] & T[ 1]);
+
+    T[0] = A[20];
+    T[1] = A[21];
+
+    A[20] ^= (~A[21] & A[22]);
+    A[21] ^= (~A[22] & A[23]);
+    A[22] ^= (~A[23] & A[24]);
+    A[23] ^= (~A[24] & T[ 0]);
+    A[24] ^= (~T[ 0] & T[ 1]);
+
+    A[0] ^= rc[i];
   }
 #undef A
-#endif
 }
 
 static void
