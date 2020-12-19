@@ -4745,7 +4745,7 @@ mpz_add(mpz_t z, const mpz_t x, const mpz_t y) {
     /* (-x) + (-y) == -(x + y) */
     zn = mpv_add(z->limbs, x->limbs, xn, y->limbs, yn);
   } else {
-    int cmp = mpz_cmpabs(x, y);
+    int cmp = mpv_cmp(x->limbs, xn, y->limbs, yn);
 
     if (cmp == 0) {
       /* x + (-x) == 0 */
@@ -4818,7 +4818,7 @@ mpz_sub(mpz_t z, const mpz_t x, const mpz_t y) {
     /* (-x) - y == -(x + y) */
     zn = mpv_add(z->limbs, x->limbs, xn, y->limbs, yn);
   } else {
-    int cmp = mpz_cmpabs(x, y);
+    int cmp = mpv_cmp(x->limbs, xn, y->limbs, yn);
 
     if (cmp == 0) {
       /* x - x == 0 */
