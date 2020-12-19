@@ -107,14 +107,15 @@ TORSION_BARRIER(mp_limb_t, mp_limb)
      ((n) > mp_alloca_max ? mp_alloc_limbs(n) : mp_alloca_limbs(n))
 #  define mp_free_vla(p, n) \
      do { if ((n) > mp_alloca_max) mp_free_limbs(p); } while (0)
-#  define mp_alloc_str(n) ((char *)((n) > 1024 ? malloc(n) : mp_alloca(n)))
-#  define mp_free_str(p, n) do { if ((n) > 1024) free(p); } while (0)
+#  define mp_alloca_str(n) ((char *)mp_alloca(n))
+#  define mp_alloc_vls(n) ((n) > 1024 ? mp_alloc_str(n) : mp_alloca_str(n))
+#  define mp_free_vls(p, n) do { if ((n) > 1024) mp_free_str(p); } while (0)
 #else
 #  define mp_alloca_max 0
 #  define mp_alloc_vla(n) mp_alloc_limbs(n)
 #  define mp_free_vla(p, n) mp_free_limbs(p)
-#  define mp_alloc_str(n) ((char *)malloc(n))
-#  define mp_free_str(p, n) free(p)
+#  define mp_alloc_vls(n) mp_alloc_str(n)
+#  define mp_free_vls(p, n) mp_free_str(p)
 #endif
 
 #if defined(TORSION_HAVE_ASM_X86) && MP_LIMB_BITS == 32
@@ -812,6 +813,25 @@ mp_realloc_limbs(mp_limb_t *ptr, mp_size_t size) {
 
 void
 mp_free_limbs(mp_limb_t *ptr) {
+  free(ptr);
+}
+
+static char *
+mp_alloc_str(size_t size) {
+  char *ptr;
+
+  CHECK(size != 0);
+
+  ptr = malloc(size);
+
+  if (ptr == NULL)
+    torsion_abort(); /* LCOV_EXCL_LINE */
+
+  return ptr;
+}
+
+static void
+mp_free_str(char *ptr) {
   free(ptr);
 }
 
@@ -4242,14 +4262,12 @@ mpn_get_str(char *str, const mp_limb_t *xp, mp_size_t xn, int base) {
 void
 mpn_print(const mp_limb_t *xp, mp_size_t xn, int base, mp_puts_f *mp_puts) {
   size_t size = mpn_sizeinbase(xp, xn, base);
-  char *str = mp_alloc_str(size + 1);
-
-  CHECK(str != NULL);
+  char *str = mp_alloc_vls(size + 1);
 
   mpn_get_str(str, xp, xn, base);
 
   mp_puts(str);
-  mp_free_str(str, size + 1);
+  mp_free_vls(str, size + 1);
 }
 
 /*
@@ -8116,9 +8134,7 @@ char *
 mpz_get_str(const mpz_t x, int base) {
   size_t len = mpz_sizeinbase(x, base);
   size_t neg = (x->size < 0);
-  char *str = malloc(neg + len + 1);
-
-  CHECK(str != NULL);
+  char *str = mp_alloc_str(neg + len + 1);
 
   mpn_get_str(str + neg, x->limbs, MP_ABS(x->size), base);
 
