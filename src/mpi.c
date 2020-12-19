@@ -323,7 +323,7 @@ TORSION_BARRIER(mp_limb_t, mp_limb)
     "movq %%r8, 24(%q1)\n"        \
     "setb %b0\n"                  \
     : "+&r" (c)                   \
-    : "r" (zp), "r" (xp),         \
+    : "r" (zp), "%r" (xp),        \
       "r" (yp)                    \
     : "cc", "memory",             \
       "r8"                        \
