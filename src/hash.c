@@ -21,8 +21,8 @@
  */
 
 #define ROTL32(w, b) (((w) << (b)) | ((w) >> (32 - (b))))
-#define ROTR32(w, b) (((w) >> (b)) | ((w) << (32 - (b))))
 #define ROTL64(w, b) (((w) << (b)) | ((w) >> (64 - (b))))
+#define ROTR32(w, b) (((w) >> (b)) | ((w) << (32 - (b))))
 #define ROTR64(w, b) (((w) >> (b)) | ((w) << (64 - (b))))
 
 /*
@@ -1803,18 +1803,13 @@ sha1_init(sha1_t *ctx) {
 
 static void
 sha1_transform(sha1_t *ctx, const unsigned char *chunk) {
-  uint32_t A, B, C, D, E, w;
+  uint32_t A = ctx->state[0];
+  uint32_t B = ctx->state[1];
+  uint32_t C = ctx->state[2];
+  uint32_t D = ctx->state[3];
+  uint32_t E = ctx->state[4];
   uint32_t W[16];
-  int i;
-
-  for (i = 0; i < 16; i++)
-    W[i] = read32be(chunk + i * 4);
-
-  A = ctx->state[0];
-  B = ctx->state[1];
-  C = ctx->state[2];
-  D = ctx->state[3];
-  E = ctx->state[4];
+  uint32_t w;
 
 #define K1 0x5a827999
 #define K2 0x6ed9eba1
@@ -1830,13 +1825,15 @@ sha1_transform(sha1_t *ctx, const unsigned char *chunk) {
             ^ W[(i - 14) & 15] ^ W[(i - 16) & 15])
 
 #define R(F, a, b, c, d, e, i, k) do {    \
-  if (i >= 16) { /* Optimized out. */     \
+  if (i < 16) { /* Optimized out. */      \
+    w = read32be(chunk + i * 4);          \
+  } else {                                \
     w = P(i);                             \
     w = ROTL32(w, 1);                     \
-    W[i & 15] = w;                        \
-  } else {                                \
-    w = W[i];                             \
   }                                       \
+                                          \
+  W[i & 15] = w;                          \
+                                          \
   e += ROTL32(a, 5) + F(b, c, d) + w + k; \
   b = ROTL32(b, 30);                      \
 } while (0)
@@ -2059,21 +2056,16 @@ sha256_init(sha256_t *ctx) {
 
 static void
 sha256_transform(sha256_t *ctx, const unsigned char *chunk) {
-  uint32_t A, B, C, D, E, F, G, H, w;
+  uint32_t A = ctx->state[0];
+  uint32_t B = ctx->state[1];
+  uint32_t C = ctx->state[2];
+  uint32_t D = ctx->state[3];
+  uint32_t E = ctx->state[4];
+  uint32_t F = ctx->state[5];
+  uint32_t G = ctx->state[6];
+  uint32_t H = ctx->state[7];
   uint32_t W[16];
-  int i;
-
-  for (i = 0; i < 16; i++)
-    W[i] = read32be(chunk + i * 4);
-
-  A = ctx->state[0];
-  B = ctx->state[1];
-  C = ctx->state[2];
-  D = ctx->state[3];
-  E = ctx->state[4];
-  F = ctx->state[5];
-  G = ctx->state[6];
-  H = ctx->state[7];
+  uint32_t w;
 
 #define Sigma0(x) (ROTL32(x, 30) ^ ROTL32(x, 19) ^ ROTL32(x, 10))
 #define Sigma1(x) (ROTL32(x, 26) ^ ROTL32(x, 21) ^ ROTL32(x, 7))
@@ -2086,12 +2078,13 @@ sha256_transform(sha256_t *ctx, const unsigned char *chunk) {
             + sigma0(W[(i - 15) & 15]) + W[(i - 16) & 15])
 
 #define R(a, b, c, d, e, f, g, h, i, k) do { \
-  if (i >= 16) { /* Optimized out. */        \
+  if (i < 16) /* Optimized out. */           \
+    w = read32be(chunk + i * 4);             \
+  else                                       \
     w = P(i);                                \
-    W[i & 15] = w;                           \
-  } else {                                   \
-    w = W[i];                                \
-  }                                          \
+                                             \
+  W[i & 15] = w;                             \
+                                             \
   h += Sigma1(e) + Ch(e, f, g) + k + w;      \
   d += h;                                    \
   h += Sigma0(a) + Maj(a, b, c);             \
@@ -2297,21 +2290,16 @@ sha512_init(sha512_t *ctx) {
 
 static void
 sha512_transform(sha512_t *ctx, const unsigned char *chunk) {
-  uint64_t A, B, C, D, E, F, G, H, w;
+  uint64_t A = ctx->state[0];
+  uint64_t B = ctx->state[1];
+  uint64_t C = ctx->state[2];
+  uint64_t D = ctx->state[3];
+  uint64_t E = ctx->state[4];
+  uint64_t F = ctx->state[5];
+  uint64_t G = ctx->state[6];
+  uint64_t H = ctx->state[7];
   uint64_t W[16];
-  int i;
-
-  for (i = 0; i < 16; i++)
-    W[i] = read64be(chunk + i * 8);
-
-  A = ctx->state[0];
-  B = ctx->state[1];
-  C = ctx->state[2];
-  D = ctx->state[3];
-  E = ctx->state[4];
-  F = ctx->state[5];
-  G = ctx->state[6];
-  H = ctx->state[7];
+  uint64_t w;
 
 #define Sigma0(x) (ROTL64(x, 36) ^ ROTL64(x, 30) ^ ROTL64(x, 25))
 #define Sigma1(x) (ROTL64(x, 50) ^ ROTL64(x, 46) ^ ROTL64(x, 23))
@@ -2324,12 +2312,13 @@ sha512_transform(sha512_t *ctx, const unsigned char *chunk) {
             + sigma0(W[(i - 15) & 15]) + W[(i - 16) & 15])
 
 #define R(a, b, c, d, e, f, g, h, i, k) do { \
-  if (i >= 16) { /* Optimized out. */        \
+  if (i < 16) /* Optimized out. */           \
+    w = read64be(chunk + i * 8);             \
+  else                                       \
     w = P(i);                                \
-    W[i & 15] = w;                           \
-  } else {                                   \
-    w = W[i];                                \
-  }                                          \
+                                             \
+  W[i & 15] = w;                             \
+                                             \
   h += Sigma1(e) + Ch(e, f, g) + k + w;      \
   d += h;                                    \
   h += Sigma0(a) + Maj(a, b, c);             \
