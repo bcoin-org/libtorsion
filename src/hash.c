@@ -6,6 +6,9 @@
  * Parts of this software are based on BLAKE2/BLAKE2:
  *   CC0 1.0 Universal
  *   https://github.com/BLAKE2/BLAKE2
+ *
+ * Unrolled loops generated with:
+ *   https://gist.github.com/chjj/338a5ee212eefdff4431e4da65a2d4f7
  */
 
 #include <stdlib.h>
@@ -73,14 +76,14 @@ blake2b_init(blake2b_t *ctx,
 }
 
 static void
-blake2b_increment(blake2b_t *ctx, const uint64_t inc) {
-  ctx->t[0] += inc;
-  ctx->t[1] += (ctx->t[0] < inc);
+blake2b_increment(blake2b_t *ctx, uint64_t x) {
+  ctx->t[0] += x;
+  ctx->t[1] += (ctx->t[0] < x);
 }
 
 static void
 blake2b_compress(blake2b_t *ctx, const unsigned char *chunk, uint64_t f0) {
-  static const uint8_t sigma[12][16] = {
+  static const uint8_t S[12][16] = {
     {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15},
     {14, 10, 4, 8, 9, 15, 13, 6, 1, 12, 0, 2, 11, 7, 5, 3},
     {11, 8, 12, 0, 5, 2, 15, 13, 10, 14, 3, 6, 7, 1, 9, 4},
@@ -101,9 +104,14 @@ blake2b_compress(blake2b_t *ctx, const unsigned char *chunk, uint64_t f0) {
   for (i = 0; i < 16; i++)
     W[i] = read64le(chunk + i * 8);
 
-  for (i = 0; i < 8; i++)
-    V[i] = ctx->h[i];
-
+  V[ 0] = ctx->h[0];
+  V[ 1] = ctx->h[1];
+  V[ 2] = ctx->h[2];
+  V[ 3] = ctx->h[3];
+  V[ 4] = ctx->h[4];
+  V[ 5] = ctx->h[5];
+  V[ 6] = ctx->h[6];
+  V[ 7] = ctx->h[7];
   V[ 8] = blake2b_iv[0];
   V[ 9] = blake2b_iv[1];
   V[10] = blake2b_iv[2];
@@ -113,19 +121,19 @@ blake2b_compress(blake2b_t *ctx, const unsigned char *chunk, uint64_t f0) {
   V[14] = blake2b_iv[6] ^ f0;
   V[15] = blake2b_iv[7];
 
-#define G(r, i, a, b, c, d) do {   \
-  a += b + W[sigma[r][2 * i + 0]]; \
-  d ^= a;                          \
-  d = ROTR64(d, 32);               \
-  c += d;                          \
-  b ^= c;                          \
-  b = ROTR64(b, 24);               \
-  a += b + W[sigma[r][2 * i + 1]]; \
-  d ^= a;                          \
-  d = ROTR64(d, 16);               \
-  c += d;                          \
-  b ^= c;                          \
-  b = ROTR64(b, 63);               \
+#define G(r, i, a, b, c, d) do { \
+  a += b + W[S[r][2 * i + 0]];   \
+  d ^= a;                        \
+  d = ROTR64(d, 32);             \
+  c += d;                        \
+  b ^= c;                        \
+  b = ROTR64(b, 24);             \
+  a += b + W[S[r][2 * i + 1]];   \
+  d ^= a;                        \
+  d = ROTR64(d, 16);             \
+  c += d;                        \
+  b ^= c;                        \
+  b = ROTR64(b, 63);             \
 } while (0)
 
 #define R(r) do {                      \
@@ -154,6 +162,7 @@ blake2b_compress(blake2b_t *ctx, const unsigned char *chunk, uint64_t f0) {
 
   for (i = 0; i < 8; i++)
     ctx->h[i] ^= V[i] ^ V[i + 8];
+
 #undef G
 #undef R
 }
@@ -285,14 +294,14 @@ blake2s_init(blake2s_t *ctx,
 }
 
 static void
-blake2s_increment(blake2s_t *ctx, uint32_t inc) {
-  ctx->t[0] += inc;
-  ctx->t[1] += (ctx->t[0] < inc);
+blake2s_increment(blake2s_t *ctx, uint32_t x) {
+  ctx->t[0] += x;
+  ctx->t[1] += (ctx->t[0] < x);
 }
 
 static void
 blake2s_compress(blake2s_t *ctx, const unsigned char *chunk, uint32_t f0) {
-  static const uint8_t sigma[10][16] = {
+  static const uint8_t S[10][16] = {
     {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15},
     {14, 10, 4, 8, 9, 15, 13, 6, 1, 12, 0, 2, 11, 7, 5, 3},
     {11, 8, 12, 0, 5, 2, 15, 13, 10, 14, 3, 6, 7, 1, 9, 4},
@@ -311,9 +320,14 @@ blake2s_compress(blake2s_t *ctx, const unsigned char *chunk, uint32_t f0) {
   for (i = 0; i < 16; i++)
     W[i] = read32le(chunk + i * 4);
 
-  for (i = 0; i < 8; i++)
-    V[i] = ctx->h[i];
-
+  V[ 0] = ctx->h[0];
+  V[ 1] = ctx->h[1];
+  V[ 2] = ctx->h[2];
+  V[ 3] = ctx->h[3];
+  V[ 4] = ctx->h[4];
+  V[ 5] = ctx->h[5];
+  V[ 6] = ctx->h[6];
+  V[ 7] = ctx->h[7];
   V[ 8] = blake2s_iv[0];
   V[ 9] = blake2s_iv[1];
   V[10] = blake2s_iv[2];
@@ -323,19 +337,19 @@ blake2s_compress(blake2s_t *ctx, const unsigned char *chunk, uint32_t f0) {
   V[14] = blake2s_iv[6] ^ f0;
   V[15] = blake2s_iv[7];
 
-#define G(r, i, a, b, c, d) do {   \
-  a += b + W[sigma[r][2 * i + 0]]; \
-  d ^= a;                          \
-  d = ROTR32(d, 16);               \
-  c += d;                          \
-  b ^= c;                          \
-  b = ROTR32(b, 12);               \
-  a += b + W[sigma[r][2 * i + 1]]; \
-  d ^= a;                          \
-  d = ROTR32(d, 8);                \
-  c += d;                          \
-  b ^= c;                          \
-  b = ROTR32(b, 7);                \
+#define G(r, i, a, b, c, d) do { \
+  a += b + W[S[r][2 * i + 0]];   \
+  d ^= a;                        \
+  d = ROTR32(d, 16);             \
+  c += d;                        \
+  b ^= c;                        \
+  b = ROTR32(b, 12);             \
+  a += b + W[S[r][2 * i + 1]];   \
+  d ^= a;                        \
+  d = ROTR32(d, 8);              \
+  c += d;                        \
+  b ^= c;                        \
+  b = ROTR32(b, 7);              \
 } while (0)
 
 #define R(r) do {                      \
@@ -362,6 +376,7 @@ blake2s_compress(blake2s_t *ctx, const unsigned char *chunk, uint32_t f0) {
 
   for (i = 0; i < 8; i++)
     ctx->h[i] ^= V[i] ^ V[i + 8];
+
 #undef G
 #undef R
 }
@@ -892,6 +907,7 @@ keccak_permute(keccak_t *ctx) {
 
     S[0] ^= RC[i];
   }
+
 #undef S
 }
 
@@ -938,11 +954,16 @@ keccak_transform(keccak_t *ctx, const unsigned char *chunk) {
   /* 192 (bs=152) */
   ctx->state[18] ^= read64le(chunk + 144);
 
+  if (ctx->bs < 160)
+    goto done;
+
+  /* 160 (bs=160) */
+  ctx->state[19] ^= read64le(chunk + 152);
+
   if (ctx->bs < 168)
     goto done;
 
   /* 128 (bs=168) */
-  ctx->state[19] ^= read64le(chunk + 152);
   ctx->state[20] ^= read64le(chunk + 160);
 
 done:
@@ -1048,7 +1069,6 @@ DEFINE_KECCAK(keccak512, 512, 0x01)
  * Resources:
  *   https://en.wikipedia.org/wiki/MD2_(hash_function)
  *   https://tools.ietf.org/html/rfc1319
- *   https://github.com/RustCrypto/hashes/blob/master/md2/src/lib.rs
  */
 
 void
@@ -1093,34 +1113,36 @@ md2_transform(md2_t *ctx, const unsigned char *chunk) {
     0xdb, 0x99, 0x8d, 0x33, 0x9f, 0x11, 0x83, 0x14
   };
 
-  uint8_t t;
-  int j, k;
+  unsigned int l, j, c, t, k;
 
 #define S (ctx->state)
 #define C (ctx->checksum)
 #define W ((uint8_t *)(chunk))
 
+  /* The RFC doesn't describe the specifics
+     of XOR'ing the checksum, but OpenSSL
+     seems to do this. */
+  l = C[15];
+
   for (j = 0; j < 16; j++) {
-    S[16 + j] = W[j];
-    S[32 + j] = S[16 + j] ^ S[j];
+    c = W[j];
+    l = C[j] ^ K[c ^ l];
+
+    C[j] = l;
+
+    S[16 + j] = c;
+    S[32 + j] = c ^ S[j];
   }
 
   t = 0;
 
   for (j = 0; j < 18; j++) {
     for (k = 0; k < 48; k++) {
-      S[k] ^= K[t];
-      t = S[k];
+      t = S[k] ^ K[t];
+      S[k] = t;
     }
 
-    t += (uint8_t)j;
-  }
-
-  t = C[15];
-
-  for (j = 0; j < 16; j++) {
-    C[j] ^= K[W[j] ^ t];
-    t = C[j];
+    t = (t + j) & 0xff;
   }
 
 #undef S
@@ -1218,10 +1240,11 @@ md4_transform(md4_t *ctx, const unsigned char *chunk) {
 #define K2 0x5a827999
 #define K3 0x6ed9eba1
 
-#define F1(x, y, z) ((x & y) | (~x & z)) /* F */
+#define F1(x, y, z) ((x & y) | (~x & z))          /* F */
 #define F2(x, y, z) ((x & y) | (x & z) | (y & z)) /* G */
-#define F3(x, y, z) (x ^ y ^ z) /* H */
+#define F3(x, y, z) (x ^ y ^ z)                   /* H */
 
+/* Round: a = (a + F(b, c, d) + X[k] + [constant]) <<< s */
 #define R(f, a, b, c, d, i, k, s) do { \
   a += f(b, c, d) + W[i] + k;          \
   a = ROTL32(a, s);                    \
@@ -1377,83 +1400,84 @@ md5_transform(md5_t *ctx, const unsigned char *chunk) {
   C = ctx->state[2];
   D = ctx->state[3];
 
-#define F1(x, y, z) ((x & y) | (~x & z))
-#define F2(x, y, z) ((z & x) | (~z & y))
-#define F3(x, y, z) (x ^ y ^ z)
-#define F4(x, y, z) (y ^ (x | ~z))
+#define F1(x, y, z) ((x & y) | (~x & z)) /* F */
+#define F2(x, y, z) ((x & z) | (y & ~z)) /* G */
+#define F3(x, y, z) (x ^ y ^ z)          /* H */
+#define F4(x, y, z) (y ^ (x | ~z))       /* I */
 
-#define R(F, a, b, c, d, k, g, s) do { \
-  a += F(b, c, d) + k + W[g];          \
-  a = ROTL32(a, s) + b;                \
+/* Round: a = b + ((a + F(b, c, d) + X[k] + T[i]) <<< s) */
+#define R(F, a, b, c, d, i, k, s) do { \
+  a += F(b, c, d) + W[i] + k;          \
+  a = b + ROTL32(a, s);                \
 } while (0)
 
-  R(F1, A, B, C, D, 0xd76aa478,  0,  7);
-  R(F1, D, A, B, C, 0xe8c7b756,  1, 12);
-  R(F1, C, D, A, B, 0x242070db,  2, 17);
-  R(F1, B, C, D, A, 0xc1bdceee,  3, 22);
-  R(F1, A, B, C, D, 0xf57c0faf,  4,  7);
-  R(F1, D, A, B, C, 0x4787c62a,  5, 12);
-  R(F1, C, D, A, B, 0xa8304613,  6, 17);
-  R(F1, B, C, D, A, 0xfd469501,  7, 22);
-  R(F1, A, B, C, D, 0x698098d8,  8,  7);
-  R(F1, D, A, B, C, 0x8b44f7af,  9, 12);
-  R(F1, C, D, A, B, 0xffff5bb1, 10, 17);
-  R(F1, B, C, D, A, 0x895cd7be, 11, 22);
-  R(F1, A, B, C, D, 0x6b901122, 12,  7);
-  R(F1, D, A, B, C, 0xfd987193, 13, 12);
-  R(F1, C, D, A, B, 0xa679438e, 14, 17);
-  R(F1, B, C, D, A, 0x49b40821, 15, 22);
+  R(F1, A, B, C, D,  0, 0xd76aa478,  7);
+  R(F1, D, A, B, C,  1, 0xe8c7b756, 12);
+  R(F1, C, D, A, B,  2, 0x242070db, 17);
+  R(F1, B, C, D, A,  3, 0xc1bdceee, 22);
+  R(F1, A, B, C, D,  4, 0xf57c0faf,  7);
+  R(F1, D, A, B, C,  5, 0x4787c62a, 12);
+  R(F1, C, D, A, B,  6, 0xa8304613, 17);
+  R(F1, B, C, D, A,  7, 0xfd469501, 22);
+  R(F1, A, B, C, D,  8, 0x698098d8,  7);
+  R(F1, D, A, B, C,  9, 0x8b44f7af, 12);
+  R(F1, C, D, A, B, 10, 0xffff5bb1, 17);
+  R(F1, B, C, D, A, 11, 0x895cd7be, 22);
+  R(F1, A, B, C, D, 12, 0x6b901122,  7);
+  R(F1, D, A, B, C, 13, 0xfd987193, 12);
+  R(F1, C, D, A, B, 14, 0xa679438e, 17);
+  R(F1, B, C, D, A, 15, 0x49b40821, 22);
 
-  R(F2, A, B, C, D, 0xf61e2562,  1,  5);
-  R(F2, D, A, B, C, 0xc040b340,  6,  9);
-  R(F2, C, D, A, B, 0x265e5a51, 11, 14);
-  R(F2, B, C, D, A, 0xe9b6c7aa,  0, 20);
-  R(F2, A, B, C, D, 0xd62f105d,  5,  5);
-  R(F2, D, A, B, C, 0x02441453, 10,  9);
-  R(F2, C, D, A, B, 0xd8a1e681, 15, 14);
-  R(F2, B, C, D, A, 0xe7d3fbc8,  4, 20);
-  R(F2, A, B, C, D, 0x21e1cde6,  9,  5);
-  R(F2, D, A, B, C, 0xc33707d6, 14,  9);
-  R(F2, C, D, A, B, 0xf4d50d87,  3, 14);
-  R(F2, B, C, D, A, 0x455a14ed,  8, 20);
-  R(F2, A, B, C, D, 0xa9e3e905, 13,  5);
-  R(F2, D, A, B, C, 0xfcefa3f8,  2,  9);
-  R(F2, C, D, A, B, 0x676f02d9,  7, 14);
-  R(F2, B, C, D, A, 0x8d2a4c8a, 12, 20);
+  R(F2, A, B, C, D,  1, 0xf61e2562,  5);
+  R(F2, D, A, B, C,  6, 0xc040b340,  9);
+  R(F2, C, D, A, B, 11, 0x265e5a51, 14);
+  R(F2, B, C, D, A,  0, 0xe9b6c7aa, 20);
+  R(F2, A, B, C, D,  5, 0xd62f105d,  5);
+  R(F2, D, A, B, C, 10, 0x02441453,  9);
+  R(F2, C, D, A, B, 15, 0xd8a1e681, 14);
+  R(F2, B, C, D, A,  4, 0xe7d3fbc8, 20);
+  R(F2, A, B, C, D,  9, 0x21e1cde6,  5);
+  R(F2, D, A, B, C, 14, 0xc33707d6,  9);
+  R(F2, C, D, A, B,  3, 0xf4d50d87, 14);
+  R(F2, B, C, D, A,  8, 0x455a14ed, 20);
+  R(F2, A, B, C, D, 13, 0xa9e3e905,  5);
+  R(F2, D, A, B, C,  2, 0xfcefa3f8,  9);
+  R(F2, C, D, A, B,  7, 0x676f02d9, 14);
+  R(F2, B, C, D, A, 12, 0x8d2a4c8a, 20);
 
-  R(F3, A, B, C, D, 0xfffa3942,  5,  4);
-  R(F3, D, A, B, C, 0x8771f681,  8, 11);
-  R(F3, C, D, A, B, 0x6d9d6122, 11, 16);
-  R(F3, B, C, D, A, 0xfde5380c, 14, 23);
-  R(F3, A, B, C, D, 0xa4beea44,  1,  4);
-  R(F3, D, A, B, C, 0x4bdecfa9,  4, 11);
-  R(F3, C, D, A, B, 0xf6bb4b60,  7, 16);
-  R(F3, B, C, D, A, 0xbebfbc70, 10, 23);
-  R(F3, A, B, C, D, 0x289b7ec6, 13,  4);
-  R(F3, D, A, B, C, 0xeaa127fa,  0, 11);
-  R(F3, C, D, A, B, 0xd4ef3085,  3, 16);
-  R(F3, B, C, D, A, 0x04881d05,  6, 23);
-  R(F3, A, B, C, D, 0xd9d4d039,  9,  4);
-  R(F3, D, A, B, C, 0xe6db99e5, 12, 11);
-  R(F3, C, D, A, B, 0x1fa27cf8, 15, 16);
-  R(F3, B, C, D, A, 0xc4ac5665,  2, 23);
+  R(F3, A, B, C, D,  5, 0xfffa3942,  4);
+  R(F3, D, A, B, C,  8, 0x8771f681, 11);
+  R(F3, C, D, A, B, 11, 0x6d9d6122, 16);
+  R(F3, B, C, D, A, 14, 0xfde5380c, 23);
+  R(F3, A, B, C, D,  1, 0xa4beea44,  4);
+  R(F3, D, A, B, C,  4, 0x4bdecfa9, 11);
+  R(F3, C, D, A, B,  7, 0xf6bb4b60, 16);
+  R(F3, B, C, D, A, 10, 0xbebfbc70, 23);
+  R(F3, A, B, C, D, 13, 0x289b7ec6,  4);
+  R(F3, D, A, B, C,  0, 0xeaa127fa, 11);
+  R(F3, C, D, A, B,  3, 0xd4ef3085, 16);
+  R(F3, B, C, D, A,  6, 0x04881d05, 23);
+  R(F3, A, B, C, D,  9, 0xd9d4d039,  4);
+  R(F3, D, A, B, C, 12, 0xe6db99e5, 11);
+  R(F3, C, D, A, B, 15, 0x1fa27cf8, 16);
+  R(F3, B, C, D, A,  2, 0xc4ac5665, 23);
 
-  R(F4, A, B, C, D, 0xf4292244,  0,  6);
-  R(F4, D, A, B, C, 0x432aff97,  7, 10);
-  R(F4, C, D, A, B, 0xab9423a7, 14, 15);
-  R(F4, B, C, D, A, 0xfc93a039,  5, 21);
-  R(F4, A, B, C, D, 0x655b59c3, 12,  6);
-  R(F4, D, A, B, C, 0x8f0ccc92,  3, 10);
-  R(F4, C, D, A, B, 0xffeff47d, 10, 15);
-  R(F4, B, C, D, A, 0x85845dd1,  1, 21);
-  R(F4, A, B, C, D, 0x6fa87e4f,  8,  6);
-  R(F4, D, A, B, C, 0xfe2ce6e0, 15, 10);
-  R(F4, C, D, A, B, 0xa3014314,  6, 15);
-  R(F4, B, C, D, A, 0x4e0811a1, 13, 21);
-  R(F4, A, B, C, D, 0xf7537e82,  4,  6);
-  R(F4, D, A, B, C, 0xbd3af235, 11, 10);
-  R(F4, C, D, A, B, 0x2ad7d2bb,  2, 15);
-  R(F4, B, C, D, A, 0xeb86d391,  9, 21);
+  R(F4, A, B, C, D,  0, 0xf4292244,  6);
+  R(F4, D, A, B, C,  7, 0x432aff97, 10);
+  R(F4, C, D, A, B, 14, 0xab9423a7, 15);
+  R(F4, B, C, D, A,  5, 0xfc93a039, 21);
+  R(F4, A, B, C, D, 12, 0x655b59c3,  6);
+  R(F4, D, A, B, C,  3, 0x8f0ccc92, 10);
+  R(F4, C, D, A, B, 10, 0xffeff47d, 15);
+  R(F4, B, C, D, A,  1, 0x85845dd1, 21);
+  R(F4, A, B, C, D,  8, 0x6fa87e4f,  6);
+  R(F4, D, A, B, C, 15, 0xfe2ce6e0, 10);
+  R(F4, C, D, A, B,  6, 0xa3014314, 15);
+  R(F4, B, C, D, A, 13, 0x4e0811a1, 21);
+  R(F4, A, B, C, D,  4, 0xf7537e82,  6);
+  R(F4, D, A, B, C, 11, 0xbd3af235, 10);
+  R(F4, C, D, A, B,  2, 0x2ad7d2bb, 15);
+  R(F4, B, C, D, A,  9, 0xeb86d391, 21);
 
 #undef F1
 #undef F2
@@ -1549,7 +1573,6 @@ md5sha1_final(md5sha1_t *ctx, unsigned char *out) {
  * Resources:
  *   https://en.wikipedia.org/wiki/RIPEMD-160
  *   https://homes.esat.kuleuven.be/~bosselae/ripemd160/pdf/AB-9601/AB-9601.pdf
- *   https://github.com/indutny/hash.js/blob/master/lib/hash/ripemd.js
  */
 
 void
@@ -1597,13 +1620,27 @@ ripemd160_transform(ripemd160_t *ctx, const unsigned char *chunk) {
 #define KH5 0x00000000
 
 #define F1(x, y, z) (x ^ y ^ z)
-#define F2(x, y, z) ((x & y) | ((~x) & z))
-#define F3(x, y, z) ((x | (~y)) ^ z)
-#define F4(x, y, z) ((x & z) | (y & (~z)))
-#define F5(x, y, z) (x ^ (y | (~z)))
+#define F2(x, y, z) ((x & y) | (~x & z))
+#define F3(x, y, z) ((x | ~y) ^ z)
+#define F4(x, y, z) ((x & z) | (y & ~z))
+#define F5(x, y, z) (x ^ (y | ~z))
 
-#define R(F, a, b, c, d, e, r, k, s) do { \
-  a += F(b, c, d) + W[r] + k;             \
+/* Operations in one step:
+ *
+ *   A = ((A + F(B, C, D) + X + K) <<< s) + E
+ *   C = C <<< 10
+ *
+ * Loop body:
+ *
+ *   T = rol(A + F(j, B, C, D) + X[r(j)] + K(j), s[j]) + E
+ *   A = E
+ *   E = D
+ *   D = rol(C, 10)
+ *   C = B
+ *   B = T
+ */
+#define R(F, a, b, c, d, e, i, k, s) do { \
+  a += F(b, c, d) + W[i] + k;             \
   a = ROTL32(a, s) + e;                   \
   c = ROTL32(c, 10);                      \
 } while (0)
@@ -1857,7 +1894,6 @@ ripemd160_final(ripemd160_t *ctx, unsigned char *out) {
  *   https://en.wikipedia.org/wiki/SHA-1
  *   https://tools.ietf.org/html/rfc3174
  *   http://csrc.nist.gov/publications/fips/fips180-4/fips-180-4.pdf
- *   https://github.com/indutny/hash.js/blob/master/lib/hash/sha/1.js
  */
 
 void
@@ -1885,19 +1921,49 @@ sha1_transform(sha1_t *ctx, const unsigned char *chunk) {
 #define K3 0x8f1bbcdc
 #define K4 0xca62c1d6
 
-#define F1(x, y, z) ((x & y) ^ ((~x) & z)) /* ch32 */
-#define F2(x, y, z) (x ^ y ^ z) /* p32 */
-#define F3(x, y, z) ((x & y) ^ (x & z) ^ (y & z)) /* maj32 */
-#define F4(x, y, z) F2(x, y, z) /* p32 */
+/* Note: F1 is Ch, and F3 is Maj. We can utilize the
+ * trick from the SHA-2 RFC C code to optimize them.
+ *
+ * Original:
+ *
+ *   #define F1(x, y, z) ((x & y) ^ (~x & z))
+ *   #define F3(x, y, z) ((x & y) ^ (x & z) ^ (y & z))
+ */
+#define F1(x, y, z) ((x & (y ^ z)) ^ z)
+#define F2(x, y, z) (x ^ y ^ z)
+#define F3(x, y, z) ((x & (y | z)) | (y & z))
+#define F4(x, y, z) (x ^ y ^ z)
 
-#define P(i) (W[(i -  3) & 15] ^ W[(i -  8) & 15] \
-            ^ W[(i - 14) & 15] ^ W[(i - 16) & 15])
+/* Modulo by 16 to avoid allocating a large array. */
+/* This trick is mentioned in the above RFC. */
+#define WORD(i) (W[(i -  3) & 15] ^ W[(i -  8) & 15] \
+               ^ W[(i - 14) & 15] ^ W[(i - 16) & 15])
 
+/* Loop body:
+ *
+ *   T = S^5(A) + F(B, C, D) + E + W(t) + K(t)
+ *   E = D
+ *   D = C
+ *   C = S^30(B)
+ *   B = A
+ *   A = T
+ *
+ * Reduces to:
+ *
+ *   T = S^5(A) + F(B, C, D) + E + W(t) + K(t)
+ *   E = T
+ *   B = S^30(B)
+ *
+ * Which further reduces to:
+ *
+ *   E = E + S^5(A) + F(B, C, D) + W(t) + K(t)
+ *   B = S^30(B)
+ */
 #define R(F, a, b, c, d, e, i, k) do {    \
   if (i < 16) { /* Optimized out. */      \
     w = read32be(chunk + i * 4);          \
   } else {                                \
-    w = P(i);                             \
+    w = WORD(i);                          \
     w = ROTL32(w, 1);                     \
   }                                       \
                                           \
@@ -1991,7 +2057,6 @@ sha1_transform(sha1_t *ctx, const unsigned char *chunk) {
   R(F4, C, D, E, A, B, 78, K4);
   R(F4, B, C, D, E, A, 79, K4);
 
-#undef P
 #undef K1
 #undef K2
 #undef K3
@@ -2000,7 +2065,7 @@ sha1_transform(sha1_t *ctx, const unsigned char *chunk) {
 #undef F2
 #undef F3
 #undef F4
-#undef P
+#undef WORD
 #undef R
 
   ctx->state[0] += A;
@@ -2107,7 +2172,6 @@ sha224_final(sha224_t *ctx, unsigned char *out) {
  * Resources:
  *   https://en.wikipedia.org/wiki/SHA-2
  *   https://tools.ietf.org/html/rfc4634
- *   https://github.com/indutny/hash.js/blob/master/lib/hash/sha/256.js
  */
 
 void
@@ -2136,21 +2200,57 @@ sha256_transform(sha256_t *ctx, const unsigned char *chunk) {
   uint32_t W[16];
   uint32_t w;
 
-#define Sigma0(x) (ROTL32(x, 30) ^ ROTL32(x, 19) ^ ROTL32(x, 10))
-#define Sigma1(x) (ROTL32(x, 26) ^ ROTL32(x, 21) ^ ROTL32(x, 7))
-#define sigma0(x) (ROTL32(x, 25) ^ ROTL32(x, 14) ^ (x >> 3))
-#define sigma1(x) (ROTL32(x, 15) ^ ROTL32(x, 13) ^ (x >> 10))
-#define Ch(x, y, z) (z ^ (x & (y ^ z)))
-#define Maj(x, y, z) ((x & y) | (z & (x | y)))
+/* Note: the code in the RFC points out that Ch and Maj
+ * can be optimized to use less bitwise ops.
+ *
+ * Original:
+ *
+ *   #define Ch(x, y, z) ((x & y) ^ (~x & z))
+ *   #define Maj(x, y, z) ((x & y) ^ (x & z) ^ (y & z))
+ */
+#define Ch(x, y, z) ((x & (y ^ z)) ^ z)
+#define Maj(x, y, z) ((x & (y | z)) | (y & z))
+#define Sigma0(x) (ROTR32(x,  2) ^ ROTR32(x, 13) ^ ROTR32(x, 22))
+#define Sigma1(x) (ROTR32(x,  6) ^ ROTR32(x, 11) ^ ROTR32(x, 25))
+#define sigma0(x) (ROTR32(x,  7) ^ ROTR32(x, 18) ^ (x >>  3))
+#define sigma1(x) (ROTR32(x, 17) ^ ROTR32(x, 19) ^ (x >> 10))
 
-#define P(i) (sigma1(W[(i -  2) & 15]) + W[(i -  7) & 15]  \
-            + sigma0(W[(i - 15) & 15]) + W[(i - 16) & 15])
+/* Modulo by 16 to avoid allocating a large array. */
+/* This trick is mentioned by the SHA1 RFC. */
+#define WORD(i) (sigma1(W[(i -  2) & 15]) + W[(i -  7) & 15]  \
+               + sigma0(W[(i - 15) & 15]) + W[(i - 16) & 15])
 
+/* Loop body:
+ *
+ *   T1 = h + Sigma1(e) + Ch(e, f, g) + Kt + Wt
+ *   T2 = Sigma0(a) + Maj(a, b, c)
+ *   h = g
+ *   g = f
+ *   f = e
+ *   e = d + T1
+ *   d = c
+ *   c = b
+ *   b = a
+ *   a = T1 + T2
+ *
+ * Reduces to:
+ *
+ *   T1 = h + Sigma1(e) + Ch(e, f, g) + Kt + Wt
+ *   T2 = Sigma0(a) + Maj(a, b, c)
+ *   d = d + T1
+ *   h = T1 + T2
+ *
+ * Which further reduces to:
+ *
+ *   h = h + Sigma1(e) + Ch(e, f, g) + Kt + Wt
+ *   d = d + h
+ *   h = h + Sigma0(a) + Maj(a, b, c)
+ */
 #define R(a, b, c, d, e, f, g, h, i, k) do { \
   if (i < 16) /* Optimized out. */           \
     w = read32be(chunk + i * 4);             \
   else                                       \
-    w = P(i);                                \
+    w = WORD(i);                             \
                                              \
   W[i & 15] = w;                             \
                                              \
@@ -2224,13 +2324,13 @@ sha256_transform(sha256_t *ctx, const unsigned char *chunk) {
   R(C, D, E, F, G, H, A, B, 62, 0xbef9a3f7);
   R(B, C, D, E, F, G, H, A, 63, 0xc67178f2);
 
+#undef Ch
+#undef Maj
 #undef Sigma0
 #undef Sigma1
 #undef sigma0
 #undef sigma1
-#undef Ch
-#undef Maj
-#undef P
+#undef WORD
 #undef R
 
   ctx->state[0] += A;
@@ -2340,8 +2440,6 @@ sha384_final(sha384_t *ctx, unsigned char *out) {
  * Resources:
  *   https://en.wikipedia.org/wiki/SHA-2
  *   https://tools.ietf.org/html/rfc4634
- *   https://github.com/indutny/hash.js/blob/master/lib/hash/sha/256.js
- *   https://github.com/indutny/hash.js/blob/master/lib/hash/sha/512.js
  */
 
 void
@@ -2370,21 +2468,57 @@ sha512_transform(sha512_t *ctx, const unsigned char *chunk) {
   uint64_t W[16];
   uint64_t w;
 
-#define Sigma0(x) (ROTL64(x, 36) ^ ROTL64(x, 30) ^ ROTL64(x, 25))
-#define Sigma1(x) (ROTL64(x, 50) ^ ROTL64(x, 46) ^ ROTL64(x, 23))
-#define sigma0(x) (ROTL64(x, 63) ^ ROTL64(x, 56) ^ (x >> 7))
-#define sigma1(x) (ROTL64(x, 45) ^ ROTL64(x,  3) ^ (x >> 6))
-#define Ch(x, y, z) (z ^ (x & (y ^ z)))
-#define Maj(x, y, z) ((x & y) | (z & (x | y)))
+/* Note: the code in the RFC points out that Ch and Maj
+ * can be optimized to use less bitwise ops.
+ *
+ * Original:
+ *
+ *   #define Ch(x, y, z) ((x & y) ^ (~x & z))
+ *   #define Maj(x, y, z) ((x & y) ^ (x & z) ^ (y & z))
+ */
+#define Ch(x, y, z) ((x & (y ^ z)) ^ z)
+#define Maj(x, y, z) ((x & (y | z)) | (y & z))
+#define Sigma0(x) (ROTR64(x, 28) ^ ROTR64(x, 34) ^ ROTR64(x, 39))
+#define Sigma1(x) (ROTR64(x, 14) ^ ROTR64(x, 18) ^ ROTR64(x, 41))
+#define sigma0(x) (ROTR64(x,  1) ^ ROTR64(x,  8) ^ (x >> 7))
+#define sigma1(x) (ROTR64(x, 19) ^ ROTR64(x, 61) ^ (x >> 6))
 
-#define P(i) (sigma1(W[(i -  2) & 15]) + W[(i -  7) & 15]  \
-            + sigma0(W[(i - 15) & 15]) + W[(i - 16) & 15])
+/* Modulo by 16 to avoid allocating a large array. */
+/* This trick is mentioned by the SHA1 RFC. */
+#define WORD(i) (sigma1(W[(i -  2) & 15]) + W[(i -  7) & 15]  \
+               + sigma0(W[(i - 15) & 15]) + W[(i - 16) & 15])
 
+/* Loop body:
+ *
+ *   T1 = h + Sigma1(e) + Ch(e, f, g) + Kt + Wt
+ *   T2 = Sigma0(a) + Maj(a, b, c)
+ *   h = g
+ *   g = f
+ *   f = e
+ *   e = d + T1
+ *   d = c
+ *   c = b
+ *   b = a
+ *   a = T1 + T2
+ *
+ * Reduces to:
+ *
+ *   T1 = h + Sigma1(e) + Ch(e, f, g) + Kt + Wt
+ *   T2 = Sigma0(a) + Maj(a, b, c)
+ *   d = d + T1
+ *   h = T1 + T2
+ *
+ * Which further reduces to:
+ *
+ *   h = h + Sigma1(e) + Ch(e, f, g) + Kt + Wt
+ *   d = d + h
+ *   h = h + Sigma0(a) + Maj(a, b, c)
+ */
 #define R(a, b, c, d, e, f, g, h, i, k) do { \
   if (i < 16) /* Optimized out. */           \
     w = read64be(chunk + i * 8);             \
   else                                       \
-    w = P(i);                                \
+    w = WORD(i);                             \
                                              \
   W[i & 15] = w;                             \
                                              \
@@ -2474,13 +2608,13 @@ sha512_transform(sha512_t *ctx, const unsigned char *chunk) {
   R(C, D, E, F, G, H, A, B, 78, UINT64_C(0x5fcb6fab3ad6faec));
   R(B, C, D, E, F, G, H, A, 79, UINT64_C(0x6c44198c4a475817));
 
+#undef Ch
+#undef Maj
 #undef Sigma0
 #undef Sigma1
 #undef sigma0
 #undef sigma1
-#undef Ch
-#undef Maj
-#undef P
+#undef WORD
 #undef R
 
   ctx->state[0] += A;
@@ -2586,10 +2720,8 @@ DEFINE_SHAKE(shake256, 256)
  * Resources:
  *   https://en.wikipedia.org/wiki/Whirlpool_(hash_function)
  *   https://www.iso.org/standard/39876.html
- *   https://github.com/jzelinskie/whirlpool/blob/master/whirlpool.go
- *   https://github.com/RustCrypto/hashes/blob/master/whirlpool/src/consts.rs
- *   https://github.com/RustCrypto/hashes/blob/master/whirlpool/src/lib.rs
- *   https://github.com/RustCrypto/hashes/blob/master/whirlpool/src/utils.rs
+ *   https://web.archive.org/web/20171129084214/http://www.larc.usp.br/~pbarreto/WhirlpoolPage.html
+ *   https://gist.github.com/chjj/c7a3f4bc517275197dc81914e2dc46f6
  */
 
 static const uint64_t whirlpool_RC[10] = {
@@ -3663,8 +3795,10 @@ whirlpool_transform(whirlpool_t *ctx, const unsigned char *chunk) {
   uint64_t B[8], S[8], K[8], L[8];
   int i, r;
 
-  for (i = 0; i < 8; i++) {
+  for (i = 0; i < 8; i++)
     B[i] = read64be(chunk + i * 8);
+
+  for (i = 0; i < 8; i++) {
     K[i] = ctx->state[i];
     S[i] = B[i] ^ K[i];
   }
@@ -3678,9 +3812,10 @@ whirlpool_transform(whirlpool_t *ctx, const unsigned char *chunk) {
            ^ whirlpool_C4[(K[(4 + i) & 7] >> 24) & 0xff]
            ^ whirlpool_C5[(K[(3 + i) & 7] >> 16) & 0xff]
            ^ whirlpool_C6[(K[(2 + i) & 7] >>  8) & 0xff]
-           ^ whirlpool_C7[(K[(1 + i) & 7] >>  0) & 0xff]
-           ^ (i == 0 ? whirlpool_RC[r] : 0);
+           ^ whirlpool_C7[(K[(1 + i) & 7] >>  0) & 0xff];
     }
+
+    L[0] ^= whirlpool_RC[r];
 
     for (i = 0; i < 8; i++)
       K[i] = L[i];
