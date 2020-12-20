@@ -1189,7 +1189,6 @@ md2_final(md2_t *ctx, unsigned char *out) {
  * Resources:
  *   https://en.wikipedia.org/wiki/MD4
  *   https://tools.ietf.org/html/rfc1320
- *   https://github.com/RustCrypto/hashes/blob/master/md4/src/lib.rs
  */
 
 void
@@ -1215,61 +1214,77 @@ md4_transform(md4_t *ctx, const unsigned char *chunk) {
   C = ctx->state[2];
   D = ctx->state[3];
 
-#define F(x, y, z) ((x & y) | (~x & z))
-#define G(x, y, z) ((x & y) | (x & z) | (y & z))
-#define H(x, y, z) (x ^ y ^ z)
-#define F1(a, b, c, d, k, s) ROTL32(a + F(b, c, d) + k, s)
-#define F2(a, b, c, d, k, s) ROTL32(a + G(b, c, d) + k + 0x5a827999, s)
-#define F3(a, b, c, d, k, s) ROTL32(a + H(b, c, d) + k + 0x6ed9eba1, s)
+#define K1 0x00000000
+#define K2 0x5a827999
+#define K3 0x6ed9eba1
 
-#define R1(i, a, b, c, d) do {       \
-  a = F1(a, b, c, d, W[i +  0],  3); \
-  d = F1(d, a, b, c, W[i +  1],  7); \
-  c = F1(c, d, a, b, W[i +  2], 11); \
-  b = F1(b, c, d, a, W[i +  3], 19); \
+#define F1(x, y, z) ((x & y) | (~x & z)) /* F */
+#define F2(x, y, z) ((x & y) | (x & z) | (y & z)) /* G */
+#define F3(x, y, z) (x ^ y ^ z) /* H */
+
+#define R(f, a, b, c, d, i, k, s) do { \
+  a += f(b, c, d) + W[i] + k;          \
+  a = ROTL32(a, s);                    \
 } while (0)
 
-#define R2(i, a, b, c, d) do {       \
-  a = F2(a, b, c, d, W[i +  0],  3); \
-  d = F2(d, a, b, c, W[i +  4],  5); \
-  c = F2(c, d, a, b, W[i +  8],  9); \
-  b = F2(b, c, d, a, W[i + 12], 13); \
-} while (0)
+  R(F1, A, B, C, D,  0, K1,  3);
+  R(F1, D, A, B, C,  1, K1,  7);
+  R(F1, C, D, A, B,  2, K1, 11);
+  R(F1, B, C, D, A,  3, K1, 19);
+  R(F1, A, B, C, D,  4, K1,  3);
+  R(F1, D, A, B, C,  5, K1,  7);
+  R(F1, C, D, A, B,  6, K1, 11);
+  R(F1, B, C, D, A,  7, K1, 19);
+  R(F1, A, B, C, D,  8, K1,  3);
+  R(F1, D, A, B, C,  9, K1,  7);
+  R(F1, C, D, A, B, 10, K1, 11);
+  R(F1, B, C, D, A, 11, K1, 19);
+  R(F1, A, B, C, D, 12, K1,  3);
+  R(F1, D, A, B, C, 13, K1,  7);
+  R(F1, C, D, A, B, 14, K1, 11);
+  R(F1, B, C, D, A, 15, K1, 19);
 
-#define R3(i, a, b, c, d) do {       \
-  a = F3(a, b, c, d, W[i +  0],  3); \
-  d = F3(d, a, b, c, W[i +  8],  9); \
-  c = F3(c, d, a, b, W[i +  4], 11); \
-  b = F3(b, c, d, a, W[i + 12], 15); \
-} while (0)
+  R(F2, A, B, C, D,  0, K2,  3);
+  R(F2, D, A, B, C,  4, K2,  5);
+  R(F2, C, D, A, B,  8, K2,  9);
+  R(F2, B, C, D, A, 12, K2, 13);
+  R(F2, A, B, C, D,  1, K2,  3);
+  R(F2, D, A, B, C,  5, K2,  5);
+  R(F2, C, D, A, B,  9, K2,  9);
+  R(F2, B, C, D, A, 13, K2, 13);
+  R(F2, A, B, C, D,  2, K2,  3);
+  R(F2, D, A, B, C,  6, K2,  5);
+  R(F2, C, D, A, B, 10, K2,  9);
+  R(F2, B, C, D, A, 14, K2, 13);
+  R(F2, A, B, C, D,  3, K2,  3);
+  R(F2, D, A, B, C,  7, K2,  5);
+  R(F2, C, D, A, B, 11, K2,  9);
+  R(F2, B, C, D, A, 15, K2, 13);
 
-  /* Round 1. */
-  R1( 0, A, B, C, D);
-  R1( 4, A, B, C, D);
-  R1( 8, A, B, C, D);
-  R1(12, A, B, C, D);
+  R(F3, A, B, C, D,  0, K3,  3);
+  R(F3, D, A, B, C,  8, K3,  9);
+  R(F3, C, D, A, B,  4, K3, 11);
+  R(F3, B, C, D, A, 12, K3, 15);
+  R(F3, A, B, C, D,  2, K3,  3);
+  R(F3, D, A, B, C, 10, K3,  9);
+  R(F3, C, D, A, B,  6, K3, 11);
+  R(F3, B, C, D, A, 14, K3, 15);
+  R(F3, A, B, C, D,  1, K3,  3);
+  R(F3, D, A, B, C,  9, K3,  9);
+  R(F3, C, D, A, B,  5, K3, 11);
+  R(F3, B, C, D, A, 13, K3, 15);
+  R(F3, A, B, C, D,  3, K3,  3);
+  R(F3, D, A, B, C, 11, K3,  9);
+  R(F3, C, D, A, B,  7, K3, 11);
+  R(F3, B, C, D, A, 15, K3, 15);
 
-  /* Round 2. */
-  R2(0, A, B, C, D);
-  R2(1, A, B, C, D);
-  R2(2, A, B, C, D);
-  R2(3, A, B, C, D);
-
-  /* Round 3. */
-  R3(0, A, B, C, D);
-  R3(2, A, B, C, D);
-  R3(1, A, B, C, D);
-  R3(3, A, B, C, D);
-
-#undef F
-#undef G
-#undef H
+#undef K1
+#undef K2
+#undef K3
 #undef F1
 #undef F2
 #undef F3
-#undef R1
-#undef R2
-#undef R3
+#undef R
 
   ctx->state[0] += A;
   ctx->state[1] += B;
@@ -1569,12 +1584,6 @@ ripemd160_transform(ripemd160_t *ctx, const unsigned char *chunk) {
   DH = D;
   EH = E;
 
-#define F1(x, y, z) (x ^ y ^ z)
-#define F2(x, y, z) ((x & y) | ((~x) & z))
-#define F3(x, y, z) ((x | (~y)) ^ z)
-#define F4(x, y, z) ((x & z) | (y & (~z)))
-#define F5(x, y, z) (x ^ (y | (~z)))
-
 #define K1 0x00000000
 #define K2 0x5a827999
 #define K3 0x6ed9eba1
@@ -1586,6 +1595,12 @@ ripemd160_transform(ripemd160_t *ctx, const unsigned char *chunk) {
 #define KH3 0x6d703ef3
 #define KH4 0x7a6d76e9
 #define KH5 0x00000000
+
+#define F1(x, y, z) (x ^ y ^ z)
+#define F2(x, y, z) ((x & y) | ((~x) & z))
+#define F3(x, y, z) ((x | (~y)) ^ z)
+#define F4(x, y, z) ((x & z) | (y & (~z)))
+#define F5(x, y, z) (x ^ (y | (~z)))
 
 #define R(F, a, b, c, d, e, r, k, s) do { \
   a += F(b, c, d) + W[r] + k;             \
@@ -1755,11 +1770,6 @@ ripemd160_transform(ripemd160_t *ctx, const unsigned char *chunk) {
   R(F1, CH, DH, EH, AH, BH,  9, KH5, 11);
   R(F1, BH, CH, DH, EH, AH, 11, KH5, 11);
 
-#undef F1
-#undef F2
-#undef F3
-#undef F4
-#undef F5
 #undef K1
 #undef K2
 #undef K3
@@ -1770,6 +1780,11 @@ ripemd160_transform(ripemd160_t *ctx, const unsigned char *chunk) {
 #undef KH3
 #undef KH4
 #undef KH5
+#undef F1
+#undef F2
+#undef F3
+#undef F4
+#undef F5
 #undef R
 
   T = ctx->state[1] + C + DH;
