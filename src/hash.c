@@ -27,6 +27,9 @@
 #define ROTL32(n, x) (((x) << (n)) | ((x) >> ((-(n) & 31))))
 #define ROTL64(n, x) (((x) << (n)) | ((x) >> ((-(n)) & 63)))
 
+#define ROTL32N(w, b) (((w) << b) | ((w) >> (32 - b)))
+#define ROTL64N(w, b) (((w) << b) | ((w) >> (64 - b)))
+
 /*
  * Helpers
  */
@@ -805,62 +808,62 @@ keccak_permute(keccak_t *ctx) {
     T[3] = A[3] ^ A[8] ^ A[13] ^ A[18] ^ A[23];
     T[4] = A[4] ^ A[9] ^ A[14] ^ A[19] ^ A[24];
 
-    A[ 0] ^= T[4] ^ ROTL64(1, T[1]);
-    A[ 5] ^= T[4] ^ ROTL64(1, T[1]);
-    A[10] ^= T[4] ^ ROTL64(1, T[1]);
-    A[15] ^= T[4] ^ ROTL64(1, T[1]);
-    A[20] ^= T[4] ^ ROTL64(1, T[1]);
+    A[ 0] ^= T[4] ^ ROTL64N(T[1], 1);
+    A[ 5] ^= T[4] ^ ROTL64N(T[1], 1);
+    A[10] ^= T[4] ^ ROTL64N(T[1], 1);
+    A[15] ^= T[4] ^ ROTL64N(T[1], 1);
+    A[20] ^= T[4] ^ ROTL64N(T[1], 1);
 
-    A[ 1] ^= T[0] ^ ROTL64(1, T[2]);
-    A[ 6] ^= T[0] ^ ROTL64(1, T[2]);
-    A[11] ^= T[0] ^ ROTL64(1, T[2]);
-    A[16] ^= T[0] ^ ROTL64(1, T[2]);
-    A[21] ^= T[0] ^ ROTL64(1, T[2]);
+    A[ 1] ^= T[0] ^ ROTL64N(T[2], 1);
+    A[ 6] ^= T[0] ^ ROTL64N(T[2], 1);
+    A[11] ^= T[0] ^ ROTL64N(T[2], 1);
+    A[16] ^= T[0] ^ ROTL64N(T[2], 1);
+    A[21] ^= T[0] ^ ROTL64N(T[2], 1);
 
-    A[ 2] ^= T[1] ^ ROTL64(1, T[3]);
-    A[ 7] ^= T[1] ^ ROTL64(1, T[3]);
-    A[12] ^= T[1] ^ ROTL64(1, T[3]);
-    A[17] ^= T[1] ^ ROTL64(1, T[3]);
-    A[22] ^= T[1] ^ ROTL64(1, T[3]);
+    A[ 2] ^= T[1] ^ ROTL64N(T[3], 1);
+    A[ 7] ^= T[1] ^ ROTL64N(T[3], 1);
+    A[12] ^= T[1] ^ ROTL64N(T[3], 1);
+    A[17] ^= T[1] ^ ROTL64N(T[3], 1);
+    A[22] ^= T[1] ^ ROTL64N(T[3], 1);
 
-    A[ 3] ^= T[2] ^ ROTL64(1, T[4]);
-    A[ 8] ^= T[2] ^ ROTL64(1, T[4]);
-    A[13] ^= T[2] ^ ROTL64(1, T[4]);
-    A[18] ^= T[2] ^ ROTL64(1, T[4]);
-    A[23] ^= T[2] ^ ROTL64(1, T[4]);
+    A[ 3] ^= T[2] ^ ROTL64N(T[4], 1);
+    A[ 8] ^= T[2] ^ ROTL64N(T[4], 1);
+    A[13] ^= T[2] ^ ROTL64N(T[4], 1);
+    A[18] ^= T[2] ^ ROTL64N(T[4], 1);
+    A[23] ^= T[2] ^ ROTL64N(T[4], 1);
 
-    A[ 4] ^= T[3] ^ ROTL64(1, T[0]);
-    A[ 9] ^= T[3] ^ ROTL64(1, T[0]);
-    A[14] ^= T[3] ^ ROTL64(1, T[0]);
-    A[19] ^= T[3] ^ ROTL64(1, T[0]);
-    A[24] ^= T[3] ^ ROTL64(1, T[0]);
+    A[ 4] ^= T[3] ^ ROTL64N(T[0], 1);
+    A[ 9] ^= T[3] ^ ROTL64N(T[0], 1);
+    A[14] ^= T[3] ^ ROTL64N(T[0], 1);
+    A[19] ^= T[3] ^ ROTL64N(T[0], 1);
+    A[24] ^= T[3] ^ ROTL64N(T[0], 1);
 
     /* Rho + Phi */
     Y = A[1];
-    X = A[10]; A[10] = ROTL64( 1, Y); Y = X;
-    X = A[ 7]; A[ 7] = ROTL64( 3, Y); Y = X;
-    X = A[11]; A[11] = ROTL64( 6, Y); Y = X;
-    X = A[17]; A[17] = ROTL64(10, Y); Y = X;
-    X = A[18]; A[18] = ROTL64(15, Y); Y = X;
-    X = A[ 3]; A[ 3] = ROTL64(21, Y); Y = X;
-    X = A[ 5]; A[ 5] = ROTL64(28, Y); Y = X;
-    X = A[16]; A[16] = ROTL64(36, Y); Y = X;
-    X = A[ 8]; A[ 8] = ROTL64(45, Y); Y = X;
-    X = A[21]; A[21] = ROTL64(55, Y); Y = X;
-    X = A[24]; A[24] = ROTL64( 2, Y); Y = X;
-    X = A[ 4]; A[ 4] = ROTL64(14, Y); Y = X;
-    X = A[15]; A[15] = ROTL64(27, Y); Y = X;
-    X = A[23]; A[23] = ROTL64(41, Y); Y = X;
-    X = A[19]; A[19] = ROTL64(56, Y); Y = X;
-    X = A[13]; A[13] = ROTL64( 8, Y); Y = X;
-    X = A[12]; A[12] = ROTL64(25, Y); Y = X;
-    X = A[ 2]; A[ 2] = ROTL64(43, Y); Y = X;
-    X = A[20]; A[20] = ROTL64(62, Y); Y = X;
-    X = A[14]; A[14] = ROTL64(18, Y); Y = X;
-    X = A[22]; A[22] = ROTL64(39, Y); Y = X;
-    X = A[ 9]; A[ 9] = ROTL64(61, Y); Y = X;
-    X = A[ 6]; A[ 6] = ROTL64(20, Y); Y = X;
-    X = A[ 1]; A[ 1] = ROTL64(44, Y); Y = X;
+    X = A[10]; A[10] = ROTL64N(Y,  1); Y = X;
+    X = A[ 7]; A[ 7] = ROTL64N(Y,  3); Y = X;
+    X = A[11]; A[11] = ROTL64N(Y,  6); Y = X;
+    X = A[17]; A[17] = ROTL64N(Y, 10); Y = X;
+    X = A[18]; A[18] = ROTL64N(Y, 15); Y = X;
+    X = A[ 3]; A[ 3] = ROTL64N(Y, 21); Y = X;
+    X = A[ 5]; A[ 5] = ROTL64N(Y, 28); Y = X;
+    X = A[16]; A[16] = ROTL64N(Y, 36); Y = X;
+    X = A[ 8]; A[ 8] = ROTL64N(Y, 45); Y = X;
+    X = A[21]; A[21] = ROTL64N(Y, 55); Y = X;
+    X = A[24]; A[24] = ROTL64N(Y,  2); Y = X;
+    X = A[ 4]; A[ 4] = ROTL64N(Y, 14); Y = X;
+    X = A[15]; A[15] = ROTL64N(Y, 27); Y = X;
+    X = A[23]; A[23] = ROTL64N(Y, 41); Y = X;
+    X = A[19]; A[19] = ROTL64N(Y, 56); Y = X;
+    X = A[13]; A[13] = ROTL64N(Y,  8); Y = X;
+    X = A[12]; A[12] = ROTL64N(Y, 25); Y = X;
+    X = A[ 2]; A[ 2] = ROTL64N(Y, 43); Y = X;
+    X = A[20]; A[20] = ROTL64N(Y, 62); Y = X;
+    X = A[14]; A[14] = ROTL64N(Y, 18); Y = X;
+    X = A[22]; A[22] = ROTL64N(Y, 39); Y = X;
+    X = A[ 9]; A[ 9] = ROTL64N(Y, 61); Y = X;
+    X = A[ 6]; A[ 6] = ROTL64N(Y, 20); Y = X;
+    X = A[ 1]; A[ 1] = ROTL64N(Y, 44); Y = X;
 
     /* Chi */
     T[0] = A[0];
@@ -1149,7 +1152,7 @@ md2_final(md2_t *ctx, unsigned char *out) {
  * Resources:
  *   https://en.wikipedia.org/wiki/MD4
  *   https://tools.ietf.org/html/rfc1320
- *   https://github.com/gnutls/nettle/blob/master/md4.c
+ *   https://github.com/RustCrypto/hashes/blob/master/md4/src/lib.rs
  */
 
 static const unsigned char md4_P[64] = {
@@ -1174,79 +1177,73 @@ md4_init(md4_t *ctx) {
 
 static void
 md4_transform(md4_t *ctx, const unsigned char *chunk) {
-  uint32_t data[16];
+  uint32_t W[16];
   uint32_t a, b, c, d;
   int i;
 
-  for (i = 0; i < 16; i++, chunk += 4)
-    data[i] = read32le(chunk);
+  for (i = 0; i < 16; i++)
+    W[i] = read32le(chunk + i * 4);
 
   a = ctx->state[0];
   b = ctx->state[1];
   c = ctx->state[2];
   d = ctx->state[3];
 
-#define F(x, y, z) (((y) & (x)) | ((z) & ~(x)))
-#define G(x, y, z) (((y) & (x)) | ((z) & (x)) | ((y) & (z)))
-#define H(x, y, z) ((x) ^ (y) ^ (z))
-#define ROUND(f, w, x, y, z, data, s) \
-  (w += f(x, y, z) + data, w = w << s | w >> (32 - s))
+#define F(x, y, z) ((x & y) | (~x & z))
+#define G(x, y, z) ((x & y) | (x & z) | (y & z))
+#define H(x, y, z) (x ^ y ^ z)
+#define O1(a, b, c, d, k, s) ROTL32N(a + F(b, c, d) + k, s)
+#define O2(a, b, c, d, k, s) ROTL32N(a + G(b, c, d) + k + 0x5a827999, s)
+#define O3(a, b, c, d, k, s) ROTL32N(a + H(b, c, d) + k + 0x6ed9eba1, s)
 
-  ROUND(F, a, b, c, d, data[ 0], 3);
-  ROUND(F, d, a, b, c, data[ 1], 7);
-  ROUND(F, c, d, a, b, data[ 2], 11);
-  ROUND(F, b, c, d, a, data[ 3], 19);
-  ROUND(F, a, b, c, d, data[ 4], 3);
-  ROUND(F, d, a, b, c, data[ 5], 7);
-  ROUND(F, c, d, a, b, data[ 6], 11);
-  ROUND(F, b, c, d, a, data[ 7], 19);
-  ROUND(F, a, b, c, d, data[ 8], 3);
-  ROUND(F, d, a, b, c, data[ 9], 7);
-  ROUND(F, c, d, a, b, data[10], 11);
-  ROUND(F, b, c, d, a, data[11], 19);
-  ROUND(F, a, b, c, d, data[12], 3);
-  ROUND(F, d, a, b, c, data[13], 7);
-  ROUND(F, c, d, a, b, data[14], 11);
-  ROUND(F, b, c, d, a, data[15], 19);
+#define R1(i) do {                   \
+  a = O1(a, b, c, d, W[i +  0],  3); \
+  d = O1(d, a, b, c, W[i +  1],  7); \
+  c = O1(c, d, a, b, W[i +  2], 11); \
+  b = O1(b, c, d, a, W[i +  3], 19); \
+} while (0)
 
-  ROUND(G, a, b, c, d, data[ 0] + 0x5a827999, 3);
-  ROUND(G, d, a, b, c, data[ 4] + 0x5a827999, 5);
-  ROUND(G, c, d, a, b, data[ 8] + 0x5a827999, 9);
-  ROUND(G, b, c, d, a, data[12] + 0x5a827999, 13);
-  ROUND(G, a, b, c, d, data[ 1] + 0x5a827999, 3);
-  ROUND(G, d, a, b, c, data[ 5] + 0x5a827999, 5);
-  ROUND(G, c, d, a, b, data[ 9] + 0x5a827999, 9);
-  ROUND(G, b, c, d, a, data[13] + 0x5a827999, 13);
-  ROUND(G, a, b, c, d, data[ 2] + 0x5a827999, 3);
-  ROUND(G, d, a, b, c, data[ 6] + 0x5a827999, 5);
-  ROUND(G, c, d, a, b, data[10] + 0x5a827999, 9);
-  ROUND(G, b, c, d, a, data[14] + 0x5a827999, 13);
-  ROUND(G, a, b, c, d, data[ 3] + 0x5a827999, 3);
-  ROUND(G, d, a, b, c, data[ 7] + 0x5a827999, 5);
-  ROUND(G, c, d, a, b, data[11] + 0x5a827999, 9);
-  ROUND(G, b, c, d, a, data[15] + 0x5a827999, 13);
+#define R2(i) do {                   \
+  a = O2(a, b, c, d, W[i +  0],  3); \
+  d = O2(d, a, b, c, W[i +  4],  5); \
+  c = O2(c, d, a, b, W[i +  8],  9); \
+  b = O2(b, c, d, a, W[i + 12], 13); \
+} while (0)
 
-  ROUND(H, a, b, c, d, data[ 0] + 0x6ed9eba1, 3);
-  ROUND(H, d, a, b, c, data[ 8] + 0x6ed9eba1, 9);
-  ROUND(H, c, d, a, b, data[ 4] + 0x6ed9eba1, 11);
-  ROUND(H, b, c, d, a, data[12] + 0x6ed9eba1, 15);
-  ROUND(H, a, b, c, d, data[ 2] + 0x6ed9eba1, 3);
-  ROUND(H, d, a, b, c, data[10] + 0x6ed9eba1, 9);
-  ROUND(H, c, d, a, b, data[ 6] + 0x6ed9eba1, 11);
-  ROUND(H, b, c, d, a, data[14] + 0x6ed9eba1, 15);
-  ROUND(H, a, b, c, d, data[ 1] + 0x6ed9eba1, 3);
-  ROUND(H, d, a, b, c, data[ 9] + 0x6ed9eba1, 9);
-  ROUND(H, c, d, a, b, data[ 5] + 0x6ed9eba1, 11);
-  ROUND(H, b, c, d, a, data[13] + 0x6ed9eba1, 15);
-  ROUND(H, a, b, c, d, data[ 3] + 0x6ed9eba1, 3);
-  ROUND(H, d, a, b, c, data[11] + 0x6ed9eba1, 9);
-  ROUND(H, c, d, a, b, data[ 7] + 0x6ed9eba1, 11);
-  ROUND(H, b, c, d, a, data[15] + 0x6ed9eba1, 15);
+#define R3(i) do {                   \
+  a = O3(a, b, c, d, W[i +  0],  3); \
+  d = O3(d, a, b, c, W[i +  8],  9); \
+  c = O3(c, d, a, b, W[i +  4], 11); \
+  b = O3(b, c, d, a, W[i + 12], 15); \
+} while (0)
+
+  /* Round 1. */
+  R1(0);
+  R1(4);
+  R1(8);
+  R1(12);
+
+  /* Round 2. */
+  R2(0);
+  R2(1);
+  R2(2);
+  R2(3);
+
+  /* Round 3. */
+  R3(0);
+  R3(2);
+  R3(1);
+  R3(3);
 
 #undef F
 #undef G
 #undef H
-#undef ROUND
+#undef O1
+#undef O2
+#undef O3
+#undef R1
+#undef R2
+#undef R3
 
   ctx->state[0] += a;
   ctx->state[1] += b;
