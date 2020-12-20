@@ -24,24 +24,21 @@
  * Macros
  */
 
-#define ROTL32(n, x) (((x) << (n)) | ((x) >> ((-(n) & 31))))
-#define ROTL64(n, x) (((x) << (n)) | ((x) >> ((-(n)) & 63)))
-
-#define ROTL32N(w, b) (((w) << b) | ((w) >> (32 - b)))
-#define ROTL64N(w, b) (((w) << b) | ((w) >> (64 - b)))
+#define ROTL32(w, b) (((w) << (b)) | ((w) >> (32 - (b))))
+#define ROTL64(w, b) (((w) << (b)) | ((w) >> (64 - (b))))
 
 /*
  * Helpers
  */
 
 static TORSION_INLINE uint32_t
-rotr32(uint32_t w, unsigned int c) {
-  return (w >> c) | (w << (32 - c));
+rotr32(uint32_t w, int b) {
+  return (w >> b) | (w << (32 - b));
 }
 
 static TORSION_INLINE uint64_t
-rotr64(uint64_t w, unsigned int c) {
-  return (w >> c) | (w << (64 - c));
+rotr64(uint64_t w, int b) {
+  return (w >> b) | (w << (64 - b));
 }
 
 /*
@@ -779,7 +776,7 @@ keccak_init(keccak_t *ctx, unsigned int bits) {
 
 static void
 keccak_permute(keccak_t *ctx) {
-  static const uint64_t rc[24] = {
+  static const uint64_t RC[24] = {
     UINT64_C(0x0000000000000001), UINT64_C(0x0000000000008082),
     UINT64_C(0x800000000000808a), UINT64_C(0x8000000080008000),
     UINT64_C(0x000000000000808b), UINT64_C(0x0000000080000001),
@@ -794,7 +791,7 @@ keccak_permute(keccak_t *ctx) {
     UINT64_C(0x0000000080000001), UINT64_C(0x8000000080008008)
   };
 
-#define A (ctx->state)
+#define S (ctx->state)
 
   uint64_t T[5];
   uint64_t X, Y;
@@ -802,118 +799,118 @@ keccak_permute(keccak_t *ctx) {
 
   for (i = 0; i < 24; i++) {
     /* Theta */
-    T[0] = A[0] ^ A[5] ^ A[10] ^ A[15] ^ A[20];
-    T[1] = A[1] ^ A[6] ^ A[11] ^ A[16] ^ A[21];
-    T[2] = A[2] ^ A[7] ^ A[12] ^ A[17] ^ A[22];
-    T[3] = A[3] ^ A[8] ^ A[13] ^ A[18] ^ A[23];
-    T[4] = A[4] ^ A[9] ^ A[14] ^ A[19] ^ A[24];
+    T[0] = S[0] ^ S[5] ^ S[10] ^ S[15] ^ S[20];
+    T[1] = S[1] ^ S[6] ^ S[11] ^ S[16] ^ S[21];
+    T[2] = S[2] ^ S[7] ^ S[12] ^ S[17] ^ S[22];
+    T[3] = S[3] ^ S[8] ^ S[13] ^ S[18] ^ S[23];
+    T[4] = S[4] ^ S[9] ^ S[14] ^ S[19] ^ S[24];
 
-    A[ 0] ^= T[4] ^ ROTL64N(T[1], 1);
-    A[ 5] ^= T[4] ^ ROTL64N(T[1], 1);
-    A[10] ^= T[4] ^ ROTL64N(T[1], 1);
-    A[15] ^= T[4] ^ ROTL64N(T[1], 1);
-    A[20] ^= T[4] ^ ROTL64N(T[1], 1);
+    S[ 0] ^= T[4] ^ ROTL64(T[1], 1);
+    S[ 5] ^= T[4] ^ ROTL64(T[1], 1);
+    S[10] ^= T[4] ^ ROTL64(T[1], 1);
+    S[15] ^= T[4] ^ ROTL64(T[1], 1);
+    S[20] ^= T[4] ^ ROTL64(T[1], 1);
 
-    A[ 1] ^= T[0] ^ ROTL64N(T[2], 1);
-    A[ 6] ^= T[0] ^ ROTL64N(T[2], 1);
-    A[11] ^= T[0] ^ ROTL64N(T[2], 1);
-    A[16] ^= T[0] ^ ROTL64N(T[2], 1);
-    A[21] ^= T[0] ^ ROTL64N(T[2], 1);
+    S[ 1] ^= T[0] ^ ROTL64(T[2], 1);
+    S[ 6] ^= T[0] ^ ROTL64(T[2], 1);
+    S[11] ^= T[0] ^ ROTL64(T[2], 1);
+    S[16] ^= T[0] ^ ROTL64(T[2], 1);
+    S[21] ^= T[0] ^ ROTL64(T[2], 1);
 
-    A[ 2] ^= T[1] ^ ROTL64N(T[3], 1);
-    A[ 7] ^= T[1] ^ ROTL64N(T[3], 1);
-    A[12] ^= T[1] ^ ROTL64N(T[3], 1);
-    A[17] ^= T[1] ^ ROTL64N(T[3], 1);
-    A[22] ^= T[1] ^ ROTL64N(T[3], 1);
+    S[ 2] ^= T[1] ^ ROTL64(T[3], 1);
+    S[ 7] ^= T[1] ^ ROTL64(T[3], 1);
+    S[12] ^= T[1] ^ ROTL64(T[3], 1);
+    S[17] ^= T[1] ^ ROTL64(T[3], 1);
+    S[22] ^= T[1] ^ ROTL64(T[3], 1);
 
-    A[ 3] ^= T[2] ^ ROTL64N(T[4], 1);
-    A[ 8] ^= T[2] ^ ROTL64N(T[4], 1);
-    A[13] ^= T[2] ^ ROTL64N(T[4], 1);
-    A[18] ^= T[2] ^ ROTL64N(T[4], 1);
-    A[23] ^= T[2] ^ ROTL64N(T[4], 1);
+    S[ 3] ^= T[2] ^ ROTL64(T[4], 1);
+    S[ 8] ^= T[2] ^ ROTL64(T[4], 1);
+    S[13] ^= T[2] ^ ROTL64(T[4], 1);
+    S[18] ^= T[2] ^ ROTL64(T[4], 1);
+    S[23] ^= T[2] ^ ROTL64(T[4], 1);
 
-    A[ 4] ^= T[3] ^ ROTL64N(T[0], 1);
-    A[ 9] ^= T[3] ^ ROTL64N(T[0], 1);
-    A[14] ^= T[3] ^ ROTL64N(T[0], 1);
-    A[19] ^= T[3] ^ ROTL64N(T[0], 1);
-    A[24] ^= T[3] ^ ROTL64N(T[0], 1);
+    S[ 4] ^= T[3] ^ ROTL64(T[0], 1);
+    S[ 9] ^= T[3] ^ ROTL64(T[0], 1);
+    S[14] ^= T[3] ^ ROTL64(T[0], 1);
+    S[19] ^= T[3] ^ ROTL64(T[0], 1);
+    S[24] ^= T[3] ^ ROTL64(T[0], 1);
 
     /* Rho + Phi */
-    Y = A[1];
-    X = A[10]; A[10] = ROTL64N(Y,  1); Y = X;
-    X = A[ 7]; A[ 7] = ROTL64N(Y,  3); Y = X;
-    X = A[11]; A[11] = ROTL64N(Y,  6); Y = X;
-    X = A[17]; A[17] = ROTL64N(Y, 10); Y = X;
-    X = A[18]; A[18] = ROTL64N(Y, 15); Y = X;
-    X = A[ 3]; A[ 3] = ROTL64N(Y, 21); Y = X;
-    X = A[ 5]; A[ 5] = ROTL64N(Y, 28); Y = X;
-    X = A[16]; A[16] = ROTL64N(Y, 36); Y = X;
-    X = A[ 8]; A[ 8] = ROTL64N(Y, 45); Y = X;
-    X = A[21]; A[21] = ROTL64N(Y, 55); Y = X;
-    X = A[24]; A[24] = ROTL64N(Y,  2); Y = X;
-    X = A[ 4]; A[ 4] = ROTL64N(Y, 14); Y = X;
-    X = A[15]; A[15] = ROTL64N(Y, 27); Y = X;
-    X = A[23]; A[23] = ROTL64N(Y, 41); Y = X;
-    X = A[19]; A[19] = ROTL64N(Y, 56); Y = X;
-    X = A[13]; A[13] = ROTL64N(Y,  8); Y = X;
-    X = A[12]; A[12] = ROTL64N(Y, 25); Y = X;
-    X = A[ 2]; A[ 2] = ROTL64N(Y, 43); Y = X;
-    X = A[20]; A[20] = ROTL64N(Y, 62); Y = X;
-    X = A[14]; A[14] = ROTL64N(Y, 18); Y = X;
-    X = A[22]; A[22] = ROTL64N(Y, 39); Y = X;
-    X = A[ 9]; A[ 9] = ROTL64N(Y, 61); Y = X;
-    X = A[ 6]; A[ 6] = ROTL64N(Y, 20); Y = X;
-    X = A[ 1]; A[ 1] = ROTL64N(Y, 44); Y = X;
+    Y = S[1];
+    X = S[10]; S[10] = ROTL64(Y,  1); Y = X;
+    X = S[ 7]; S[ 7] = ROTL64(Y,  3); Y = X;
+    X = S[11]; S[11] = ROTL64(Y,  6); Y = X;
+    X = S[17]; S[17] = ROTL64(Y, 10); Y = X;
+    X = S[18]; S[18] = ROTL64(Y, 15); Y = X;
+    X = S[ 3]; S[ 3] = ROTL64(Y, 21); Y = X;
+    X = S[ 5]; S[ 5] = ROTL64(Y, 28); Y = X;
+    X = S[16]; S[16] = ROTL64(Y, 36); Y = X;
+    X = S[ 8]; S[ 8] = ROTL64(Y, 45); Y = X;
+    X = S[21]; S[21] = ROTL64(Y, 55); Y = X;
+    X = S[24]; S[24] = ROTL64(Y,  2); Y = X;
+    X = S[ 4]; S[ 4] = ROTL64(Y, 14); Y = X;
+    X = S[15]; S[15] = ROTL64(Y, 27); Y = X;
+    X = S[23]; S[23] = ROTL64(Y, 41); Y = X;
+    X = S[19]; S[19] = ROTL64(Y, 56); Y = X;
+    X = S[13]; S[13] = ROTL64(Y,  8); Y = X;
+    X = S[12]; S[12] = ROTL64(Y, 25); Y = X;
+    X = S[ 2]; S[ 2] = ROTL64(Y, 43); Y = X;
+    X = S[20]; S[20] = ROTL64(Y, 62); Y = X;
+    X = S[14]; S[14] = ROTL64(Y, 18); Y = X;
+    X = S[22]; S[22] = ROTL64(Y, 39); Y = X;
+    X = S[ 9]; S[ 9] = ROTL64(Y, 61); Y = X;
+    X = S[ 6]; S[ 6] = ROTL64(Y, 20); Y = X;
+    X = S[ 1]; S[ 1] = ROTL64(Y, 44); Y = X;
 
     /* Chi */
-    T[0] = A[0];
-    T[1] = A[1];
+    T[0] = S[0];
+    T[1] = S[1];
 
-    A[0] ^= (~A[1] & A[2]);
-    A[1] ^= (~A[2] & A[3]);
-    A[2] ^= (~A[3] & A[4]);
-    A[3] ^= (~A[4] & T[0]);
-    A[4] ^= (~T[0] & T[1]);
+    S[0] ^= (~S[1] & S[2]);
+    S[1] ^= (~S[2] & S[3]);
+    S[2] ^= (~S[3] & S[4]);
+    S[3] ^= (~S[4] & T[0]);
+    S[4] ^= (~T[0] & T[1]);
 
-    T[0] = A[5];
-    T[1] = A[6];
+    T[0] = S[5];
+    T[1] = S[6];
 
-    A[5] ^= (~A[6] & A[7]);
-    A[6] ^= (~A[7] & A[8]);
-    A[7] ^= (~A[8] & A[9]);
-    A[8] ^= (~A[9] & T[0]);
-    A[9] ^= (~T[0] & T[1]);
+    S[5] ^= (~S[6] & S[7]);
+    S[6] ^= (~S[7] & S[8]);
+    S[7] ^= (~S[8] & S[9]);
+    S[8] ^= (~S[9] & T[0]);
+    S[9] ^= (~T[0] & T[1]);
 
-    T[0] = A[10];
-    T[1] = A[11];
+    T[0] = S[10];
+    T[1] = S[11];
 
-    A[10] ^= (~A[11] & A[12]);
-    A[11] ^= (~A[12] & A[13]);
-    A[12] ^= (~A[13] & A[14]);
-    A[13] ^= (~A[14] & T[ 0]);
-    A[14] ^= (~T[ 0] & T[ 1]);
+    S[10] ^= (~S[11] & S[12]);
+    S[11] ^= (~S[12] & S[13]);
+    S[12] ^= (~S[13] & S[14]);
+    S[13] ^= (~S[14] & T[ 0]);
+    S[14] ^= (~T[ 0] & T[ 1]);
 
-    T[0] = A[15];
-    T[1] = A[16];
+    T[0] = S[15];
+    T[1] = S[16];
 
-    A[15] ^= (~A[16] & A[17]);
-    A[16] ^= (~A[17] & A[18]);
-    A[17] ^= (~A[18] & A[19]);
-    A[18] ^= (~A[19] & T[ 0]);
-    A[19] ^= (~T[ 0] & T[ 1]);
+    S[15] ^= (~S[16] & S[17]);
+    S[16] ^= (~S[17] & S[18]);
+    S[17] ^= (~S[18] & S[19]);
+    S[18] ^= (~S[19] & T[ 0]);
+    S[19] ^= (~T[ 0] & T[ 1]);
 
-    T[0] = A[20];
-    T[1] = A[21];
+    T[0] = S[20];
+    T[1] = S[21];
 
-    A[20] ^= (~A[21] & A[22]);
-    A[21] ^= (~A[22] & A[23]);
-    A[22] ^= (~A[23] & A[24]);
-    A[23] ^= (~A[24] & T[ 0]);
-    A[24] ^= (~T[ 0] & T[ 1]);
+    S[20] ^= (~S[21] & S[22]);
+    S[21] ^= (~S[22] & S[23]);
+    S[22] ^= (~S[23] & S[24]);
+    S[23] ^= (~S[24] & T[ 0]);
+    S[24] ^= (~T[ 0] & T[ 1]);
 
-    A[0] ^= rc[i];
+    S[0] ^= RC[i];
   }
-#undef A
+#undef S
 }
 
 static void
@@ -1023,7 +1020,7 @@ DEFINE_KECCAK(keccak512, 512, 0x01)
  *   https://github.com/RustCrypto/hashes/blob/master/md2/src/lib.rs
  */
 
-static const uint8_t md2_S[256] = {
+static const uint8_t md2_K[256] = {
   0x29, 0x2e, 0x43, 0xc9, 0xa2, 0xd8, 0x7c, 0x01,
   0x3d, 0x36, 0x54, 0xa1, 0xec, 0xf0, 0x06, 0x13,
   0x62, 0xa7, 0x05, 0xf3, 0xc0, 0xc7, 0x73, 0x8c,
@@ -1065,31 +1062,41 @@ md2_init(md2_t *ctx) {
 
 static void
 md2_transform(md2_t *ctx, const unsigned char *chunk) {
-  uint8_t t, l;
+  uint8_t t;
   int j, k;
 
+#define S (ctx->state)
+#define C (ctx->checksum)
+#define W ((uint8_t *)(chunk))
+#define K (md2_K)
+
   for (j = 0; j < 16; j++) {
-    ctx->state[16 + j] = chunk[j];
-    ctx->state[32 + j] = ctx->state[16 + j] ^ ctx->state[j];
+    S[16 + j] = W[j];
+    S[32 + j] = S[16 + j] ^ S[j];
   }
 
   t = 0;
 
   for (j = 0; j < 18; j++) {
     for (k = 0; k < 48; k++) {
-      ctx->state[k] ^= md2_S[t];
-      t = ctx->state[k];
+      S[k] ^= K[t];
+      t = S[k];
     }
 
     t += (uint8_t)j;
   }
 
-  l = ctx->checksum[15];
+  t = C[15];
 
   for (j = 0; j < 16; j++) {
-    ctx->checksum[j] ^= md2_S[chunk[j] ^ l];
-    l = ctx->checksum[j];
+    C[j] ^= K[W[j] ^ t];
+    t = C[j];
   }
+
+#undef S
+#undef C
+#undef W
+#undef K
 }
 
 void
@@ -1155,17 +1162,6 @@ md2_final(md2_t *ctx, unsigned char *out) {
  *   https://github.com/RustCrypto/hashes/blob/master/md4/src/lib.rs
  */
 
-static const unsigned char md4_P[64] = {
-  0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
-};
-
 void
 md4_init(md4_t *ctx) {
   ctx->state[0] = 0x67452301;
@@ -1192,9 +1188,9 @@ md4_transform(md4_t *ctx, const unsigned char *chunk) {
 #define F(x, y, z) ((x & y) | (~x & z))
 #define G(x, y, z) ((x & y) | (x & z) | (y & z))
 #define H(x, y, z) (x ^ y ^ z)
-#define F1(a, b, c, d, k, s) ROTL32N(a + F(b, c, d) + k, s)
-#define F2(a, b, c, d, k, s) ROTL32N(a + G(b, c, d) + k + 0x5a827999, s)
-#define F3(a, b, c, d, k, s) ROTL32N(a + H(b, c, d) + k + 0x6ed9eba1, s)
+#define F1(a, b, c, d, k, s) ROTL32(a + F(b, c, d) + k, s)
+#define F2(a, b, c, d, k, s) ROTL32(a + G(b, c, d) + k + 0x5a827999, s)
+#define F3(a, b, c, d, k, s) ROTL32(a + H(b, c, d) + k + 0x6ed9eba1, s)
 
 #define R1(i, a, b, c, d) do {       \
   a = F1(a, b, c, d, W[i +  0],  3); \
@@ -1292,6 +1288,7 @@ md4_update(md4_t *ctx, const void *data, size_t len) {
 
 void
 md4_final(md4_t *ctx, unsigned char *out) {
+  static const unsigned char P[64] = { 0x80, 0x00 };
   size_t pos = ctx->size & 63;
   uint64_t len = ctx->size << 3;
   unsigned char D[8];
@@ -1299,7 +1296,7 @@ md4_final(md4_t *ctx, unsigned char *out) {
 
   write64le(D, len);
 
-  md4_update(ctx, md4_P, 1 + ((119 - pos) & 63));
+  md4_update(ctx, P, 1 + ((119 - pos) & 63));
   md4_update(ctx, D, 8);
 
   for (i = 0; i < 4; i++)
@@ -1313,17 +1310,6 @@ md4_final(md4_t *ctx, unsigned char *out) {
  *   https://en.wikipedia.org/wiki/MD5
  *   https://tools.ietf.org/html/rfc1321
  */
-
-static const unsigned char md5_P[64] = {
-  0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
-};
 
 void
 md5_init(md5_t *ctx) {
@@ -1355,76 +1341,76 @@ md5_transform(md5_t *ctx, const unsigned char *chunk) {
 
 #define R(F, a, b, c, d, k, g, s) do { \
   a = F(b, c, d) + a + k + W[g];       \
-  a = ROTL32N(a, s) + b;               \
+  a = ROTL32(a, s) + b;                \
 } while (0)
 
-  R(F1, A, B, C, D, 0xd76aa478, 0, 7);
-  R(F1, D, A, B, C, 0xe8c7b756, 1, 12);
-  R(F1, C, D, A, B, 0x242070db, 2, 17);
-  R(F1, B, C, D, A, 0xc1bdceee, 3, 22);
-  R(F1, A, B, C, D, 0xf57c0faf, 4, 7);
-  R(F1, D, A, B, C, 0x4787c62a, 5, 12);
-  R(F1, C, D, A, B, 0xa8304613, 6, 17);
-  R(F1, B, C, D, A, 0xfd469501, 7, 22);
-  R(F1, A, B, C, D, 0x698098d8, 8, 7);
-  R(F1, D, A, B, C, 0x8b44f7af, 9, 12);
+  R(F1, A, B, C, D, 0xd76aa478,  0,  7);
+  R(F1, D, A, B, C, 0xe8c7b756,  1, 12);
+  R(F1, C, D, A, B, 0x242070db,  2, 17);
+  R(F1, B, C, D, A, 0xc1bdceee,  3, 22);
+  R(F1, A, B, C, D, 0xf57c0faf,  4,  7);
+  R(F1, D, A, B, C, 0x4787c62a,  5, 12);
+  R(F1, C, D, A, B, 0xa8304613,  6, 17);
+  R(F1, B, C, D, A, 0xfd469501,  7, 22);
+  R(F1, A, B, C, D, 0x698098d8,  8,  7);
+  R(F1, D, A, B, C, 0x8b44f7af,  9, 12);
   R(F1, C, D, A, B, 0xffff5bb1, 10, 17);
   R(F1, B, C, D, A, 0x895cd7be, 11, 22);
-  R(F1, A, B, C, D, 0x6b901122, 12, 7);
+  R(F1, A, B, C, D, 0x6b901122, 12,  7);
   R(F1, D, A, B, C, 0xfd987193, 13, 12);
   R(F1, C, D, A, B, 0xa679438e, 14, 17);
   R(F1, B, C, D, A, 0x49b40821, 15, 22);
 
-  R(F2, A, B, C, D, 0xf61e2562, 1, 5);
-  R(F2, D, A, B, C, 0xc040b340, 6, 9);
+  R(F2, A, B, C, D, 0xf61e2562,  1,  5);
+  R(F2, D, A, B, C, 0xc040b340,  6,  9);
   R(F2, C, D, A, B, 0x265e5a51, 11, 14);
-  R(F2, B, C, D, A, 0xe9b6c7aa, 0, 20);
-  R(F2, A, B, C, D, 0xd62f105d, 5, 5);
-  R(F2, D, A, B, C, 0x02441453, 10, 9);
+  R(F2, B, C, D, A, 0xe9b6c7aa,  0, 20);
+  R(F2, A, B, C, D, 0xd62f105d,  5,  5);
+  R(F2, D, A, B, C, 0x02441453, 10,  9);
   R(F2, C, D, A, B, 0xd8a1e681, 15, 14);
-  R(F2, B, C, D, A, 0xe7d3fbc8, 4, 20);
-  R(F2, A, B, C, D, 0x21e1cde6, 9, 5);
-  R(F2, D, A, B, C, 0xc33707d6, 14, 9);
-  R(F2, C, D, A, B, 0xf4d50d87, 3, 14);
-  R(F2, B, C, D, A, 0x455a14ed, 8, 20);
-  R(F2, A, B, C, D, 0xa9e3e905, 13, 5);
-  R(F2, D, A, B, C, 0xfcefa3f8, 2, 9);
-  R(F2, C, D, A, B, 0x676f02d9, 7, 14);
+  R(F2, B, C, D, A, 0xe7d3fbc8,  4, 20);
+  R(F2, A, B, C, D, 0x21e1cde6,  9,  5);
+  R(F2, D, A, B, C, 0xc33707d6, 14,  9);
+  R(F2, C, D, A, B, 0xf4d50d87,  3, 14);
+  R(F2, B, C, D, A, 0x455a14ed,  8, 20);
+  R(F2, A, B, C, D, 0xa9e3e905, 13,  5);
+  R(F2, D, A, B, C, 0xfcefa3f8,  2,  9);
+  R(F2, C, D, A, B, 0x676f02d9,  7, 14);
   R(F2, B, C, D, A, 0x8d2a4c8a, 12, 20);
 
-  R(F3, A, B, C, D, 0xfffa3942, 5, 4);
-  R(F3, D, A, B, C, 0x8771f681, 8, 11);
+  R(F3, A, B, C, D, 0xfffa3942,  5,  4);
+  R(F3, D, A, B, C, 0x8771f681,  8, 11);
   R(F3, C, D, A, B, 0x6d9d6122, 11, 16);
   R(F3, B, C, D, A, 0xfde5380c, 14, 23);
-  R(F3, A, B, C, D, 0xa4beea44, 1, 4);
-  R(F3, D, A, B, C, 0x4bdecfa9, 4, 11);
-  R(F3, C, D, A, B, 0xf6bb4b60, 7, 16);
+  R(F3, A, B, C, D, 0xa4beea44,  1,  4);
+  R(F3, D, A, B, C, 0x4bdecfa9,  4, 11);
+  R(F3, C, D, A, B, 0xf6bb4b60,  7, 16);
   R(F3, B, C, D, A, 0xbebfbc70, 10, 23);
-  R(F3, A, B, C, D, 0x289b7ec6, 13, 4);
-  R(F3, D, A, B, C, 0xeaa127fa, 0, 11);
-  R(F3, C, D, A, B, 0xd4ef3085, 3, 16);
-  R(F3, B, C, D, A, 0x04881d05, 6, 23);
-  R(F3, A, B, C, D, 0xd9d4d039, 9, 4);
+  R(F3, A, B, C, D, 0x289b7ec6, 13,  4);
+  R(F3, D, A, B, C, 0xeaa127fa,  0, 11);
+  R(F3, C, D, A, B, 0xd4ef3085,  3, 16);
+  R(F3, B, C, D, A, 0x04881d05,  6, 23);
+  R(F3, A, B, C, D, 0xd9d4d039,  9,  4);
   R(F3, D, A, B, C, 0xe6db99e5, 12, 11);
   R(F3, C, D, A, B, 0x1fa27cf8, 15, 16);
-  R(F3, B, C, D, A, 0xc4ac5665, 2, 23);
+  R(F3, B, C, D, A, 0xc4ac5665,  2, 23);
 
-  R(F4, A, B, C, D, 0xf4292244, 0, 6);
-  R(F4, D, A, B, C, 0x432aff97, 7, 10);
+  R(F4, A, B, C, D, 0xf4292244,  0,  6);
+  R(F4, D, A, B, C, 0x432aff97,  7, 10);
   R(F4, C, D, A, B, 0xab9423a7, 14, 15);
-  R(F4, B, C, D, A, 0xfc93a039, 5, 21);
-  R(F4, A, B, C, D, 0x655b59c3, 12, 6);
-  R(F4, D, A, B, C, 0x8f0ccc92, 3, 10);
+  R(F4, B, C, D, A, 0xfc93a039,  5, 21);
+  R(F4, A, B, C, D, 0x655b59c3, 12,  6);
+  R(F4, D, A, B, C, 0x8f0ccc92,  3, 10);
   R(F4, C, D, A, B, 0xffeff47d, 10, 15);
-  R(F4, B, C, D, A, 0x85845dd1, 1, 21);
-  R(F4, A, B, C, D, 0x6fa87e4f, 8, 6);
+  R(F4, B, C, D, A, 0x85845dd1,  1, 21);
+  R(F4, A, B, C, D, 0x6fa87e4f,  8,  6);
   R(F4, D, A, B, C, 0xfe2ce6e0, 15, 10);
-  R(F4, C, D, A, B, 0xa3014314, 6, 15);
+  R(F4, C, D, A, B, 0xa3014314,  6, 15);
   R(F4, B, C, D, A, 0x4e0811a1, 13, 21);
-  R(F4, A, B, C, D, 0xf7537e82, 4, 6);
+  R(F4, A, B, C, D, 0xf7537e82,  4,  6);
   R(F4, D, A, B, C, 0xbd3af235, 11, 10);
-  R(F4, C, D, A, B, 0x2ad7d2bb, 2, 15);
-  R(F4, B, C, D, A, 0xeb86d391, 9, 21);
+  R(F4, C, D, A, B, 0x2ad7d2bb,  2, 15);
+  R(F4, B, C, D, A, 0xeb86d391,  9, 21);
 
 #undef F1
 #undef F2
@@ -1479,6 +1465,7 @@ md5_update(md5_t *ctx, const void *data, size_t len) {
 
 void
 md5_final(md5_t *ctx, unsigned char *out) {
+  static const unsigned char P[64] = { 0x80, 0x00 };
   size_t pos = ctx->size & 63;
   uint64_t len = ctx->size << 3;
   unsigned char D[8];
@@ -1486,7 +1473,7 @@ md5_final(md5_t *ctx, unsigned char *out) {
 
   write64le(D, len);
 
-  md5_update(ctx, md5_P, 1 + ((119 - pos) & 63));
+  md5_update(ctx, P, 1 + ((119 - pos) & 63));
   md5_update(ctx, D, 8);
 
   for (i = 0; i < 4; i++)
@@ -1523,17 +1510,6 @@ md5sha1_final(md5sha1_t *ctx, unsigned char *out) {
  *   https://homes.esat.kuleuven.be/~bosselae/ripemd160/pdf/AB-9601/AB-9601.pdf
  *   https://github.com/indutny/hash.js/blob/master/lib/hash/ripemd.js
  */
-
-static const unsigned char ripemd160_P[64] = {
-  0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
-};
 
 void
 ripemd160_init(ripemd160_t *ctx) {
@@ -1587,8 +1563,8 @@ ripemd160_transform(ripemd160_t *ctx, const unsigned char *chunk) {
 
 #define R(F, a, b, c, d, e, r, k, s) do { \
   a = a + F(b, c, d) + W[r] + k;          \
-  a = ROTL32N(a, s) + e;                  \
-  c = ROTL32N(c, 10);                     \
+  a = ROTL32(a, s) + e;                   \
+  c = ROTL32(c, 10);                      \
 } while (0)
 
   R(F1, A, B, C, D, E, 0, K1, 11);
@@ -1819,6 +1795,7 @@ ripemd160_update(ripemd160_t *ctx, const void *data, size_t len) {
 
 void
 ripemd160_final(ripemd160_t *ctx, unsigned char *out) {
+  static const unsigned char P[64] = { 0x80, 0x00 };
   size_t pos = ctx->size & 63;
   uint64_t len = ctx->size << 3;
   unsigned char D[8];
@@ -1826,7 +1803,7 @@ ripemd160_final(ripemd160_t *ctx, unsigned char *out) {
 
   write64le(D, len);
 
-  ripemd160_update(ctx, ripemd160_P, 1 + ((119 - pos) & 63));
+  ripemd160_update(ctx, P, 1 + ((119 - pos) & 63));
   ripemd160_update(ctx, D, 8);
 
   for (i = 0; i < 5; i++)
@@ -1842,17 +1819,6 @@ ripemd160_final(ripemd160_t *ctx, unsigned char *out) {
  *   http://csrc.nist.gov/publications/fips/fips180-4/fips-180-4.pdf
  *   https://github.com/indutny/hash.js/blob/master/lib/hash/sha/1.js
  */
-
-static const unsigned char sha1_P[64] = {
-  0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
-};
 
 void
 sha1_init(sha1_t *ctx) {
@@ -1892,16 +1858,16 @@ sha1_transform(sha1_t *ctx, const unsigned char *chunk) {
 #define P(i) (W[(i -  3) & 15] ^ W[(i -  8) & 15] \
             ^ W[(i - 14) & 15] ^ W[(i - 16) & 15])
 
-#define R(F, a, b, c, d, e, i, k) do {        \
-  if (i >= 16) { /* Optimized out. */         \
-    w = P(i);                                 \
-    w = ROTL32N(w, 1);                        \
-    W[i & 15] = w;                            \
-  } else {                                    \
-    w = W[i];                                 \
-  }                                           \
-  e = ROTL32N(a, 5) + F(b, c, d) + e + w + k; \
-  b = ROTL32N(b, 30);                         \
+#define R(F, a, b, c, d, e, i, k) do {       \
+  if (i >= 16) { /* Optimized out. */        \
+    w = P(i);                                \
+    w = ROTL32(w, 1);                        \
+    W[i & 15] = w;                           \
+  } else {                                   \
+    w = W[i];                                \
+  }                                          \
+  e = ROTL32(a, 5) + F(b, c, d) + e + w + k; \
+  b = ROTL32(b, 30);                         \
 } while (0)
 
   R(F1, A, B, C, D, E, 0, K1);
@@ -2048,6 +2014,7 @@ sha1_update(sha1_t *ctx, const void *data, size_t len) {
 
 void
 sha1_final(sha1_t *ctx, unsigned char *out) {
+  static const unsigned char P[64] = { 0x80, 0x00 };
   size_t pos = ctx->size & 63;
   uint64_t len = ctx->size << 3;
   unsigned char D[8];
@@ -2055,7 +2022,7 @@ sha1_final(sha1_t *ctx, unsigned char *out) {
 
   write64be(D, len);
 
-  sha1_update(ctx, sha1_P, 1 + ((119 - pos) & 63));
+  sha1_update(ctx, P, 1 + ((119 - pos) & 63));
   sha1_update(ctx, D, 8);
 
   for (i = 0; i < 5; i++)
@@ -2108,36 +2075,6 @@ sha224_final(sha224_t *ctx, unsigned char *out) {
  *   https://github.com/gnutls/nettle/blob/master/sha256-compress.c
  */
 
-static const uint32_t sha256_K[64] = {
-  0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5,
-  0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
-  0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3,
-  0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
-  0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc,
-  0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
-  0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7,
-  0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,
-  0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13,
-  0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85,
-  0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3,
-  0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
-  0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5,
-  0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
-  0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208,
-  0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2
-};
-
-static const unsigned char sha256_P[64] = {
-  0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
-};
-
 void
 sha256_init(sha256_t *ctx) {
   ctx->state[0] = 0x6a09e667;
@@ -2153,1221 +2090,12 @@ sha256_init(sha256_t *ctx) {
 
 static void
 sha256_transform(sha256_t *ctx, const unsigned char *chunk) {
-#if defined(TORSION_HAVE_ASM_X64)
-  /* Borrowed from:
-   * https://github.com/gnutls/nettle/blob/master/x86_64/sha256-compress.asm
-   *
-   * Registers:
-   *
-   *   %rdi = state
-   *   %rsi = input
-   *   %rdx = k
-   *
-   * For reference, our full range of clobbered registers:
-   *
-   *   %rdi, %rsi, %rdx, %edi, %eax, %ebx, %ecx, %r[8-15]
-   *
-   * Note that %rdi is clobbered when it is read-only.
-   * We save it on the stack and restore it at the end.
-   */
-  __asm__ __volatile__(
-    "subq $72, %%rsp\n"
-    "movq %%rdi, 64(%%rsp)\n"
-
-    "movl (%%rdi),  %%eax\n"
-    "movl 4(%%rdi), %%ebx\n"
-    "movl 8(%%rdi), %%ecx\n"
-    "movl 12(%%rdi), %%r8d\n"
-    "movl 16(%%rdi), %%r9d\n"
-    "movl 20(%%rdi), %%r10d\n"
-    "movl 24(%%rdi), %%r11d\n"
-    "movl 28(%%rdi), %%r12d\n"
-    "xorq %%r14, %%r14\n"
-
-    ".align 16\n"
-    "1:\n"
-
-    "movl (%%rsi, %%r14, 4), %%r15d\n"
-    "bswapl %%r15d\n"
-    "movl %%r15d, (%%rsp, %%r14, 4)\n"
-
-    "movl %%r9d, %%r13d\n"
-    "movl %%r9d, %%edi\n"
-    "roll $7, %%r13d\n"
-    "roll $21, %%edi\n"
-    "xorl %%r13d, %%edi\n"
-    "roll $19, %%r13d\n"
-    "xorl %%r13d, %%edi\n"
-    "addl %%r15d, %%r12d\n"
-    "addl %%edi, %%r12d\n"
-    "movl %%r11d, %%r13d\n"
-    "xorl %%r10d, %%r13d\n"
-    "andl %%r9d, %%r13d\n"
-    "xorl %%r11d, %%r13d\n"
-    "addl (%%rdx,%%r14,4), %%r12d\n"
-    "addl %%r13d, %%r12d\n"
-    "addl %%r12d, %%r8d\n"
-
-    "movl %%eax, %%r13d\n"
-    "movl %%eax, %%edi\n"
-    "roll $10, %%r13d\n"
-    "roll $19, %%edi\n"
-    "xorl %%r13d, %%edi\n"
-    "roll $20, %%r13d\n"
-    "xorl %%r13d, %%edi\n"
-    "addl %%edi, %%r12d\n"
-    "movl %%eax, %%r13d\n"
-    "movl %%eax, %%edi\n"
-    "andl %%ebx, %%r13d\n"
-    "xorl %%ebx, %%edi\n"
-    "addl %%r13d, %%r12d\n"
-    "andl %%ecx, %%edi\n"
-    "addl %%edi, %%r12d\n"
-
-    "movl 4(%%rsi, %%r14, 4), %%r15d\n"
-    "bswapl %%r15d\n"
-    "movl %%r15d, 4(%%rsp, %%r14, 4)\n"
-
-    "movl %%r8d, %%r13d\n"
-    "movl %%r8d, %%edi\n"
-    "roll $7, %%r13d\n"
-    "roll $21, %%edi\n"
-    "xorl %%r13d, %%edi\n"
-    "roll $19, %%r13d\n"
-    "xorl %%r13d, %%edi\n"
-    "addl %%r15d, %%r11d\n"
-    "addl %%edi, %%r11d\n"
-    "movl %%r10d, %%r13d\n"
-    "xorl %%r9d, %%r13d\n"
-    "andl %%r8d, %%r13d\n"
-    "xorl %%r10d, %%r13d\n"
-    "addl 4(%%rdx,%%r14,4), %%r11d\n"
-    "addl %%r13d, %%r11d\n"
-    "addl %%r11d, %%ecx\n"
-
-    "movl %%r12d, %%r13d\n"
-    "movl %%r12d, %%edi\n"
-    "roll $10, %%r13d\n"
-    "roll $19, %%edi\n"
-    "xorl %%r13d, %%edi\n"
-    "roll $20, %%r13d\n"
-    "xorl %%r13d, %%edi\n"
-    "addl %%edi, %%r11d\n"
-    "movl %%r12d, %%r13d\n"
-    "movl %%r12d, %%edi\n"
-    "andl %%eax, %%r13d\n"
-    "xorl %%eax, %%edi\n"
-    "addl %%r13d, %%r11d\n"
-    "andl %%ebx, %%edi\n"
-    "addl %%edi, %%r11d\n"
-
-    "movl 8(%%rsi, %%r14, 4), %%r15d\n"
-    "bswapl %%r15d\n"
-    "movl %%r15d, 8(%%rsp, %%r14, 4)\n"
-
-    "movl %%ecx, %%r13d\n"
-    "movl %%ecx, %%edi\n"
-    "roll $7, %%r13d\n"
-    "roll $21, %%edi\n"
-    "xorl %%r13d, %%edi\n"
-    "roll $19, %%r13d\n"
-    "xorl %%r13d, %%edi\n"
-    "addl %%r15d, %%r10d\n"
-    "addl %%edi, %%r10d\n"
-    "movl %%r9d, %%r13d\n"
-    "xorl %%r8d, %%r13d\n"
-    "andl %%ecx, %%r13d\n"
-    "xorl %%r9d, %%r13d\n"
-    "addl 8(%%rdx,%%r14,4), %%r10d\n"
-    "addl %%r13d, %%r10d\n"
-    "addl %%r10d, %%ebx\n"
-
-    "movl %%r11d, %%r13d\n"
-    "movl %%r11d, %%edi\n"
-    "roll $10, %%r13d\n"
-    "roll $19, %%edi\n"
-    "xorl %%r13d, %%edi\n"
-    "roll $20, %%r13d\n"
-    "xorl %%r13d, %%edi\n"
-    "addl %%edi, %%r10d\n"
-    "movl %%r11d, %%r13d\n"
-    "movl %%r11d, %%edi\n"
-    "andl %%r12d, %%r13d\n"
-    "xorl %%r12d, %%edi\n"
-    "addl %%r13d, %%r10d\n"
-    "andl %%eax, %%edi\n"
-    "addl %%edi, %%r10d\n"
-
-    "movl 12(%%rsi, %%r14, 4), %%r15d\n"
-    "bswapl %%r15d\n"
-    "movl %%r15d, 12(%%rsp, %%r14, 4)\n"
-
-    "movl %%ebx, %%r13d\n"
-    "movl %%ebx, %%edi\n"
-    "roll $7, %%r13d\n"
-    "roll $21, %%edi\n"
-    "xorl %%r13d, %%edi\n"
-    "roll $19, %%r13d\n"
-    "xorl %%r13d, %%edi\n"
-    "addl %%r15d, %%r9d\n"
-    "addl %%edi, %%r9d\n"
-    "movl %%r8d, %%r13d\n"
-    "xorl %%ecx, %%r13d\n"
-    "andl %%ebx, %%r13d\n"
-    "xorl %%r8d, %%r13d\n"
-    "addl 12(%%rdx,%%r14,4), %%r9d\n"
-    "addl %%r13d, %%r9d\n"
-    "addl %%r9d, %%eax\n"
-
-    "movl %%r10d, %%r13d\n"
-    "movl %%r10d, %%edi\n"
-    "roll $10, %%r13d\n"
-    "roll $19, %%edi\n"
-    "xorl %%r13d, %%edi\n"
-    "roll $20, %%r13d\n"
-    "xorl %%r13d, %%edi\n"
-    "addl %%edi, %%r9d\n"
-    "movl %%r10d, %%r13d\n"
-    "movl %%r10d, %%edi\n"
-    "andl %%r11d, %%r13d\n"
-    "xorl %%r11d, %%edi\n"
-    "addl %%r13d, %%r9d\n"
-    "andl %%r12d, %%edi\n"
-    "addl %%edi, %%r9d\n"
-
-    "movl 16(%%rsi, %%r14, 4), %%r15d\n"
-    "bswapl %%r15d\n"
-    "movl %%r15d, 16(%%rsp, %%r14, 4)\n"
-
-    "movl %%eax, %%r13d\n"
-    "movl %%eax, %%edi\n"
-    "roll $7, %%r13d\n"
-    "roll $21, %%edi\n"
-    "xorl %%r13d, %%edi\n"
-    "roll $19, %%r13d\n"
-    "xorl %%r13d, %%edi\n"
-    "addl %%r15d, %%r8d\n"
-    "addl %%edi, %%r8d\n"
-    "movl %%ecx, %%r13d\n"
-    "xorl %%ebx, %%r13d\n"
-    "andl %%eax, %%r13d\n"
-    "xorl %%ecx, %%r13d\n"
-    "addl 16(%%rdx,%%r14,4), %%r8d\n"
-    "addl %%r13d, %%r8d\n"
-    "addl %%r8d, %%r12d\n"
-
-    "movl %%r9d, %%r13d\n"
-    "movl %%r9d, %%edi\n"
-    "roll $10, %%r13d\n"
-    "roll $19, %%edi\n"
-    "xorl %%r13d, %%edi\n"
-    "roll $20, %%r13d\n"
-    "xorl %%r13d, %%edi\n"
-    "addl %%edi, %%r8d\n"
-    "movl %%r9d, %%r13d\n"
-    "movl %%r9d, %%edi\n"
-    "andl %%r10d, %%r13d\n"
-    "xorl %%r10d, %%edi\n"
-    "addl %%r13d, %%r8d\n"
-    "andl %%r11d, %%edi\n"
-    "addl %%edi, %%r8d\n"
-
-    "movl 20(%%rsi, %%r14, 4), %%r15d\n"
-    "bswapl %%r15d\n"
-    "movl %%r15d, 20(%%rsp, %%r14, 4)\n"
-
-    "movl %%r12d, %%r13d\n"
-    "movl %%r12d, %%edi\n"
-    "roll $7, %%r13d\n"
-    "roll $21, %%edi\n"
-    "xorl %%r13d, %%edi\n"
-    "roll $19, %%r13d\n"
-    "xorl %%r13d, %%edi\n"
-    "addl %%r15d, %%ecx\n"
-    "addl %%edi, %%ecx\n"
-    "movl %%ebx, %%r13d\n"
-    "xorl %%eax, %%r13d\n"
-    "andl %%r12d, %%r13d\n"
-    "xorl %%ebx, %%r13d\n"
-    "addl 20(%%rdx,%%r14,4), %%ecx\n"
-    "addl %%r13d, %%ecx\n"
-    "addl %%ecx, %%r11d\n"
-
-    "movl %%r8d, %%r13d\n"
-    "movl %%r8d, %%edi\n"
-    "roll $10, %%r13d\n"
-    "roll $19, %%edi\n"
-    "xorl %%r13d, %%edi\n"
-    "roll $20, %%r13d\n"
-    "xorl %%r13d, %%edi\n"
-    "addl %%edi, %%ecx\n"
-    "movl %%r8d, %%r13d\n"
-    "movl %%r8d, %%edi\n"
-    "andl %%r9d, %%r13d\n"
-    "xorl %%r9d, %%edi\n"
-    "addl %%r13d, %%ecx\n"
-    "andl %%r10d, %%edi\n"
-    "addl %%edi, %%ecx\n"
-
-    "movl 24(%%rsi, %%r14, 4), %%r15d\n"
-    "bswapl %%r15d\n"
-    "movl %%r15d, 24(%%rsp, %%r14, 4)\n"
-
-    "movl %%r11d, %%r13d\n"
-    "movl %%r11d, %%edi\n"
-    "roll $7, %%r13d\n"
-    "roll $21, %%edi\n"
-    "xorl %%r13d, %%edi\n"
-    "roll $19, %%r13d\n"
-    "xorl %%r13d, %%edi\n"
-    "addl %%r15d, %%ebx\n"
-    "addl %%edi, %%ebx\n"
-    "movl %%eax, %%r13d\n"
-    "xorl %%r12d, %%r13d\n"
-    "andl %%r11d, %%r13d\n"
-    "xorl %%eax, %%r13d\n"
-    "addl 24(%%rdx,%%r14,4), %%ebx\n"
-    "addl %%r13d, %%ebx\n"
-    "addl %%ebx, %%r10d\n"
-
-    "movl %%ecx, %%r13d\n"
-    "movl %%ecx, %%edi\n"
-    "roll $10, %%r13d\n"
-    "roll $19, %%edi\n"
-    "xorl %%r13d, %%edi\n"
-    "roll $20, %%r13d\n"
-    "xorl %%r13d, %%edi\n"
-    "addl %%edi, %%ebx\n"
-    "movl %%ecx, %%r13d\n"
-    "movl %%ecx, %%edi\n"
-    "andl %%r8d, %%r13d\n"
-    "xorl %%r8d, %%edi\n"
-    "addl %%r13d, %%ebx\n"
-    "andl %%r9d, %%edi\n"
-    "addl %%edi, %%ebx\n"
-
-    "movl 28(%%rsi, %%r14, 4), %%r15d\n"
-    "bswapl %%r15d\n"
-    "movl %%r15d, 28(%%rsp, %%r14, 4)\n"
-
-    "movl %%r10d, %%r13d\n"
-    "movl %%r10d, %%edi\n"
-    "roll $7, %%r13d\n"
-    "roll $21, %%edi\n"
-    "xorl %%r13d, %%edi\n"
-    "roll $19, %%r13d\n"
-    "xorl %%r13d, %%edi\n"
-    "addl %%r15d, %%eax\n"
-    "addl %%edi, %%eax\n"
-    "movl %%r12d, %%r13d\n"
-    "xorl %%r11d, %%r13d\n"
-    "andl %%r10d, %%r13d\n"
-    "xorl %%r12d, %%r13d\n"
-    "addl 28(%%rdx,%%r14,4), %%eax\n"
-    "addl %%r13d, %%eax\n"
-    "addl %%eax, %%r9d\n"
-
-    "movl %%ebx, %%r13d\n"
-    "movl %%ebx, %%edi\n"
-    "roll $10, %%r13d\n"
-    "roll $19, %%edi\n"
-    "xorl %%r13d, %%edi\n"
-    "roll $20, %%r13d\n"
-    "xorl %%r13d, %%edi\n"
-    "addl %%edi, %%eax\n"
-    "movl %%ebx, %%r13d\n"
-    "movl %%ebx, %%edi\n"
-    "andl %%ecx, %%r13d\n"
-    "xorl %%ecx, %%edi\n"
-    "addl %%r13d, %%eax\n"
-    "andl %%r8d, %%edi\n"
-    "addl %%edi, %%eax\n"
-
-    "addq $8, %%r14\n"
-    "cmpq $16, %%r14\n"
-    "jne 1b\n"
-
-    "2:\n"
-
-    "movl (%%rsp), %%r15d\n"
-    "movl 56(%%rsp), %%r13d\n"
-    "movl %%r13d, %%edi\n"
-    "shrl $10, %%r13d\n"
-    "roll $13, %%edi\n"
-    "xorl %%edi, %%r13d\n"
-    "roll $2, %%edi\n"
-    "xorl %%edi, %%r13d\n"
-    "addl %%r13d, %%r15d\n"
-    "movl 4(%%rsp), %%r13d\n"
-    "movl %%r13d, %%edi\n"
-    "shrl $3, %%r13d\n"
-    "roll $14, %%edi\n"
-    "xorl %%edi, %%r13d\n"
-    "roll $11, %%edi\n"
-    "xorl %%edi, %%r13d\n"
-    "addl %%r13d, %%r15d\n"
-    "addl 36(%%rsp), %%r15d\n"
-    "movl %%r15d, (%%rsp)\n"
-
-    "movl %%r9d, %%r13d\n"
-    "movl %%r9d, %%edi\n"
-    "roll $7, %%r13d\n"
-    "roll $21, %%edi\n"
-    "xorl %%r13d, %%edi\n"
-    "roll $19, %%r13d\n"
-    "xorl %%r13d, %%edi\n"
-    "addl %%r15d, %%r12d\n"
-    "addl %%edi, %%r12d\n"
-    "movl %%r11d, %%r13d\n"
-    "xorl %%r10d, %%r13d\n"
-    "andl %%r9d, %%r13d\n"
-    "xorl %%r11d, %%r13d\n"
-    "addl (%%rdx,%%r14,4), %%r12d\n"
-    "addl %%r13d, %%r12d\n"
-    "addl %%r12d, %%r8d\n"
-
-    "movl %%eax, %%r13d\n"
-    "movl %%eax, %%edi\n"
-    "roll $10, %%r13d\n"
-    "roll $19, %%edi\n"
-    "xorl %%r13d, %%edi\n"
-    "roll $20, %%r13d\n"
-    "xorl %%r13d, %%edi\n"
-    "addl %%edi, %%r12d\n"
-    "movl %%eax, %%r13d\n"
-    "movl %%eax, %%edi\n"
-    "andl %%ebx, %%r13d\n"
-    "xorl %%ebx, %%edi\n"
-    "addl %%r13d, %%r12d\n"
-    "andl %%ecx, %%edi\n"
-    "addl %%edi, %%r12d\n"
-
-    "movl 4(%%rsp), %%r15d\n"
-    "movl 60(%%rsp), %%r13d\n"
-    "movl %%r13d, %%edi\n"
-    "shrl $10, %%r13d\n"
-    "roll $13, %%edi\n"
-    "xorl %%edi, %%r13d\n"
-    "roll $2, %%edi\n"
-    "xorl %%edi, %%r13d\n"
-    "addl %%r13d, %%r15d\n"
-    "movl 8(%%rsp), %%r13d\n"
-    "movl %%r13d, %%edi\n"
-    "shrl $3, %%r13d\n"
-    "roll $14, %%edi\n"
-    "xorl %%edi, %%r13d\n"
-    "roll $11, %%edi\n"
-    "xorl %%edi, %%r13d\n"
-    "addl %%r13d, %%r15d\n"
-    "addl 40(%%rsp), %%r15d\n"
-    "movl %%r15d, 4(%%rsp)\n"
-
-    "movl %%r8d, %%r13d\n"
-    "movl %%r8d, %%edi\n"
-    "roll $7, %%r13d\n"
-    "roll $21, %%edi\n"
-    "xorl %%r13d, %%edi\n"
-    "roll $19, %%r13d\n"
-    "xorl %%r13d, %%edi\n"
-    "addl %%r15d, %%r11d\n"
-    "addl %%edi, %%r11d\n"
-    "movl %%r10d, %%r13d\n"
-    "xorl %%r9d, %%r13d\n"
-    "andl %%r8d, %%r13d\n"
-    "xorl %%r10d, %%r13d\n"
-    "addl 4(%%rdx,%%r14,4), %%r11d\n"
-    "addl %%r13d, %%r11d\n"
-    "addl %%r11d, %%ecx\n"
-
-    "movl %%r12d, %%r13d\n"
-    "movl %%r12d, %%edi\n"
-    "roll $10, %%r13d\n"
-    "roll $19, %%edi\n"
-    "xorl %%r13d, %%edi\n"
-    "roll $20, %%r13d\n"
-    "xorl %%r13d, %%edi\n"
-    "addl %%edi, %%r11d\n"
-    "movl %%r12d, %%r13d\n"
-    "movl %%r12d, %%edi\n"
-    "andl %%eax, %%r13d\n"
-    "xorl %%eax, %%edi\n"
-    "addl %%r13d, %%r11d\n"
-    "andl %%ebx, %%edi\n"
-    "addl %%edi, %%r11d\n"
-
-    "movl 8(%%rsp), %%r15d\n"
-    "movl (%%rsp), %%r13d\n"
-    "movl %%r13d, %%edi\n"
-    "shrl $10, %%r13d\n"
-    "roll $13, %%edi\n"
-    "xorl %%edi, %%r13d\n"
-    "roll $2, %%edi\n"
-    "xorl %%edi, %%r13d\n"
-    "addl %%r13d, %%r15d\n"
-    "movl 12(%%rsp), %%r13d\n"
-    "movl %%r13d, %%edi\n"
-    "shrl $3, %%r13d\n"
-    "roll $14, %%edi\n"
-    "xorl %%edi, %%r13d\n"
-    "roll $11, %%edi\n"
-    "xorl %%edi, %%r13d\n"
-    "addl %%r13d, %%r15d\n"
-    "addl 44(%%rsp), %%r15d\n"
-    "movl %%r15d, 8(%%rsp)\n"
-
-    "movl %%ecx, %%r13d\n"
-    "movl %%ecx, %%edi\n"
-    "roll $7, %%r13d\n"
-    "roll $21, %%edi\n"
-    "xorl %%r13d, %%edi\n"
-    "roll $19, %%r13d\n"
-    "xorl %%r13d, %%edi\n"
-    "addl %%r15d, %%r10d\n"
-    "addl %%edi, %%r10d\n"
-    "movl %%r9d, %%r13d\n"
-    "xorl %%r8d, %%r13d\n"
-    "andl %%ecx, %%r13d\n"
-    "xorl %%r9d, %%r13d\n"
-    "addl 8(%%rdx,%%r14,4), %%r10d\n"
-    "addl %%r13d, %%r10d\n"
-    "addl %%r10d, %%ebx\n"
-
-    "movl %%r11d, %%r13d\n"
-    "movl %%r11d, %%edi\n"
-    "roll $10, %%r13d\n"
-    "roll $19, %%edi\n"
-    "xorl %%r13d, %%edi\n"
-    "roll $20, %%r13d\n"
-    "xorl %%r13d, %%edi\n"
-    "addl %%edi, %%r10d\n"
-    "movl %%r11d, %%r13d\n"
-    "movl %%r11d, %%edi\n"
-    "andl %%r12d, %%r13d\n"
-    "xorl %%r12d, %%edi\n"
-    "addl %%r13d, %%r10d\n"
-    "andl %%eax, %%edi\n"
-    "addl %%edi, %%r10d\n"
-
-    "movl 12(%%rsp), %%r15d\n"
-    "movl 4(%%rsp), %%r13d\n"
-    "movl %%r13d, %%edi\n"
-    "shrl $10, %%r13d\n"
-    "roll $13, %%edi\n"
-    "xorl %%edi, %%r13d\n"
-    "roll $2, %%edi\n"
-    "xorl %%edi, %%r13d\n"
-    "addl %%r13d, %%r15d\n"
-    "movl 16(%%rsp), %%r13d\n"
-    "movl %%r13d, %%edi\n"
-    "shrl $3, %%r13d\n"
-    "roll $14, %%edi\n"
-    "xorl %%edi, %%r13d\n"
-    "roll $11, %%edi\n"
-    "xorl %%edi, %%r13d\n"
-    "addl %%r13d, %%r15d\n"
-    "addl 48(%%rsp), %%r15d\n"
-    "movl %%r15d, 12(%%rsp)\n"
-
-    "movl %%ebx, %%r13d\n"
-    "movl %%ebx, %%edi\n"
-    "roll $7, %%r13d\n"
-    "roll $21, %%edi\n"
-    "xorl %%r13d, %%edi\n"
-    "roll $19, %%r13d\n"
-    "xorl %%r13d, %%edi\n"
-    "addl %%r15d, %%r9d\n"
-    "addl %%edi, %%r9d\n"
-    "movl %%r8d, %%r13d\n"
-    "xorl %%ecx, %%r13d\n"
-    "andl %%ebx, %%r13d\n"
-    "xorl %%r8d, %%r13d\n"
-    "addl 12(%%rdx,%%r14,4), %%r9d\n"
-    "addl %%r13d, %%r9d\n"
-    "addl %%r9d, %%eax\n"
-
-    "movl %%r10d, %%r13d\n"
-    "movl %%r10d, %%edi\n"
-    "roll $10, %%r13d\n"
-    "roll $19, %%edi\n"
-    "xorl %%r13d, %%edi\n"
-    "roll $20, %%r13d\n"
-    "xorl %%r13d, %%edi\n"
-    "addl %%edi, %%r9d\n"
-    "movl %%r10d, %%r13d\n"
-    "movl %%r10d, %%edi\n"
-    "andl %%r11d, %%r13d\n"
-    "xorl %%r11d, %%edi\n"
-    "addl %%r13d, %%r9d\n"
-    "andl %%r12d, %%edi\n"
-    "addl %%edi, %%r9d\n"
-
-    "movl 16(%%rsp), %%r15d\n"
-    "movl 8(%%rsp), %%r13d\n"
-    "movl %%r13d, %%edi\n"
-    "shrl $10, %%r13d\n"
-    "roll $13, %%edi\n"
-    "xorl %%edi, %%r13d\n"
-    "roll $2, %%edi\n"
-    "xorl %%edi, %%r13d\n"
-    "addl %%r13d, %%r15d\n"
-    "movl 20(%%rsp), %%r13d\n"
-    "movl %%r13d, %%edi\n"
-    "shrl $3, %%r13d\n"
-    "roll $14, %%edi\n"
-    "xorl %%edi, %%r13d\n"
-    "roll $11, %%edi\n"
-    "xorl %%edi, %%r13d\n"
-    "addl %%r13d, %%r15d\n"
-    "addl 52(%%rsp), %%r15d\n"
-    "movl %%r15d, 16(%%rsp)\n"
-
-    "movl %%eax, %%r13d\n"
-    "movl %%eax, %%edi\n"
-    "roll $7, %%r13d\n"
-    "roll $21, %%edi\n"
-    "xorl %%r13d, %%edi\n"
-    "roll $19, %%r13d\n"
-    "xorl %%r13d, %%edi\n"
-    "addl %%r15d, %%r8d\n"
-    "addl %%edi, %%r8d\n"
-    "movl %%ecx, %%r13d\n"
-    "xorl %%ebx, %%r13d\n"
-    "andl %%eax, %%r13d\n"
-    "xorl %%ecx, %%r13d\n"
-    "addl 16(%%rdx,%%r14,4), %%r8d\n"
-    "addl %%r13d, %%r8d\n"
-    "addl %%r8d, %%r12d\n"
-
-    "movl %%r9d, %%r13d\n"
-    "movl %%r9d, %%edi\n"
-    "roll $10, %%r13d\n"
-    "roll $19, %%edi\n"
-    "xorl %%r13d, %%edi\n"
-    "roll $20, %%r13d\n"
-    "xorl %%r13d, %%edi\n"
-    "addl %%edi, %%r8d\n"
-    "movl %%r9d, %%r13d\n"
-    "movl %%r9d, %%edi\n"
-    "andl %%r10d, %%r13d\n"
-    "xorl %%r10d, %%edi\n"
-    "addl %%r13d, %%r8d\n"
-    "andl %%r11d, %%edi\n"
-    "addl %%edi, %%r8d\n"
-
-    "movl 20(%%rsp), %%r15d\n"
-    "movl 12(%%rsp), %%r13d\n"
-    "movl %%r13d, %%edi\n"
-    "shrl $10, %%r13d\n"
-    "roll $13, %%edi\n"
-    "xorl %%edi, %%r13d\n"
-    "roll $2, %%edi\n"
-    "xorl %%edi, %%r13d\n"
-    "addl %%r13d, %%r15d\n"
-    "movl 24(%%rsp), %%r13d\n"
-    "movl %%r13d, %%edi\n"
-    "shrl $3, %%r13d\n"
-    "roll $14, %%edi\n"
-    "xorl %%edi, %%r13d\n"
-    "roll $11, %%edi\n"
-    "xorl %%edi, %%r13d\n"
-    "addl %%r13d, %%r15d\n"
-    "addl 56(%%rsp), %%r15d\n"
-    "movl %%r15d, 20(%%rsp)\n"
-
-    "movl %%r12d, %%r13d\n"
-    "movl %%r12d, %%edi\n"
-    "roll $7, %%r13d\n"
-    "roll $21, %%edi\n"
-    "xorl %%r13d, %%edi\n"
-    "roll $19, %%r13d\n"
-    "xorl %%r13d, %%edi\n"
-    "addl %%r15d, %%ecx\n"
-    "addl %%edi, %%ecx\n"
-    "movl %%ebx, %%r13d\n"
-    "xorl %%eax, %%r13d\n"
-    "andl %%r12d, %%r13d\n"
-    "xorl %%ebx, %%r13d\n"
-    "addl 20(%%rdx,%%r14,4), %%ecx\n"
-    "addl %%r13d, %%ecx\n"
-    "addl %%ecx, %%r11d\n"
-
-    "movl %%r8d, %%r13d\n"
-    "movl %%r8d, %%edi\n"
-    "roll $10, %%r13d\n"
-    "roll $19, %%edi\n"
-    "xorl %%r13d, %%edi\n"
-    "roll $20, %%r13d\n"
-    "xorl %%r13d, %%edi\n"
-    "addl %%edi, %%ecx\n"
-    "movl %%r8d, %%r13d\n"
-    "movl %%r8d, %%edi\n"
-    "andl %%r9d, %%r13d\n"
-    "xorl %%r9d, %%edi\n"
-    "addl %%r13d, %%ecx\n"
-    "andl %%r10d, %%edi\n"
-    "addl %%edi, %%ecx\n"
-
-    "movl 24(%%rsp), %%r15d\n"
-    "movl 16(%%rsp), %%r13d\n"
-    "movl %%r13d, %%edi\n"
-    "shrl $10, %%r13d\n"
-    "roll $13, %%edi\n"
-    "xorl %%edi, %%r13d\n"
-    "roll $2, %%edi\n"
-    "xorl %%edi, %%r13d\n"
-    "addl %%r13d, %%r15d\n"
-    "movl 28(%%rsp), %%r13d\n"
-    "movl %%r13d, %%edi\n"
-    "shrl $3, %%r13d\n"
-    "roll $14, %%edi\n"
-    "xorl %%edi, %%r13d\n"
-    "roll $11, %%edi\n"
-    "xorl %%edi, %%r13d\n"
-    "addl %%r13d, %%r15d\n"
-    "addl 60(%%rsp), %%r15d\n"
-    "movl %%r15d, 24(%%rsp)\n"
-
-    "movl %%r11d, %%r13d\n"
-    "movl %%r11d, %%edi\n"
-    "roll $7, %%r13d\n"
-    "roll $21, %%edi\n"
-    "xorl %%r13d, %%edi\n"
-    "roll $19, %%r13d\n"
-    "xorl %%r13d, %%edi\n"
-    "addl %%r15d, %%ebx\n"
-    "addl %%edi, %%ebx\n"
-    "movl %%eax, %%r13d\n"
-    "xorl %%r12d, %%r13d\n"
-    "andl %%r11d, %%r13d\n"
-    "xorl %%eax, %%r13d\n"
-    "addl 24(%%rdx,%%r14,4), %%ebx\n"
-    "addl %%r13d, %%ebx\n"
-    "addl %%ebx, %%r10d\n"
-
-    "movl %%ecx, %%r13d\n"
-    "movl %%ecx, %%edi\n"
-    "roll $10, %%r13d\n"
-    "roll $19, %%edi\n"
-    "xorl %%r13d, %%edi\n"
-    "roll $20, %%r13d\n"
-    "xorl %%r13d, %%edi\n"
-    "addl %%edi, %%ebx\n"
-    "movl %%ecx, %%r13d\n"
-    "movl %%ecx, %%edi\n"
-    "andl %%r8d, %%r13d\n"
-    "xorl %%r8d, %%edi\n"
-    "addl %%r13d, %%ebx\n"
-    "andl %%r9d, %%edi\n"
-    "addl %%edi, %%ebx\n"
-
-    "movl 28(%%rsp), %%r15d\n"
-    "movl 20(%%rsp), %%r13d\n"
-    "movl %%r13d, %%edi\n"
-    "shrl $10, %%r13d\n"
-    "roll $13, %%edi\n"
-    "xorl %%edi, %%r13d\n"
-    "roll $2, %%edi\n"
-    "xorl %%edi, %%r13d\n"
-    "addl %%r13d, %%r15d\n"
-    "movl 32(%%rsp), %%r13d\n"
-    "movl %%r13d, %%edi\n"
-    "shrl $3, %%r13d\n"
-    "roll $14, %%edi\n"
-    "xorl %%edi, %%r13d\n"
-    "roll $11, %%edi\n"
-    "xorl %%edi, %%r13d\n"
-    "addl %%r13d, %%r15d\n"
-    "addl (%%rsp), %%r15d\n"
-    "movl %%r15d, 28(%%rsp)\n"
-
-    "movl %%r10d, %%r13d\n"
-    "movl %%r10d, %%edi\n"
-    "roll $7, %%r13d\n"
-    "roll $21, %%edi\n"
-    "xorl %%r13d, %%edi\n"
-    "roll $19, %%r13d\n"
-    "xorl %%r13d, %%edi\n"
-    "addl %%r15d, %%eax\n"
-    "addl %%edi, %%eax\n"
-    "movl %%r12d, %%r13d\n"
-    "xorl %%r11d, %%r13d\n"
-    "andl %%r10d, %%r13d\n"
-    "xorl %%r12d, %%r13d\n"
-    "addl 28(%%rdx,%%r14,4), %%eax\n"
-    "addl %%r13d, %%eax\n"
-    "addl %%eax, %%r9d\n"
-
-    "movl %%ebx, %%r13d\n"
-    "movl %%ebx, %%edi\n"
-    "roll $10, %%r13d\n"
-    "roll $19, %%edi\n"
-    "xorl %%r13d, %%edi\n"
-    "roll $20, %%r13d\n"
-    "xorl %%r13d, %%edi\n"
-    "addl %%edi, %%eax\n"
-    "movl %%ebx, %%r13d\n"
-    "movl %%ebx, %%edi\n"
-    "andl %%ecx, %%r13d\n"
-    "xorl %%ecx, %%edi\n"
-    "addl %%r13d, %%eax\n"
-    "andl %%r8d, %%edi\n"
-    "addl %%edi, %%eax\n"
-
-    "movl 32(%%rsp), %%r15d\n"
-    "movl 24(%%rsp), %%r13d\n"
-    "movl %%r13d, %%edi\n"
-    "shrl $10, %%r13d\n"
-    "roll $13, %%edi\n"
-    "xorl %%edi, %%r13d\n"
-    "roll $2, %%edi\n"
-    "xorl %%edi, %%r13d\n"
-    "addl %%r13d, %%r15d\n"
-    "movl 36(%%rsp), %%r13d\n"
-    "movl %%r13d, %%edi\n"
-    "shrl $3, %%r13d\n"
-    "roll $14, %%edi\n"
-    "xorl %%edi, %%r13d\n"
-    "roll $11, %%edi\n"
-    "xorl %%edi, %%r13d\n"
-    "addl %%r13d, %%r15d\n"
-    "addl 4(%%rsp), %%r15d\n"
-    "movl %%r15d, 32(%%rsp)\n"
-
-    "movl %%r9d, %%r13d\n"
-    "movl %%r9d, %%edi\n"
-    "roll $7, %%r13d\n"
-    "roll $21, %%edi\n"
-    "xorl %%r13d, %%edi\n"
-    "roll $19, %%r13d\n"
-    "xorl %%r13d, %%edi\n"
-    "addl %%r15d, %%r12d\n"
-    "addl %%edi, %%r12d\n"
-    "movl %%r11d, %%r13d\n"
-    "xorl %%r10d, %%r13d\n"
-    "andl %%r9d, %%r13d\n"
-    "xorl %%r11d, %%r13d\n"
-    "addl 32(%%rdx,%%r14,4), %%r12d\n"
-    "addl %%r13d, %%r12d\n"
-    "addl %%r12d, %%r8d\n"
-
-    "movl %%eax, %%r13d\n"
-    "movl %%eax, %%edi\n"
-    "roll $10, %%r13d\n"
-    "roll $19, %%edi\n"
-    "xorl %%r13d, %%edi\n"
-    "roll $20, %%r13d\n"
-    "xorl %%r13d, %%edi\n"
-    "addl %%edi, %%r12d\n"
-    "movl %%eax, %%r13d\n"
-    "movl %%eax, %%edi\n"
-    "andl %%ebx, %%r13d\n"
-    "xorl %%ebx, %%edi\n"
-    "addl %%r13d, %%r12d\n"
-    "andl %%ecx, %%edi\n"
-    "addl %%edi, %%r12d\n"
-
-    "movl 36(%%rsp), %%r15d\n"
-    "movl 28(%%rsp), %%r13d\n"
-    "movl %%r13d, %%edi\n"
-    "shrl $10, %%r13d\n"
-    "roll $13, %%edi\n"
-    "xorl %%edi, %%r13d\n"
-    "roll $2, %%edi\n"
-    "xorl %%edi, %%r13d\n"
-    "addl %%r13d, %%r15d\n"
-    "movl 40(%%rsp), %%r13d\n"
-    "movl %%r13d, %%edi\n"
-    "shrl $3, %%r13d\n"
-    "roll $14, %%edi\n"
-    "xorl %%edi, %%r13d\n"
-    "roll $11, %%edi\n"
-    "xorl %%edi, %%r13d\n"
-    "addl %%r13d, %%r15d\n"
-    "addl 8(%%rsp), %%r15d\n"
-    "movl %%r15d, 36(%%rsp)\n"
-
-    "movl %%r8d, %%r13d\n"
-    "movl %%r8d, %%edi\n"
-    "roll $7, %%r13d\n"
-    "roll $21, %%edi\n"
-    "xorl %%r13d, %%edi\n"
-    "roll $19, %%r13d\n"
-    "xorl %%r13d, %%edi\n"
-    "addl %%r15d, %%r11d\n"
-    "addl %%edi, %%r11d\n"
-    "movl %%r10d, %%r13d\n"
-    "xorl %%r9d, %%r13d\n"
-    "andl %%r8d, %%r13d\n"
-    "xorl %%r10d, %%r13d\n"
-    "addl 36(%%rdx,%%r14,4), %%r11d\n"
-    "addl %%r13d, %%r11d\n"
-    "addl %%r11d, %%ecx\n"
-
-    "movl %%r12d, %%r13d\n"
-    "movl %%r12d, %%edi\n"
-    "roll $10, %%r13d\n"
-    "roll $19, %%edi\n"
-    "xorl %%r13d, %%edi\n"
-    "roll $20, %%r13d\n"
-    "xorl %%r13d, %%edi\n"
-    "addl %%edi, %%r11d\n"
-    "movl %%r12d, %%r13d\n"
-    "movl %%r12d, %%edi\n"
-    "andl %%eax, %%r13d\n"
-    "xorl %%eax, %%edi\n"
-    "addl %%r13d, %%r11d\n"
-    "andl %%ebx, %%edi\n"
-    "addl %%edi, %%r11d\n"
-
-    "movl 40(%%rsp), %%r15d\n"
-    "movl 32(%%rsp), %%r13d\n"
-    "movl %%r13d, %%edi\n"
-    "shrl $10, %%r13d\n"
-    "roll $13, %%edi\n"
-    "xorl %%edi, %%r13d\n"
-    "roll $2, %%edi\n"
-    "xorl %%edi, %%r13d\n"
-    "addl %%r13d, %%r15d\n"
-    "movl 44(%%rsp), %%r13d\n"
-    "movl %%r13d, %%edi\n"
-    "shrl $3, %%r13d\n"
-    "roll $14, %%edi\n"
-    "xorl %%edi, %%r13d\n"
-    "roll $11, %%edi\n"
-    "xorl %%edi, %%r13d\n"
-    "addl %%r13d, %%r15d\n"
-    "addl 12(%%rsp), %%r15d\n"
-    "movl %%r15d, 40(%%rsp)\n"
-
-    "movl %%ecx, %%r13d\n"
-    "movl %%ecx, %%edi\n"
-    "roll $7, %%r13d\n"
-    "roll $21, %%edi\n"
-    "xorl %%r13d, %%edi\n"
-    "roll $19, %%r13d\n"
-    "xorl %%r13d, %%edi\n"
-    "addl %%r15d, %%r10d\n"
-    "addl %%edi, %%r10d\n"
-    "movl %%r9d, %%r13d\n"
-    "xorl %%r8d, %%r13d\n"
-    "andl %%ecx, %%r13d\n"
-    "xorl %%r9d, %%r13d\n"
-    "addl 40(%%rdx,%%r14,4), %%r10d\n"
-    "addl %%r13d, %%r10d\n"
-    "addl %%r10d, %%ebx\n"
-
-    "movl %%r11d, %%r13d\n"
-    "movl %%r11d, %%edi\n"
-    "roll $10, %%r13d\n"
-    "roll $19, %%edi\n"
-    "xorl %%r13d, %%edi\n"
-    "roll $20, %%r13d\n"
-    "xorl %%r13d, %%edi\n"
-    "addl %%edi, %%r10d\n"
-    "movl %%r11d, %%r13d\n"
-    "movl %%r11d, %%edi\n"
-    "andl %%r12d, %%r13d\n"
-    "xorl %%r12d, %%edi\n"
-    "addl %%r13d, %%r10d\n"
-    "andl %%eax, %%edi\n"
-    "addl %%edi, %%r10d\n"
-
-    "movl 44(%%rsp), %%r15d\n"
-    "movl 36(%%rsp), %%r13d\n"
-    "movl %%r13d, %%edi\n"
-    "shrl $10, %%r13d\n"
-    "roll $13, %%edi\n"
-    "xorl %%edi, %%r13d\n"
-    "roll $2, %%edi\n"
-    "xorl %%edi, %%r13d\n"
-    "addl %%r13d, %%r15d\n"
-    "movl 48(%%rsp), %%r13d\n"
-    "movl %%r13d, %%edi\n"
-    "shrl $3, %%r13d\n"
-    "roll $14, %%edi\n"
-    "xorl %%edi, %%r13d\n"
-    "roll $11, %%edi\n"
-    "xorl %%edi, %%r13d\n"
-    "addl %%r13d, %%r15d\n"
-    "addl 16(%%rsp), %%r15d\n"
-    "movl %%r15d, 44(%%rsp)\n"
-
-    "movl %%ebx, %%r13d\n"
-    "movl %%ebx, %%edi\n"
-    "roll $7, %%r13d\n"
-    "roll $21, %%edi\n"
-    "xorl %%r13d, %%edi\n"
-    "roll $19, %%r13d\n"
-    "xorl %%r13d, %%edi\n"
-    "addl %%r15d, %%r9d\n"
-    "addl %%edi, %%r9d\n"
-    "movl %%r8d, %%r13d\n"
-    "xorl %%ecx, %%r13d\n"
-    "andl %%ebx, %%r13d\n"
-    "xorl %%r8d, %%r13d\n"
-    "addl 44(%%rdx,%%r14,4), %%r9d\n"
-    "addl %%r13d, %%r9d\n"
-    "addl %%r9d, %%eax\n"
-
-    "movl %%r10d, %%r13d\n"
-    "movl %%r10d, %%edi\n"
-    "roll $10, %%r13d\n"
-    "roll $19, %%edi\n"
-    "xorl %%r13d, %%edi\n"
-    "roll $20, %%r13d\n"
-    "xorl %%r13d, %%edi\n"
-    "addl %%edi, %%r9d\n"
-    "movl %%r10d, %%r13d\n"
-    "movl %%r10d, %%edi\n"
-    "andl %%r11d, %%r13d\n"
-    "xorl %%r11d, %%edi\n"
-    "addl %%r13d, %%r9d\n"
-    "andl %%r12d, %%edi\n"
-    "addl %%edi, %%r9d\n"
-
-    "movl 48(%%rsp), %%r15d\n"
-    "movl 40(%%rsp), %%r13d\n"
-    "movl %%r13d, %%edi\n"
-    "shrl $10, %%r13d\n"
-    "roll $13, %%edi\n"
-    "xorl %%edi, %%r13d\n"
-    "roll $2, %%edi\n"
-    "xorl %%edi, %%r13d\n"
-    "addl %%r13d, %%r15d\n"
-    "movl 52(%%rsp), %%r13d\n"
-    "movl %%r13d, %%edi\n"
-    "shrl $3, %%r13d\n"
-    "roll $14, %%edi\n"
-    "xorl %%edi, %%r13d\n"
-    "roll $11, %%edi\n"
-    "xorl %%edi, %%r13d\n"
-    "addl %%r13d, %%r15d\n"
-    "addl 20(%%rsp), %%r15d\n"
-    "movl %%r15d, 48(%%rsp)\n"
-
-    "movl %%eax, %%r13d\n"
-    "movl %%eax, %%edi\n"
-    "roll $7, %%r13d\n"
-    "roll $21, %%edi\n"
-    "xorl %%r13d, %%edi\n"
-    "roll $19, %%r13d\n"
-    "xorl %%r13d, %%edi\n"
-    "addl %%r15d, %%r8d\n"
-    "addl %%edi, %%r8d\n"
-    "movl %%ecx, %%r13d\n"
-    "xorl %%ebx, %%r13d\n"
-    "andl %%eax, %%r13d\n"
-    "xorl %%ecx, %%r13d\n"
-    "addl 48(%%rdx,%%r14,4), %%r8d\n"
-    "addl %%r13d, %%r8d\n"
-    "addl %%r8d, %%r12d\n"
-
-    "movl %%r9d, %%r13d\n"
-    "movl %%r9d, %%edi\n"
-    "roll $10, %%r13d\n"
-    "roll $19, %%edi\n"
-    "xorl %%r13d, %%edi\n"
-    "roll $20, %%r13d\n"
-    "xorl %%r13d, %%edi\n"
-    "addl %%edi, %%r8d\n"
-    "movl %%r9d, %%r13d\n"
-    "movl %%r9d, %%edi\n"
-    "andl %%r10d, %%r13d\n"
-    "xorl %%r10d, %%edi\n"
-    "addl %%r13d, %%r8d\n"
-    "andl %%r11d, %%edi\n"
-    "addl %%edi, %%r8d\n"
-
-    "movl 52(%%rsp), %%r15d\n"
-    "movl 44(%%rsp), %%r13d\n"
-    "movl %%r13d, %%edi\n"
-    "shrl $10, %%r13d\n"
-    "roll $13, %%edi\n"
-    "xorl %%edi, %%r13d\n"
-    "roll $2, %%edi\n"
-    "xorl %%edi, %%r13d\n"
-    "addl %%r13d, %%r15d\n"
-    "movl 56(%%rsp), %%r13d\n"
-    "movl %%r13d, %%edi\n"
-    "shrl $3, %%r13d\n"
-    "roll $14, %%edi\n"
-    "xorl %%edi, %%r13d\n"
-    "roll $11, %%edi\n"
-    "xorl %%edi, %%r13d\n"
-    "addl %%r13d, %%r15d\n"
-    "addl 24(%%rsp), %%r15d\n"
-    "movl %%r15d, 52(%%rsp)\n"
-
-    "movl %%r12d, %%r13d\n"
-    "movl %%r12d, %%edi\n"
-    "roll $7, %%r13d\n"
-    "roll $21, %%edi\n"
-    "xorl %%r13d, %%edi\n"
-    "roll $19, %%r13d\n"
-    "xorl %%r13d, %%edi\n"
-    "addl %%r15d, %%ecx\n"
-    "addl %%edi, %%ecx\n"
-    "movl %%ebx, %%r13d\n"
-    "xorl %%eax, %%r13d\n"
-    "andl %%r12d, %%r13d\n"
-    "xorl %%ebx, %%r13d\n"
-    "addl 52(%%rdx,%%r14,4), %%ecx\n"
-    "addl %%r13d, %%ecx\n"
-    "addl %%ecx, %%r11d\n"
-
-    "movl %%r8d, %%r13d\n"
-    "movl %%r8d, %%edi\n"
-    "roll $10, %%r13d\n"
-    "roll $19, %%edi\n"
-    "xorl %%r13d, %%edi\n"
-    "roll $20, %%r13d\n"
-    "xorl %%r13d, %%edi\n"
-    "addl %%edi, %%ecx\n"
-    "movl %%r8d, %%r13d\n"
-    "movl %%r8d, %%edi\n"
-    "andl %%r9d, %%r13d\n"
-    "xorl %%r9d, %%edi\n"
-    "addl %%r13d, %%ecx\n"
-    "andl %%r10d, %%edi\n"
-    "addl %%edi, %%ecx\n"
-
-    "movl 56(%%rsp), %%r15d\n"
-    "movl 48(%%rsp), %%r13d\n"
-    "movl %%r13d, %%edi\n"
-    "shrl $10, %%r13d\n"
-    "roll $13, %%edi\n"
-    "xorl %%edi, %%r13d\n"
-    "roll $2, %%edi\n"
-    "xorl %%edi, %%r13d\n"
-    "addl %%r13d, %%r15d\n"
-    "movl 60(%%rsp), %%r13d\n"
-    "movl %%r13d, %%edi\n"
-    "shrl $3, %%r13d\n"
-    "roll $14, %%edi\n"
-    "xorl %%edi, %%r13d\n"
-    "roll $11, %%edi\n"
-    "xorl %%edi, %%r13d\n"
-    "addl %%r13d, %%r15d\n"
-    "addl 28(%%rsp), %%r15d\n"
-    "movl %%r15d, 56(%%rsp)\n"
-
-    "movl %%r11d, %%r13d\n"
-    "movl %%r11d, %%edi\n"
-    "roll $7, %%r13d\n"
-    "roll $21, %%edi\n"
-    "xorl %%r13d, %%edi\n"
-    "roll $19, %%r13d\n"
-    "xorl %%r13d, %%edi\n"
-    "addl %%r15d, %%ebx\n"
-    "addl %%edi, %%ebx\n"
-    "movl %%eax, %%r13d\n"
-    "xorl %%r12d, %%r13d\n"
-    "andl %%r11d, %%r13d\n"
-    "xorl %%eax, %%r13d\n"
-    "addl 56(%%rdx,%%r14,4), %%ebx\n"
-    "addl %%r13d, %%ebx\n"
-    "addl %%ebx, %%r10d\n"
-
-    "movl %%ecx, %%r13d\n"
-    "movl %%ecx, %%edi\n"
-    "roll $10, %%r13d\n"
-    "roll $19, %%edi\n"
-    "xorl %%r13d, %%edi\n"
-    "roll $20, %%r13d\n"
-    "xorl %%r13d, %%edi\n"
-    "addl %%edi, %%ebx\n"
-    "movl %%ecx, %%r13d\n"
-    "movl %%ecx, %%edi\n"
-    "andl %%r8d, %%r13d\n"
-    "xorl %%r8d, %%edi\n"
-    "addl %%r13d, %%ebx\n"
-    "andl %%r9d, %%edi\n"
-    "addl %%edi, %%ebx\n"
-
-    "movl 60(%%rsp), %%r15d\n"
-    "movl 52(%%rsp), %%r13d\n"
-    "movl %%r13d, %%edi\n"
-    "shrl $10, %%r13d\n"
-    "roll $13, %%edi\n"
-    "xorl %%edi, %%r13d\n"
-    "roll $2, %%edi\n"
-    "xorl %%edi, %%r13d\n"
-    "addl %%r13d, %%r15d\n"
-    "movl (%%rsp), %%r13d\n"
-    "movl %%r13d, %%edi\n"
-    "shrl $3, %%r13d\n"
-    "roll $14, %%edi\n"
-    "xorl %%edi, %%r13d\n"
-    "roll $11, %%edi\n"
-    "xorl %%edi, %%r13d\n"
-    "addl %%r13d, %%r15d\n"
-    "addl 32(%%rsp), %%r15d\n"
-    "movl %%r15d, 60(%%rsp)\n"
-
-    "movl %%r10d, %%r13d\n"
-    "movl %%r10d, %%edi\n"
-    "roll $7, %%r13d\n"
-    "roll $21, %%edi\n"
-    "xorl %%r13d, %%edi\n"
-    "roll $19, %%r13d\n"
-    "xorl %%r13d, %%edi\n"
-    "addl %%r15d, %%eax\n"
-    "addl %%edi, %%eax\n"
-    "movl %%r12d, %%r13d\n"
-    "xorl %%r11d, %%r13d\n"
-    "andl %%r10d, %%r13d\n"
-    "xorl %%r12d, %%r13d\n"
-    "addl 60(%%rdx,%%r14,4), %%eax\n"
-    "addl %%r13d, %%eax\n"
-    "addl %%eax, %%r9d\n"
-
-    "movl %%ebx, %%r13d\n"
-    "movl %%ebx, %%edi\n"
-    "roll $10, %%r13d\n"
-    "roll $19, %%edi\n"
-    "xorl %%r13d, %%edi\n"
-    "roll $20, %%r13d\n"
-    "xorl %%r13d, %%edi\n"
-    "addl %%edi, %%eax\n"
-    "movl %%ebx, %%r13d\n"
-    "movl %%ebx, %%edi\n"
-    "andl %%ecx, %%r13d\n"
-    "xorl %%ecx, %%edi\n"
-    "addl %%r13d, %%eax\n"
-    "andl %%r8d, %%edi\n"
-    "addl %%edi, %%eax\n"
-
-    "addq $16, %%r14\n"
-    "cmpq $64, %%r14\n"
-    "jne 2b\n"
-
-    "movq 64(%%rsp), %%rdi\n"
-
-    "addl %%eax, (%%rdi)\n"
-    "addl %%ebx, 4(%%rdi)\n"
-    "addl %%ecx, 8(%%rdi)\n"
-    "addl %%r8d, 12(%%rdi)\n"
-    "addl %%r9d, 16(%%rdi)\n"
-    "addl %%r10d, 20(%%rdi)\n"
-    "addl %%r11d, 24(%%rdi)\n"
-    "addl %%r12d, 28(%%rdi)\n"
-
-    "addq $72, %%rsp\n"
-    :
-    : "D" (ctx->state), "S" (chunk), "d" (sha256_K)
-    : "eax", "ebx", "ecx",
-      "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15",
-      "cc", "memory"
-  );
-#else
-  const uint32_t *k = sha256_K;
-  uint32_t data[16];
-  uint32_t A, B, C, D, E, F, G, H;
-  uint32_t *d;
+  uint32_t A, B, C, D, E, F, G, H, w, t1, t2;
+  uint32_t W[16];
   int i;
 
-  for (i = 0; i < 16; i++, chunk += 4)
-    data[i] = read32be(chunk);
+  for (i = 0; i < 16; i++)
+    W[i] = read32be(chunk + i * 4);
 
   A = ctx->state[0];
   B = ctx->state[1];
@@ -3378,62 +2106,102 @@ sha256_transform(sha256_t *ctx, const unsigned char *chunk) {
   G = ctx->state[6];
   H = ctx->state[7];
 
-#define Ch(x, y, z) ((z) ^ ((x) & ((y) ^ (z))))
-#define Maj(x, y, z) (((x) & (y)) ^ ((z) & ((x) ^ (y))))
+#define Sigma0(x) ((x >> 2 | x << 30) ^ (x >> 13 | x << 19) ^ (x >> 22 | x << 10))
+#define Sigma1(x) ((x >> 6 | x << 26) ^ (x >> 11 | x << 21) ^ (x >> 25 | x << 7))
+#define sigma0(x) ((x >> 7 | x << 25) ^ (x >> 18 | x << 14) ^ (x >> 3))
+#define sigma1(x) ((x >> 17 | x << 15) ^ (x >> 19 | x << 13) ^ (x >> 10))
+#define Ch(x, y, z) (z ^ (x & (y ^ z)))
+#define Maj(x, y, z) ((x & y) | (z & (x | y)))
 
-#define S0(x) (ROTL32(30, (x)) ^ ROTL32(19, (x)) ^ ROTL32(10, (x)))
-#define S1(x) (ROTL32(26, (x)) ^ ROTL32(21, (x)) ^ ROTL32(7, (x)))
+#define P(i) (sigma1(W[(i -  2) & 15]) + W[(i -  7) & 15]  \
+            + sigma0(W[(i - 15) & 15]) + W[(i - 16) & 15])
 
-#define s0(x) (ROTL32(25, (x)) ^ ROTL32(14, (x)) ^ ((x) >> 3))
-#define s1(x) (ROTL32(15, (x)) ^ ROTL32(13, (x)) ^ ((x) >> 10))
-
-#define EXPAND(W, i) (W[(i) & 15] += \
-  (s1(W[((i) - 2) & 15]) + W[((i) - 7) & 15] + s0(W[((i) - 15) & 15])))
-
-#define ROUND(a, b, c, d, e, f, g, h, k, data) do { \
-  h += S1(e) + Ch(e, f, g) + k + data;              \
-  d += h;                                           \
-  h += S0(a) + Maj(a, b, c);                        \
+#define R(a, b, c, d, e, f, g, h, i, k) do { \
+  if (i >= 16) { /* Optimized out. */        \
+    w = P(i);                                \
+    W[i & 15] = w;                           \
+  } else {                                   \
+    w = W[i];                                \
+  }                                          \
+  t1 = h + Sigma1(e) + Ch(e, f, g) + k + w;  \
+  t2 = Sigma0(a) + Maj(a, b, c);             \
+  d = d + t1;                                \
+  h = t1 + t2;                               \
 } while (0)
 
-  for (i = 0, d = data; i < 16; i += 8, k += 8, d += 8) {
-    ROUND(A, B, C, D, E, F, G, H, k[0], d[0]);
-    ROUND(H, A, B, C, D, E, F, G, k[1], d[1]);
-    ROUND(G, H, A, B, C, D, E, F, k[2], d[2]);
-    ROUND(F, G, H, A, B, C, D, E, k[3], d[3]);
-    ROUND(E, F, G, H, A, B, C, D, k[4], d[4]);
-    ROUND(D, E, F, G, H, A, B, C, k[5], d[5]);
-    ROUND(C, D, E, F, G, H, A, B, k[6], d[6]);
-    ROUND(B, C, D, E, F, G, H, A, k[7], d[7]);
-  }
+  R(A, B, C, D, E, F, G, H,  0, 0x428a2f98);
+  R(H, A, B, C, D, E, F, G,  1, 0x71374491);
+  R(G, H, A, B, C, D, E, F,  2, 0xb5c0fbcf);
+  R(F, G, H, A, B, C, D, E,  3, 0xe9b5dba5);
+  R(E, F, G, H, A, B, C, D,  4, 0x3956c25b);
+  R(D, E, F, G, H, A, B, C,  5, 0x59f111f1);
+  R(C, D, E, F, G, H, A, B,  6, 0x923f82a4);
+  R(B, C, D, E, F, G, H, A,  7, 0xab1c5ed5);
+  R(A, B, C, D, E, F, G, H,  8, 0xd807aa98);
+  R(H, A, B, C, D, E, F, G,  9, 0x12835b01);
+  R(G, H, A, B, C, D, E, F, 10, 0x243185be);
+  R(F, G, H, A, B, C, D, E, 11, 0x550c7dc3);
+  R(E, F, G, H, A, B, C, D, 12, 0x72be5d74);
+  R(D, E, F, G, H, A, B, C, 13, 0x80deb1fe);
+  R(C, D, E, F, G, H, A, B, 14, 0x9bdc06a7);
+  R(B, C, D, E, F, G, H, A, 15, 0xc19bf174);
+  R(A, B, C, D, E, F, G, H, 16, 0xe49b69c1);
+  R(H, A, B, C, D, E, F, G, 17, 0xefbe4786);
+  R(G, H, A, B, C, D, E, F, 18, 0x0fc19dc6);
+  R(F, G, H, A, B, C, D, E, 19, 0x240ca1cc);
+  R(E, F, G, H, A, B, C, D, 20, 0x2de92c6f);
+  R(D, E, F, G, H, A, B, C, 21, 0x4a7484aa);
+  R(C, D, E, F, G, H, A, B, 22, 0x5cb0a9dc);
+  R(B, C, D, E, F, G, H, A, 23, 0x76f988da);
+  R(A, B, C, D, E, F, G, H, 24, 0x983e5152);
+  R(H, A, B, C, D, E, F, G, 25, 0xa831c66d);
+  R(G, H, A, B, C, D, E, F, 26, 0xb00327c8);
+  R(F, G, H, A, B, C, D, E, 27, 0xbf597fc7);
+  R(E, F, G, H, A, B, C, D, 28, 0xc6e00bf3);
+  R(D, E, F, G, H, A, B, C, 29, 0xd5a79147);
+  R(C, D, E, F, G, H, A, B, 30, 0x06ca6351);
+  R(B, C, D, E, F, G, H, A, 31, 0x14292967);
+  R(A, B, C, D, E, F, G, H, 32, 0x27b70a85);
+  R(H, A, B, C, D, E, F, G, 33, 0x2e1b2138);
+  R(G, H, A, B, C, D, E, F, 34, 0x4d2c6dfc);
+  R(F, G, H, A, B, C, D, E, 35, 0x53380d13);
+  R(E, F, G, H, A, B, C, D, 36, 0x650a7354);
+  R(D, E, F, G, H, A, B, C, 37, 0x766a0abb);
+  R(C, D, E, F, G, H, A, B, 38, 0x81c2c92e);
+  R(B, C, D, E, F, G, H, A, 39, 0x92722c85);
+  R(A, B, C, D, E, F, G, H, 40, 0xa2bfe8a1);
+  R(H, A, B, C, D, E, F, G, 41, 0xa81a664b);
+  R(G, H, A, B, C, D, E, F, 42, 0xc24b8b70);
+  R(F, G, H, A, B, C, D, E, 43, 0xc76c51a3);
+  R(E, F, G, H, A, B, C, D, 44, 0xd192e819);
+  R(D, E, F, G, H, A, B, C, 45, 0xd6990624);
+  R(C, D, E, F, G, H, A, B, 46, 0xf40e3585);
+  R(B, C, D, E, F, G, H, A, 47, 0x106aa070);
+  R(A, B, C, D, E, F, G, H, 48, 0x19a4c116);
+  R(H, A, B, C, D, E, F, G, 49, 0x1e376c08);
+  R(G, H, A, B, C, D, E, F, 50, 0x2748774c);
+  R(F, G, H, A, B, C, D, E, 51, 0x34b0bcb5);
+  R(E, F, G, H, A, B, C, D, 52, 0x391c0cb3);
+  R(D, E, F, G, H, A, B, C, 53, 0x4ed8aa4a);
+  R(C, D, E, F, G, H, A, B, 54, 0x5b9cca4f);
+  R(B, C, D, E, F, G, H, A, 55, 0x682e6ff3);
+  R(A, B, C, D, E, F, G, H, 56, 0x748f82ee);
+  R(H, A, B, C, D, E, F, G, 57, 0x78a5636f);
+  R(G, H, A, B, C, D, E, F, 58, 0x84c87814);
+  R(F, G, H, A, B, C, D, E, 59, 0x8cc70208);
+  R(E, F, G, H, A, B, C, D, 60, 0x90befffa);
+  R(D, E, F, G, H, A, B, C, 61, 0xa4506ceb);
+  R(C, D, E, F, G, H, A, B, 62, 0xbef9a3f7);
+  R(B, C, D, E, F, G, H, A, 63, 0xc67178f2);
 
-  for (; i < 64; i += 16, k += 16) {
-    ROUND(A, B, C, D, E, F, G, H, k[ 0], EXPAND(data,  0));
-    ROUND(H, A, B, C, D, E, F, G, k[ 1], EXPAND(data,  1));
-    ROUND(G, H, A, B, C, D, E, F, k[ 2], EXPAND(data,  2));
-    ROUND(F, G, H, A, B, C, D, E, k[ 3], EXPAND(data,  3));
-    ROUND(E, F, G, H, A, B, C, D, k[ 4], EXPAND(data,  4));
-    ROUND(D, E, F, G, H, A, B, C, k[ 5], EXPAND(data,  5));
-    ROUND(C, D, E, F, G, H, A, B, k[ 6], EXPAND(data,  6));
-    ROUND(B, C, D, E, F, G, H, A, k[ 7], EXPAND(data,  7));
-    ROUND(A, B, C, D, E, F, G, H, k[ 8], EXPAND(data,  8));
-    ROUND(H, A, B, C, D, E, F, G, k[ 9], EXPAND(data,  9));
-    ROUND(G, H, A, B, C, D, E, F, k[10], EXPAND(data, 10));
-    ROUND(F, G, H, A, B, C, D, E, k[11], EXPAND(data, 11));
-    ROUND(E, F, G, H, A, B, C, D, k[12], EXPAND(data, 12));
-    ROUND(D, E, F, G, H, A, B, C, k[13], EXPAND(data, 13));
-    ROUND(C, D, E, F, G, H, A, B, k[14], EXPAND(data, 14));
-    ROUND(B, C, D, E, F, G, H, A, k[15], EXPAND(data, 15));
-  }
-
+#undef Sigma0
+#undef Sigma1
+#undef sigma0
+#undef sigma1
 #undef Ch
 #undef Maj
-#undef S0
-#undef S1
-#undef s0
-#undef s1
-#undef EXPAND
-#undef ROUND
+#undef P
+#undef R
 
   ctx->state[0] += A;
   ctx->state[1] += B;
@@ -3443,7 +2211,6 @@ sha256_transform(sha256_t *ctx, const unsigned char *chunk) {
   ctx->state[5] += F;
   ctx->state[6] += G;
   ctx->state[7] += H;
-#endif
 }
 
 void
@@ -3487,6 +2254,7 @@ sha256_update(sha256_t *ctx, const void *data, size_t len) {
 
 void
 sha256_final(sha256_t *ctx, unsigned char *out) {
+  static const unsigned char P[64] = { 0x80, 0x00 };
   size_t pos = ctx->size & 63;
   uint64_t len = ctx->size << 3;
   unsigned char D[8];
@@ -3494,7 +2262,7 @@ sha256_final(sha256_t *ctx, unsigned char *out) {
 
   write64be(D, len);
 
-  sha256_update(ctx, sha256_P, 1 + ((119 - pos) & 63));
+  sha256_update(ctx, P, 1 + ((119 - pos) & 63));
   sha256_update(ctx, D, 8);
 
   for (i = 0; i < 8; i++)
@@ -3544,70 +2312,9 @@ sha384_final(sha384_t *ctx, unsigned char *out) {
  * Resources:
  *   https://en.wikipedia.org/wiki/SHA-2
  *   https://tools.ietf.org/html/rfc4634
- *   https://github.com/gnutls/nettle/blob/master/sha512-compress.c
+ *   https://github.com/indutny/hash.js/blob/master/lib/hash/sha/256.js
+ *   https://github.com/indutny/hash.js/blob/master/lib/hash/sha/512.js
  */
-
-static const uint64_t sha512_K[80] = {
-  UINT64_C(0x428a2f98d728ae22), UINT64_C(0x7137449123ef65cd),
-  UINT64_C(0xb5c0fbcfec4d3b2f), UINT64_C(0xe9b5dba58189dbbc),
-  UINT64_C(0x3956c25bf348b538), UINT64_C(0x59f111f1b605d019),
-  UINT64_C(0x923f82a4af194f9b), UINT64_C(0xab1c5ed5da6d8118),
-  UINT64_C(0xd807aa98a3030242), UINT64_C(0x12835b0145706fbe),
-  UINT64_C(0x243185be4ee4b28c), UINT64_C(0x550c7dc3d5ffb4e2),
-  UINT64_C(0x72be5d74f27b896f), UINT64_C(0x80deb1fe3b1696b1),
-  UINT64_C(0x9bdc06a725c71235), UINT64_C(0xc19bf174cf692694),
-  UINT64_C(0xe49b69c19ef14ad2), UINT64_C(0xefbe4786384f25e3),
-  UINT64_C(0x0fc19dc68b8cd5b5), UINT64_C(0x240ca1cc77ac9c65),
-  UINT64_C(0x2de92c6f592b0275), UINT64_C(0x4a7484aa6ea6e483),
-  UINT64_C(0x5cb0a9dcbd41fbd4), UINT64_C(0x76f988da831153b5),
-  UINT64_C(0x983e5152ee66dfab), UINT64_C(0xa831c66d2db43210),
-  UINT64_C(0xb00327c898fb213f), UINT64_C(0xbf597fc7beef0ee4),
-  UINT64_C(0xc6e00bf33da88fc2), UINT64_C(0xd5a79147930aa725),
-  UINT64_C(0x06ca6351e003826f), UINT64_C(0x142929670a0e6e70),
-  UINT64_C(0x27b70a8546d22ffc), UINT64_C(0x2e1b21385c26c926),
-  UINT64_C(0x4d2c6dfc5ac42aed), UINT64_C(0x53380d139d95b3df),
-  UINT64_C(0x650a73548baf63de), UINT64_C(0x766a0abb3c77b2a8),
-  UINT64_C(0x81c2c92e47edaee6), UINT64_C(0x92722c851482353b),
-  UINT64_C(0xa2bfe8a14cf10364), UINT64_C(0xa81a664bbc423001),
-  UINT64_C(0xc24b8b70d0f89791), UINT64_C(0xc76c51a30654be30),
-  UINT64_C(0xd192e819d6ef5218), UINT64_C(0xd69906245565a910),
-  UINT64_C(0xf40e35855771202a), UINT64_C(0x106aa07032bbd1b8),
-  UINT64_C(0x19a4c116b8d2d0c8), UINT64_C(0x1e376c085141ab53),
-  UINT64_C(0x2748774cdf8eeb99), UINT64_C(0x34b0bcb5e19b48a8),
-  UINT64_C(0x391c0cb3c5c95a63), UINT64_C(0x4ed8aa4ae3418acb),
-  UINT64_C(0x5b9cca4f7763e373), UINT64_C(0x682e6ff3d6b2b8a3),
-  UINT64_C(0x748f82ee5defb2fc), UINT64_C(0x78a5636f43172f60),
-  UINT64_C(0x84c87814a1f0ab72), UINT64_C(0x8cc702081a6439ec),
-  UINT64_C(0x90befffa23631e28), UINT64_C(0xa4506cebde82bde9),
-  UINT64_C(0xbef9a3f7b2c67915), UINT64_C(0xc67178f2e372532b),
-  UINT64_C(0xca273eceea26619c), UINT64_C(0xd186b8c721c0c207),
-  UINT64_C(0xeada7dd6cde0eb1e), UINT64_C(0xf57d4f7fee6ed178),
-  UINT64_C(0x06f067aa72176fba), UINT64_C(0x0a637dc5a2c898a6),
-  UINT64_C(0x113f9804bef90dae), UINT64_C(0x1b710b35131c471b),
-  UINT64_C(0x28db77f523047d84), UINT64_C(0x32caab7b40c72493),
-  UINT64_C(0x3c9ebe0a15c9bebc), UINT64_C(0x431d67c49c100d4c),
-  UINT64_C(0x4cc5d4becb3e42b6), UINT64_C(0x597f299cfc657e2a),
-  UINT64_C(0x5fcb6fab3ad6faec), UINT64_C(0x6c44198c4a475817)
-};
-
-static const unsigned char sha512_P[128] = {
-  0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
-};
 
 void
 sha512_init(sha512_t *ctx) {
@@ -3624,1221 +2331,12 @@ sha512_init(sha512_t *ctx) {
 
 static void
 sha512_transform(sha512_t *ctx, const unsigned char *chunk) {
-#if defined(TORSION_HAVE_ASM_X64)
-  /* Borrowed from:
-   * https://github.com/gnutls/nettle/blob/master/x86_64/sha512-compress.asm
-   *
-   * Registers:
-   *
-   *   %rdi = state
-   *   %rsi = input
-   *   %rdx = k
-   *
-   * For reference, our full range of clobbered registers:
-   *
-   *   %rdi, %rsi, %rax, %rbx, %rcx, %rdx, %r[8-15]
-   *
-   * Note that %rdi is clobbered when it is read-only.
-   * We save it on the stack and restore it at the end.
-   */
-  __asm__ __volatile__(
-    "subq $136, %%rsp\n"
-    "movq %%rdi, 128(%%rsp)\n"
-
-    "movq (%%rdi), %%rax\n"
-    "movq 8(%%rdi), %%rbx\n"
-    "movq 16(%%rdi), %%rcx\n"
-    "movq 24(%%rdi), %%r8\n"
-    "movq 32(%%rdi), %%r9\n"
-    "movq 40(%%rdi), %%r10\n"
-    "movq 48(%%rdi), %%r11\n"
-    "movq 56(%%rdi), %%r12\n"
-    "xorq %%r14, %%r14\n"
-
-    ".align 16\n"
-    "1:\n"
-
-    "movq (%%rsi, %%r14, 8), %%r15\n"
-    "bswapq %%r15\n"
-    "movq %%r15, (%%rsp, %%r14, 8)\n"
-
-    "movq %%r9, %%r13\n"
-    "movq %%r9, %%rdi\n"
-    "rolq $23, %%r13\n"
-    "rolq $46, %%rdi\n"
-    "xorq %%r13, %%rdi\n"
-    "rolq $27, %%r13\n"
-    "xorq %%r13, %%rdi\n"
-    "addq %%r15, %%r12\n"
-    "addq %%rdi, %%r12\n"
-    "movq %%r11, %%r13\n"
-    "xorq %%r10, %%r13\n"
-    "andq %%r9, %%r13\n"
-    "xorq %%r11, %%r13\n"
-    "addq (%%rdx,%%r14,8), %%r12\n"
-    "addq %%r13, %%r12\n"
-    "addq %%r12, %%r8\n"
-
-    "movq %%rax, %%r13\n"
-    "movq %%rax, %%rdi\n"
-    "rolq $25, %%r13\n"
-    "rolq $30, %%rdi\n"
-    "xorq %%r13, %%rdi\n"
-    "rolq $11, %%r13\n"
-    "xorq %%r13, %%rdi\n"
-    "addq %%rdi, %%r12\n"
-    "movq %%rax, %%r13\n"
-    "movq %%rax, %%rdi\n"
-    "andq %%rbx, %%r13\n"
-    "xorq %%rbx, %%rdi\n"
-    "addq %%r13, %%r12\n"
-    "andq %%rcx, %%rdi\n"
-    "addq %%rdi, %%r12\n"
-
-    "movq 8(%%rsi, %%r14, 8), %%r15\n"
-    "bswapq %%r15\n"
-    "movq %%r15, 8(%%rsp, %%r14, 8)\n"
-
-    "movq %%r8, %%r13\n"
-    "movq %%r8, %%rdi\n"
-    "rolq $23, %%r13\n"
-    "rolq $46, %%rdi\n"
-    "xorq %%r13, %%rdi\n"
-    "rolq $27, %%r13\n"
-    "xorq %%r13, %%rdi\n"
-    "addq %%r15, %%r11\n"
-    "addq %%rdi, %%r11\n"
-    "movq %%r10, %%r13\n"
-    "xorq %%r9, %%r13\n"
-    "andq %%r8, %%r13\n"
-    "xorq %%r10, %%r13\n"
-    "addq 8(%%rdx,%%r14,8), %%r11\n"
-    "addq %%r13, %%r11\n"
-    "addq %%r11, %%rcx\n"
-
-    "movq %%r12, %%r13\n"
-    "movq %%r12, %%rdi\n"
-    "rolq $25, %%r13\n"
-    "rolq $30, %%rdi\n"
-    "xorq %%r13, %%rdi\n"
-    "rolq $11, %%r13\n"
-    "xorq %%r13, %%rdi\n"
-    "addq %%rdi, %%r11\n"
-    "movq %%r12, %%r13\n"
-    "movq %%r12, %%rdi\n"
-    "andq %%rax, %%r13\n"
-    "xorq %%rax, %%rdi\n"
-    "addq %%r13, %%r11\n"
-    "andq %%rbx, %%rdi\n"
-    "addq %%rdi, %%r11\n"
-
-    "movq 16(%%rsi, %%r14, 8), %%r15\n"
-    "bswapq %%r15\n"
-    "movq %%r15, 16(%%rsp, %%r14, 8)\n"
-
-    "movq %%rcx, %%r13\n"
-    "movq %%rcx, %%rdi\n"
-    "rolq $23, %%r13\n"
-    "rolq $46, %%rdi\n"
-    "xorq %%r13, %%rdi\n"
-    "rolq $27, %%r13\n"
-    "xorq %%r13, %%rdi\n"
-    "addq %%r15, %%r10\n"
-    "addq %%rdi, %%r10\n"
-    "movq %%r9, %%r13\n"
-    "xorq %%r8, %%r13\n"
-    "andq %%rcx, %%r13\n"
-    "xorq %%r9, %%r13\n"
-    "addq 16(%%rdx,%%r14,8), %%r10\n"
-    "addq %%r13, %%r10\n"
-    "addq %%r10, %%rbx\n"
-
-    "movq %%r11, %%r13\n"
-    "movq %%r11, %%rdi\n"
-    "rolq $25, %%r13\n"
-    "rolq $30, %%rdi\n"
-    "xorq %%r13, %%rdi\n"
-    "rolq $11, %%r13\n"
-    "xorq %%r13, %%rdi\n"
-    "addq %%rdi, %%r10\n"
-    "movq %%r11, %%r13\n"
-    "movq %%r11, %%rdi\n"
-    "andq %%r12, %%r13\n"
-    "xorq %%r12, %%rdi\n"
-    "addq %%r13, %%r10\n"
-    "andq %%rax, %%rdi\n"
-    "addq %%rdi, %%r10\n"
-
-    "movq 24(%%rsi, %%r14, 8), %%r15\n"
-    "bswapq %%r15\n"
-    "movq %%r15, 24(%%rsp, %%r14, 8)\n"
-
-    "movq %%rbx, %%r13\n"
-    "movq %%rbx, %%rdi\n"
-    "rolq $23, %%r13\n"
-    "rolq $46, %%rdi\n"
-    "xorq %%r13, %%rdi\n"
-    "rolq $27, %%r13\n"
-    "xorq %%r13, %%rdi\n"
-    "addq %%r15, %%r9\n"
-    "addq %%rdi, %%r9\n"
-    "movq %%r8, %%r13\n"
-    "xorq %%rcx, %%r13\n"
-    "andq %%rbx, %%r13\n"
-    "xorq %%r8, %%r13\n"
-    "addq 24(%%rdx,%%r14,8), %%r9\n"
-    "addq %%r13, %%r9\n"
-    "addq %%r9, %%rax\n"
-
-    "movq %%r10, %%r13\n"
-    "movq %%r10, %%rdi\n"
-    "rolq $25, %%r13\n"
-    "rolq $30, %%rdi\n"
-    "xorq %%r13, %%rdi\n"
-    "rolq $11, %%r13\n"
-    "xorq %%r13, %%rdi\n"
-    "addq %%rdi, %%r9\n"
-    "movq %%r10, %%r13\n"
-    "movq %%r10, %%rdi\n"
-    "andq %%r11, %%r13\n"
-    "xorq %%r11, %%rdi\n"
-    "addq %%r13, %%r9\n"
-    "andq %%r12, %%rdi\n"
-    "addq %%rdi, %%r9\n"
-
-    "movq 32(%%rsi, %%r14, 8), %%r15\n"
-    "bswapq %%r15\n"
-    "movq %%r15, 32(%%rsp, %%r14, 8)\n"
-
-    "movq %%rax, %%r13\n"
-    "movq %%rax, %%rdi\n"
-    "rolq $23, %%r13\n"
-    "rolq $46, %%rdi\n"
-    "xorq %%r13, %%rdi\n"
-    "rolq $27, %%r13\n"
-    "xorq %%r13, %%rdi\n"
-    "addq %%r15, %%r8\n"
-    "addq %%rdi, %%r8\n"
-    "movq %%rcx, %%r13\n"
-    "xorq %%rbx, %%r13\n"
-    "andq %%rax, %%r13\n"
-    "xorq %%rcx, %%r13\n"
-    "addq 32(%%rdx,%%r14,8), %%r8\n"
-    "addq %%r13, %%r8\n"
-    "addq %%r8, %%r12\n"
-
-    "movq %%r9, %%r13\n"
-    "movq %%r9, %%rdi\n"
-    "rolq $25, %%r13\n"
-    "rolq $30, %%rdi\n"
-    "xorq %%r13, %%rdi\n"
-    "rolq $11, %%r13\n"
-    "xorq %%r13, %%rdi\n"
-    "addq %%rdi, %%r8\n"
-    "movq %%r9, %%r13\n"
-    "movq %%r9, %%rdi\n"
-    "andq %%r10, %%r13\n"
-    "xorq %%r10, %%rdi\n"
-    "addq %%r13, %%r8\n"
-    "andq %%r11, %%rdi\n"
-    "addq %%rdi, %%r8\n"
-
-    "movq 40(%%rsi, %%r14, 8), %%r15\n"
-    "bswapq %%r15\n"
-    "movq %%r15, 40(%%rsp, %%r14, 8)\n"
-
-    "movq %%r12, %%r13\n"
-    "movq %%r12, %%rdi\n"
-    "rolq $23, %%r13\n"
-    "rolq $46, %%rdi\n"
-    "xorq %%r13, %%rdi\n"
-    "rolq $27, %%r13\n"
-    "xorq %%r13, %%rdi\n"
-    "addq %%r15, %%rcx\n"
-    "addq %%rdi, %%rcx\n"
-    "movq %%rbx, %%r13\n"
-    "xorq %%rax, %%r13\n"
-    "andq %%r12, %%r13\n"
-    "xorq %%rbx, %%r13\n"
-    "addq 40(%%rdx,%%r14,8), %%rcx\n"
-    "addq %%r13, %%rcx\n"
-    "addq %%rcx, %%r11\n"
-
-    "movq %%r8, %%r13\n"
-    "movq %%r8, %%rdi\n"
-    "rolq $25, %%r13\n"
-    "rolq $30, %%rdi\n"
-    "xorq %%r13, %%rdi\n"
-    "rolq $11, %%r13\n"
-    "xorq %%r13, %%rdi\n"
-    "addq %%rdi, %%rcx\n"
-    "movq %%r8, %%r13\n"
-    "movq %%r8, %%rdi\n"
-    "andq %%r9, %%r13\n"
-    "xorq %%r9, %%rdi\n"
-    "addq %%r13, %%rcx\n"
-    "andq %%r10, %%rdi\n"
-    "addq %%rdi, %%rcx\n"
-
-    "movq 48(%%rsi, %%r14, 8), %%r15\n"
-    "bswapq %%r15\n"
-    "movq %%r15, 48(%%rsp, %%r14, 8)\n"
-
-    "movq %%r11, %%r13\n"
-    "movq %%r11, %%rdi\n"
-    "rolq $23, %%r13\n"
-    "rolq $46, %%rdi\n"
-    "xorq %%r13, %%rdi\n"
-    "rolq $27, %%r13\n"
-    "xorq %%r13, %%rdi\n"
-    "addq %%r15, %%rbx\n"
-    "addq %%rdi, %%rbx\n"
-    "movq %%rax, %%r13\n"
-    "xorq %%r12, %%r13\n"
-    "andq %%r11, %%r13\n"
-    "xorq %%rax, %%r13\n"
-    "addq 48(%%rdx,%%r14,8), %%rbx\n"
-    "addq %%r13, %%rbx\n"
-    "addq %%rbx, %%r10\n"
-
-    "movq %%rcx, %%r13\n"
-    "movq %%rcx, %%rdi\n"
-    "rolq $25, %%r13\n"
-    "rolq $30, %%rdi\n"
-    "xorq %%r13, %%rdi\n"
-    "rolq $11, %%r13\n"
-    "xorq %%r13, %%rdi\n"
-    "addq %%rdi, %%rbx\n"
-    "movq %%rcx, %%r13\n"
-    "movq %%rcx, %%rdi\n"
-    "andq %%r8, %%r13\n"
-    "xorq %%r8, %%rdi\n"
-    "addq %%r13, %%rbx\n"
-    "andq %%r9, %%rdi\n"
-    "addq %%rdi, %%rbx\n"
-
-    "movq 56(%%rsi, %%r14, 8), %%r15\n"
-    "bswapq %%r15\n"
-    "movq %%r15, 56(%%rsp, %%r14, 8)\n"
-
-    "movq %%r10, %%r13\n"
-    "movq %%r10, %%rdi\n"
-    "rolq $23, %%r13\n"
-    "rolq $46, %%rdi\n"
-    "xorq %%r13, %%rdi\n"
-    "rolq $27, %%r13\n"
-    "xorq %%r13, %%rdi\n"
-    "addq %%r15, %%rax\n"
-    "addq %%rdi, %%rax\n"
-    "movq %%r12, %%r13\n"
-    "xorq %%r11, %%r13\n"
-    "andq %%r10, %%r13\n"
-    "xorq %%r12, %%r13\n"
-    "addq 56(%%rdx,%%r14,8), %%rax\n"
-    "addq %%r13, %%rax\n"
-    "addq %%rax, %%r9\n"
-
-    "movq %%rbx, %%r13\n"
-    "movq %%rbx, %%rdi\n"
-    "rolq $25, %%r13\n"
-    "rolq $30, %%rdi\n"
-    "xorq %%r13, %%rdi\n"
-    "rolq $11, %%r13\n"
-    "xorq %%r13, %%rdi\n"
-    "addq %%rdi, %%rax\n"
-    "movq %%rbx, %%r13\n"
-    "movq %%rbx, %%rdi\n"
-    "andq %%rcx, %%r13\n"
-    "xorq %%rcx, %%rdi\n"
-    "addq %%r13, %%rax\n"
-    "andq %%r8, %%rdi\n"
-    "addq %%rdi, %%rax\n"
-
-    "addq $8, %%r14\n"
-    "cmpq $16, %%r14\n"
-    "jne 1b\n"
-
-    "2:\n"
-
-    "movq (%%rsp), %%r15\n"
-    "movq 112(%%rsp), %%r13\n"
-    "movq %%r13, %%rdi\n"
-    "shrq $6, %%r13\n"
-    "rolq $3, %%rdi\n"
-    "xorq %%rdi, %%r13\n"
-    "rolq $42, %%rdi\n"
-    "xorq %%rdi, %%r13\n"
-    "addq %%r13, %%r15\n"
-    "movq 8(%%rsp), %%r13\n"
-    "movq %%r13, %%rdi\n"
-    "shrq $7, %%r13\n"
-    "rolq $56, %%rdi\n"
-    "xorq %%rdi, %%r13\n"
-    "rolq $7, %%rdi\n"
-    "xorq %%rdi, %%r13\n"
-    "addq %%r13, %%r15\n"
-    "addq 72(%%rsp), %%r15\n"
-    "movq %%r15, (%%rsp)\n"
-
-    "movq %%r9, %%r13\n"
-    "movq %%r9, %%rdi\n"
-    "rolq $23, %%r13\n"
-    "rolq $46, %%rdi\n"
-    "xorq %%r13, %%rdi\n"
-    "rolq $27, %%r13\n"
-    "xorq %%r13, %%rdi\n"
-    "addq %%r15, %%r12\n"
-    "addq %%rdi, %%r12\n"
-    "movq %%r11, %%r13\n"
-    "xorq %%r10, %%r13\n"
-    "andq %%r9, %%r13\n"
-    "xorq %%r11, %%r13\n"
-    "addq (%%rdx,%%r14,8), %%r12\n"
-    "addq %%r13, %%r12\n"
-    "addq %%r12, %%r8\n"
-
-    "movq %%rax, %%r13\n"
-    "movq %%rax, %%rdi\n"
-    "rolq $25, %%r13\n"
-    "rolq $30, %%rdi\n"
-    "xorq %%r13, %%rdi\n"
-    "rolq $11, %%r13\n"
-    "xorq %%r13, %%rdi\n"
-    "addq %%rdi, %%r12\n"
-    "movq %%rax, %%r13\n"
-    "movq %%rax, %%rdi\n"
-    "andq %%rbx, %%r13\n"
-    "xorq %%rbx, %%rdi\n"
-    "addq %%r13, %%r12\n"
-    "andq %%rcx, %%rdi\n"
-    "addq %%rdi, %%r12\n"
-
-    "movq 8(%%rsp), %%r15\n"
-    "movq 120(%%rsp), %%r13\n"
-    "movq %%r13, %%rdi\n"
-    "shrq $6, %%r13\n"
-    "rolq $3, %%rdi\n"
-    "xorq %%rdi, %%r13\n"
-    "rolq $42, %%rdi\n"
-    "xorq %%rdi, %%r13\n"
-    "addq %%r13, %%r15\n"
-    "movq 16(%%rsp), %%r13\n"
-    "movq %%r13, %%rdi\n"
-    "shrq $7, %%r13\n"
-    "rolq $56, %%rdi\n"
-    "xorq %%rdi, %%r13\n"
-    "rolq $7, %%rdi\n"
-    "xorq %%rdi, %%r13\n"
-    "addq %%r13, %%r15\n"
-    "addq 80(%%rsp), %%r15\n"
-    "movq %%r15, 8(%%rsp)\n"
-
-    "movq %%r8, %%r13\n"
-    "movq %%r8, %%rdi\n"
-    "rolq $23, %%r13\n"
-    "rolq $46, %%rdi\n"
-    "xorq %%r13, %%rdi\n"
-    "rolq $27, %%r13\n"
-    "xorq %%r13, %%rdi\n"
-    "addq %%r15, %%r11\n"
-    "addq %%rdi, %%r11\n"
-    "movq %%r10, %%r13\n"
-    "xorq %%r9, %%r13\n"
-    "andq %%r8, %%r13\n"
-    "xorq %%r10, %%r13\n"
-    "addq 8(%%rdx,%%r14,8), %%r11\n"
-    "addq %%r13, %%r11\n"
-    "addq %%r11, %%rcx\n"
-
-    "movq %%r12, %%r13\n"
-    "movq %%r12, %%rdi\n"
-    "rolq $25, %%r13\n"
-    "rolq $30, %%rdi\n"
-    "xorq %%r13, %%rdi\n"
-    "rolq $11, %%r13\n"
-    "xorq %%r13, %%rdi\n"
-    "addq %%rdi, %%r11\n"
-    "movq %%r12, %%r13\n"
-    "movq %%r12, %%rdi\n"
-    "andq %%rax, %%r13\n"
-    "xorq %%rax, %%rdi\n"
-    "addq %%r13, %%r11\n"
-    "andq %%rbx, %%rdi\n"
-    "addq %%rdi, %%r11\n"
-
-    "movq 16(%%rsp), %%r15\n"
-    "movq (%%rsp), %%r13\n"
-    "movq %%r13, %%rdi\n"
-    "shrq $6, %%r13\n"
-    "rolq $3, %%rdi\n"
-    "xorq %%rdi, %%r13\n"
-    "rolq $42, %%rdi\n"
-    "xorq %%rdi, %%r13\n"
-    "addq %%r13, %%r15\n"
-    "movq 24(%%rsp), %%r13\n"
-    "movq %%r13, %%rdi\n"
-    "shrq $7, %%r13\n"
-    "rolq $56, %%rdi\n"
-    "xorq %%rdi, %%r13\n"
-    "rolq $7, %%rdi\n"
-    "xorq %%rdi, %%r13\n"
-    "addq %%r13, %%r15\n"
-    "addq 88(%%rsp), %%r15\n"
-    "movq %%r15, 16(%%rsp)\n"
-
-    "movq %%rcx, %%r13\n"
-    "movq %%rcx, %%rdi\n"
-    "rolq $23, %%r13\n"
-    "rolq $46, %%rdi\n"
-    "xorq %%r13, %%rdi\n"
-    "rolq $27, %%r13\n"
-    "xorq %%r13, %%rdi\n"
-    "addq %%r15, %%r10\n"
-    "addq %%rdi, %%r10\n"
-    "movq %%r9, %%r13\n"
-    "xorq %%r8, %%r13\n"
-    "andq %%rcx, %%r13\n"
-    "xorq %%r9, %%r13\n"
-    "addq 16(%%rdx,%%r14,8), %%r10\n"
-    "addq %%r13, %%r10\n"
-    "addq %%r10, %%rbx\n"
-
-    "movq %%r11, %%r13\n"
-    "movq %%r11, %%rdi\n"
-    "rolq $25, %%r13\n"
-    "rolq $30, %%rdi\n"
-    "xorq %%r13, %%rdi\n"
-    "rolq $11, %%r13\n"
-    "xorq %%r13, %%rdi\n"
-    "addq %%rdi, %%r10\n"
-    "movq %%r11, %%r13\n"
-    "movq %%r11, %%rdi\n"
-    "andq %%r12, %%r13\n"
-    "xorq %%r12, %%rdi\n"
-    "addq %%r13, %%r10\n"
-    "andq %%rax, %%rdi\n"
-    "addq %%rdi, %%r10\n"
-
-    "movq 24(%%rsp), %%r15\n"
-    "movq 8(%%rsp), %%r13\n"
-    "movq %%r13, %%rdi\n"
-    "shrq $6, %%r13\n"
-    "rolq $3, %%rdi\n"
-    "xorq %%rdi, %%r13\n"
-    "rolq $42, %%rdi\n"
-    "xorq %%rdi, %%r13\n"
-    "addq %%r13, %%r15\n"
-    "movq 32(%%rsp), %%r13\n"
-    "movq %%r13, %%rdi\n"
-    "shrq $7, %%r13\n"
-    "rolq $56, %%rdi\n"
-    "xorq %%rdi, %%r13\n"
-    "rolq $7, %%rdi\n"
-    "xorq %%rdi, %%r13\n"
-    "addq %%r13, %%r15\n"
-    "addq 96(%%rsp), %%r15\n"
-    "movq %%r15, 24(%%rsp)\n"
-
-    "movq %%rbx, %%r13\n"
-    "movq %%rbx, %%rdi\n"
-    "rolq $23, %%r13\n"
-    "rolq $46, %%rdi\n"
-    "xorq %%r13, %%rdi\n"
-    "rolq $27, %%r13\n"
-    "xorq %%r13, %%rdi\n"
-    "addq %%r15, %%r9\n"
-    "addq %%rdi, %%r9\n"
-    "movq %%r8, %%r13\n"
-    "xorq %%rcx, %%r13\n"
-    "andq %%rbx, %%r13\n"
-    "xorq %%r8, %%r13\n"
-    "addq 24(%%rdx,%%r14,8), %%r9\n"
-    "addq %%r13, %%r9\n"
-    "addq %%r9, %%rax\n"
-
-    "movq %%r10, %%r13\n"
-    "movq %%r10, %%rdi\n"
-    "rolq $25, %%r13\n"
-    "rolq $30, %%rdi\n"
-    "xorq %%r13, %%rdi\n"
-    "rolq $11, %%r13\n"
-    "xorq %%r13, %%rdi\n"
-    "addq %%rdi, %%r9\n"
-    "movq %%r10, %%r13\n"
-    "movq %%r10, %%rdi\n"
-    "andq %%r11, %%r13\n"
-    "xorq %%r11, %%rdi\n"
-    "addq %%r13, %%r9\n"
-    "andq %%r12, %%rdi\n"
-    "addq %%rdi, %%r9\n"
-
-    "movq 32(%%rsp), %%r15\n"
-    "movq 16(%%rsp), %%r13\n"
-    "movq %%r13, %%rdi\n"
-    "shrq $6, %%r13\n"
-    "rolq $3, %%rdi\n"
-    "xorq %%rdi, %%r13\n"
-    "rolq $42, %%rdi\n"
-    "xorq %%rdi, %%r13\n"
-    "addq %%r13, %%r15\n"
-    "movq 40(%%rsp), %%r13\n"
-    "movq %%r13, %%rdi\n"
-    "shrq $7, %%r13\n"
-    "rolq $56, %%rdi\n"
-    "xorq %%rdi, %%r13\n"
-    "rolq $7, %%rdi\n"
-    "xorq %%rdi, %%r13\n"
-    "addq %%r13, %%r15\n"
-    "addq 104(%%rsp), %%r15\n"
-    "movq %%r15, 32(%%rsp)\n"
-
-    "movq %%rax, %%r13\n"
-    "movq %%rax, %%rdi\n"
-    "rolq $23, %%r13\n"
-    "rolq $46, %%rdi\n"
-    "xorq %%r13, %%rdi\n"
-    "rolq $27, %%r13\n"
-    "xorq %%r13, %%rdi\n"
-    "addq %%r15, %%r8\n"
-    "addq %%rdi, %%r8\n"
-    "movq %%rcx, %%r13\n"
-    "xorq %%rbx, %%r13\n"
-    "andq %%rax, %%r13\n"
-    "xorq %%rcx, %%r13\n"
-    "addq 32(%%rdx,%%r14,8), %%r8\n"
-    "addq %%r13, %%r8\n"
-    "addq %%r8, %%r12\n"
-
-    "movq %%r9, %%r13\n"
-    "movq %%r9, %%rdi\n"
-    "rolq $25, %%r13\n"
-    "rolq $30, %%rdi\n"
-    "xorq %%r13, %%rdi\n"
-    "rolq $11, %%r13\n"
-    "xorq %%r13, %%rdi\n"
-    "addq %%rdi, %%r8\n"
-    "movq %%r9, %%r13\n"
-    "movq %%r9, %%rdi\n"
-    "andq %%r10, %%r13\n"
-    "xorq %%r10, %%rdi\n"
-    "addq %%r13, %%r8\n"
-    "andq %%r11, %%rdi\n"
-    "addq %%rdi, %%r8\n"
-
-    "movq 40(%%rsp), %%r15\n"
-    "movq 24(%%rsp), %%r13\n"
-    "movq %%r13, %%rdi\n"
-    "shrq $6, %%r13\n"
-    "rolq $3, %%rdi\n"
-    "xorq %%rdi, %%r13\n"
-    "rolq $42, %%rdi\n"
-    "xorq %%rdi, %%r13\n"
-    "addq %%r13, %%r15\n"
-    "movq 48(%%rsp), %%r13\n"
-    "movq %%r13, %%rdi\n"
-    "shrq $7, %%r13\n"
-    "rolq $56, %%rdi\n"
-    "xorq %%rdi, %%r13\n"
-    "rolq $7, %%rdi\n"
-    "xorq %%rdi, %%r13\n"
-    "addq %%r13, %%r15\n"
-    "addq 112(%%rsp), %%r15\n"
-    "movq %%r15, 40(%%rsp)\n"
-
-    "movq %%r12, %%r13\n"
-    "movq %%r12, %%rdi\n"
-    "rolq $23, %%r13\n"
-    "rolq $46, %%rdi\n"
-    "xorq %%r13, %%rdi\n"
-    "rolq $27, %%r13\n"
-    "xorq %%r13, %%rdi\n"
-    "addq %%r15, %%rcx\n"
-    "addq %%rdi, %%rcx\n"
-    "movq %%rbx, %%r13\n"
-    "xorq %%rax, %%r13\n"
-    "andq %%r12, %%r13\n"
-    "xorq %%rbx, %%r13\n"
-    "addq 40(%%rdx,%%r14,8), %%rcx\n"
-    "addq %%r13, %%rcx\n"
-    "addq %%rcx, %%r11\n"
-
-    "movq %%r8, %%r13\n"
-    "movq %%r8, %%rdi\n"
-    "rolq $25, %%r13\n"
-    "rolq $30, %%rdi\n"
-    "xorq %%r13, %%rdi\n"
-    "rolq $11, %%r13\n"
-    "xorq %%r13, %%rdi\n"
-    "addq %%rdi, %%rcx\n"
-    "movq %%r8, %%r13\n"
-    "movq %%r8, %%rdi\n"
-    "andq %%r9, %%r13\n"
-    "xorq %%r9, %%rdi\n"
-    "addq %%r13, %%rcx\n"
-    "andq %%r10, %%rdi\n"
-    "addq %%rdi, %%rcx\n"
-
-    "movq 48(%%rsp), %%r15\n"
-    "movq 32(%%rsp), %%r13\n"
-    "movq %%r13, %%rdi\n"
-    "shrq $6, %%r13\n"
-    "rolq $3, %%rdi\n"
-    "xorq %%rdi, %%r13\n"
-    "rolq $42, %%rdi\n"
-    "xorq %%rdi, %%r13\n"
-    "addq %%r13, %%r15\n"
-    "movq 56(%%rsp), %%r13\n"
-    "movq %%r13, %%rdi\n"
-    "shrq $7, %%r13\n"
-    "rolq $56, %%rdi\n"
-    "xorq %%rdi, %%r13\n"
-    "rolq $7, %%rdi\n"
-    "xorq %%rdi, %%r13\n"
-    "addq %%r13, %%r15\n"
-    "addq 120(%%rsp), %%r15\n"
-    "movq %%r15, 48(%%rsp)\n"
-
-    "movq %%r11, %%r13\n"
-    "movq %%r11, %%rdi\n"
-    "rolq $23, %%r13\n"
-    "rolq $46, %%rdi\n"
-    "xorq %%r13, %%rdi\n"
-    "rolq $27, %%r13\n"
-    "xorq %%r13, %%rdi\n"
-    "addq %%r15, %%rbx\n"
-    "addq %%rdi, %%rbx\n"
-    "movq %%rax, %%r13\n"
-    "xorq %%r12, %%r13\n"
-    "andq %%r11, %%r13\n"
-    "xorq %%rax, %%r13\n"
-    "addq 48(%%rdx,%%r14,8), %%rbx\n"
-    "addq %%r13, %%rbx\n"
-    "addq %%rbx, %%r10\n"
-
-    "movq %%rcx, %%r13\n"
-    "movq %%rcx, %%rdi\n"
-    "rolq $25, %%r13\n"
-    "rolq $30, %%rdi\n"
-    "xorq %%r13, %%rdi\n"
-    "rolq $11, %%r13\n"
-    "xorq %%r13, %%rdi\n"
-    "addq %%rdi, %%rbx\n"
-    "movq %%rcx, %%r13\n"
-    "movq %%rcx, %%rdi\n"
-    "andq %%r8, %%r13\n"
-    "xorq %%r8, %%rdi\n"
-    "addq %%r13, %%rbx\n"
-    "andq %%r9, %%rdi\n"
-    "addq %%rdi, %%rbx\n"
-
-    "movq 56(%%rsp), %%r15\n"
-    "movq 40(%%rsp), %%r13\n"
-    "movq %%r13, %%rdi\n"
-    "shrq $6, %%r13\n"
-    "rolq $3, %%rdi\n"
-    "xorq %%rdi, %%r13\n"
-    "rolq $42, %%rdi\n"
-    "xorq %%rdi, %%r13\n"
-    "addq %%r13, %%r15\n"
-    "movq 64(%%rsp), %%r13\n"
-    "movq %%r13, %%rdi\n"
-    "shrq $7, %%r13\n"
-    "rolq $56, %%rdi\n"
-    "xorq %%rdi, %%r13\n"
-    "rolq $7, %%rdi\n"
-    "xorq %%rdi, %%r13\n"
-    "addq %%r13, %%r15\n"
-    "addq (%%rsp), %%r15\n"
-    "movq %%r15, 56(%%rsp)\n"
-
-    "movq %%r10, %%r13\n"
-    "movq %%r10, %%rdi\n"
-    "rolq $23, %%r13\n"
-    "rolq $46, %%rdi\n"
-    "xorq %%r13, %%rdi\n"
-    "rolq $27, %%r13\n"
-    "xorq %%r13, %%rdi\n"
-    "addq %%r15, %%rax\n"
-    "addq %%rdi, %%rax\n"
-    "movq %%r12, %%r13\n"
-    "xorq %%r11, %%r13\n"
-    "andq %%r10, %%r13\n"
-    "xorq %%r12, %%r13\n"
-    "addq 56(%%rdx,%%r14,8), %%rax\n"
-    "addq %%r13, %%rax\n"
-    "addq %%rax, %%r9\n"
-
-    "movq %%rbx, %%r13\n"
-    "movq %%rbx, %%rdi\n"
-    "rolq $25, %%r13\n"
-    "rolq $30, %%rdi\n"
-    "xorq %%r13, %%rdi\n"
-    "rolq $11, %%r13\n"
-    "xorq %%r13, %%rdi\n"
-    "addq %%rdi, %%rax\n"
-    "movq %%rbx, %%r13\n"
-    "movq %%rbx, %%rdi\n"
-    "andq %%rcx, %%r13\n"
-    "xorq %%rcx, %%rdi\n"
-    "addq %%r13, %%rax\n"
-    "andq %%r8, %%rdi\n"
-    "addq %%rdi, %%rax\n"
-
-    "movq 64(%%rsp), %%r15\n"
-    "movq 48(%%rsp), %%r13\n"
-    "movq %%r13, %%rdi\n"
-    "shrq $6, %%r13\n"
-    "rolq $3, %%rdi\n"
-    "xorq %%rdi, %%r13\n"
-    "rolq $42, %%rdi\n"
-    "xorq %%rdi, %%r13\n"
-    "addq %%r13, %%r15\n"
-    "movq 72(%%rsp), %%r13\n"
-    "movq %%r13, %%rdi\n"
-    "shrq $7, %%r13\n"
-    "rolq $56, %%rdi\n"
-    "xorq %%rdi, %%r13\n"
-    "rolq $7, %%rdi\n"
-    "xorq %%rdi, %%r13\n"
-    "addq %%r13, %%r15\n"
-    "addq 8(%%rsp), %%r15\n"
-    "movq %%r15, 64(%%rsp)\n"
-
-    "movq %%r9, %%r13\n"
-    "movq %%r9, %%rdi\n"
-    "rolq $23, %%r13\n"
-    "rolq $46, %%rdi\n"
-    "xorq %%r13, %%rdi\n"
-    "rolq $27, %%r13\n"
-    "xorq %%r13, %%rdi\n"
-    "addq %%r15, %%r12\n"
-    "addq %%rdi, %%r12\n"
-    "movq %%r11, %%r13\n"
-    "xorq %%r10, %%r13\n"
-    "andq %%r9, %%r13\n"
-    "xorq %%r11, %%r13\n"
-    "addq 64(%%rdx,%%r14,8), %%r12\n"
-    "addq %%r13, %%r12\n"
-    "addq %%r12, %%r8\n"
-
-    "movq %%rax, %%r13\n"
-    "movq %%rax, %%rdi\n"
-    "rolq $25, %%r13\n"
-    "rolq $30, %%rdi\n"
-    "xorq %%r13, %%rdi\n"
-    "rolq $11, %%r13\n"
-    "xorq %%r13, %%rdi\n"
-    "addq %%rdi, %%r12\n"
-    "movq %%rax, %%r13\n"
-    "movq %%rax, %%rdi\n"
-    "andq %%rbx, %%r13\n"
-    "xorq %%rbx, %%rdi\n"
-    "addq %%r13, %%r12\n"
-    "andq %%rcx, %%rdi\n"
-    "addq %%rdi, %%r12\n"
-
-    "movq 72(%%rsp), %%r15\n"
-    "movq 56(%%rsp), %%r13\n"
-    "movq %%r13, %%rdi\n"
-    "shrq $6, %%r13\n"
-    "rolq $3, %%rdi\n"
-    "xorq %%rdi, %%r13\n"
-    "rolq $42, %%rdi\n"
-    "xorq %%rdi, %%r13\n"
-    "addq %%r13, %%r15\n"
-    "movq 80(%%rsp), %%r13\n"
-    "movq %%r13, %%rdi\n"
-    "shrq $7, %%r13\n"
-    "rolq $56, %%rdi\n"
-    "xorq %%rdi, %%r13\n"
-    "rolq $7, %%rdi\n"
-    "xorq %%rdi, %%r13\n"
-    "addq %%r13, %%r15\n"
-    "addq 16(%%rsp), %%r15\n"
-    "movq %%r15, 72(%%rsp)\n"
-
-    "movq %%r8, %%r13\n"
-    "movq %%r8, %%rdi\n"
-    "rolq $23, %%r13\n"
-    "rolq $46, %%rdi\n"
-    "xorq %%r13, %%rdi\n"
-    "rolq $27, %%r13\n"
-    "xorq %%r13, %%rdi\n"
-    "addq %%r15, %%r11\n"
-    "addq %%rdi, %%r11\n"
-    "movq %%r10, %%r13\n"
-    "xorq %%r9, %%r13\n"
-    "andq %%r8, %%r13\n"
-    "xorq %%r10, %%r13\n"
-    "addq 72(%%rdx,%%r14,8), %%r11\n"
-    "addq %%r13, %%r11\n"
-    "addq %%r11, %%rcx\n"
-
-    "movq %%r12, %%r13\n"
-    "movq %%r12, %%rdi\n"
-    "rolq $25, %%r13\n"
-    "rolq $30, %%rdi\n"
-    "xorq %%r13, %%rdi\n"
-    "rolq $11, %%r13\n"
-    "xorq %%r13, %%rdi\n"
-    "addq %%rdi, %%r11\n"
-    "movq %%r12, %%r13\n"
-    "movq %%r12, %%rdi\n"
-    "andq %%rax, %%r13\n"
-    "xorq %%rax, %%rdi\n"
-    "addq %%r13, %%r11\n"
-    "andq %%rbx, %%rdi\n"
-    "addq %%rdi, %%r11\n"
-
-    "movq 80(%%rsp), %%r15\n"
-    "movq 64(%%rsp), %%r13\n"
-    "movq %%r13, %%rdi\n"
-    "shrq $6, %%r13\n"
-    "rolq $3, %%rdi\n"
-    "xorq %%rdi, %%r13\n"
-    "rolq $42, %%rdi\n"
-    "xorq %%rdi, %%r13\n"
-    "addq %%r13, %%r15\n"
-    "movq 88(%%rsp), %%r13\n"
-    "movq %%r13, %%rdi\n"
-    "shrq $7, %%r13\n"
-    "rolq $56, %%rdi\n"
-    "xorq %%rdi, %%r13\n"
-    "rolq $7, %%rdi\n"
-    "xorq %%rdi, %%r13\n"
-    "addq %%r13, %%r15\n"
-    "addq 24(%%rsp), %%r15\n"
-    "movq %%r15, 80(%%rsp)\n"
-
-    "movq %%rcx, %%r13\n"
-    "movq %%rcx, %%rdi\n"
-    "rolq $23, %%r13\n"
-    "rolq $46, %%rdi\n"
-    "xorq %%r13, %%rdi\n"
-    "rolq $27, %%r13\n"
-    "xorq %%r13, %%rdi\n"
-    "addq %%r15, %%r10\n"
-    "addq %%rdi, %%r10\n"
-    "movq %%r9, %%r13\n"
-    "xorq %%r8, %%r13\n"
-    "andq %%rcx, %%r13\n"
-    "xorq %%r9, %%r13\n"
-    "addq 80(%%rdx,%%r14,8), %%r10\n"
-    "addq %%r13, %%r10\n"
-    "addq %%r10, %%rbx\n"
-
-    "movq %%r11, %%r13\n"
-    "movq %%r11, %%rdi\n"
-    "rolq $25, %%r13\n"
-    "rolq $30, %%rdi\n"
-    "xorq %%r13, %%rdi\n"
-    "rolq $11, %%r13\n"
-    "xorq %%r13, %%rdi\n"
-    "addq %%rdi, %%r10\n"
-    "movq %%r11, %%r13\n"
-    "movq %%r11, %%rdi\n"
-    "andq %%r12, %%r13\n"
-    "xorq %%r12, %%rdi\n"
-    "addq %%r13, %%r10\n"
-    "andq %%rax, %%rdi\n"
-    "addq %%rdi, %%r10\n"
-
-    "movq 88(%%rsp), %%r15\n"
-    "movq 72(%%rsp), %%r13\n"
-    "movq %%r13, %%rdi\n"
-    "shrq $6, %%r13\n"
-    "rolq $3, %%rdi\n"
-    "xorq %%rdi, %%r13\n"
-    "rolq $42, %%rdi\n"
-    "xorq %%rdi, %%r13\n"
-    "addq %%r13, %%r15\n"
-    "movq 96(%%rsp), %%r13\n"
-    "movq %%r13, %%rdi\n"
-    "shrq $7, %%r13\n"
-    "rolq $56, %%rdi\n"
-    "xorq %%rdi, %%r13\n"
-    "rolq $7, %%rdi\n"
-    "xorq %%rdi, %%r13\n"
-    "addq %%r13, %%r15\n"
-    "addq 32(%%rsp), %%r15\n"
-    "movq %%r15, 88(%%rsp)\n"
-
-    "movq %%rbx, %%r13\n"
-    "movq %%rbx, %%rdi\n"
-    "rolq $23, %%r13\n"
-    "rolq $46, %%rdi\n"
-    "xorq %%r13, %%rdi\n"
-    "rolq $27, %%r13\n"
-    "xorq %%r13, %%rdi\n"
-    "addq %%r15, %%r9\n"
-    "addq %%rdi, %%r9\n"
-    "movq %%r8, %%r13\n"
-    "xorq %%rcx, %%r13\n"
-    "andq %%rbx, %%r13\n"
-    "xorq %%r8, %%r13\n"
-    "addq 88(%%rdx,%%r14,8), %%r9\n"
-    "addq %%r13, %%r9\n"
-    "addq %%r9, %%rax\n"
-
-    "movq %%r10, %%r13\n"
-    "movq %%r10, %%rdi\n"
-    "rolq $25, %%r13\n"
-    "rolq $30, %%rdi\n"
-    "xorq %%r13, %%rdi\n"
-    "rolq $11, %%r13\n"
-    "xorq %%r13, %%rdi\n"
-    "addq %%rdi, %%r9\n"
-    "movq %%r10, %%r13\n"
-    "movq %%r10, %%rdi\n"
-    "andq %%r11, %%r13\n"
-    "xorq %%r11, %%rdi\n"
-    "addq %%r13, %%r9\n"
-    "andq %%r12, %%rdi\n"
-    "addq %%rdi, %%r9\n"
-
-    "movq 96(%%rsp), %%r15\n"
-    "movq 80(%%rsp), %%r13\n"
-    "movq %%r13, %%rdi\n"
-    "shrq $6, %%r13\n"
-    "rolq $3, %%rdi\n"
-    "xorq %%rdi, %%r13\n"
-    "rolq $42, %%rdi\n"
-    "xorq %%rdi, %%r13\n"
-    "addq %%r13, %%r15\n"
-    "movq 104(%%rsp), %%r13\n"
-    "movq %%r13, %%rdi\n"
-    "shrq $7, %%r13\n"
-    "rolq $56, %%rdi\n"
-    "xorq %%rdi, %%r13\n"
-    "rolq $7, %%rdi\n"
-    "xorq %%rdi, %%r13\n"
-    "addq %%r13, %%r15\n"
-    "addq 40(%%rsp), %%r15\n"
-    "movq %%r15, 96(%%rsp)\n"
-
-    "movq %%rax, %%r13\n"
-    "movq %%rax, %%rdi\n"
-    "rolq $23, %%r13\n"
-    "rolq $46, %%rdi\n"
-    "xorq %%r13, %%rdi\n"
-    "rolq $27, %%r13\n"
-    "xorq %%r13, %%rdi\n"
-    "addq %%r15, %%r8\n"
-    "addq %%rdi, %%r8\n"
-    "movq %%rcx, %%r13\n"
-    "xorq %%rbx, %%r13\n"
-    "andq %%rax, %%r13\n"
-    "xorq %%rcx, %%r13\n"
-    "addq 96(%%rdx,%%r14,8), %%r8\n"
-    "addq %%r13, %%r8\n"
-    "addq %%r8, %%r12\n"
-
-    "movq %%r9, %%r13\n"
-    "movq %%r9, %%rdi\n"
-    "rolq $25, %%r13\n"
-    "rolq $30, %%rdi\n"
-    "xorq %%r13, %%rdi\n"
-    "rolq $11, %%r13\n"
-    "xorq %%r13, %%rdi\n"
-    "addq %%rdi, %%r8\n"
-    "movq %%r9, %%r13\n"
-    "movq %%r9, %%rdi\n"
-    "andq %%r10, %%r13\n"
-    "xorq %%r10, %%rdi\n"
-    "addq %%r13, %%r8\n"
-    "andq %%r11, %%rdi\n"
-    "addq %%rdi, %%r8\n"
-
-    "movq 104(%%rsp), %%r15\n"
-    "movq 88(%%rsp), %%r13\n"
-    "movq %%r13, %%rdi\n"
-    "shrq $6, %%r13\n"
-    "rolq $3, %%rdi\n"
-    "xorq %%rdi, %%r13\n"
-    "rolq $42, %%rdi\n"
-    "xorq %%rdi, %%r13\n"
-    "addq %%r13, %%r15\n"
-    "movq 112(%%rsp), %%r13\n"
-    "movq %%r13, %%rdi\n"
-    "shrq $7, %%r13\n"
-    "rolq $56, %%rdi\n"
-    "xorq %%rdi, %%r13\n"
-    "rolq $7, %%rdi\n"
-    "xorq %%rdi, %%r13\n"
-    "addq %%r13, %%r15\n"
-    "addq 48(%%rsp), %%r15\n"
-    "movq %%r15, 104(%%rsp)\n"
-
-    "movq %%r12, %%r13\n"
-    "movq %%r12, %%rdi\n"
-    "rolq $23, %%r13\n"
-    "rolq $46, %%rdi\n"
-    "xorq %%r13, %%rdi\n"
-    "rolq $27, %%r13\n"
-    "xorq %%r13, %%rdi\n"
-    "addq %%r15, %%rcx\n"
-    "addq %%rdi, %%rcx\n"
-    "movq %%rbx, %%r13\n"
-    "xorq %%rax, %%r13\n"
-    "andq %%r12, %%r13\n"
-    "xorq %%rbx, %%r13\n"
-    "addq 104(%%rdx,%%r14,8), %%rcx\n"
-    "addq %%r13, %%rcx\n"
-    "addq %%rcx, %%r11\n"
-
-    "movq %%r8, %%r13\n"
-    "movq %%r8, %%rdi\n"
-    "rolq $25, %%r13\n"
-    "rolq $30, %%rdi\n"
-    "xorq %%r13, %%rdi\n"
-    "rolq $11, %%r13\n"
-    "xorq %%r13, %%rdi\n"
-    "addq %%rdi, %%rcx\n"
-    "movq %%r8, %%r13\n"
-    "movq %%r8, %%rdi\n"
-    "andq %%r9, %%r13\n"
-    "xorq %%r9, %%rdi\n"
-    "addq %%r13, %%rcx\n"
-    "andq %%r10, %%rdi\n"
-    "addq %%rdi, %%rcx\n"
-
-    "movq 112(%%rsp), %%r15\n"
-    "movq 96(%%rsp), %%r13\n"
-    "movq %%r13, %%rdi\n"
-    "shrq $6, %%r13\n"
-    "rolq $3, %%rdi\n"
-    "xorq %%rdi, %%r13\n"
-    "rolq $42, %%rdi\n"
-    "xorq %%rdi, %%r13\n"
-    "addq %%r13, %%r15\n"
-    "movq 120(%%rsp), %%r13\n"
-    "movq %%r13, %%rdi\n"
-    "shrq $7, %%r13\n"
-    "rolq $56, %%rdi\n"
-    "xorq %%rdi, %%r13\n"
-    "rolq $7, %%rdi\n"
-    "xorq %%rdi, %%r13\n"
-    "addq %%r13, %%r15\n"
-    "addq 56(%%rsp), %%r15\n"
-    "movq %%r15, 112(%%rsp)\n"
-
-    "movq %%r11, %%r13\n"
-    "movq %%r11, %%rdi\n"
-    "rolq $23, %%r13\n"
-    "rolq $46, %%rdi\n"
-    "xorq %%r13, %%rdi\n"
-    "rolq $27, %%r13\n"
-    "xorq %%r13, %%rdi\n"
-    "addq %%r15, %%rbx\n"
-    "addq %%rdi, %%rbx\n"
-    "movq %%rax, %%r13\n"
-    "xorq %%r12, %%r13\n"
-    "andq %%r11, %%r13\n"
-    "xorq %%rax, %%r13\n"
-    "addq 112(%%rdx,%%r14,8), %%rbx\n"
-    "addq %%r13, %%rbx\n"
-    "addq %%rbx, %%r10\n"
-
-    "movq %%rcx, %%r13\n"
-    "movq %%rcx, %%rdi\n"
-    "rolq $25, %%r13\n"
-    "rolq $30, %%rdi\n"
-    "xorq %%r13, %%rdi\n"
-    "rolq $11, %%r13\n"
-    "xorq %%r13, %%rdi\n"
-    "addq %%rdi, %%rbx\n"
-    "movq %%rcx, %%r13\n"
-    "movq %%rcx, %%rdi\n"
-    "andq %%r8, %%r13\n"
-    "xorq %%r8, %%rdi\n"
-    "addq %%r13, %%rbx\n"
-    "andq %%r9, %%rdi\n"
-    "addq %%rdi, %%rbx\n"
-
-    "movq 120(%%rsp), %%r15\n"
-    "movq 104(%%rsp), %%r13\n"
-    "movq %%r13, %%rdi\n"
-    "shrq $6, %%r13\n"
-    "rolq $3, %%rdi\n"
-    "xorq %%rdi, %%r13\n"
-    "rolq $42, %%rdi\n"
-    "xorq %%rdi, %%r13\n"
-    "addq %%r13, %%r15\n"
-    "movq (%%rsp), %%r13\n"
-    "movq %%r13, %%rdi\n"
-    "shrq $7, %%r13\n"
-    "rolq $56, %%rdi\n"
-    "xorq %%rdi, %%r13\n"
-    "rolq $7, %%rdi\n"
-    "xorq %%rdi, %%r13\n"
-    "addq %%r13, %%r15\n"
-    "addq 64(%%rsp), %%r15\n"
-    "movq %%r15, 120(%%rsp)\n"
-
-    "movq %%r10, %%r13\n"
-    "movq %%r10, %%rdi\n"
-    "rolq $23, %%r13\n"
-    "rolq $46, %%rdi\n"
-    "xorq %%r13, %%rdi\n"
-    "rolq $27, %%r13\n"
-    "xorq %%r13, %%rdi\n"
-    "addq %%r15, %%rax\n"
-    "addq %%rdi, %%rax\n"
-    "movq %%r12, %%r13\n"
-    "xorq %%r11, %%r13\n"
-    "andq %%r10, %%r13\n"
-    "xorq %%r12, %%r13\n"
-    "addq 120(%%rdx,%%r14,8), %%rax\n"
-    "addq %%r13, %%rax\n"
-    "addq %%rax, %%r9\n"
-
-    "movq %%rbx, %%r13\n"
-    "movq %%rbx, %%rdi\n"
-    "rolq $25, %%r13\n"
-    "rolq $30, %%rdi\n"
-    "xorq %%r13, %%rdi\n"
-    "rolq $11, %%r13\n"
-    "xorq %%r13, %%rdi\n"
-    "addq %%rdi, %%rax\n"
-    "movq %%rbx, %%r13\n"
-    "movq %%rbx, %%rdi\n"
-    "andq %%rcx, %%r13\n"
-    "xorq %%rcx, %%rdi\n"
-    "addq %%r13, %%rax\n"
-    "andq %%r8, %%rdi\n"
-    "addq %%rdi, %%rax\n"
-
-    "addq $16, %%r14\n"
-    "cmpq $80, %%r14\n"
-    "jne 2b\n"
-
-    "movq 128(%%rsp), %%rdi\n"
-
-    "addq %%rax, (%%rdi)\n"
-    "addq %%rbx, 8(%%rdi)\n"
-    "addq %%rcx, 16(%%rdi)\n"
-    "addq %%r8, 24(%%rdi)\n"
-    "addq %%r9, 32(%%rdi)\n"
-    "addq %%r10, 40(%%rdi)\n"
-    "addq %%r11, 48(%%rdi)\n"
-    "addq %%r12, 56(%%rdi)\n"
-
-    "addq $136, %%rsp\n"
-    :
-    : "D" (ctx->state), "S" (chunk), "d" (sha512_K)
-    : "rax", "rbx", "rcx",
-      "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15",
-      "cc", "memory"
-  );
-#else
-  const uint64_t *k = sha512_K;
-  uint64_t data[16];
-  uint64_t A, B, C, D, E, F, G, H;
-  uint64_t *d;
+  uint64_t A, B, C, D, E, F, G, H, w, t1, t2;
+  uint64_t W[16];
   int i;
 
-  for (i = 0; i < 16; i++, chunk += 8)
-    data[i] = read64be(chunk);
+  for (i = 0; i < 16; i++)
+    W[i] = read64be(chunk + i * 8);
 
   A = ctx->state[0];
   B = ctx->state[1];
@@ -4849,62 +2347,118 @@ sha512_transform(sha512_t *ctx, const unsigned char *chunk) {
   G = ctx->state[6];
   H = ctx->state[7];
 
-#define Ch(x, y, z) ((z) ^ ((x) & ((y) ^ (z))))
-#define Maj(x, y, z) (((x) & (y)) ^ ((z) & ((x) ^ (y))))
+#define Sigma0(x) (ROTL64(x, 36) ^ ROTL64(x, 30) ^ ROTL64(x, 25))
+#define Sigma1(x) (ROTL64(x, 50) ^ ROTL64(x, 46) ^ ROTL64(x, 23))
+#define sigma0(x) (ROTL64(x, 63) ^ ROTL64(x, 56) ^ (x >> 7))
+#define sigma1(x) (ROTL64(x, 45) ^ ROTL64(x,  3) ^ (x >> 6))
+#define Ch(x, y, z) (z ^ (x & (y ^ z)))
+#define Maj(x, y, z) ((x & y) | (z & (x | y)))
 
-#define S0(x) (ROTL64(36, (x)) ^ ROTL64(30, (x)) ^ ROTL64(25, (x)))
-#define S1(x) (ROTL64(50, (x)) ^ ROTL64(46, (x)) ^ ROTL64(23, (x)))
+#define P(i) (sigma1(W[(i -  2) & 15]) + W[(i -  7) & 15]  \
+            + sigma0(W[(i - 15) & 15]) + W[(i - 16) & 15])
 
-#define s0(x) (ROTL64(63, (x)) ^ ROTL64(56, (x)) ^ ((x) >> 7))
-#define s1(x) (ROTL64(45, (x)) ^ ROTL64(3, (x)) ^ ((x) >> 6))
-
-#define EXPAND(W, i) (W[(i) & 15] += \
-  (s1(W[((i) - 2) & 15]) + W[((i) - 7) & 15] + s0(W[((i) - 15) & 15])))
-
-#define ROUND(a, b, c, d, e, f, g, h, k, data) do { \
-  h += S1(e) + Ch(e, f, g) + k + data;              \
-  d += h;                                           \
-  h += S0(a) + Maj(a, b, c);                        \
+#define R(a, b, c, d, e, f, g, h, i, k) do { \
+  if (i >= 16) { /* Optimized out. */        \
+    w = P(i);                                \
+    W[i & 15] = w;                           \
+  } else {                                   \
+    w = W[i];                                \
+  }                                          \
+  t1 = h + Sigma1(e) + Ch(e, f, g) + k + w;  \
+  t2 = Sigma0(a) + Maj(a, b, c);             \
+  d = d + t1;                                \
+  h = t1 + t2;                               \
 } while (0)
 
-  for (i = 0, d = data; i < 16; i += 8, k += 8, d += 8) {
-    ROUND(A, B, C, D, E, F, G, H, k[0], d[0]);
-    ROUND(H, A, B, C, D, E, F, G, k[1], d[1]);
-    ROUND(G, H, A, B, C, D, E, F, k[2], d[2]);
-    ROUND(F, G, H, A, B, C, D, E, k[3], d[3]);
-    ROUND(E, F, G, H, A, B, C, D, k[4], d[4]);
-    ROUND(D, E, F, G, H, A, B, C, k[5], d[5]);
-    ROUND(C, D, E, F, G, H, A, B, k[6], d[6]);
-    ROUND(B, C, D, E, F, G, H, A, k[7], d[7]);
-  }
+  R(A, B, C, D, E, F, G, H,  0, UINT64_C(0x428a2f98d728ae22));
+  R(H, A, B, C, D, E, F, G,  1, UINT64_C(0x7137449123ef65cd));
+  R(G, H, A, B, C, D, E, F,  2, UINT64_C(0xb5c0fbcfec4d3b2f));
+  R(F, G, H, A, B, C, D, E,  3, UINT64_C(0xe9b5dba58189dbbc));
+  R(E, F, G, H, A, B, C, D,  4, UINT64_C(0x3956c25bf348b538));
+  R(D, E, F, G, H, A, B, C,  5, UINT64_C(0x59f111f1b605d019));
+  R(C, D, E, F, G, H, A, B,  6, UINT64_C(0x923f82a4af194f9b));
+  R(B, C, D, E, F, G, H, A,  7, UINT64_C(0xab1c5ed5da6d8118));
+  R(A, B, C, D, E, F, G, H,  8, UINT64_C(0xd807aa98a3030242));
+  R(H, A, B, C, D, E, F, G,  9, UINT64_C(0x12835b0145706fbe));
+  R(G, H, A, B, C, D, E, F, 10, UINT64_C(0x243185be4ee4b28c));
+  R(F, G, H, A, B, C, D, E, 11, UINT64_C(0x550c7dc3d5ffb4e2));
+  R(E, F, G, H, A, B, C, D, 12, UINT64_C(0x72be5d74f27b896f));
+  R(D, E, F, G, H, A, B, C, 13, UINT64_C(0x80deb1fe3b1696b1));
+  R(C, D, E, F, G, H, A, B, 14, UINT64_C(0x9bdc06a725c71235));
+  R(B, C, D, E, F, G, H, A, 15, UINT64_C(0xc19bf174cf692694));
+  R(A, B, C, D, E, F, G, H, 16, UINT64_C(0xe49b69c19ef14ad2));
+  R(H, A, B, C, D, E, F, G, 17, UINT64_C(0xefbe4786384f25e3));
+  R(G, H, A, B, C, D, E, F, 18, UINT64_C(0x0fc19dc68b8cd5b5));
+  R(F, G, H, A, B, C, D, E, 19, UINT64_C(0x240ca1cc77ac9c65));
+  R(E, F, G, H, A, B, C, D, 20, UINT64_C(0x2de92c6f592b0275));
+  R(D, E, F, G, H, A, B, C, 21, UINT64_C(0x4a7484aa6ea6e483));
+  R(C, D, E, F, G, H, A, B, 22, UINT64_C(0x5cb0a9dcbd41fbd4));
+  R(B, C, D, E, F, G, H, A, 23, UINT64_C(0x76f988da831153b5));
+  R(A, B, C, D, E, F, G, H, 24, UINT64_C(0x983e5152ee66dfab));
+  R(H, A, B, C, D, E, F, G, 25, UINT64_C(0xa831c66d2db43210));
+  R(G, H, A, B, C, D, E, F, 26, UINT64_C(0xb00327c898fb213f));
+  R(F, G, H, A, B, C, D, E, 27, UINT64_C(0xbf597fc7beef0ee4));
+  R(E, F, G, H, A, B, C, D, 28, UINT64_C(0xc6e00bf33da88fc2));
+  R(D, E, F, G, H, A, B, C, 29, UINT64_C(0xd5a79147930aa725));
+  R(C, D, E, F, G, H, A, B, 30, UINT64_C(0x06ca6351e003826f));
+  R(B, C, D, E, F, G, H, A, 31, UINT64_C(0x142929670a0e6e70));
+  R(A, B, C, D, E, F, G, H, 32, UINT64_C(0x27b70a8546d22ffc));
+  R(H, A, B, C, D, E, F, G, 33, UINT64_C(0x2e1b21385c26c926));
+  R(G, H, A, B, C, D, E, F, 34, UINT64_C(0x4d2c6dfc5ac42aed));
+  R(F, G, H, A, B, C, D, E, 35, UINT64_C(0x53380d139d95b3df));
+  R(E, F, G, H, A, B, C, D, 36, UINT64_C(0x650a73548baf63de));
+  R(D, E, F, G, H, A, B, C, 37, UINT64_C(0x766a0abb3c77b2a8));
+  R(C, D, E, F, G, H, A, B, 38, UINT64_C(0x81c2c92e47edaee6));
+  R(B, C, D, E, F, G, H, A, 39, UINT64_C(0x92722c851482353b));
+  R(A, B, C, D, E, F, G, H, 40, UINT64_C(0xa2bfe8a14cf10364));
+  R(H, A, B, C, D, E, F, G, 41, UINT64_C(0xa81a664bbc423001));
+  R(G, H, A, B, C, D, E, F, 42, UINT64_C(0xc24b8b70d0f89791));
+  R(F, G, H, A, B, C, D, E, 43, UINT64_C(0xc76c51a30654be30));
+  R(E, F, G, H, A, B, C, D, 44, UINT64_C(0xd192e819d6ef5218));
+  R(D, E, F, G, H, A, B, C, 45, UINT64_C(0xd69906245565a910));
+  R(C, D, E, F, G, H, A, B, 46, UINT64_C(0xf40e35855771202a));
+  R(B, C, D, E, F, G, H, A, 47, UINT64_C(0x106aa07032bbd1b8));
+  R(A, B, C, D, E, F, G, H, 48, UINT64_C(0x19a4c116b8d2d0c8));
+  R(H, A, B, C, D, E, F, G, 49, UINT64_C(0x1e376c085141ab53));
+  R(G, H, A, B, C, D, E, F, 50, UINT64_C(0x2748774cdf8eeb99));
+  R(F, G, H, A, B, C, D, E, 51, UINT64_C(0x34b0bcb5e19b48a8));
+  R(E, F, G, H, A, B, C, D, 52, UINT64_C(0x391c0cb3c5c95a63));
+  R(D, E, F, G, H, A, B, C, 53, UINT64_C(0x4ed8aa4ae3418acb));
+  R(C, D, E, F, G, H, A, B, 54, UINT64_C(0x5b9cca4f7763e373));
+  R(B, C, D, E, F, G, H, A, 55, UINT64_C(0x682e6ff3d6b2b8a3));
+  R(A, B, C, D, E, F, G, H, 56, UINT64_C(0x748f82ee5defb2fc));
+  R(H, A, B, C, D, E, F, G, 57, UINT64_C(0x78a5636f43172f60));
+  R(G, H, A, B, C, D, E, F, 58, UINT64_C(0x84c87814a1f0ab72));
+  R(F, G, H, A, B, C, D, E, 59, UINT64_C(0x8cc702081a6439ec));
+  R(E, F, G, H, A, B, C, D, 60, UINT64_C(0x90befffa23631e28));
+  R(D, E, F, G, H, A, B, C, 61, UINT64_C(0xa4506cebde82bde9));
+  R(C, D, E, F, G, H, A, B, 62, UINT64_C(0xbef9a3f7b2c67915));
+  R(B, C, D, E, F, G, H, A, 63, UINT64_C(0xc67178f2e372532b));
+  R(A, B, C, D, E, F, G, H, 64, UINT64_C(0xca273eceea26619c));
+  R(H, A, B, C, D, E, F, G, 65, UINT64_C(0xd186b8c721c0c207));
+  R(G, H, A, B, C, D, E, F, 66, UINT64_C(0xeada7dd6cde0eb1e));
+  R(F, G, H, A, B, C, D, E, 67, UINT64_C(0xf57d4f7fee6ed178));
+  R(E, F, G, H, A, B, C, D, 68, UINT64_C(0x06f067aa72176fba));
+  R(D, E, F, G, H, A, B, C, 69, UINT64_C(0x0a637dc5a2c898a6));
+  R(C, D, E, F, G, H, A, B, 70, UINT64_C(0x113f9804bef90dae));
+  R(B, C, D, E, F, G, H, A, 71, UINT64_C(0x1b710b35131c471b));
+  R(A, B, C, D, E, F, G, H, 72, UINT64_C(0x28db77f523047d84));
+  R(H, A, B, C, D, E, F, G, 73, UINT64_C(0x32caab7b40c72493));
+  R(G, H, A, B, C, D, E, F, 74, UINT64_C(0x3c9ebe0a15c9bebc));
+  R(F, G, H, A, B, C, D, E, 75, UINT64_C(0x431d67c49c100d4c));
+  R(E, F, G, H, A, B, C, D, 76, UINT64_C(0x4cc5d4becb3e42b6));
+  R(D, E, F, G, H, A, B, C, 77, UINT64_C(0x597f299cfc657e2a));
+  R(C, D, E, F, G, H, A, B, 78, UINT64_C(0x5fcb6fab3ad6faec));
+  R(B, C, D, E, F, G, H, A, 79, UINT64_C(0x6c44198c4a475817));
 
-  for (; i < 80; i += 16, k += 16) {
-    ROUND(A, B, C, D, E, F, G, H, k[ 0], EXPAND(data,  0));
-    ROUND(H, A, B, C, D, E, F, G, k[ 1], EXPAND(data,  1));
-    ROUND(G, H, A, B, C, D, E, F, k[ 2], EXPAND(data,  2));
-    ROUND(F, G, H, A, B, C, D, E, k[ 3], EXPAND(data,  3));
-    ROUND(E, F, G, H, A, B, C, D, k[ 4], EXPAND(data,  4));
-    ROUND(D, E, F, G, H, A, B, C, k[ 5], EXPAND(data,  5));
-    ROUND(C, D, E, F, G, H, A, B, k[ 6], EXPAND(data,  6));
-    ROUND(B, C, D, E, F, G, H, A, k[ 7], EXPAND(data,  7));
-    ROUND(A, B, C, D, E, F, G, H, k[ 8], EXPAND(data,  8));
-    ROUND(H, A, B, C, D, E, F, G, k[ 9], EXPAND(data,  9));
-    ROUND(G, H, A, B, C, D, E, F, k[10], EXPAND(data, 10));
-    ROUND(F, G, H, A, B, C, D, E, k[11], EXPAND(data, 11));
-    ROUND(E, F, G, H, A, B, C, D, k[12], EXPAND(data, 12));
-    ROUND(D, E, F, G, H, A, B, C, k[13], EXPAND(data, 13));
-    ROUND(C, D, E, F, G, H, A, B, k[14], EXPAND(data, 14));
-    ROUND(B, C, D, E, F, G, H, A, k[15], EXPAND(data, 15));
-  }
-
+#undef Sigma0
+#undef Sigma1
+#undef sigma0
+#undef sigma1
 #undef Ch
 #undef Maj
-#undef S0
-#undef S1
-#undef s0
-#undef s1
-#undef EXPAND
-#undef ROUND
+#undef P
+#undef R
 
   ctx->state[0] += A;
   ctx->state[1] += B;
@@ -4914,7 +2468,6 @@ sha512_transform(sha512_t *ctx, const unsigned char *chunk) {
   ctx->state[5] += F;
   ctx->state[6] += G;
   ctx->state[7] += H;
-#endif
 }
 
 void
@@ -4958,6 +2511,7 @@ sha512_update(sha512_t *ctx, const void *data, size_t len) {
 
 void
 sha512_final(sha512_t *ctx, unsigned char *out) {
+  static const unsigned char P[128] = { 0x80, 0x00 };
   size_t pos = ctx->size & 127;
   uint64_t len = ctx->size << 3;
   unsigned char D[16];
@@ -4966,7 +2520,7 @@ sha512_final(sha512_t *ctx, unsigned char *out) {
   write64be(D + 0, 0);
   write64be(D + 8, len);
 
-  sha512_update(ctx, sha512_P, 1 + ((239 - pos) & 127));
+  sha512_update(ctx, P, 1 + ((239 - pos) & 127));
   sha512_update(ctx, D, 16);
 
   for (i = 0; i < 8; i++)
@@ -6078,17 +3632,6 @@ static const uint64_t whirlpool_C7[256] = {
   UINT64_C(0xf8c7f8933fed6bf8), UINT64_C(0x86228644a411c286)
 };
 
-static const unsigned char whirlpool_P[64] = {
-  0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
-};
-
 void
 whirlpool_init(whirlpool_t *ctx) {
   memset(ctx, 0, sizeof(*ctx));
@@ -6182,6 +3725,7 @@ whirlpool_update(whirlpool_t *ctx, const void *data, size_t len) {
 
 void
 whirlpool_final(whirlpool_t *ctx, unsigned char *out) {
+  static const unsigned char P[64] = { 0x80, 0x00 };
   size_t pos = ctx->size & 63;
   uint64_t len = ctx->size << 3;
   unsigned char D[32];
@@ -6191,7 +3735,7 @@ whirlpool_final(whirlpool_t *ctx, unsigned char *out) {
 
   write64be(D + 24, len);
 
-  whirlpool_update(ctx, whirlpool_P, 1 + ((95 - pos) & 63));
+  whirlpool_update(ctx, P, 1 + ((95 - pos) & 63));
   whirlpool_update(ctx, D, 32);
 
   for (i = 0; i < 8; i++)
