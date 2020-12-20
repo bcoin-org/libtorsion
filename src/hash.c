@@ -894,12 +894,55 @@ keccak_permute(keccak_t *ctx) {
 
 static void
 keccak_transform(keccak_t *ctx, const unsigned char *chunk) {
-  size_t count = ctx->bs >> 3;
-  size_t i;
+  /* 512 (bs=72) */
+  ctx->state[ 0] ^= read64le(chunk +   0);
+  ctx->state[ 1] ^= read64le(chunk +   8);
+  ctx->state[ 2] ^= read64le(chunk +  16);
+  ctx->state[ 3] ^= read64le(chunk +  24);
+  ctx->state[ 4] ^= read64le(chunk +  32);
+  ctx->state[ 5] ^= read64le(chunk +  40);
+  ctx->state[ 6] ^= read64le(chunk +  48);
+  ctx->state[ 7] ^= read64le(chunk +  56);
+  ctx->state[ 8] ^= read64le(chunk +  64);
 
-  for (i = 0; i < count; i++)
-    ctx->state[i] ^= read64le(chunk + i * 8);
+  if (ctx->bs < 104)
+    goto done;
 
+  /* 384 (bs=104) */
+  ctx->state[ 9] ^= read64le(chunk +  72);
+  ctx->state[10] ^= read64le(chunk +  80);
+  ctx->state[11] ^= read64le(chunk +  88);
+  ctx->state[12] ^= read64le(chunk +  96);
+
+  if (ctx->bs < 136)
+    goto done;
+
+  /* 256 (bs=136) */
+  ctx->state[13] ^= read64le(chunk + 104);
+  ctx->state[14] ^= read64le(chunk + 112);
+  ctx->state[15] ^= read64le(chunk + 120);
+  ctx->state[16] ^= read64le(chunk + 128);
+
+  if (ctx->bs < 144)
+    goto done;
+
+  /* 224 (bs=144) */
+  ctx->state[17] ^= read64le(chunk + 136);
+
+  if (ctx->bs < 152)
+    goto done;
+
+  /* 192 (bs=152) */
+  ctx->state[18] ^= read64le(chunk + 144);
+
+  if (ctx->bs < 168)
+    goto done;
+
+  /* 128 (bs=168) */
+  ctx->state[19] ^= read64le(chunk + 152);
+  ctx->state[20] ^= read64le(chunk + 160);
+
+done:
   keccak_permute(ctx);
 }
 
@@ -910,8 +953,6 @@ keccak_update(keccak_t *ctx, const void *data, size_t len) {
 
   if (len == 0)
     return;
-
-  ctx->pos = (ctx->pos + len) % ctx->bs;
 
   if (pos > 0) {
     size_t want = ctx->bs - pos;
@@ -925,8 +966,10 @@ keccak_update(keccak_t *ctx, const void *data, size_t len) {
     len -= want;
     raw += want;
 
-    if (pos < ctx->bs)
+    if (pos < ctx->bs) {
+      ctx->pos = pos;
       return;
+    }
 
     keccak_transform(ctx, ctx->block);
   }
@@ -939,11 +982,13 @@ keccak_update(keccak_t *ctx, const void *data, size_t len) {
 
   if (len > 0)
     memcpy(ctx->block, raw, len);
+
+  ctx->pos = len;
 }
 
 void
 keccak_final(keccak_t *ctx, unsigned char *out, unsigned char pad, size_t len) {
-  size_t i;
+  size_t i, count;
 
   if (pad == 0)
     pad = 0x01;
@@ -960,7 +1005,12 @@ keccak_final(keccak_t *ctx, unsigned char *out, unsigned char pad, size_t len) {
 
   keccak_transform(ctx, ctx->block);
 
-  for (i = 0; i < len; i++)
+  count = len >> 3;
+
+  for (i = 0; i < count; i++)
+    write64le(out + i * 8, ctx->state[i]);
+
+  for (i = count * 8; i < len; i++)
     out[i] = ctx->state[i >> 3] >> (8 * (i & 7));
 }
 
