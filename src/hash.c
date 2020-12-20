@@ -3,10 +3,6 @@
  * Copyright (c) 2020, Christopher Jeffrey (MIT License).
  * https://github.com/bcoin-org/libtorsion
  *
- * Parts of this software are based on gnutls/nettle:
- *   Copyright (c) 1998-2019, Niels Möller and Contributors
- *   https://github.com/gnutls/nettle
- *
  * Parts of this software are based on BLAKE2/BLAKE2:
  *   CC0 1.0 Universal
  *   https://github.com/BLAKE2/BLAKE2
@@ -25,21 +21,9 @@
  */
 
 #define ROTL32(w, b) (((w) << (b)) | ((w) >> (32 - (b))))
+#define ROTR32(w, b) (((w) >> (b)) | ((w) << (32 - (b))))
 #define ROTL64(w, b) (((w) << (b)) | ((w) >> (64 - (b))))
-
-/*
- * Helpers
- */
-
-static TORSION_INLINE uint32_t
-rotr32(uint32_t w, int b) {
-  return (w >> b) | (w << (32 - b));
-}
-
-static TORSION_INLINE uint64_t
-rotr64(uint64_t w, int b) {
-  return (w >> b) | (w << (64 - b));
-}
+#define ROTR64(w, b) (((w) >> (b)) | ((w) << (64 - (b))))
 
 /*
  * BLAKE2b
@@ -55,21 +39,6 @@ static const uint64_t blake2b_iv[8] = {
   UINT64_C(0x3c6ef372fe94f82b), UINT64_C(0xa54ff53a5f1d36f1),
   UINT64_C(0x510e527fade682d1), UINT64_C(0x9b05688c2b3e6c1f),
   UINT64_C(0x1f83d9abfb41bd6b), UINT64_C(0x5be0cd19137e2179)
-};
-
-static const uint8_t blake2b_sigma[12][16] = {
-  {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15},
-  {14, 10, 4, 8, 9, 15, 13, 6, 1, 12, 0, 2, 11, 7, 5, 3},
-  {11, 8, 12, 0, 5, 2, 15, 13, 10, 14, 3, 6, 7, 1, 9, 4},
-  {7, 9, 3, 1, 13, 12, 11, 14, 2, 6, 5, 10, 4, 0, 15, 8},
-  {9, 0, 5, 7, 2, 4, 10, 15, 14, 1, 11, 12, 6, 8, 3, 13},
-  {2, 12, 6, 10, 0, 11, 8, 3, 4, 13, 7, 5, 15, 14, 1, 9},
-  {12, 5, 1, 15, 14, 13, 4, 10, 0, 7, 6, 3, 9, 2, 8, 11},
-  {13, 11, 7, 14, 12, 1, 3, 9, 5, 0, 15, 4, 8, 6, 2, 10},
-  {6, 15, 14, 9, 11, 3, 0, 8, 12, 2, 13, 7, 1, 4, 10, 5},
-  {10, 2, 8, 4, 7, 6, 1, 5, 15, 11, 9, 14, 3, 12, 13, 0},
-  {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15},
-  {14, 10, 4, 8, 9, 15, 13, 6, 1, 12, 0, 2, 11, 7, 5, 3}
 };
 
 void
@@ -111,69 +80,87 @@ blake2b_increment(blake2b_t *ctx, const uint64_t inc) {
 
 static void
 blake2b_compress(blake2b_t *ctx, const unsigned char *chunk, uint64_t f0) {
-  uint64_t m[16];
-  uint64_t v[16];
+  static const uint8_t sigma[12][16] = {
+    {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15},
+    {14, 10, 4, 8, 9, 15, 13, 6, 1, 12, 0, 2, 11, 7, 5, 3},
+    {11, 8, 12, 0, 5, 2, 15, 13, 10, 14, 3, 6, 7, 1, 9, 4},
+    {7, 9, 3, 1, 13, 12, 11, 14, 2, 6, 5, 10, 4, 0, 15, 8},
+    {9, 0, 5, 7, 2, 4, 10, 15, 14, 1, 11, 12, 6, 8, 3, 13},
+    {2, 12, 6, 10, 0, 11, 8, 3, 4, 13, 7, 5, 15, 14, 1, 9},
+    {12, 5, 1, 15, 14, 13, 4, 10, 0, 7, 6, 3, 9, 2, 8, 11},
+    {13, 11, 7, 14, 12, 1, 3, 9, 5, 0, 15, 4, 8, 6, 2, 10},
+    {6, 15, 14, 9, 11, 3, 0, 8, 12, 2, 13, 7, 1, 4, 10, 5},
+    {10, 2, 8, 4, 7, 6, 1, 5, 15, 11, 9, 14, 3, 12, 13, 0},
+    {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15},
+    {14, 10, 4, 8, 9, 15, 13, 6, 1, 12, 0, 2, 11, 7, 5, 3}
+  };
+
+  uint64_t W[16], V[16];
   int i;
 
   for (i = 0; i < 16; i++)
-    m[i] = read64le(chunk + i * 8);
+    W[i] = read64le(chunk + i * 8);
 
   for (i = 0; i < 8; i++)
-    v[i] = ctx->h[i];
+    V[i] = ctx->h[i];
 
-  v[ 8] = blake2b_iv[0];
-  v[ 9] = blake2b_iv[1];
-  v[10] = blake2b_iv[2];
-  v[11] = blake2b_iv[3];
-  v[12] = blake2b_iv[4] ^ ctx->t[0];
-  v[13] = blake2b_iv[5] ^ ctx->t[1];
-  v[14] = blake2b_iv[6] ^ f0;
-  v[15] = blake2b_iv[7];
+  V[ 8] = blake2b_iv[0];
+  V[ 9] = blake2b_iv[1];
+  V[10] = blake2b_iv[2];
+  V[11] = blake2b_iv[3];
+  V[12] = blake2b_iv[4] ^ ctx->t[0];
+  V[13] = blake2b_iv[5] ^ ctx->t[1];
+  V[14] = blake2b_iv[6] ^ f0;
+  V[15] = blake2b_iv[7];
 
-#define G(r, i, a, b, c, d) do {              \
-  a = a + b + m[blake2b_sigma[r][2 * i + 0]]; \
-  d = rotr64(d ^ a, 32);                      \
-  c = c + d;                                  \
-  b = rotr64(b ^ c, 24);                      \
-  a = a + b + m[blake2b_sigma[r][2 * i + 1]]; \
-  d = rotr64(d ^ a, 16);                      \
-  c = c + d;                                  \
-  b = rotr64(b ^ c, 63);                      \
+#define G(r, i, a, b, c, d) do {   \
+  a += b + W[sigma[r][2 * i + 0]]; \
+  d ^= a;                          \
+  d = ROTR64(d, 32);               \
+  c += d;                          \
+  b ^= c;                          \
+  b = ROTR64(b, 24);               \
+  a += b + W[sigma[r][2 * i + 1]]; \
+  d ^= a;                          \
+  d = ROTR64(d, 16);               \
+  c += d;                          \
+  b ^= c;                          \
+  b = ROTR64(b, 63);               \
 } while (0)
 
-#define ROUND(r) do {                  \
-  G(r, 0, v[ 0], v[ 4], v[ 8], v[12]); \
-  G(r, 1, v[ 1], v[ 5], v[ 9], v[13]); \
-  G(r, 2, v[ 2], v[ 6], v[10], v[14]); \
-  G(r, 3, v[ 3], v[ 7], v[11], v[15]); \
-  G(r, 4, v[ 0], v[ 5], v[10], v[15]); \
-  G(r, 5, v[ 1], v[ 6], v[11], v[12]); \
-  G(r, 6, v[ 2], v[ 7], v[ 8], v[13]); \
-  G(r, 7, v[ 3], v[ 4], v[ 9], v[14]); \
+#define R(r) do {                      \
+  G(r, 0, V[ 0], V[ 4], V[ 8], V[12]); \
+  G(r, 1, V[ 1], V[ 5], V[ 9], V[13]); \
+  G(r, 2, V[ 2], V[ 6], V[10], V[14]); \
+  G(r, 3, V[ 3], V[ 7], V[11], V[15]); \
+  G(r, 4, V[ 0], V[ 5], V[10], V[15]); \
+  G(r, 5, V[ 1], V[ 6], V[11], V[12]); \
+  G(r, 6, V[ 2], V[ 7], V[ 8], V[13]); \
+  G(r, 7, V[ 3], V[ 4], V[ 9], V[14]); \
 } while (0)
 
-  ROUND(0);
-  ROUND(1);
-  ROUND(2);
-  ROUND(3);
-  ROUND(4);
-  ROUND(5);
-  ROUND(6);
-  ROUND(7);
-  ROUND(8);
-  ROUND(9);
-  ROUND(10);
-  ROUND(11);
+  R(0);
+  R(1);
+  R(2);
+  R(3);
+  R(4);
+  R(5);
+  R(6);
+  R(7);
+  R(8);
+  R(9);
+  R(10);
+  R(11);
 
   for (i = 0; i < 8; i++)
-    ctx->h[i] ^= v[i] ^ v[i + 8];
+    ctx->h[i] ^= V[i] ^ V[i + 8];
 #undef G
-#undef ROUND
+#undef R
 }
 
 void
 blake2b_update(blake2b_t *ctx, const void *data, size_t len) {
-  const unsigned char *in = (const unsigned char *)data;
+  const unsigned char *raw = (const unsigned char *)data;
 
   if (len > 0) {
     size_t left = ctx->size;
@@ -182,23 +169,23 @@ blake2b_update(blake2b_t *ctx, const void *data, size_t len) {
     if (len > fill) {
       ctx->size = 0;
 
-      memcpy(ctx->block + left, in, fill);
+      memcpy(ctx->block + left, raw, fill);
 
       blake2b_increment(ctx, 128);
       blake2b_compress(ctx, ctx->block, 0);
 
-      in += fill;
+      raw += fill;
       len -= fill;
 
       while (len > 128) {
         blake2b_increment(ctx, 128);
-        blake2b_compress(ctx, in, 0);
-        in += 128;
+        blake2b_compress(ctx, raw, 0);
+        raw += 128;
         len -= 128;
       }
     }
 
-    memcpy(ctx->block + ctx->size, in, len);
+    memcpy(ctx->block + ctx->size, raw, len);
 
     ctx->size += len;
   }
@@ -206,7 +193,7 @@ blake2b_update(blake2b_t *ctx, const void *data, size_t len) {
 
 void
 blake2b_final(blake2b_t *ctx, unsigned char *out) {
-  unsigned char buffer[64];
+  unsigned char tmp[64];
   int i;
 
   blake2b_increment(ctx, ctx->size);
@@ -216,11 +203,11 @@ blake2b_final(blake2b_t *ctx, unsigned char *out) {
   blake2b_compress(ctx, ctx->block, (uint64_t)-1);
 
   for (i = 0; i < 8; i++)
-    write64le(buffer + i * 8, ctx->h[i]);
+    write64le(tmp + i * 8, ctx->h[i]);
 
-  memcpy(out, buffer, ctx->outlen);
+  memcpy(out, tmp, ctx->outlen);
 
-  torsion_cleanse(buffer, sizeof(buffer));
+  torsion_cleanse(tmp, sizeof(tmp));
 }
 
 /*
@@ -264,19 +251,6 @@ static const uint32_t blake2s_iv[8] = {
   0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19
 };
 
-static const uint8_t blake2s_sigma[10][16] = {
-  {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15},
-  {14, 10, 4, 8, 9, 15, 13, 6, 1, 12, 0, 2, 11, 7, 5, 3},
-  {11, 8, 12, 0, 5, 2, 15, 13, 10, 14, 3, 6, 7, 1, 9, 4},
-  {7, 9, 3, 1, 13, 12, 11, 14, 2, 6, 5, 10, 4, 0, 15, 8},
-  {9, 0, 5, 7, 2, 4, 10, 15, 14, 1, 11, 12, 6, 8, 3, 13},
-  {2, 12, 6, 10, 0, 11, 8, 3, 4, 13, 7, 5, 15, 14, 1, 9},
-  {12, 5, 1, 15, 14, 13, 4, 10, 0, 7, 6, 3, 9, 2, 8, 11},
-  {13, 11, 7, 14, 12, 1, 3, 9, 5, 0, 15, 4, 8, 6, 2, 10},
-  {6, 15, 14, 9, 11, 3, 0, 8, 12, 2, 13, 7, 1, 4, 10, 5},
-  {10, 2, 8, 4, 7, 6, 1, 5, 15, 11, 9, 14, 3, 12, 13, 0},
-};
-
 void
 blake2s_init(blake2s_t *ctx,
              size_t outlen,
@@ -316,67 +290,83 @@ blake2s_increment(blake2s_t *ctx, uint32_t inc) {
 
 static void
 blake2s_compress(blake2s_t *ctx, const unsigned char *chunk, uint32_t f0) {
-  uint32_t m[16];
-  uint32_t v[16];
+  static const uint8_t sigma[10][16] = {
+    {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15},
+    {14, 10, 4, 8, 9, 15, 13, 6, 1, 12, 0, 2, 11, 7, 5, 3},
+    {11, 8, 12, 0, 5, 2, 15, 13, 10, 14, 3, 6, 7, 1, 9, 4},
+    {7, 9, 3, 1, 13, 12, 11, 14, 2, 6, 5, 10, 4, 0, 15, 8},
+    {9, 0, 5, 7, 2, 4, 10, 15, 14, 1, 11, 12, 6, 8, 3, 13},
+    {2, 12, 6, 10, 0, 11, 8, 3, 4, 13, 7, 5, 15, 14, 1, 9},
+    {12, 5, 1, 15, 14, 13, 4, 10, 0, 7, 6, 3, 9, 2, 8, 11},
+    {13, 11, 7, 14, 12, 1, 3, 9, 5, 0, 15, 4, 8, 6, 2, 10},
+    {6, 15, 14, 9, 11, 3, 0, 8, 12, 2, 13, 7, 1, 4, 10, 5},
+    {10, 2, 8, 4, 7, 6, 1, 5, 15, 11, 9, 14, 3, 12, 13, 0},
+  };
+
+  uint32_t W[16], V[16];
   int i;
 
   for (i = 0; i < 16; i++)
-    m[i] = read32le(chunk + i * 4);
+    W[i] = read32le(chunk + i * 4);
 
   for (i = 0; i < 8; i++)
-    v[i] = ctx->h[i];
+    V[i] = ctx->h[i];
 
-  v[ 8] = blake2s_iv[0];
-  v[ 9] = blake2s_iv[1];
-  v[10] = blake2s_iv[2];
-  v[11] = blake2s_iv[3];
-  v[12] = blake2s_iv[4] ^ ctx->t[0];
-  v[13] = blake2s_iv[5] ^ ctx->t[1];
-  v[14] = blake2s_iv[6] ^ f0;
-  v[15] = blake2s_iv[7];
+  V[ 8] = blake2s_iv[0];
+  V[ 9] = blake2s_iv[1];
+  V[10] = blake2s_iv[2];
+  V[11] = blake2s_iv[3];
+  V[12] = blake2s_iv[4] ^ ctx->t[0];
+  V[13] = blake2s_iv[5] ^ ctx->t[1];
+  V[14] = blake2s_iv[6] ^ f0;
+  V[15] = blake2s_iv[7];
 
-#define G(r, i, a, b, c, d) do {              \
-  a = a + b + m[blake2s_sigma[r][2 * i + 0]]; \
-  d = rotr32(d ^ a, 16);                      \
-  c = c + d;                                  \
-  b = rotr32(b ^ c, 12);                      \
-  a = a + b + m[blake2s_sigma[r][2 * i + 1]]; \
-  d = rotr32(d ^ a, 8);                       \
-  c = c + d;                                  \
-  b = rotr32(b ^ c, 7);                       \
+#define G(r, i, a, b, c, d) do {   \
+  a += b + W[sigma[r][2 * i + 0]]; \
+  d ^= a;                          \
+  d = ROTR32(d, 16);               \
+  c += d;                          \
+  b ^= c;                          \
+  b = ROTR32(b, 12);               \
+  a += b + W[sigma[r][2 * i + 1]]; \
+  d ^= a;                          \
+  d = ROTR32(d, 8);                \
+  c += d;                          \
+  b ^= c;                          \
+  b = ROTR32(b, 7);                \
 } while (0)
 
-#define ROUND(r) do {                  \
-  G(r, 0, v[ 0], v[ 4], v[ 8], v[12]); \
-  G(r, 1, v[ 1], v[ 5], v[ 9], v[13]); \
-  G(r, 2, v[ 2], v[ 6], v[10], v[14]); \
-  G(r, 3, v[ 3], v[ 7], v[11], v[15]); \
-  G(r, 4, v[ 0], v[ 5], v[10], v[15]); \
-  G(r, 5, v[ 1], v[ 6], v[11], v[12]); \
-  G(r, 6, v[ 2], v[ 7], v[ 8], v[13]); \
-  G(r, 7, v[ 3], v[ 4], v[ 9], v[14]); \
+#define R(r) do {                      \
+  G(r, 0, V[ 0], V[ 4], V[ 8], V[12]); \
+  G(r, 1, V[ 1], V[ 5], V[ 9], V[13]); \
+  G(r, 2, V[ 2], V[ 6], V[10], V[14]); \
+  G(r, 3, V[ 3], V[ 7], V[11], V[15]); \
+  G(r, 4, V[ 0], V[ 5], V[10], V[15]); \
+  G(r, 5, V[ 1], V[ 6], V[11], V[12]); \
+  G(r, 6, V[ 2], V[ 7], V[ 8], V[13]); \
+  G(r, 7, V[ 3], V[ 4], V[ 9], V[14]); \
 } while (0)
 
-  ROUND(0);
-  ROUND(1);
-  ROUND(2);
-  ROUND(3);
-  ROUND(4);
-  ROUND(5);
-  ROUND(6);
-  ROUND(7);
-  ROUND(8);
-  ROUND(9);
+  R(0);
+  R(1);
+  R(2);
+  R(3);
+  R(4);
+  R(5);
+  R(6);
+  R(7);
+  R(8);
+  R(9);
 
   for (i = 0; i < 8; i++)
-    ctx->h[i] ^= v[i] ^ v[i + 8];
+    ctx->h[i] ^= V[i] ^ V[i + 8];
 #undef G
-#undef ROUND
+#undef R
 }
 
 void
 blake2s_update(blake2s_t *ctx, const void *data, size_t len) {
-  const unsigned char *in = (const unsigned char *)data;
+  const unsigned char *raw = (const unsigned char *)data;
 
   if (len > 0) {
     size_t left = ctx->size;
@@ -385,24 +375,24 @@ blake2s_update(blake2s_t *ctx, const void *data, size_t len) {
     if (len > fill) {
       ctx->size = 0;
 
-      memcpy(ctx->block + left, in, fill);
+      memcpy(ctx->block + left, raw, fill);
 
       blake2s_increment(ctx, 64);
       blake2s_compress(ctx, ctx->block, 0);
 
-      in += fill;
+      raw += fill;
       len -= fill;
 
       while (len > 64) {
         blake2s_increment(ctx, 64);
-        blake2s_compress(ctx, in, 0);
+        blake2s_compress(ctx, raw, 0);
 
-        in += 64;
+        raw += 64;
         len -= 64;
       }
     }
 
-    memcpy(ctx->block + ctx->size, in, len);
+    memcpy(ctx->block + ctx->size, raw, len);
 
     ctx->size += len;
   }
@@ -410,7 +400,7 @@ blake2s_update(blake2s_t *ctx, const void *data, size_t len) {
 
 void
 blake2s_final(blake2s_t *ctx, unsigned char *out) {
-  unsigned char buffer[32];
+  unsigned char tmp[32];
   int i;
 
   blake2s_increment(ctx, (uint32_t)ctx->size);
@@ -420,11 +410,11 @@ blake2s_final(blake2s_t *ctx, unsigned char *out) {
   blake2s_compress(ctx, ctx->block, (uint32_t)-1);
 
   for (i = 0; i < 8; i++)
-    write32le(buffer + i * 4, ctx->h[i]);
+    write32le(tmp + i * 4, ctx->h[i]);
 
-  memcpy(out, buffer, ctx->outlen);
+  memcpy(out, tmp, ctx->outlen);
 
-  torsion_cleanse(buffer, sizeof(buffer));
+  torsion_cleanse(tmp, sizeof(tmp));
 }
 
 /*
@@ -446,50 +436,37 @@ DEFINE_BLAKE2(blake2s, 256)
  *   https://github.com/RustCrypto/hashes/blob/master/gost94/src/gost94.rs
  */
 
-static const uint8_t gost94_C[32] = {
-  0x00, 0xff, 0x00, 0xff, 0x00, 0xff, 0x00, 0xff,
-  0xff, 0x00, 0xff, 0x00, 0xff, 0x00, 0xff, 0x00,
-  0x00, 0xff, 0xff, 0x00, 0xff, 0x00, 0x00, 0xff,
-  0xff, 0x00, 0x00, 0x00, 0xff, 0xff, 0x00, 0xff
-};
-
-static const uint8_t gost94_S[8][16] = { /* CryptoPro */
-  {10, 4, 5, 6, 8, 1, 3, 7, 13, 12, 14, 0, 9, 2, 11, 15},
-  {5, 15, 4, 0, 2, 13, 11, 9, 1, 7, 6, 3, 12, 14, 10, 8},
-  {7, 15, 12, 14, 9, 4, 1, 0, 3, 11, 5, 2, 6, 10, 8, 13},
-  {4, 10, 7, 12, 0, 15, 2, 8, 14, 1, 6, 5, 13, 11, 9, 3},
-  {7, 6, 4, 11, 9, 12, 2, 10, 1, 8, 0, 14, 15, 13, 3, 5},
-  {7, 6, 2, 4, 13, 9, 15, 0, 10, 1, 5, 11, 8, 14, 12, 3},
-  {13, 14, 4, 1, 7, 0, 5, 10, 3, 12, 8, 15, 6, 2, 9, 11},
-  {1, 3, 10, 9, 5, 11, 4, 15, 8, 6, 7, 14, 13, 0, 2, 12}
-};
-
 static uint32_t
-gost94_sbox(uint32_t a) {
-  uint32_t v = 0;
-  uint32_t k;
-  int i, shift;
+gost94_g(uint32_t x, uint32_t y) {
+  static const uint8_t S[8][16] = { /* CryptoPro */
+    {10, 4, 5, 6, 8, 1, 3, 7, 13, 12, 14, 0, 9, 2, 11, 15},
+    {5, 15, 4, 0, 2, 13, 11, 9, 1, 7, 6, 3, 12, 14, 10, 8},
+    {7, 15, 12, 14, 9, 4, 1, 0, 3, 11, 5, 2, 6, 10, 8, 13},
+    {4, 10, 7, 12, 0, 15, 2, 8, 14, 1, 6, 5, 13, 11, 9, 3},
+    {7, 6, 4, 11, 9, 12, 2, 10, 1, 8, 0, 14, 15, 13, 3, 5},
+    {7, 6, 2, 4, 13, 9, 15, 0, 10, 1, 5, 11, 8, 14, 12, 3},
+    {13, 14, 4, 1, 7, 0, 5, 10, 3, 12, 8, 15, 6, 2, 9, 11},
+    {1, 3, 10, 9, 5, 11, 4, 15, 8, 6, 7, 14, 13, 0, 2, 12}
+  };
 
-  for (i = 0; i < 8; i++) {
-    shift = 4 * i;
-    k = (a & (15 << shift)) >> shift;
-    v += (uint32_t)gost94_S[i][k] << shift;
-  }
+  uint32_t t = x + y;
+  uint32_t z = ((uint32_t)S[7][(t >> 28) & 15] << 28)
+             | ((uint32_t)S[6][(t >> 24) & 15] << 24)
+             | ((uint32_t)S[5][(t >> 20) & 15] << 20)
+             | ((uint32_t)S[4][(t >> 16) & 15] << 16)
+             | ((uint32_t)S[3][(t >> 12) & 15] << 12)
+             | ((uint32_t)S[2][(t >>  8) & 15] <<  8)
+             | ((uint32_t)S[1][(t >>  4) & 15] <<  4)
+             | ((uint32_t)S[0][(t >>  0) & 15] <<  0);
 
-  return v;
-}
-
-static uint32_t
-gost94_g(uint32_t a, uint32_t k) {
-  uint32_t w = gost94_sbox(a + k);
-  return (w << 11) | (w >> (32 - 11));
+  return ROTL32(z, 11);
 }
 
 static void
-gost94_encrypt(unsigned char *msg, const unsigned char *key) {
-  uint32_t k[8];
+gost94_e(unsigned char *msg, const unsigned char *key) {
   uint32_t a = read32le(msg + 0);
   uint32_t b = read32le(msg + 4);
+  uint32_t k[8];
   uint32_t t;
   int i, x;
 
@@ -515,111 +492,115 @@ gost94_encrypt(unsigned char *msg, const unsigned char *key) {
 }
 
 static void
-gost94_x(uint8_t out[32], const uint8_t a[32], const uint8_t b[32]) {
+gost94_x(uint8_t *zp, const uint8_t *xp, const uint8_t *yp) {
   int i;
 
   for (i = 0; i < 32; i++)
-    out[i] = a[i] ^ b[i];
+    zp[i] = xp[i] ^ yp[i];
 }
 
 static void
-gost94_a(uint8_t out[32], const uint8_t x[32]) {
+gost94_a(uint8_t *zp, const uint8_t *xp) {
+  uint8_t tp[32];
   int i;
 
-  memcpy(out, x + 8, 24);
+  for (i = 0; i < 32; i++)
+    tp[i] = xp[i];
+
+  for (i = 0; i < 24; i++)
+    zp[i] = tp[8 + i];
 
   for (i = 0; i < 8; i++)
-    out[24 + i] = x[i] ^ x[i + 8];
+    zp[24 + i] = tp[i] ^ tp[i + 8];
 }
 
 static void
-gost94_p(uint8_t out[32], const uint8_t y[32]) {
+gost94_p(uint8_t *zp, const uint8_t *xp) {
+  uint8_t tp[32];
   int i, k;
+
+  for (i = 0; i < 32; i++)
+    tp[i] = xp[i];
 
   for (i = 0; i < 4; i++) {
     for (k = 0; k < 8; k++)
-      out[i + 4 * k] = y[8 * i + k];
+      zp[i + 4 * k] = tp[8 * i + k];
   }
 }
 
 static void
-gost94_psi(uint8_t block[32]) {
-  uint8_t out[32];
-
-  memcpy(out, block + 2, 30);
-  memcpy(out + 30, block, 2);
-
-  out[30] ^= block[2];
-  out[31] ^= block[3];
-
-  out[30] ^= block[4];
-  out[31] ^= block[5];
-
-  out[30] ^= block[6];
-  out[31] ^= block[7];
-
-  out[30] ^= block[24];
-  out[31] ^= block[25];
-
-  out[30] ^= block[30];
-  out[31] ^= block[31];
-
-  memcpy(block, out, 32);
-}
-
-static void
-gost94_compress(gost94_t *ctx, const uint8_t m[32]) {
-  uint8_t s[32], k[32], u[32], v[32], t[32];
+gost94_s(uint8_t *zp, const uint8_t *xp) {
+  uint8_t z30 = xp[0] ^ xp[2] ^ xp[4] ^ xp[6] ^ xp[24] ^ xp[30];
+  uint8_t z31 = xp[1] ^ xp[3] ^ xp[5] ^ xp[7] ^ xp[25] ^ xp[31];
   int i;
 
-  memcpy(s, ctx->state, 32);
+  for (i = 0; i < 30; i++)
+    zp[i] = xp[2 + i];
 
-  gost94_x(t, ctx->state, m);
-  gost94_p(k, t);
-  gost94_encrypt(s + 0, k);
-
-  gost94_a(u, ctx->state);
-  gost94_a(t, m);
-  gost94_a(v, t);
-  gost94_x(t, u, v);
-  gost94_p(k, t);
-  gost94_encrypt(s + 8, k);
-
-  memcpy(t, u, 32);
-  gost94_a(u, t);
-  gost94_x(u, u, gost94_C);
-  gost94_a(t, v);
-  gost94_a(v, t);
-  gost94_x(t, u, v);
-  gost94_p(k, t);
-  gost94_encrypt(s + 16, k);
-
-  memcpy(t, u, 32);
-  gost94_a(u, t);
-  gost94_a(t, v);
-  gost94_a(v, t);
-  gost94_x(t, u, v);
-  gost94_p(k, t);
-  gost94_encrypt(s + 24, k);
-
-  for (i = 0; i < 12; i++)
-    gost94_psi(s);
-
-  gost94_x(s, s, m);
-  gost94_psi(s);
-  gost94_x(ctx->state, ctx->state, s);
-
-  for (i = 0; i < 61; i++)
-    gost94_psi(ctx->state);
+  zp[30] = z30;
+  zp[31] = z31;
 }
 
 static void
-gost94_sum(gost94_t *ctx, const uint8_t m[32]) {
-  uint32_t c = 0;
+gost94_compress(gost94_t *ctx, const uint8_t *mp) {
+  static const uint8_t cp[32] = {
+    0x00, 0xff, 0x00, 0xff, 0x00, 0xff, 0x00, 0xff,
+    0xff, 0x00, 0xff, 0x00, 0xff, 0x00, 0xff, 0x00,
+    0x00, 0xff, 0xff, 0x00, 0xff, 0x00, 0x00, 0xff,
+    0xff, 0x00, 0x00, 0x00, 0xff, 0xff, 0x00, 0xff
+  };
+
+  uint8_t tp[32], kp[32], up[32], vp[32];
+  uint8_t *sp = ctx->state;
+  int i;
+
+  for (i = 0; i < 32; i++)
+    tp[i] = sp[i];
+
+  gost94_x(kp, sp, mp);
+  gost94_p(kp, kp);
+  gost94_e(tp + 0, kp);
+
+  gost94_a(up, sp);
+  gost94_a(vp, mp);
+  gost94_a(vp, vp);
+  gost94_x(kp, up, vp);
+  gost94_p(kp, kp);
+  gost94_e(tp + 8, kp);
+
+  gost94_a(up, up);
+  gost94_x(up, up, cp);
+  gost94_a(vp, vp);
+  gost94_a(vp, vp);
+  gost94_x(kp, up, vp);
+  gost94_p(kp, kp);
+  gost94_e(tp + 16, kp);
+
+  gost94_a(up, up);
+  gost94_a(vp, vp);
+  gost94_a(vp, vp);
+  gost94_x(kp, up, vp);
+  gost94_p(kp, kp);
+  gost94_e(tp + 24, kp);
+
+  for (i = 0; i < 12; i++)
+    gost94_s(tp, tp);
+
+  gost94_x(tp, tp, mp);
+  gost94_s(tp, tp);
+  gost94_x(sp, sp, tp);
+
+  for (i = 0; i < 61; i++)
+    gost94_s(sp, sp);
+}
+
+static void
+gost94_sum(gost94_t *ctx, const uint8_t *mp) {
+  unsigned int c = 0;
   int i;
 
   for (i = 0; i < 32; i++) {
-    c += ctx->sigma[i] + m[i];
+    c += ctx->sigma[i] + mp[i];
     ctx->sigma[i] = c;
     c >>= 8;
   }
@@ -638,9 +619,8 @@ gost94_transform(gost94_t *ctx, const unsigned char *chunk) {
 
 void
 gost94_update(gost94_t *ctx, const void *data, size_t len) {
-  const unsigned char *bytes = (const unsigned char *)data;
+  const unsigned char *raw = (const unsigned char *)data;
   size_t pos = ctx->size & 31;
-  size_t off = 0;
 
   if (len == 0)
     return;
@@ -653,11 +633,11 @@ gost94_update(gost94_t *ctx, const void *data, size_t len) {
     if (want > len)
       want = len;
 
-    memcpy(ctx->block + pos, bytes, want);
+    memcpy(ctx->block + pos, raw, want);
 
     pos += want;
     len -= want;
-    off += want;
+    raw += want;
 
     if (pos < 32)
       return;
@@ -666,19 +646,19 @@ gost94_update(gost94_t *ctx, const void *data, size_t len) {
   }
 
   while (len >= 32) {
-    gost94_transform(ctx, bytes + off);
-    off += 32;
+    gost94_transform(ctx, raw);
+    raw += 32;
     len -= 32;
   }
 
   if (len > 0)
-    memcpy(ctx->block, bytes + off, len);
+    memcpy(ctx->block, raw, len);
 }
 
 void
 gost94_final(gost94_t *ctx, unsigned char *out) {
-  size_t pos = ctx->size & 31;
   uint64_t bits = ctx->size << 3;
+  size_t pos = ctx->size & 31;
   unsigned char D[32];
 
   memset(D, 0x00, 32);
@@ -926,9 +906,8 @@ keccak_transform(keccak_t *ctx, const unsigned char *chunk) {
 
 void
 keccak_update(keccak_t *ctx, const void *data, size_t len) {
-  const unsigned char *bytes = (const unsigned char *)data;
+  const unsigned char *raw = (const unsigned char *)data;
   size_t pos = ctx->pos;
-  size_t off = 0;
 
   if (len == 0)
     return;
@@ -941,11 +920,11 @@ keccak_update(keccak_t *ctx, const void *data, size_t len) {
     if (want > len)
       want = len;
 
-    memcpy(ctx->block + pos, bytes, want);
+    memcpy(ctx->block + pos, raw, want);
 
     pos += want;
     len -= want;
-    off += want;
+    raw += want;
 
     if (pos < ctx->bs)
       return;
@@ -954,13 +933,13 @@ keccak_update(keccak_t *ctx, const void *data, size_t len) {
   }
 
   while (len >= ctx->bs) {
-    keccak_transform(ctx, bytes + off);
-    off += ctx->bs;
+    keccak_transform(ctx, raw);
+    raw += ctx->bs;
     len -= ctx->bs;
   }
 
   if (len > 0)
-    memcpy(ctx->block, bytes + off, len);
+    memcpy(ctx->block, raw, len);
 }
 
 void
@@ -1020,41 +999,6 @@ DEFINE_KECCAK(keccak512, 512, 0x01)
  *   https://github.com/RustCrypto/hashes/blob/master/md2/src/lib.rs
  */
 
-static const uint8_t md2_K[256] = {
-  0x29, 0x2e, 0x43, 0xc9, 0xa2, 0xd8, 0x7c, 0x01,
-  0x3d, 0x36, 0x54, 0xa1, 0xec, 0xf0, 0x06, 0x13,
-  0x62, 0xa7, 0x05, 0xf3, 0xc0, 0xc7, 0x73, 0x8c,
-  0x98, 0x93, 0x2b, 0xd9, 0xbc, 0x4c, 0x82, 0xca,
-  0x1e, 0x9b, 0x57, 0x3c, 0xfd, 0xd4, 0xe0, 0x16,
-  0x67, 0x42, 0x6f, 0x18, 0x8a, 0x17, 0xe5, 0x12,
-  0xbe, 0x4e, 0xc4, 0xd6, 0xda, 0x9e, 0xde, 0x49,
-  0xa0, 0xfb, 0xf5, 0x8e, 0xbb, 0x2f, 0xee, 0x7a,
-  0xa9, 0x68, 0x79, 0x91, 0x15, 0xb2, 0x07, 0x3f,
-  0x94, 0xc2, 0x10, 0x89, 0x0b, 0x22, 0x5f, 0x21,
-  0x80, 0x7f, 0x5d, 0x9a, 0x5a, 0x90, 0x32, 0x27,
-  0x35, 0x3e, 0xcc, 0xe7, 0xbf, 0xf7, 0x97, 0x03,
-  0xff, 0x19, 0x30, 0xb3, 0x48, 0xa5, 0xb5, 0xd1,
-  0xd7, 0x5e, 0x92, 0x2a, 0xac, 0x56, 0xaa, 0xc6,
-  0x4f, 0xb8, 0x38, 0xd2, 0x96, 0xa4, 0x7d, 0xb6,
-  0x76, 0xfc, 0x6b, 0xe2, 0x9c, 0x74, 0x04, 0xf1,
-  0x45, 0x9d, 0x70, 0x59, 0x64, 0x71, 0x87, 0x20,
-  0x86, 0x5b, 0xcf, 0x65, 0xe6, 0x2d, 0xa8, 0x02,
-  0x1b, 0x60, 0x25, 0xad, 0xae, 0xb0, 0xb9, 0xf6,
-  0x1c, 0x46, 0x61, 0x69, 0x34, 0x40, 0x7e, 0x0f,
-  0x55, 0x47, 0xa3, 0x23, 0xdd, 0x51, 0xaf, 0x3a,
-  0xc3, 0x5c, 0xf9, 0xce, 0xba, 0xc5, 0xea, 0x26,
-  0x2c, 0x53, 0x0d, 0x6e, 0x85, 0x28, 0x84, 0x09,
-  0xd3, 0xdf, 0xcd, 0xf4, 0x41, 0x81, 0x4d, 0x52,
-  0x6a, 0xdc, 0x37, 0xc8, 0x6c, 0xc1, 0xab, 0xfa,
-  0x24, 0xe1, 0x7b, 0x08, 0x0c, 0xbd, 0xb1, 0x4a,
-  0x78, 0x88, 0x95, 0x8b, 0xe3, 0x63, 0xe8, 0x6d,
-  0xe9, 0xcb, 0xd5, 0xfe, 0x3b, 0x00, 0x1d, 0x39,
-  0xf2, 0xef, 0xb7, 0x0e, 0x66, 0x58, 0xd0, 0xe4,
-  0xa6, 0x77, 0x72, 0xf8, 0xeb, 0x75, 0x4b, 0x0a,
-  0x31, 0x44, 0x50, 0xb4, 0x8f, 0xed, 0x1f, 0x1a,
-  0xdb, 0x99, 0x8d, 0x33, 0x9f, 0x11, 0x83, 0x14
-};
-
 void
 md2_init(md2_t *ctx) {
   memset(ctx, 0, sizeof(*ctx));
@@ -1062,13 +1006,47 @@ md2_init(md2_t *ctx) {
 
 static void
 md2_transform(md2_t *ctx, const unsigned char *chunk) {
+  static const uint8_t K[256] = {
+    0x29, 0x2e, 0x43, 0xc9, 0xa2, 0xd8, 0x7c, 0x01,
+    0x3d, 0x36, 0x54, 0xa1, 0xec, 0xf0, 0x06, 0x13,
+    0x62, 0xa7, 0x05, 0xf3, 0xc0, 0xc7, 0x73, 0x8c,
+    0x98, 0x93, 0x2b, 0xd9, 0xbc, 0x4c, 0x82, 0xca,
+    0x1e, 0x9b, 0x57, 0x3c, 0xfd, 0xd4, 0xe0, 0x16,
+    0x67, 0x42, 0x6f, 0x18, 0x8a, 0x17, 0xe5, 0x12,
+    0xbe, 0x4e, 0xc4, 0xd6, 0xda, 0x9e, 0xde, 0x49,
+    0xa0, 0xfb, 0xf5, 0x8e, 0xbb, 0x2f, 0xee, 0x7a,
+    0xa9, 0x68, 0x79, 0x91, 0x15, 0xb2, 0x07, 0x3f,
+    0x94, 0xc2, 0x10, 0x89, 0x0b, 0x22, 0x5f, 0x21,
+    0x80, 0x7f, 0x5d, 0x9a, 0x5a, 0x90, 0x32, 0x27,
+    0x35, 0x3e, 0xcc, 0xe7, 0xbf, 0xf7, 0x97, 0x03,
+    0xff, 0x19, 0x30, 0xb3, 0x48, 0xa5, 0xb5, 0xd1,
+    0xd7, 0x5e, 0x92, 0x2a, 0xac, 0x56, 0xaa, 0xc6,
+    0x4f, 0xb8, 0x38, 0xd2, 0x96, 0xa4, 0x7d, 0xb6,
+    0x76, 0xfc, 0x6b, 0xe2, 0x9c, 0x74, 0x04, 0xf1,
+    0x45, 0x9d, 0x70, 0x59, 0x64, 0x71, 0x87, 0x20,
+    0x86, 0x5b, 0xcf, 0x65, 0xe6, 0x2d, 0xa8, 0x02,
+    0x1b, 0x60, 0x25, 0xad, 0xae, 0xb0, 0xb9, 0xf6,
+    0x1c, 0x46, 0x61, 0x69, 0x34, 0x40, 0x7e, 0x0f,
+    0x55, 0x47, 0xa3, 0x23, 0xdd, 0x51, 0xaf, 0x3a,
+    0xc3, 0x5c, 0xf9, 0xce, 0xba, 0xc5, 0xea, 0x26,
+    0x2c, 0x53, 0x0d, 0x6e, 0x85, 0x28, 0x84, 0x09,
+    0xd3, 0xdf, 0xcd, 0xf4, 0x41, 0x81, 0x4d, 0x52,
+    0x6a, 0xdc, 0x37, 0xc8, 0x6c, 0xc1, 0xab, 0xfa,
+    0x24, 0xe1, 0x7b, 0x08, 0x0c, 0xbd, 0xb1, 0x4a,
+    0x78, 0x88, 0x95, 0x8b, 0xe3, 0x63, 0xe8, 0x6d,
+    0xe9, 0xcb, 0xd5, 0xfe, 0x3b, 0x00, 0x1d, 0x39,
+    0xf2, 0xef, 0xb7, 0x0e, 0x66, 0x58, 0xd0, 0xe4,
+    0xa6, 0x77, 0x72, 0xf8, 0xeb, 0x75, 0x4b, 0x0a,
+    0x31, 0x44, 0x50, 0xb4, 0x8f, 0xed, 0x1f, 0x1a,
+    0xdb, 0x99, 0x8d, 0x33, 0x9f, 0x11, 0x83, 0x14
+  };
+
   uint8_t t;
   int j, k;
 
 #define S (ctx->state)
 #define C (ctx->checksum)
 #define W ((uint8_t *)(chunk))
-#define K (md2_K)
 
   for (j = 0; j < 16; j++) {
     S[16 + j] = W[j];
@@ -1096,14 +1074,12 @@ md2_transform(md2_t *ctx, const unsigned char *chunk) {
 #undef S
 #undef C
 #undef W
-#undef K
 }
 
 void
 md2_update(md2_t *ctx, const void *data, size_t len) {
-  const unsigned char *bytes = (const unsigned char *)data;
+  const unsigned char *raw = (const unsigned char *)data;
   size_t pos = ctx->pos;
-  size_t off = 0;
 
   if (len == 0)
     return;
@@ -1116,11 +1092,11 @@ md2_update(md2_t *ctx, const void *data, size_t len) {
     if (want > len)
       want = len;
 
-    memcpy(ctx->block + pos, bytes, want);
+    memcpy(ctx->block + pos, raw, want);
 
     pos += want;
     len -= want;
-    off += want;
+    raw += want;
 
     if (pos < 16)
       return;
@@ -1129,13 +1105,13 @@ md2_update(md2_t *ctx, const void *data, size_t len) {
   }
 
   while (len >= 16) {
-    md2_transform(ctx, bytes + off);
-    off += 16;
+    md2_transform(ctx, raw);
+    raw += 16;
     len -= 16;
   }
 
   if (len > 0)
-    memcpy(ctx->block, bytes + off, len);
+    memcpy(ctx->block, raw, len);
 }
 
 void
@@ -1249,9 +1225,8 @@ md4_transform(md4_t *ctx, const unsigned char *chunk) {
 
 void
 md4_update(md4_t *ctx, const void *data, size_t len) {
-  const unsigned char *bytes = (const unsigned char *)data;
+  const unsigned char *raw = (const unsigned char *)data;
   size_t pos = ctx->size & 63;
-  size_t off = 0;
 
   if (len == 0)
     return;
@@ -1264,11 +1239,11 @@ md4_update(md4_t *ctx, const void *data, size_t len) {
     if (want > len)
       want = len;
 
-    memcpy(ctx->block + pos, bytes, want);
+    memcpy(ctx->block + pos, raw, want);
 
     pos += want;
     len -= want;
-    off += want;
+    raw += want;
 
     if (pos < 64)
       return;
@@ -1277,24 +1252,23 @@ md4_update(md4_t *ctx, const void *data, size_t len) {
   }
 
   while (len >= 64) {
-    md4_transform(ctx, bytes + off);
-    off += 64;
+    md4_transform(ctx, raw);
+    raw += 64;
     len -= 64;
   }
 
   if (len > 0)
-    memcpy(ctx->block, bytes + off, len);
+    memcpy(ctx->block, raw, len);
 }
 
 void
 md4_final(md4_t *ctx, unsigned char *out) {
   static const unsigned char P[64] = { 0x80, 0x00 };
   size_t pos = ctx->size & 63;
-  uint64_t len = ctx->size << 3;
   unsigned char D[8];
   int i;
 
-  write64le(D, len);
+  write64le(D, ctx->size << 3);
 
   md4_update(ctx, P, 1 + ((119 - pos) & 63));
   md4_update(ctx, D, 8);
@@ -1340,7 +1314,7 @@ md5_transform(md5_t *ctx, const unsigned char *chunk) {
 #define F4(x, y, z) (y ^ (x | ~z))
 
 #define R(F, a, b, c, d, k, g, s) do { \
-  a = F(b, c, d) + a + k + W[g];       \
+  a += F(b, c, d) + k + W[g];          \
   a = ROTL32(a, s) + b;                \
 } while (0)
 
@@ -1426,9 +1400,8 @@ md5_transform(md5_t *ctx, const unsigned char *chunk) {
 
 void
 md5_update(md5_t *ctx, const void *data, size_t len) {
-  const unsigned char *bytes = (const unsigned char *)data;
+  const unsigned char *raw = (const unsigned char *)data;
   size_t pos = ctx->size & 63;
-  size_t off = 0;
 
   if (len == 0)
     return;
@@ -1441,11 +1414,11 @@ md5_update(md5_t *ctx, const void *data, size_t len) {
     if (want > len)
       want = len;
 
-    memcpy(ctx->block + pos, bytes, want);
+    memcpy(ctx->block + pos, raw, want);
 
     pos += want;
     len -= want;
-    off += want;
+    raw += want;
 
     if (pos < 64)
       return;
@@ -1454,24 +1427,23 @@ md5_update(md5_t *ctx, const void *data, size_t len) {
   }
 
   while (len >= 64) {
-    md5_transform(ctx, bytes + off);
-    off += 64;
+    md5_transform(ctx, raw);
+    raw += 64;
     len -= 64;
   }
 
   if (len > 0)
-    memcpy(ctx->block, bytes + off, len);
+    memcpy(ctx->block, raw, len);
 }
 
 void
 md5_final(md5_t *ctx, unsigned char *out) {
   static const unsigned char P[64] = { 0x80, 0x00 };
   size_t pos = ctx->size & 63;
-  uint64_t len = ctx->size << 3;
   unsigned char D[8];
   int i;
 
-  write64le(D, len);
+  write64le(D, ctx->size << 3);
 
   md5_update(ctx, P, 1 + ((119 - pos) & 63));
   md5_update(ctx, D, 8);
@@ -1523,7 +1495,7 @@ ripemd160_init(ripemd160_t *ctx) {
 
 static void
 ripemd160_transform(ripemd160_t *ctx, const unsigned char *chunk) {
-  uint32_t Ah, Bh, Ch, Dh, Eh;
+  uint32_t AH, BH, CH, DH, EH;
   uint32_t A, B, C, D, E, T;
   uint32_t W[16];
   int i;
@@ -1537,11 +1509,11 @@ ripemd160_transform(ripemd160_t *ctx, const unsigned char *chunk) {
   D = ctx->state[3];
   E = ctx->state[4];
 
-  Ah = A;
-  Bh = B;
-  Ch = C;
-  Dh = D;
-  Eh = E;
+  AH = A;
+  BH = B;
+  CH = C;
+  DH = D;
+  EH = E;
 
 #define F1(x, y, z) (x ^ y ^ z)
 #define F2(x, y, z) ((x & y) | ((~x) & z))
@@ -1562,171 +1534,172 @@ ripemd160_transform(ripemd160_t *ctx, const unsigned char *chunk) {
 #define KH5 0x00000000
 
 #define R(F, a, b, c, d, e, r, k, s) do { \
-  a = a + F(b, c, d) + W[r] + k;          \
+  a += F(b, c, d) + W[r] + k;             \
   a = ROTL32(a, s) + e;                   \
   c = ROTL32(c, 10);                      \
 } while (0)
 
-  R(F1, A, B, C, D, E, 0, K1, 11);
-  R(F5, Ah, Bh, Ch, Dh, Eh, 5, KH1, 8);
-  R(F1, E, A, B, C, D, 1, K1, 14);
-  R(F5, Eh, Ah, Bh, Ch, Dh, 14, KH1, 9);
-  R(F1, D, E, A, B, C, 2, K1, 15);
-  R(F5, Dh, Eh, Ah, Bh, Ch, 7, KH1, 9);
-  R(F1, C, D, E, A, B, 3, K1, 12);
-  R(F5, Ch, Dh, Eh, Ah, Bh, 0, KH1, 11);
-  R(F1, B, C, D, E, A, 4, K1, 5);
-  R(F5, Bh, Ch, Dh, Eh, Ah, 9, KH1, 13);
-  R(F1, A, B, C, D, E, 5, K1, 8);
-  R(F5, Ah, Bh, Ch, Dh, Eh, 2, KH1, 15);
-  R(F1, E, A, B, C, D, 6, K1, 7);
-  R(F5, Eh, Ah, Bh, Ch, Dh, 11, KH1, 15);
-  R(F1, D, E, A, B, C, 7, K1, 9);
-  R(F5, Dh, Eh, Ah, Bh, Ch, 4, KH1, 5);
-  R(F1, C, D, E, A, B, 8, K1, 11);
-  R(F5, Ch, Dh, Eh, Ah, Bh, 13, KH1, 7);
-  R(F1, B, C, D, E, A, 9, K1, 13);
-  R(F5, Bh, Ch, Dh, Eh, Ah, 6, KH1, 7);
+  R(F1, A, B, C, D, E,  0, K1, 11);
+  R(F1, E, A, B, C, D,  1, K1, 14);
+  R(F1, D, E, A, B, C,  2, K1, 15);
+  R(F1, C, D, E, A, B,  3, K1, 12);
+  R(F1, B, C, D, E, A,  4, K1,  5);
+  R(F1, A, B, C, D, E,  5, K1,  8);
+  R(F1, E, A, B, C, D,  6, K1,  7);
+  R(F1, D, E, A, B, C,  7, K1,  9);
+  R(F1, C, D, E, A, B,  8, K1, 11);
+  R(F1, B, C, D, E, A,  9, K1, 13);
   R(F1, A, B, C, D, E, 10, K1, 14);
-  R(F5, Ah, Bh, Ch, Dh, Eh, 15, KH1, 8);
   R(F1, E, A, B, C, D, 11, K1, 15);
-  R(F5, Eh, Ah, Bh, Ch, Dh, 8, KH1, 11);
-  R(F1, D, E, A, B, C, 12, K1, 6);
-  R(F5, Dh, Eh, Ah, Bh, Ch, 1, KH1, 14);
-  R(F1, C, D, E, A, B, 13, K1, 7);
-  R(F5, Ch, Dh, Eh, Ah, Bh, 10, KH1, 14);
-  R(F1, B, C, D, E, A, 14, K1, 9);
-  R(F5, Bh, Ch, Dh, Eh, Ah, 3, KH1, 12);
-  R(F1, A, B, C, D, E, 15, K1, 8);
-  R(F5, Ah, Bh, Ch, Dh, Eh, 12, KH1, 6);
-  R(F2, E, A, B, C, D, 7, K2, 7);
-  R(F4, Eh, Ah, Bh, Ch, Dh, 6, KH2, 9);
-  R(F2, D, E, A, B, C, 4, K2, 6);
-  R(F4, Dh, Eh, Ah, Bh, Ch, 11, KH2, 13);
-  R(F2, C, D, E, A, B, 13, K2, 8);
-  R(F4, Ch, Dh, Eh, Ah, Bh, 3, KH2, 15);
-  R(F2, B, C, D, E, A, 1, K2, 13);
-  R(F4, Bh, Ch, Dh, Eh, Ah, 7, KH2, 7);
+  R(F1, D, E, A, B, C, 12, K1,  6);
+  R(F1, C, D, E, A, B, 13, K1,  7);
+  R(F1, B, C, D, E, A, 14, K1,  9);
+  R(F1, A, B, C, D, E, 15, K1,  8);
+  R(F2, E, A, B, C, D,  7, K2,  7);
+  R(F2, D, E, A, B, C,  4, K2,  6);
+  R(F2, C, D, E, A, B, 13, K2,  8);
+  R(F2, B, C, D, E, A,  1, K2, 13);
   R(F2, A, B, C, D, E, 10, K2, 11);
-  R(F4, Ah, Bh, Ch, Dh, Eh, 0, KH2, 12);
-  R(F2, E, A, B, C, D, 6, K2, 9);
-  R(F4, Eh, Ah, Bh, Ch, Dh, 13, KH2, 8);
-  R(F2, D, E, A, B, C, 15, K2, 7);
-  R(F4, Dh, Eh, Ah, Bh, Ch, 5, KH2, 9);
-  R(F2, C, D, E, A, B, 3, K2, 15);
-  R(F4, Ch, Dh, Eh, Ah, Bh, 10, KH2, 11);
-  R(F2, B, C, D, E, A, 12, K2, 7);
-  R(F4, Bh, Ch, Dh, Eh, Ah, 14, KH2, 7);
-  R(F2, A, B, C, D, E, 0, K2, 12);
-  R(F4, Ah, Bh, Ch, Dh, Eh, 15, KH2, 7);
-  R(F2, E, A, B, C, D, 9, K2, 15);
-  R(F4, Eh, Ah, Bh, Ch, Dh, 8, KH2, 12);
-  R(F2, D, E, A, B, C, 5, K2, 9);
-  R(F4, Dh, Eh, Ah, Bh, Ch, 12, KH2, 7);
-  R(F2, C, D, E, A, B, 2, K2, 11);
-  R(F4, Ch, Dh, Eh, Ah, Bh, 4, KH2, 6);
-  R(F2, B, C, D, E, A, 14, K2, 7);
-  R(F4, Bh, Ch, Dh, Eh, Ah, 9, KH2, 15);
+  R(F2, E, A, B, C, D,  6, K2,  9);
+  R(F2, D, E, A, B, C, 15, K2,  7);
+  R(F2, C, D, E, A, B,  3, K2, 15);
+  R(F2, B, C, D, E, A, 12, K2,  7);
+  R(F2, A, B, C, D, E,  0, K2, 12);
+  R(F2, E, A, B, C, D,  9, K2, 15);
+  R(F2, D, E, A, B, C,  5, K2,  9);
+  R(F2, C, D, E, A, B,  2, K2, 11);
+  R(F2, B, C, D, E, A, 14, K2,  7);
   R(F2, A, B, C, D, E, 11, K2, 13);
-  R(F4, Ah, Bh, Ch, Dh, Eh, 1, KH2, 13);
-  R(F2, E, A, B, C, D, 8, K2, 12);
-  R(F4, Eh, Ah, Bh, Ch, Dh, 2, KH2, 11);
-  R(F3, D, E, A, B, C, 3, K3, 11);
-  R(F3, Dh, Eh, Ah, Bh, Ch, 15, KH3, 9);
+  R(F2, E, A, B, C, D,  8, K2, 12);
+  R(F3, D, E, A, B, C,  3, K3, 11);
   R(F3, C, D, E, A, B, 10, K3, 13);
-  R(F3, Ch, Dh, Eh, Ah, Bh, 5, KH3, 7);
-  R(F3, B, C, D, E, A, 14, K3, 6);
-  R(F3, Bh, Ch, Dh, Eh, Ah, 1, KH3, 15);
-  R(F3, A, B, C, D, E, 4, K3, 7);
-  R(F3, Ah, Bh, Ch, Dh, Eh, 3, KH3, 11);
-  R(F3, E, A, B, C, D, 9, K3, 14);
-  R(F3, Eh, Ah, Bh, Ch, Dh, 7, KH3, 8);
-  R(F3, D, E, A, B, C, 15, K3, 9);
-  R(F3, Dh, Eh, Ah, Bh, Ch, 14, KH3, 6);
-  R(F3, C, D, E, A, B, 8, K3, 13);
-  R(F3, Ch, Dh, Eh, Ah, Bh, 6, KH3, 6);
-  R(F3, B, C, D, E, A, 1, K3, 15);
-  R(F3, Bh, Ch, Dh, Eh, Ah, 9, KH3, 14);
-  R(F3, A, B, C, D, E, 2, K3, 14);
-  R(F3, Ah, Bh, Ch, Dh, Eh, 11, KH3, 12);
-  R(F3, E, A, B, C, D, 7, K3, 8);
-  R(F3, Eh, Ah, Bh, Ch, Dh, 8, KH3, 13);
-  R(F3, D, E, A, B, C, 0, K3, 13);
-  R(F3, Dh, Eh, Ah, Bh, Ch, 12, KH3, 5);
-  R(F3, C, D, E, A, B, 6, K3, 6);
-  R(F3, Ch, Dh, Eh, Ah, Bh, 2, KH3, 14);
-  R(F3, B, C, D, E, A, 13, K3, 5);
-  R(F3, Bh, Ch, Dh, Eh, Ah, 10, KH3, 13);
+  R(F3, B, C, D, E, A, 14, K3,  6);
+  R(F3, A, B, C, D, E,  4, K3,  7);
+  R(F3, E, A, B, C, D,  9, K3, 14);
+  R(F3, D, E, A, B, C, 15, K3,  9);
+  R(F3, C, D, E, A, B,  8, K3, 13);
+  R(F3, B, C, D, E, A,  1, K3, 15);
+  R(F3, A, B, C, D, E,  2, K3, 14);
+  R(F3, E, A, B, C, D,  7, K3,  8);
+  R(F3, D, E, A, B, C,  0, K3, 13);
+  R(F3, C, D, E, A, B,  6, K3,  6);
+  R(F3, B, C, D, E, A, 13, K3,  5);
   R(F3, A, B, C, D, E, 11, K3, 12);
-  R(F3, Ah, Bh, Ch, Dh, Eh, 0, KH3, 13);
-  R(F3, E, A, B, C, D, 5, K3, 7);
-  R(F3, Eh, Ah, Bh, Ch, Dh, 4, KH3, 7);
-  R(F3, D, E, A, B, C, 12, K3, 5);
-  R(F3, Dh, Eh, Ah, Bh, Ch, 13, KH3, 5);
-  R(F4, C, D, E, A, B, 1, K4, 11);
-  R(F2, Ch, Dh, Eh, Ah, Bh, 8, KH4, 15);
-  R(F4, B, C, D, E, A, 9, K4, 12);
-  R(F2, Bh, Ch, Dh, Eh, Ah, 6, KH4, 5);
+  R(F3, E, A, B, C, D,  5, K3,  7);
+  R(F3, D, E, A, B, C, 12, K3,  5);
+  R(F4, C, D, E, A, B,  1, K4, 11);
+  R(F4, B, C, D, E, A,  9, K4, 12);
   R(F4, A, B, C, D, E, 11, K4, 14);
-  R(F2, Ah, Bh, Ch, Dh, Eh, 4, KH4, 8);
   R(F4, E, A, B, C, D, 10, K4, 15);
-  R(F2, Eh, Ah, Bh, Ch, Dh, 1, KH4, 11);
-  R(F4, D, E, A, B, C, 0, K4, 14);
-  R(F2, Dh, Eh, Ah, Bh, Ch, 3, KH4, 14);
-  R(F4, C, D, E, A, B, 8, K4, 15);
-  R(F2, Ch, Dh, Eh, Ah, Bh, 11, KH4, 14);
-  R(F4, B, C, D, E, A, 12, K4, 9);
-  R(F2, Bh, Ch, Dh, Eh, Ah, 15, KH4, 6);
-  R(F4, A, B, C, D, E, 4, K4, 8);
-  R(F2, Ah, Bh, Ch, Dh, Eh, 0, KH4, 14);
-  R(F4, E, A, B, C, D, 13, K4, 9);
-  R(F2, Eh, Ah, Bh, Ch, Dh, 5, KH4, 6);
-  R(F4, D, E, A, B, C, 3, K4, 14);
-  R(F2, Dh, Eh, Ah, Bh, Ch, 12, KH4, 9);
-  R(F4, C, D, E, A, B, 7, K4, 5);
-  R(F2, Ch, Dh, Eh, Ah, Bh, 2, KH4, 12);
-  R(F4, B, C, D, E, A, 15, K4, 6);
-  R(F2, Bh, Ch, Dh, Eh, Ah, 13, KH4, 9);
-  R(F4, A, B, C, D, E, 14, K4, 8);
-  R(F2, Ah, Bh, Ch, Dh, Eh, 9, KH4, 12);
-  R(F4, E, A, B, C, D, 5, K4, 6);
-  R(F2, Eh, Ah, Bh, Ch, Dh, 7, KH4, 5);
-  R(F4, D, E, A, B, C, 6, K4, 5);
-  R(F2, Dh, Eh, Ah, Bh, Ch, 10, KH4, 15);
-  R(F4, C, D, E, A, B, 2, K4, 12);
-  R(F2, Ch, Dh, Eh, Ah, Bh, 14, KH4, 8);
-  R(F5, B, C, D, E, A, 4, K5, 9);
-  R(F1, Bh, Ch, Dh, Eh, Ah, 12, KH5, 8);
-  R(F5, A, B, C, D, E, 0, K5, 15);
-  R(F1, Ah, Bh, Ch, Dh, Eh, 15, KH5, 5);
-  R(F5, E, A, B, C, D, 5, K5, 5);
-  R(F1, Eh, Ah, Bh, Ch, Dh, 10, KH5, 12);
-  R(F5, D, E, A, B, C, 9, K5, 11);
-  R(F1, Dh, Eh, Ah, Bh, Ch, 4, KH5, 9);
-  R(F5, C, D, E, A, B, 7, K5, 6);
-  R(F1, Ch, Dh, Eh, Ah, Bh, 1, KH5, 12);
-  R(F5, B, C, D, E, A, 12, K5, 8);
-  R(F1, Bh, Ch, Dh, Eh, Ah, 5, KH5, 5);
-  R(F5, A, B, C, D, E, 2, K5, 13);
-  R(F1, Ah, Bh, Ch, Dh, Eh, 8, KH5, 14);
+  R(F4, D, E, A, B, C,  0, K4, 14);
+  R(F4, C, D, E, A, B,  8, K4, 15);
+  R(F4, B, C, D, E, A, 12, K4,  9);
+  R(F4, A, B, C, D, E,  4, K4,  8);
+  R(F4, E, A, B, C, D, 13, K4,  9);
+  R(F4, D, E, A, B, C,  3, K4, 14);
+  R(F4, C, D, E, A, B,  7, K4,  5);
+  R(F4, B, C, D, E, A, 15, K4,  6);
+  R(F4, A, B, C, D, E, 14, K4,  8);
+  R(F4, E, A, B, C, D,  5, K4,  6);
+  R(F4, D, E, A, B, C,  6, K4,  5);
+  R(F4, C, D, E, A, B,  2, K4, 12);
+  R(F5, B, C, D, E, A,  4, K5,  9);
+  R(F5, A, B, C, D, E,  0, K5, 15);
+  R(F5, E, A, B, C, D,  5, K5,  5);
+  R(F5, D, E, A, B, C,  9, K5, 11);
+  R(F5, C, D, E, A, B,  7, K5,  6);
+  R(F5, B, C, D, E, A, 12, K5,  8);
+  R(F5, A, B, C, D, E,  2, K5, 13);
   R(F5, E, A, B, C, D, 10, K5, 12);
-  R(F1, Eh, Ah, Bh, Ch, Dh, 7, KH5, 6);
-  R(F5, D, E, A, B, C, 14, K5, 5);
-  R(F1, Dh, Eh, Ah, Bh, Ch, 6, KH5, 8);
-  R(F5, C, D, E, A, B, 1, K5, 12);
-  R(F1, Ch, Dh, Eh, Ah, Bh, 2, KH5, 13);
-  R(F5, B, C, D, E, A, 3, K5, 13);
-  R(F1, Bh, Ch, Dh, Eh, Ah, 13, KH5, 6);
-  R(F5, A, B, C, D, E, 8, K5, 14);
-  R(F1, Ah, Bh, Ch, Dh, Eh, 14, KH5, 5);
+  R(F5, D, E, A, B, C, 14, K5,  5);
+  R(F5, C, D, E, A, B,  1, K5, 12);
+  R(F5, B, C, D, E, A,  3, K5, 13);
+  R(F5, A, B, C, D, E,  8, K5, 14);
   R(F5, E, A, B, C, D, 11, K5, 11);
-  R(F1, Eh, Ah, Bh, Ch, Dh, 0, KH5, 15);
-  R(F5, D, E, A, B, C, 6, K5, 8);
-  R(F1, Dh, Eh, Ah, Bh, Ch, 3, KH5, 13);
-  R(F5, C, D, E, A, B, 15, K5, 5);
-  R(F1, Ch, Dh, Eh, Ah, Bh, 9, KH5, 11);
-  R(F5, B, C, D, E, A, 13, K5, 6);
-  R(F1, Bh, Ch, Dh, Eh, Ah, 11, KH5, 11);
+  R(F5, D, E, A, B, C,  6, K5,  8);
+  R(F5, C, D, E, A, B, 15, K5,  5);
+  R(F5, B, C, D, E, A, 13, K5,  6);
+
+  R(F5, AH, BH, CH, DH, EH,  5, KH1,  8);
+  R(F5, EH, AH, BH, CH, DH, 14, KH1,  9);
+  R(F5, DH, EH, AH, BH, CH,  7, KH1,  9);
+  R(F5, CH, DH, EH, AH, BH,  0, KH1, 11);
+  R(F5, BH, CH, DH, EH, AH,  9, KH1, 13);
+  R(F5, AH, BH, CH, DH, EH,  2, KH1, 15);
+  R(F5, EH, AH, BH, CH, DH, 11, KH1, 15);
+  R(F5, DH, EH, AH, BH, CH,  4, KH1,  5);
+  R(F5, CH, DH, EH, AH, BH, 13, KH1,  7);
+  R(F5, BH, CH, DH, EH, AH,  6, KH1,  7);
+  R(F5, AH, BH, CH, DH, EH, 15, KH1,  8);
+  R(F5, EH, AH, BH, CH, DH,  8, KH1, 11);
+  R(F5, DH, EH, AH, BH, CH,  1, KH1, 14);
+  R(F5, CH, DH, EH, AH, BH, 10, KH1, 14);
+  R(F5, BH, CH, DH, EH, AH,  3, KH1, 12);
+  R(F5, AH, BH, CH, DH, EH, 12, KH1,  6);
+  R(F4, EH, AH, BH, CH, DH,  6, KH2,  9);
+  R(F4, DH, EH, AH, BH, CH, 11, KH2, 13);
+  R(F4, CH, DH, EH, AH, BH,  3, KH2, 15);
+  R(F4, BH, CH, DH, EH, AH,  7, KH2,  7);
+  R(F4, AH, BH, CH, DH, EH,  0, KH2, 12);
+  R(F4, EH, AH, BH, CH, DH, 13, KH2,  8);
+  R(F4, DH, EH, AH, BH, CH,  5, KH2,  9);
+  R(F4, CH, DH, EH, AH, BH, 10, KH2, 11);
+  R(F4, BH, CH, DH, EH, AH, 14, KH2,  7);
+  R(F4, AH, BH, CH, DH, EH, 15, KH2,  7);
+  R(F4, EH, AH, BH, CH, DH,  8, KH2, 12);
+  R(F4, DH, EH, AH, BH, CH, 12, KH2,  7);
+  R(F4, CH, DH, EH, AH, BH,  4, KH2,  6);
+  R(F4, BH, CH, DH, EH, AH,  9, KH2, 15);
+  R(F4, AH, BH, CH, DH, EH,  1, KH2, 13);
+  R(F4, EH, AH, BH, CH, DH,  2, KH2, 11);
+  R(F3, DH, EH, AH, BH, CH, 15, KH3,  9);
+  R(F3, CH, DH, EH, AH, BH,  5, KH3,  7);
+  R(F3, BH, CH, DH, EH, AH,  1, KH3, 15);
+  R(F3, AH, BH, CH, DH, EH,  3, KH3, 11);
+  R(F3, EH, AH, BH, CH, DH,  7, KH3,  8);
+  R(F3, DH, EH, AH, BH, CH, 14, KH3,  6);
+  R(F3, CH, DH, EH, AH, BH,  6, KH3,  6);
+  R(F3, BH, CH, DH, EH, AH,  9, KH3, 14);
+  R(F3, AH, BH, CH, DH, EH, 11, KH3, 12);
+  R(F3, EH, AH, BH, CH, DH,  8, KH3, 13);
+  R(F3, DH, EH, AH, BH, CH, 12, KH3,  5);
+  R(F3, CH, DH, EH, AH, BH,  2, KH3, 14);
+  R(F3, BH, CH, DH, EH, AH, 10, KH3, 13);
+  R(F3, AH, BH, CH, DH, EH,  0, KH3, 13);
+  R(F3, EH, AH, BH, CH, DH,  4, KH3,  7);
+  R(F3, DH, EH, AH, BH, CH, 13, KH3,  5);
+  R(F2, CH, DH, EH, AH, BH,  8, KH4, 15);
+  R(F2, BH, CH, DH, EH, AH,  6, KH4,  5);
+  R(F2, AH, BH, CH, DH, EH,  4, KH4,  8);
+  R(F2, EH, AH, BH, CH, DH,  1, KH4, 11);
+  R(F2, DH, EH, AH, BH, CH,  3, KH4, 14);
+  R(F2, CH, DH, EH, AH, BH, 11, KH4, 14);
+  R(F2, BH, CH, DH, EH, AH, 15, KH4,  6);
+  R(F2, AH, BH, CH, DH, EH,  0, KH4, 14);
+  R(F2, EH, AH, BH, CH, DH,  5, KH4,  6);
+  R(F2, DH, EH, AH, BH, CH, 12, KH4,  9);
+  R(F2, CH, DH, EH, AH, BH,  2, KH4, 12);
+  R(F2, BH, CH, DH, EH, AH, 13, KH4,  9);
+  R(F2, AH, BH, CH, DH, EH,  9, KH4, 12);
+  R(F2, EH, AH, BH, CH, DH,  7, KH4,  5);
+  R(F2, DH, EH, AH, BH, CH, 10, KH4, 15);
+  R(F2, CH, DH, EH, AH, BH, 14, KH4,  8);
+  R(F1, BH, CH, DH, EH, AH, 12, KH5,  8);
+  R(F1, AH, BH, CH, DH, EH, 15, KH5,  5);
+  R(F1, EH, AH, BH, CH, DH, 10, KH5, 12);
+  R(F1, DH, EH, AH, BH, CH,  4, KH5,  9);
+  R(F1, CH, DH, EH, AH, BH,  1, KH5, 12);
+  R(F1, BH, CH, DH, EH, AH,  5, KH5,  5);
+  R(F1, AH, BH, CH, DH, EH,  8, KH5, 14);
+  R(F1, EH, AH, BH, CH, DH,  7, KH5,  6);
+  R(F1, DH, EH, AH, BH, CH,  6, KH5,  8);
+  R(F1, CH, DH, EH, AH, BH,  2, KH5, 13);
+  R(F1, BH, CH, DH, EH, AH, 13, KH5,  6);
+  R(F1, AH, BH, CH, DH, EH, 14, KH5,  5);
+  R(F1, EH, AH, BH, CH, DH,  0, KH5, 15);
+  R(F1, DH, EH, AH, BH, CH,  3, KH5, 13);
+  R(F1, CH, DH, EH, AH, BH,  9, KH5, 11);
+  R(F1, BH, CH, DH, EH, AH, 11, KH5, 11);
 
 #undef F1
 #undef F2
@@ -1745,20 +1718,19 @@ ripemd160_transform(ripemd160_t *ctx, const unsigned char *chunk) {
 #undef KH5
 #undef R
 
-  T = ctx->state[1] + C + Dh;
+  T = ctx->state[1] + C + DH;
 
-  ctx->state[1] = ctx->state[2] + D + Eh;
-  ctx->state[2] = ctx->state[3] + E + Ah;
-  ctx->state[3] = ctx->state[4] + A + Bh;
-  ctx->state[4] = ctx->state[0] + B + Ch;
+  ctx->state[1] = ctx->state[2] + D + EH;
+  ctx->state[2] = ctx->state[3] + E + AH;
+  ctx->state[3] = ctx->state[4] + A + BH;
+  ctx->state[4] = ctx->state[0] + B + CH;
   ctx->state[0] = T;
 }
 
 void
 ripemd160_update(ripemd160_t *ctx, const void *data, size_t len) {
-  const unsigned char *bytes = (const unsigned char *)data;
+  const unsigned char *raw = (const unsigned char *)data;
   size_t pos = ctx->size & 63;
-  size_t off = 0;
 
   if (len == 0)
     return;
@@ -1771,11 +1743,11 @@ ripemd160_update(ripemd160_t *ctx, const void *data, size_t len) {
     if (want > len)
       want = len;
 
-    memcpy(ctx->block + pos, bytes, want);
+    memcpy(ctx->block + pos, raw, want);
 
     pos += want;
     len -= want;
-    off += want;
+    raw += want;
 
     if (pos < 64)
       return;
@@ -1784,24 +1756,23 @@ ripemd160_update(ripemd160_t *ctx, const void *data, size_t len) {
   }
 
   while (len >= 64) {
-    ripemd160_transform(ctx, bytes + off);
-    off += 64;
+    ripemd160_transform(ctx, raw);
+    raw += 64;
     len -= 64;
   }
 
   if (len > 0)
-    memcpy(ctx->block, bytes + off, len);
+    memcpy(ctx->block, raw, len);
 }
 
 void
 ripemd160_final(ripemd160_t *ctx, unsigned char *out) {
   static const unsigned char P[64] = { 0x80, 0x00 };
   size_t pos = ctx->size & 63;
-  uint64_t len = ctx->size << 3;
   unsigned char D[8];
   int i;
 
-  write64le(D, len);
+  write64le(D, ctx->size << 3);
 
   ripemd160_update(ctx, P, 1 + ((119 - pos) & 63));
   ripemd160_update(ctx, D, 8);
@@ -1858,28 +1829,28 @@ sha1_transform(sha1_t *ctx, const unsigned char *chunk) {
 #define P(i) (W[(i -  3) & 15] ^ W[(i -  8) & 15] \
             ^ W[(i - 14) & 15] ^ W[(i - 16) & 15])
 
-#define R(F, a, b, c, d, e, i, k) do {       \
-  if (i >= 16) { /* Optimized out. */        \
-    w = P(i);                                \
-    w = ROTL32(w, 1);                        \
-    W[i & 15] = w;                           \
-  } else {                                   \
-    w = W[i];                                \
-  }                                          \
-  e = ROTL32(a, 5) + F(b, c, d) + e + w + k; \
-  b = ROTL32(b, 30);                         \
+#define R(F, a, b, c, d, e, i, k) do {    \
+  if (i >= 16) { /* Optimized out. */     \
+    w = P(i);                             \
+    w = ROTL32(w, 1);                     \
+    W[i & 15] = w;                        \
+  } else {                                \
+    w = W[i];                             \
+  }                                       \
+  e += ROTL32(a, 5) + F(b, c, d) + w + k; \
+  b = ROTL32(b, 30);                      \
 } while (0)
 
-  R(F1, A, B, C, D, E, 0, K1);
-  R(F1, E, A, B, C, D, 1, K1);
-  R(F1, D, E, A, B, C, 2, K1);
-  R(F1, C, D, E, A, B, 3, K1);
-  R(F1, B, C, D, E, A, 4, K1);
-  R(F1, A, B, C, D, E, 5, K1);
-  R(F1, E, A, B, C, D, 6, K1);
-  R(F1, D, E, A, B, C, 7, K1);
-  R(F1, C, D, E, A, B, 8, K1);
-  R(F1, B, C, D, E, A, 9, K1);
+  R(F1, A, B, C, D, E,  0, K1);
+  R(F1, E, A, B, C, D,  1, K1);
+  R(F1, D, E, A, B, C,  2, K1);
+  R(F1, C, D, E, A, B,  3, K1);
+  R(F1, B, C, D, E, A,  4, K1);
+  R(F1, A, B, C, D, E,  5, K1);
+  R(F1, E, A, B, C, D,  6, K1);
+  R(F1, D, E, A, B, C,  7, K1);
+  R(F1, C, D, E, A, B,  8, K1);
+  R(F1, B, C, D, E, A,  9, K1);
   R(F1, A, B, C, D, E, 10, K1);
   R(F1, E, A, B, C, D, 11, K1);
   R(F1, D, E, A, B, C, 12, K1);
@@ -1975,9 +1946,8 @@ sha1_transform(sha1_t *ctx, const unsigned char *chunk) {
 
 void
 sha1_update(sha1_t *ctx, const void *data, size_t len) {
-  const unsigned char *bytes = (const unsigned char *)data;
+  const unsigned char *raw = (const unsigned char *)data;
   size_t pos = ctx->size & 63;
-  size_t off = 0;
 
   if (len == 0)
     return;
@@ -1990,11 +1960,11 @@ sha1_update(sha1_t *ctx, const void *data, size_t len) {
     if (want > len)
       want = len;
 
-    memcpy(ctx->block + pos, bytes, want);
+    memcpy(ctx->block + pos, raw, want);
 
     pos += want;
     len -= want;
-    off += want;
+    raw += want;
 
     if (pos < 64)
       return;
@@ -2003,24 +1973,23 @@ sha1_update(sha1_t *ctx, const void *data, size_t len) {
   }
 
   while (len >= 64) {
-    sha1_transform(ctx, bytes + off);
-    off += 64;
+    sha1_transform(ctx, raw);
+    raw += 64;
     len -= 64;
   }
 
   if (len > 0)
-    memcpy(ctx->block, bytes + off, len);
+    memcpy(ctx->block, raw, len);
 }
 
 void
 sha1_final(sha1_t *ctx, unsigned char *out) {
   static const unsigned char P[64] = { 0x80, 0x00 };
   size_t pos = ctx->size & 63;
-  uint64_t len = ctx->size << 3;
   unsigned char D[8];
   int i;
 
-  write64be(D, len);
+  write64be(D, ctx->size << 3);
 
   sha1_update(ctx, P, 1 + ((119 - pos) & 63));
   sha1_update(ctx, D, 8);
@@ -2072,7 +2041,7 @@ sha224_final(sha224_t *ctx, unsigned char *out) {
  * Resources:
  *   https://en.wikipedia.org/wiki/SHA-2
  *   https://tools.ietf.org/html/rfc4634
- *   https://github.com/gnutls/nettle/blob/master/sha256-compress.c
+ *   https://github.com/indutny/hash.js/blob/master/lib/hash/sha/256.js
  */
 
 void
@@ -2090,7 +2059,7 @@ sha256_init(sha256_t *ctx) {
 
 static void
 sha256_transform(sha256_t *ctx, const unsigned char *chunk) {
-  uint32_t A, B, C, D, E, F, G, H, w, t1, t2;
+  uint32_t A, B, C, D, E, F, G, H, w;
   uint32_t W[16];
   int i;
 
@@ -2106,10 +2075,10 @@ sha256_transform(sha256_t *ctx, const unsigned char *chunk) {
   G = ctx->state[6];
   H = ctx->state[7];
 
-#define Sigma0(x) ((x >> 2 | x << 30) ^ (x >> 13 | x << 19) ^ (x >> 22 | x << 10))
-#define Sigma1(x) ((x >> 6 | x << 26) ^ (x >> 11 | x << 21) ^ (x >> 25 | x << 7))
-#define sigma0(x) ((x >> 7 | x << 25) ^ (x >> 18 | x << 14) ^ (x >> 3))
-#define sigma1(x) ((x >> 17 | x << 15) ^ (x >> 19 | x << 13) ^ (x >> 10))
+#define Sigma0(x) (ROTL32(x, 30) ^ ROTL32(x, 19) ^ ROTL32(x, 10))
+#define Sigma1(x) (ROTL32(x, 26) ^ ROTL32(x, 21) ^ ROTL32(x, 7))
+#define sigma0(x) (ROTL32(x, 25) ^ ROTL32(x, 14) ^ (x >> 3))
+#define sigma1(x) (ROTL32(x, 15) ^ ROTL32(x, 13) ^ (x >> 10))
 #define Ch(x, y, z) (z ^ (x & (y ^ z)))
 #define Maj(x, y, z) ((x & y) | (z & (x | y)))
 
@@ -2123,10 +2092,9 @@ sha256_transform(sha256_t *ctx, const unsigned char *chunk) {
   } else {                                   \
     w = W[i];                                \
   }                                          \
-  t1 = h + Sigma1(e) + Ch(e, f, g) + k + w;  \
-  t2 = Sigma0(a) + Maj(a, b, c);             \
-  d = d + t1;                                \
-  h = t1 + t2;                               \
+  h += Sigma1(e) + Ch(e, f, g) + k + w;      \
+  d += h;                                    \
+  h += Sigma0(a) + Maj(a, b, c);             \
 } while (0)
 
   R(A, B, C, D, E, F, G, H,  0, 0x428a2f98);
@@ -2215,9 +2183,8 @@ sha256_transform(sha256_t *ctx, const unsigned char *chunk) {
 
 void
 sha256_update(sha256_t *ctx, const void *data, size_t len) {
-  const unsigned char *bytes = (const unsigned char *)data;
+  const unsigned char *raw = (const unsigned char *)data;
   size_t pos = ctx->size & 63;
-  size_t off = 0;
 
   if (len == 0)
     return;
@@ -2230,11 +2197,11 @@ sha256_update(sha256_t *ctx, const void *data, size_t len) {
     if (want > len)
       want = len;
 
-    memcpy(ctx->block + pos, bytes, want);
+    memcpy(ctx->block + pos, raw, want);
 
     pos += want;
     len -= want;
-    off += want;
+    raw += want;
 
     if (pos < 64)
       return;
@@ -2243,24 +2210,23 @@ sha256_update(sha256_t *ctx, const void *data, size_t len) {
   }
 
   while (len >= 64) {
-    sha256_transform(ctx, bytes + off);
-    off += 64;
+    sha256_transform(ctx, raw);
+    raw += 64;
     len -= 64;
   }
 
   if (len > 0)
-    memcpy(ctx->block, bytes + off, len);
+    memcpy(ctx->block, raw, len);
 }
 
 void
 sha256_final(sha256_t *ctx, unsigned char *out) {
   static const unsigned char P[64] = { 0x80, 0x00 };
   size_t pos = ctx->size & 63;
-  uint64_t len = ctx->size << 3;
   unsigned char D[8];
   int i;
 
-  write64be(D, len);
+  write64be(D, ctx->size << 3);
 
   sha256_update(ctx, P, 1 + ((119 - pos) & 63));
   sha256_update(ctx, D, 8);
@@ -2331,7 +2297,7 @@ sha512_init(sha512_t *ctx) {
 
 static void
 sha512_transform(sha512_t *ctx, const unsigned char *chunk) {
-  uint64_t A, B, C, D, E, F, G, H, w, t1, t2;
+  uint64_t A, B, C, D, E, F, G, H, w;
   uint64_t W[16];
   int i;
 
@@ -2364,10 +2330,9 @@ sha512_transform(sha512_t *ctx, const unsigned char *chunk) {
   } else {                                   \
     w = W[i];                                \
   }                                          \
-  t1 = h + Sigma1(e) + Ch(e, f, g) + k + w;  \
-  t2 = Sigma0(a) + Maj(a, b, c);             \
-  d = d + t1;                                \
-  h = t1 + t2;                               \
+  h += Sigma1(e) + Ch(e, f, g) + k + w;      \
+  d += h;                                    \
+  h += Sigma0(a) + Maj(a, b, c);             \
 } while (0)
 
   R(A, B, C, D, E, F, G, H,  0, UINT64_C(0x428a2f98d728ae22));
@@ -2472,9 +2437,8 @@ sha512_transform(sha512_t *ctx, const unsigned char *chunk) {
 
 void
 sha512_update(sha512_t *ctx, const void *data, size_t len) {
-  const unsigned char *bytes = (const unsigned char *)data;
+  const unsigned char *raw = (const unsigned char *)data;
   size_t pos = ctx->size & 127;
-  size_t off = 0;
 
   if (len == 0)
     return;
@@ -2487,11 +2451,11 @@ sha512_update(sha512_t *ctx, const void *data, size_t len) {
     if (want > len)
       want = len;
 
-    memcpy(ctx->block + pos, bytes, want);
+    memcpy(ctx->block + pos, raw, want);
 
     pos += want;
     len -= want;
-    off += want;
+    raw += want;
 
     if (pos < 128)
       return;
@@ -2500,25 +2464,24 @@ sha512_update(sha512_t *ctx, const void *data, size_t len) {
   }
 
   while (len >= 128) {
-    sha512_transform(ctx, bytes + off);
-    off += 128;
+    sha512_transform(ctx, raw);
+    raw += 128;
     len -= 128;
   }
 
   if (len > 0)
-    memcpy(ctx->block, bytes + off, len);
+    memcpy(ctx->block, raw, len);
 }
 
 void
 sha512_final(sha512_t *ctx, unsigned char *out) {
   static const unsigned char P[128] = { 0x80, 0x00 };
   size_t pos = ctx->size & 127;
-  uint64_t len = ctx->size << 3;
   unsigned char D[16];
   int i;
 
-  write64be(D + 0, 0);
-  write64be(D + 8, len);
+  write64be(D + 0, ctx->size >> (64 - 3));
+  write64be(D + 8, ctx->size << 3);
 
   sha512_update(ctx, P, 1 + ((239 - pos) & 127));
   sha512_update(ctx, D, 16);
@@ -3686,9 +3649,8 @@ whirlpool_transform(whirlpool_t *ctx, const unsigned char *chunk) {
 
 void
 whirlpool_update(whirlpool_t *ctx, const void *data, size_t len) {
-  const unsigned char *bytes = (const unsigned char *)data;
+  const unsigned char *raw = (const unsigned char *)data;
   size_t pos = ctx->size & 63;
-  size_t off = 0;
 
   if (len == 0)
     return;
@@ -3701,11 +3663,11 @@ whirlpool_update(whirlpool_t *ctx, const void *data, size_t len) {
     if (want > len)
       want = len;
 
-    memcpy(ctx->block + pos, bytes, want);
+    memcpy(ctx->block + pos, raw, want);
 
     pos += want;
     len -= want;
-    off += want;
+    raw += want;
 
     if (pos < 64)
       return;
@@ -3714,26 +3676,26 @@ whirlpool_update(whirlpool_t *ctx, const void *data, size_t len) {
   }
 
   while (len >= 64) {
-    whirlpool_transform(ctx, bytes + off);
-    off += 64;
+    whirlpool_transform(ctx, raw);
+    raw += 64;
     len -= 64;
   }
 
   if (len > 0)
-    memcpy(ctx->block, bytes + off, len);
+    memcpy(ctx->block, raw, len);
 }
 
 void
 whirlpool_final(whirlpool_t *ctx, unsigned char *out) {
   static const unsigned char P[64] = { 0x80, 0x00 };
   size_t pos = ctx->size & 63;
-  uint64_t len = ctx->size << 3;
   unsigned char D[32];
   int i;
 
-  memset(D, 0x00, 32);
+  memset(D, 0x00, 16);
 
-  write64be(D + 24, len);
+  write64be(D + 16, ctx->size >> (64 - 3));
+  write64be(D + 24, ctx->size << 3);
 
   whirlpool_update(ctx, P, 1 + ((95 - pos) & 63));
   whirlpool_update(ctx, D, 32);
