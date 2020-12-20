@@ -43,22 +43,22 @@ static const uint64_t blake2b_iv[8] = {
 
 void
 blake2b_init(blake2b_t *ctx,
-             size_t outlen,
+             size_t len,
              const unsigned char *key,
              size_t keylen) {
   int i;
 
-  CHECK(outlen >= 1 && outlen <= 64);
+  CHECK(len >= 1 && len <= 64);
   CHECK(keylen <= 64);
 
   memset(ctx, 0, sizeof(*ctx));
 
-  ctx->outlen = outlen;
+  ctx->len = len;
 
   for (i = 0; i < 8; i++)
     ctx->h[i] = blake2b_iv[i];
 
-  ctx->h[0] ^= 0x01010000 | (keylen << 8) | outlen;
+  ctx->h[0] ^= 0x01010000 | (keylen << 8) | len;
 
   if (keylen > 0) {
     unsigned char block[128];
@@ -158,56 +158,58 @@ blake2b_compress(blake2b_t *ctx, const unsigned char *chunk, uint64_t f0) {
 #undef R
 }
 
+static void
+blake2b_transform(blake2b_t *ctx, const unsigned char *chunk) {
+  blake2b_increment(ctx, 128);
+  blake2b_compress(ctx, chunk, 0);
+}
+
 void
 blake2b_update(blake2b_t *ctx, const void *data, size_t len) {
   const unsigned char *raw = (const unsigned char *)data;
+  size_t pos = ctx->pos;
+  size_t want = 128 - pos;
 
-  if (len > 0) {
-    size_t left = ctx->size;
-    size_t fill = 128 - left;
+  if (len == 0)
+    return;
 
-    if (len > fill) {
-      ctx->size = 0;
+  if (len > want) {
+    memcpy(ctx->block + pos, raw, want);
 
-      memcpy(ctx->block + left, raw, fill);
+    raw += want;
+    len -= want;
 
-      blake2b_increment(ctx, 128);
-      blake2b_compress(ctx, ctx->block, 0);
+    blake2b_transform(ctx, ctx->block);
 
-      raw += fill;
-      len -= fill;
-
-      while (len > 128) {
-        blake2b_increment(ctx, 128);
-        blake2b_compress(ctx, raw, 0);
-        raw += 128;
-        len -= 128;
-      }
+    while (len > 128) {
+      blake2b_transform(ctx, raw);
+      raw += 128;
+      len -= 128;
     }
 
-    memcpy(ctx->block + ctx->size, raw, len);
-
-    ctx->size += len;
+    ctx->pos = 0;
   }
+
+  memcpy(ctx->block + ctx->pos, raw, len);
+
+  ctx->pos += len;
 }
 
 void
 blake2b_final(blake2b_t *ctx, unsigned char *out) {
-  unsigned char tmp[64];
-  int i;
+  size_t count = ctx->len >> 3;
+  size_t i;
 
-  blake2b_increment(ctx, ctx->size);
+  memset(ctx->block + ctx->pos, 0x00, 128 - ctx->pos);
 
-  memset(ctx->block + ctx->size, 0x00, 128 - ctx->size);
+  blake2b_increment(ctx, ctx->pos);
+  blake2b_compress(ctx, ctx->block, UINT64_MAX);
 
-  blake2b_compress(ctx, ctx->block, (uint64_t)-1);
+  for (i = 0; i < count; i++)
+    write64le(out + i * 8, ctx->h[i]);
 
-  for (i = 0; i < 8; i++)
-    write64le(tmp + i * 8, ctx->h[i]);
-
-  memcpy(out, tmp, ctx->outlen);
-
-  torsion_cleanse(tmp, sizeof(tmp));
+  for (i = count * 8; i < ctx->len; i++)
+    out[i] = (ctx->h[i >> 3] >> (8 * (i & 7))) & 0xff;
 }
 
 /*
@@ -253,22 +255,22 @@ static const uint32_t blake2s_iv[8] = {
 
 void
 blake2s_init(blake2s_t *ctx,
-             size_t outlen,
+             size_t len,
              const unsigned char *key,
              size_t keylen) {
   int i;
 
-  CHECK(outlen >= 1 && outlen <= 32);
+  CHECK(len >= 1 && len <= 32);
   CHECK(keylen <= 32);
 
   memset(ctx, 0, sizeof(*ctx));
 
-  ctx->outlen = outlen;
+  ctx->len = len;
 
   for (i = 0; i < 8; i++)
     ctx->h[i] = blake2s_iv[i];
 
-  ctx->h[0] ^= 0x01010000 | (keylen << 8) | outlen;
+  ctx->h[0] ^= 0x01010000 | (keylen << 8) | len;
 
   if (keylen > 0) {
     unsigned char block[64];
@@ -364,57 +366,58 @@ blake2s_compress(blake2s_t *ctx, const unsigned char *chunk, uint32_t f0) {
 #undef R
 }
 
+static void
+blake2s_transform(blake2s_t *ctx, const unsigned char *chunk) {
+  blake2s_increment(ctx, 64);
+  blake2s_compress(ctx, chunk, 0);
+}
+
 void
 blake2s_update(blake2s_t *ctx, const void *data, size_t len) {
   const unsigned char *raw = (const unsigned char *)data;
+  size_t pos = ctx->pos;
+  size_t want = 64 - pos;
 
-  if (len > 0) {
-    size_t left = ctx->size;
-    size_t fill = 64 - left;
+  if (len == 0)
+    return;
 
-    if (len > fill) {
-      ctx->size = 0;
+  if (len > want) {
+    memcpy(ctx->block + pos, raw, want);
 
-      memcpy(ctx->block + left, raw, fill);
+    raw += want;
+    len -= want;
 
-      blake2s_increment(ctx, 64);
-      blake2s_compress(ctx, ctx->block, 0);
+    blake2s_transform(ctx, ctx->block);
 
-      raw += fill;
-      len -= fill;
-
-      while (len > 64) {
-        blake2s_increment(ctx, 64);
-        blake2s_compress(ctx, raw, 0);
-
-        raw += 64;
-        len -= 64;
-      }
+    while (len > 64) {
+      blake2s_transform(ctx, raw);
+      raw += 64;
+      len -= 64;
     }
 
-    memcpy(ctx->block + ctx->size, raw, len);
-
-    ctx->size += len;
+    ctx->pos = 0;
   }
+
+  memcpy(ctx->block + ctx->pos, raw, len);
+
+  ctx->pos += len;
 }
 
 void
 blake2s_final(blake2s_t *ctx, unsigned char *out) {
-  unsigned char tmp[32];
-  int i;
+  size_t count = ctx->len >> 2;
+  size_t i;
 
-  blake2s_increment(ctx, (uint32_t)ctx->size);
+  memset(ctx->block + ctx->pos, 0x00, 64 - ctx->pos);
 
-  memset(ctx->block + ctx->size, 0, 64 - ctx->size);
+  blake2s_increment(ctx, ctx->pos);
+  blake2s_compress(ctx, ctx->block, UINT32_MAX);
 
-  blake2s_compress(ctx, ctx->block, (uint32_t)-1);
+  for (i = 0; i < count; i++)
+    write32le(out + i * 4, ctx->h[i]);
 
-  for (i = 0; i < 8; i++)
-    write32le(tmp + i * 4, ctx->h[i]);
-
-  memcpy(out, tmp, ctx->outlen);
-
-  torsion_cleanse(tmp, sizeof(tmp));
+  for (i = count * 4; i < ctx->len; i++)
+    out[i] = (ctx->h[i >> 2] >> (8 * (i & 3))) & 0xff;
 }
 
 /*
@@ -987,7 +990,7 @@ keccak_update(keccak_t *ctx, const void *data, size_t len) {
 }
 
 void
-keccak_final(keccak_t *ctx, unsigned char *out, unsigned char pad, size_t len) {
+keccak_final(keccak_t *ctx, unsigned char *out, unsigned int pad, size_t len) {
   size_t i, count;
 
   if (pad == 0)
@@ -1000,7 +1003,7 @@ keccak_final(keccak_t *ctx, unsigned char *out, unsigned char pad, size_t len) {
 
   memset(ctx->block + ctx->pos, 0x00, ctx->bs - ctx->pos);
 
-  ctx->block[ctx->pos] |= pad;
+  ctx->block[ctx->pos] |= (pad & 0xff);
   ctx->block[ctx->bs - 1] |= 0x80;
 
   keccak_transform(ctx, ctx->block);
@@ -1011,7 +1014,7 @@ keccak_final(keccak_t *ctx, unsigned char *out, unsigned char pad, size_t len) {
     write64le(out + i * 8, ctx->state[i]);
 
   for (i = count * 8; i < len; i++)
-    out[i] = ctx->state[i >> 3] >> (8 * (i & 7));
+    out[i] = (ctx->state[i >> 3] >> (8 * (i & 7))) & 0xff;
 }
 
 /*
@@ -1133,8 +1136,6 @@ md2_update(md2_t *ctx, const void *data, size_t len) {
   if (len == 0)
     return;
 
-  ctx->pos = (ctx->pos + len) & 15;
-
   if (pos > 0) {
     size_t want = 16 - pos;
 
@@ -1147,8 +1148,10 @@ md2_update(md2_t *ctx, const void *data, size_t len) {
     len -= want;
     raw += want;
 
-    if (pos < 16)
+    if (pos < 16) {
+      ctx->pos = pos;
       return;
+    }
 
     md2_transform(ctx, ctx->block);
   }
@@ -1161,6 +1164,8 @@ md2_update(md2_t *ctx, const void *data, size_t len) {
 
   if (len > 0)
     memcpy(ctx->block, raw, len);
+
+  ctx->pos = len;
 }
 
 void
