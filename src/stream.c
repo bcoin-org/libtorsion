@@ -266,7 +266,7 @@ chacha20_derive(unsigned char *out,
  *   http://www.ecrypt.eu.org/stream/salsa20pf.html
  */
 
-#define ROTL32(v, n) ((v) << (n)) | ((v) >> (32 - (n)))
+#define ROTL32(x, y) ((x) << (y)) | ((x) >> (32 - (y)))
 
 #define QROUND(x, a, b, c, d)      \
   x[b] ^= ROTL32(x[a] + x[d], 7);  \

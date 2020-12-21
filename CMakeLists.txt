@@ -135,7 +135,7 @@ if(TORSION_ENABLE_ASM)
       unsigned char ptr[32];
       int x = 0;
       __asm__ ("" : "+r" (x) ::);
-      __asm__ __volatile__("" :: "r" (ptr) : "memory");
+      __asm__ __volatile__ ("" :: "r" (ptr) : "memory");
       return x;
     }
   ]=] TORSION_HAS_ASM)
@@ -157,7 +157,7 @@ if(TORSION_ENABLE_ASM)
       uint32_t n0 = 100;
       uint32_t d = 3;
       uint32_t q0, r0;
-      __asm__ __volatile__(
+      __asm__ __volatile__ (
         "divl %k4\\n"
         : "=a" (q0), "=d" (r0)
         : "0" (n0), "1" (n1), "rm" (d)
@@ -177,7 +177,7 @@ if(TORSION_ENABLE_ASM)
     #include <stdint.h>
     int main(void) {
       uint32_t stream[8], state[8];
-      __asm__ __volatile__(
+      __asm__ __volatile__ (
         "movups (%%rsi), %%xmm0\\n"
         "movups 16(%%rsi), %%xmm1\\n"
         "pxor %%xmm1, %%xmm0\\n"

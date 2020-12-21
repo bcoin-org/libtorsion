@@ -1245,8 +1245,8 @@ md4_transform(md4_t *ctx, const unsigned char *chunk) {
 #define F3(x, y, z) (x ^ y ^ z)                   /* H */
 
 /* Round: a = (a + F(b, c, d) + X[k] + [constant]) <<< s */
-#define R(f, a, b, c, d, i, k, s) do { \
-  a += f(b, c, d) + W[i] + k;          \
+#define R(F, a, b, c, d, i, k, s) do { \
+  a += F(b, c, d) + W[i] + k;          \
   a = ROTL32(a, s);                    \
 } while (0)
 
