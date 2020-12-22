@@ -762,12 +762,19 @@ void
 keccak_init(keccak_t *ctx, unsigned int bits) {
   unsigned int rate = 1600 - bits * 2;
 
-  CHECK(bits >= 128);
-  CHECK(bits <= 512);
+  CHECK(bits >= 32);
+  CHECK(bits <= 768);
   CHECK((rate & 63) == 0);
 
   ctx->bs = rate >> 3;
   ctx->pos = 0;
+  ctx->std = (bits == 128
+           || bits == 160
+           || bits == 192
+           || bits == 224
+           || bits == 256
+           || bits == 384
+           || bits == 512);
 
   memset(ctx->state, 0, sizeof(ctx->state));
 }
@@ -832,7 +839,7 @@ keccak_permute(keccak_t *ctx) {
     S[19] ^= D ^ ROTL64(A, 1);
     S[24] ^= D ^ ROTL64(A, 1);
 
-    /* Rho + Phi */
+    /* Rho + Pi */
     B = S[1];
     A = S[10]; S[10] = ROTL64(B,  1); B = A;
     A = S[ 7]; S[ 7] = ROTL64(B,  3); B = A;
@@ -905,14 +912,15 @@ keccak_permute(keccak_t *ctx) {
     S[23] ^= (~S[24] & A);
     S[24] ^= (~A & B);
 
+    /* Iota */
     S[0] ^= RC[i];
   }
 
 #undef S
 }
 
-static void
-keccak_transform(keccak_t *ctx, const unsigned char *chunk) {
+static TORSION_INLINE void
+keccak_transform0(keccak_t *ctx, const unsigned char *chunk) {
   /* 512 (bs=72) */
   ctx->state[ 0] ^= read64le(chunk +   0);
   ctx->state[ 1] ^= read64le(chunk +   8);
@@ -970,6 +978,26 @@ done:
   keccak_permute(ctx);
 }
 
+static TORSION_INLINE void
+keccak_transform1(keccak_t *ctx, const unsigned char *chunk) {
+  size_t count = ctx->bs >> 3;
+  size_t i;
+
+  for (i = 0; i < count; i++)
+    ctx->state[i] ^= read64le(chunk + i * 8);
+
+  keccak_permute(ctx);
+}
+
+static void
+keccak_transform(keccak_t *ctx, const unsigned char *chunk) {
+  /* Use an unrolled loop for standard block sizes. */
+  if (LIKELY(ctx->std))
+    keccak_transform0(ctx, chunk);
+  else
+    keccak_transform1(ctx, chunk);
+}
+
 void
 keccak_update(keccak_t *ctx, const void *data, size_t len) {
   const unsigned char *raw = (const unsigned char *)data;
@@ -1020,7 +1048,7 @@ keccak_final(keccak_t *ctx, unsigned char *out, unsigned int pad, size_t len) {
   if (len == 0)
     len = 100 - (ctx->bs >> 1);
 
-  CHECK(len <= ctx->bs);
+  CHECK(len <= 200);
 
   memset(ctx->block + ctx->pos, 0x00, ctx->bs - ctx->pos);
 

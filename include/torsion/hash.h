@@ -205,8 +205,9 @@ typedef struct gost94_s {
 typedef struct keccak_s {
   size_t bs;
   uint64_t state[25];
-  unsigned char block[200];
+  unsigned char block[192];
   size_t pos;
+  int std;
 } keccak_t;
 
 typedef struct md2_s {

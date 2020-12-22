@@ -593,6 +593,26 @@ bench_sha256(drbg_t *rng) {
   bench_end(&tv, i);
 }
 
+static void
+bench_sha3(drbg_t *rng) {
+  unsigned char chain[32];
+  bench_t tv;
+  sha3_t sha;
+  size_t i;
+
+  drbg_generate(rng, chain, sizeof(chain));
+
+  bench_start(&tv, "sha3");
+
+  for (i = 0; i < 10000000; i++) {
+    sha3_256_init(&sha);
+    sha3_256_update(&sha, chain, sizeof(chain));
+    sha3_256_final(&sha, chain);
+  }
+
+  bench_end(&tv, i);
+}
+
 /*
  * Benchmark Registry
  */
@@ -615,7 +635,8 @@ static const struct {
   B(rsa_sign),
   B(rsa_verify),
   B(hash),
-  B(sha256)
+  B(sha256),
+  B(sha3)
 #undef B
 };
 
