@@ -94,6 +94,7 @@ TORSION_BARRIER(mp_limb_t, mp_limb)
 /* Available since at least gcc 1.41 (1992). */
 #  define mp_alloca __builtin_alloca
 #elif defined(_MSC_VER)
+/* May have existed as early as 1998. */
 #  include <malloc.h>
 #  define mp_alloca _alloca
 #endif
@@ -141,6 +142,19 @@ TORSION_BARRIER(mp_limb_t, mp_limb)
 #  endif
 #endif
 
+#if defined(_MSC_VER) && _MSC_VER >= 1400 /* VS 2005 */
+/* Intrinsics were added in VS 2005. */
+#  define MP_HAVE_INTRIN
+/* For ignoring the lookalikes when necessary. */
+#  if !defined(__clang__) && !defined(__INTEL_COMPILER) && !defined(__MINGW32__)
+#    define MP_HAVE_MSVC
+#  endif
+#endif
+
+/*
+ * Builtins
+ */
+
 #if TORSION_GNUC_PREREQ(3, 4) || (__has_builtin(__builtin_popcount)   \
                                && __has_builtin(__builtin_popcountl)  \
                                && __has_builtin(__builtin_popcountll) \
@@ -165,7 +179,11 @@ TORSION_BARRIER(mp_limb_t, mp_limb)
 #  endif
 #endif
 
-#if defined(_MSC_VER) && _MSC_VER >= 1400 /* VS 2005 */
+/*
+ * Intrinsics
+ */
+
+#ifdef MP_HAVE_INTRIN
 #  include <intrin.h>
 #  if MP_LIMB_MAX == ULONG_MAX
 #    pragma intrinsic(_BitScanReverse)
@@ -188,7 +206,7 @@ TORSION_BARRIER(mp_limb_t, mp_limb)
 #    pragma intrinsic(__umulh)
 #    define MP_HAVE_UMULH
 #  endif
-#  if _MSC_VER >= 1920 /* VS 2019 RTM */
+#  if defined(MP_HAVE_MSVC) && _MSC_VER >= 1920 /* VS 2019 RTM */
 #    include <immintrin.h>
 #    if MP_LIMB_BITS == 32 && MP_LIMB_MAX == UINT_MAX && defined(_M_IX86)
 #      pragma intrinsic(_udiv64)
@@ -198,6 +216,58 @@ TORSION_BARRIER(mp_limb_t, mp_limb)
 #      pragma intrinsic(_udiv128)
 #      define MP_HAVE_UDIV128
 #    endif
+#  endif
+#endif
+
+/*
+ * Intrinsic Shims
+ */
+
+/* Utilize a clever hack[1][2] from fahickman/r128[3] in
+ * order to shim in the _udiv128 and _udiv64 intrinsics
+ * on older versions of MSVC, keeping in mind windows'
+ * x64 __fastcall calling convention[4]. We modify the
+ * x64 assembly here to replicate the _udiv128 argument
+ * order.
+ *
+ * [1] https://github.com/fahickman/r128/blob/cf2e88f/r128.h#L798
+ * [2] https://github.com/fahickman/r128/blob/cf2e88f/r128.h#L683
+ * [3] https://github.com/fahickman/r128
+ * [4] https://docs.microsoft.com/en-us/cpp/build/x64-calling-convention
+ */
+#if defined(MP_HAVE_MSVC) && _MSC_VER < 1920 /* VS 2019 RTM */
+#  if MP_LIMB_BITS == 64 && (defined(_M_AMD64) || defined(_M_X64))
+#    define MP_HAVE_UDIV128
+#    pragma code_seg(".text")
+typedef unsigned __int64 _udiv128_f(unsigned __int64 n1, unsigned __int64 n0,
+                                    unsigned __int64 d, unsigned __int64 *r);
+
+__declspec(allocate(".text") align(16))
+static const unsigned char _udiv128_code[] = {
+  /* %rcx = n1, %rdx = n0, %r8 = d, %r9 = *r */
+  0x48, 0x89, 0xd0, /* movq %rdx, %rax */
+  0x48, 0x89, 0xca, /* movq %rcx, %rdx */
+  0x49, 0xf7, 0xf0, /* divq %r8 */
+  0x49, 0x89, 0x11, /* movq %rdx, (%r9) */
+  0xc3              /* retq */
+};
+
+static _udiv128_f *const _udiv128 = (_udiv128_f *)((void *)_udiv128_code);
+#  elif MP_LIMB_BITS == 32 && defined(_M_IX86)
+#    define MP_HAVE_UDIV64
+static unsigned int
+_udiv64(unsigned __int64 n, unsigned int d, unsigned int *r) {
+  unsigned int n1 = (unsigned int)(n >> 32);
+  unsigned int n0 = (unsigned int)n;
+
+  __asm {
+    mov eax, n0
+    mov edx, n1
+    div d
+    mov ecx, r
+    mov dword ptr [ecx], edx
+  }
+}
 #  endif
 #endif
 
