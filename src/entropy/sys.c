@@ -285,7 +285,7 @@ RtlGenRandom(PVOID RandomBuffer, ULONG RandomBufferLength);
 #    include <poll.h> /* poll */
 #    include <sys/syscall.h> /* syscall */
 #    if defined(SYS_getrandom) && defined(__NR_getrandom) /* 3.17 (2014) */
-#      define getrandom(B, S, F) syscall(SYS_getrandom, (B), (int)(S), (F))
+#      define getrandom(buf, len, flags) syscall(SYS_getrandom, buf, len, flags)
 #      define HAVE_GETRANDOM
 #    endif
 #    if defined(SYS__sysctl) && defined(__NR__sysctl) /* 2.3.16 (1999) */
