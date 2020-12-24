@@ -151,6 +151,22 @@ TORSION_BARRIER(mp_limb_t, mp_limb)
 #  endif
 #endif
 
+#ifdef MP_HAVE_MSVC
+/* Determine whether we can use MSVC inline ASM. */
+#  if MP_LIMB_BITS == 64 && (defined(_M_AMD64) || defined(_M_X64))
+#    pragma code_seg(".text")
+#    define MP_MSVC_CODE __declspec(allocate(".text") align(16))
+#    define MP_MSVC_ASM_X64
+#  elif MP_LIMB_BITS == 32 && defined(_M_IX86)
+#    define MP_MSVC_CDECL __cdecl
+#    define MP_MSVC_ASM_X86
+#  endif
+#endif
+
+#ifndef MP_MSVC_CDECL
+#  define MP_MSVC_CDECL
+#endif
+
 /*
  * Builtins
  */
@@ -206,68 +222,17 @@ TORSION_BARRIER(mp_limb_t, mp_limb)
 #    pragma intrinsic(__umulh)
 #    define MP_HAVE_UMULH
 #  endif
-#  if defined(MP_HAVE_MSVC) && _MSC_VER >= 1920 /* VS 2019 RTM */
-#    include <immintrin.h>
-#    if MP_LIMB_BITS == 32 && MP_LIMB_MAX == UINT_MAX && defined(_M_IX86)
-#      pragma intrinsic(_udiv64)
-#      define MP_HAVE_UDIV64
-#    endif
-#    if MP_LIMB_BITS == 64 && (defined(_M_AMD64) || defined(_M_X64))
-#      pragma intrinsic(_udiv128)
-#      define MP_HAVE_UDIV128
-#    endif
-#  endif
 #endif
 
-/*
- * Intrinsic Shims
- */
-
-/* Utilize a clever hack[1][2] from fahickman/r128[3] in
- * order to shim in the _udiv128 and _udiv64 intrinsics
- * on older versions of MSVC, keeping in mind windows'
- * x64 __fastcall calling convention[4]. We modify the
- * x64 assembly here to replicate the _udiv128 argument
- * order.
- *
- * [1] https://github.com/fahickman/r128/blob/cf2e88f/r128.h#L798
- * [2] https://github.com/fahickman/r128/blob/cf2e88f/r128.h#L683
- * [3] https://github.com/fahickman/r128
- * [4] https://docs.microsoft.com/en-us/cpp/build/x64-calling-convention
- */
-#if defined(MP_HAVE_MSVC) && _MSC_VER < 1920 /* VS 2019 RTM */
-#  if MP_LIMB_BITS == 64 && (defined(_M_AMD64) || defined(_M_X64))
-#    define MP_HAVE_UDIV128
-#    pragma code_seg(".text")
-typedef unsigned __int64 _udiv128_f(unsigned __int64 n1, unsigned __int64 n0,
-                                    unsigned __int64 d, unsigned __int64 *r);
-
-__declspec(allocate(".text") align(16))
-static const unsigned char _udiv128_code[] = {
-  /* %rcx = n1, %rdx = n0, %r8 = d, %r9 = *r */
-  0x48, 0x89, 0xd0, /* movq %rdx, %rax */
-  0x48, 0x89, 0xca, /* movq %rcx, %rdx */
-  0x49, 0xf7, 0xf0, /* divq %r8 */
-  0x49, 0x89, 0x11, /* movq %rdx, (%r9) */
-  0xc3              /* retq */
-};
-
-static _udiv128_f *const _udiv128 = (_udiv128_f *)((void *)_udiv128_code);
-#  elif MP_LIMB_BITS == 32 && defined(_M_IX86)
+#if defined(MP_HAVE_MSVC) && _MSC_VER >= 1920 /* VS 2019 RTM */
+#  include <immintrin.h>
+#  if MP_LIMB_BITS == 32 && MP_LIMB_MAX == UINT_MAX && defined(_M_IX86)
+#    pragma intrinsic(_udiv64)
 #    define MP_HAVE_UDIV64
-static unsigned int
-_udiv64(unsigned __int64 n, unsigned int d, unsigned int *r) {
-  unsigned int n1 = (unsigned int)(n >> 32);
-  unsigned int n0 = (unsigned int)n;
-
-  __asm {
-    mov eax, n0
-    mov edx, n1
-    div d
-    mov ecx, r
-    mov dword ptr [ecx], edx
-  }
-}
+#  endif
+#  if MP_LIMB_BITS == 64 && (defined(_M_AMD64) || defined(_M_X64))
+#    pragma intrinsic(_udiv128)
+#    define MP_HAVE_UDIV128
 #  endif
 #endif
 
@@ -1900,7 +1865,7 @@ mpn_montmul_var(mp_limb_t *zp, const mp_limb_t *xp,
  * Division Helpers
  */
 
-static void
+static void MP_MSVC_CDECL
 mp_div(mp_limb_t *q, mp_limb_t *r,
        mp_limb_t n1, mp_limb_t n0,
        mp_limb_t d) {
@@ -1934,6 +1899,51 @@ mp_div(mp_limb_t *q, mp_limb_t *r,
   mp_wide_t n = ((mp_wide_t)n1 << MP_LIMB_BITS) | n0;
 
   q0 = _udiv64(n, d, &r0);
+#endif
+
+  if (q != NULL)
+    *q = q0;
+
+  if (r != NULL)
+    *r = r0;
+#elif defined(MP_MSVC_ASM_X86) || defined(MP_MSVC_ASM_X64)
+  /* Utilize a clever hack[1][2] from fahickman/r128[3] in
+   * order to implement the _udiv128 and _udiv64 intrinsics
+   * on older versions of MSVC, keeping in mind windows'
+   * x64 __fastcall calling convention[4]. We modify the
+   * x64 assembly here to replicate the _udiv128 argument
+   * order.
+   *
+   * [1] https://github.com/fahickman/r128/blob/cf2e88f/r128.h#L798
+   * [2] https://github.com/fahickman/r128/blob/cf2e88f/r128.h#L683
+   * [3] https://github.com/fahickman/r128
+   * [4] https://docs.microsoft.com/en-us/cpp/build/x64-calling-convention
+   */
+  mp_limb_t q0, r0;
+
+  /* [q, r] = (n1, n0) / d */
+#if defined(MP_MSVC_ASM_X64)
+  typedef mp_limb_t udiv128_f(mp_limb_t n1, mp_limb_t n0,
+                              mp_limb_t d, mp_limb_t *r);
+
+  static MP_MSVC_CODE const unsigned char udiv128_code[] = {
+    /* %rcx = n1, %rdx = n0, %r8 = d, %r9 = *r */
+    0x48, 0x89, 0xd0, /* movq %rdx, %rax */
+    0x48, 0x89, 0xca, /* movq %rcx, %rdx */
+    0x49, 0xf7, 0xf0, /* divq %r8 */
+    0x49, 0x89, 0x11, /* movq %rdx, (%r9) */
+    0xc3              /* retq */
+  };
+
+  q0 = ((udiv128_f *)udiv128_code)(n1, n0, d, &r0);
+#else
+  __asm {
+    mov eax, n0
+    mov edx, n1
+    div d
+    mov q0, eax
+    mov r0, edx
+  }
 #endif
 
   if (q != NULL)
