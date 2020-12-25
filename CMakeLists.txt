@@ -151,12 +151,11 @@ if(TORSION_ENABLE_ASM)
     #ifndef __i386__
     #  error "not an x86 platform"
     #endif
-    #include <stdint.h>
     int main(void) {
-      uint32_t n1 = 0;
-      uint32_t n0 = 100;
-      uint32_t d = 3;
-      uint32_t q0, r0;
+      unsigned int n1 = 0;
+      unsigned int n0 = 100;
+      unsigned int d = 3;
+      unsigned int q0, r0;
       __asm__ __volatile__ (
         "divl %k4\\n"
         : "=a" (q0), "=d" (r0)
@@ -174,9 +173,8 @@ if(TORSION_ENABLE_ASM)
     #if !defined(__amd64__) && !defined(__x86_64__)
     #  error "not an x64 platform"
     #endif
-    #include <stdint.h>
     int main(void) {
-      uint32_t stream[8], state[8];
+      unsigned int dst[8], src[8];
       __asm__ __volatile__ (
         "movups (%%rsi), %%xmm0\\n"
         "movups 16(%%rsi), %%xmm1\\n"
@@ -184,7 +182,7 @@ if(TORSION_ENABLE_ASM)
         "movups %%xmm0,(%%rdi)\\n"
         "movups %%xmm1,16(%%rdi)\\n"
         :
-        : "D" (stream), "S" (state)
+        : "D" (dst), "S" (src)
         : "xmm0", "xmm1", "cc", "memory"
       );
       return 0;
