@@ -234,8 +234,7 @@ sha512_write_file(sha512_t *hash, const char *file) {
   unsigned char buf[4096];
   size_t total = 0;
   struct stat st;
-  ssize_t nread;
-  int fd;
+  int fd, nread;
 
   memset(&st, 0, sizeof(st));
 

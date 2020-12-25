@@ -518,7 +518,7 @@ torsion_callrand(void *dst, size_t size) {
 #elif defined(HAVE_GETRANDOM)
   unsigned char *data = (unsigned char *)dst;
   size_t max = 256;
-  ssize_t nread;
+  int nread;
 
   while (size > 0) {
     if (max > size)
@@ -601,8 +601,7 @@ static int
 torsion_devrand(const char *name, void *dst, size_t size) {
   unsigned char *data = (unsigned char *)dst;
   struct stat st;
-  ssize_t nread;
-  int fd;
+  int fd, nread;
 #ifdef __linux__
   struct pollfd pfd;
   int r;
