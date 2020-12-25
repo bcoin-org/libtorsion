@@ -4,7 +4,6 @@
  * https://github.com/bcoin-org/libtorsion
  */
 
-#include <inttypes.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -46,12 +45,44 @@ bench_start(bench_t *start, const char *name) {
 }
 
 static void
+bench_puts64(const char *pre, uint64_t x) {
+  /* Implement our own PRIu64. */
+  char str[20 + 1];
+  int i, j, k, ch;
+  int len = 0;
+
+  if (x == 0) {
+    str[len++] = '0';
+  } else {
+    do {
+      str[len++] = (x % 10) + '0';
+      x /= 10;
+    } while (x > 0);
+  }
+
+  i = 0;
+  j = len - 1;
+  k = len >> 1;
+
+  while (k--) {
+    ch = str[i];
+    str[i++] = str[j];
+    str[j--] = ch;
+  }
+
+  str[len] = '\0';
+
+  printf("%s%s\n", pre, str);
+}
+
+static void
 bench_end(bench_t *start, uint64_t ops) {
   bench_t nsec = torsion_hrtime() - *start;
   double sec = (double)nsec / 1000000000.0;
 
-  printf("  Operations:  %" PRIu64 "\n", ops);
-  printf("  Nanoseconds: %" PRIu64 "\n", nsec);
+  bench_puts64("  Operations: ", ops);
+  bench_puts64("  Nanoseconds: ", nsec);
+
   printf("  Seconds:     %f\n", sec);
   printf("  Ops/Sec:     %f\n", (double)ops / sec);
 }

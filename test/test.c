@@ -4,7 +4,6 @@
  * https://github.com/bcoin-org/libtorsion
  */
 
-#include <inttypes.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -4711,7 +4710,7 @@ test_util_murmur3(drbg_t *unused) {
     uint32_t sum = vectors[i].sum;
     uint32_t tweak = vectors[i].tweak;
 
-    printf("  - Murmur3 vector #%u (%" PRIu32 ")\n", i + 1, seed);
+    printf("  - Murmur3 vector #%u (%lu)\n", i + 1, (unsigned long)seed);
 
     ASSERT(base16_decode(data, &len, str, strlen(str)));
 
