@@ -51,7 +51,11 @@
 
 static void
 sha512_update_ptr(sha512_t *hash, const void *ptr) {
+#if defined(UINTPTR_MAX)
   uintptr_t uptr = (uintptr_t)ptr;
+#else
+  size_t uptr = (size_t)ptr;
+#endif
 
   sha512_update(hash, &uptr, sizeof(uptr));
 }
@@ -325,8 +329,12 @@ torsion_threadsafety(void) {
 #endif
 }
 
-uintptr_t
+uint64_t
 torsion_randomaddr(void) {
   void *ptr = (void *)&rng_state;
+#if defined(UINTPTR_MAX)
   return (uintptr_t)ptr;
+#else
+  return (size_t)ptr;
+#endif
 }

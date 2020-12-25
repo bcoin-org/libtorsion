@@ -53,7 +53,7 @@ torsion_uniform(uint32_t *num, uint32_t max);
 TORSION_EXTERN int
 torsion_threadsafety(void);
 
-TORSION_EXTERN uintptr_t
+TORSION_EXTERN uint64_t
 torsion_randomaddr(void);
 
 #ifdef __cplusplus

@@ -207,7 +207,11 @@ sha512_write_tsc(sha512_t *hash) {
 
 static void
 sha512_write_ptr(sha512_t *hash, const void *ptr) {
+#if defined(UINTPTR_MAX)
   uintptr_t uptr = (uintptr_t)ptr;
+#else
+  size_t uptr = (size_t)ptr;
+#endif
 
   sha512_write(hash, &uptr, sizeof(uptr));
 }

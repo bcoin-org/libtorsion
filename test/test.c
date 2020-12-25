@@ -4081,7 +4081,7 @@ test_rand_uniform(drbg_t *unused) {
 
 #ifdef TORSION_HAVE_THREADS
 typedef struct rng_res_s {
-  uintptr_t ptr;
+  uint64_t ptr;
   unsigned char data[32];
 } rng_res_t;
 
