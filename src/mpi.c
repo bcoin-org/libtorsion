@@ -1898,7 +1898,7 @@ mp_div(mp_limb_t *q, mp_limb_t *r,
 #else
   mp_wide_t n = ((mp_wide_t)n1 << MP_LIMB_BITS) | n0;
 
-  q0 = _udiv64(n, d, &r0);
+  q0 = _udiv64(n, d, (unsigned int *)&r0);
 #endif
 
   if (q != NULL)
