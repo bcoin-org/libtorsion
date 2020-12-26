@@ -268,12 +268,13 @@
  */
 
 #if defined(UINTPTR_MAX) && defined(UINT64_MAX)
+/* Check size of uintptr_t if available. */
 #  if UINTPTR_MAX == UINT64_MAX
-#    define MP__HAVE_64BIT
+#    define MP_HAVE_64BIT
 #  endif
 #endif
 
-#if defined(MP__HAVE_64BIT)
+#if defined(MP_HAVE_64BIT)
 typedef uint64_t mp_limb_t;
 typedef int64_t mp_long_t;
 #  define MP_LIMB_BITS 64
