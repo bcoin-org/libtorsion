@@ -1015,7 +1015,7 @@ mp_size_cast(size_t n) {
 
 static TORSION_INLINE mp_limb_t
 mp_limb_cast(mp_long_t x) {
-  if (x == MP_LONG_MIN)
+  if (UNLIKELY(x == MP_LONG_MIN))
     return MP_LIMB_HI;
 
   return MP_ABS(x);
@@ -1024,7 +1024,7 @@ mp_limb_cast(mp_long_t x) {
 static TORSION_INLINE mp_long_t
 mp_long_cast(mp_limb_t x, mp_size_t sign) {
   if (sign < 0) {
-    if (x == MP_LIMB_HI)
+    if (UNLIKELY(x == MP_LIMB_HI))
       return MP_LONG_MIN;
 
     return -((mp_long_t)(x & (MP_LIMB_HI - 1)));
