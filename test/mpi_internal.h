@@ -2769,32 +2769,32 @@ test_mpn_sec_cmp(void) {
   ASSERT(mpn_sec_zero_p(zero, 4));
   ASSERT(!mpn_sec_zero_p(mod, 4));
 
-  ASSERT(!mpn_sec_equal(mod, minus1, 4));
-  ASSERT(mpn_sec_equal(mod, mod, 4));
+  ASSERT(!mpn_sec_equal_p(mod, minus1, 4));
+  ASSERT(mpn_sec_equal_p(mod, mod, 4));
 
-  ASSERT(mpn_sec_lt(minus1, mod, 4));
-  ASSERT(!mpn_sec_lt(mod, mod, 4));
-  ASSERT(!mpn_sec_lt(plus1, mod, 4));
-  ASSERT(mpn_sec_lt(mod, full, 4));
-  ASSERT(!mpn_sec_lt(full, mod, 4));
+  ASSERT(mpn_sec_lt_p(minus1, mod, 4));
+  ASSERT(!mpn_sec_lt_p(mod, mod, 4));
+  ASSERT(!mpn_sec_lt_p(plus1, mod, 4));
+  ASSERT(mpn_sec_lt_p(mod, full, 4));
+  ASSERT(!mpn_sec_lt_p(full, mod, 4));
 
-  ASSERT(mpn_sec_lte(minus1, mod, 4));
-  ASSERT(mpn_sec_lte(mod, mod, 4));
-  ASSERT(!mpn_sec_lte(plus1, mod, 4));
-  ASSERT(mpn_sec_lte(mod, full, 4));
-  ASSERT(!mpn_sec_lte(full, mod, 4));
+  ASSERT(mpn_sec_lte_p(minus1, mod, 4));
+  ASSERT(mpn_sec_lte_p(mod, mod, 4));
+  ASSERT(!mpn_sec_lte_p(plus1, mod, 4));
+  ASSERT(mpn_sec_lte_p(mod, full, 4));
+  ASSERT(!mpn_sec_lte_p(full, mod, 4));
 
-  ASSERT(!mpn_sec_gt(minus1, mod, 4));
-  ASSERT(!mpn_sec_gt(mod, mod, 4));
-  ASSERT(mpn_sec_gt(plus1, mod, 4));
-  ASSERT(!mpn_sec_gt(mod, full, 4));
-  ASSERT(mpn_sec_gt(full, mod, 4));
+  ASSERT(!mpn_sec_gt_p(minus1, mod, 4));
+  ASSERT(!mpn_sec_gt_p(mod, mod, 4));
+  ASSERT(mpn_sec_gt_p(plus1, mod, 4));
+  ASSERT(!mpn_sec_gt_p(mod, full, 4));
+  ASSERT(mpn_sec_gt_p(full, mod, 4));
 
-  ASSERT(!mpn_sec_gte(minus1, mod, 4));
-  ASSERT(mpn_sec_gte(mod, mod, 4));
-  ASSERT(mpn_sec_gte(plus1, mod, 4));
-  ASSERT(!mpn_sec_gte(mod, full, 4));
-  ASSERT(mpn_sec_gte(full, mod, 4));
+  ASSERT(!mpn_sec_gte_p(minus1, mod, 4));
+  ASSERT(mpn_sec_gte_p(mod, mod, 4));
+  ASSERT(mpn_sec_gte_p(plus1, mod, 4));
+  ASSERT(!mpn_sec_gte_p(mod, full, 4));
+  ASSERT(mpn_sec_gte_p(full, mod, 4));
 
   ASSERT(mpn_sec_cmp(minus1, mod, 4) == -1);
   ASSERT(mpn_sec_cmp(mod, mod, 4) == 0);
@@ -2818,28 +2818,28 @@ test_mpn_sec_cmp_rand(mp_rng_f *rng, void *arg) {
     ASSERT(mpn_sec_zero_p(xp, 4) == mpn_zero_p(xp, 4));
     ASSERT(mpn_sec_zero_p(yp, 4) == mpn_zero_p(yp, 4));
 
-    ASSERT(mpn_sec_equal(xp, xp, 4));
-    ASSERT(mpn_sec_equal(xp, yp, 4) == (mpn_cmp(xp, yp, 4) == 0));
+    ASSERT(mpn_sec_equal_p(xp, xp, 4));
+    ASSERT(mpn_sec_equal_p(xp, yp, 4) == (mpn_cmp(xp, yp, 4) == 0));
 
-    ASSERT(mpn_sec_lt(xp, xp, 4) == 0);
-    ASSERT(mpn_sec_lt(yp, yp, 4) == 0);
-    ASSERT(mpn_sec_lt(xp, yp, 4) == (mpn_cmp(xp, yp, 4) < 0));
-    ASSERT(mpn_sec_lt(yp, xp, 4) == (mpn_cmp(yp, xp, 4) < 0));
+    ASSERT(mpn_sec_lt_p(xp, xp, 4) == 0);
+    ASSERT(mpn_sec_lt_p(yp, yp, 4) == 0);
+    ASSERT(mpn_sec_lt_p(xp, yp, 4) == (mpn_cmp(xp, yp, 4) < 0));
+    ASSERT(mpn_sec_lt_p(yp, xp, 4) == (mpn_cmp(yp, xp, 4) < 0));
 
-    ASSERT(mpn_sec_lte(xp, xp, 4) == 1);
-    ASSERT(mpn_sec_lte(yp, yp, 4) == 1);
-    ASSERT(mpn_sec_lte(xp, yp, 4) == (mpn_cmp(xp, yp, 4) <= 0));
-    ASSERT(mpn_sec_lte(yp, xp, 4) == (mpn_cmp(yp, xp, 4) <= 0));
+    ASSERT(mpn_sec_lte_p(xp, xp, 4) == 1);
+    ASSERT(mpn_sec_lte_p(yp, yp, 4) == 1);
+    ASSERT(mpn_sec_lte_p(xp, yp, 4) == (mpn_cmp(xp, yp, 4) <= 0));
+    ASSERT(mpn_sec_lte_p(yp, xp, 4) == (mpn_cmp(yp, xp, 4) <= 0));
 
-    ASSERT(mpn_sec_gt(xp, xp, 4) == 0);
-    ASSERT(mpn_sec_gt(yp, yp, 4) == 0);
-    ASSERT(mpn_sec_gt(xp, yp, 4) == (mpn_cmp(xp, yp, 4) > 0));
-    ASSERT(mpn_sec_gt(yp, xp, 4) == (mpn_cmp(yp, xp, 4) > 0));
+    ASSERT(mpn_sec_gt_p(xp, xp, 4) == 0);
+    ASSERT(mpn_sec_gt_p(yp, yp, 4) == 0);
+    ASSERT(mpn_sec_gt_p(xp, yp, 4) == (mpn_cmp(xp, yp, 4) > 0));
+    ASSERT(mpn_sec_gt_p(yp, xp, 4) == (mpn_cmp(yp, xp, 4) > 0));
 
-    ASSERT(mpn_sec_gte(xp, xp, 4) == 1);
-    ASSERT(mpn_sec_gte(yp, yp, 4) == 1);
-    ASSERT(mpn_sec_gte(xp, yp, 4) == (mpn_cmp(xp, yp, 4) >= 0));
-    ASSERT(mpn_sec_gte(yp, xp, 4) == (mpn_cmp(yp, xp, 4) >= 0));
+    ASSERT(mpn_sec_gte_p(xp, xp, 4) == 1);
+    ASSERT(mpn_sec_gte_p(yp, yp, 4) == 1);
+    ASSERT(mpn_sec_gte_p(xp, yp, 4) == (mpn_cmp(xp, yp, 4) >= 0));
+    ASSERT(mpn_sec_gte_p(yp, xp, 4) == (mpn_cmp(yp, xp, 4) >= 0));
 
     ASSERT(mpn_sec_cmp(xp, xp, 4) == 0);
     ASSERT(mpn_sec_cmp(yp, yp, 4) == 0);

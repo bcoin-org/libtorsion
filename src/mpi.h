@@ -93,12 +93,12 @@
 #define mpn_select __torsion_mpn_select
 #define mpn_select_zero __torsion_mpn_select_zero
 #define mpn_sec_zero_p __torsion_mpn_sec_zero_p
-#define mpn_sec_equal __torsion_mpn_sec_equal
+#define mpn_sec_equal_p __torsion_mpn_sec_equal_p
+#define mpn_sec_lt_p __torsion_mpn_sec_lt_p
+#define mpn_sec_lte_p __torsion_mpn_sec_lte_p
+#define mpn_sec_gt_p __torsion_mpn_sec_gt_p
+#define mpn_sec_gte_p __torsion_mpn_sec_gte_p
 #define mpn_sec_cmp __torsion_mpn_sec_cmp
-#define mpn_sec_lt __torsion_mpn_sec_lt
-#define mpn_sec_lte __torsion_mpn_sec_lte
-#define mpn_sec_gt __torsion_mpn_sec_gt
-#define mpn_sec_gte __torsion_mpn_sec_gte
 #define mpn_import __torsion_mpn_import
 #define mpn_export __torsion_mpn_export
 #define mpn_set_str __torsion_mpn_set_str
@@ -788,22 +788,22 @@ int
 mpn_sec_zero_p(const mp_limb_t *xp, mp_size_t xn);
 
 int
-mpn_sec_equal(const mp_limb_t *xp, const mp_limb_t *yp, mp_size_t n);
+mpn_sec_equal_p(const mp_limb_t *xp, const mp_limb_t *yp, mp_size_t n);
+
+int
+mpn_sec_lt_p(const mp_limb_t *xp, const mp_limb_t *yp, mp_size_t n);
+
+int
+mpn_sec_lte_p(const mp_limb_t *xp, const mp_limb_t *yp, mp_size_t n);
+
+int
+mpn_sec_gt_p(const mp_limb_t *xp, const mp_limb_t *yp, mp_size_t n);
+
+int
+mpn_sec_gte_p(const mp_limb_t *xp, const mp_limb_t *yp, mp_size_t n);
 
 int
 mpn_sec_cmp(const mp_limb_t *xp, const mp_limb_t *yp, mp_size_t n);
-
-int
-mpn_sec_lt(const mp_limb_t *xp, const mp_limb_t *yp, mp_size_t n);
-
-int
-mpn_sec_lte(const mp_limb_t *xp, const mp_limb_t *yp, mp_size_t n);
-
-int
-mpn_sec_gt(const mp_limb_t *xp, const mp_limb_t *yp, mp_size_t n);
-
-int
-mpn_sec_gte(const mp_limb_t *xp, const mp_limb_t *yp, mp_size_t n);
 
 /*
  * Import

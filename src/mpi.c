@@ -4028,7 +4028,7 @@ mpn_sec_zero_p(const mp_limb_t *xp, mp_size_t xn) {
 }
 
 int
-mpn_sec_equal(const mp_limb_t *xp, const mp_limb_t *yp, mp_size_t n) {
+mpn_sec_equal_p(const mp_limb_t *xp, const mp_limb_t *yp, mp_size_t n) {
   /* Compute (x == y) in constant time. */
   mp_limb_t w = 0;
   mp_size_t i;
@@ -4060,17 +4060,7 @@ mpn_sec_compare(const mp_limb_t *xp, const mp_limb_t *yp, mp_size_t n) {
 }
 
 int
-mpn_sec_cmp(const mp_limb_t *xp, const mp_limb_t *yp, mp_size_t n) {
-  /* Compute mpn_cmp(x, y) in constant time. */
-  int cmp = mpn_sec_compare(xp, yp, n);
-  int lt = cmp >> 1;
-  int eq = cmp & 1;
-
-  return (1 - 2 * lt) * (1 - eq);
-}
-
-int
-mpn_sec_lt(const mp_limb_t *xp, const mp_limb_t *yp, mp_size_t n) {
+mpn_sec_lt_p(const mp_limb_t *xp, const mp_limb_t *yp, mp_size_t n) {
   /* Compute (x < y) in constant time. */
   int cmp = mpn_sec_compare(xp, yp, n);
   int lt = cmp >> 1;
@@ -4080,7 +4070,7 @@ mpn_sec_lt(const mp_limb_t *xp, const mp_limb_t *yp, mp_size_t n) {
 }
 
 int
-mpn_sec_lte(const mp_limb_t *xp, const mp_limb_t *yp, mp_size_t n) {
+mpn_sec_lte_p(const mp_limb_t *xp, const mp_limb_t *yp, mp_size_t n) {
   /* Compute (x <= y) in constant time. */
   int cmp = mpn_sec_compare(xp, yp, n);
   int lt = cmp >> 1;
@@ -4090,7 +4080,7 @@ mpn_sec_lte(const mp_limb_t *xp, const mp_limb_t *yp, mp_size_t n) {
 }
 
 int
-mpn_sec_gt(const mp_limb_t *xp, const mp_limb_t *yp, mp_size_t n) {
+mpn_sec_gt_p(const mp_limb_t *xp, const mp_limb_t *yp, mp_size_t n) {
   /* Compute (x > y) in constant time. */
   int cmp = mpn_sec_compare(xp, yp, n);
   int lt = cmp >> 1;
@@ -4100,13 +4090,23 @@ mpn_sec_gt(const mp_limb_t *xp, const mp_limb_t *yp, mp_size_t n) {
 }
 
 int
-mpn_sec_gte(const mp_limb_t *xp, const mp_limb_t *yp, mp_size_t n) {
+mpn_sec_gte_p(const mp_limb_t *xp, const mp_limb_t *yp, mp_size_t n) {
   /* Compute (x >= y) in constant time. */
   int cmp = mpn_sec_compare(xp, yp, n);
   int lt = cmp >> 1;
   int eq = cmp & 1;
 
   return (lt ^ 1) | eq;
+}
+
+int
+mpn_sec_cmp(const mp_limb_t *xp, const mp_limb_t *yp, mp_size_t n) {
+  /* Compute mpn_cmp(x, y) in constant time. */
+  int cmp = mpn_sec_compare(xp, yp, n);
+  int lt = cmp >> 1;
+  int eq = cmp & 1;
+
+  return (1 - 2 * lt) * (1 - eq);
 }
 
 /*
