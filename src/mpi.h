@@ -279,9 +279,9 @@ typedef uint64_t mp_limb_t;
 typedef int64_t mp_long_t;
 #  define MP_LIMB_BITS 64
 #  define MP_LIMB_BYTES 8
-#  define MP_LIMB_C(x) UINT64_C(x)
+#  define MP_LIMB_C UINT64_C
 #  define MP_LIMB_MAX UINT64_MAX
-#  define MP_LONG_C(x) INT64_C(x)
+#  define MP_LONG_C INT64_C
 #  define MP_LONG_MIN INT64_MIN
 #  define MP_LONG_MAX INT64_MAX
 #else
@@ -289,9 +289,9 @@ typedef uint32_t mp_limb_t;
 typedef int32_t mp_long_t;
 #  define MP_LIMB_BITS 32
 #  define MP_LIMB_BYTES 4
-#  define MP_LIMB_C(x) UINT32_C(x)
+#  define MP_LIMB_C UINT32_C
 #  define MP_LIMB_MAX UINT32_MAX
-#  define MP_LONG_C(x) INT32_C(x)
+#  define MP_LONG_C INT32_C
 #  define MP_LONG_MIN INT32_MIN
 #  define MP_LONG_MAX INT32_MAX
 #endif
