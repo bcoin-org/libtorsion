@@ -544,6 +544,9 @@ eb2k_derive(unsigned char *key,
   if (salt_len != 0 && salt_len != 8)
     return 0;
 
+  if (key_len + iv_len < iv_len)
+    return 0;
+
   while (key_len + iv_len > 0) {
     hash_init(&hash, type);
     hash_update(&hash, prev, prev_len);
