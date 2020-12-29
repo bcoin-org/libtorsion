@@ -145,6 +145,7 @@
 #define mpz_submul __torsion_mpz_submul
 #define mpz_submul_ui __torsion_mpz_submul_ui
 #define mpz_submul_si __torsion_mpz_submul_si
+#define mpz_mulshift __torsion_mpz_mulshift
 #define mpz_quorem __torsion_mpz_quorem
 #define mpz_quo __torsion_mpz_quo
 #define mpz_rem __torsion_mpz_rem
@@ -1010,6 +1011,13 @@ mpz_submul_ui(mpz_t z, const mpz_t x, mp_limb_t y);
 
 void
 mpz_submul_si(mpz_t z, const mpz_t x, mp_long_t y);
+
+/*
+ * Multiply + Shift
+ */
+
+void
+mpz_mulshift(mpz_t z, const mpz_t x, const mpz_t y, mp_bits_t bits);
 
 /*
  * Truncation Division

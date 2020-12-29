@@ -5494,6 +5494,47 @@ test_mpz_negate(mp_rng_f *rng, void *arg) {
 }
 
 static void
+test_mpz_mulshift(mp_rng_f *rng, void *arg) {
+  mpz_t x, y, z, m, q, d;
+  int i;
+
+  printf("  - MPZ mulshift.\n");
+
+  mpz_init(x);
+  mpz_init(y);
+  mpz_init(z);
+  mpz_init(m);
+  mpz_init(q);
+  mpz_init(d);
+
+  mpz_p192_mod(m);
+
+  mpz_setbit(d, 196);
+
+  for (i = 0; i < 100; i++) {
+    mpz_random_nz(x, 384, rng, arg);
+    mpz_random_nz(y, 384, rng, arg);
+
+    mpz_mod(x, x, m);
+    mpz_mod(y, y, m);
+
+    mpz_mulshift(z, x, y, 196);
+
+    mpz_mul(q, x, y);
+    mpz_divround(q, q, d);
+
+    ASSERT(mpz_cmp(z, q) == 0);
+  }
+
+  mpz_clear(x);
+  mpz_clear(y);
+  mpz_clear(z);
+  mpz_clear(m);
+  mpz_clear(q);
+  mpz_clear(d);
+}
+
+static void
 test_mpz_gcd(mp_rng_f *rng, void *arg) {
   mpz_t g1, g2, g3, x, y;
   mp_limb_t g;
@@ -7274,6 +7315,7 @@ test_mpi_internal(mp_rng_f *rng, void *arg) {
   test_mpz_hamdist(rng, arg);
   test_mpz_mask(rng, arg);
   test_mpz_negate(rng, arg);
+  test_mpz_mulshift(rng, arg);
   test_mpz_gcd(rng, arg);
   test_mpz_lcm(rng, arg);
   test_mpz_gcdext(rng, arg);
