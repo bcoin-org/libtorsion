@@ -5189,7 +5189,7 @@ wei_point_to_uniform(const wei_t *ec,
 
   fe_export(fe, bytes, u);
 
-  bytes[0] |= (hint >> 8) & ~fe->mask;
+  bytes[0] |= (hint >> 8) & ~fe->mask & 0xff;
 
   fe_cleanse(fe, u);
   wge_cleanse(ec, &p0);
@@ -6314,7 +6314,7 @@ mont_point_to_uniform(const mont_t *ec,
 
   fe_export(fe, bytes, u);
 
-  bytes[fe->size - 1] |= (hint >> 8) & ~fe->mask;
+  bytes[fe->size - 1] |= (hint >> 8) & ~fe->mask & 0xff;
 
   fe_cleanse(fe, u);
   mge_cleanse(ec, &p0);
@@ -7769,7 +7769,7 @@ edwards_point_to_uniform(const edwards_t *ec,
 
   fe_export(fe, bytes, u);
 
-  bytes[fe->size - 1] |= (hint >> 8) & ~fe->mask;
+  bytes[fe->size - 1] |= (hint >> 8) & ~fe->mask & 0xff;
 
   fe_cleanse(fe, u);
   xge_cleanse(ec, &p0);
@@ -8063,7 +8063,7 @@ ristretto_point_to_uniform(const edwards_t *ec,
 
   fe_export(fe, bytes, u);
 
-  bytes[fe->size - 1] |= (hint >> 8) & ~fe->mask;
+  bytes[fe->size - 1] |= (hint >> 8) & ~fe->mask & 0xff;
 
   fe_cleanse(fe, u);
 
