@@ -4243,9 +4243,9 @@ hash_has_backend(int type) {
     case HASH_HASH160:
     case HASH_HASH256:
     case HASH_KECCAK224:
-    case HASH_KECCAK256 :
-    case HASH_KECCAK384 :
-    case HASH_KECCAK512 :
+    case HASH_KECCAK256:
+    case HASH_KECCAK384:
+    case HASH_KECCAK512:
     case HASH_MD2:
     case HASH_MD4:
     case HASH_MD5:
