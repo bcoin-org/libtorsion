@@ -8221,9 +8221,36 @@ mpz_set_str(mpz_t z, const char *str, int base) {
   while (mp_isspace(*str))
     str++;
 
-  if (*str == '-') {
-    neg = 1;
+  if (*str == '+' || *str == '-') {
+    neg = (*str == '-');
     str++;
+  }
+
+  if (base == 0) {
+    if (*str == '0') {
+      switch (str[1]) {
+        case 'b':
+        case 'B':
+          base = 2;
+          str += 2;
+          break;
+        case 'o':
+        case 'O':
+          base = 8;
+          str += 2;
+          break;
+        case 'x':
+        case 'X':
+          base = 16;
+          str += 2;
+          break;
+        default:
+          base = 8;
+          break;
+      }
+    } else {
+      base = 10;
+    }
   }
 
   zn = mp_str_limbs(str, base);
