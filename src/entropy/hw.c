@@ -355,7 +355,10 @@ torsion_has_cpuid(void) {
     "pushfl\n"
     "popl %k0\n"
     "popfl\n"
-    : "=&r" (ax), "=&r" (bx)
+    : "=&r" (ax),
+      "=&r" (bx)
+    :
+    : "cc"
   );
 
   return ((ax ^ bx) >> 21) & 1;
