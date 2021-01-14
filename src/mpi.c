@@ -741,6 +741,7 @@ typedef struct mp_divisor_s {
   mp_limb_t inv;
   mp_bits_t shift;
   mp_size_t size;
+  mp_limb_t tmp;
 } mp_divisor_t;
 
 /*
@@ -2498,6 +2499,21 @@ mp_div_3by2(mp_limb_t *q, mp_limb_t *k1, mp_limb_t *k0,
  * Division Engine
  */
 
+static void
+mpn_divmod_init_1(mp_divisor_t *den, mp_limb_t d) {
+  mp_bits_t shift;
+
+  if (d == 0)
+    torsion_abort(); /* LCOV_EXCL_LINE */
+
+  shift = mp_clz(d);
+
+  den->vp = &den->tmp;
+  den->vp[0] = d << shift;
+  den->inv = mp_inv_2by1(den->vp[0]);
+  den->shift = shift;
+}
+
 #define mpn_divmod_init(den, nn, dp, dn) do { \
   (den)->up = mp_alloc_vla((nn) + 1);         \
   (den)->vp = mp_alloc_vla(dn);               \
@@ -2965,6 +2981,17 @@ mpn_divmod_large_3by2(mp_limb_t *qp, mp_limb_t *rp,
   }
 }
 
+static TORSION_INLINE mp_limb_t
+mpn_divmod_inner_1(mp_limb_t *qp, const mp_limb_t *np,
+                                  mp_size_t nn,
+                                  const mp_divisor_t *den) {
+  mp_limb_t r;
+
+  mpn_divmod_small_2by1(qp, &r, np, nn, den);
+
+  return r;
+}
+
 static TORSION_INLINE void
 mpn_divmod_inner(mp_limb_t *qp, mp_limb_t *rp,
                  const mp_limb_t *np, mp_size_t nn,
@@ -3002,10 +3029,8 @@ mpn_mod_inner(mp_limb_t *rp, const mp_limb_t *np,
 
 mp_limb_t
 mpn_divmod_1(mp_limb_t *qp, const mp_limb_t *np, mp_size_t nn, mp_limb_t d) {
-  /* [DIV] Algorithm 7, Page 7, Section C. */
-  mp_limb_t q, r, n0, n1, m;
-  mp_size_t j;
-  mp_bits_t s;
+  mp_divisor_t den;
+  mp_limb_t q, r;
 
   if (nn < 0 || d == 0)
     torsion_abort(); /* LCOV_EXCL_LINE */
@@ -3023,30 +3048,9 @@ mpn_divmod_1(mp_limb_t *qp, const mp_limb_t *np, mp_size_t nn, mp_limb_t d) {
     return r;
   }
 
-  r = 0;
-  s = mp_clz(d);
-  d <<= s;
-  m = mp_inv_2by1(d);
+  mpn_divmod_init_1(&den, d);
 
-  for (j = nn - 1; j >= 0; j--) {
-    n1 = r;
-    n0 = np[j];
-
-    if (s != 0) {
-      n1 = (n1 << s) | (n0 >> (MP_LIMB_BITS - s));
-      n0 <<= s;
-    }
-
-    /* [q, r] = (n1, n0) / d */
-    mp_div_2by1(&q, &r, n1, n0, d, m);
-
-    r >>= s;
-
-    if (qp != NULL)
-      qp[j] = q;
-  }
-
-  return r;
+  return mpn_divmod_inner_1(qp, np, nn, &den);
 }
 
 void
@@ -4273,6 +4277,7 @@ size_t
 mpn_get_str(char *str, const mp_limb_t *xp, mp_size_t xn, int base) {
   mp_bits_t shift = 0;
   mp_size_t tn, sn;
+  mp_divisor_t den;
   size_t len = 0;
   size_t i, j, k;
   mp_limb_t *tp;
@@ -4294,12 +4299,14 @@ mpn_get_str(char *str, const mp_limb_t *xp, mp_size_t xn, int base) {
   } else {
     if ((base & (base - 1)) == 0)
       shift = mp_bitlen(base - 1);
+    else
+      mpn_divmod_init_1(&den, base);
 
     do {
       if (shift > 0)
         ch = mpn_rshift(tp, tp, tn, shift);
       else
-        ch = mpn_divmod_1(tp, tp, tn, base);
+        ch = mpn_divmod_inner_1(tp, tp, tn, &den);
 
       tn -= (tp[tn - 1] == 0);
 
