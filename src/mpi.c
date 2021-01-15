@@ -7105,90 +7105,105 @@ mpz_powm_sec(mpz_t z, const mpz_t x, const mpz_t y, const mpz_t m) {
   }
 }
 
-int
-mpz_sqrtm(mpz_t z, const mpz_t u, const mpz_t p) {
-  mpz_t x, e, t, a, s, n, y, b, g;
-  mp_bits_t i, f, k, m;
+static int
+mpz_sqrtm_3mod4(mpz_t z, const mpz_t x, const mpz_t p) {
+  /* Square Root (p = 3 mod 4). */
+  mpz_t e, b, c;
   int ret = 0;
 
-  mpz_init(x);
   mpz_init(e);
+  mpz_init(b);
+  mpz_init(c);
+
+  /* b = x^((p + 1) / 4) mod p */
+  mpz_add_ui(e, p, 1);
+  mpz_quo_2exp(e, e, 2);
+  mpz_powm(b, x, e, p);
+
+  /* c = b^2 mod p */
+  mpz_sqr(c, b);
+  mpz_mod(c, c, p);
+
+  /* c != x */
+  if (mpz_cmp(c, x) != 0)
+    goto fail;
+
+  /* z = b */
+  mpz_swap(z, b);
+
+  ret = 1;
+fail:
+  mpz_clear(e);
+  mpz_clear(b);
+  mpz_clear(c);
+  return ret;
+}
+
+static int
+mpz_sqrtm_5mod8(mpz_t z, const mpz_t x, const mpz_t p) {
+  /* Atkin's Algorithm (p = 5 mod 8). */
+  mpz_t t, e, a, b, c;
+  int ret = 0;
+
   mpz_init(t);
+  mpz_init(e);
   mpz_init(a);
+  mpz_init(b);
+  mpz_init(c);
+
+  /* t = x * 2 mod p */
+  mpz_mul_2exp(t, x, 1);
+  mpz_mod(t, t, p);
+
+  /* a = t^((p - 5) / 8) mod p */
+  mpz_quo_2exp(e, p, 3);
+  mpz_powm(a, t, e, p);
+
+  /* b = (a^2 * t - 1) * x * a mod p */
+  mpz_sqr(c, a);
+  mpz_mod(b, c, p);
+  mpz_mul(c, b, t);
+  mpz_mod(b, c, p);
+  mpz_sub_ui(b, b, 1);
+  mpz_mul(c, b, x);
+  mpz_mod(b, c, p);
+  mpz_mul(c, b, a);
+  mpz_mod(b, c, p);
+
+  /* c = b^2 mod p */
+  mpz_sqr(c, b);
+  mpz_mod(c, c, p);
+
+  /* c != x */
+  if (mpz_cmp(c, x) != 0)
+    goto fail;
+
+  /* z = b */
+  mpz_swap(z, b);
+
+  ret = 1;
+fail:
+  mpz_clear(t);
+  mpz_clear(e);
+  mpz_clear(a);
+  mpz_clear(b);
+  mpz_clear(c);
+  return ret;
+}
+
+static int
+mpz_sqrtm_0(mpz_t z, const mpz_t x, const mpz_t p) {
+  /* Tonelli-Shanks (p = 1 mod 16). */
+  mpz_t t, s, n, y, b, g;
+  mp_bits_t i, e, k, m;
+  int ret = 0;
+
+  mpz_init(t);
   mpz_init(s);
   mpz_init(n);
   mpz_init(y);
   mpz_init(b);
   mpz_init(g);
-
-  /* x = u */
-  mpz_set(x, u);
-
-  /* if p <= 0 or p mod 2 == 0 */
-  if (p->size <= 0 || mpz_even_p(p))
-    goto fail;
-
-  /* if x < 0 or x >= p */
-  if (x->size < 0 || mpz_cmpabs(x, p) >= 0) {
-    /* x = x mod p */
-    mpz_mod(x, x, p);
-  }
-
-  /* if p mod 4 == 3 */
-  if ((p->limbs[0] & 3) == 3) {
-    /* b = x^((p + 1) / 4) mod p */
-    mpz_add_ui(e, p, 1);
-    mpz_quo_2exp(e, e, 2);
-    mpz_powm(b, x, e, p);
-
-    /* g = b^2 mod p */
-    mpz_sqr(g, b);
-    mpz_mod(g, g, p);
-
-    /* g != x */
-    if (mpz_cmp(g, x) != 0)
-      goto fail;
-
-    /* z = b */
-    mpz_swap(z, b);
-
-    goto succeed;
-  }
-
-  /* if p mod 8 == 5 */
-  if ((p->limbs[0] & 7) == 5) {
-    /* t = x * 2 mod p */
-    mpz_mul_2exp(t, x, 1);
-    mpz_mod(t, t, p);
-
-    /* a = t^((p - 5) / 8) mod p */
-    mpz_quo_2exp(e, p, 3);
-    mpz_powm(a, t, e, p);
-
-    /* b = (a^2 * t - 1) * x * a mod p */
-    mpz_sqr(b, a);
-    mpz_mod(b, b, p);
-    mpz_mul(b, b, t);
-    mpz_mod(b, b, p);
-    mpz_sub_ui(b, b, 1);
-    mpz_mul(b, b, x);
-    mpz_mod(b, b, p);
-    mpz_mul(b, b, a);
-    mpz_mod(b, b, p);
-
-    /* g = b^2 mod p */
-    mpz_sqr(g, b);
-    mpz_mod(g, g, p);
-
-    /* g != x */
-    if (mpz_cmp(g, x) != 0)
-      goto fail;
-
-    /* z = b */
-    mpz_swap(z, b);
-
-    goto succeed;
-  }
 
   /* if p == 1 */
   if (mpz_cmp_ui(p, 1) == 0)
@@ -7207,11 +7222,11 @@ mpz_sqrtm(mpz_t z, const mpz_t u, const mpz_t p) {
   /* s = p - 1 */
   mpz_sub_ui(s, p, 1);
 
-  /* f = s factors of 2 */
-  f = mpz_ctz(s);
+  /* e = s factors of 2 */
+  e = mpz_ctz(s);
 
-  /* s = s >> f */
-  mpz_quo_2exp(s, s, f);
+  /* s = s >> e */
+  mpz_quo_2exp(s, s, e);
 
   /* n = 2 */
   mpz_set_ui(n, 2);
@@ -7233,8 +7248,8 @@ mpz_sqrtm(mpz_t z, const mpz_t u, const mpz_t p) {
   /* g = n^s mod p */
   mpz_powm(g, n, s, p);
 
-  /* k = f */
-  k = f;
+  /* k = e */
+  k = e;
 
   for (;;) {
     /* t = b */
@@ -7246,8 +7261,8 @@ mpz_sqrtm(mpz_t z, const mpz_t u, const mpz_t p) {
     /* while t != 1 */
     while (mpz_cmp_ui(t, 1) != 0) {
       /* t = t^2 mod p */
-      mpz_sqr(e, t);
-      mpz_mod(t, e, p);
+      mpz_sqr(s, t);
+      mpz_mod(t, s, p);
       m += 1;
     }
 
@@ -7263,21 +7278,21 @@ mpz_sqrtm(mpz_t z, const mpz_t u, const mpz_t p) {
     mpz_swap(t, g);
 
     for (i = 0; i < k - m - 1; i++) {
-      mpz_sqr(e, t);
-      mpz_mod(t, e, p);
+      mpz_sqr(s, t);
+      mpz_mod(t, s, p);
     }
 
     /* g = t^2 mod p */
-    mpz_sqr(g, t);
-    mpz_mod(g, g, p);
+    mpz_sqr(s, t);
+    mpz_mod(g, s, p);
 
     /* y = y * t mod p */
-    mpz_mul(y, y, t);
-    mpz_mod(y, y, p);
+    mpz_mul(s, y, t);
+    mpz_mod(y, s, p);
 
     /* b = b * g mod p */
-    mpz_mul(b, b, g);
-    mpz_mod(b, b, p);
+    mpz_mul(s, b, g);
+    mpz_mod(b, s, p);
 
     /* k = m */
     k = m;
@@ -7288,15 +7303,37 @@ mpz_sqrtm(mpz_t z, const mpz_t u, const mpz_t p) {
 succeed:
   ret = 1;
 fail:
-  mpz_clear(x);
-  mpz_clear(e);
   mpz_clear(t);
-  mpz_clear(a);
   mpz_clear(s);
   mpz_clear(n);
   mpz_clear(y);
   mpz_clear(b);
   mpz_clear(g);
+  return ret;
+}
+
+int
+mpz_sqrtm(mpz_t z, const mpz_t x, const mpz_t p) {
+  /* Compute x^(1 / 2) in F(p). */
+  mpz_t t;
+  int ret;
+
+  if (p->size <= 0 || mpz_even_p(p)) {
+    z->size = 0;
+    return 0;
+  }
+
+  mpz_init(t);
+  mpz_mod(t, x, p);
+
+  if ((p->limbs[0] & 3) == 3)
+    ret = mpz_sqrtm_3mod4(z, t, p);
+  else if ((p->limbs[0] & 7) == 5)
+    ret = mpz_sqrtm_5mod8(z, t, p);
+  else
+    ret = mpz_sqrtm_0(z, t, p);
+
+  mpz_clear(t);
 
   if (!ret)
     z->size = 0;
@@ -7307,13 +7344,15 @@ fail:
 int
 mpz_sqrtpq(mpz_t z, const mpz_t x, const mpz_t p, const mpz_t q) {
   /* Compute x^(1 / 2) in F(p * q). */
-  mpz_t sp, sq, mp, mq, u, v;
+  mpz_t sp, sq, mp, mq, n, t, u, v;
   int ret = 0;
 
   mpz_init(sp);
   mpz_init(sq);
   mpz_init(mp);
   mpz_init(mq);
+  mpz_init(n);
+  mpz_init(t);
   mpz_init(u);
   mpz_init(v);
 
@@ -7328,22 +7367,24 @@ mpz_sqrtpq(mpz_t z, const mpz_t x, const mpz_t p, const mpz_t q) {
   /* (mp, mq) = bezout coefficients for egcd(p, q) */
   mpz_gcdext(NULL, mp, mq, p, q);
 
-  /* u = sq * mp * p */
-  mpz_mul(u, sq, mp);
-  mpz_mul(u, u, p);
+  /* n = p * q */
+  mpz_mul(n, p, q);
 
-  /* v = sp * mq * q */
-  mpz_mul(v, sp, mq);
-  mpz_mul(v, v, q);
+  /* u = sq * mp * p mod n */
+  mpz_mul(t, sq, mp);
+  mpz_mod(u, t, n);
+  mpz_mul(t, u, p);
+  mpz_mod(u, t, n);
 
-  /* u = u + v */
-  mpz_add(u, u, v);
+  /* v = sp * mq * q mod n */
+  mpz_mul(t, sp, mq);
+  mpz_mod(v, t, n);
+  mpz_mul(t, v, q);
+  mpz_mod(v, t, n);
 
-  /* v = p * q */
-  mpz_mul(v, p, q);
-
-  /* z = u mod v */
-  mpz_mod(z, u, v);
+  /* z = u + v mod n */
+  mpz_add(t, u, v);
+  mpz_mod(z, t, n);
 
   ret = 1;
 fail:
@@ -7351,6 +7392,8 @@ fail:
   mpz_clear(sq);
   mpz_clear(mp);
   mpz_clear(mq);
+  mpz_clear(n);
+  mpz_clear(t);
   mpz_clear(u);
   mpz_clear(v);
   return ret;
@@ -7872,7 +7915,7 @@ mpz_probab_prime_p(const mpz_t x, int rounds, mp_rng_f *rng, void *arg) {
       return (primes_hi >> (x->limbs[0] - 32)) & 1;
   }
 
-  if (mpz_even_p(x))
+  if ((x->limbs[0] & 1) == 0)
     return 0;
 
   mpz_mod_primorial(&ra, &rb, x);

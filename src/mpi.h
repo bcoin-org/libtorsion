@@ -1311,7 +1311,7 @@ void
 mpz_powm_sec(mpz_t z, const mpz_t x, const mpz_t y, const mpz_t m);
 
 int
-mpz_sqrtm(mpz_t z, const mpz_t u, const mpz_t p);
+mpz_sqrtm(mpz_t z, const mpz_t x, const mpz_t p);
 
 int
 mpz_sqrtpq(mpz_t z, const mpz_t x, const mpz_t p, const mpz_t q);
