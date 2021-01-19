@@ -3418,11 +3418,13 @@ mpn_mask(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn, mp_bits_t bits) {
   mp_bits_t lo = bits % MP_LIMB_BITS;
 
   if (zn >= xn) {
-    mpn_copyi(zp, xp, xn);
+    if (zp != xp)
+      mpn_copyi(zp, xp, xn);
     return;
   }
 
-  mpn_copyi(zp, xp, zn);
+  if (zp != xp)
+    mpn_copyi(zp, xp, zn);
 
   if (lo != 0) {
     zp[zn] = xp[zn] & MP_MASK(lo);
