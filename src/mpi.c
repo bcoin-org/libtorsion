@@ -1036,16 +1036,13 @@ mp_long_cast(mp_limb_t x, mp_size_t sign) {
 
 static TORSION_INLINE int
 mp_isspace(int ch) {
-  switch (ch) {
-    case '\t':
-    case '\n':
-    case '\v':
-    case '\f':
-    case '\r':
-    case ' ':
-      return 1;
-  }
-  return 0;
+  /* '\t', '\n', '\v', '\f', '\r', ' ' */
+  static const int spaces[256] = {
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1,
+    1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 1, 0
+  };
+  return spaces[ch & 0xff];
 }
 
 static mp_size_t
