@@ -2038,7 +2038,7 @@ mp_div(mp_limb_t *q, mp_limb_t *r,
 
 static mp_limb_t
 mp_inv_2by1(mp_limb_t d) {
-  /* [DIV] Page 2, Section II.
+  /* [DIV] Page 2, Section III.
    *
    * The approximate reciprocal is defined as:
    *
@@ -2054,6 +2054,10 @@ mp_inv_2by1(mp_limb_t d) {
    * Which happens to be equivalent and allows
    * us to do a normalized division using
    * hardware instructions.
+   *
+   * Or, as described in the paper:
+   *
+   *   v = (B - 1 - d, B - 1) / d
    *
    * A more programmatic way of expressing
    * this would be (where L = log2(B)):
