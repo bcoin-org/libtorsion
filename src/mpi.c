@@ -5198,24 +5198,20 @@ mpz_submul_si(mpz_t z, const mpz_t x, mp_long_t y) {
 void
 mpz_mulshift(mpz_t z, const mpz_t x, const mpz_t y, mp_bits_t bits) {
   mp_size_t sign = x->size ^ y->size;
-  mp_size_t pos = bits - 1;
-  mp_limb_t b = 0;
-  mp_size_t s;
+  mp_limb_t b;
 
   mpz_mul(z, x, y);
 
-  if (pos >= 0) {
-    s = pos / MP_LIMB_BITS;
+  if (bits > 0) {
+    mpz_abs(z, z);
 
-    if (s < MP_ABS(z->size))
-      b = (z->limbs[s] >> (pos % MP_LIMB_BITS)) & 1;
+    b = mpz_tstbit(z, bits - 1);
 
     mpz_quo_2exp(z, z, bits);
+    mpz_add_ui(z, z, b);
 
     if (sign < 0)
-      mpz_sub_ui(z, z, b);
-    else
-      mpz_add_ui(z, z, b);
+      mpz_neg(z, z);
   }
 }
 
@@ -5567,6 +5563,29 @@ mpz_divexact_si(mpz_t q, const mpz_t n, mp_long_t d) {
 }
 
 /*
+ * Round Division
+ */
+
+void
+mpz_divround(mpz_t q, const mpz_t n, const mpz_t d) {
+  /* Computes q = (n +- (d >> 1)) / d. */
+  mpz_t t;
+
+  mpz_init_vla(t, mpz_add_size(n, d));
+
+  mpz_quo_2exp(t, d, 1);
+
+  if ((n->size ^ d->size) < 0)
+    mpz_sub(t, n, t);
+  else
+    mpz_add(t, n, t);
+
+  mpz_quo(q, t, d);
+
+  mpz_clear_vla(t);
+}
+
+/*
  * Divisibility
  */
 
@@ -5686,29 +5705,6 @@ mpz_congruent_2exp_p(const mpz_t x, const mpz_t y, mp_bits_t bits) {
   mpz_clear_vla(t);
 
   return ret;
-}
-
-/*
- * Round Division
- */
-
-void
-mpz_divround(mpz_t q, const mpz_t n, const mpz_t d) {
-  /* Computes q = (n +- (d >> 1)) / d. */
-  mpz_t t;
-
-  mpz_init_vla(t, mpz_add_size(n, d));
-
-  mpz_quo_2exp(t, d, 1);
-
-  if ((n->size ^ d->size) < 0)
-    mpz_sub(t, n, t);
-  else
-    mpz_add(t, n, t);
-
-  mpz_quo(q, t, d);
-
-  mpz_clear_vla(t);
 }
 
 /*

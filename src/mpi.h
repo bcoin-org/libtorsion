@@ -163,13 +163,13 @@
 #define mpz_divexact __torsion_mpz_divexact
 #define mpz_divexact_ui __torsion_mpz_divexact_ui
 #define mpz_divexact_si __torsion_mpz_divexact_si
+#define mpz_divround __torsion_mpz_divround
 #define mpz_divisible_p __torsion_mpz_divisible_p
 #define mpz_divisible_ui_p __torsion_mpz_divisible_ui_p
 #define mpz_divisible_2exp_p __torsion_mpz_divisible_2exp_p
 #define mpz_congruent_p __torsion_mpz_congruent_p
 #define mpz_congruent_ui_p __torsion_mpz_congruent_ui_p
 #define mpz_congruent_2exp_p __torsion_mpz_congruent_2exp_p
-#define mpz_divround __torsion_mpz_divround
 #define mpz_pow_ui __torsion_mpz_pow_ui
 #define mpz_ui_pow_ui __torsion_mpz_ui_pow_ui
 #define mpz_rootrem __torsion_mpz_rootrem
@@ -1083,6 +1083,13 @@ void
 mpz_divexact_si(mpz_t q, const mpz_t n, mp_long_t d);
 
 /*
+ * Round Division
+ */
+
+void
+mpz_divround(mpz_t q, const mpz_t n, const mpz_t d);
+
+/*
  * Divisibility
  */
 
@@ -1107,13 +1114,6 @@ mpz_congruent_ui_p(const mpz_t x, const mpz_t y, mp_limb_t d);
 
 int
 mpz_congruent_2exp_p(const mpz_t x, const mpz_t y, mp_bits_t bits);
-
-/*
- * Round Division
- */
-
-void
-mpz_divround(mpz_t q, const mpz_t n, const mpz_t d);
 
 /*
  * Exponentiation
