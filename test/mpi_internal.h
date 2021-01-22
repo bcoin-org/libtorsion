@@ -3065,11 +3065,12 @@ test_mpn_io(mp_rng_f *rng, void *arg) {
 
 static void
 test_mpn_io_str(mp_rng_f *rng, void *arg) {
+  /* Base-2 size = 256 + 1 */
   /* Base-10 size = 78 + 1 */
   /* Base-16 size = 64 + 1 */
   mp_limb_t xp[4];
   mp_limb_t yp[4];
-  char str[80];
+  char str[258];
   int i;
 
   printf("  - MPN string I/O.\n");
@@ -3091,6 +3092,18 @@ test_mpn_io_str(mp_rng_f *rng, void *arg) {
 
     mpn_print(xp, 4, 10, fake_puts);
     mpn_print(xp, 4, 16, fake_puts);
+  }
+
+  for (i = 2; i <= 62; i++) {
+    mpn_random(xp, 4, rng, arg);
+
+    mpn_zero(yp, 4);
+    mpn_get_str(str, xp, 4, i);
+
+    ASSERT(mpn_set_str(yp, 4, str, i));
+    ASSERT(mpn_cmp(xp, yp, 4) == 0);
+
+    mpn_print(xp, 4, i, fake_puts);
   }
 }
 
@@ -6963,6 +6976,24 @@ test_mpz_io_str(mp_rng_f *rng, void *arg) {
   mpz_init(x);
   mpz_init(y);
 
+  ASSERT(mpz_set_str(x, "0b10101010101010101", 0));
+  ASSERT(mpz_cmp_ui(x, 87381) == 0);
+
+  ASSERT(mpz_set_str(x, "0o12345671234", 0));
+  ASSERT(mpz_cmp_ui(x, 1402434204) == 0);
+
+  ASSERT(mpz_set_str(x, "012345671234", 0));
+  ASSERT(mpz_cmp_ui(x, 1402434204) == 0);
+
+  ASSERT(mpz_set_str(x, "1234567890", 0));
+  ASSERT(mpz_cmp_ui(x, 1234567890) == 0);
+
+  ASSERT(mpz_set_str(x, "+1234567890", 0));
+  ASSERT(mpz_cmp_ui(x, 1234567890) == 0);
+
+  ASSERT(mpz_set_str(x, "0xdeadbeef", 0));
+  ASSERT(mpz_cmp_ui(x, 0xdeadbeef) == 0);
+
   for (i = 0; i < 100; i++) {
     mpz_random_nz(x, 256, rng, arg);
 
@@ -6985,6 +7016,19 @@ test_mpz_io_str(mp_rng_f *rng, void *arg) {
 
     mpz_print(x, 10, fake_puts);
     mpz_print(x, 16, fake_puts);
+  }
+
+  for (i = 2; i <= 62; i++) {
+    mpz_random_nz(x, 256, rng, arg);
+
+    str = mpz_get_str(x, i);
+
+    ASSERT(mpz_set_str(y, str, i));
+    ASSERT(mpz_cmp(x, y) == 0);
+
+    free(str);
+
+    mpz_print(x, i, fake_puts);
   }
 
   mpz_clear(x);

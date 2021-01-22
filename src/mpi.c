@@ -55,6 +55,10 @@
 #  error "Two's complement is required."
 #endif
 
+#if '0' != 48 || 'A' != 65 || 'a' != 97
+#  error "ASCII support is required."
+#endif
+
 STATIC_ASSERT((-1 & 3) == 3);
 STATIC_ASSERT((0u - 1u) == UINT_MAX);
 
@@ -1059,8 +1063,8 @@ mp_str_limbs(const char *str, int base) {
 
   if (base < 2)
     base = 2;
-  else if (base > 36)
-    base = 36;
+  else if (base > 62)
+    base = 62;
 
   if ((base & (base - 1)) == 0)
     return (len * mp_bitlen(base - 1) + MP_LIMB_BITS - 1) / MP_LIMB_BITS;
@@ -4288,7 +4292,7 @@ mpn_set_str(mp_limb_t *zp, mp_size_t zn, const char *str, int base) {
   if (str == NULL)
     goto fail;
 
-  if (base < 2 || base > 36)
+  if (base < 2 || base > 62)
     goto fail;
 
   if ((base & (base - 1)) == 0)
@@ -4305,7 +4309,7 @@ mpn_set_str(mp_limb_t *zp, mp_size_t zn, const char *str, int base) {
     else if (ch >= 'A' && ch <= 'Z')
       ch -= 'A' - 10;
     else if (ch >= 'a' && ch <= 'z')
-      ch -= 'a' - 10;
+      ch -= 'a' - (base <= 36 ? 10 : 36);
     else
       ch = base;
 
@@ -4373,7 +4377,7 @@ mpn_get_str(char *str, const mp_limb_t *xp, mp_size_t xn, int base) {
   mp_limb_t *tp;
   int ch;
 
-  CHECK(base >= 2 && base <= 36);
+  CHECK(base >= 2 && base <= 62);
 
   tn = mpn_strip(xp, xn);
   sn = MP_MAX(tn, 1);
@@ -4403,8 +4407,12 @@ mpn_get_str(char *str, const mp_limb_t *xp, mp_size_t xn, int base) {
       if (str != NULL) {
         if (ch < 10)
           ch += '0';
-        else
+        else if (base <= 36)
           ch += 'a' - 10;
+        else if (ch < 36)
+          ch += 'A' - 10;
+        else
+          ch += 'a' - 36;
 
         str[len] = ch;
       }
@@ -8424,7 +8432,7 @@ mpz_set_str(mpz_t z, const char *str, int base) {
   }
 
   if (base == 0) {
-    if (*str == '0') {
+    if (str[0] == '0') {
       switch (str[1]) {
         case 'b':
         case 'B':
@@ -8493,8 +8501,7 @@ mpz_print(const mpz_t x, int base, mp_puts_f *mp_puts) {
   char *str = mpz_get_str(x, base);
 
   mp_puts(str);
-
-  free(str);
+  mp_free_str(str);
 }
 
 /*
