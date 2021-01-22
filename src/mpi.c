@@ -5344,6 +5344,9 @@ mpz_div_inner(mpz_t q, mpz_t r, const mpz_t n, const mpz_t d, int euclid) {
 
   if (mpz_cmpabs(n, d) < 0) {
     if (r != NULL) {
+      if (rs & euclid)
+        mpz_grow(r, dn + 1);
+
       mpz_set(r, n);
       rn = nn;
     }
