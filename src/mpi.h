@@ -53,6 +53,9 @@
 #define mpn_divmod __torsion_mpn_divmod
 #define mpn_div __torsion_mpn_div
 #define mpn_mod __torsion_mpn_mod
+#define mpn_divexact_1 __torsion_mpn_divexact_1
+#define mpn_divexact __torsion_mpn_divexact
+#define mpn_divround_1 __torsion_mpn_divround_1
 #define mpn_divround __torsion_mpn_divround
 #define mpn_and_n __torsion_mpn_and_n
 #define mpn_ior_n __torsion_mpn_ior_n
@@ -164,6 +167,8 @@
 #define mpz_divexact_ui __torsion_mpz_divexact_ui
 #define mpz_divexact_si __torsion_mpz_divexact_si
 #define mpz_divround __torsion_mpz_divround
+#define mpz_divround_ui __torsion_mpz_divround_ui
+#define mpz_divround_si __torsion_mpz_divround_si
 #define mpz_divisible_p __torsion_mpz_divisible_p
 #define mpz_divisible_ui_p __torsion_mpz_divisible_ui_p
 #define mpz_divisible_2exp_p __torsion_mpz_divisible_2exp_p
@@ -565,8 +570,22 @@ mpn_mod(mp_limb_t *rp, const mp_limb_t *np, mp_size_t nn,
                        const mp_limb_t *dp, mp_size_t dn);
 
 /*
+ * Exact Division
+ */
+
+void
+mpn_divexact_1(mp_limb_t *qp, const mp_limb_t *np, mp_size_t nn, mp_limb_t d);
+
+void
+mpn_divexact(mp_limb_t *qp, const mp_limb_t *np, mp_size_t nn,
+                            const mp_limb_t *dp, mp_size_t dn);
+
+/*
  * Round Division
  */
+
+void
+mpn_divround_1(mp_limb_t *qp, const mp_limb_t *np, mp_size_t nn, mp_limb_t d);
 
 void
 mpn_divround(mp_limb_t *qp, const mp_limb_t *np, mp_size_t nn,
@@ -1088,6 +1107,12 @@ mpz_divexact_si(mpz_t q, const mpz_t n, mp_long_t d);
 
 void
 mpz_divround(mpz_t q, const mpz_t n, const mpz_t d);
+
+void
+mpz_divround_ui(mpz_t q, const mpz_t n, mp_limb_t d);
+
+void
+mpz_divround_si(mpz_t q, const mpz_t n, mp_long_t d);
 
 /*
  * Divisibility

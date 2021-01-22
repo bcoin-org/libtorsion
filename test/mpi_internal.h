@@ -329,6 +329,30 @@ mpn_divmod_simple(mp_limb_t *qp, mp_limb_t *rp,
   mp_free_vla(vp, dn);
 }
 
+static mp_limb_t
+mp_inv_mod_simple(mp_limb_t d) {
+  mpz_t z, x, y;
+  mp_limb_t m;
+
+  mpz_init(z);
+  mpz_init(x);
+  mpz_init(y);
+
+  mpz_set_ui(x, d);
+  mpz_setbit(y, MP_LIMB_BITS);
+
+  ASSERT(mpz_invert(z, x, y));
+  ASSERT(mpz_fits_ui_p(z));
+
+  m = mpz_get_ui(z);
+
+  mpz_clear(z);
+  mpz_clear(x);
+  mpz_clear(y);
+
+  return m;
+}
+
 static void
 mp_div_2by1_simple(mp_limb_t *q, mp_limb_t *r,
                    mp_limb_t n1, mp_limb_t n0,
@@ -1152,6 +1176,71 @@ test_mp_div_3by2(mp_rng_f *rng, void *arg) {
 }
 
 static void
+test_mp_inv_mod(mp_rng_f *rng, void *arg) {
+  {
+    mp_limb_t d, m;
+    int i;
+
+    printf("  - MP inv mod.\n");
+
+    for (i = 0; i < 100; i++) {
+      d = mp_random_limb(rng, arg) | 1;
+      m = mp_inv_mod(d);
+
+      ASSERT(m == mp_inv_mod_simple(d));
+      ASSERT(d * m == 1);
+      ASSERT(3 * d * m == 3);
+    }
+  }
+
+  {
+    mp_limb_t d, m, q, c, hi, lo;
+    mp_limb_t np[3];
+    mp_limb_t qp[3];
+
+    d = mp_random_limb(rng, arg) | MP_LIMB_HI | 1;
+    m = mp_inv_mod(d);
+    q = mp_random_limb(rng, arg);
+
+    /* Multiply. */
+    np[0] = q;
+    np[1] = mpn_mul_1(np, np, 1, d);
+    np[2] = mpn_mul_1(np, np, 2, d);
+
+    /* Divide. */
+    qp[0] = np[0] * m;
+
+    /* qp[1] = (np[1] - (qp[0] * d)) * m; */
+    mp_mul(hi, lo, qp[0], d);
+    mp_sub(qp[1], c, np[1], hi);
+    qp[1] *= m;
+
+    /* qp[2] = (np[2] - (qp[1] * d) - c) * m; */
+    mp_mul(hi, lo, qp[1], d);
+    c += hi;
+    mp_sub(qp[2], c, np[2], c);
+    qp[2] *= m;
+
+    /* New numerator. */
+    np[0] = qp[0];
+    np[1] = qp[1];
+
+    ASSERT(qp[2] == 0);
+
+    /* Divide again. */
+    qp[0] = np[0] * m;
+
+    /* qp[1] = (np[1] - (qp[0] * d)) * m; */
+    mp_mul(hi, lo, qp[0], d);
+    mp_sub(qp[1], c, np[1], hi);
+    qp[1] *= m;
+
+    ASSERT(qp[0] == q);
+    ASSERT(qp[1] == 0);
+  }
+}
+
+static void
 test_mp_eratosthenes(void) {
   mp_size_t len = ARRAY_SIZE(mpz_test_primes);
   mp_limb_t n = mpz_test_primes[len - 1];
@@ -1490,6 +1579,62 @@ test_mpn_muldiv_1(mp_rng_f *rng, void *arg) {
 }
 
 static void
+test_mpn_muldivexact(mp_rng_f *rng, void *arg) {
+  mp_limb_t xp[4], yp[2], tp[6], zp[8];
+  int i;
+
+  printf("  - MPN mul/divexact.\n");
+
+  for (i = 0; i < 100; i++) {
+    mpn_random_nz(xp, 4, rng, arg);
+    mpn_random_nz(yp, 2, rng, arg);
+
+    xp[3] |= 1;
+    yp[1] |= 1;
+
+    mpn_mul(tp, xp, 4, yp, 2);
+    mpn_mul(zp, tp, 6, yp, 2);
+
+    mpn_divexact(zp, zp, 8, yp, 2);
+    mpn_divexact(zp, zp, 6, yp, 2);
+
+    ASSERT(mpn_cmp(zp, xp, 4) == 0);
+
+    mpn_divexact(zp, zp, 4, xp, 4);
+
+    ASSERT(zp[0] == 1);
+  }
+}
+
+static void
+test_mpn_muldivexact_1(mp_rng_f *rng, void *arg) {
+  mp_limb_t xp[4], zp[6];
+  mp_limb_t y;
+  int i;
+
+  printf("  - MPN mul/divexact.\n");
+
+  for (i = 0; i < 100; i++) {
+    mpn_random_nz(xp, 4, rng, arg);
+    mpn_random_nz(&y, 1, rng, arg);
+
+    xp[3] |= 1;
+
+    zp[4] = mpn_mul_1(zp, xp, 4, y);
+    zp[5] = mpn_mul_1(zp, zp, 5, y);
+
+    mpn_divexact_1(zp, zp, 6, y);
+    mpn_divexact_1(zp, zp, 5, y);
+
+    ASSERT(mpn_cmp(zp, xp, 4) == 0);
+
+    mpn_divexact(zp, zp, 4, xp, 4);
+
+    ASSERT(zp[0] == 1);
+  }
+}
+
+static void
 test_mpn_addmul_1(mp_rng_f *rng, void *arg) {
   mp_limb_t zp[5];
   mp_limb_t xp[5];
@@ -1643,25 +1788,69 @@ test_mpn_mod_1(mp_rng_f *rng, void *arg) {
 }
 
 static void
-test_mpn_divround(void) {
-  static const char *ns = "3167677174464236282301123974"
-                          "2479077157475655381727830841"
-                          "249221834323123525442";
-  static const char *ds = "1516485264947056337199939464"
-                          "8035997307461156588219966521";
-  static const char *qs = "2088828192191387034516";
-  mp_limb_t np[(255 + MP_LIMB_BITS - 1) / MP_LIMB_BITS];
-  mp_limb_t dp[(184 + MP_LIMB_BITS - 1) / MP_LIMB_BITS];
-  mp_limb_t ep[(71 + MP_LIMB_BITS - 1) / MP_LIMB_BITS];
-  mp_limb_t qp[ARRAY_SIZE(np) - ARRAY_SIZE(dp) + 2];
+test_mpn_divround(mp_rng_f *rng, void *arg) {
+  mp_limb_t zp[7], np[7], qp[5], dp[2], hp[2];
+  int i;
 
-  ASSERT(mpn_set_str(np, ARRAY_SIZE(np), ns, 10));
-  ASSERT(mpn_set_str(dp, ARRAY_SIZE(dp), ds, 10));
-  ASSERT(mpn_set_str(ep, ARRAY_SIZE(qp), qs, 10));
+  printf("  - MPN divround.\n");
 
-  mpn_divround(qp, np, ARRAY_SIZE(np), dp, ARRAY_SIZE(dp));
+  for (i = 0; i < 100; i++) {
+    mpn_random_nz(qp, 4, rng, arg);
+    mpn_random_nz(dp, 2, rng, arg);
 
-  ASSERT(mpn_cmp(qp, ep, ARRAY_SIZE(ep)) == 0);
+    dp[0] &= ~MP_LIMB_HI;
+    dp[1] |= 1;
+
+    mpn_rshift(hp, dp, 2, 1);
+
+    mpn_mul(np, qp, 4, dp, 2);
+
+    if (i & 1) {
+      hp[0] += 1;
+      np[6] = mpn_add(np, np, 6, hp, 2);
+      qp[4] = mpn_add_1(qp, qp, 4, 1);
+    } else {
+      hp[0] -= 1;
+      np[6] = mpn_add(np, np, 6, hp, 2);
+      qp[4] = 0;
+    }
+
+    mpn_divround(zp, np, 7, dp, 2);
+
+    ASSERT(mpn_cmp(zp, qp, 5) == 0);
+    ASSERT(zp[5] == 0);
+    ASSERT(zp[6] == 0);
+  }
+}
+
+static void
+test_mpn_divround_1(mp_rng_f *rng, void *arg) {
+  mp_limb_t zp[7], np[6], qp[5];
+  mp_limb_t d;
+  int i;
+
+  printf("  - MPN divround (1 limb).\n");
+
+  for (i = 0; i < 100; i++) {
+    mpn_random_nz(qp, 4, rng, arg);
+    mpn_random_nz(&d, 1, rng, arg);
+
+    np[4] = mpn_mul_1(np, qp, 4, d);
+
+    if (i & 1) {
+      np[5] = mpn_add_1(np, np, 5, (d >> 1) + 1);
+      qp[4] = mpn_add_1(qp, qp, 4, 1);
+    } else {
+      np[5] = mpn_add_1(np, np, 5, (d >> 1) - 1);
+      qp[4] = 0;
+    }
+
+    mpn_divround_1(zp, np, 6, d);
+
+    ASSERT(mpn_cmp(zp, qp, 5) == 0);
+    ASSERT(zp[5] == 0);
+    ASSERT(zp[6] == 0);
+  }
 }
 
 static void
@@ -3998,8 +4187,8 @@ test_mpz_muldivexact_ui(mp_rng_f *rng, void *arg) {
 
 static void
 test_mpz_muldivexact_si(mp_rng_f *rng, void *arg) {
-  mpz_t x, z;
   mp_long_t y;
+  mpz_t x, z;
   int i;
 
   printf("  - MPZ mul/divexact (1 limb, signed).\n");
@@ -4015,14 +4204,14 @@ test_mpz_muldivexact_si(mp_rng_f *rng, void *arg) {
 
     y = mp_random_long_nz(rng, arg);
 
-    mpz_mul_ui(z, x, y);
-    mpz_mul_ui(z, z, y);
+    mpz_mul_si(z, x, y);
+    mpz_mul_si(z, z, y);
 
     ASSERT(mpz_cmp(z, x) != 0);
-    ASSERT(mpz_cmp_ui(z, y) != 0);
+    ASSERT(mpz_cmp_si(z, y) != 0);
 
-    mpz_divexact_ui(z, z, y);
-    mpz_divexact_ui(z, z, y);
+    mpz_divexact_si(z, z, y);
+    mpz_divexact_si(z, z, y);
 
     ASSERT(mpz_cmp(z, x) == 0);
   }
@@ -4617,49 +4806,164 @@ test_mpz_mod_si(mp_rng_f *rng, void *arg) {
 
 static void
 test_mpz_divround(mp_rng_f *rng, void *arg) {
-  mpz_t x, y, z;
+  mpz_t z, n, q, d, h;
   int i;
 
   printf("  - MPZ divround.\n");
 
-  mpz_init(x);
-  mpz_init(y);
   mpz_init(z);
+  mpz_init(n);
+  mpz_init(q);
+  mpz_init(d);
+  mpz_init(h);
 
   for (i = 0; i < 100; i++) {
-    mpz_random_nz(x, 250, rng, arg);
-    mpz_random_nz(y, 125, rng, arg);
+    mpz_random_nz(q, 250, rng, arg);
+    mpz_random_nz(d, 125, rng, arg);
 
-    if (i & 1)
-      mpz_swap(x, y);
+    if (mp_random_limb(rng, arg) & 1)
+      mpz_neg(q, q);
 
-    mpz_mul(z, x, y);
+    if (mp_random_limb(rng, arg) & 1)
+      mpz_neg(d, d);
 
-    ASSERT(mpz_cmp(z, x) > 0);
-    ASSERT(mpz_cmp(z, y) > 0);
+    mpz_quo_2exp(h, d, 1);
 
-    mpz_mul(z, z, y);
+    mpz_mul(n, q, d);
 
-    ASSERT(mpz_cmp(z, x) > 0);
-    ASSERT(mpz_cmp(z, y) > 0);
+    if (i & 1) {
+      if (mpz_sgn(d) < 0)
+        mpz_sub_ui(h, h, 1);
+      else
+        mpz_add_ui(h, h, 1);
 
-    mpz_divround(z, z, y);
+      if (mpz_sgn(q) < 0)
+        mpz_sub_ui(q, q, 1);
+      else
+        mpz_add_ui(q, q, 1);
+    } else {
+      if (mpz_sgn(d) < 0)
+        mpz_add_ui(h, h, 1);
+      else
+        mpz_sub_ui(h, h, 1);
+    }
 
-    ASSERT(mpz_cmp(z, x) > 0);
-    ASSERT(mpz_cmp(z, y) > 0);
+    if ((mpz_sgn(n) ^ mpz_sgn(h)) < 0)
+      mpz_sub(n, n, h);
+    else
+      mpz_add(n, n, h);
 
-    mpz_divround(z, z, y);
+    mpz_divround(z, n, d);
 
-    ASSERT(mpz_cmp(z, x) == 0);
-
-    mpz_divround(z, z, x);
-
-    ASSERT(mpz_cmp_ui(z, 1) == 0);
+    ASSERT(mpz_cmp(z, q) == 0);
   }
 
-  mpz_clear(x);
-  mpz_clear(y);
   mpz_clear(z);
+  mpz_clear(n);
+  mpz_clear(q);
+  mpz_clear(d);
+  mpz_clear(h);
+}
+
+static void
+test_mpz_divround_ui(mp_rng_f *rng, void *arg) {
+  mp_limb_t d, h;
+  mpz_t z, n, q;
+  int i;
+
+  printf("  - MPZ divround (1 limb).\n");
+
+  mpz_init(z);
+  mpz_init(n);
+  mpz_init(q);
+
+  for (i = 0; i < 100; i++) {
+    mpz_random_nz(q, 250, rng, arg);
+    mpn_random_nz(&d, 1, rng, arg);
+
+    if (mp_random_limb(rng, arg) & 1)
+      mpz_neg(q, q);
+
+    mpz_mul_ui(n, q, d);
+
+    if (i & 1) {
+      h = (d >> 1) + 1;
+
+      if (mpz_sgn(q) < 0)
+        mpz_sub_ui(q, q, 1);
+      else
+        mpz_add_ui(q, q, 1);
+    } else {
+      h = (d >> 1) - 1;
+    }
+
+    if (mpz_sgn(n) < 0)
+      mpz_sub_ui(n, n, h);
+    else
+      mpz_add_ui(n, n, h);
+
+    mpz_divround_ui(z, n, d);
+
+    ASSERT(mpz_cmp(z, q) == 0);
+  }
+
+  mpz_clear(z);
+  mpz_clear(n);
+  mpz_clear(q);
+}
+
+static void
+test_mpz_divround_si(mp_rng_f *rng, void *arg) {
+  mp_long_t d, h;
+  mpz_t z, n, q;
+  int i;
+
+  printf("  - MPZ divround (1 limb, signed).\n");
+
+  mpz_init(z);
+  mpz_init(n);
+  mpz_init(q);
+
+  for (i = 0; i < 100; i++) {
+    mpz_random_nz(q, 250, rng, arg);
+
+    if (mp_random_limb(rng, arg) & 1)
+      mpz_neg(q, q);
+
+    d = mp_random_long_nz(rng, arg);
+
+    mpz_mul_si(n, q, d);
+
+    if (i & 1) {
+      if (d < 0)
+        h = (d / 2) - 1;
+      else
+        h = (d / 2) + 1;
+
+      if (mpz_sgn(q) < 0)
+        mpz_sub_ui(q, q, 1);
+      else
+        mpz_add_ui(q, q, 1);
+    } else {
+      if (d < 0)
+        h = (d / 2) + 1;
+      else
+        h = (d / 2) - 1;
+    }
+
+    if ((mpz_sgn(n) ^ h) < 0)
+      mpz_sub_si(n, n, h);
+    else
+      mpz_add_si(n, n, h);
+
+    mpz_divround_si(z, n, d);
+
+    ASSERT(mpz_cmp(z, q) == 0);
+  }
+
+  mpz_clear(z);
+  mpz_clear(n);
+  mpz_clear(q);
 }
 
 static void
@@ -7218,6 +7522,7 @@ test_mpi_internal(mp_rng_f *rng, void *arg) {
   test_mp_div_2by1(rng, arg);
   test_mp_inv_3by2(rng, arg);
   test_mp_div_3by2(rng, arg);
+  test_mp_inv_mod(rng, arg);
   test_mp_eratosthenes();
 
   /* MPN */
@@ -7229,12 +7534,15 @@ test_mpi_internal(mp_rng_f *rng, void *arg) {
   test_mpn_add_1();
   test_mpn_muldiv(rng, arg);
   test_mpn_muldiv_1(rng, arg);
+  test_mpn_muldivexact(rng, arg);
+  test_mpn_muldivexact_1(rng, arg);
   test_mpn_addmul_1(rng, arg);
   test_mpn_submul_1(rng, arg);
   test_mpn_sqr(rng, arg);
   test_mpn_mod(rng, arg);
   test_mpn_mod_1(rng, arg);
-  test_mpn_divround();
+  test_mpn_divround(rng, arg);
+  test_mpn_divround_1(rng, arg);
   test_mpn_roots(rng, arg);
   test_mpn_and(rng, arg);
   test_mpn_ior(rng, arg);
@@ -7300,6 +7608,8 @@ test_mpi_internal(mp_rng_f *rng, void *arg) {
   test_mpz_mod_ui(rng, arg);
   test_mpz_mod_si(rng, arg);
   test_mpz_divround(rng, arg);
+  test_mpz_divround_ui(rng, arg);
+  test_mpz_divround_si(rng, arg);
   test_mpz_pow(rng, arg);
   test_mpz_roots(rng, arg);
   test_mpz_and(rng, arg);

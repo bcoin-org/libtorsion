@@ -2496,6 +2496,41 @@ mp_div_3by2(mp_limb_t *q, mp_limb_t *k1, mp_limb_t *k0,
 #endif /* !MP_HAVE_ASM_X64 */
 }
 
+TORSION_UNUSED static mp_limb_t
+mp_inv_mod(mp_limb_t d) {
+  /* Compute d^-1 mod B.
+   *
+   * This is necessary for exact division
+   * algorithms as described by the GMP
+   * documentation[1].
+   *
+   * Lemire and Reynolds describe a simple
+   * method for computing inverses modulo
+   * a machine word base[2][3].
+   *
+   * There may be a more optimal method used
+   * in GMP, but I'm too afraid to check lest
+   * it taints our clean room reimplementation.
+   *
+   * [1] https://gmplib.org/manual/Exact-Division
+   * [2] https://lemire.me/blog/2017/09/18/computing-the-inverse-of-odd-integers
+   * [3] https://marc-b-reynolds.github.io/math/2017/09/18/ModInverse.html
+   */
+  mp_limb_t m = d;
+
+  ASSERT((d & 1) != 0);
+
+  m *= 2 - d * m;
+  m *= 2 - d * m;
+  m *= 2 - d * m;
+  m *= 2 - d * m;
+#if MP_LIMB_BITS == 64
+  m *= 2 - d * m;
+#endif
+
+  return m;
+}
+
 /*
  * Division Engine
  */
@@ -3091,18 +3126,67 @@ mpn_mod(mp_limb_t *rp, const mp_limb_t *np, mp_size_t nn,
 }
 
 /*
+ * Exact Division
+ */
+
+void
+mpn_divexact_1(mp_limb_t *qp, const mp_limb_t *np, mp_size_t nn, mp_limb_t d) {
+  CHECK(mpn_divmod_1(qp, np, nn, d) == 0);
+}
+
+void
+mpn_divexact(mp_limb_t *qp, const mp_limb_t *np, mp_size_t nn,
+                            const mp_limb_t *dp, mp_size_t dn) {
+  mp_limb_t *rp;
+
+  if (dn <= 0)
+    torsion_abort(); /* LCOV_EXCL_LINE */
+
+  rp = mp_alloc_vla(dn);
+
+  mpn_divmod(qp, rp, np, nn, dp, dn);
+
+  CHECK(mpn_strip(rp, dn) == 0);
+
+  mp_free_vla(rp, dn);
+}
+
+/*
  * Round Division
  */
 
 void
+mpn_divround_1(mp_limb_t *qp, const mp_limb_t *np, mp_size_t nn, mp_limb_t d) {
+  /* Computes q = (n + (d / 2)) / d. */
+  /* Requires nn + 1 limbs at qp. */
+  mp_limb_t r = mpn_divmod_1(qp, np, nn, d);
+  mp_limb_t h;
+
+  if (r == 0) {
+    /* Exact division. */
+    qp[nn] = 0;
+  } else {
+    h = d >> 1;
+
+    if (r < h || ((d & 1) != 0 && r == h)) {
+      /* Round down. */
+      qp[nn] = 0;
+    } else {
+      /* Round up. */
+      qp[nn] = mpn_add_var_1(qp, qp, nn, 1);
+    }
+  }
+}
+
+void
 mpn_divround(mp_limb_t *qp, const mp_limb_t *np, mp_size_t nn,
                             const mp_limb_t *dp, mp_size_t dn) {
-  /* Computes q = (n + (d >> 1)) / d. */
+  /* Computes q = (n + (d / 2)) / d. */
   /* Requires nn - dn + 2 limbs at qp. */
   mp_limb_t *tp;
   mp_size_t tn;
 
-  if (dn <= 0 || nn < dn)
+  if (dn <= 0 || nn + 1 < dn)
     torsion_abort(); /* LCOV_EXCL_LINE */
 
   tn = nn + 1;
@@ -3110,7 +3194,10 @@ mpn_divround(mp_limb_t *qp, const mp_limb_t *np, mp_size_t nn,
 
   mpn_rshift(tp, dp, dn, 1);
 
-  tp[nn] = mpn_add(tp, np, nn, tp, dn);
+  if (dn > nn)
+    tp[nn] = mpn_add(tp, tp, dn, np, nn);
+  else
+    tp[nn] = mpn_add(tp, np, nn, tp, dn);
 
   mpn_div(qp, tp, tn, dp, dn);
 
@@ -5541,25 +5628,52 @@ mpz_mod_si(const mpz_t n, mp_long_t d) {
 
 void
 mpz_divexact(mpz_t q, const mpz_t n, const mpz_t d) {
-  mpz_t r;
+  mp_size_t nn = MP_ABS(n->size);
+  mp_size_t dn = MP_ABS(d->size);
+  mp_size_t qn = nn - dn + 1;
 
-  mpz_init_vla(r, MP_ABS(d->size) + 1);
+  if (nn < dn) {
+    q->size = 0;
+    return;
+  }
 
-  mpz_div_inner(q, r, n, d, 0);
+  mpz_grow(q, qn);
 
-  CHECK(r->size == 0);
+  mpn_divexact(q->limbs, n->limbs, nn, d->limbs, dn);
 
-  mpz_clear_vla(r);
+  qn = mpn_strip(q->limbs, qn);
+
+  q->size = (n->size ^ d->size) < 0 ? -qn : qn;
 }
 
 void
 mpz_divexact_ui(mpz_t q, const mpz_t n, mp_limb_t d) {
-  CHECK(mpz_div_ui_inner(q, n, d, 0) == 0);
+  mp_size_t nn = MP_ABS(n->size);
+  mp_size_t qn = nn;
+
+  if (d == 0)
+    torsion_abort(); /* LCOV_EXCL_LINE */
+
+  if (nn == 0) {
+    q->size = 0;
+    return;
+  }
+
+  mpz_grow(q, qn);
+
+  mpn_divexact_1(q->limbs, n->limbs, nn, d);
+
+  qn = mpn_strip(q->limbs, qn);
+
+  q->size = n->size < 0 ? -qn : qn;
 }
 
 void
 mpz_divexact_si(mpz_t q, const mpz_t n, mp_long_t d) {
-  CHECK(mpz_div_si_inner(q, n, d, 0) == 0);
+  mpz_divexact_ui(q, n, mp_limb_cast(d));
+
+  if (d < 0)
+    mpz_neg(q, q);
 }
 
 /*
@@ -5568,21 +5682,55 @@ mpz_divexact_si(mpz_t q, const mpz_t n, mp_long_t d) {
 
 void
 mpz_divround(mpz_t q, const mpz_t n, const mpz_t d) {
-  /* Computes q = (n +- (d >> 1)) / d. */
-  mpz_t t;
+  mp_size_t nn = MP_ABS(n->size);
+  mp_size_t dn = MP_ABS(d->size);
+  mp_size_t qn = nn - dn + 2;
 
-  mpz_init_vla(t, mpz_add_size(n, d));
+  if (dn == 0)
+    torsion_abort(); /* LCOV_EXCL_LINE */
 
-  mpz_quo_2exp(t, d, 1);
+  if (nn == 0 || nn + 1 < dn) {
+    q->size = 0;
+    return;
+  }
 
-  if ((n->size ^ d->size) < 0)
-    mpz_sub(t, n, t);
-  else
-    mpz_add(t, n, t);
+  mpz_grow(q, qn);
 
-  mpz_quo(q, t, d);
+  mpn_divround(q->limbs, n->limbs, nn, d->limbs, dn);
 
-  mpz_clear_vla(t);
+  qn = mpn_strip(q->limbs, qn);
+
+  q->size = (n->size ^ d->size) < 0 ? -qn : qn;
+}
+
+void
+mpz_divround_ui(mpz_t q, const mpz_t n, mp_limb_t d) {
+  mp_size_t nn = MP_ABS(n->size);
+  mp_size_t qn = nn + 1;
+
+  if (d == 0)
+    torsion_abort(); /* LCOV_EXCL_LINE */
+
+  if (nn == 0) {
+    q->size = 0;
+    return;
+  }
+
+  mpz_grow(q, qn);
+
+  mpn_divround_1(q->limbs, n->limbs, nn, d);
+
+  qn = mpn_strip(q->limbs, qn);
+
+  q->size = n->size < 0 ? -qn : qn;
+}
+
+void
+mpz_divround_si(mpz_t q, const mpz_t n, mp_long_t d) {
+  mpz_divround_ui(q, n, mp_limb_cast(d));
+
+  if (d < 0)
+    mpz_neg(q, q);
 }
 
 /*
