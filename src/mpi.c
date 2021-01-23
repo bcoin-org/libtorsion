@@ -4059,11 +4059,13 @@ mpn_bytelen(const mp_limb_t *xp, mp_size_t xn) {
 size_t
 mpn_sizeinbase(const mp_limb_t *xp, mp_size_t xn, int base) {
   if (base >= 2 && (base & (base - 1)) == 0) {
-    mp_bits_t den = mp_bitlen(base - 1);
     mp_bits_t len = mpn_bitlen(xp, xn);
+    mp_bits_t den;
 
     if (len == 0)
       return 1;
+
+    den = mp_bitlen(base - 1);
 
     return (len + den - 1) / den;
   }
@@ -4370,56 +4372,60 @@ fail:
 size_t
 mpn_get_str(char *str, const mp_limb_t *xp, mp_size_t xn, int base) {
   mp_bits_t shift = 0;
-  mp_size_t tn, sn;
   mp_divisor_t den;
   size_t len = 0;
   size_t i, j, k;
   mp_limb_t *tp;
+  mp_size_t tn;
   int ch;
 
   CHECK(base >= 2 && base <= 62);
 
-  tn = mpn_strip(xp, xn);
-  sn = MP_MAX(tn, 1);
-  tp = mp_alloc_vla(sn);
+  xn = mpn_strip(xp, xn);
 
-  mpn_copyi(tp, xp, tn);
+  if (xn == 0) {
+    if (str != NULL) {
+      str[0] = '0';
+      str[1] = '\0';
+    }
+    return 1;
+  }
 
-  if (tn == 0) {
-    if (str != NULL)
-      str[len] = '0';
+  tp = mp_alloc_vla(xn);
+  tn = xn;
+
+  mpn_copyi(tp, xp, xn);
+
+  if ((base & (base - 1)) == 0)
+    shift = mp_bitlen(base - 1);
+  else
+    mpn_divmod_init_1(&den, base);
+
+  do {
+    if (shift > 0)
+      ch = mpn_rshift(tp, tp, tn, shift);
+    else
+      ch = mpn_divmod_inner_1(tp, tp, tn, &den);
+
+    tn -= (tp[tn - 1] == 0);
+
+    if (str != NULL) {
+      if (ch < 10)
+        ch += '0';
+      else if (base <= 36)
+        ch += 'a' - 10;
+      else if (ch < 36)
+        ch += 'A' - 10;
+      else
+        ch += 'a' - 36;
+
+      str[len] = ch;
+    }
 
     len += 1;
-  } else {
-    if ((base & (base - 1)) == 0)
-      shift = mp_bitlen(base - 1);
-    else
-      mpn_divmod_init_1(&den, base);
+  } while (tn != 0);
 
-    do {
-      if (shift > 0)
-        ch = mpn_rshift(tp, tp, tn, shift);
-      else
-        ch = mpn_divmod_inner_1(tp, tp, tn, &den);
-
-      tn -= (tp[tn - 1] == 0);
-
-      if (str != NULL) {
-        if (ch < 10)
-          ch += '0';
-        else if (base <= 36)
-          ch += 'a' - 10;
-        else if (ch < 36)
-          ch += 'A' - 10;
-        else
-          ch += 'a' - 36;
-
-        str[len] = ch;
-      }
-
-      len += 1;
-    } while (tn != 0);
-  }
+  mp_free_vla(tp, xn);
 
   if (str != NULL) {
     i = 0;
@@ -4434,8 +4440,6 @@ mpn_get_str(char *str, const mp_limb_t *xp, mp_size_t xn, int base) {
 
     str[len] = '\0';
   }
-
-  mp_free_vla(tp, sn);
 
   return len;
 }
