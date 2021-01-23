@@ -7341,9 +7341,9 @@ mpz_sqrtm_0(mpz_t z, const mpz_t x, const mpz_t p) {
   }
 
   /* y = x^((s + 1) / 2) mod p */
-  mpz_add_ui(y, s, 1);
-  mpz_quo_2exp(y, y, 1);
-  mpz_powm(y, x, y, p);
+  mpz_add_ui(t, s, 1);
+  mpz_quo_2exp(t, t, 1);
+  mpz_powm(y, x, t, p);
 
   /* b = x^s mod p */
   mpz_powm(b, x, s, p);
