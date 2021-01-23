@@ -1789,7 +1789,7 @@ test_mpn_mod_1(mp_rng_f *rng, void *arg) {
 
 static void
 test_mpn_divround(mp_rng_f *rng, void *arg) {
-  mp_limb_t zp[7], np[7], qp[5], dp[2], hp[2];
+  mp_limb_t zp[7], np[7], qp[5], dp[4], hp[2];
   int i;
 
   printf("  - MPN divround.\n");
@@ -1820,6 +1820,52 @@ test_mpn_divround(mp_rng_f *rng, void *arg) {
     ASSERT(mpn_cmp(zp, qp, 5) == 0);
     ASSERT(zp[5] == 0);
     ASSERT(zp[6] == 0);
+  }
+
+  for (i = 0; i < 100; i++) {
+    mpn_random_nz(dp, 4, rng, arg);
+
+    dp[3] |= 1;
+
+    mpn_sub_1(np, dp, 4, 1);
+
+    mpn_divround(qp, np, 4, dp, 4);
+
+    ASSERT(qp[0] == 1);
+    ASSERT(qp[1] == 0);
+  }
+
+  for (i = 0; i < 100; i++) {
+    mpn_random_nz(dp, 1, rng, arg);
+
+    dp[0] |= MP_LIMB_HI;
+    np[0] = dp[0] - 1;
+
+    mpn_divround(qp, np, 1, dp, 1);
+
+    ASSERT(qp[0] == 1);
+    ASSERT(qp[1] == 0);
+
+    mpn_divround(qp, np, 0, dp, 1);
+
+    ASSERT(qp[0] == 0);
+  }
+
+  for (i = 0; i < 100; i++) {
+    mpn_random_nz(dp, 3, rng, arg);
+
+    if (i & 1)
+      dp[0] &= ~MP_LIMB_C(1);
+    else
+      dp[0] |= 1;
+
+    dp[3] = 1;
+
+    mpn_rshift(np, dp, 4, 1);
+
+    mpn_divround(qp, np, 3, dp, 4);
+
+    ASSERT(qp[0] == (mp_limb_t)(i & 1));
   }
 }
 

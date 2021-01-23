@@ -1612,7 +1612,7 @@ mpn_mulshift(mp_limb_t *zp, const mp_limb_t *xp,
                             mp_size_t n,
                             mp_bits_t bits,
                             mp_limb_t *scratch) {
-  /* Computes `z = round((x * y) / 2^bits)`.
+  /* Compute `z = round((x * y) / 2^bits)`.
    *
    * Constant time assuming `bits` is constant.
    *
@@ -3161,51 +3161,57 @@ mpn_divexact(mp_limb_t *qp, const mp_limb_t *np, mp_size_t nn,
 
 void
 mpn_divround_1(mp_limb_t *qp, const mp_limb_t *np, mp_size_t nn, mp_limb_t d) {
-  /* Computes q = (n + (d / 2)) / d. */
   /* Requires nn + 1 limbs at qp. */
   mp_limb_t r = mpn_divmod_1(qp, np, nn, d);
-  mp_limb_t h;
+  mp_limb_t h = d >> 1;
 
-  if (r == 0) {
-    /* Exact division. */
+  if (r > h || (r == h && (d & 1) == 0))
+    qp[nn] = mpn_add_var_1(qp, qp, nn, 1);
+  else
     qp[nn] = 0;
-  } else {
-    h = d >> 1;
-
-    if (r < h || ((d & 1) != 0 && r == h)) {
-      /* Round down. */
-      qp[nn] = 0;
-    } else {
-      /* Round up. */
-      qp[nn] = mpn_add_var_1(qp, qp, nn, 1);
-    }
-  }
 }
 
 void
 mpn_divround(mp_limb_t *qp, const mp_limb_t *np, mp_size_t nn,
                             const mp_limb_t *dp, mp_size_t dn) {
-  /* Computes q = (n + (d / 2)) / d. */
   /* Requires nn - dn + 2 limbs at qp. */
-  mp_limb_t *tp;
-  mp_size_t tn;
+  /* Requires nn >= dn - 1. */
+  mp_limb_t *rp, *hp;
+  mp_size_t qn;
+  int odd, cmp;
 
-  if (dn <= 0 || nn + 1 < dn)
+  if (dn == 1) {
+    mpn_divround_1(qp, np, nn, dp[0]);
+    return;
+  }
+
+  if (dn <= 0 || dp[dn - 1] == 0 || nn < dn - 1)
     torsion_abort(); /* LCOV_EXCL_LINE */
 
-  tn = nn + 1;
-  tp = mp_alloc_vla(tn);
+  rp = mp_alloc_vla(dn);
+  hp = mp_alloc_vla(dn);
 
-  mpn_rshift(tp, dp, dn, 1);
+  mpn_rshift(hp, dp, dn, 1);
 
-  if (dn > nn)
-    tp[nn] = mpn_add(tp, tp, dn, np, nn);
+  odd = dp[0] & 1;
+
+  if (nn < dn) {
+    mpn_copyi(rp, np, nn);
+    rp[nn] = 0;
+  } else {
+    mpn_divmod(qp, rp, np, nn, dp, dn);
+  }
+
+  cmp = mpn_cmp(rp, hp, dn);
+  qn = nn - dn + 1;
+
+  if (cmp > 0 || (cmp == 0 && odd == 0))
+    qp[qn] = mpn_add_var_1(qp, qp, qn, 1);
   else
-    tp[nn] = mpn_add(tp, np, nn, tp, dn);
+    qp[qn] = 0;
 
-  mpn_div(qp, tp, tn, dp, dn);
-
-  mp_free_vla(tp, tn);
+  mp_free_vla(rp, dn);
+  mp_free_vla(hp, dn);
 }
 
 /*
@@ -5641,7 +5647,7 @@ mpz_divround(mpz_t q, const mpz_t n, const mpz_t d) {
   if (dn == 0)
     torsion_abort(); /* LCOV_EXCL_LINE */
 
-  if (nn == 0 || nn + 1 < dn) {
+  if (nn == 0 || nn < dn - 1) {
     q->size = 0;
     return;
   }
