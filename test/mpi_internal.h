@@ -150,11 +150,28 @@ arc4_rng(void *out, size_t size, void *arg) {
 
 static TORSION_INLINE mp_bits_t
 mp_popcount_simple(mp_limb_t x) {
+  /* Kernighan's population count[1].
+   *
+   * Note that clang can optimize this
+   * to a single popcnt instruction[2].
+   *
+   * Unless you're reading this many
+   * years in the future, you probably
+   * have to pass -march=native in order
+   * for popcnt to be emitted on x86.
+   *
+   * See the LLVM code for more info[3].
+   *
+   * [1] https://graphics.stanford.edu/~seander/bithacks.html#CountBitsSetKernighan
+   * [2] https://lemire.me/blog/2016/05/23/the-surprising-cleverness-of-modern-compilers/
+   * [3] https://github.com/llvm/llvm-project/blob/51879a5
+   *     /llvm/lib/Transforms/Scalar/LoopIdiomRecognize.cpp#L1285
+   */
   mp_bits_t z = 0;
 
   while (x != 0) {
-    z += (x & 1);
-    x >>= 1;
+    x &= (x - 1);
+    z += 1;
   }
 
   return z;
@@ -162,42 +179,60 @@ mp_popcount_simple(mp_limb_t x) {
 
 static TORSION_INLINE mp_bits_t
 mp_clz_simple(mp_limb_t x) {
-  mp_limb_t m = MP_LIMB_C(1) << (MP_LIMB_BITS - 1);
+  /* Naive leading zero count.
+   *
+   * Note that clang will optimize this
+   * to a single lzcnt/bsr instruction[1].
+   *
+   * [1] https://github.com/llvm/llvm-project/blob/51879a5
+   *     /llvm/lib/Transforms/Scalar/LoopIdiomRecognize.cpp#L1417
+   */
   mp_bits_t z = 0;
 
-  if (x == 0)
-    return MP_LIMB_BITS;
-
-  while ((x & m) == 0) {
+  while (x != 0) {
+    x >>= 1;
     z += 1;
-    m >>= 1;
   }
 
-  return z;
+  return MP_LIMB_BITS - z;
 }
 
 static TORSION_INLINE mp_bits_t
 mp_ctz_simple(mp_limb_t x) {
+  /* Naive trailing zero count.
+   *
+   * Note that clang will optimize this
+   * to a single tzcnt/bsf instruction[1].
+   *
+   * [1] https://github.com/llvm/llvm-project/blob/51879a5
+   *     /llvm/lib/Transforms/Scalar/LoopIdiomRecognize.cpp#L1417
+   */
   mp_bits_t z = 0;
 
-  if (x == 0)
-    return MP_LIMB_BITS;
-
-  while ((x & 1) == 0) {
+  while (x != 0) {
+    x <<= 1;
     z += 1;
-    x >>= 1;
   }
 
-  return z;
+  return MP_LIMB_BITS - z;
 }
 
 static TORSION_INLINE mp_bits_t
 mp_bitlen_simple(mp_limb_t x) {
+  /* Naive bit length calculation.
+   *
+   * Note that clang will optimize this
+   * to a lzcnt/bsr instruction plus some
+   * additional arithmetic[1].
+   *
+   * [1] https://github.com/llvm/llvm-project/blob/51879a5
+   *     /llvm/lib/Transforms/Scalar/LoopIdiomRecognize.cpp#L1417
+   */
   mp_bits_t z = 0;
 
   while (x != 0) {
-    z += 1;
     x >>= 1;
+    z += 1;
   }
 
   return z;
