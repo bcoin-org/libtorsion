@@ -21,20 +21,11 @@
  * Helpers
  */
 
-static void
-mpn_random_nz(mp_limb_t *zp, mp_size_t zn, mp_rng_f *rng, void *arg) {
-  CHECK(zn != 0);
-
-  do {
-    mpn_random(zp, zn, rng, arg);
-  } while (mpn_zero_p(zp, zn));
-}
-
 static mp_limb_t
 mp_random_limb(mp_rng_f *rng, void *arg) {
   mp_limb_t z;
 
-  mpn_random(&z, 1, rng, arg);
+  rng(&z, sizeof(z), arg);
 
   return z;
 }
@@ -68,6 +59,15 @@ mp_random_long_nz(mp_rng_f *rng, void *arg) {
   } while (z == 0);
 
   return z;
+}
+
+static void
+mpn_random_nz(mp_limb_t *zp, mp_size_t zn, mp_rng_f *rng, void *arg) {
+  CHECK(zn != 0);
+
+  do {
+    mpn_random(zp, zn, rng, arg);
+  } while (mpn_zero_p(zp, zn));
 }
 
 static void
@@ -611,6 +611,22 @@ mpn_gcd_simple(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn,
   mpz_clear(z);
 
   return zn;
+}
+
+TORSION_UNUSED static int
+mpz_cmp_str(const mpz_t x, const char *str) {
+  mpz_t y;
+  int cmp;
+
+  mpz_init(y);
+
+  CHECK(mpz_set_str(y, str, 0));
+
+  cmp = mpz_cmp(x, y);
+
+  mpz_clear(y);
+
+  return cmp;
 }
 
 /*
