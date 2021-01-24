@@ -985,6 +985,24 @@ mp_ctz(mp_limb_t x) {
   if (x == 0)
     return MP_LIMB_BITS;
 
+  /* Fun fact: Here, gcc will emit a tzcnt
+   * instruction on all x86 platforms.
+   *
+   * At first glance this seems like an
+   * issue as tzcnt is only available on
+   * Haswell and later. However, tzcnt's
+   * encoding (f3 0f bc) is identical to
+   * encoding rep (f3) and bsf (0f bc).
+   *
+   * The rep instruction is effectively
+   * a no-op in this context, and as such
+   * it is safe to encode tzcnt for older
+   * microarchitectures.
+   *
+   * Note that clang always emits a bsf
+   * instruction (unless -march=native is
+   * passed).
+   */
   return mp_builtin_ctz(x);
 #elif defined(mp_intrin_bsf)
   unsigned long z;
