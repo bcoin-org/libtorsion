@@ -96,6 +96,7 @@ TORSION_BARRIER(mp_limb_t, mp_limb)
 
 #if defined(__GNUC__) || TORSION_HAS_BUILTIN(__builtin_alloca)
 /* Available since at least gcc 1.41 (1992). */
+/* Available since clang 3.0.0 (2011). */
 #  define mp_alloca __builtin_alloca
 #elif defined(_MSC_VER)
 /* May have existed as early as 1998. */
