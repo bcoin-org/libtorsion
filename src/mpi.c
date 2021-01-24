@@ -150,7 +150,8 @@ TORSION_BARRIER(mp_limb_t, mp_limb)
 /* Intrinsics were added in VS 2005. */
 #  define MP_HAVE_INTRIN
 /* For ignoring the lookalikes when necessary. */
-#  if !defined(__clang__) && !defined(__INTEL_COMPILER) && !defined(__MINGW32__)
+#  if !defined(__clang__) && !defined(__MINGW32__)  \
+   && !defined(__INTEL_COMPILER) && !defined(__ICL)
 #    define MP_HAVE_MSVC
 #  endif
 #endif
