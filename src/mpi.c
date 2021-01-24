@@ -176,26 +176,42 @@ TORSION_BARRIER(mp_limb_t, mp_limb)
  * Builtins
  */
 
-#if TORSION_GNUC_PREREQ(3, 4) || (TORSION_HAS_BUILTIN(__builtin_popcount)   \
-                               && TORSION_HAS_BUILTIN(__builtin_popcountl)  \
-                               && TORSION_HAS_BUILTIN(__builtin_popcountll) \
-                               && TORSION_HAS_BUILTIN(__builtin_clz)        \
-                               && TORSION_HAS_BUILTIN(__builtin_clzl)       \
-                               && TORSION_HAS_BUILTIN(__builtin_clzll)      \
-                               && TORSION_HAS_BUILTIN(__builtin_ctz)        \
-                               && TORSION_HAS_BUILTIN(__builtin_ctzl)       \
-                               && TORSION_HAS_BUILTIN(__builtin_ctzll))
-#  if MP_LIMB_MAX == UINT_MAX
+#if TORSION_GNUC_PREREQ(3, 4)
+#  define mp_has_builtin(x) 1
+#elif defined(__has_builtin)
+#  define mp_has_builtin __has_builtin
+#else
+#  define mp_has_builtin(x) 0
+#endif
+
+#if MP_LIMB_MAX == UINT_MAX
+#  if mp_has_builtin(__builtin_popcount)
 #    define mp_builtin_popcount __builtin_popcount
+#  endif
+#  if mp_has_builtin(__builtin_clz)
 #    define mp_builtin_clz __builtin_clz
+#  endif
+#  if mp_has_builtin(__builtin_ctz)
 #    define mp_builtin_ctz __builtin_ctz
-#  elif MP_LIMB_MAX == ULONG_MAX
+#  endif
+#elif MP_LIMB_MAX == ULONG_MAX
+#  if mp_has_builtin(__builtin_popcountl)
 #    define mp_builtin_popcount __builtin_popcountl
+#  endif
+#  if mp_has_builtin(__builtin_clzl)
 #    define mp_builtin_clz __builtin_clzl
+#  endif
+#  if mp_has_builtin(__builtin_ctzl)
 #    define mp_builtin_ctz __builtin_ctzl
-#  elif defined(ULLONG_MAX) && MP_LIMB_MAX == ULLONG_MAX
+#  endif
+#elif defined(ULLONG_MAX) && MP_LIMB_MAX == ULLONG_MAX
+#  if mp_has_builtin(__builtin_popcountll)
 #    define mp_builtin_popcount __builtin_popcountll
+#  endif
+#  if mp_has_builtin(__builtin_clzll)
 #    define mp_builtin_clz __builtin_clzll
+#  endif
+#  if mp_has_builtin(__builtin_ctzll)
 #    define mp_builtin_ctz __builtin_ctzll
 #  endif
 #endif
