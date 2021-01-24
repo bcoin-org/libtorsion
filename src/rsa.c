@@ -892,14 +892,12 @@ rsa_priv_decrypt(const rsa_priv_t *k,
   /* [RFC8017] Page 13, Section 5.1.2.
    *           Page 15, Section 5.2.1.
    */
-  mpz_t t, s, b, bi, c, m;
-  mpz_t mp, mq, md;
+  mpz_t s, b, bi, c, m, mp, mq, md;
   int ret = 0;
   drbg_t rng;
 
   drbg_init(&rng, HASH_SHA256, entropy, ENTROPY_SIZE);
 
-  mpz_init(t);
   mpz_init(s);
   mpz_init(b);
   mpz_init(bi);
@@ -927,24 +925,15 @@ rsa_priv_decrypt(const rsa_priv_t *k,
   if (mpz_cmp(c, k->n) >= 0)
     goto fail;
 
-  /* t = n - 1 */
-  mpz_sub_ui(t, k->n, 1);
-
   /* Generate blinding factor. */
-  for (;;) {
+  do {
     /* s = random integer in [1,n-1] */
-    mpz_urandomm(s, t, drbg_rng, &rng);
-    mpz_add_ui(s, s, 1);
-
     /* bi = s^-1 mod n */
-    if (!mpz_invert(bi, s, k->n))
-      continue;
+    mpz_urandomm(s, k->n, drbg_rng, &rng);
+  } while (!mpz_invert(bi, s, k->n));
 
-    /* b = s^e mod n */
-    mpz_powm(b, s, k->e, k->n);
-
-    break;
-  }
+  /* b = s^e mod n */
+  mpz_powm(b, s, k->e, k->n);
 
   /* c = c * b mod n (blind) */
   mpz_mul(c, c, b);
@@ -987,7 +976,6 @@ rsa_priv_decrypt(const rsa_priv_t *k,
 
   ret = 1;
 fail:
-  mpz_cleanse(t);
   mpz_cleanse(s);
   mpz_cleanse(b);
   mpz_cleanse(bi);
