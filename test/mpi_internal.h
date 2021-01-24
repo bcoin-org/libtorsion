@@ -148,9 +148,9 @@ arc4_rng(void *out, size_t size, void *arg) {
   ctx->j = j;
 }
 
-static TORSION_INLINE int
+static TORSION_INLINE mp_bits_t
 mp_popcount_simple(mp_limb_t x) {
-  int z = 0;
+  mp_bits_t z = 0;
 
   while (x != 0) {
     z += (x & 1);
@@ -160,10 +160,10 @@ mp_popcount_simple(mp_limb_t x) {
   return z;
 }
 
-static TORSION_INLINE int
+static TORSION_INLINE mp_bits_t
 mp_clz_simple(mp_limb_t x) {
   mp_limb_t m = MP_LIMB_C(1) << (MP_LIMB_BITS - 1);
-  int z = 0;
+  mp_bits_t z = 0;
 
   if (x == 0)
     return MP_LIMB_BITS;
@@ -176,9 +176,9 @@ mp_clz_simple(mp_limb_t x) {
   return z;
 }
 
-static TORSION_INLINE int
+static TORSION_INLINE mp_bits_t
 mp_ctz_simple(mp_limb_t x) {
-  int z = 0;
+  mp_bits_t z = 0;
 
   if (x == 0)
     return MP_LIMB_BITS;
@@ -191,9 +191,9 @@ mp_ctz_simple(mp_limb_t x) {
   return z;
 }
 
-static TORSION_INLINE int
+static TORSION_INLINE mp_bits_t
 mp_bitlen_simple(mp_limb_t x) {
-  int z = 0;
+  mp_bits_t z = 0;
 
   while (x != 0) {
     z += 1;
