@@ -8273,12 +8273,17 @@ mpz_ctz_common(const mpz_t x, const mpz_t y) {
 
 mp_bits_t
 mpz_bitlen(const mpz_t x) {
-  return mpn_bitlen(x->limbs, MP_ABS(x->size));
+  mp_size_t xn = MP_ABS(x->size);
+
+  if (xn == 0)
+    return 0;
+
+  return xn * MP_LIMB_BITS - mp_clz(x->limbs[xn - 1]);
 }
 
 size_t
 mpz_bytelen(const mpz_t x) {
-  return mpn_bytelen(x->limbs, MP_ABS(x->size));
+  return (mpz_bitlen(x) + 7) / 8;
 }
 
 size_t
