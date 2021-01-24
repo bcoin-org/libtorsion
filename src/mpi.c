@@ -832,6 +832,9 @@ mpn_swap(mp_limb_t **xp, mp_size_t *xn,
 static mp_bits_t
 mpz_ctz_common(const mpz_t x, const mpz_t y);
 
+static mp_bits_t
+mpz_ctz_common_ui(const mpz_t x, mp_limb_t y);
+
 static TORSION_INLINE mp_size_t
 mpz_add_size(const mpz_t x, const mpz_t y);
 
@@ -6828,8 +6831,8 @@ mpz_gcd(mpz_t z, const mpz_t x, const mpz_t y) {
     return;
   }
 
-  mpz_init(u);
-  mpz_init(v);
+  mpz_init_vla(u, MP_ABS(x->size));
+  mpz_init_vla(v, MP_ABS(y->size));
 
   mpz_abs(u, x);
   mpz_abs(v, y);
@@ -6851,52 +6854,85 @@ mpz_gcd(mpz_t z, const mpz_t x, const mpz_t y) {
 
   mpz_mul_2exp(z, v, shift);
 
-  mpz_clear(u);
-  mpz_clear(v);
+  mpz_clear_vla(u);
+  mpz_clear_vla(v);
 }
 
 mp_limb_t
 mpz_gcd_ui(mpz_t z, const mpz_t x, mp_limb_t y) {
-  mp_limb_t g;
-  mpz_t v;
+  /* Binary GCD algorithm.
+   *
+   * [KNUTH] Algorithm B, Page 338, Section 4.5.2.
+   */
+  mp_bits_t shift;
+  mp_limb_t g, v;
+  mpz_t u;
 
-  mpz_init(v);
-  mpz_set_ui(v, y);
+  if (x->size == 0) {
+    if (z != NULL)
+      mpz_set_ui(z, y);
 
-  mpz_gcd(v, x, v);
+    return y;
+  }
 
-  if (v->size <= 1)
-    g = mpz_get_ui(v);
-  else
-    g = 0;
+  if (y == 0) {
+    if (MP_ABS(x->size) == 1)
+      g = x->limbs[0];
+    else
+      g = 0;
+
+    if (z != NULL)
+      mpz_abs(z, x);
+
+    return g;
+  }
+
+  shift = mpz_ctz_common_ui(x, y);
+
+  mpz_init_vla(u, MP_ABS(x->size));
+  mpz_abs(u, x);
+  mpz_quo_2exp(u, u, shift);
+
+  v = y >> shift;
+
+  while (u->size != 0) {
+    mpz_quo_2exp(u, u, mpz_ctz(u));
+
+    v >>= mp_ctz(v);
+
+    if (mpz_cmpabs_ui(u, v) >= 0)
+      mpz_sub_ui(u, u, v);
+    else
+      v -= u->limbs[0];
+  }
+
+  g = v << shift;
 
   if (z != NULL)
-    mpz_swap(z, v);
+    mpz_set_ui(z, g);
 
-  mpz_clear(v);
+  mpz_clear_vla(u);
 
   return g;
 }
 
 void
 mpz_lcm(mpz_t z, const mpz_t x, const mpz_t y) {
-  mpz_t g, q;
+  mpz_t t;
 
   if (x->size == 0 || y->size == 0) {
     z->size = 0;
     return;
   }
 
-  mpz_init(g);
-  mpz_init(q);
+  mpz_init_vla(t, mpz_add_size(x, y));
 
-  mpz_gcd(g, x, y);
-  mpz_quo(q, x, g);
-  mpz_mul(z, y, q);
+  mpz_gcd(t, x, y);
+  mpz_quo(t, x, t);
+  mpz_mul(z, y, t);
   mpz_abs(z, z);
 
-  mpz_clear(g);
-  mpz_clear(q);
+  mpz_clear_vla(t);
 }
 
 void
@@ -8303,6 +8339,14 @@ static mp_bits_t
 mpz_ctz_common(const mpz_t x, const mpz_t y) {
   mp_bits_t xz = mpz_ctz(x);
   mp_bits_t yz = mpz_ctz(y);
+
+  return MP_MIN(xz, yz);
+}
+
+static mp_bits_t
+mpz_ctz_common_ui(const mpz_t x, mp_limb_t y) {
+  mp_bits_t xz = mpz_ctz(x);
+  mp_bits_t yz = mp_ctz(y);
 
   return MP_MIN(xz, yz);
 }

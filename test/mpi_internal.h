@@ -456,11 +456,11 @@ mpz_gcd_simple(mpz_t g, const mpz_t x, const mpz_t y) {
 
   while (mpz_sgn(v) != 0) {
     mpz_rem(t, u, v);
-    mpz_set(u, v);
-    mpz_set(v, t);
+    mpz_swap(u, v);
+    mpz_swap(v, t);
   }
 
-  mpz_set(g, u);
+  mpz_swap(g, u);
 
   mpz_clear(u);
   mpz_clear(v);
@@ -522,7 +522,7 @@ mpz_pow_simple_ui(mpz_t z, const mpz_t x, mp_limb_t y) {
     y >>= 1;
   }
 
-  mpz_set(z, r);
+  mpz_swap(z, r);
 
   mpz_clear(r);
   mpz_clear(u);
@@ -559,7 +559,7 @@ mpz_powm_simple(mpz_t z, const mpz_t x, const mpz_t y, const mpz_t m) {
     mpz_mod(u, t, m);
   }
 
-  mpz_set(z, r);
+  mpz_swap(z, r);
 
   mpz_clear(r);
   mpz_clear(u);
@@ -592,7 +592,7 @@ mpz_powm_simple_ui(mpz_t z, const mpz_t x, mp_limb_t y, const mpz_t m) {
     y >>= 1;
   }
 
-  mpz_set(z, r);
+  mpz_swap(z, r);
 
   mpz_clear(r);
   mpz_clear(u);
@@ -670,14 +670,14 @@ mpz_cmp_str(const mpz_t x, const char *str) {
 
 static mp_size_t
 mpn_sqrtrem(mp_limb_t *zp, mp_limb_t *rp, const mp_limb_t *xp, mp_size_t xn) {
-  mpz_t x, z, r;
   mp_size_t zn, rn;
+  mpz_t x, z, r;
 
   CHECK(zp != xp);
-  CHECK(xn == 0 || xp[xn - 1] != 0);
+  CHECK(xn > 0);
+  CHECK(xp[xn - 1] != 0);
 
   mpz_roinit_n(x, xp, xn);
-
   mpz_init(z);
   mpz_init(r);
 
@@ -689,10 +689,8 @@ mpn_sqrtrem(mp_limb_t *zp, mp_limb_t *rp, const mp_limb_t *xp, mp_size_t xn) {
   CHECK(zn <= (xn + 1) / 2);
   CHECK(rn <= xn);
 
-  if (zp != NULL) {
-    mpn_copyi(zp, z->limbs, zn);
-    mpn_zero(zp + zn, (xn + 1) / 2 - zn);
-  }
+  mpn_copyi(zp, z->limbs, zn);
+  mpn_zero(zp + zn, (xn + 1) / 2 - zn);
 
   if (rp != NULL) {
     mpn_copyi(rp, r->limbs, rn);
@@ -707,7 +705,14 @@ mpn_sqrtrem(mp_limb_t *zp, mp_limb_t *rp, const mp_limb_t *xp, mp_size_t xn) {
 
 static int
 mpn_perfect_square_p(const mp_limb_t *xp, mp_size_t xn) {
-  return mpn_sqrtrem(NULL, NULL, xp, xn) == 0;
+  mpz_t x;
+
+  CHECK(xn > 0);
+  CHECK(xp[xn - 1] != 0);
+
+  mpz_roinit_n(x, xp, xn);
+
+  return mpz_perfect_square_p(x);
 }
 
 static mp_size_t
@@ -716,13 +721,14 @@ mpn_gcd(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn,
   mpz_t x, y, z;
   mp_size_t zn;
 
+  CHECK(xp != yp);
   CHECK(xn >= yn);
   CHECK(yn > 0);
   CHECK(yp[yn - 1] != 0);
 
   mpz_roinit_n(x, xp, xn);
   mpz_roinit_n(y, yp, yn);
-  mpz_init(z);
+  mpz_init_vla(z, yn + 1);
 
   mpz_gcd(z, x, y);
 
@@ -733,16 +739,21 @@ mpn_gcd(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn,
   mpn_copyi(zp, z->limbs, zn);
   mpn_zero(zp + zn, yn - zn);
 
-  mpz_clear(z);
+  mpz_clear_vla(z);
 
   return zn;
 }
 
 static mp_limb_t
 mpn_gcd_1(const mp_limb_t *xp, mp_size_t xn, mp_limb_t y) {
-  mp_limb_t z;
-  mpn_gcd(&z, xp, xn, &y, y != 0);
-  return z;
+  mpz_t x;
+
+  CHECK(xn > 0);
+  CHECK(y != 0);
+
+  mpz_roinit_n(x, xp, xn);
+
+  return mpz_gcd_ui(NULL, x, y);
 }
 
 static mp_size_t
@@ -763,8 +774,7 @@ mpn_gcdext(mp_limb_t *gp,
   mpz_init(s);
 
   mpz_gcdext(g, s, NULL, x, y);
-
-  mpz_mod(s, s, y);
+  mpz_rem(s, s, y);
 
   gn = MP_ABS(g->size);
   bn = MP_ABS(s->size);
@@ -2689,8 +2699,6 @@ test_mpn_gcdext(mp_rng_f *rng, void *arg) {
 
     if (sn < 0)
       mpn_sub(sp, yp, n, sp, -sn);
-    else if (sn > n)
-      mpn_sub(sp, sp, -sn, yp, n);
 
     mpn_mul_n(up, xp, sp, n);
     mpn_mod(up, up, n * 2, yp, n);
@@ -2715,8 +2723,6 @@ test_mpn_gcdext(mp_rng_f *rng, void *arg) {
 
     if (sn < 0)
       mpn_sub(sp, yp, n, sp, -sn);
-    else if (sn > n)
-      mpn_sub(sp, sp, -sn, yp, n);
 
     /* (g - x * s) / y == t */
     mpn_mul_n(tp, xp, sp, n);
@@ -2742,7 +2748,7 @@ test_mpn_gcdext(mp_rng_f *rng, void *arg) {
     mpn_zero(q1 + qn, n - qn);
     mpn_zero(q2 + qn, n - qn);
 
-    qn = mpn_strip(q2, qn);
+    qn -= (q2[qn - 1] == 0);
 
     gn = mpn_gcdext(gp, sp, &sn, q1, n, q2, qn);
 
@@ -2751,8 +2757,6 @@ test_mpn_gcdext(mp_rng_f *rng, void *arg) {
 
     if (sn < 0)
       mpn_sub(sp, yp, n, sp, -sn);
-    else if (sn > n)
-      mpn_sub(sp, sp, -sn, yp, n);
 
     /* (g - x * s) / y == t */
     mpn_mul_n(tp, xp, sp, n);
