@@ -94,7 +94,7 @@ TORSION_BARRIER(mp_limb_t, mp_limb)
 #define MP_MAX(x, y) ((x) > (y) ? (x) : (y))
 #define MP_ABS(x) ((x) < 0 ? -(x) : (x))
 
-#if defined(__GNUC__) || __has_builtin(__builtin_alloca)
+#if defined(__GNUC__) || TORSION_HAS_BUILTIN(__builtin_alloca)
 /* Available since at least gcc 1.41 (1992). */
 #  define mp_alloca __builtin_alloca
 #elif defined(_MSC_VER)
@@ -176,15 +176,15 @@ TORSION_BARRIER(mp_limb_t, mp_limb)
  * Builtins
  */
 
-#if TORSION_GNUC_PREREQ(3, 4) || (__has_builtin(__builtin_popcount)   \
-                               && __has_builtin(__builtin_popcountl)  \
-                               && __has_builtin(__builtin_popcountll) \
-                               && __has_builtin(__builtin_clz)        \
-                               && __has_builtin(__builtin_clzl)       \
-                               && __has_builtin(__builtin_clzll)      \
-                               && __has_builtin(__builtin_ctz)        \
-                               && __has_builtin(__builtin_ctzl)       \
-                               && __has_builtin(__builtin_ctzll))
+#if TORSION_GNUC_PREREQ(3, 4) || (TORSION_HAS_BUILTIN(__builtin_popcount)   \
+                               && TORSION_HAS_BUILTIN(__builtin_popcountl)  \
+                               && TORSION_HAS_BUILTIN(__builtin_popcountll) \
+                               && TORSION_HAS_BUILTIN(__builtin_clz)        \
+                               && TORSION_HAS_BUILTIN(__builtin_clzl)       \
+                               && TORSION_HAS_BUILTIN(__builtin_clzll)      \
+                               && TORSION_HAS_BUILTIN(__builtin_ctz)        \
+                               && TORSION_HAS_BUILTIN(__builtin_ctzl)       \
+                               && TORSION_HAS_BUILTIN(__builtin_ctzll))
 #  if MP_LIMB_MAX == UINT_MAX
 #    define mp_builtin_popcount __builtin_popcount
 #    define mp_builtin_clz __builtin_clz

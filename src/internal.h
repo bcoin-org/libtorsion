@@ -11,8 +11,10 @@
  * Clang Compat
  */
 
-#ifndef __has_builtin
-#  define __has_builtin(x) 0
+#if defined(__has_builtin)
+#  define TORSION_HAS_BUILTIN __has_builtin
+#else
+#  define TORSION_HAS_BUILTIN(x) 0
 #endif
 
 /*
@@ -33,7 +35,7 @@
 #undef LIKELY
 #undef UNLIKELY
 
-#if TORSION_GNUC_PREREQ(3, 0) || __has_builtin(__builtin_expect)
+#if TORSION_GNUC_PREREQ(3, 0) || TORSION_HAS_BUILTIN(__builtin_expect)
 #  define LIKELY(x) __builtin_expect(!!(x), 1)
 #  define UNLIKELY(x) __builtin_expect(!!(x), 0)
 #else
