@@ -80,6 +80,8 @@
 #define mpn_hamdist __torsion_mpn_hamdist
 #define mpn_mask __torsion_mask
 #define mpn_neg __torsion_mpn_neg
+#define mpn_gcd __torsion_mpn_gcd
+#define mpn_gcd_1 __torsion_mpn_gcd_1
 #define mpn_invert __torsion_mpn_invert
 #define mpn_invert_n __torsion_mpn_invert_n
 #define mpn_jacobi __torsion_mpn_jacobi
@@ -350,6 +352,8 @@ typedef void mp_rng_f(void *out, size_t size, void *arg);
 #define MPN_REDUCE_ITCH(n, shift) (1 + (shift) + ((shift) - (n) + 1))
 #define MPN_MONT_ITCH(n) (2 * (n) + 1)
 #define MPN_MONTMUL_ITCH(n) (2 * (n))
+#define MPN_GCD_ITCH(xn, yn) ((xn) + (yn))
+#define MPN_GCD_1_ITCH(xn) (xn)
 #define MPN_INVERT_ITCH(n) (4 * ((n) + 1))
 #define MPN_JACOBI_ITCH(n) (2 * (n))
 #define MPN_SLIDE_ITCH(yn, mn) ((yn) > 2 ? (MP_SLIDE_SIZE * (mn)) : 0)
@@ -731,6 +735,14 @@ mpn_neg(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn);
 /*
  * Number Theoretic Functions
  */
+
+mp_size_t
+mpn_gcd(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn,
+                       const mp_limb_t *yp, mp_size_t yn,
+                       mp_limb_t *scratch);
+
+mp_limb_t
+mpn_gcd_1(const mp_limb_t *xp, mp_size_t xn, mp_limb_t y, mp_limb_t *scratch);
 
 int
 mpn_invert(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn,

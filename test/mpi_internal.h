@@ -716,47 +716,6 @@ mpn_perfect_square_p(const mp_limb_t *xp, mp_size_t xn) {
 }
 
 static mp_size_t
-mpn_gcd(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn,
-                       const mp_limb_t *yp, mp_size_t yn) {
-  mpz_t x, y, z;
-  mp_size_t zn;
-
-  CHECK(xp != yp);
-  CHECK(xn >= yn);
-  CHECK(yn > 0);
-  CHECK(yp[yn - 1] != 0);
-
-  mpz_roinit_n(x, xp, xn);
-  mpz_roinit_n(y, yp, yn);
-  mpz_init_vla(z, yn + 1);
-
-  mpz_gcd(z, x, y);
-
-  zn = MP_ABS(z->size);
-
-  CHECK(zn <= yn);
-
-  mpn_copyi(zp, z->limbs, zn);
-  mpn_zero(zp + zn, yn - zn);
-
-  mpz_clear_vla(z);
-
-  return zn;
-}
-
-static mp_limb_t
-mpn_gcd_1(const mp_limb_t *xp, mp_size_t xn, mp_limb_t y) {
-  mpz_t x;
-
-  CHECK(xn > 0);
-  CHECK(y != 0);
-
-  mpz_roinit_n(x, xp, xn);
-
-  return mpz_gcd_ui(NULL, x, y);
-}
-
-static mp_size_t
 mpn_gcdext(mp_limb_t *gp,
            mp_limb_t *sp, mp_size_t *sn,
            mp_limb_t *xp, mp_size_t xn,
@@ -1420,25 +1379,25 @@ test_mpn_addsub(mp_rng_f *rng, void *arg) {
 
     zn += (zp[zn] != 0);
 
-    ASSERT(mpv_cmp(zp, zn, xp, xn) > 0);
-    ASSERT(mpv_cmp(zp, zn, yp, yn) > 0);
+    ASSERT(mpn_cmp2(zp, zn, xp, xn) > 0);
+    ASSERT(mpn_cmp2(zp, zn, yp, yn) > 0);
 
     zp[zn] = mpn_add(zp, zp, zn, yp, yn);
     zn += (zp[zn] != 0);
 
-    ASSERT(mpv_cmp(zp, zn, xp, xn) > 0);
-    ASSERT(mpv_cmp(zp, zn, yp, yn) > 0);
+    ASSERT(mpn_cmp2(zp, zn, xp, xn) > 0);
+    ASSERT(mpn_cmp2(zp, zn, yp, yn) > 0);
 
     ASSERT(mpn_sub(zp, zp, zn, yp, yn) == 0);
     zn = mpn_strip(zp, zn);
 
-    ASSERT(mpv_cmp(zp, zn, xp, xn) > 0);
-    ASSERT(mpv_cmp(zp, zn, yp, yn) > 0);
+    ASSERT(mpn_cmp2(zp, zn, xp, xn) > 0);
+    ASSERT(mpn_cmp2(zp, zn, yp, yn) > 0);
 
     ASSERT(mpn_sub(zp, zp, zn, yp, yn) == 0);
     zn = mpn_strip(zp, zn);
 
-    ASSERT(mpv_cmp(zp, zn, xp, xn) == 0);
+    ASSERT(mpn_cmp2(zp, zn, xp, xn) == 0);
 
     ASSERT(mpn_sub(zp, zp, zn, xp, xn) == 0);
     zn = mpn_strip(zp, zn);
@@ -1467,25 +1426,25 @@ test_mpn_addsub_1(mp_rng_f *rng, void *arg) {
     zp[zn] = mpn_add_1(zp, xp, xn, b);
     zn += (zp[zn] != 0);
 
-    ASSERT(mpv_cmp(zp, zn, xp, xn) > 0);
-    ASSERT(mpv_cmp_1(zp, zn, b) > 0);
+    ASSERT(mpn_cmp2(zp, zn, xp, xn) > 0);
+    ASSERT(mpn_cmp_1(zp, zn, b) > 0);
 
     zp[zn] = mpn_add_1(zp, zp, zn, b);
     zn += (zp[zn] != 0);
 
-    ASSERT(mpv_cmp(zp, zn, xp, xn) > 0);
-    ASSERT(mpv_cmp_1(zp, zn, b) > 0);
+    ASSERT(mpn_cmp2(zp, zn, xp, xn) > 0);
+    ASSERT(mpn_cmp_1(zp, zn, b) > 0);
 
     ASSERT(mpn_sub_1(zp, zp, zn, b) == 0);
     zn = mpn_strip(zp, zn);
 
-    ASSERT(mpv_cmp(zp, zn, xp, xn) > 0);
-    ASSERT(mpv_cmp_1(zp, zn, b) > 0);
+    ASSERT(mpn_cmp2(zp, zn, xp, xn) > 0);
+    ASSERT(mpn_cmp_1(zp, zn, b) > 0);
 
     ASSERT(mpn_sub_1(zp, zp, zn, b) == 0);
     zn = mpn_strip(zp, zn);
 
-    ASSERT(mpv_cmp(zp, zn, xp, xn) == 0);
+    ASSERT(mpn_cmp2(zp, zn, xp, xn) == 0);
 
     ASSERT(mpn_sub(zp, zp, zn, xp, xn) == 0);
     zn = mpn_strip(zp, zn);
@@ -1575,25 +1534,25 @@ test_mpn_muldiv(mp_rng_f *rng, void *arg) {
     mpn_mul(zp, xp, xn, yp, yn);
     zn = xn + yn - (zp[xn + yn - 1] == 0);
 
-    ASSERT(mpv_cmp(zp, zn, xp, xn) > 0);
-    ASSERT(mpv_cmp(zp, zn, yp, yn) > 0);
+    ASSERT(mpn_cmp2(zp, zn, xp, xn) > 0);
+    ASSERT(mpn_cmp2(zp, zn, yp, yn) > 0);
 
     mpn_mul(sp, zp, zn, yp, yn);
     sn = zn + yn - (sp[zn + yn - 1] == 0);
 
-    ASSERT(mpv_cmp(zp, zn, xp, xn) > 0);
-    ASSERT(mpv_cmp(zp, zn, yp, yn) > 0);
+    ASSERT(mpn_cmp2(zp, zn, xp, xn) > 0);
+    ASSERT(mpn_cmp2(zp, zn, yp, yn) > 0);
 
     mpn_div(zp, sp, sn, yp, yn);
     zn = mpn_strip(zp, sn - yn + 1);
 
-    ASSERT(mpv_cmp(zp, zn, xp, xn) > 0);
-    ASSERT(mpv_cmp(zp, zn, yp, yn) > 0);
+    ASSERT(mpn_cmp2(zp, zn, xp, xn) > 0);
+    ASSERT(mpn_cmp2(zp, zn, yp, yn) > 0);
 
     mpn_div(zp, zp, zn, yp, yn);
     zn = mpn_strip(zp, zn - yn + 1);
 
-    ASSERT(mpv_cmp(zp, zn, xp, xn) == 0);
+    ASSERT(mpn_cmp2(zp, zn, xp, xn) == 0);
   }
 }
 
@@ -1617,25 +1576,25 @@ test_mpn_muldiv_1(mp_rng_f *rng, void *arg) {
     zp[zn] = mpn_mul_1(zp, xp, xn, b);
     zn += (zp[zn] != 0);
 
-    ASSERT(mpv_cmp(zp, zn, xp, xn) > 0);
-    ASSERT(mpv_cmp_1(zp, zn, b) > 0);
+    ASSERT(mpn_cmp2(zp, zn, xp, xn) > 0);
+    ASSERT(mpn_cmp_1(zp, zn, b) > 0);
 
     zp[zn] = mpn_mul_1(zp, zp, zn, b);
     zn += (zp[zn] != 0);
 
-    ASSERT(mpv_cmp(zp, zn, xp, xn) > 0);
-    ASSERT(mpv_cmp_1(zp, zn, b) > 0);
+    ASSERT(mpn_cmp2(zp, zn, xp, xn) > 0);
+    ASSERT(mpn_cmp_1(zp, zn, b) > 0);
 
     mpn_div_1(zp, zp, zn, b);
     zn = mpn_strip(zp, zn);
 
-    ASSERT(mpv_cmp(zp, zn, xp, xn) > 0);
-    ASSERT(mpv_cmp_1(zp, zn, b) > 0);
+    ASSERT(mpn_cmp2(zp, zn, xp, xn) > 0);
+    ASSERT(mpn_cmp_1(zp, zn, b) > 0);
 
     mpn_div_1(zp, zp, zn, b);
     zn = mpn_strip(zp, zn);
 
-    ASSERT(mpv_cmp(zp, zn, xp, xn) == 0);
+    ASSERT(mpn_cmp2(zp, zn, xp, xn) == 0);
   }
 }
 
@@ -1844,7 +1803,7 @@ test_mpn_mod_1(mp_rng_f *rng, void *arg) {
     ASSERT(mpn_sub(tp, np, nn, tp, tn) == 0);
     tn = mpn_strip(tp, tn);
 
-    ASSERT(mpv_cmp_1(tp, tn, r) == 0);
+    ASSERT(mpn_cmp_1(tp, tn, r) == 0);
   }
 }
 
@@ -2630,41 +2589,40 @@ test_mpn_mont(mp_rng_f *rng, void *arg) {
 
 static void
 test_mpn_gcd(mp_rng_f *rng, void *arg) {
+  mp_limb_t tp[MPN_GCD_ITCH(4, 4)];
   mp_limb_t xp[4];
   mp_limb_t yp[4];
   mp_limb_t gp[4];
   mp_limb_t zp[4];
-  mp_limb_t g;
   mp_size_t n = 4;
+  mp_limb_t y, g;
   int i;
 
   printf("  - MPN gcd.\n");
 
-  i = 0;
-
-  while (i < 50) {
+  for (i = 0; i < 50; i++) {
     mpn_random_nz(xp, n, rng, arg);
     mpn_random_nz(yp, n, rng, arg);
 
-    if (mpn_strip(yp, n) != n)
-      continue;
+    xp[n - 1] |= (xp[n - 1] == 0);
+    yp[n - 1] |= (yp[n - 1] == 0);
 
-    mpn_gcd(gp, xp, n, yp, n);
+    mpn_gcd(gp, xp, n, yp, n, tp);
     mpn_gcd_simple(zp, xp, n, yp, n);
 
     ASSERT(mpn_cmp(gp, zp, n) == 0);
     ASSERT(mpn_cmp(gp, zp, n) == 0);
-
-    i += 1;
   }
 
   for (i = 0; i < 50; i++) {
     mpn_random_nz(xp, n, rng, arg);
-    mpn_random_nz(yp, 1, rng, arg);
+    mpn_random_nz(&y, 1, rng, arg);
 
-    g = mpn_gcd_1(xp, n, yp[0]);
+    xp[n - 1] |= (xp[n - 1] == 0);
 
-    mpn_gcd_simple(zp, xp, n, yp, 1);
+    g = mpn_gcd_1(xp, n, y, tp);
+
+    mpn_gcd_simple(zp, xp, n, &y, 1);
 
     ASSERT(g == zp[0]);
   }
@@ -2926,25 +2884,25 @@ test_mpn_powm(mp_rng_f *rng, void *arg) {
     yn = mpn_strip(yp, MP_P192_LIMBS);
     mn = mpn_strip(mp, MP_P192_LIMBS);
 
-    mpn_powm(zp, xp, xn, yp, mn, mp, mn, scratch2);
-    mpn_powm_simple(sp, xp, xn, yp, mn, mp, mn);
+    mpn_powm(zp, xp, xn, yp, yn, mp, mn, scratch2);
+    mpn_powm_simple(sp, xp, xn, yp, yn, mp, mn);
 
     ASSERT(mpn_cmp(zp, sp, mn) == 0);
 
     if (mp[0] & 1) {
-      mpn_sec_powm(zp, xp, xn, yp, mn, mp, mn, scratch3);
-      mpn_powm_simple(sp, xp, xn, yp, mn, mp, mn);
+      mpn_sec_powm(zp, xp, xn, yp, yn, mp, mn, scratch3);
+      mpn_powm_simple(sp, xp, xn, yp, yn, mp, mn);
 
       ASSERT(mpn_cmp(zp, sp, mn) == 0);
 
-      mpn_mont_powm(zp, xp, xn, yp, mn, mp, mn, scratch2);
-      mpn_powm_simple(sp, xp, xn, yp, mn, mp, mn);
+      mpn_mont_powm(zp, xp, xn, yp, yn, mp, mn, scratch2);
+      mpn_powm_simple(sp, xp, xn, yp, yn, mp, mn);
 
       ASSERT(mpn_cmp(zp, sp, mn) == 0);
     }
 
-    mpn_div_powm(zp, xp, xn, yp, mn, mp, mn, scratch2);
-    mpn_powm_simple(zp, xp, xn, yp, mn, mp, mn);
+    mpn_div_powm(zp, xp, xn, yp, yn, mp, mn, scratch2);
+    mpn_powm_simple(zp, xp, xn, yp, yn, mp, mn);
 
     ASSERT(mpn_cmp(zp, sp, mn) == 0);
   }
@@ -2988,11 +2946,6 @@ test_mpn_helpers(void) {
   static const mp_limb_t odd[4] = {3, 3, 2, 1};
   static const mp_limb_t even[4] = {4, 3, 2, 1};
   static const mp_limb_t tz[4] = {0, 3, 2, 1};
-  mp_limb_t up[1], vp[2];
-  mp_limb_t *xp = up;
-  mp_limb_t *yp = vp;
-  mp_size_t xn = 1;
-  mp_size_t yn = 2;
 
   printf("  - MPN helpers.\n");
 
@@ -3005,13 +2958,6 @@ test_mpn_helpers(void) {
   ASSERT(mpn_bitlen(trail, 4) == 2 * MP_LIMB_BITS + 2);
   ASSERT(mpn_bytelen(trail, 4) == ((size_t)mpn_bitlen(trail, 4) + 7) / 8);
   ASSERT(mpn_sizeinbase(trail, 4, 256) == (size_t)mpn_bytelen(trail, 4));
-
-  mpn_swap(&xp, &xn, &yp, &yn);
-
-  ASSERT(xp == vp);
-  ASSERT(xn == 2);
-  ASSERT(yp == up);
-  ASSERT(yn == 1);
 }
 
 static void
