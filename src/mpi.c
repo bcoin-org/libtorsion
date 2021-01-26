@@ -3925,9 +3925,10 @@ mpn_div_powm(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn,
   mp_limb_t *sp = &scratch[2 * mn]; /* 2 * mn */
   mp_limb_t *tp = &scratch[4 * mn]; /* 2 * mn */
   mp_limb_t *wp = &scratch[6 * mn]; /* wnd_size * mn */
-  mp_bits_t i, j, len, width, bits, shift;
+  mp_bits_t i, j, len, width, shift;
   mp_size_t sn = mn * 2;
   mp_divisor_t den;
+  mp_limb_t bits;
 
   len = yn * MP_LIMB_BITS - mp_clz(yp[yn - 1]);
 
@@ -4017,8 +4018,8 @@ mpn_mont_powm(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn,
   mp_limb_t *tp = &scratch[2 * mn]; /* 2 * mn + 1 */
   mp_limb_t *rr = &scratch[4 * mn + 1]; /* mn */
   mp_limb_t *wp = &scratch[5 * mn + 1]; /* wnd_size * mn */
-  mp_bits_t i, j, len, width, bits, shift;
-  mp_limb_t k;
+  mp_bits_t i, j, len, width, shift;
+  mp_limb_t k, bits;
 
   len = yn * MP_LIMB_BITS - mp_clz(yp[yn - 1]);
 
@@ -4148,8 +4149,8 @@ mpn_sec_powm(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn,
   mp_limb_t *sp = &scratch[3 * mn + 1]; /* mn */
   mp_limb_t *rr = &scratch[4 * mn + 1]; /* mn */
   mp_limb_t *wp = &scratch[5 * mn + 1]; /* wnd_size * mn */
-  mp_bits_t i, j, b, steps;
-  mp_limb_t k;
+  mp_bits_t i, steps;
+  mp_limb_t j, k, b;
 
   if (mn == 0 || mp[mn - 1] == 0 || (mp[0] & 1) == 0)
     torsion_abort(); /* LCOV_EXCL_LINE */
