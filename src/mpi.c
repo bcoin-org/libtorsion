@@ -5519,10 +5519,12 @@ void
 mpz_quorem(mpz_t q, mpz_t r, const mpz_t n, const mpz_t d) {
   mp_size_t nn = MP_ABS(n->size);
   mp_size_t dn = MP_ABS(d->size);
+  mp_size_t qs = n->size ^ d->size;
+  mp_size_t rs = n->size;
+  mp_size_t qn = nn - dn + 1;
+  mp_size_t rn = dn;
   mp_limb_t *qp = NULL;
   mp_limb_t *rp = NULL;
-  mp_size_t qs, qn;
-  mp_size_t rs, rn;
 
   if (q == r || dn == 0)
     torsion_abort(); /* LCOV_EXCL_LINE */
@@ -5538,15 +5540,11 @@ mpz_quorem(mpz_t q, mpz_t r, const mpz_t n, const mpz_t d) {
   }
 
   if (q != NULL) {
-    qs = n->size ^ d->size;
-    qn = nn - dn + 1;
     mpz_grow(q, qn);
     qp = q->limbs;
   }
 
   if (r != NULL) {
-    rs = n->size;
-    rn = dn;
     mpz_grow(r, rn);
     rp = r->limbs;
   }
