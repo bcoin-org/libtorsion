@@ -813,6 +813,66 @@ mpz_p192_exp(mpz_t z) {
 }
 
 /*
+ * P224
+ */
+
+#define MP_P224_LIMBS ((224 + MP_LIMB_BITS - 1) / MP_LIMB_BITS)
+
+TORSION_UNUSED static void
+mpn_p224_mod(mp_limb_t *zp) {
+  /* z = 2^224 - 2^96 + 1 */
+  mp_limb_t xp[MP_P224_LIMBS + 1];
+  mp_limb_t yp[MP_P224_LIMBS + 1];
+
+  mpn_zero(xp, MP_P224_LIMBS + 1);
+  mpn_zero(yp, MP_P224_LIMBS + 1);
+
+  mpn_setbit(xp, 224);
+  mpn_setbit(yp, 96);
+
+  mpn_sub_n(xp, xp, yp, MP_P224_LIMBS + 1);
+  mpn_add_1(zp, xp, MP_P224_LIMBS, 1);
+}
+
+/*
+ * K256
+ */
+
+#define MP_K256_LIMBS ((256 + MP_LIMB_BITS - 1) / MP_LIMB_BITS)
+
+TORSION_UNUSED static void
+mpn_k256_mod(mp_limb_t *zp) {
+  /* 2^256 - 2^32 - 977 */
+  mp_limb_t xp[MP_K256_LIMBS + 1];
+  mp_limb_t yp[MP_K256_LIMBS + 1];
+
+  mpn_zero(xp, MP_K256_LIMBS + 1);
+  mpn_zero(yp, MP_K256_LIMBS + 1);
+
+  mpn_setbit(xp, 256);
+  mpn_setbit(yp, 32);
+
+  mpn_sub_n(xp, xp, yp, MP_K256_LIMBS + 1);
+  mpn_sub_1(zp, xp, MP_K256_LIMBS, 977);
+}
+
+/*
+ * P521
+ */
+
+#define MP_P521_LIMBS ((521 + MP_LIMB_BITS - 1) / MP_LIMB_BITS)
+
+TORSION_UNUSED static void
+mpn_p521_mod(mp_limb_t *zp) {
+  /* z = 2^521 - 1 */
+  mp_limb_t xp[MP_P521_LIMBS];
+
+  mpn_zero(xp, MP_P521_LIMBS);
+  mpn_setbit(xp, 521);
+  mpn_sub_1(zp, xp, MP_P521_LIMBS, 1);
+}
+
+/*
  * MP
  */
 
@@ -7599,6 +7659,37 @@ test_mpz_vectors(void) {
 }
 
 /*
+ * Benchmarks
+ */
+
+static void
+bench_mpn_invert(mp_start_f *start, mp_end_f *end, mp_rng_f *rng, void *arg) {
+  mp_limb_t xp[MP_K256_LIMBS * 2];
+  mp_limb_t zp[MP_K256_LIMBS];
+  mp_limb_t mp[MP_K256_LIMBS];
+  mp_limb_t scratch[MPN_INVERT_ITCH(MP_K256_LIMBS)];
+  mp_size_t mn = MP_K256_LIMBS;
+  uint64_t tv;
+  int i;
+
+  mpn_k256_mod(mp);
+
+  mpn_zero(xp, mn);
+
+  do {
+    mpn_random(xp, mn * 2, rng, arg);
+    mpn_mod(xp, xp, mn * 2, mp, mn);
+  } while (mpn_zero_p(xp, mn));
+
+  start(&tv, "mpn_invert");
+
+  for (i = 0; i < 100000; i++)
+    ASSERT(mpn_invert_n(zp, xp, mp, mn, scratch) == 1);
+
+  end(&tv, i);
+}
+
+/*
  * Test
  */
 
@@ -7742,4 +7833,13 @@ test_mpi_internal(mp_rng_f *rng, void *arg) {
   test_mpz_io_str_vectors();
   test_mpz_random(rng, arg);
   test_mpz_vectors();
+}
+
+/*
+ * Benchmarks
+ */
+
+void
+bench_mpi_internal(mp_start_f *start, mp_end_f *end, mp_rng_f *rng, void *arg) {
+  bench_mpn_invert(start, end, rng, arg);
 }

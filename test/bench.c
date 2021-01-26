@@ -334,6 +334,19 @@ bench_eddsa_derive(drbg_t *rng) {
   edwards_curve_destroy(ec);
 }
 
+typedef void mp_start_f(bench_t *start, const char *name);
+typedef void mp_end_f(bench_t *start, uint64_t ops);
+typedef void mp_rng_f(void *out, size_t size, void *arg);
+
+void
+__torsion_bench_mpi_internal(mp_start_f *start, mp_end_f *end,
+                             mp_rng_f *rng, void *arg);
+
+static void
+bench_mpi_internal(drbg_t *rng) {
+  __torsion_bench_mpi_internal(bench_start, bench_end, drbg_rng, rng);
+}
+
 static void
 bench_rsa_generate(drbg_t *rng) {
   static const unsigned char entropy[ENTROPY_SIZE] = {0};
@@ -662,6 +675,7 @@ static const struct {
   B(eddsa_sign),
   B(eddsa_verify),
   B(eddsa_derive),
+  B(mpi_internal),
   B(rsa_generate),
   B(rsa_sign),
   B(rsa_verify),

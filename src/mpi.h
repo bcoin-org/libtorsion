@@ -270,6 +270,7 @@
 #define mpz_urandomb __torsion_mpz_urandomb
 #define mpz_urandomm __torsion_mpz_urandomm
 #define test_mpi_internal __torsion_test_mpi_internal
+#define bench_mpi_internal __torsion_bench_mpi_internal
 
 /*
  * Types
@@ -331,6 +332,8 @@ typedef struct mpz_s mpz_t[1];
 
 typedef int mp_puts_f(const char *s);
 typedef void mp_rng_f(void *out, size_t size, void *arg);
+typedef void mp_start_f(uint64_t *start, const char *name);
+typedef void mp_end_f(uint64_t *start, uint64_t ops);
 
 /*
  * Definitions
@@ -1518,5 +1521,12 @@ mpz_urandomm(mpz_t z, const mpz_t x, mp_rng_f *rng, void *arg);
 
 TORSION_EXTERN void
 test_mpi_internal(mp_rng_f *rng, void *arg);
+
+/*
+ * Benchmarks
+ */
+
+TORSION_EXTERN void
+bench_mpi_internal(mp_start_f *start, mp_end_f *end, mp_rng_f *rng, void *arg);
 
 #endif /* _TORSION_MPI_H */

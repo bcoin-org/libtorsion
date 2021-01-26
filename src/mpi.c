@@ -8678,4 +8678,11 @@ test_mpi_internal(mp_rng_f *rng, void *arg) {
   (void)rng;
   (void)arg;
 }
+void
+bench_mpi_internal(mp_start_f *start, mp_end_f *end, mp_rng_f *rng, void *arg) {
+  (void)start;
+  (void)end;
+  (void)rng;
+  (void)arg;
+}
 #endif
