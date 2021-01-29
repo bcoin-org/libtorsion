@@ -1249,7 +1249,7 @@ mp_limb_t
 mpn_add_1(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn, mp_limb_t y) {
   mp_limb_t c;
 
-  if (xn == 0)
+  if (UNLIKELY(xn == 0))
     return y;
 
   mp_add(*zp, c, *xp, y); zp++; xp++; xn--;
@@ -1376,7 +1376,7 @@ mp_limb_t
 mpn_sub_1(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn, mp_limb_t y) {
   mp_limb_t c;
 
-  if (xn == 0)
+  if (UNLIKELY(xn == 0))
     return y;
 
   mp_sub(*zp, c, *xp, y); zp++; xp++; xn--;
@@ -1613,7 +1613,7 @@ mpn_mul(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn,
                        const mp_limb_t *yp, mp_size_t yn) {
   mp_size_t i;
 
-  if (yn == 0) {
+  if (UNLIKELY(yn == 0)) {
     mpn_zero(zp, xn);
     return;
   }
@@ -1630,7 +1630,7 @@ mpn_sqr(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn, mp_limb_t *scratch) {
   mp_limb_t *tp = scratch;
   mp_size_t i;
 
-  if (xn == 0)
+  if (UNLIKELY(xn == 0))
     return;
 
   mp_sqr(zp[1], zp[0], xp[0]);
@@ -3125,7 +3125,7 @@ mpn_divmod_1(mp_limb_t *qp, const mp_limb_t *np, mp_size_t nn, mp_limb_t d) {
   mp_divisor_t den;
   mp_limb_t q, r;
 
-  if (nn < 0 || d == 0)
+  if (d == 0)
     torsion_abort(); /* LCOV_EXCL_LINE */
 
   if (nn == 0)
@@ -8677,6 +8677,7 @@ test_mpi_internal(mp_rng_f *rng, void *arg) {
   (void)rng;
   (void)arg;
 }
+
 void
 bench_mpi_internal(mp_start_f *start, mp_end_f *end, mp_rng_f *rng, void *arg) {
   (void)start;
