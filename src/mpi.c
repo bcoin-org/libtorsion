@@ -5106,7 +5106,7 @@ mpz_cmpabs_ui(const mpz_t x, mp_limb_t y) {
 
 int
 mpz_cmpabs_si(const mpz_t x, mp_long_t y) {
-  return mpn_cmp_1(x->limbs, MP_ABS(x->size), mp_limb_cast(y));
+  return mpz_cmpabs_ui(x, mp_limb_cast(y));
 }
 
 /*
