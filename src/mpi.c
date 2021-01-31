@@ -4748,9 +4748,9 @@ mpv_add(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn,
 
 static TORSION_INLINE mp_size_t
 mpv_sub_1(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn, mp_limb_t y) {
-  CHECK(mpn_sub_var_1(zp, xp, xn, y) == 0);
+  ASSERT(mpn_sub_var_1(zp, xp, xn, y) == 0);
 
-  if (xn == 0)
+  if (UNLIKELY(xn == 0))
     return 0;
 
   return xn - (zp[xn - 1] == 0);
@@ -4759,7 +4759,7 @@ mpv_sub_1(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn, mp_limb_t y) {
 static TORSION_INLINE mp_size_t
 mpv_sub(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn,
                        const mp_limb_t *yp, mp_size_t yn) {
-  CHECK(mpn_sub_var(zp, xp, xn, yp, yn) == 0);
+  ASSERT(mpn_sub_var(zp, xp, xn, yp, yn) == 0);
   return mpn_strip(zp, xn);
 }
 
