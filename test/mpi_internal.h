@@ -1333,6 +1333,8 @@ test_mp_inv_mod(mp_rng_f *rng, void *arg) {
     mp_sub(qp[1], c, np[1], hi);
     qp[1] *= m;
 
+    (void)lo;
+
     ASSERT(qp[0] == q);
     ASSERT(qp[1] == 0);
   }
