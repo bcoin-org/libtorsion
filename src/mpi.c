@@ -5007,26 +5007,16 @@ mpz_roinit_n(mpz_t z, const mp_limb_t *xp, mp_size_t xs) {
 
 void
 mpz_set_ui(mpz_t z, mp_limb_t x) {
-  if (x == 0) {
-    z->size = 0;
-  } else {
-    mpz_grow(z, 1);
-
-    z->limbs[0] = x;
-    z->size = 1;
-  }
+  z->limbs[0] = x;
+  z->size = (x != 0);
 }
 
 void
 mpz_set_si(mpz_t z, mp_long_t x) {
-  if (x == 0) {
-    z->size = 0;
-  } else {
-    mpz_grow(z, 1);
+  mp_size_t xn = (x != 0);
 
-    z->limbs[0] = mp_limb_cast(x);
-    z->size = x < 0 ? -1 : 1;
-  }
+  z->limbs[0] = mp_limb_cast(x);
+  z->size = x < 0 ? -xn : xn;
 }
 
 /*
