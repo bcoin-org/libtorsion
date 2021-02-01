@@ -917,7 +917,7 @@ mp_clz(mp_limb_t x) {
     : "cc"
   );
 
-  return 63 - z;
+  return (MP_LIMB_BITS - 1) - z;
 #elif defined(mp_builtin_clz)
   if (x == 0)
     return MP_LIMB_BITS;
