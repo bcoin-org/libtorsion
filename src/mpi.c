@@ -8308,12 +8308,7 @@ mpz_nextprime(mpz_t z, const mpz_t x, mp_rng_f *rng, void *arg) {
     return;
   }
 
-  mpz_set(z, x);
-
-  if (mpz_even_p(z))
-    mpz_add_ui(z, z, 1);
-  else
-    mpz_add_ui(z, z, 2);
+  mpz_add_ui(z, x, 1 + mpz_odd_p(x));
 
   while (!mpz_probab_prime_p(z, 20, rng, arg))
     mpz_add_ui(z, z, 2);
