@@ -6838,7 +6838,6 @@ mpz_hamdist(const mpz_t x, const mpz_t y) {
   mp_size_t yn = MP_ABS(y->size);
   mp_bits_t cnt = 0;
   mp_limb_t cx, cy;
-  mp_limb_t fx, fy;
   mp_limb_t zx, zy;
   mp_size_t i;
 
@@ -6849,22 +6848,19 @@ mpz_hamdist(const mpz_t x, const mpz_t y) {
     MPZ_CSWAP(x, xn, y, yn);
 
   cx = (x->size < 0);
-  cy = (y->size < 0);
-
-  fx = -cx;
-  fy = -cy;
+  cy = cx;
 
   for (i = 0; i < yn; i++) {
     mp_sub(zx, cx, x->limbs[i], cx);
     mp_sub(zy, cy, y->limbs[i], cy);
 
-    cnt += mp_popcount((zx ^ fx) ^ (zy ^ fy));
+    cnt += mp_popcount(zx ^ zy);
   }
 
   for (i = yn; i < xn; i++) {
     mp_sub(zx, cx, x->limbs[i], cx);
 
-    cnt += mp_popcount((zx ^ fx) ^ fy);
+    cnt += mp_popcount(zx);
   }
 
   return cnt;
