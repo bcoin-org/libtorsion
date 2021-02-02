@@ -2788,11 +2788,11 @@ static void
 test_mpn_barrett(mp_rng_f *rng, void *arg) {
   mp_limb_t scratch1[MPN_BARRETT_ITCH(MP_P192_SHIFT)];
   mp_limb_t scratch2[MPN_REDUCE_ITCH(MP_P192_LIMBS, MP_P192_SHIFT)];
+  mp_limb_t mp[MP_P192_SHIFT - MP_P192_LIMBS + 1]; /* MP_P192_LIMBS + 1 */
   mp_limb_t xp[MP_P192_SHIFT];
   mp_limb_t ep[MP_P192_LIMBS];
   mp_limb_t zp[MP_P192_LIMBS];
   mp_limb_t np[MP_P192_LIMBS];
-  mp_limb_t mp[MP_P192_SHIFT - MP_P192_LIMBS + 1]; /* MP_P192_LIMBS + 1 */
   mp_size_t shift = MP_P192_SHIFT;
   mp_size_t n = MP_P192_LIMBS;
   int i;
@@ -3011,11 +3011,11 @@ test_mpn_gcdext(mp_rng_f *rng, void *arg) {
 
 static void
 test_mpn_invert(mp_rng_f *rng, void *arg) {
+  mp_limb_t scratch[MPN_INVERT_ITCH(MP_P192_LIMBS)];
   mp_limb_t xp[MP_P192_LIMBS * 2];
   mp_limb_t zp[MP_P192_LIMBS];
   mp_limb_t sp[MP_P192_LIMBS * 2];
   mp_limb_t mp[MP_P192_LIMBS];
-  mp_limb_t scratch[MPN_INVERT_ITCH(MP_P192_LIMBS)];
   mp_size_t mn = MP_P192_LIMBS;
   int i = 0;
 
