@@ -35,6 +35,7 @@ include_HEADERS = include/torsion/aead.h     \
                   include/torsion/util.h
 
 noinst_HEADERS = src/asn1.h                         \
+                 src/bf.h                           \
                  src/bio.h                          \
                  src/fields/p192_32.h               \
                  src/fields/p192_64.h               \

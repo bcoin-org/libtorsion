@@ -33,6 +33,7 @@
 #include <string.h>
 #include <torsion/cipher.h>
 #include <torsion/util.h>
+#include "bf.h"
 #include "bio.h"
 
 /*

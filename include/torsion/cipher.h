@@ -28,11 +28,6 @@ extern "C" {
 #define arc2_encrypt torsion_arc2_encrypt
 #define arc2_decrypt torsion_arc2_decrypt
 #define blowfish_init torsion_blowfish_init
-#define blowfish_stream2word torsion_blowfish_stream2word
-#define blowfish_expand0state torsion_blowfish_expand0state
-#define blowfish_expandstate torsion_blowfish_expandstate
-#define blowfish_enc torsion_blowfish_enc
-#define blowfish_dec torsion_blowfish_dec
 #define blowfish_encrypt torsion_blowfish_encrypt
 #define blowfish_decrypt torsion_blowfish_decrypt
 #define camellia_init torsion_camellia_init
@@ -395,25 +390,6 @@ TORSION_EXTERN void
 blowfish_init(blowfish_t *ctx,
               const unsigned char *key, size_t key_len,
               const unsigned char *salt, size_t salt_len);
-
-TORSION_EXTERN uint32_t
-blowfish_stream2word(const unsigned char *data, size_t len, size_t *off);
-
-TORSION_EXTERN void
-blowfish_expand0state(blowfish_t *ctx,
-                      const unsigned char *key,
-                      size_t key_len);
-
-TORSION_EXTERN void
-blowfish_expandstate(blowfish_t *ctx,
-                     const unsigned char *key, size_t key_len,
-                     const unsigned char *data, size_t data_len);
-
-TORSION_EXTERN void
-blowfish_enc(const blowfish_t *ctx, uint32_t *data, size_t len);
-
-TORSION_EXTERN void
-blowfish_dec(const blowfish_t *ctx, uint32_t *data, size_t len);
 
 TORSION_EXTERN void
 blowfish_encrypt(const blowfish_t *ctx,

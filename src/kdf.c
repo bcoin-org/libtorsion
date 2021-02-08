@@ -26,6 +26,7 @@
 #include <torsion/hash.h>
 #include <torsion/kdf.h>
 #include <torsion/util.h>
+#include "bf.h"
 #include "bio.h"
 
 /*
