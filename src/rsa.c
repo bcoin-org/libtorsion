@@ -429,6 +429,9 @@ rsa_priv_generate(rsa_priv_t *k, int bits, uint64_t exp,
    * [1] https://crypto.stackexchange.com/a/29595
    */
   mpz_t pm1, qm1, phi, lam, tmp;
+#if MP_LIMB_BITS == 32
+  mp_limb_t *limbs;
+#endif
   drbg_t rng;
 
   if (bits < RSA_MIN_MOD_BITS
@@ -447,9 +450,16 @@ rsa_priv_generate(rsa_priv_t *k, int bits, uint64_t exp,
   mpz_init(lam);
   mpz_init(tmp);
 
-  mpz_set_ui(k->e, exp >> 32);
-  mpz_mul_2exp(k->e, k->e, 32);
-  mpz_ior_ui(k->e, k->e, exp & UINT32_MAX);
+#if MP_LIMB_BITS == 64
+  mpz_set_ui(k->e, exp);
+#else
+  limbs = mpz_limbs_write(k->e, 2);
+
+  limbs[0] = (mp_limb_t)(exp >>  0);
+  limbs[1] = (mp_limb_t)(exp >> 32);
+
+  mpz_limbs_finish(k->e, 2);
+#endif
 
   for (;;) {
     mpz_randprime(k->p, (bits >> 1) + (bits & 1), drbg_rng, &rng);
