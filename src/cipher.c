@@ -4071,15 +4071,15 @@ inv16(uint16_t x) {
   if (x <= 1)
     return x;
 
-  t1 = UINT32_C(0x10001) / (uint32_t)x;
-  y = UINT32_C(0x10001) % (uint32_t)x;
+  t1 = UINT32_C(0x10001) / x;
+  y = UINT32_C(0x10001) % x;
 
   if (y == 1)
     return 1 - t1;
 
   t0 = 1;
 
-  while (y != 1) {
+  do {
     q = x / y;
     x = x % y;
     t0 += q * t1;
@@ -4090,14 +4090,14 @@ inv16(uint16_t x) {
     q = y / x;
     y = y % x;
     t1 += q * t0;
-  }
+  } while (y != 1);
 
   return 1 - t1;
 }
 
 static uint16_t
 mul16(uint16_t x, uint16_t y) {
-  uint32_t t32;
+  uint32_t w;
 
   if (y == 0)
     return 1 - x;
@@ -4105,9 +4105,9 @@ mul16(uint16_t x, uint16_t y) {
   if (x == 0)
     return 1 - y;
 
-  t32 = (uint32_t)x * (uint32_t)y;
-  x = t32;
-  y = t32 >> 16;
+  w = (uint32_t)x * y;
+  x = w;
+  y = w >> 16;
 
   if (x < y)
     return x - y + 1;
