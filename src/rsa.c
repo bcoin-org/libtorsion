@@ -875,7 +875,7 @@ rsa_priv_set_ned(rsa_priv_t *out,
       if (mpz_cmp(c, nm1) == 0)
         break;
 
-      mpz_set(b, c);
+      mpz_swap(b, c);
     }
   }
 
