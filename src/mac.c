@@ -20,6 +20,21 @@
 #include "bio.h"
 #include "internal.h"
 
+#undef HAVE_UMUL128
+#undef HAVE_UMULH
+
+#if defined(_MSC_VER) && _MSC_VER >= 1400 /* VS 2005 */
+#  include <intrin.h>
+#  if defined(_M_AMD64) || defined(_M_X64)
+#    pragma intrinsic(_umul128)
+#    define HAVE_UMUL128
+#  endif
+#  if defined(_M_AMD64) || defined(_M_X64) || defined(_M_ARM64)
+#    pragma intrinsic(__umulh)
+#    define HAVE_UMULH
+#  endif
+#endif
+
 /*
  * Poly1305
  *
@@ -30,9 +45,53 @@
  *   https://github.com/floodyberry/poly1305-donna/blob/master/poly1305-donna-64.h
  */
 
+#if defined(TORSION_HAVE_INT128)
+
+#define POLY1305_HAVE_64BIT
+
+typedef torsion_uint128_t poly1305_uint128_t;
+
+#define poly1305_mul(z, x, y) ((z) = (poly1305_uint128_t)(x) * (y))
+#define poly1305_add(z, x) ((z) += (x))
+#define poly1305_add_1(z, x) ((z) += (x))
+#define poly1305_shr(x, n) ((uint64_t)((x) >> (n)))
+#define poly1305_lo(x) ((uint64_t)(x))
+
+#elif defined(HAVE_UMUL128) /* !TORSION_HAVE_INT128 */
+
+#define POLY1305_HAVE_64BIT
+
+typedef struct poly1305_uint128_s {
+  uint64_t lo;
+  uint64_t hi;
+} poly1305_uint128_t;
+
+#define poly1305_mul(z, x, y) do {      \
+  (z).lo = _umul128((x), (y), &(z).hi); \
+} while (0)
+
+#define poly1305_add(z, x) do {      \
+  uint64_t _lo = (z).lo + (x).lo;    \
+  (z).hi += (x).hi + (_lo < (x).lo); \
+  (z).lo = _lo;                      \
+} while (0)
+
+#define poly1305_add_1(z, x) do { \
+  uint64_t _lo = (z).lo + (x);    \
+  (z).hi += (_lo < (x));          \
+  (z).lo = _lo;                   \
+} while (0)
+
+#define poly1305_shr(x, n) \
+  (((x).lo >> (n)) | ((x).hi << (64 - (n))))
+
+#define poly1305_lo(x) ((x).lo)
+
+#endif /* !HAVE_UMUL128 */
+
 void
 poly1305_init(poly1305_t *ctx, const unsigned char *key) {
-#if defined(TORSION_HAVE_INT128)
+#if defined(POLY1305_HAVE_64BIT)
   struct poly1305_64_s *st = &ctx->state.u64;
   uint64_t t0 = read64le(key + 0);
   uint64_t t1 = read64le(key + 8);
@@ -52,7 +111,7 @@ poly1305_init(poly1305_t *ctx, const unsigned char *key) {
   st->pad[1] = read64le(key + 24);
 
   ctx->size = 0;
-#else /* !TORSION_HAVE_INT128 */
+#else /* !POLY1305_HAVE_64BIT */
   struct poly1305_32_s *st = &ctx->state.u32;
 
   /* r &= 0xffffffc0ffffffc0ffffffc0fffffff */
@@ -76,14 +135,14 @@ poly1305_init(poly1305_t *ctx, const unsigned char *key) {
   st->pad[3] = read32le(key + 28);
 
   ctx->size = 0;
-#endif /* !TORSION_HAVE_INT128 */
+#endif /* !POLY1305_HAVE_64BIT */
 }
 
 static void
 poly1305_blocks(poly1305_t *ctx,
                 const unsigned char *data,
                 size_t len, int final) {
-#if defined(TORSION_HAVE_INT128)
+#if defined(POLY1305_HAVE_64BIT)
   struct poly1305_64_s *st = &ctx->state.u64;
   uint64_t hibit = final ? 0 : (UINT64_C(1) << 40); /* 1 << 128 */
   uint64_t r0 = st->r[0];
@@ -95,7 +154,7 @@ poly1305_blocks(poly1305_t *ctx,
   uint64_t s1 = r1 * (5 << 2);
   uint64_t s2 = r2 * (5 << 2);
   uint64_t c, t0, t1;
-  torsion_uint128_t d0, d1, d2, d;
+  poly1305_uint128_t d0, d1, d2, d;
 
   while (len >= 16) {
     /* h += m[i] */
@@ -107,35 +166,35 @@ poly1305_blocks(poly1305_t *ctx,
     h2 += (((t1 >> 24)) & UINT64_C(0x3ffffffffff)) | hibit;
 
     /* h *= r */
-    d0 = (torsion_uint128_t)h0 * r0;
-    d = (torsion_uint128_t)h1 * s2;
-    d0 += d;
-    d = (torsion_uint128_t)h2 * s1;
-    d0 += d;
+    poly1305_mul(d0, h0, r0);
+    poly1305_mul(d, h1, s2);
+    poly1305_add(d0, d);
+    poly1305_mul(d, h2, s1);
+    poly1305_add(d0, d);
 
-    d1 = (torsion_uint128_t)h0 * r1;
-    d = (torsion_uint128_t)h1 * r0;
-    d1 += d;
-    d = (torsion_uint128_t)h2 * s2;
-    d1 += d;
+    poly1305_mul(d1, h0, r1);
+    poly1305_mul(d, h1, r0);
+    poly1305_add(d1, d);
+    poly1305_mul(d, h2, s2);
+    poly1305_add(d1, d);
 
-    d2 = (torsion_uint128_t)h0 * r2;
-    d = (torsion_uint128_t)h1 * r1;
-    d2 += d;
-    d = (torsion_uint128_t)h2 * r0;
-    d2 += d;
+    poly1305_mul(d2, h0, r2);
+    poly1305_mul(d, h1, r1);
+    poly1305_add(d2, d);
+    poly1305_mul(d, h2, r0);
+    poly1305_add(d2, d);
 
     /* (partial) h %= p */
-    c = (uint64_t)(d0 >> 44);
-    h0 = (uint64_t)d0 & UINT64_C(0xfffffffffff);
+    c = poly1305_shr(d0, 44);
+    h0 = poly1305_lo(d0) & UINT64_C(0xfffffffffff);
 
-    d1 += c;
-    c = (uint64_t)(d1 >> 44);
-    h1 = (uint64_t)d1 & UINT64_C(0xfffffffffff);
+    poly1305_add_1(d1, c);
+    c = poly1305_shr(d1, 44);
+    h1 = poly1305_lo(d1) & UINT64_C(0xfffffffffff);
 
-    d2 += c;
-    c = (uint64_t)(d2 >> 42);
-    h2 = (uint64_t)d2 & UINT64_C(0x3ffffffffff);
+    poly1305_add_1(d2, c);
+    c = poly1305_shr(d2, 42);
+    h2 = poly1305_lo(d2) & UINT64_C(0x3ffffffffff);
 
     h0 += c * 5;
     c = (h0 >> 44);
@@ -150,7 +209,7 @@ poly1305_blocks(poly1305_t *ctx,
   st->h[0] = h0;
   st->h[1] = h1;
   st->h[2] = h2;
-#else /* !TORSION_HAVE_INT128 */
+#else /* !POLY1305_HAVE_64BIT */
   struct poly1305_32_s *st = &ctx->state.u32;
   uint32_t hibit = final ? 0 : (UINT32_C(1) << 24); /* 1 << 128 */
   uint32_t r0 = st->r[0];
@@ -243,7 +302,7 @@ poly1305_blocks(poly1305_t *ctx,
   st->h[2] = h2;
   st->h[3] = h3;
   st->h[4] = h4;
-#endif /* !TORSION_HAVE_INT128 */
+#endif /* !POLY1305_HAVE_64BIT */
 }
 
 void
@@ -294,7 +353,7 @@ poly1305_update(poly1305_t *ctx, const unsigned char *data, size_t len) {
 
 void
 poly1305_final(poly1305_t *ctx, unsigned char *mac) {
-#if defined(TORSION_HAVE_INT128)
+#if defined(POLY1305_HAVE_64BIT)
   struct poly1305_64_s *st = &ctx->state.u64;
   uint64_t h0, h1, h2, c;
   uint64_t g0, g1, g2;
@@ -382,7 +441,7 @@ poly1305_final(poly1305_t *ctx, unsigned char *mac) {
 
   write64le(mac + 0, h0);
   write64le(mac + 8, h1);
-#else /* !TORSION_HAVE_INT128 */
+#else /* !POLY1305_HAVE_64BIT */
   struct poly1305_32_s *st = &ctx->state.u32;
   uint32_t h0, h1, h2, h3, h4, c;
   uint32_t g0, g1, g2, g3, g4;
@@ -484,7 +543,7 @@ poly1305_final(poly1305_t *ctx, unsigned char *mac) {
   write32le(mac +  4, h1);
   write32le(mac +  8, h2);
   write32le(mac + 12, h3);
-#endif /* !TORSION_HAVE_INT128 */
+#endif /* !POLY1305_HAVE_64BIT */
 }
 
 /*
@@ -496,16 +555,6 @@ poly1305_final(poly1305_t *ctx, unsigned char *mac) {
  *   https://131002.net/siphash/siphash.pdf
  *   https://github.com/bitcoin/bitcoin/blob/master/src/crypto/siphash.cpp
  */
-
-#undef HAVE_UMULH
-
-#if defined(_MSC_VER) && _MSC_VER >= 1400 /* VS 2005 */
-#  if defined(_M_AMD64) || defined(_M_X64)
-#    include <intrin.h>
-#    pragma intrinsic(__umulh)
-#    define HAVE_UMULH
-#  endif
-#endif
 
 #define ROTL64(x, b) (uint64_t)(((x) << (b)) | ((x) >> (64 - (b))))
 
@@ -667,6 +716,5 @@ siphash256_sum(uint64_t num, const unsigned char *key) {
   return v0;
 }
 
-#undef HAVE_UMULH
 #undef ROTL64
 #undef SIPROUND
