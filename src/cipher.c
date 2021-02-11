@@ -661,176 +661,186 @@ aes_init(aes_t *ctx, unsigned int bits, const unsigned char *key) {
 void
 aes_init_encrypt(aes_t *ctx, unsigned int bits, const unsigned char *key) {
   uint32_t *K = ctx->enckey;
-  uint32_t tmp;
-  int p = 0;
+  uint32_t word;
   int i = 0;
-
-  CHECK(bits == 128 || bits == 192 || bits == 256);
 
   /* Defensive memset. */
   memset(ctx, 0, sizeof(*ctx));
 
-  K[0] = read32be(key + 0);
-  K[1] = read32be(key + 4);
-  K[2] = read32be(key + 8);
-  K[3] = read32be(key + 12);
+  switch (bits) {
+    case 128: {
+      ctx->rounds = 10;
 
-  if (bits == 128) {
-    ctx->rounds = 10;
+      K[0] = read32be(key +  0);
+      K[1] = read32be(key +  4);
+      K[2] = read32be(key +  8);
+      K[3] = read32be(key + 12);
 
-    for (;;) {
-      tmp = K[p + 3];
+      for (;;) {
+        word = K[3];
 
-      K[p + 4] = K[p]
-        ^ (TE2[(tmp >> 16) & 0xff] & 0xff000000)
-        ^ (TE3[(tmp >>  8) & 0xff] & 0x00ff0000)
-        ^ (TE0[(tmp >>  0) & 0xff] & 0x0000ff00)
-        ^ (TE1[(tmp >> 24) & 0xff] & 0x000000ff)
-        ^ RCON[i];
+        K[4] = K[0]
+          ^ (TE2[(word >> 16) & 0xff] & 0xff000000)
+          ^ (TE3[(word >>  8) & 0xff] & 0x00ff0000)
+          ^ (TE0[(word >>  0) & 0xff] & 0x0000ff00)
+          ^ (TE1[(word >> 24) & 0xff] & 0x000000ff)
+          ^ RCON[i];
 
-      K[p + 5] = K[p + 1] ^ K[p + 4];
-      K[p + 6] = K[p + 2] ^ K[p + 5];
-      K[p + 7] = K[p + 3] ^ K[p + 6];
+        K[5] = K[1] ^ K[4];
+        K[6] = K[2] ^ K[5];
+        K[7] = K[3] ^ K[6];
 
-      i += 1;
+        if (++i == 10)
+          break;
 
-      if (i == 10)
-        break;
+        K += 4;
+      }
 
-      p += 4;
+      break;
     }
 
-    return;
-  }
+    case 192: {
+      ctx->rounds = 12;
 
-  K[p + 4] = read32be(key + 16);
-  K[p + 5] = read32be(key + 20);
+      K[0] = read32be(key +  0);
+      K[1] = read32be(key +  4);
+      K[2] = read32be(key +  8);
+      K[3] = read32be(key + 12);
+      K[4] = read32be(key + 16);
+      K[5] = read32be(key + 20);
 
-  if (bits == 192) {
-    ctx->rounds = 12;
+      for (;;) {
+        word = K[5];
 
-    for (;;) {
-      tmp = K[p + 5];
+        K[6] = K[0]
+          ^ (TE2[(word >> 16) & 0xff] & 0xff000000)
+          ^ (TE3[(word >>  8) & 0xff] & 0x00ff0000)
+          ^ (TE0[(word >>  0) & 0xff] & 0x0000ff00)
+          ^ (TE1[(word >> 24) & 0xff] & 0x000000ff)
+          ^ RCON[i];
 
-      K[p + 6] = K[p]
-        ^ (TE2[(tmp >> 16) & 0xff] & 0xff000000)
-        ^ (TE3[(tmp >>  8) & 0xff] & 0x00ff0000)
-        ^ (TE0[(tmp >>  0) & 0xff] & 0x0000ff00)
-        ^ (TE1[(tmp >> 24) & 0xff] & 0x000000ff)
-        ^ RCON[i];
+        K[7] = K[1] ^ K[6];
+        K[8] = K[2] ^ K[7];
+        K[9] = K[3] ^ K[8];
 
-      K[p + 7] = K[p + 1] ^ K[p + 6];
-      K[p + 8] = K[p + 2] ^ K[p + 7];
-      K[p + 9] = K[p + 3] ^ K[p + 8];
+        if (++i == 8)
+          break;
 
-      i += 1;
+        K[10] = K[4] ^ K[ 9];
+        K[11] = K[5] ^ K[10];
 
-      if (i == 8)
-        break;
+        K += 6;
+      }
 
-      K[p + 10] = K[p + 4] ^ K[p +  9];
-      K[p + 11] = K[p + 5] ^ K[p + 10];
-      p += 6;
+      break;
     }
 
-    return;
-  }
+    case 256: {
+      ctx->rounds = 14;
 
-  K[p + 6] = read32be(key + 24);
-  K[p + 7] = read32be(key + 28);
+      K[0] = read32be(key +  0);
+      K[1] = read32be(key +  4);
+      K[2] = read32be(key +  8);
+      K[3] = read32be(key + 12);
+      K[4] = read32be(key + 16);
+      K[5] = read32be(key + 20);
+      K[6] = read32be(key + 24);
+      K[7] = read32be(key + 28);
 
-  if (bits == 256) {
-    ctx->rounds = 14;
+      for (;;) {
+        word = K[7];
 
-    for (;;) {
-      tmp = K[p + 7];
+        K[8] = K[0]
+          ^ (TE2[(word >> 16) & 0xff] & 0xff000000)
+          ^ (TE3[(word >>  8) & 0xff] & 0x00ff0000)
+          ^ (TE0[(word >>  0) & 0xff] & 0x0000ff00)
+          ^ (TE1[(word >> 24) & 0xff] & 0x000000ff)
+          ^ RCON[i];
 
-      K[p + 8] = K[p]
-        ^ (TE2[(tmp >> 16) & 0xff] & 0xff000000)
-        ^ (TE3[(tmp >>  8) & 0xff] & 0x00ff0000)
-        ^ (TE0[(tmp >>  0) & 0xff] & 0x0000ff00)
-        ^ (TE1[(tmp >> 24) & 0xff] & 0x000000ff)
-        ^ RCON[i];
+        K[ 9] = K[1] ^ K[ 8];
+        K[10] = K[2] ^ K[ 9];
+        K[11] = K[3] ^ K[10];
 
-      K[p +  9] = K[p + 1] ^ K[p +  8];
-      K[p + 10] = K[p + 2] ^ K[p +  9];
-      K[p + 11] = K[p + 3] ^ K[p + 10];
+        if (++i == 7)
+          break;
 
-      i += 1;
+        word = K[11];
 
-      if (i == 7)
-        break;
+        K[12] = K[4]
+          ^ (TE2[(word >> 24) & 0xff] & 0xff000000)
+          ^ (TE3[(word >> 16) & 0xff] & 0x00ff0000)
+          ^ (TE0[(word >>  8) & 0xff] & 0x0000ff00)
+          ^ (TE1[(word >>  0) & 0xff] & 0x000000ff);
 
-      tmp = K[p + 11];
+        K[13] = K[5] ^ K[12];
+        K[14] = K[6] ^ K[13];
+        K[15] = K[7] ^ K[14];
 
-      K[p + 12] = K[p + 4]
-        ^ (TE2[(tmp >> 24) & 0xff] & 0xff000000)
-        ^ (TE3[(tmp >> 16) & 0xff] & 0x00ff0000)
-        ^ (TE0[(tmp >>  8) & 0xff] & 0x0000ff00)
-        ^ (TE1[(tmp >>  0) & 0xff] & 0x000000ff);
+        K += 8;
+      }
 
-      K[p + 13] = K[p +  5] ^ K[p + 12];
-      K[p + 14] = K[p +  6] ^ K[p + 13];
-      K[p + 15] = K[p +  7] ^ K[p + 14];
-
-      p += 8;
+      break;
     }
 
-    return;
+    default: {
+      torsion_abort(); /* LCOV_EXCL_LINE */
+      break;
+    }
   }
-
-  torsion_abort(); /* LCOV_EXCL_LINE */
 }
 
 void
 aes_init_decrypt(aes_t *ctx) {
   uint32_t *K = ctx->deckey;
-  uint32_t tmp;
-  int p = 0;
+  uint32_t word;
   int i, j;
 
   memcpy(K, ctx->enckey, sizeof(ctx->enckey));
 
   for (i = 0, j = 4 * ctx->rounds; i < j; i += 4, j -= 4) {
-    tmp = K[i + 0];
+    word = K[i + 0];
+
     K[i + 0] = K[j + 0];
-    K[j + 0] = tmp;
+    K[j + 0] = word;
 
-    tmp = K[i + 1];
+    word = K[i + 1];
+
     K[i + 1] = K[j + 1];
-    K[j + 1] = tmp;
+    K[j + 1] = word;
 
-    tmp = K[i + 2];
+    word = K[i + 2];
+
     K[i + 2] = K[j + 2];
-    K[j + 2] = tmp;
+    K[j + 2] = word;
 
-    tmp = K[i + 3];
+    word = K[i + 3];
+
     K[i + 3] = K[j + 3];
-    K[j + 3] = tmp;
+    K[j + 3] = word;
   }
 
   for (i = 1; i < ctx->rounds; i++) {
-    p += 4;
+    K += 4;
 
-    K[p + 0] = TD0[TE1[(K[p + 0] >> 24) & 0xff] & 0xff]
-             ^ TD1[TE1[(K[p + 0] >> 16) & 0xff] & 0xff]
-             ^ TD2[TE1[(K[p + 0] >>  8) & 0xff] & 0xff]
-             ^ TD3[TE1[(K[p + 0] >>  0) & 0xff] & 0xff];
+    K[0] = TD0[TE1[(K[0] >> 24) & 0xff] & 0xff]
+         ^ TD1[TE1[(K[0] >> 16) & 0xff] & 0xff]
+         ^ TD2[TE1[(K[0] >>  8) & 0xff] & 0xff]
+         ^ TD3[TE1[(K[0] >>  0) & 0xff] & 0xff];
 
-    K[p + 1] = TD0[TE1[(K[p + 1] >> 24) & 0xff] & 0xff]
-             ^ TD1[TE1[(K[p + 1] >> 16) & 0xff] & 0xff]
-             ^ TD2[TE1[(K[p + 1] >>  8) & 0xff] & 0xff]
-             ^ TD3[TE1[(K[p + 1] >>  0) & 0xff] & 0xff];
+    K[1] = TD0[TE1[(K[1] >> 24) & 0xff] & 0xff]
+         ^ TD1[TE1[(K[1] >> 16) & 0xff] & 0xff]
+         ^ TD2[TE1[(K[1] >>  8) & 0xff] & 0xff]
+         ^ TD3[TE1[(K[1] >>  0) & 0xff] & 0xff];
 
-    K[p + 2] = TD0[TE1[(K[p + 2] >> 24) & 0xff] & 0xff]
-             ^ TD1[TE1[(K[p + 2] >> 16) & 0xff] & 0xff]
-             ^ TD2[TE1[(K[p + 2] >>  8) & 0xff] & 0xff]
-             ^ TD3[TE1[(K[p + 2] >>  0) & 0xff] & 0xff];
+    K[2] = TD0[TE1[(K[2] >> 24) & 0xff] & 0xff]
+         ^ TD1[TE1[(K[2] >> 16) & 0xff] & 0xff]
+         ^ TD2[TE1[(K[2] >>  8) & 0xff] & 0xff]
+         ^ TD3[TE1[(K[2] >>  0) & 0xff] & 0xff];
 
-    K[p + 3] = TD0[TE1[(K[p + 3] >> 24) & 0xff] & 0xff]
-             ^ TD1[TE1[(K[p + 3] >> 16) & 0xff] & 0xff]
-             ^ TD2[TE1[(K[p + 3] >>  8) & 0xff] & 0xff]
-             ^ TD3[TE1[(K[p + 3] >>  0) & 0xff] & 0xff];
+    K[3] = TD0[TE1[(K[3] >> 24) & 0xff] & 0xff]
+         ^ TD1[TE1[(K[3] >> 16) & 0xff] & 0xff]
+         ^ TD2[TE1[(K[3] >>  8) & 0xff] & 0xff]
+         ^ TD3[TE1[(K[3] >>  0) & 0xff] & 0xff];
   }
 }
 
@@ -843,87 +853,85 @@ aes_encrypt(const aes_t *ctx, unsigned char *dst, const unsigned char *src) {
   uint32_t s3 = read32be(src + 12) ^ K[3];
   uint32_t t0, t1, t2, t3;
   int r = ctx->rounds >> 1;
-  int p = 0;
 
   for (;;) {
     t0 = TE0[(s0 >> 24) & 0xff]
        ^ TE1[(s1 >> 16) & 0xff]
        ^ TE2[(s2 >>  8) & 0xff]
        ^ TE3[(s3 >>  0) & 0xff]
-       ^ K[p + 4];
+       ^ K[4];
 
     t1 = TE0[(s1 >> 24) & 0xff]
        ^ TE1[(s2 >> 16) & 0xff]
        ^ TE2[(s3 >>  8) & 0xff]
        ^ TE3[(s0 >>  0) & 0xff]
-       ^ K[p + 5];
+       ^ K[5];
 
     t2 = TE0[(s2 >> 24) & 0xff]
        ^ TE1[(s3 >> 16) & 0xff]
        ^ TE2[(s0 >>  8) & 0xff]
        ^ TE3[(s1 >>  0) & 0xff]
-       ^ K[p + 6];
+       ^ K[6];
 
     t3 = TE0[(s3 >> 24) & 0xff]
        ^ TE1[(s0 >> 16) & 0xff]
        ^ TE2[(s1 >>  8) & 0xff]
        ^ TE3[(s2 >>  0) & 0xff]
-       ^ K[p + 7];
+       ^ K[7];
 
-    p += 8;
-    r -= 1;
+    K += 8;
 
-    if (r == 0)
+    if (--r == 0)
       break;
 
     s0 = TE0[(t0 >> 24) & 0xff]
        ^ TE1[(t1 >> 16) & 0xff]
        ^ TE2[(t2 >>  8) & 0xff]
        ^ TE3[(t3 >>  0) & 0xff]
-       ^ K[p + 0];
+       ^ K[0];
 
     s1 = TE0[(t1 >> 24) & 0xff]
        ^ TE1[(t2 >> 16) & 0xff]
        ^ TE2[(t3 >>  8) & 0xff]
        ^ TE3[(t0 >>  0) & 0xff]
-       ^ K[p + 1];
+       ^ K[1];
 
     s2 = TE0[(t2 >> 24) & 0xff]
        ^ TE1[(t3 >> 16) & 0xff]
        ^ TE2[(t0 >>  8) & 0xff]
        ^ TE3[(t1 >>  0) & 0xff]
-       ^ K[p + 2];
+       ^ K[2];
 
     s3 = TE0[(t3 >> 24) & 0xff]
        ^ TE1[(t0 >> 16) & 0xff]
        ^ TE2[(t1 >>  8) & 0xff]
        ^ TE3[(t2 >>  0) & 0xff]
-       ^ K[p + 3];
+       ^ K[3];
   }
 
   s0 = (TE2[(t0 >> 24) & 0xff] & 0xff000000)
      ^ (TE3[(t1 >> 16) & 0xff] & 0x00ff0000)
      ^ (TE0[(t2 >>  8) & 0xff] & 0x0000ff00)
      ^ (TE1[(t3 >>  0) & 0xff] & 0x000000ff)
-     ^ K[p + 0];
+     ^ K[0];
 
   s1 = (TE2[(t1 >> 24) & 0xff] & 0xff000000)
      ^ (TE3[(t2 >> 16) & 0xff] & 0x00ff0000)
      ^ (TE0[(t3 >>  8) & 0xff] & 0x0000ff00)
      ^ (TE1[(t0 >>  0) & 0xff] & 0x000000ff)
-     ^ K[p + 1];
+     ^ K[1];
 
   s2 = (TE2[(t2 >> 24) & 0xff] & 0xff000000)
      ^ (TE3[(t3 >> 16) & 0xff] & 0x00ff0000)
      ^ (TE0[(t0 >>  8) & 0xff] & 0x0000ff00)
      ^ (TE1[(t1 >>  0) & 0xff] & 0x000000ff)
-     ^ K[p + 2];
+     ^ K[2];
 
   s3 = (TE2[(t3 >> 24) & 0xff] & 0xff000000)
      ^ (TE3[(t0 >> 16) & 0xff] & 0x00ff0000)
      ^ (TE0[(t1 >>  8) & 0xff] & 0x0000ff00)
      ^ (TE1[(t2 >>  0) & 0xff] & 0x000000ff)
-     ^ K[p + 3];
+     ^ K[3];
 
   write32be(dst +  0, s0);
   write32be(dst +  4, s1);
@@ -940,87 +948,85 @@ aes_decrypt(const aes_t *ctx, unsigned char *dst, const unsigned char *src) {
   uint32_t s3 = read32be(src + 12) ^ K[3];
   uint32_t t0, t1, t2, t3;
   int r = ctx->rounds >> 1;
-  int p = 0;
 
   for (;;) {
     t0 = TD0[(s0 >> 24) & 0xff]
        ^ TD1[(s3 >> 16) & 0xff]
        ^ TD2[(s2 >>  8) & 0xff]
        ^ TD3[(s1 >>  0) & 0xff]
-       ^ K[p + 4];
+       ^ K[4];
 
     t1 = TD0[(s1 >> 24) & 0xff]
        ^ TD1[(s0 >> 16) & 0xff]
        ^ TD2[(s3 >>  8) & 0xff]
        ^ TD3[(s2 >>  0) & 0xff]
-       ^ K[p + 5];
+       ^ K[5];
 
     t2 = TD0[(s2 >> 24) & 0xff]
        ^ TD1[(s1 >> 16) & 0xff]
        ^ TD2[(s0 >>  8) & 0xff]
        ^ TD3[(s3 >>  0) & 0xff]
-       ^ K[p + 6];
+       ^ K[6];
 
     t3 = TD0[(s3 >> 24) & 0xff]
        ^ TD1[(s2 >> 16) & 0xff]
        ^ TD2[(s1 >>  8) & 0xff]
        ^ TD3[(s0 >>  0) & 0xff]
-       ^ K[p + 7];
+       ^ K[7];
 
-    p += 8;
-    r -= 1;
+    K += 8;
 
-    if (r == 0)
+    if (--r == 0)
       break;
 
     s0 = TD0[(t0 >> 24) & 0xff]
        ^ TD1[(t3 >> 16) & 0xff]
        ^ TD2[(t2 >>  8) & 0xff]
        ^ TD3[(t1 >>  0) & 0xff]
-       ^ K[p + 0];
+       ^ K[0];
 
     s1 = TD0[(t1 >> 24) & 0xff]
        ^ TD1[(t0 >> 16) & 0xff]
        ^ TD2[(t3 >>  8) & 0xff]
        ^ TD3[(t2 >>  0) & 0xff]
-       ^ K[p + 1];
+       ^ K[1];
 
     s2 = TD0[(t2 >> 24) & 0xff]
        ^ TD1[(t1 >> 16) & 0xff]
        ^ TD2[(t0 >>  8) & 0xff]
        ^ TD3[(t3 >>  0) & 0xff]
-       ^ K[p + 2];
+       ^ K[2];
 
     s3 = TD0[(t3 >> 24) & 0xff]
        ^ TD1[(t2 >> 16) & 0xff]
        ^ TD2[(t1 >>  8) & 0xff]
        ^ TD3[(t0 >>  0) & 0xff]
-       ^ K[p + 3];
+       ^ K[3];
   }
 
   s0 = (TD4[(t0 >> 24) & 0xff] << 24)
      ^ (TD4[(t3 >> 16) & 0xff] << 16)
      ^ (TD4[(t2 >>  8) & 0xff] <<  8)
      ^ (TD4[(t1 >>  0) & 0xff] <<  0)
-     ^ K[p + 0];
+     ^ K[0];
 
   s1 = (TD4[(t1 >> 24) & 0xff] << 24)
      ^ (TD4[(t0 >> 16) & 0xff] << 16)
      ^ (TD4[(t3 >>  8) & 0xff] <<  8)
      ^ (TD4[(t2 >>  0) & 0xff] <<  0)
-     ^ K[p + 1];
+     ^ K[1];
 
   s2 = (TD4[(t2 >> 24) & 0xff] << 24)
      ^ (TD4[(t1 >> 16) & 0xff] << 16)
      ^ (TD4[(t0 >>  8) & 0xff] <<  8)
      ^ (TD4[(t3 >>  0) & 0xff] <<  0)
-     ^ K[p + 2];
+     ^ K[2];
 
   s3 = (TD4[(t3 >> 24) & 0xff] << 24)
      ^ (TD4[(t2 >> 16) & 0xff] << 16)
      ^ (TD4[(t1 >>  8) & 0xff] <<  8)
      ^ (TD4[(t0 >>  0) & 0xff] <<  0)
-     ^ K[p + 3];
+     ^ K[3];
 
   write32be(dst +  0, s0);
   write32be(dst +  4, s1);
@@ -4191,9 +4197,8 @@ idea_init(idea_t *ctx, const unsigned char *key) {
 void
 idea_init_encrypt(idea_t *ctx, const unsigned char *key) {
   uint16_t *K = ctx->enckey;
-  int p = 0;
-  int j = 0;
   int i = 0;
+  int j = 0;
 
   /* Defensive memset. */
   memset(ctx, 0, sizeof(*ctx));
@@ -4204,10 +4209,10 @@ idea_init_encrypt(idea_t *ctx, const unsigned char *key) {
   for (; j < 52; j++) {
     i += 1;
 
-    K[p + (i + 7)] = (K[p + ((i + 0) & 7)] << 9)
-                   | (K[p + ((i + 1) & 7)] >> 7);
+    K[(i + 7)] = (K[((i + 0) & 7)] << 9)
+               | (K[((i + 1) & 7)] >> 7);
 
-    p += i & 8;
+    K += i & 8;
     i &= 7;
   }
 }
