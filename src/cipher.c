@@ -4055,11 +4055,19 @@ des_ede3_decrypt(const des_ede3_t *ctx,
  *   https://github.com/dgryski/go-idea/blob/master/idea.go
  */
 
+#undef HAVE_STRENGTH_REDUCTION
+
+#if defined(__GNUC__) || defined(__clang__) || defined(__INTEL_COMPILER)
+#  if defined(__SIZEOF_POINTER__) && __SIZEOF_POINTER__ >= 8
+#    define HAVE_STRENGTH_REDUCTION
+#  endif
+#endif
+
 /* Constant-time IDEA.
  *
- * This assumes the compiler is strength-reducing
- * the modulo by 65537. This can be achieved with
- * something like:
+ * The code below assumes the compiler is strength
+ * reducing our modulo by 65537. This is achieved
+ * with something like:
  *
  *   x - (mulhi(x, c) >> 16)
  *
@@ -4069,6 +4077,11 @@ des_ede3_decrypt(const des_ede3_t *ctx,
  *
  *   0xffff0001 (32 bit)
  *   0xffff0000ffff0001 (64 bit)
+ *
+ * Note: GCC & ICC strength-reduce the division
+ * at every optimization level (except for -Os),
+ * whereas clang requires -O1 or higher. Unsure
+ * what MSVC does here.
  *
  * The inverse mod 65537 can then be computed in
  * constant-time by abusing a well-known property
@@ -4108,7 +4121,9 @@ des_ede3_decrypt(const des_ede3_t *ctx,
  *
  *   65536^-1 mod 65537 = 65536
  */
-#if defined(__GNUC__) && __SIZEOF_POINTER__ >= 8
+
+#if defined(HAVE_STRENGTH_REDUCTION)
+
 static uint16_t
 idea_inv(uint16_t x) {
   uint64_t z = x;
@@ -4130,7 +4145,9 @@ idea_mul(uint16_t x, uint16_t y) {
 
   return (u * v) % 0x10001;
 }
-#else
+
+#else /* !HAVE_STRENGTH_REDUCTION */
+
 static uint16_t
 idea_inv(uint16_t x) {
   uint16_t t0, t1, y, q;
@@ -4174,7 +4191,8 @@ idea_mul(uint16_t x, uint16_t y) {
 
   return x - y + (x < y);
 }
-#endif
+
+#endif /* !HAVE_STRENGTH_REDUCTION */
 
 void
 idea_init(idea_t *ctx, const unsigned char *key) {
