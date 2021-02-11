@@ -4064,6 +4064,82 @@ des_ede3_decrypt(const des_ede3_t *ctx,
 #define inv16 idea_inv16
 #define mul16 idea_mul16
 
+/* Constant-time IDEA.
+ *
+ * This assumes the compiler is strength-reducing
+ * the modulo by 65537. This can be achieved with
+ * something like:
+ *
+ *   x - (mulhi(x, c) >> 16)
+ *
+ * Where `mulhi` does a wide multiplication and
+ * returns the high word, with following values
+ * of `c`:
+ *
+ *   0xffff0001 (32 bit)
+ *   0xffff0000ffff0001 (64 bit)
+ *
+ * The inverse mod 65537 can then be computed in
+ * constant-time by abusing a well-known property
+ * of Fermat's little theorem:
+ *
+ *   x^65535 mod 65537 = x^-1 mod 65537
+ *
+ * An exponent of 65535 (0xffff) makes things
+ * nice and simple. Normally left-to-right
+ * exponentiation (z = x^y mod n) follows an
+ * algorithm of:
+ *
+ *   z = 1
+ *   for i = ceil(log2(y+1)) - 1 downto 0
+ *     z = z * z mod n
+ *     if floor(y / 2^i) mod 2 == 1
+ *       z = z * x mod n
+ *
+ * This can be simplified in three ways:
+ *
+ *   1. The branch is not necessary as all bits
+ *      in the exponent are set.
+ *
+ *   2. A 64-bit integer is wide enough to
+ *      handle two multiplications of 17 bit
+ *      integers, requiring only one modulo
+ *      operation per iteration. i.e.
+ *
+ *        z = z * z * x mod n
+ *
+ *   3. The first round simply assigns `z`
+ *      to `x`, allowing us to initialize `z`
+ *      as `x` and skip the first iteration.
+ *
+ * The result is the very simple loop you see
+ * below. Note that zero is handled properly as:
+ *
+ *   65536^-1 mod 65537 = 65536
+ */
+#if defined(__GNUC__) && __SIZEOF_POINTER__ >= 8
+static uint16_t
+inv16(uint16_t x) {
+  uint64_t z = x;
+  int i;
+
+  for (i = 0; i < 15; i++)
+    z = (z * z * x) % 0x10001;
+
+  return z;
+}
+
+static uint16_t
+mul16(uint16_t x, uint16_t y) {
+  uint64_t u = x;
+  uint64_t v = y;
+
+  u |= 0x10000 & -((u - 1) >> 63);
+  v |= 0x10000 & -((v - 1) >> 63);
+
+  return (u * v) % 0x10001;
+}
+#else
 static uint16_t
 inv16(uint16_t x) {
   uint16_t t0, t1, y, q;
@@ -4107,6 +4183,7 @@ mul16(uint16_t x, uint16_t y) {
 
   return x - y + (x < y);
 }
+#endif
 
 void
 idea_init(idea_t *ctx, const unsigned char *key) {
