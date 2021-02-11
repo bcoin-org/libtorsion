@@ -4339,6 +4339,7 @@ idea_decrypt(const idea_t *ctx, unsigned char *dst, const unsigned char *src) {
 #define sb6inv serpent_sb6inv
 #define sb7 serpent_sb7
 #define sb7inv serpent_sb7inv
+#define xor4 serpent_xor4
 
 static TORSION_INLINE void
 linear(uint32_t *v0, uint32_t *v1, uint32_t *v2, uint32_t *v3) {
@@ -4675,6 +4676,15 @@ sb7inv(uint32_t *r0, uint32_t *r1, uint32_t *r2, uint32_t *r3) {
   *r2 = (t0 ^ *r1) ^ (*r0 ^ (v0 & *r3));
 }
 
+static TORSION_INLINE void
+xor4(uint32_t *r0, uint32_t *r1, uint32_t *r2, uint32_t *r3,
+     const uint32_t *sk, int i0, int i1, int i2, int i3) {
+  *r0 ^= sk[i0];
+  *r1 ^= sk[i1];
+  *r2 ^= sk[i2];
+  *r3 ^= sk[i3];
+}
+
 void
 serpent_init(serpent_t *ctx, unsigned int bits, const unsigned char *key) {
   static const uint32_t phi = 0x9e3779b9;
@@ -4706,7 +4716,7 @@ serpent_init(serpent_t *ctx, unsigned int bits, const unsigned char *key) {
   }
 
   for (i = 8; i < 132; i++) {
-    x = s[i - 8] ^ s[i - 5] ^ s[i - 3] ^ s[i - 1] ^ phi ^ (uint32_t)(i);
+    x = s[i - 8] ^ s[i - 5] ^ s[i - 3] ^ s[i - 1] ^ phi ^ (uint32_t)i;
     s[i] = (x << 11) | (x >> 21);
   }
 
@@ -4759,109 +4769,107 @@ serpent_encrypt(const serpent_t *ctx,
   uint32_t r2 = read32le(src +  8);
   uint32_t r3 = read32le(src + 12);
 
-  r0 ^= sk[0], r1 ^= sk[1], r2 ^= sk[2], r3 ^= sk[3];
+  xor4(&r0, &r1, &r2, &r3, sk, 0, 1, 2, 3);
+
   sb0(&r0, &r1, &r2, &r3);
   linear(&r0, &r1, &r2, &r3);
-  r0 ^= sk[4], r1 ^= sk[5], r2 ^= sk[6], r3 ^= sk[7];
+  xor4(&r0, &r1, &r2, &r3, sk, 4, 5, 6, 7);
   sb1(&r0, &r1, &r2, &r3);
   linear(&r0, &r1, &r2, &r3);
-  r0 ^= sk[8], r1 ^= sk[9], r2 ^= sk[10], r3 ^= sk[11];
+  xor4(&r0, &r1, &r2, &r3, sk, 8, 9, 10, 11);
   sb2(&r0, &r1, &r2, &r3);
   linear(&r0, &r1, &r2, &r3);
-  r0 ^= sk[12], r1 ^= sk[13], r2 ^= sk[14], r3 ^= sk[15];
+  xor4(&r0, &r1, &r2, &r3, sk, 12, 13, 14, 15);
   sb3(&r0, &r1, &r2, &r3);
   linear(&r0, &r1, &r2, &r3);
-  r0 ^= sk[16], r1 ^= sk[17], r2 ^= sk[18], r3 ^= sk[19];
+  xor4(&r0, &r1, &r2, &r3, sk, 16, 17, 18, 19);
   sb4(&r0, &r1, &r2, &r3);
   linear(&r0, &r1, &r2, &r3);
-  r0 ^= sk[20], r1 ^= sk[21], r2 ^= sk[22], r3 ^= sk[23];
+  xor4(&r0, &r1, &r2, &r3, sk, 20, 21, 22, 23);
   sb5(&r0, &r1, &r2, &r3);
   linear(&r0, &r1, &r2, &r3);
-  r0 ^= sk[24], r1 ^= sk[25], r2 ^= sk[26], r3 ^= sk[27];
+  xor4(&r0, &r1, &r2, &r3, sk, 24, 25, 26, 27);
   sb6(&r0, &r1, &r2, &r3);
   linear(&r0, &r1, &r2, &r3);
-  r0 ^= sk[28], r1 ^= sk[29], r2 ^= sk[30], r3 ^= sk[31];
+  xor4(&r0, &r1, &r2, &r3, sk, 28, 29, 30, 31);
   sb7(&r0, &r1, &r2, &r3);
   linear(&r0, &r1, &r2, &r3);
 
-  r0 ^= sk[32], r1 ^= sk[33], r2 ^= sk[34], r3 ^= sk[35];
+  xor4(&r0, &r1, &r2, &r3, sk, 32, 33, 34, 35);
   sb0(&r0, &r1, &r2, &r3);
   linear(&r0, &r1, &r2, &r3);
-  r0 ^= sk[36], r1 ^= sk[37], r2 ^= sk[38], r3 ^= sk[39];
+  xor4(&r0, &r1, &r2, &r3, sk, 36, 37, 38, 39);
   sb1(&r0, &r1, &r2, &r3);
   linear(&r0, &r1, &r2, &r3);
-  r0 ^= sk[40], r1 ^= sk[41], r2 ^= sk[42], r3 ^= sk[43];
+  xor4(&r0, &r1, &r2, &r3, sk, 40, 41, 42, 43);
   sb2(&r0, &r1, &r2, &r3);
   linear(&r0, &r1, &r2, &r3);
-  r0 ^= sk[44], r1 ^= sk[45], r2 ^= sk[46], r3 ^= sk[47];
+  xor4(&r0, &r1, &r2, &r3, sk, 44, 45, 46, 47);
   sb3(&r0, &r1, &r2, &r3);
   linear(&r0, &r1, &r2, &r3);
-  r0 ^= sk[48], r1 ^= sk[49], r2 ^= sk[50], r3 ^= sk[51];
+  xor4(&r0, &r1, &r2, &r3, sk, 48, 49, 50, 51);
   sb4(&r0, &r1, &r2, &r3);
   linear(&r0, &r1, &r2, &r3);
-  r0 ^= sk[52], r1 ^= sk[53], r2 ^= sk[54], r3 ^= sk[55];
+  xor4(&r0, &r1, &r2, &r3, sk, 52, 53, 54, 55);
   sb5(&r0, &r1, &r2, &r3);
   linear(&r0, &r1, &r2, &r3);
-  r0 ^= sk[56], r1 ^= sk[57], r2 ^= sk[58], r3 ^= sk[59];
+  xor4(&r0, &r1, &r2, &r3, sk, 56, 57, 58, 59);
   sb6(&r0, &r1, &r2, &r3);
   linear(&r0, &r1, &r2, &r3);
-  r0 ^= sk[60], r1 ^= sk[61], r2 ^= sk[62], r3 ^= sk[63];
+  xor4(&r0, &r1, &r2, &r3, sk, 60, 61, 62, 63);
   sb7(&r0, &r1, &r2, &r3);
   linear(&r0, &r1, &r2, &r3);
 
-  r0 ^= sk[64], r1 ^= sk[65], r2 ^= sk[66], r3 ^= sk[67];
+  xor4(&r0, &r1, &r2, &r3, sk, 64, 65, 66, 67);
   sb0(&r0, &r1, &r2, &r3);
   linear(&r0, &r1, &r2, &r3);
-  r0 ^= sk[68], r1 ^= sk[69], r2 ^= sk[70], r3 ^= sk[71];
+  xor4(&r0, &r1, &r2, &r3, sk, 68, 69, 70, 71);
   sb1(&r0, &r1, &r2, &r3);
   linear(&r0, &r1, &r2, &r3);
-  r0 ^= sk[72], r1 ^= sk[73], r2 ^= sk[74], r3 ^= sk[75];
+  xor4(&r0, &r1, &r2, &r3, sk, 72, 73, 74, 75);
   sb2(&r0, &r1, &r2, &r3);
   linear(&r0, &r1, &r2, &r3);
-  r0 ^= sk[76], r1 ^= sk[77], r2 ^= sk[78], r3 ^= sk[79];
+  xor4(&r0, &r1, &r2, &r3, sk, 76, 77, 78, 79);
   sb3(&r0, &r1, &r2, &r3);
   linear(&r0, &r1, &r2, &r3);
-  r0 ^= sk[80], r1 ^= sk[81], r2 ^= sk[82], r3 ^= sk[83];
+  xor4(&r0, &r1, &r2, &r3, sk, 80, 81, 82, 83);
   sb4(&r0, &r1, &r2, &r3);
   linear(&r0, &r1, &r2, &r3);
-  r0 ^= sk[84], r1 ^= sk[85], r2 ^= sk[86], r3 ^= sk[87];
+  xor4(&r0, &r1, &r2, &r3, sk, 84, 85, 86, 87);
   sb5(&r0, &r1, &r2, &r3);
   linear(&r0, &r1, &r2, &r3);
-  r0 ^= sk[88], r1 ^= sk[89], r2 ^= sk[90], r3 ^= sk[91];
+  xor4(&r0, &r1, &r2, &r3, sk, 88, 89, 90, 91);
   sb6(&r0, &r1, &r2, &r3);
   linear(&r0, &r1, &r2, &r3);
-  r0 ^= sk[92], r1 ^= sk[93], r2 ^= sk[94], r3 ^= sk[95];
+  xor4(&r0, &r1, &r2, &r3, sk, 92, 93, 94, 95);
   sb7(&r0, &r1, &r2, &r3);
   linear(&r0, &r1, &r2, &r3);
 
-  r0 ^= sk[96], r1 ^= sk[97], r2 ^= sk[98], r3 ^= sk[99];
+  xor4(&r0, &r1, &r2, &r3, sk, 96, 97, 98, 99);
   sb0(&r0, &r1, &r2, &r3);
   linear(&r0, &r1, &r2, &r3);
-  r0 ^= sk[100], r1 ^= sk[101], r2 ^= sk[102], r3 ^= sk[103];
+  xor4(&r0, &r1, &r2, &r3, sk, 100, 101, 102, 103);
   sb1(&r0, &r1, &r2, &r3);
   linear(&r0, &r1, &r2, &r3);
-  r0 ^= sk[104], r1 ^= sk[105], r2 ^= sk[106], r3 ^= sk[107];
+  xor4(&r0, &r1, &r2, &r3, sk, 104, 105, 106, 107);
   sb2(&r0, &r1, &r2, &r3);
   linear(&r0, &r1, &r2, &r3);
-  r0 ^= sk[108], r1 ^= sk[109], r2 ^= sk[110], r3 ^= sk[111];
+  xor4(&r0, &r1, &r2, &r3, sk, 108, 109, 110, 111);
   sb3(&r0, &r1, &r2, &r3);
   linear(&r0, &r1, &r2, &r3);
-  r0 ^= sk[112], r1 ^= sk[113], r2 ^= sk[114], r3 ^= sk[115];
+  xor4(&r0, &r1, &r2, &r3, sk, 112, 113, 114, 115);
   sb4(&r0, &r1, &r2, &r3);
   linear(&r0, &r1, &r2, &r3);
-  r0 ^= sk[116], r1 ^= sk[117], r2 ^= sk[118], r3 ^= sk[119];
+  xor4(&r0, &r1, &r2, &r3, sk, 116, 117, 118, 119);
   sb5(&r0, &r1, &r2, &r3);
   linear(&r0, &r1, &r2, &r3);
-  r0 ^= sk[120], r1 ^= sk[121], r2 ^= sk[122], r3 ^= sk[123];
+  xor4(&r0, &r1, &r2, &r3, sk, 120, 121, 122, 123);
   sb6(&r0, &r1, &r2, &r3);
   linear(&r0, &r1, &r2, &r3);
-  r0 ^= sk[124], r1 ^= sk[125], r2 ^= sk[126], r3 ^= sk[127];
+  xor4(&r0, &r1, &r2, &r3, sk, 124, 125, 126, 127);
   sb7(&r0, &r1, &r2, &r3);
 
-  r0 ^= sk[128];
-  r1 ^= sk[129];
-  r2 ^= sk[130];
-  r3 ^= sk[131];
+  xor4(&r0, &r1, &r2, &r3, sk, 128, 129, 130, 131);
 
   write32le(dst +  0, r0);
   write32le(dst +  4, r1);
@@ -4879,113 +4887,107 @@ serpent_decrypt(const serpent_t *ctx,
   uint32_t r2 = read32le(src +  8);
   uint32_t r3 = read32le(src + 12);
 
-  r0 ^= sk[128];
-  r1 ^= sk[129];
-  r2 ^= sk[130];
-  r3 ^= sk[131];
+  xor4(&r0, &r1, &r2, &r3, sk, 128, 129, 130, 131);
 
   sb7inv(&r0, &r1, &r2, &r3);
-  r0 ^= sk[124], r1 ^= sk[125], r2 ^= sk[126], r3 ^= sk[127];
+  xor4(&r0, &r1, &r2, &r3, sk, 124, 125, 126, 127);
   linearinv(&r0, &r1, &r2, &r3);
   sb6inv(&r0, &r1, &r2, &r3);
-  r0 ^= sk[120], r1 ^= sk[121], r2 ^= sk[122], r3 ^= sk[123];
+  xor4(&r0, &r1, &r2, &r3, sk, 120, 121, 122, 123);
   linearinv(&r0, &r1, &r2, &r3);
   sb5inv(&r0, &r1, &r2, &r3);
-  r0 ^= sk[116], r1 ^= sk[117], r2 ^= sk[118], r3 ^= sk[119];
+  xor4(&r0, &r1, &r2, &r3, sk, 116, 117, 118, 119);
   linearinv(&r0, &r1, &r2, &r3);
   sb4inv(&r0, &r1, &r2, &r3);
-  r0 ^= sk[112], r1 ^= sk[113], r2 ^= sk[114], r3 ^= sk[115];
+  xor4(&r0, &r1, &r2, &r3, sk, 112, 113, 114, 115);
   linearinv(&r0, &r1, &r2, &r3);
   sb3inv(&r0, &r1, &r2, &r3);
-  r0 ^= sk[108], r1 ^= sk[109], r2 ^= sk[110], r3 ^= sk[111];
+  xor4(&r0, &r1, &r2, &r3, sk, 108, 109, 110, 111);
   linearinv(&r0, &r1, &r2, &r3);
   sb2inv(&r0, &r1, &r2, &r3);
-  r0 ^= sk[104], r1 ^= sk[105], r2 ^= sk[106], r3 ^= sk[107];
+  xor4(&r0, &r1, &r2, &r3, sk, 104, 105, 106, 107);
   linearinv(&r0, &r1, &r2, &r3);
   sb1inv(&r0, &r1, &r2, &r3);
-  r0 ^= sk[100], r1 ^= sk[101], r2 ^= sk[102], r3 ^= sk[103];
+  xor4(&r0, &r1, &r2, &r3, sk, 100, 101, 102, 103);
   linearinv(&r0, &r1, &r2, &r3);
   sb0inv(&r0, &r1, &r2, &r3);
-  r0 ^= sk[96], r1 ^= sk[97], r2 ^= sk[98], r3 ^= sk[99];
+  xor4(&r0, &r1, &r2, &r3, sk, 96, 97, 98, 99);
   linearinv(&r0, &r1, &r2, &r3);
 
   sb7inv(&r0, &r1, &r2, &r3);
-  r0 ^= sk[92], r1 ^= sk[93], r2 ^= sk[94], r3 ^= sk[95];
+  xor4(&r0, &r1, &r2, &r3, sk, 92, 93, 94, 95);
   linearinv(&r0, &r1, &r2, &r3);
   sb6inv(&r0, &r1, &r2, &r3);
-  r0 ^= sk[88], r1 ^= sk[89], r2 ^= sk[90], r3 ^= sk[91];
+  xor4(&r0, &r1, &r2, &r3, sk, 88, 89, 90, 91);
   linearinv(&r0, &r1, &r2, &r3);
   sb5inv(&r0, &r1, &r2, &r3);
-  r0 ^= sk[84], r1 ^= sk[85], r2 ^= sk[86], r3 ^= sk[87];
+  xor4(&r0, &r1, &r2, &r3, sk, 84, 85, 86, 87);
   linearinv(&r0, &r1, &r2, &r3);
   sb4inv(&r0, &r1, &r2, &r3);
-  r0 ^= sk[80], r1 ^= sk[81], r2 ^= sk[82], r3 ^= sk[83];
+  xor4(&r0, &r1, &r2, &r3, sk, 80, 81, 82, 83);
   linearinv(&r0, &r1, &r2, &r3);
   sb3inv(&r0, &r1, &r2, &r3);
-  r0 ^= sk[76], r1 ^= sk[77], r2 ^= sk[78], r3 ^= sk[79];
+  xor4(&r0, &r1, &r2, &r3, sk, 76, 77, 78, 79);
   linearinv(&r0, &r1, &r2, &r3);
   sb2inv(&r0, &r1, &r2, &r3);
-  r0 ^= sk[72], r1 ^= sk[73], r2 ^= sk[74], r3 ^= sk[75];
+  xor4(&r0, &r1, &r2, &r3, sk, 72, 73, 74, 75);
   linearinv(&r0, &r1, &r2, &r3);
   sb1inv(&r0, &r1, &r2, &r3);
-  r0 ^= sk[68], r1 ^= sk[69], r2 ^= sk[70], r3 ^= sk[71];
+  xor4(&r0, &r1, &r2, &r3, sk, 68, 69, 70, 71);
   linearinv(&r0, &r1, &r2, &r3);
   sb0inv(&r0, &r1, &r2, &r3);
-  r0 ^= sk[64], r1 ^= sk[65], r2 ^= sk[66], r3 ^= sk[67];
+  xor4(&r0, &r1, &r2, &r3, sk, 64, 65, 66, 67);
   linearinv(&r0, &r1, &r2, &r3);
 
   sb7inv(&r0, &r1, &r2, &r3);
-  r0 ^= sk[60], r1 ^= sk[61], r2 ^= sk[62], r3 ^= sk[63];
+  xor4(&r0, &r1, &r2, &r3, sk, 60, 61, 62, 63);
   linearinv(&r0, &r1, &r2, &r3);
   sb6inv(&r0, &r1, &r2, &r3);
-  r0 ^= sk[56], r1 ^= sk[57], r2 ^= sk[58], r3 ^= sk[59];
+  xor4(&r0, &r1, &r2, &r3, sk, 56, 57, 58, 59);
   linearinv(&r0, &r1, &r2, &r3);
   sb5inv(&r0, &r1, &r2, &r3);
-  r0 ^= sk[52], r1 ^= sk[53], r2 ^= sk[54], r3 ^= sk[55];
+  xor4(&r0, &r1, &r2, &r3, sk, 52, 53, 54, 55);
   linearinv(&r0, &r1, &r2, &r3);
   sb4inv(&r0, &r1, &r2, &r3);
-  r0 ^= sk[48], r1 ^= sk[49], r2 ^= sk[50], r3 ^= sk[51];
+  xor4(&r0, &r1, &r2, &r3, sk, 48, 49, 50, 51);
   linearinv(&r0, &r1, &r2, &r3);
   sb3inv(&r0, &r1, &r2, &r3);
-  r0 ^= sk[44], r1 ^= sk[45], r2 ^= sk[46], r3 ^= sk[47];
+  xor4(&r0, &r1, &r2, &r3, sk, 44, 45, 46, 47);
   linearinv(&r0, &r1, &r2, &r3);
   sb2inv(&r0, &r1, &r2, &r3);
-  r0 ^= sk[40], r1 ^= sk[41], r2 ^= sk[42], r3 ^= sk[43];
+  xor4(&r0, &r1, &r2, &r3, sk, 40, 41, 42, 43);
   linearinv(&r0, &r1, &r2, &r3);
   sb1inv(&r0, &r1, &r2, &r3);
-  r0 ^= sk[36], r1 ^= sk[37], r2 ^= sk[38], r3 ^= sk[39];
+  xor4(&r0, &r1, &r2, &r3, sk, 36, 37, 38, 39);
   linearinv(&r0, &r1, &r2, &r3);
   sb0inv(&r0, &r1, &r2, &r3);
-  r0 ^= sk[32], r1 ^= sk[33], r2 ^= sk[34], r3 ^= sk[35];
+  xor4(&r0, &r1, &r2, &r3, sk, 32, 33, 34, 35);
   linearinv(&r0, &r1, &r2, &r3);
 
   sb7inv(&r0, &r1, &r2, &r3);
-  r0 ^= sk[28], r1 ^= sk[29], r2 ^= sk[30], r3 ^= sk[31];
+  xor4(&r0, &r1, &r2, &r3, sk, 28, 29, 30, 31);
   linearinv(&r0, &r1, &r2, &r3);
   sb6inv(&r0, &r1, &r2, &r3);
-  r0 ^= sk[24], r1 ^= sk[25], r2 ^= sk[26], r3 ^= sk[27];
+  xor4(&r0, &r1, &r2, &r3, sk, 24, 25, 26, 27);
   linearinv(&r0, &r1, &r2, &r3);
   sb5inv(&r0, &r1, &r2, &r3);
-  r0 ^= sk[20], r1 ^= sk[21], r2 ^= sk[22], r3 ^= sk[23];
+  xor4(&r0, &r1, &r2, &r3, sk, 20, 21, 22, 23);
   linearinv(&r0, &r1, &r2, &r3);
   sb4inv(&r0, &r1, &r2, &r3);
-  r0 ^= sk[16], r1 ^= sk[17], r2 ^= sk[18], r3 ^= sk[19];
+  xor4(&r0, &r1, &r2, &r3, sk, 16, 17, 18, 19);
   linearinv(&r0, &r1, &r2, &r3);
   sb3inv(&r0, &r1, &r2, &r3);
-  r0 ^= sk[12], r1 ^= sk[13], r2 ^= sk[14], r3 ^= sk[15];
+  xor4(&r0, &r1, &r2, &r3, sk, 12, 13, 14, 15);
   linearinv(&r0, &r1, &r2, &r3);
   sb2inv(&r0, &r1, &r2, &r3);
-  r0 ^= sk[8], r1 ^= sk[9], r2 ^= sk[10], r3 ^= sk[11];
+  xor4(&r0, &r1, &r2, &r3, sk, 8, 9, 10, 11);
   linearinv(&r0, &r1, &r2, &r3);
   sb1inv(&r0, &r1, &r2, &r3);
-  r0 ^= sk[4], r1 ^= sk[5], r2 ^= sk[6], r3 ^= sk[7];
+  xor4(&r0, &r1, &r2, &r3, sk, 4, 5, 6, 7);
   linearinv(&r0, &r1, &r2, &r3);
   sb0inv(&r0, &r1, &r2, &r3);
 
-  r0 ^= sk[0];
-  r1 ^= sk[1];
-  r2 ^= sk[2];
-  r3 ^= sk[3];
+  xor4(&r0, &r1, &r2, &r3, sk, 0, 1, 2, 3);
 
   write32le(dst +  0, r0);
   write32le(dst +  4, r1);
@@ -5011,6 +5013,7 @@ serpent_decrypt(const serpent_t *ctx,
 #undef sb6inv
 #undef sb7
 #undef sb7inv
+#undef xor4
 
 /*
  * Twofish
