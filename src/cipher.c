@@ -4061,25 +4061,21 @@ des_ede3_decrypt(const des_ede3_t *ctx,
  *   https://github.com/dgryski/go-idea/blob/master/idea.go
  */
 
-#define inv16 idea_invm16
+#define inv16 idea_inv16
 #define mul16 idea_mul16
 
 static uint16_t
 inv16(uint16_t x) {
-  uint16_t y, q, t0, t1;
+  uint16_t t0, t1, y, q;
 
   if (x <= 1)
     return x;
 
+  t0 = 1;
   t1 = UINT32_C(0x10001) / x;
   y = UINT32_C(0x10001) % x;
 
-  if (y == 1)
-    return 1 - t1;
-
-  t0 = 1;
-
-  do {
+  while (y != 1) {
     q = x / y;
     x = x % y;
     t0 += q * t1;
@@ -4090,7 +4086,7 @@ inv16(uint16_t x) {
     q = y / x;
     y = y % x;
     t1 += q * t0;
-  } while (y != 1);
+  }
 
   return 1 - t1;
 }
@@ -4109,10 +4105,7 @@ mul16(uint16_t x, uint16_t y) {
   x = w;
   y = w >> 16;
 
-  if (x < y)
-    return x - y + 1;
-
-  return x - y;
+  return x - y + (x < y);
 }
 
 void
@@ -4148,50 +4141,48 @@ idea_init_encrypt(idea_t *ctx, const unsigned char *key) {
 void
 idea_init_decrypt(idea_t *ctx) {
   uint16_t *K = ctx->enckey;
-  uint16_t *D = ctx->deckey;
+  uint16_t *D = ctx->deckey + 52;
   uint16_t t1, t2, t3;
-  int di = 52 - 1;
-  int ki = 0;
   int i;
 
-  t1 = inv16(K[ki++]);
-  t2 = -K[ki++];
-  t3 = -K[ki++];
+  t1 = inv16(*K++);
+  t2 = -*K++;
+  t3 = -*K++;
 
-  D[di--] = inv16(K[ki++]);
-  D[di--] = t3;
-  D[di--] = t2;
-  D[di--] = t1;
+  *--D = inv16(*K++);
+  *--D = t3;
+  *--D = t2;
+  *--D = t1;
 
   for (i = 0; i < 8 - 1; i++) {
-    t1 = K[ki++];
+    t1 = *K++;
 
-    D[di--] = K[ki++];
-    D[di--] = t1;
+    *--D = *K++;
+    *--D = t1;
 
-    t1 = inv16(K[ki++]);
-    t2 = -K[ki++];
-    t3 = -K[ki++];
+    t1 = inv16(*K++);
+    t2 = -*K++;
+    t3 = -*K++;
 
-    D[di--] = inv16(K[ki++]);
-    D[di--] = t2;
-    D[di--] = t3;
-    D[di--] = t1;
+    *--D = inv16(*K++);
+    *--D = t2;
+    *--D = t3;
+    *--D = t1;
   }
 
-  t1 = K[ki++];
+  t1 = *K++;
 
-  D[di--] = K[ki++];
-  D[di--] = t1;
+  *--D = *K++;
+  *--D = t1;
 
-  t1 = inv16(K[ki++]);
-  t2 = -K[ki++];
-  t3 = -K[ki++];
+  t1 = inv16(*K++);
+  t2 = -*K++;
+  t3 = -*K++;
 
-  D[di--] = inv16(K[ki++]);
-  D[di--] = t3;
-  D[di--] = t2;
-  D[di--] = t1;
+  *--D = inv16(*K++);
+  *--D = t3;
+  *--D = t2;
+  *--D = t1;
 }
 
 static void
@@ -4202,23 +4193,22 @@ idea_crypt(unsigned char *dst, const unsigned char *src, const uint16_t *K) {
   uint16_t x4 = read16be(src + 6);
   uint16_t s2 = 0;
   uint16_t s3 = 0;
-  int p = 0;
   int i;
 
   for (i = 8 - 1; i >= 0; i--) {
-    x1 = mul16(x1, K[p++]);
-    x2 += K[p++];
-    x3 += K[p++];
-    x4 = mul16(x4, K[p++]);
+    x1 = mul16(x1, *K++);
+    x2 += *K++;
+    x3 += *K++;
+    x4 = mul16(x4, *K++);
 
     s3 = x3;
     x3 ^= x1;
-    x3 = mul16(x3, K[p++]);
+    x3 = mul16(x3, *K++);
     s2 = x2;
 
     x2 ^= x4;
     x2 += x3;
-    x2 = mul16(x2, K[p++]);
+    x2 = mul16(x2, *K++);
     x3 += x2;
 
     x1 ^= x2;
@@ -4227,10 +4217,10 @@ idea_crypt(unsigned char *dst, const unsigned char *src, const uint16_t *K) {
     x3 ^= s2;
   }
 
-  x1 = mul16(x1, K[p++]);
-  x3 += K[p++];
-  x2 += K[p++];
-  x4 = mul16(x4, K[p++]);
+  x1 = mul16(x1, *K++);
+  x3 += *K++;
+  x2 += *K++;
+  x4 = mul16(x4, *K++);
 
   write16be(dst + 0, x1);
   write16be(dst + 2, x3);
