@@ -6522,9 +6522,9 @@ ghash_transform(ghash_t *ctx, const unsigned char *block) {
 }
 
 static void
-ghash_absorb(ghash_t *ctx, const unsigned char *data, size_t len) {
+ghash_absorb(ghash_t *ctx, const void *data, size_t len) {
+  const unsigned char *raw = (const unsigned char *)data;
   size_t pos = ctx->size & 15;
-  size_t off = 0;
 
   if (len == 0)
     return;
@@ -6537,11 +6537,11 @@ ghash_absorb(ghash_t *ctx, const unsigned char *data, size_t len) {
     if (want > len)
       want = len;
 
-    memcpy(ctx->block + pos, data, want);
+    memcpy(ctx->block + pos, raw, want);
 
     pos += want;
     len -= want;
-    off += want;
+    raw += want;
 
     if (pos < 16)
       return;
@@ -6550,13 +6550,13 @@ ghash_absorb(ghash_t *ctx, const unsigned char *data, size_t len) {
   }
 
   while (len >= 16) {
-    ghash_transform(ctx, data + off);
-    off += 16;
+    ghash_transform(ctx, raw);
+    raw += 16;
     len -= 16;
   }
 
   if (len > 0)
-    memcpy(ctx->block, data + off, len);
+    memcpy(ctx->block, raw, len);
 }
 
 static void
@@ -6569,7 +6569,7 @@ ghash_pad(ghash_t *ctx) {
 
 static void
 ghash_init(ghash_t *ctx, const unsigned char *key) {
-  gfe_t x = {0, 0};
+  gfe_t x;
   int i;
 
   /* Zero for struct assignment. */
@@ -7612,7 +7612,7 @@ cipher_stream_update(cipher_stream_t *ctx,
   }
 
   if (input_len >= ctx->block_size) {
-    size_t aligned = input_len - (input_len & (ctx->block_size - 1));
+    size_t aligned = input_len & -ctx->block_size;
 
     cipher_stream_encipher(ctx, output, input, aligned);
 
@@ -7660,7 +7660,7 @@ cipher_stream_update_size(const cipher_stream_t *ctx, size_t input_len) {
   }
 
   if (input_len >= ctx->block_size)
-    output_len += input_len - (input_len & (ctx->block_size - 1));
+    output_len += input_len & -ctx->block_size;
 
   ASSERT(output_len >= ctx->block_size);
 
