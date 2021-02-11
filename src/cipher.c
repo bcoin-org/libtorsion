@@ -4125,17 +4125,6 @@ des_ede3_decrypt(const des_ede3_t *ctx,
 #if defined(HAVE_STRENGTH_REDUCTION)
 
 static uint16_t
-idea_inv(uint16_t x) {
-  uint64_t z = x;
-  int i;
-
-  for (i = 0; i < 15; i++)
-    z = (z * z * x) % 0x10001;
-
-  return z;
-}
-
-static uint16_t
 idea_mul(uint16_t x, uint16_t y) {
   uint64_t u = x;
   uint64_t v = y;
@@ -4146,50 +4135,45 @@ idea_mul(uint16_t x, uint16_t y) {
   return (u * v) % 0x10001;
 }
 
+static uint16_t
+idea_inv(uint16_t x) {
+  uint64_t z = x;
+  int i;
+
+  for (i = 0; i < 15; i++)
+    z = (z * z * x) % 0x10001;
+
+  return z;
+}
+
 #else /* !HAVE_STRENGTH_REDUCTION */
 
 static uint16_t
-idea_inv(uint16_t x) {
-  uint16_t t0, t1, y, q;
+idea_mul(uint16_t x, uint16_t y) {
+  uint32_t u = x;
+  uint32_t v = y;
+  uint32_t w = u * v;
+  uint32_t hi = w >> 16;
+  uint32_t lo = w & 0xffff;
+  uint32_t z = lo - hi + (lo < hi);
 
-  if (x <= 1)
-    return x;
+  z |= (1 - u) & -((v - 1) >> 31);
+  z |= (1 - v) & -((u - 1) >> 31);
 
-  t0 = 1;
-  t1 = UINT32_C(0x10001) / x;
-  y = UINT32_C(0x10001) % x;
-
-  while (y != 1) {
-    q = x / y;
-    x = x % y;
-    t0 += q * t1;
-
-    if (x == 1)
-      return t0;
-
-    q = y / x;
-    y = y % x;
-    t1 += q * t0;
-  }
-
-  return 1 - t1;
+  return z;
 }
 
 static uint16_t
-idea_mul(uint16_t x, uint16_t y) {
-  uint32_t w;
+idea_inv(uint16_t x) {
+  uint16_t z = x;
+  int i;
 
-  if (y == 0)
-    return 1 - x;
+  for (i = 0; i < 15; i++) {
+    z = idea_mul(z, z);
+    z = idea_mul(z, x);
+  }
 
-  if (x == 0)
-    return 1 - y;
-
-  w = (uint32_t)x * y;
-  x = w;
-  y = w >> 16;
-
-  return x - y + (x < y);
+  return z;
 }
 
 #endif /* !HAVE_STRENGTH_REDUCTION */
