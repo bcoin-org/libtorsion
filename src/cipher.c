@@ -792,31 +792,19 @@ aes_init_encrypt(aes_t *ctx, unsigned int bits, const unsigned char *key) {
 void
 aes_init_decrypt(aes_t *ctx) {
   uint32_t *K = ctx->deckey;
-  uint32_t word;
-  int i, j;
+  uint32_t x, y;
+  int i, j, k;
 
   memcpy(K, ctx->enckey, sizeof(ctx->enckey));
 
   for (i = 0, j = 4 * ctx->rounds; i < j; i += 4, j -= 4) {
-    word = K[i + 0];
+    for (k = 0; k < 4; k++) {
+      x = K[i + k];
+      y = K[j + k];
 
-    K[i + 0] = K[j + 0];
-    K[j + 0] = word;
-
-    word = K[i + 1];
-
-    K[i + 1] = K[j + 1];
-    K[j + 1] = word;
-
-    word = K[i + 2];
-
-    K[i + 2] = K[j + 2];
-    K[j + 2] = word;
-
-    word = K[i + 3];
-
-    K[i + 3] = K[j + 3];
-    K[j + 3] = word;
+      K[i + k] = y;
+      K[j + k] = x;
+    }
   }
 
   for (i = 1; i < ctx->rounds; i++) {
@@ -3885,9 +3873,9 @@ des_permute(uint32_t s) {
 
 static void
 des_encipher(const des_t *ctx, uint32_t *xl, uint32_t *xr) {
+  uint32_t kl, kr, b1, b2, s, f, t;
   uint32_t l = *xl;
   uint32_t r = *xr;
-  uint32_t kl, kr, b1, b2, s, f, t;
   int i;
 
   /* Initial Permutation */
@@ -3921,9 +3909,9 @@ des_encipher(const des_t *ctx, uint32_t *xl, uint32_t *xr) {
 
 static void
 des_decipher(const des_t *ctx, uint32_t *xl, uint32_t *xr) {
+  uint32_t kl, kr, b1, b2, s, f, t;
   uint32_t l = *xr;
   uint32_t r = *xl;
-  uint32_t kl, kr, b1, b2, s, f, t;
   int i;
 
   /* Initial Permutation */
