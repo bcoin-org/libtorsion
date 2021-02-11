@@ -4197,8 +4197,8 @@ idea_init_encrypt(idea_t *ctx, const unsigned char *key) {
   for (; j < 52; j++) {
     i += 1;
 
-    K[(i + 7)] = (K[((i + 0) & 7)] << 9)
-               | (K[((i + 1) & 7)] >> 7);
+    K[i + 7] = (K[(i + 0) & 7] << 9)
+             | (K[(i + 1) & 7] >> 7);
 
     K += i & 8;
     i &= 7;
