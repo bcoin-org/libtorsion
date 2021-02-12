@@ -389,7 +389,7 @@ sha512_write_cpuids(sha512_t *hash) {
     for (subleaf = 0; subleaf <= 0xff; subleaf++) {
       sha512_write_cpuid(hash, &ax, &bx, &cx, &dx, leaf, subleaf);
 
-      /* Iterate subleafs for leaf values 4, 7, 11, 13. */
+      /* Iterate subleaves for leaf values 4, 7, 11, 13. */
       if (leaf == 4) {
         if ((ax & 0x1f) == 0)
           break;
@@ -403,7 +403,7 @@ sha512_write_cpuids(sha512_t *hash) {
         if ((cx & 0xff00) == 0)
           break;
       } else if (leaf == 13) {
-        if (ax == 0 && bx == 0 && cx == 0 && dx == 0)
+        if ((ax | bx | cx | dx) == 0)
           break;
       } else {
         /* For any other leaf, stop after subleaf 0. */
