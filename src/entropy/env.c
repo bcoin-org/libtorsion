@@ -77,7 +77,6 @@
 #undef HAVE_CLOCK_GETTIME
 #undef HAVE_GETHOSTNAME
 #undef HAVE_GETSID
-#undef HAVE_OS_IPHONE
 
 #if defined(_WIN32)
 #  include <winsock2.h> /* required by iphlpapi.h */
@@ -147,11 +146,8 @@
 #  endif
 #  ifdef __APPLE__
 #    include <TargetConditionals.h>
-#    if defined(TARGET_OS_IPHONE) && TARGET_OS_IPHONE
-#      define HAVE_OS_IPHONE
-#    endif
 #  endif
-#  if defined(__APPLE__) && !defined(HAVE_OS_IPHONE)
+#  if defined(__APPLE__) && !TARGET_OS_IPHONE
 #    include <crt_externs.h>
 #    define environ (*_NSGetEnviron())
 #  else
