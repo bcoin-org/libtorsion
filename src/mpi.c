@@ -2297,7 +2297,7 @@ mp_div_2by1(mp_limb_t *q, mp_limb_t *r,
 #endif /* !MP_HAVE_ASM_X64 */
 }
 
-TORSION_UNUSED static TORSION_INLINE mp_limb_t
+TORSION_UNUSED static mp_limb_t
 mp_inv_3by2(mp_limb_t d1, mp_limb_t d0) {
   /* [DIV] Algorithm 6, Page 6, Section A.
    *
