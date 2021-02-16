@@ -87,7 +87,7 @@ typedef struct poly1305_uint128_s {
 
 #define poly1305_lo(x) ((x).lo)
 
-#endif /* !HAVE_UMUL128 */
+#endif /* HAVE_UMUL128 */
 
 void
 poly1305_init(poly1305_t *ctx, const unsigned char *key) {
