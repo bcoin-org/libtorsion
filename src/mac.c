@@ -556,7 +556,7 @@ poly1305_final(poly1305_t *ctx, unsigned char *mac) {
  *   https://github.com/bitcoin/bitcoin/blob/master/src/crypto/siphash.cpp
  */
 
-#define ROTL64(x, b) (uint64_t)(((x) << (b)) | ((x) >> (64 - (b))))
+#define ROTL64(w, b) (((w) << (b)) | ((w) >> (64 - (b))))
 
 #define SIPROUND do {                      \
   v0 += v1; v1 = ROTL64(v1, 13); v1 ^= v0; \
