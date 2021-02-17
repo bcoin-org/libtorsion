@@ -365,8 +365,8 @@ poly1305_final(poly1305_t *ctx, unsigned char *mac) {
 
     ctx->block[i++] = 1;
 
-    for (; i < 16; i++)
-      ctx->block[i] = 0;
+    while (i < 16)
+      ctx->block[i++] = 0;
 
     poly1305_blocks(ctx, ctx->block, 16, 1);
   }
@@ -454,8 +454,8 @@ poly1305_final(poly1305_t *ctx, unsigned char *mac) {
 
     ctx->block[i++] = 1;
 
-    for (; i < 16; i++)
-      ctx->block[i] = 0;
+    while (i < 16)
+      ctx->block[i++] = 0;
 
     poly1305_blocks(ctx, ctx->block, 16, 1);
   }
