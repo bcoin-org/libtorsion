@@ -6870,13 +6870,16 @@ ccm_setup(ccm_t *mode, const cipher_t *cipher,
     unsigned char buf[10];
 
     if (aad_len < 0xff00) {
+      /* 0 < l(a) < (2^16 - 2^8) */
       write16be(buf, aad_len);
       cbcmac_update(&mode->hash, cipher, buf, 2);
-    } else if (aad_len < 0xffffffff) {
+    } else if (aad_len - 1 < 0xffffffff) {
+      /* (2^16 - 2^8) <= l(a) < 2^32 */
       write16be(buf + 0, 0xfffe);
       write32be(buf + 2, aad_len);
       cbcmac_update(&mode->hash, cipher, buf, 6);
     } else {
+      /* 2^32 <= l(a) < 2^64 */
       write16be(buf + 0, 0xffff);
       write64be(buf + 2, aad_len);
       cbcmac_update(&mode->hash, cipher, buf, 10);
