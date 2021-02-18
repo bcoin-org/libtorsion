@@ -232,20 +232,20 @@ hash_drbg_reseed(hash_drbg_t *drbg,
 static void
 accumulate(unsigned char *dst, size_t dlen,
            const unsigned char *src, size_t slen) {
-  unsigned int cy = 0;
+  unsigned int c = 0;
 
   ASSERT(dlen >= slen);
 
   while (slen > 0) {
-    cy += (unsigned int)src[--slen] + dst[--dlen];
-    dst[dlen] = cy & 0xff;
-    cy >>= 8;
+    c += (unsigned int)src[--slen] + dst[--dlen];
+    dst[dlen] = c & 0xff;
+    c >>= 8;
   }
 
-  while (cy > 0 && dlen > 0) {
-    cy += (unsigned int)dst[--dlen];
-    dst[dlen] = cy & 0xff;
-    cy >>= 8;
+  while (c > 0 && dlen > 0) {
+    c += (unsigned int)dst[--dlen];
+    dst[dlen] = c & 0xff;
+    c >>= 8;
   }
 }
 

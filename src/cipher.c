@@ -6171,21 +6171,21 @@ xts_setup(xts_t *mode, const cipher_t *cipher,
 static void
 xts_shift(uint8_t *dst, const uint8_t *src, size_t size) {
   uint32_t poly = poly_table[size >> 4];
-  uint8_t cy = 0;
-  uint8_t c;
+  uint8_t c = 0;
+  uint8_t hi;
   size_t i;
 
   for (i = 0; i < size; i++) {
-    c = src[i] >> 7;
+    hi = src[i] >> 7;
 
-    dst[i] = (src[i] << 1) | cy;
+    dst[i] = (src[i] << 1) | c;
 
-    cy = c;
+    c = hi;
   }
 
-  dst[2] ^= (uint8_t)(poly >> 16) & -cy;
-  dst[1] ^= (uint8_t)(poly >>  8) & -cy;
-  dst[0] ^= (uint8_t)(poly >>  0) & -cy;
+  dst[2] ^= (uint8_t)(poly >> 16) & -c;
+  dst[1] ^= (uint8_t)(poly >>  8) & -c;
+  dst[0] ^= (uint8_t)(poly >>  0) & -c;
 }
 
 void
@@ -6643,7 +6643,7 @@ gcm_crypt(gcm_t *mode,
           unsigned char *dst,
           const unsigned char *src,
           size_t len) {
-  unsigned int cy;
+  unsigned int c;
   size_t i;
   int j;
 
@@ -6651,12 +6651,12 @@ gcm_crypt(gcm_t *mode,
     if ((mode->pos & 15) == 0) {
       cipher_encrypt(cipher, mode->state, mode->ctr);
 
-      cy = 1;
+      c = 1;
 
       for (j = 16 - 1; j >= 12; j--) {
-        cy += (unsigned int)mode->ctr[j];
-        mode->ctr[j] = cy;
-        cy >>= 8;
+        c += (unsigned int)mode->ctr[j];
+        mode->ctr[j] = c;
+        c >>= 8;
       }
 
       mode->pos = 0;
@@ -6983,20 +6983,20 @@ static void
 cmac_shift(uint8_t *dst, const uint8_t *src, size_t size) {
   uint32_t poly = poly_table[size >> 4];
   size_t i = size;
-  uint8_t cy = 0;
-  uint8_t c;
+  uint8_t c = 0;
+  uint8_t hi;
 
   while (i--) {
-    c = src[i] >> 7;
+    hi = src[i] >> 7;
 
-    dst[i] = (src[i] << 1) | cy;
+    dst[i] = (src[i] << 1) | c;
 
-    cy = c;
+    c = hi;
   }
 
-  dst[size - 3] ^= (uint8_t)(poly >> 16) & -cy;
-  dst[size - 2] ^= (uint8_t)(poly >>  8) & -cy;
-  dst[size - 1] ^= (uint8_t)(poly >>  0) & -cy;
+  dst[size - 3] ^= (uint8_t)(poly >> 16) & -c;
+  dst[size - 2] ^= (uint8_t)(poly >>  8) & -c;
+  dst[size - 1] ^= (uint8_t)(poly >>  0) & -c;
 }
 
 static void
@@ -7076,7 +7076,7 @@ eax_crypt(eax_t *mode,
           const unsigned char *src,
           size_t len) {
   size_t mask = cipher->size - 1;
-  unsigned int cy;
+  unsigned int c;
   size_t i;
   int j;
 
@@ -7084,12 +7084,12 @@ eax_crypt(eax_t *mode,
     if ((mode->pos & mask) == 0) {
       cipher_encrypt(cipher, mode->state, mode->ctr);
 
-      cy = 1;
+      c = 1;
 
       for (j = cipher->size - 1; j >= 0; j--) {
-        cy += (unsigned int)mode->ctr[j];
-        mode->ctr[j] = cy;
-        cy >>= 8;
+        c += (unsigned int)mode->ctr[j];
+        mode->ctr[j] = c;
+        c >>= 8;
       }
 
       mode->pos = 0;
