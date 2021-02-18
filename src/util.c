@@ -74,7 +74,7 @@ murmur3_sum(const unsigned char *data, size_t len, uint32_t seed) {
   uint32_t k1 = 0;
   size_t left = len;
 
-#define ROTL32(x, y) ((x) << (y)) | ((x) >> (32 - (y)))
+#define ROTL32(w, b) ((w) << (b)) | ((w) >> (32 - (b)))
 
   while (left >= 4) {
     k1 = read32le(data);
