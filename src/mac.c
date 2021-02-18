@@ -566,27 +566,23 @@ poly1305_final(poly1305_t *ctx, unsigned char *mac) {
 
 uint64_t
 siphash_sum(const unsigned char *data, size_t len, const unsigned char *key) {
-  uint64_t c0 = UINT64_C(0x736f6d6570736575);
-  uint64_t c1 = UINT64_C(0x646f72616e646f6d);
-  uint64_t c2 = UINT64_C(0x6c7967656e657261);
-  uint64_t c3 = UINT64_C(0x7465646279746573);
-  uint64_t f0 = (uint64_t)len << 56;
-  uint64_t f1 = 0xff;
   uint64_t k0 = read64le(key + 0);
   uint64_t k1 = read64le(key + 8);
-  uint64_t v0 = k0 ^ c0;
-  uint64_t v1 = k1 ^ c1;
-  uint64_t v2 = k0 ^ c2;
-  uint64_t v3 = k1 ^ c3;
-  uint64_t word;
+  uint64_t v0 = k0 ^ UINT64_C(0x736f6d6570736575);
+  uint64_t v1 = k1 ^ UINT64_C(0x646f72616e646f6d);
+  uint64_t v2 = k0 ^ UINT64_C(0x6c7967656e657261);
+  uint64_t v3 = k1 ^ UINT64_C(0x7465646279746573);
+  uint64_t f0 = (uint64_t)len << 56;
+  uint64_t f1 = 0xff;
+  uint64_t w;
 
   while (len >= 8) {
-    word = read64le(data);
+    w = read64le(data);
 
-    v3 ^= word;
+    v3 ^= w;
     SIPROUND;
     SIPROUND;
-    v0 ^= word;
+    v0 ^= w;
 
     data += 8;
     len -= 8;
@@ -655,18 +651,14 @@ siphash_mod(const unsigned char *data,
 
 uint64_t
 siphash128_sum(uint64_t num, const unsigned char *key) {
-  uint64_t c0 = UINT64_C(0x736f6d6570736575);
-  uint64_t c1 = UINT64_C(0x646f72616e646f6d);
-  uint64_t c2 = UINT64_C(0x6c7967656e657261);
-  uint64_t c3 = UINT64_C(0x7465646279746573);
-  uint64_t f0 = num;
-  uint64_t f1 = 0xff;
   uint64_t k0 = read64le(key + 0);
   uint64_t k1 = read64le(key + 8);
-  uint64_t v0 = k0 ^ c0;
-  uint64_t v1 = k1 ^ c1;
-  uint64_t v2 = k0 ^ c2;
-  uint64_t v3 = k1 ^ c3;
+  uint64_t v0 = k0 ^ UINT64_C(0x736f6d6570736575);
+  uint64_t v1 = k1 ^ UINT64_C(0x646f72616e646f6d);
+  uint64_t v2 = k0 ^ UINT64_C(0x6c7967656e657261);
+  uint64_t v3 = k1 ^ UINT64_C(0x7465646279746573);
+  uint64_t f0 = num;
+  uint64_t f1 = 0xff;
 
   v3 ^= f0;
   SIPROUND;
@@ -686,16 +678,12 @@ siphash128_sum(uint64_t num, const unsigned char *key) {
 
 uint64_t
 siphash256_sum(uint64_t num, const unsigned char *key) {
+  uint64_t v0 = read64le(key +  0);
+  uint64_t v1 = read64le(key +  8);
+  uint64_t v2 = read64le(key + 16);
+  uint64_t v3 = read64le(key + 24);
   uint64_t f0 = num;
   uint64_t f1 = 0xff;
-  uint64_t k0 = read64le(key +  0);
-  uint64_t k1 = read64le(key +  8);
-  uint64_t k2 = read64le(key + 16);
-  uint64_t k3 = read64le(key + 24);
-  uint64_t v0 = k0;
-  uint64_t v1 = k1;
-  uint64_t v2 = k2;
-  uint64_t v3 = k3;
 
   v3 ^= f0;
   SIPROUND;
