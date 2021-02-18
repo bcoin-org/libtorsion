@@ -654,8 +654,8 @@ gost94_update(gost94_t *ctx, const void *data, size_t len) {
     memcpy(ctx->block + pos, raw, want);
 
     pos += want;
-    len -= want;
     raw += want;
+    len -= want;
 
     if (pos < 32)
       return;
@@ -1060,8 +1060,8 @@ keccak_update(keccak_t *ctx, const void *data, size_t len) {
     memcpy(ctx->block + pos, raw, want);
 
     pos += want;
-    len -= want;
     raw += want;
+    len -= want;
 
     if (pos < ctx->bs) {
       ctx->pos = pos;
@@ -1240,8 +1240,8 @@ md2_update(md2_t *ctx, const void *data, size_t len) {
     memcpy(ctx->block + pos, raw, want);
 
     pos += want;
-    len -= want;
     raw += want;
+    len -= want;
 
     if (pos < 16) {
       ctx->pos = pos;
@@ -1407,8 +1407,8 @@ md4_update(md4_t *ctx, const void *data, size_t len) {
     memcpy(ctx->block + pos, raw, want);
 
     pos += want;
-    len -= want;
     raw += want;
+    len -= want;
 
     if (pos < 64)
       return;
@@ -1583,8 +1583,8 @@ md5_update(md5_t *ctx, const void *data, size_t len) {
     memcpy(ctx->block + pos, raw, want);
 
     pos += want;
-    len -= want;
     raw += want;
+    len -= want;
 
     if (pos < 64)
       return;
@@ -1925,8 +1925,8 @@ ripemd160_update(ripemd160_t *ctx, const void *data, size_t len) {
     memcpy(ctx->block + pos, raw, want);
 
     pos += want;
-    len -= want;
     raw += want;
+    len -= want;
 
     if (pos < 64)
       return;
@@ -2167,8 +2167,8 @@ sha1_update(sha1_t *ctx, const void *data, size_t len) {
     memcpy(ctx->block + pos, raw, want);
 
     pos += want;
-    len -= want;
     raw += want;
+    len -= want;
 
     if (pos < 64)
       return;
@@ -2435,8 +2435,8 @@ sha256_update(sha256_t *ctx, const void *data, size_t len) {
     memcpy(ctx->block + pos, raw, want);
 
     pos += want;
-    len -= want;
     raw += want;
+    len -= want;
 
     if (pos < 64)
       return;
@@ -2719,8 +2719,8 @@ sha512_update(sha512_t *ctx, const void *data, size_t len) {
     memcpy(ctx->block + pos, raw, want);
 
     pos += want;
-    len -= want;
     raw += want;
+    len -= want;
 
     if (pos < 128)
       return;
@@ -3932,8 +3932,8 @@ whirlpool_update(whirlpool_t *ctx, const void *data, size_t len) {
     memcpy(ctx->block + pos, raw, want);
 
     pos += want;
-    len -= want;
     raw += want;
+    len -= want;
 
     if (pos < 64)
       return;
