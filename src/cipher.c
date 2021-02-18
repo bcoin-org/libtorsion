@@ -6974,7 +6974,7 @@ cmac_init(cmac_t *ctx, const cipher_t *cipher, int flag) {
   ctx->pos = 0;
 
   if (flag != -1) {
-    ctx->mac[cipher->size - 1] ^= (unsigned char)flag;
+    ctx->mac[cipher->size - 1] ^= (flag & 0xff);
     ctx->pos = cipher->size;
   }
 }
