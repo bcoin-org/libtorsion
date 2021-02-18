@@ -6478,9 +6478,10 @@ gfe_dbl(gfe_t *z, const gfe_t *x) {
 }
 
 static void
-gfe_mul(gfe_t *r, const gfe_t *x, const gfe_t *table) {
+gfe_mul(gfe_t *z, const gfe_t *x, const gfe_t *table) {
   uint64_t word, msw;
-  gfe_t z = {0, 0};
+  uint64_t lo = 0;
+  uint64_t hi = 0;
   const gfe_t *t;
   int i, j;
 
@@ -6491,24 +6492,24 @@ gfe_mul(gfe_t *r, const gfe_t *x, const gfe_t *table) {
       word = x->lo;
 
     for (j = 0; j < 64; j += 4) {
-      msw = z.hi & 0x0f;
+      msw = hi & 0x0f;
 
-      z.hi >>= 4;
-      z.hi |= z.lo << 60;
-      z.lo >>= 4;
-      z.lo ^= (uint64_t)ghash_reduction[msw] << 48;
+      hi >>= 4;
+      hi |= lo << 60;
+      lo >>= 4;
+      lo ^= (uint64_t)ghash_reduction[msw] << 48;
 
       t = &table[word & 0x0f];
 
-      z.lo ^= t->lo;
-      z.hi ^= t->hi;
+      lo ^= t->lo;
+      hi ^= t->hi;
 
       word >>= 4;
     }
   }
 
-  r->lo = z.lo;
-  r->hi = z.hi;
+  z->lo = lo;
+  z->hi = hi;
 }
 
 static void
@@ -6520,14 +6521,12 @@ ghash_transform(ghash_t *ctx, const unsigned char *block) {
 }
 
 static void
-ghash_absorb(ghash_t *ctx, const void *data, size_t len) {
-  const unsigned char *raw = (const unsigned char *)data;
-  size_t pos = ctx->size & 15;
+ghash_absorb(ghash_t *ctx, const unsigned char *data, size_t len) {
+  const unsigned char *raw = data;
+  size_t pos = ctx->pos;
 
   if (len == 0)
     return;
-
-  ctx->size += len;
 
   if (pos > 0) {
     size_t want = 16 - pos;
@@ -6538,11 +6537,13 @@ ghash_absorb(ghash_t *ctx, const void *data, size_t len) {
     memcpy(ctx->block + pos, raw, want);
 
     pos += want;
-    len -= want;
     raw += want;
+    len -= want;
 
-    if (pos < 16)
+    if (pos < 16) {
+      ctx->pos = pos;
       return;
+    }
 
     ghash_transform(ctx, ctx->block);
   }
@@ -6555,14 +6556,20 @@ ghash_absorb(ghash_t *ctx, const void *data, size_t len) {
 
   if (len > 0)
     memcpy(ctx->block, raw, len);
+
+  ctx->pos = len;
 }
 
 static void
 ghash_pad(ghash_t *ctx) {
-  size_t pos = ctx->size & 15;
+  if (ctx->pos > 0) {
+    while (ctx->pos < 16)
+      ctx->block[ctx->pos++] = 0;
 
-  if (pos > 0)
-    ghash_absorb(ctx, zero64, 16 - pos);
+    ghash_transform(ctx, ctx->block);
+
+    ctx->pos = 0;
+  }
 }
 
 static void
@@ -6591,7 +6598,7 @@ ghash_init(ghash_t *ctx, const unsigned char *key) {
 
   ctx->adlen = 0;
   ctx->ctlen = 0;
-  ctx->size = 0;
+  ctx->pos = 0;
 }
 
 static void

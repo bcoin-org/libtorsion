@@ -285,7 +285,7 @@ struct __ghash_s {
   unsigned char block[16];
   uint64_t adlen;
   uint64_t ctlen;
-  size_t size;
+  size_t pos;
 };
 
 typedef struct gcm_s {
