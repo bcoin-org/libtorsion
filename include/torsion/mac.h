@@ -45,7 +45,7 @@ typedef struct poly1305_s {
     } u64;
   } state;
   unsigned char block[16];
-  size_t size;
+  size_t pos;
 } poly1305_t;
 
 /*

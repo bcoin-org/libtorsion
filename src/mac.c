@@ -110,7 +110,7 @@ poly1305_init(poly1305_t *ctx, const unsigned char *key) {
   st->pad[0] = read64le(key + 16);
   st->pad[1] = read64le(key + 24);
 
-  ctx->size = 0;
+  ctx->pos = 0;
 #else /* !POLY1305_HAVE_64BIT */
   struct poly1305_32_s *st = &ctx->state.u32;
 
@@ -134,7 +134,7 @@ poly1305_init(poly1305_t *ctx, const unsigned char *key) {
   st->pad[2] = read32le(key + 24);
   st->pad[3] = read32le(key + 28);
 
-  ctx->size = 0;
+  ctx->pos = 0;
 #endif /* !POLY1305_HAVE_64BIT */
 }
 
@@ -197,7 +197,7 @@ poly1305_blocks(poly1305_t *ctx,
     h2 = poly1305_lo(d2) & UINT64_C(0x3ffffffffff);
 
     h0 += c * 5;
-    c = (h0 >> 44);
+    c = h0 >> 44;
     h0 &= UINT64_C(0xfffffffffff);
 
     h1 += c;
@@ -289,7 +289,7 @@ poly1305_blocks(poly1305_t *ctx,
     h4 = (uint32_t)d4 & 0x3ffffff;
     h0 += c * 5;
 
-    c = (h0 >> 26);
+    c = h0 >> 26;
     h0 &= 0x3ffffff;
     h1 += c;
 
@@ -307,48 +307,45 @@ poly1305_blocks(poly1305_t *ctx,
 
 void
 poly1305_update(poly1305_t *ctx, const unsigned char *data, size_t len) {
-  size_t i;
+  const unsigned char *raw = data;
+  size_t pos = ctx->pos;
 
-  /* Handle leftover. */
-  if (ctx->size > 0) {
-    size_t want = 16 - ctx->size;
+  if (len == 0)
+    return;
+
+  if (pos > 0) {
+    size_t want = 16 - pos;
 
     if (want > len)
       want = len;
 
-    for (i = 0; i < want; i++)
-      ctx->block[ctx->size + i] = data[i];
+    memcpy(ctx->block + pos, raw, want);
 
+    pos += want;
+    raw += want;
     len -= want;
-    data += want;
 
-    ctx->size += want;
-
-    if (ctx->size < 16)
+    if (pos < 16) {
+      ctx->pos = pos;
       return;
+    }
 
     poly1305_blocks(ctx, ctx->block, 16, 0);
-
-    ctx->size = 0;
   }
 
-  /* Process full blocks. */
   if (len >= 16) {
-    size_t want = len & ~15;
+    size_t aligned = len & -16;
 
-    poly1305_blocks(ctx, data, want, 0);
+    poly1305_blocks(ctx, raw, aligned, 0);
 
-    data += want;
-    len -= want;
+    raw += aligned;
+    len -= aligned;
   }
 
-  /* Store leftover. */
-  if (len > 0) {
-    for (i = 0; i < len; i++)
-      ctx->block[ctx->size + i] = data[i];
+  if (len > 0)
+    memcpy(ctx->block, raw, len);
 
-    ctx->size += len;
-  }
+  ctx->pos = len;
 }
 
 void
@@ -360,15 +357,15 @@ poly1305_final(poly1305_t *ctx, unsigned char *mac) {
   uint64_t t0, t1;
 
   /* Process the remaining block. */
-  if (ctx->size > 0) {
-    size_t i = ctx->size;
+  if (ctx->pos > 0) {
+    ctx->block[ctx->pos++] = 1;
 
-    ctx->block[i++] = 1;
-
-    while (i < 16)
-      ctx->block[i++] = 0;
+    while (ctx->pos < 16)
+      ctx->block[ctx->pos++] = 0;
 
     poly1305_blocks(ctx, ctx->block, 16, 1);
+
+    ctx->pos = 0;
   }
 
   /* Fully carry h. */
@@ -376,37 +373,37 @@ poly1305_final(poly1305_t *ctx, unsigned char *mac) {
   h1 = st->h[1];
   h2 = st->h[2];
 
-  c = (h1 >> 44);
+  c = h1 >> 44;
   h1 &= UINT64_C(0xfffffffffff);
 
   h2 += c;
-  c = (h2 >> 42);
+  c = h2 >> 42;
   h2 &= UINT64_C(0x3ffffffffff);
 
   h0 += c * 5;
-  c = (h0 >> 44);
+  c = h0 >> 44;
   h0 &= UINT64_C(0xfffffffffff);
 
   h1 += c;
-  c = (h1 >> 44);
+  c = h1 >> 44;
   h1 &= UINT64_C(0xfffffffffff);
 
   h2 += c;
-  c = (h2 >> 42);
+  c = h2 >> 42;
   h2 &= UINT64_C(0x3ffffffffff);
 
   h0 += c * 5;
-  c = (h0 >> 44);
+  c = h0 >> 44;
   h0 &= UINT64_C(0xfffffffffff);
   h1 += c;
 
   /* Compute h + -p. */
   g0 = h0 + 5;
-  c = (g0 >> 44);
+  c = g0 >> 44;
   g0 &= UINT64_C(0xfffffffffff);
 
   g1 = h1 + c;
-  c = (g1 >> 44);
+  c = g1 >> 44;
   g1 &= UINT64_C(0xfffffffffff);
   g2 = h2 + c - (UINT64_C(1) << 42);
 
@@ -425,19 +422,19 @@ poly1305_final(poly1305_t *ctx, unsigned char *mac) {
   t1 = st->pad[1];
 
   h0 += (t0 & UINT64_C(0xfffffffffff));
-  c = (h0 >> 44);
+  c = h0 >> 44;
   h0 &= UINT64_C(0xfffffffffff);
 
   h1 += (((t0 >> 44) | (t1 << 20)) & UINT64_C(0xfffffffffff)) + c;
-  c = (h1 >> 44);
+  c = h1 >> 44;
   h1 &= UINT64_C(0xfffffffffff);
 
   h2 += (((t1 >> 24)) & UINT64_C(0x3ffffffffff)) + c;
   h2 &= UINT64_C(0x3ffffffffff);
 
   /* mac = h % (2^128) */
-  h0 = (h0 | (h1 << 44));
-  h1 = ((h1 >> 20) | (h2 << 24));
+  h0 |= (h1 << 44);
+  h1 = (h1 >> 20) | (h2 << 24);
 
   write64le(mac + 0, h0);
   write64le(mac + 8, h1);
@@ -449,15 +446,15 @@ poly1305_final(poly1305_t *ctx, unsigned char *mac) {
   uint64_t f;
 
   /* Process the remaining block. */
-  if (ctx->size > 0) {
-    size_t i = ctx->size;
+  if (ctx->pos > 0) {
+    ctx->block[ctx->pos++] = 1;
 
-    ctx->block[i++] = 1;
-
-    while (i < 16)
-      ctx->block[i++] = 0;
+    while (ctx->pos < 16)
+      ctx->block[ctx->pos++] = 0;
 
     poly1305_blocks(ctx, ctx->block, 16, 1);
+
+    ctx->pos = 0;
   }
 
   /* Fully carry h. */
