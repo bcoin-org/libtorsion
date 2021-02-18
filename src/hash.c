@@ -1192,16 +1192,8 @@ md2_transform(md2_t *ctx, const unsigned char *chunk) {
 #define C (ctx->checksum)
 #define W ((uint8_t *)(chunk))
 
-  /* The RFC doesn't describe the specifics
-     of XOR'ing the checksum, but OpenSSL
-     seems to do this. */
-  l = C[15];
-
   for (j = 0; j < 16; j++) {
     c = W[j];
-    l = C[j] ^ K[c ^ l];
-
-    C[j] = l;
 
     S[16 + j] = c;
     S[32 + j] = c ^ S[j];
@@ -1216,6 +1208,18 @@ md2_transform(md2_t *ctx, const unsigned char *chunk) {
     }
 
     t = (t + j) & 0xff;
+  }
+
+  /* The RFC doesn't describe the specifics
+     of XOR'ing the checksum, but OpenSSL
+     seems to do this. */
+  l = C[15];
+
+  for (j = 0; j < 16; j++) {
+    c = W[j];
+    l = C[j] ^ K[c ^ l];
+
+    C[j] = l;
   }
 
 #undef S
