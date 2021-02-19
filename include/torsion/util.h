@@ -41,7 +41,10 @@ torsion_memequal(const void *x, const void *y, size_t n);
  */
 
 TORSION_EXTERN void
-torsion_memxor(void *z, const void *x, const void *y, size_t n);
+torsion_memxor(void *z, const void *x, size_t n);
+
+TORSION_EXTERN void
+torsion_memxor3(void *z, const void *x, const void *y, size_t n);
 
 /*
  * Murmur3

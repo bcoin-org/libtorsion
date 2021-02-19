@@ -5096,10 +5096,15 @@ test_util_memxor(drbg_t *rng) {
   drbg_generate(rng, xp, 32);
   drbg_generate(rng, yp, 32);
 
-  torsion_memxor(zp, xp, yp, 32);
+  torsion_memxor3(zp, xp, yp, 32);
 
   for (i = 0; i < 32; i++)
     ep[i] = xp[i] ^ yp[i];
+
+  ASSERT(torsion_memcmp(zp, ep, 32) == 0);
+
+  memcpy(zp, xp, 32);
+  torsion_memxor(zp, yp, 32);
 
   ASSERT(torsion_memcmp(zp, ep, 32) == 0);
 }

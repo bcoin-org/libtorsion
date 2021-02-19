@@ -63,7 +63,16 @@ torsion_memequal(const void *x, const void *y, size_t n) {
  */
 
 void
-torsion_memxor(void *z, const void *x, const void *y, size_t n) {
+torsion_memxor(void *z, const void *x, size_t n) {
+  const unsigned char *xp = x;
+  unsigned char *zp = z;
+
+  while (n--)
+    *zp++ ^= *xp++;
+}
+
+void
+torsion_memxor3(void *z, const void *x, const void *y, size_t n) {
   const unsigned char *xp = x;
   const unsigned char *yp = y;
   unsigned char *zp = z;

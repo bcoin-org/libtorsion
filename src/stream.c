@@ -190,7 +190,7 @@ chacha20_crypt(chacha20_t *ctx,
 
   if (len >= want) {
     if (pos > 0) {
-      torsion_memxor(dst, src, bytes + pos, want);
+      torsion_memxor3(dst, src, bytes + pos, want);
 
       dst += want;
       src += want;
@@ -201,7 +201,7 @@ chacha20_crypt(chacha20_t *ctx,
     while (len >= 64) {
       chacha20_block(ctx, ctx->stream);
 
-      torsion_memxor(dst, src, bytes, 64);
+      torsion_memxor3(dst, src, bytes, 64);
 
       dst += 64;
       src += 64;
@@ -213,7 +213,7 @@ chacha20_crypt(chacha20_t *ctx,
     if (pos == 0)
       chacha20_block(ctx, ctx->stream);
 
-    torsion_memxor(dst, src, bytes + pos, len);
+    torsion_memxor3(dst, src, bytes + pos, len);
 
     pos += len;
   }
@@ -391,7 +391,7 @@ salsa20_crypt(salsa20_t *ctx,
 
   if (len >= want) {
     if (pos > 0) {
-      torsion_memxor(dst, src, bytes + pos, want);
+      torsion_memxor3(dst, src, bytes + pos, want);
 
       dst += want;
       src += want;
@@ -402,7 +402,7 @@ salsa20_crypt(salsa20_t *ctx,
     while (len >= 64) {
       salsa20_block(ctx, ctx->stream);
 
-      torsion_memxor(dst, src, bytes, 64);
+      torsion_memxor3(dst, src, bytes, 64);
 
       dst += 64;
       src += 64;
@@ -414,7 +414,7 @@ salsa20_crypt(salsa20_t *ctx,
     if (pos == 0)
       salsa20_block(ctx, ctx->stream);
 
-    torsion_memxor(dst, src, bytes + pos, len);
+    torsion_memxor3(dst, src, bytes + pos, len);
 
     pos += len;
   }
