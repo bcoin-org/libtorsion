@@ -363,15 +363,14 @@ test_cipher_contexts(drbg_t *unused) {
 }
 
 static void
-test_cipher_modes(drbg_t *unused) {
+test_cipher_modes(drbg_t *rng) {
   unsigned char key[64];
   unsigned char iv[CIPHER_MAX_BLOCK_SIZE];
   unsigned char input[64];
   unsigned char output[64];
-  unsigned char data[64];
-  unsigned int i;
-
-  (void)unused;
+  unsigned char data[CIPHER_MAX_UPDATE_SIZE(64)];
+  cipher_stream_t ctx;
+  unsigned int i, j;
 
   for (i = 0; i < ARRAY_SIZE(cipher_mode_vectors); i++) {
     int type = cipher_mode_vectors[i].type;
@@ -380,7 +379,7 @@ test_cipher_modes(drbg_t *unused) {
     size_t iv_len = sizeof(iv);
     size_t input_len = sizeof(input);
     size_t output_len = sizeof(output);
-    size_t len;
+    size_t len, len1, len2;
 
     ASSERT(type >= 0 && type <= CIPHER_MAX);
     ASSERT(mode >= 0 && mode <= CIPHER_MODE_MAX);
@@ -393,27 +392,123 @@ test_cipher_modes(drbg_t *unused) {
     hex_decode(input, &input_len, cipher_mode_vectors[i].input);
     hex_decode(output, &output_len, cipher_mode_vectors[i].output);
 
-    ASSERT(sizeof(data) >= CIPHER_MAX_ENCRYPT_SIZE(input_len));
-    ASSERT(sizeof(data) >= CIPHER_MAX_DECRYPT_SIZE(output_len));
+    /* One-shot static encryption. */
+    {
+      ASSERT(sizeof(data) >= CIPHER_MAX_ENCRYPT_SIZE(input_len));
 
-    ASSERT(cipher_static_encrypt(data, &len, type, mode,
-                                 key, key_len, iv, iv_len,
-                                 input, input_len));
+      ASSERT(cipher_static_encrypt(data, &len, type, mode,
+                                   key, key_len, iv, iv_len,
+                                   input, input_len));
 
-    ASSERT(len == output_len);
-    ASSERT(torsion_memcmp(data, output, len) == 0);
+      ASSERT(len == output_len);
+      ASSERT(torsion_memcmp(data, output, output_len) == 0);
+    }
 
-    ASSERT(cipher_static_decrypt(data, &len, type, mode,
-                                 key, key_len, iv, iv_len,
-                                 output, output_len));
+    /* One-shot static decryption. */
+    {
+      ASSERT(sizeof(data) >= CIPHER_MAX_DECRYPT_SIZE(output_len));
 
-    ASSERT(len == input_len);
-    ASSERT(torsion_memcmp(data, input, len) == 0);
+      ASSERT(cipher_static_decrypt(data, &len, type, mode,
+                                   key, key_len, iv, iv_len,
+                                   output, output_len));
+
+      ASSERT(len == input_len);
+      ASSERT(torsion_memcmp(data, input, input_len) == 0);
+    }
+
+    /* One-shot encryption. */
+    {
+      ASSERT(cipher_stream_init(&ctx, type, mode, 1, key, key_len, iv, iv_len));
+
+      ASSERT(sizeof(data) >= cipher_stream_update_size(&ctx, input_len));
+
+      cipher_stream_update(&ctx, data, &len1, input, input_len);
+
+      ASSERT(len1 <= sizeof(data));
+      ASSERT(sizeof(data) - len1 >= cipher_stream_final_size(&ctx));
+
+      ASSERT(cipher_stream_final(&ctx, data + len1, &len2));
+      ASSERT(len1 + len2 == output_len);
+      ASSERT(torsion_memcmp(data, output, output_len) == 0);
+    }
+
+    /* One-shot decryption. */
+    {
+      ASSERT(cipher_stream_init(&ctx, type, mode, 0, key, key_len, iv, iv_len));
+
+      ASSERT(sizeof(data) >= cipher_stream_update_size(&ctx, output_len));
+
+      cipher_stream_update(&ctx, data, &len1, output, output_len);
+
+      ASSERT(len1 <= sizeof(data));
+      ASSERT(sizeof(data) - len1 >= cipher_stream_final_size(&ctx));
+
+      ASSERT(cipher_stream_final(&ctx, data + len1, &len2));
+      ASSERT(len1 + len2 == input_len);
+      ASSERT(torsion_memcmp(data, input, input_len) == 0);
+    }
+
+    /* 1 byte chunks. */
+    {
+      ASSERT(cipher_stream_init(&ctx, type, mode, 1, key, key_len, iv, iv_len));
+
+      len1 = 0;
+
+      for (j = 0; j < input_len; j++) {
+        ASSERT(len1 <= sizeof(data));
+        ASSERT(sizeof(data) - len1 >= cipher_stream_update_size(&ctx, 1));
+
+        cipher_stream_update(&ctx, &data[len1], &len, &input[j], 1);
+
+        len1 += len;
+      }
+
+      ASSERT(len1 <= sizeof(data));
+      ASSERT(sizeof(data) - len1 >= cipher_stream_final_size(&ctx));
+
+      ASSERT(cipher_stream_final(&ctx, data + len1, &len2));
+      ASSERT(len1 + len2 == output_len);
+      ASSERT(torsion_memcmp(data, output, output_len) == 0);
+    }
+
+    /* Random chunks. */
+    for (j = 0; j < 5; j++) {
+      size_t ilen = input_len;
+      size_t opos = 0;
+      size_t ipos = 0;
+      size_t n;
+
+      ASSERT(cipher_stream_init(&ctx, type, mode, 1, key, key_len, iv, iv_len));
+
+      len1 = 0;
+
+      while (ilen > 0) {
+        n = drbg_uniform(rng, ilen + 1);
+
+        ASSERT(opos <= sizeof(data));
+        ASSERT(sizeof(data) - opos >= cipher_stream_update_size(&ctx, n));
+
+        cipher_stream_update(&ctx, data + opos, &len, input + ipos, n);
+
+        len1 += len;
+
+        opos += len;
+        ipos += n;
+        ilen -= n;
+      }
+
+      ASSERT(len1 <= sizeof(data));
+      ASSERT(sizeof(data) - len1 >= cipher_stream_final_size(&ctx));
+
+      ASSERT(cipher_stream_final(&ctx, data + len1, &len2));
+      ASSERT(len1 + len2 == output_len);
+      ASSERT(torsion_memcmp(data, output, output_len) == 0);
+    }
   }
 }
 
 static void
-test_cipher_aead(drbg_t *unused) {
+test_cipher_aead(drbg_t *rng) {
   unsigned char key[32];
   unsigned char iv[16];
   unsigned char aad[64];
@@ -423,9 +518,7 @@ test_cipher_aead(drbg_t *unused) {
   unsigned char data[64];
   unsigned char mac[16];
   cipher_stream_t ctx;
-  unsigned int i;
-
-  (void)unused;
+  unsigned int i, j;
 
   for (i = 0; i < ARRAY_SIZE(cipher_aead_vectors); i++) {
     int type = cipher_aead_vectors[i].type;
@@ -451,44 +544,121 @@ test_cipher_aead(drbg_t *unused) {
     hex_decode(output, &output_len, cipher_aead_vectors[i].output);
     hex_decode(tag, &tag_len, cipher_aead_vectors[i].tag);
 
-    ASSERT(input_len == output_len);
-    ASSERT(cipher_stream_init(&ctx, type, mode, 1, key, key_len, iv, iv_len));
+    /* One-shot encryption. */
+    {
+      ASSERT(input_len == output_len);
+      ASSERT(cipher_stream_init(&ctx, type, mode, 1, key, key_len, iv, iv_len));
 
-    if (mode == CIPHER_MODE_CCM)
-      ASSERT(cipher_stream_set_ccm(&ctx, input_len, tag_len, aad, aad_len));
-    else
-      ASSERT(cipher_stream_set_aad(&ctx, aad, aad_len));
+      if (mode == CIPHER_MODE_CCM)
+        ASSERT(cipher_stream_set_ccm(&ctx, input_len, tag_len, aad, aad_len));
+      else
+        ASSERT(cipher_stream_set_aad(&ctx, aad, aad_len));
 
-    ASSERT(sizeof(data) >= cipher_stream_update_size(&ctx, input_len));
+      ASSERT(sizeof(data) >= cipher_stream_update_size(&ctx, input_len));
 
-    cipher_stream_update(&ctx, data, &len, input, input_len);
+      cipher_stream_update(&ctx, data, &len, input, input_len);
 
-    ASSERT(len == output_len);
+      ASSERT(len == output_len);
 
-    ASSERT(cipher_stream_final(&ctx, data, &len));
-    ASSERT(len == 0);
-    ASSERT(torsion_memcmp(data, output, output_len) == 0);
+      ASSERT(cipher_stream_final_size(&ctx) == 0);
+      ASSERT(cipher_stream_final(&ctx, data, &len));
+      ASSERT(len == 0);
+      ASSERT(torsion_memcmp(data, output, output_len) == 0);
 
-    ASSERT(cipher_stream_get_tag(&ctx, mac, &len));
-    ASSERT(len == tag_len && torsion_memcmp(mac, tag, tag_len) == 0);
+      ASSERT(cipher_stream_get_tag(&ctx, mac, &len));
+      ASSERT(len == tag_len);
+      ASSERT(torsion_memcmp(mac, tag, tag_len) == 0);
+    }
 
-    ASSERT(cipher_stream_init(&ctx, type, mode, 0, key, key_len, iv, iv_len));
+    /* One-shot decryption. */
+    {
+      ASSERT(cipher_stream_init(&ctx, type, mode, 0, key, key_len, iv, iv_len));
 
-    if (mode == CIPHER_MODE_CCM)
-      ASSERT(cipher_stream_set_ccm(&ctx, output_len, tag_len, aad, aad_len));
-    else
-      ASSERT(cipher_stream_set_aad(&ctx, aad, aad_len));
+      if (mode == CIPHER_MODE_CCM)
+        ASSERT(cipher_stream_set_ccm(&ctx, output_len, tag_len, aad, aad_len));
+      else
+        ASSERT(cipher_stream_set_aad(&ctx, aad, aad_len));
 
-    ASSERT(cipher_stream_set_tag(&ctx, tag, tag_len));
-    ASSERT(sizeof(data) >= cipher_stream_update_size(&ctx, output_len));
+      ASSERT(cipher_stream_set_tag(&ctx, tag, tag_len));
 
-    cipher_stream_update(&ctx, data, &len, output, output_len);
+      ASSERT(sizeof(data) >= cipher_stream_update_size(&ctx, output_len));
 
-    ASSERT(len == input_len);
+      cipher_stream_update(&ctx, data, &len, output, output_len);
 
-    ASSERT(cipher_stream_final(&ctx, data, &len));
-    ASSERT(len == 0);
-    ASSERT(torsion_memcmp(data, input, input_len) == 0);
+      ASSERT(len == input_len);
+
+      ASSERT(cipher_stream_final_size(&ctx) == 0);
+      ASSERT(cipher_stream_final(&ctx, data, &len));
+      ASSERT(len == 0);
+      ASSERT(torsion_memcmp(data, input, input_len) == 0);
+    }
+
+    /* 1 byte chunks. */
+    {
+      ASSERT(cipher_stream_init(&ctx, type, mode, 1, key, key_len, iv, iv_len));
+
+      if (mode == CIPHER_MODE_CCM)
+        ASSERT(cipher_stream_set_ccm(&ctx, input_len, tag_len, aad, aad_len));
+      else
+        ASSERT(cipher_stream_set_aad(&ctx, aad, aad_len));
+
+      for (j = 0; j < input_len; j++) {
+        ASSERT(j <= sizeof(data));
+        ASSERT(sizeof(data) - j >= cipher_stream_update_size(&ctx, 1));
+
+        cipher_stream_update(&ctx, &data[j], &len, &input[j], 1);
+
+        ASSERT(len == 1);
+      }
+
+      ASSERT(cipher_stream_final_size(&ctx) == 0);
+      ASSERT(cipher_stream_final(&ctx, data, &len));
+      ASSERT(len == 0);
+      ASSERT(torsion_memcmp(data, output, output_len) == 0);
+
+      ASSERT(cipher_stream_get_tag(&ctx, mac, &len));
+      ASSERT(len == tag_len);
+      ASSERT(torsion_memcmp(mac, tag, tag_len) == 0);
+    }
+
+    /* Random chunks. */
+    for (j = 0; j < 5; j++) {
+      size_t ilen = input_len;
+      size_t opos = 0;
+      size_t ipos = 0;
+      size_t n;
+
+      ASSERT(cipher_stream_init(&ctx, type, mode, 1, key, key_len, iv, iv_len));
+
+      if (mode == CIPHER_MODE_CCM)
+        ASSERT(cipher_stream_set_ccm(&ctx, input_len, tag_len, aad, aad_len));
+      else
+        ASSERT(cipher_stream_set_aad(&ctx, aad, aad_len));
+
+      while (ilen > 0) {
+        n = drbg_uniform(rng, ilen + 1);
+
+        ASSERT(opos <= sizeof(data));
+        ASSERT(sizeof(data) - opos >= cipher_stream_update_size(&ctx, n));
+
+        cipher_stream_update(&ctx, data + opos, &len, input + ipos, n);
+
+        ASSERT(len == n);
+
+        opos += len;
+        ipos += n;
+        ilen -= n;
+      }
+
+      ASSERT(cipher_stream_final_size(&ctx) == 0);
+      ASSERT(cipher_stream_final(&ctx, data, &len));
+      ASSERT(len == 0);
+      ASSERT(torsion_memcmp(data, output, output_len) == 0);
+
+      ASSERT(cipher_stream_get_tag(&ctx, mac, &len));
+      ASSERT(len == tag_len);
+      ASSERT(torsion_memcmp(mac, tag, tag_len) == 0);
+    }
   }
 }
 
@@ -3400,14 +3570,12 @@ test_encoding_cash32(drbg_t *unused) {
  */
 
 static void
-test_hash_digest(drbg_t *unused) {
-  unsigned char iv[256];
+test_hash_digest(drbg_t *rng) {
   unsigned char expect[HASH_MAX_OUTPUT_SIZE];
   unsigned char out[HASH_MAX_OUTPUT_SIZE];
-  hash_t hash;
+  unsigned char iv[1024];
   unsigned int i, j;
-
-  (void)unused;
+  hash_t hash;
 
   for (i = 0; i < ARRAY_SIZE(hash_vectors); i++) {
     int type = hash_vectors[i].type;
@@ -3421,30 +3589,123 @@ test_hash_digest(drbg_t *unused) {
     hex_decode(iv, &iv_len, hash_vectors[i].iv);
     hex_parse(expect, size, hash_vectors[i].expect);
 
-    hash_init(&hash, type);
-    hash_update(&hash, iv, iv_len);
-    hash_final(&hash, out, size);
-
-    for (j = 0; j < 100; j++) {
+    /* One-shot hashing. */
+    {
       hash_init(&hash, type);
-      hash_update(&hash, out, size);
+      hash_update(&hash, iv, iv_len);
       hash_final(&hash, out, size);
+
+      for (j = 0; j < 100; j++) {
+        hash_init(&hash, type);
+        hash_update(&hash, out, size);
+        hash_final(&hash, out, size);
+      }
+
+      ASSERT(torsion_memcmp(out, expect, size) == 0);
     }
 
-    ASSERT(torsion_memcmp(out, expect, size) == 0);
+    /* Get our vector. */
+    {
+      hash_init(&hash, type);
+      hash_update(&hash, iv, iv_len);
+      hash_final(&hash, expect, size);
+    }
+
+    /* 1 byte chunks. */
+    {
+      hash_init(&hash, type);
+
+      for (j = 0; j < iv_len; j++)
+        hash_update(&hash, &iv[j], 1);
+
+      hash_final(&hash, out, size);
+
+      ASSERT(torsion_memcmp(out, expect, size) == 0);
+    }
+
+    /* Random chunks. */
+    for (j = 0; j < 5; j++) {
+      unsigned char *raw = iv;
+      size_t len = iv_len;
+      size_t n;
+
+      hash_init(&hash, type);
+
+      while (len > 0) {
+        n = drbg_uniform(rng, len + 1);
+
+        hash_update(&hash, raw, n);
+
+        raw += n;
+        len -= n;
+      }
+
+      hash_final(&hash, out, size);
+
+      ASSERT(torsion_memcmp(out, expect, size) == 0);
+    }
+  }
+
+  for (i = 0; i <= HASH_MAX; i++) {
+    int type = i;
+    size_t size = hash_output_size(type);
+    size_t iv_len = sizeof(iv);
+
+    /* Generate our vector. */
+    {
+      iv_len = 2 + drbg_uniform(rng, iv_len + 1 - 2);
+
+      drbg_generate(rng, iv, iv_len);
+
+      hash_init(&hash, type);
+      hash_update(&hash, iv, iv_len);
+      hash_final(&hash, expect, size);
+    }
+
+    /* 1 byte chunks. */
+    {
+      hash_init(&hash, type);
+
+      for (j = 0; j < iv_len; j++)
+        hash_update(&hash, &iv[j], 1);
+
+      hash_final(&hash, out, size);
+
+      ASSERT(torsion_memcmp(out, expect, size) == 0);
+    }
+
+    /* Random chunks. */
+    for (j = 0; j < 5; j++) {
+      unsigned char *raw = iv;
+      size_t len = iv_len;
+      size_t n;
+
+      hash_init(&hash, type);
+
+      while (len > 0) {
+        n = drbg_uniform(rng, len + 1);
+
+        hash_update(&hash, raw, n);
+
+        raw += n;
+        len -= n;
+      }
+
+      hash_final(&hash, out, size);
+
+      ASSERT(torsion_memcmp(out, expect, size) == 0);
+    }
   }
 }
 
 static void
-test_hash_hmac(drbg_t *unused) {
+test_hash_hmac(drbg_t *rng) {
   unsigned char data[256];
   unsigned char key[256];
   unsigned char expect[HASH_MAX_OUTPUT_SIZE];
   unsigned char out[HASH_MAX_OUTPUT_SIZE];
+  unsigned int i, j;
   hmac_t hmac;
-  unsigned int i;
-
-  (void)unused;
 
   for (i = 0; i < ARRAY_SIZE(hmac_vectors); i++) {
     int type = hmac_vectors[i].type;
@@ -3460,11 +3721,48 @@ test_hash_hmac(drbg_t *unused) {
     hex_decode(key, &key_len, hmac_vectors[i].key);
     hex_parse(expect, size, hmac_vectors[i].expect);
 
-    hmac_init(&hmac, type, key, key_len);
-    hmac_update(&hmac, data, data_len);
-    hmac_final(&hmac, out);
+    /* One-shot hashing. */
+    {
+      hmac_init(&hmac, type, key, key_len);
+      hmac_update(&hmac, data, data_len);
+      hmac_final(&hmac, out);
 
-    ASSERT(torsion_memcmp(out, expect, size) == 0);
+      ASSERT(torsion_memcmp(out, expect, size) == 0);
+    }
+
+    /* 1 byte chunks. */
+    {
+      hmac_init(&hmac, type, key, key_len);
+
+      for (j = 0; j < data_len; j++)
+        hmac_update(&hmac, &data[j], 1);
+
+      hmac_final(&hmac, out);
+
+      ASSERT(torsion_memcmp(out, expect, size) == 0);
+    }
+
+    /* Random chunks. */
+    for (j = 0; j < 5; j++) {
+      unsigned char *raw = data;
+      size_t len = data_len;
+      size_t n;
+
+      hmac_init(&hmac, type, key, key_len);
+
+      while (len > 0) {
+        n = drbg_uniform(rng, len + 1);
+
+        hmac_update(&hmac, raw, n);
+
+        raw += n;
+        len -= n;
+      }
+
+      hmac_final(&hmac, out);
+
+      ASSERT(torsion_memcmp(out, expect, size) == 0);
+    }
   }
 }
 
@@ -3870,15 +4168,13 @@ test_kdf_scrypt(drbg_t *unused) {
  */
 
 static void
-test_mac_poly1305(drbg_t *unused) {
+test_mac_poly1305(drbg_t *rng) {
   unsigned char key[32];
   unsigned char msg[8192];
   unsigned char tag[16];
   unsigned char mac[16];
+  unsigned int i, j;
   poly1305_t ctx;
-  unsigned int i;
-
-  (void)unused;
 
   for (i = 0; i < ARRAY_SIZE(poly1305_vectors); i++) {
     size_t msg_len = sizeof(msg);
@@ -3889,12 +4185,49 @@ test_mac_poly1305(drbg_t *unused) {
     hex_decode(msg, &msg_len, poly1305_vectors[i][1]);
     hex_parse(tag, 16, poly1305_vectors[i][2]);
 
-    poly1305_init(&ctx, key);
-    poly1305_update(&ctx, msg, msg_len);
-    poly1305_final(&ctx, mac);
+    /* One-shot hashing. */
+    {
+      poly1305_init(&ctx, key);
+      poly1305_update(&ctx, msg, msg_len);
+      poly1305_final(&ctx, mac);
 
-    ASSERT(torsion_memequal(mac, tag, 16));
-    ASSERT(torsion_memcmp(mac, tag, 16) == 0);
+      ASSERT(torsion_memequal(mac, tag, 16));
+      ASSERT(torsion_memcmp(mac, tag, 16) == 0);
+    }
+
+    /* 1 byte chunks. */
+    {
+      poly1305_init(&ctx, key);
+
+      for (j = 0; j < msg_len; j++)
+        poly1305_update(&ctx, &msg[j], 1);
+
+      poly1305_final(&ctx, mac);
+
+      ASSERT(torsion_memcmp(mac, tag, 16) == 0);
+    }
+
+    /* Random chunks. */
+    for (j = 0; j < 5; j++) {
+      unsigned char *raw = msg;
+      size_t len = msg_len;
+      size_t n;
+
+      poly1305_init(&ctx, key);
+
+      while (len > 0) {
+        n = drbg_uniform(rng, len + 1);
+
+        poly1305_update(&ctx, raw, n);
+
+        raw += n;
+        len -= n;
+      }
+
+      poly1305_final(&ctx, mac);
+
+      ASSERT(torsion_memcmp(mac, tag, 16) == 0);
+    }
   }
 }
 
@@ -4470,16 +4803,14 @@ test_stream_arc4(drbg_t *unused) {
 }
 
 static void
-test_stream_chacha20(drbg_t *unused) {
+test_stream_chacha20(drbg_t *rng) {
   unsigned char key[32];
   unsigned char nonce[24];
   unsigned char input[4096];
   unsigned char output[4096];
   unsigned char data[4096];
+  unsigned int i, j;
   chacha20_t ctx;
-  unsigned int i;
-
-  (void)unused;
 
   for (i = 0; i < ARRAY_SIZE(chacha20_vectors); i++) {
     size_t key_len = sizeof(key);
@@ -4487,7 +4818,6 @@ test_stream_chacha20(drbg_t *unused) {
     unsigned int counter = chacha20_vectors[i].counter;
     size_t input_len = sizeof(input);
     size_t output_len = sizeof(output);
-    size_t data_len;
 
     printf("  - ChaCha20 vector #%u\n", i + 1);
 
@@ -4498,24 +4828,56 @@ test_stream_chacha20(drbg_t *unused) {
 
     ASSERT(input_len == output_len);
 
-    data_len = input_len;
+    /* One-shot encryption. */
+    {
+      chacha20_init(&ctx, key, key_len, nonce, nonce_len, counter);
+      chacha20_crypt(&ctx, data, input, input_len);
 
-    memcpy(data, input, input_len);
+      ASSERT(torsion_memcmp(data, output, output_len) == 0);
+    }
 
-    chacha20_init(&ctx, key, key_len, nonce, nonce_len, counter);
-    chacha20_crypt(&ctx, data, data, data_len);
+    /* One-shot decryption. */
+    {
+      chacha20_init(&ctx, key, key_len, nonce, nonce_len, counter);
+      chacha20_crypt(&ctx, data, output, output_len);
 
-    ASSERT(torsion_memcmp(data, output, output_len) == 0);
+      ASSERT(torsion_memcmp(data, input, input_len) == 0);
+    }
 
-    chacha20_init(&ctx, key, key_len, nonce, nonce_len, counter);
-    chacha20_crypt(&ctx, data, data, data_len);
+    /* 1 byte chunks. */
+    {
+      chacha20_init(&ctx, key, key_len, nonce, nonce_len, counter);
 
-    ASSERT(torsion_memcmp(data, input, input_len) == 0);
+      for (j = 0; j < input_len; j++)
+        chacha20_crypt(&ctx, &data[j], &input[j], 1);
+
+      ASSERT(torsion_memcmp(data, output, output_len) == 0);
+    }
+
+    /* Random chunks. */
+    for (j = 0; j < 5; j++) {
+      size_t len = input_len;
+      size_t pos = 0;
+      size_t n;
+
+      chacha20_init(&ctx, key, key_len, nonce, nonce_len, counter);
+
+      while (len > 0) {
+        n = drbg_uniform(rng, len + 1);
+
+        chacha20_crypt(&ctx, data + pos, input + pos, n);
+
+        pos += n;
+        len -= n;
+      }
+
+      ASSERT(torsion_memcmp(data, output, output_len) == 0);
+    }
   }
 }
 
 static void
-test_stream_salsa20(drbg_t *unused) {
+test_stream_salsa20(drbg_t *rng) {
   /* https://github.com/golang/crypto/blob/master/salsa20/salsa20_test.go */
   static const struct {
     unsigned char key[32];
@@ -4589,14 +4951,18 @@ test_stream_salsa20(drbg_t *unused) {
   };
 
   size_t size = 131072;
+  unsigned char *inp = malloc(size);
   unsigned char *out = malloc(size);
+  unsigned char *exp = malloc(size);
   unsigned char xor[64];
   unsigned int i, j, k;
   salsa20_t ctx;
 
-  (void)unused;
-
+  ASSERT(inp != NULL);
   ASSERT(out != NULL);
+  ASSERT(exp != NULL);
+
+  memset(inp, 0, size);
 
   for (i = 0; i < ARRAY_SIZE(vectors); i++) {
     const unsigned char *key = vectors[i].key;
@@ -4605,21 +4971,62 @@ test_stream_salsa20(drbg_t *unused) {
 
     printf("  - Salsa20 vector #%u\n", i + 1);
 
-    memset(out, 0, size);
-    memset(xor, 0, 64);
+    /* One-shot encryption. */
+    {
+      memset(out, 0, size);
+      memset(xor, 0, 64);
 
-    salsa20_init(&ctx, key, 32, nonce, 8, 0);
-    salsa20_crypt(&ctx, out, out, size);
+      salsa20_init(&ctx, key, 32, nonce, 8, 0);
+      salsa20_crypt(&ctx, out, inp, size);
 
-    for (j = 0; j < size; j += 64) {
-      for (k = 0; k < 64; k++)
-        xor[k] ^= out[j + k];
+      for (j = 0; j < size; j += 64) {
+        for (k = 0; k < 64; k++)
+          xor[k] ^= out[j + k];
+      }
+
+      ASSERT(torsion_memcmp(xor, expect, 64) == 0);
     }
 
-    ASSERT(torsion_memcmp(xor, expect, 64) == 0);
+    /* Get our vector. */
+    {
+      salsa20_init(&ctx, key, 32, nonce, 8, 0);
+      salsa20_crypt(&ctx, exp, inp, size);
+    }
+
+    /* 1 byte chunks. */
+    {
+      salsa20_init(&ctx, key, 32, nonce, 8, 0);
+
+      for (j = 0; j < size; j++)
+        salsa20_crypt(&ctx, &out[j], &inp[j], 1);
+
+      ASSERT(torsion_memcmp(out, exp, size) == 0);
+    }
+
+    /* Random chunks. */
+    {
+      size_t len = size;
+      size_t pos = 0;
+      size_t n;
+
+      salsa20_init(&ctx, key, 32, nonce, 8, 0);
+
+      while (len > 0) {
+        n = drbg_uniform(rng, len + 1);
+
+        salsa20_crypt(&ctx, out + pos, inp + pos, n);
+
+        pos += n;
+        len -= n;
+      }
+
+      ASSERT(torsion_memcmp(out, exp, size) == 0);
+    }
   }
 
+  free(inp);
   free(out);
+  free(exp);
 }
 
 static void
