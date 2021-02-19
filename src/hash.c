@@ -49,29 +49,29 @@ blake2b_init(blake2b_t *ctx,
              size_t len,
              const unsigned char *key,
              size_t keylen) {
-  int i;
-
   CHECK(len >= 1 && len <= 64);
   CHECK(keylen <= 64);
 
-  memset(ctx, 0, sizeof(*ctx));
+  ctx->h[0] = blake2b_iv[0] ^ (0x01010000 | (keylen << 8) | len);
+  ctx->h[1] = blake2b_iv[1];
+  ctx->h[2] = blake2b_iv[2];
+  ctx->h[3] = blake2b_iv[3];
+  ctx->h[4] = blake2b_iv[4];
+  ctx->h[5] = blake2b_iv[5];
+  ctx->h[6] = blake2b_iv[6];
+  ctx->h[7] = blake2b_iv[7];
 
+  ctx->t[0] = 0;
+  ctx->t[1] = 0;
+
+  ctx->pos = 0;
   ctx->len = len;
 
-  for (i = 0; i < 8; i++)
-    ctx->h[i] = blake2b_iv[i];
-
-  ctx->h[0] ^= 0x01010000 | (keylen << 8) | len;
-
   if (keylen > 0) {
-    unsigned char block[128];
+    memset(ctx->block, 0x00, 128);
+    memcpy(ctx->block, key, keylen);
 
-    memcpy(block, key, keylen);
-    memset(block + keylen, 0x00, 128 - keylen);
-
-    blake2b_update(ctx, block, 128);
-
-    torsion_cleanse(block, 128);
+    ctx->pos = 128;
   }
 }
 
@@ -270,29 +270,29 @@ blake2s_init(blake2s_t *ctx,
              size_t len,
              const unsigned char *key,
              size_t keylen) {
-  int i;
-
   CHECK(len >= 1 && len <= 32);
   CHECK(keylen <= 32);
 
-  memset(ctx, 0, sizeof(*ctx));
+  ctx->h[0] = blake2s_iv[0] ^ (0x01010000 | (keylen << 8) | len);
+  ctx->h[1] = blake2s_iv[1];
+  ctx->h[2] = blake2s_iv[2];
+  ctx->h[3] = blake2s_iv[3];
+  ctx->h[4] = blake2s_iv[4];
+  ctx->h[5] = blake2s_iv[5];
+  ctx->h[6] = blake2s_iv[6];
+  ctx->h[7] = blake2s_iv[7];
 
+  ctx->t[0] = 0;
+  ctx->t[1] = 0;
+
+  ctx->pos = 0;
   ctx->len = len;
 
-  for (i = 0; i < 8; i++)
-    ctx->h[i] = blake2s_iv[i];
-
-  ctx->h[0] ^= 0x01010000 | (keylen << 8) | len;
-
   if (keylen > 0) {
-    unsigned char block[64];
+    memset(ctx->block, 0x00, 64);
+    memcpy(ctx->block, key, keylen);
 
-    memcpy(block, key, keylen);
-    memset(block + keylen, 0x00, 64 - keylen);
-
-    blake2s_update(ctx, block, 64);
-
-    torsion_cleanse(block, 64);
+    ctx->pos = 64;
   }
 }
 
@@ -3941,7 +3941,15 @@ static const uint64_t whirlpool_C7[256] = {
 
 void
 whirlpool_init(whirlpool_t *ctx) {
-  memset(ctx, 0, sizeof(*ctx));
+  ctx->state[0] = UINT64_C(0x0000000000000000);
+  ctx->state[1] = UINT64_C(0x0000000000000000);
+  ctx->state[2] = UINT64_C(0x0000000000000000);
+  ctx->state[3] = UINT64_C(0x0000000000000000);
+  ctx->state[4] = UINT64_C(0x0000000000000000);
+  ctx->state[5] = UINT64_C(0x0000000000000000);
+  ctx->state[6] = UINT64_C(0x0000000000000000);
+  ctx->state[7] = UINT64_C(0x0000000000000000);
+  ctx->size = 0;
 }
 
 static void
