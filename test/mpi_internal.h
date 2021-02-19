@@ -123,25 +123,24 @@ static const arc4_t arc4_initial = {
 
 static void
 arc4_rng(void *out, size_t size, void *arg) {
-  arc4_t *ctx = arg;
   uint8_t *dst = out;
+  size_t len = size;
+  arc4_t *ctx = arg;
   uint8_t *s = ctx->s;
   uint8_t i = ctx->i;
   uint8_t j = ctx->j;
-  uint8_t x, y;
+  uint8_t si;
   size_t k;
 
-  for (k = 0; k < size; k++) {
+  for (k = 0; k < len; k++) {
     i = (i + 1) & 0xff;
-    x = s[i];
+    j = (j + s[i]) & 0xff;
 
-    j = (j + x) & 0xff;
-    y = s[j];
+    si = s[i];
+    s[i] = s[j];
+    s[j] = si;
 
-    s[i] = y;
-    s[j] = x;
-
-    dst[k] = s[(x + y) & 0xff];
+    dst[k] = s[(s[i] + s[j]) & 0xff];
   }
 
   ctx->i = i;
