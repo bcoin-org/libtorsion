@@ -260,4 +260,54 @@ torsion_bswap64(uint64_t x) {
 }
 #endif
 
+/*
+ * Incrementation
+ */
+
+static TORSION_INLINE void
+increment_le(uint8_t *x, size_t n) {
+  unsigned int c = 1;
+  size_t i;
+
+  for (i = 0; i < n; i++) {
+    c += (unsigned int)x[i];
+    x[i] = c;
+    c >>= 8;
+  }
+}
+
+static TORSION_INLINE void
+increment_le_var(uint8_t *x, size_t n) {
+  uint8_t c = 1;
+  size_t i;
+
+  for (i = 0; i < n && c != 0; i++) {
+    x[i] += c;
+    c = (x[i] < c);
+  }
+}
+
+static TORSION_INLINE void
+increment_be(uint8_t *x, size_t n) {
+  unsigned int c = 1;
+  size_t i;
+
+  for (i = n - 1; i != (size_t)-1; i--) {
+    c += (unsigned int)x[i];
+    x[i] = c;
+    c >>= 8;
+  }
+}
+
+static TORSION_INLINE void
+increment_be_var(uint8_t *x, size_t n) {
+  uint8_t c = 1;
+  size_t i;
+
+  for (i = n - 1; i != (size_t)-1 && c != 0; i--) {
+    x[i] += c;
+    c = (x[i] < c);
+  }
+}
+
 #endif /* _TORSION_BIO_H */

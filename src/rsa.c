@@ -26,6 +26,7 @@
 #include <torsion/rsa.h>
 #include <torsion/util.h>
 #include "asn1.h"
+#include "bio.h"
 #include "internal.h"
 #include "mpi.h"
 
@@ -1278,12 +1279,7 @@ mgf1xor(int type,
     while (i < out_len && j < hash_size)
       out[i++] ^= digest[j++];
 
-    j = 4;
-
-    while (j--) {
-      if (++ctr[j] != 0x00)
-        break;
-    }
+    increment_be_var(ctr, 4);
   }
 
   torsion_cleanse(ctr, sizeof(ctr));

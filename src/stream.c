@@ -151,7 +151,6 @@ chacha20_init(chacha20_t *ctx,
 
 static void
 chacha20_block(chacha20_t *ctx, uint32_t *stream) {
-  uint64_t c;
   int i;
 
   for (i = 0; i < 16; i++)
@@ -176,10 +175,8 @@ chacha20_block(chacha20_t *ctx, uint32_t *stream) {
       stream[i] = torsion_bswap32(stream[i]);
   }
 
-  c = (uint64_t)ctx->state[12] + 1;
-
-  ctx->state[12] = c;
-  ctx->state[13] += (uint32_t)(c >> 32);
+  ctx->state[12] += 1;
+  ctx->state[13] += (ctx->state[12] < 1);
 }
 
 void
@@ -355,7 +352,6 @@ salsa20_init(salsa20_t *ctx,
 
 static void
 salsa20_block(salsa20_t *ctx, uint32_t *stream) {
-  uint64_t c;
   int i;
 
   for (i = 0; i < 16; i++)
@@ -380,10 +376,8 @@ salsa20_block(salsa20_t *ctx, uint32_t *stream) {
       stream[i] = torsion_bswap32(stream[i]);
   }
 
-  c = (uint64_t)ctx->state[8] + 1;
-
-  ctx->state[8] = c;
-  ctx->state[9] += (uint32_t)(c >> 32);
+  ctx->state[8] += 1;
+  ctx->state[9] += (ctx->state[8] < 1);
 }
 
 void

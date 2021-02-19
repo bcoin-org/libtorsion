@@ -6337,16 +6337,12 @@ ctr_crypt(ctr_t *mode, const cipher_t *cipher,
           unsigned char *dst, const unsigned char *src, size_t len) {
   size_t mask = cipher->size - 1;
   size_t i;
-  int j;
 
   for (i = 0; i < len; i++) {
     if ((mode->pos & mask) == 0) {
       cipher_encrypt(cipher, mode->state, mode->ctr);
 
-      for (j = cipher->size - 1; j >= 0; j--) {
-        if (++mode->ctr[j] != 0x00)
-          break;
-      }
+      increment_be_var(mode->ctr, cipher->size);
 
       mode->pos = 0;
     }
@@ -6635,21 +6631,13 @@ gcm_crypt(gcm_t *mode,
           unsigned char *dst,
           const unsigned char *src,
           size_t len) {
-  unsigned int c;
   size_t i;
-  int j;
 
   for (i = 0; i < len; i++) {
     if ((mode->pos & 15) == 0) {
       cipher_encrypt(cipher, mode->state, mode->ctr);
 
-      c = 1;
-
-      for (j = 16 - 1; j >= 12; j--) {
-        c += (unsigned int)mode->ctr[j];
-        mode->ctr[j] = c;
-        c >>= 8;
-      }
+      increment_be(mode->ctr + 12, 4);
 
       mode->pos = 0;
     }
@@ -6786,7 +6774,7 @@ ccm_init(ccm_t *mode, const cipher_t *cipher,
 
   /* Defensive memsets. */
   memset(mode->ctr, 0, 16);
-  memset(mode->state + iv_len, 0, 16 - iv_len);
+  memset(mode->state, 0, 16);
 
   /* Store the IV here for now. Note that
      ccm_setup _must_ be called after this. */
@@ -6805,8 +6793,8 @@ ccm_log256(size_t lm) {
   unsigned int L = 0;
 
   while (lm > 0) {
-    L += 1;
     lm >>= 1;
+    L += 1;
   }
 
   L = (L + 7) / 8;
@@ -6905,16 +6893,12 @@ static void
 ccm_crypt(ccm_t *mode, const cipher_t *cipher,
           unsigned char *dst, const unsigned char *src, size_t len) {
   size_t i;
-  int j;
 
   for (i = 0; i < len; i++) {
     if ((mode->pos & 15) == 0) {
       cipher_encrypt(cipher, mode->state, mode->ctr);
 
-      for (j = 16 - 1; j >= 1; j--) {
-        if (++mode->ctr[j] != 0x00)
-          break;
-      }
+      increment_be_var(mode->ctr, 16);
 
       mode->pos = 0;
     }
@@ -7068,21 +7052,13 @@ eax_crypt(eax_t *mode,
           const unsigned char *src,
           size_t len) {
   size_t mask = cipher->size - 1;
-  unsigned int c;
   size_t i;
-  int j;
 
   for (i = 0; i < len; i++) {
     if ((mode->pos & mask) == 0) {
       cipher_encrypt(cipher, mode->state, mode->ctr);
 
-      c = 1;
-
-      for (j = cipher->size - 1; j >= 0; j--) {
-        c += (unsigned int)mode->ctr[j];
-        mode->ctr[j] = c;
-        c >>= 8;
-      }
+      increment_be(mode->ctr, cipher->size);
 
       mode->pos = 0;
     }
