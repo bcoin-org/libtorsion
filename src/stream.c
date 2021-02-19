@@ -24,11 +24,17 @@
  *   https://github.com/golang/go/blob/master/src/crypto/rc4/rc4.go
  */
 
+#define swap(x, y) do { \
+  uint8_t _x = (x);     \
+  (x) = (y);            \
+  (y) = _x;             \
+} while (0)
+
 void
 arc4_init(arc4_t *ctx, const unsigned char *key, size_t key_len) {
-  size_t k = key_len;
   uint8_t *s = ctx->s;
-  uint8_t j, si;
+  size_t k = key_len;
+  uint8_t j = 0;
   size_t i;
 
   CHECK(k >= 1 && k <= 256);
@@ -36,15 +42,10 @@ arc4_init(arc4_t *ctx, const unsigned char *key, size_t key_len) {
   for (i = 0; i < 256; i++)
     s[i] = i;
 
-  j = 0;
-
   for (i = 0; i < 256; i++) {
-    j += s[i] + key[i % k];
-    j &= 0xff;
+    j = (j + s[i] + key[i % k]) & 0xff;
 
-    si = s[i];
-    s[i] = s[j];
-    s[j] = si;
+    swap(s[i], s[j]);
   }
 
   ctx->i = 0;
@@ -59,25 +60,22 @@ arc4_crypt(arc4_t *ctx,
   uint8_t *s = ctx->s;
   uint8_t i = ctx->i;
   uint8_t j = ctx->j;
-  uint8_t x, y;
   size_t k;
 
   for (k = 0; k < len; k++) {
     i = (i + 1) & 0xff;
-    x = s[i];
+    j = (j + s[i]) & 0xff;
 
-    j = (j + x) & 0xff;
-    y = s[j];
+    swap(s[i], s[j]);
 
-    s[i] = y;
-    s[j] = x;
-
-    dst[k] = src[k] ^ s[(x + y) & 0xff];
+    dst[k] = src[k] ^ s[(s[i] + s[j]) & 0xff];
   }
 
   ctx->i = i;
   ctx->j = j;
 }
+
+#undef swap
 
 /*
  * ChaCha20
