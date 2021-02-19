@@ -4664,18 +4664,37 @@ test_util_cleanse(drbg_t *rng) {
 
 static void
 test_util_memequal(drbg_t *rng) {
-  unsigned char s1[32];
-  unsigned char s2[32];
+  unsigned char xp[32];
+  unsigned char yp[32];
 
-  drbg_generate(rng, s1, 32);
+  drbg_generate(rng, xp, 32);
 
-  memcpy(s2, s1, 32);
+  memcpy(yp, xp, 32);
 
-  ASSERT(torsion_memequal(s1, s2, 32));
+  ASSERT(torsion_memequal(xp, yp, 32));
 
-  s2[drbg_uniform(rng, 32)] ^= 1;
+  yp[drbg_uniform(rng, 32)] ^= 1;
 
-  ASSERT(!torsion_memequal(s1, s2, 32));
+  ASSERT(!torsion_memequal(xp, yp, 32));
+}
+
+static void
+test_util_memxor(drbg_t *rng) {
+  unsigned char xp[32];
+  unsigned char yp[32];
+  unsigned char zp[32];
+  unsigned char ep[32];
+  int i;
+
+  drbg_generate(rng, xp, 32);
+  drbg_generate(rng, yp, 32);
+
+  torsion_memxor(zp, xp, yp, 32);
+
+  for (i = 0; i < 32; i++)
+    ep[i] = xp[i] ^ yp[i];
+
+  ASSERT(torsion_memcmp(zp, ep, 32) == 0);
 }
 
 static void
@@ -4839,6 +4858,7 @@ static const torsion_test_t torsion_tests[] = {
   /* Util */
   T(util_cleanse),
   T(util_memequal),
+  T(util_memxor),
   T(util_murmur3)
 #undef T
 };

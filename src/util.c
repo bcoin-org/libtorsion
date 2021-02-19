@@ -47,15 +47,29 @@ torsion_cleanse(void *ptr, size_t len) {
  */
 
 int
-torsion_memequal(const void *s1, const void *s2, size_t n) {
-  const unsigned char *x = s1;
-  const unsigned char *y = s2;
+torsion_memequal(const void *x, const void *y, size_t n) {
+  const unsigned char *xp = x;
+  const unsigned char *yp = y;
   uint32_t z = 0;
 
   while (n--)
-    z |= (uint32_t)x[n] ^ (uint32_t)y[n];
+    z |= *xp++ ^ *yp++;
 
   return (z - 1) >> 31;
+}
+
+/*
+ * Memxor
+ */
+
+void
+torsion_memxor(void *z, const void *x, const void *y, size_t n) {
+  const unsigned char *xp = x;
+  const unsigned char *yp = y;
+  unsigned char *zp = z;
+
+  while (n--)
+    *zp++ = *xp++ ^ *yp++;
 }
 
 /*
