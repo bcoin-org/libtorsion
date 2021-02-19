@@ -186,20 +186,44 @@ chacha20_block(chacha20_t *ctx, uint32_t *stream) {
 
 void
 chacha20_crypt(chacha20_t *ctx,
-               unsigned char *out,
-               const unsigned char *data,
+               unsigned char *dst,
+               const unsigned char *src,
                size_t len) {
   unsigned char *bytes = (unsigned char *)ctx->stream;
-  size_t i;
+  size_t pos = ctx->pos;
+  size_t want = 64 - pos;
 
-  for (i = 0; i < len; i++) {
-    if ((ctx->pos & 63) == 0) {
-      chacha20_block(ctx, ctx->stream);
-      ctx->pos = 0;
+  if (len >= want) {
+    if (pos > 0) {
+      torsion_memxor(dst, src, bytes + pos, want);
+
+      dst += want;
+      src += want;
+      len -= want;
+      pos = 0;
     }
 
-    out[i] = data[i] ^ bytes[ctx->pos++];
+    while (len >= 64) {
+      chacha20_block(ctx, ctx->stream);
+
+      torsion_memxor(dst, src, bytes, 64);
+
+      dst += 64;
+      src += 64;
+      len -= 64;
+    }
   }
+
+  if (len > 0) {
+    if (pos == 0)
+      chacha20_block(ctx, ctx->stream);
+
+    torsion_memxor(dst, src, bytes + pos, len);
+
+    pos += len;
+  }
+
+  ctx->pos = pos;
 }
 
 void
@@ -366,20 +390,44 @@ salsa20_block(salsa20_t *ctx, uint32_t *stream) {
 
 void
 salsa20_crypt(salsa20_t *ctx,
-              unsigned char *out,
-              const unsigned char *data,
+              unsigned char *dst,
+              const unsigned char *src,
               size_t len) {
   unsigned char *bytes = (unsigned char *)ctx->stream;
-  size_t i;
+  size_t pos = ctx->pos;
+  size_t want = 64 - pos;
 
-  for (i = 0; i < len; i++) {
-    if ((ctx->pos & 63) == 0) {
-      salsa20_block(ctx, ctx->stream);
-      ctx->pos = 0;
+  if (len >= want) {
+    if (pos > 0) {
+      torsion_memxor(dst, src, bytes + pos, want);
+
+      dst += want;
+      src += want;
+      len -= want;
+      pos = 0;
     }
 
-    out[i] = data[i] ^ bytes[ctx->pos++];
+    while (len >= 64) {
+      salsa20_block(ctx, ctx->stream);
+
+      torsion_memxor(dst, src, bytes, 64);
+
+      dst += 64;
+      src += 64;
+      len -= 64;
+    }
   }
+
+  if (len > 0) {
+    if (pos == 0)
+      salsa20_block(ctx, ctx->stream);
+
+    torsion_memxor(dst, src, bytes + pos, len);
+
+    pos += len;
+  }
+
+  ctx->pos = pos;
 }
 
 void

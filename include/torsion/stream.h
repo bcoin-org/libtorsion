@@ -79,8 +79,8 @@ chacha20_init(chacha20_t *ctx,
 
 TORSION_EXTERN void
 chacha20_crypt(chacha20_t *ctx,
-               unsigned char *out,
-               const unsigned char *data,
+               unsigned char *dst,
+               const unsigned char *src,
                size_t len);
 
 TORSION_EXTERN void
@@ -103,8 +103,8 @@ salsa20_init(salsa20_t *ctx,
 
 TORSION_EXTERN void
 salsa20_crypt(salsa20_t *ctx,
-              unsigned char *out,
-              const unsigned char *data,
+              unsigned char *dst,
+              const unsigned char *src,
               size_t len);
 
 TORSION_EXTERN void
