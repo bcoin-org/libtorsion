@@ -657,6 +657,32 @@ bench_sha3(drbg_t *rng) {
   bench_end(&tv, i);
 }
 
+static void
+bench_aes_ctr(drbg_t *rng) {
+  unsigned char raw[977];
+  unsigned char key[32];
+  unsigned char iv[16];
+  cipher_t cipher;
+  ctr_t mode;
+  bench_t tv;
+  size_t i;
+
+  drbg_generate(rng, raw, sizeof(raw));
+  drbg_generate(rng, key, sizeof(key));
+  drbg_generate(rng, iv, sizeof(iv));
+
+  bench_start(&tv, "aes_ctr");
+
+  cipher_init(&cipher, CIPHER_AES256, key, sizeof(key));
+
+  ctr_init(&mode, &cipher, iv);
+
+  for (i = 0; i < 100000; i++)
+    ctr_crypt(&mode, &cipher, raw, raw, sizeof(raw));
+
+  bench_end(&tv, i);
+}
+
 /*
  * Benchmark Registry
  */
@@ -681,7 +707,8 @@ static const struct {
   B(rsa_verify),
   B(hash),
   B(sha256),
-  B(sha3)
+  B(sha3),
+  B(aes_ctr)
 #undef B
 };
 
