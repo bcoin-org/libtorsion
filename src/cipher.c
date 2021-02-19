@@ -6524,40 +6524,32 @@ static void
 ghash_absorb(ghash_t *ctx, const unsigned char *data, size_t len) {
   const unsigned char *raw = data;
   size_t pos = ctx->pos;
+  size_t want = 16 - pos;
 
-  if (len == 0)
-    return;
+  if (len >= want) {
+    if (pos > 0) {
+      memcpy(ctx->block + pos, raw, want);
 
-  if (pos > 0) {
-    size_t want = 16 - pos;
+      raw += want;
+      len -= want;
+      pos = 0;
 
-    if (want > len)
-      want = len;
-
-    memcpy(ctx->block + pos, raw, want);
-
-    pos += want;
-    raw += want;
-    len -= want;
-
-    if (pos < 16) {
-      ctx->pos = pos;
-      return;
+      ghash_transform(ctx, ctx->block);
     }
 
-    ghash_transform(ctx, ctx->block);
+    while (len >= 16) {
+      ghash_transform(ctx, raw);
+      raw += 16;
+      len -= 16;
+    }
   }
 
-  while (len >= 16) {
-    ghash_transform(ctx, raw);
-    raw += 16;
-    len -= 16;
+  if (len > 0) {
+    memcpy(ctx->block + pos, raw, len);
+    pos += len;
   }
 
-  if (len > 0)
-    memcpy(ctx->block, raw, len);
-
-  ctx->pos = len;
+  ctx->pos = pos;
 }
 
 static void

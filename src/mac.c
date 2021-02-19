@@ -309,43 +309,35 @@ void
 poly1305_update(poly1305_t *ctx, const unsigned char *data, size_t len) {
   const unsigned char *raw = data;
   size_t pos = ctx->pos;
+  size_t want = 16 - pos;
 
-  if (len == 0)
-    return;
+  if (len >= want) {
+    if (pos > 0) {
+      memcpy(ctx->block + pos, raw, want);
 
-  if (pos > 0) {
-    size_t want = 16 - pos;
+      raw += want;
+      len -= want;
+      pos = 0;
 
-    if (want > len)
-      want = len;
-
-    memcpy(ctx->block + pos, raw, want);
-
-    pos += want;
-    raw += want;
-    len -= want;
-
-    if (pos < 16) {
-      ctx->pos = pos;
-      return;
+      poly1305_blocks(ctx, ctx->block, 16, 0);
     }
 
-    poly1305_blocks(ctx, ctx->block, 16, 0);
+    if (len >= 16) {
+      size_t aligned = len & -16;
+
+      poly1305_blocks(ctx, raw, aligned, 0);
+
+      raw += aligned;
+      len -= aligned;
+    }
   }
 
-  if (len >= 16) {
-    size_t aligned = len & -16;
-
-    poly1305_blocks(ctx, raw, aligned, 0);
-
-    raw += aligned;
-    len -= aligned;
+  if (len > 0) {
+    memcpy(ctx->block + pos, raw, len);
+    pos += len;
   }
 
-  if (len > 0)
-    memcpy(ctx->block, raw, len);
-
-  ctx->pos = len;
+  ctx->pos = pos;
 }
 
 void

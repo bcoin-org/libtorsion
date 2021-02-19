@@ -179,14 +179,12 @@ blake2b_update(blake2b_t *ctx, const void *data, size_t len) {
   size_t pos = ctx->pos;
   size_t want = 128 - pos;
 
-  if (len == 0)
-    return;
-
   if (len > want) {
     memcpy(ctx->block + pos, raw, want);
 
     raw += want;
     len -= want;
+    pos = 0;
 
     blake2b_transform(ctx, ctx->block);
 
@@ -195,13 +193,14 @@ blake2b_update(blake2b_t *ctx, const void *data, size_t len) {
       raw += 128;
       len -= 128;
     }
-
-    ctx->pos = 0;
   }
 
-  memcpy(ctx->block + ctx->pos, raw, len);
+  if (len > 0) {
+    memcpy(ctx->block + pos, raw, len);
+    pos += len;
+  }
 
-  ctx->pos += len;
+  ctx->pos = pos;
 }
 
 void
@@ -396,14 +395,12 @@ blake2s_update(blake2s_t *ctx, const void *data, size_t len) {
   size_t pos = ctx->pos;
   size_t want = 64 - pos;
 
-  if (len == 0)
-    return;
-
   if (len > want) {
     memcpy(ctx->block + pos, raw, want);
 
     raw += want;
     len -= want;
+    pos = 0;
 
     blake2s_transform(ctx, ctx->block);
 
@@ -412,13 +409,14 @@ blake2s_update(blake2s_t *ctx, const void *data, size_t len) {
       raw += 64;
       len -= 64;
     }
-
-    ctx->pos = 0;
   }
 
-  memcpy(ctx->block + ctx->pos, raw, len);
+  if (len > 0) {
+    memcpy(ctx->block + pos, raw, len);
+    pos += len;
+  }
 
-  ctx->pos += len;
+  ctx->pos = pos;
 }
 
 void
@@ -653,38 +651,30 @@ void
 gost94_update(gost94_t *ctx, const void *data, size_t len) {
   const unsigned char *raw = (const unsigned char *)data;
   size_t pos = ctx->size[0] & 31;
-
-  if (len == 0)
-    return;
+  size_t want = 32 - pos;
 
   gost94_increment(ctx, len);
 
-  if (pos > 0) {
-    size_t want = 32 - pos;
+  if (len >= want) {
+    if (pos > 0) {
+      memcpy(ctx->block + pos, raw, want);
 
-    if (want > len)
-      want = len;
+      raw += want;
+      len -= want;
+      pos = 0;
 
-    memcpy(ctx->block + pos, raw, want);
+      gost94_transform(ctx, ctx->block);
+    }
 
-    pos += want;
-    raw += want;
-    len -= want;
-
-    if (pos < 32)
-      return;
-
-    gost94_transform(ctx, ctx->block);
-  }
-
-  while (len >= 32) {
-    gost94_transform(ctx, raw);
-    raw += 32;
-    len -= 32;
+    while (len >= 32) {
+      gost94_transform(ctx, raw);
+      raw += 32;
+      len -= 32;
+    }
   }
 
   if (len > 0)
-    memcpy(ctx->block, raw, len);
+    memcpy(ctx->block + pos, raw, len);
 }
 
 void
@@ -1064,40 +1054,32 @@ void
 keccak_update(keccak_t *ctx, const void *data, size_t len) {
   const unsigned char *raw = (const unsigned char *)data;
   size_t pos = ctx->pos;
+  size_t want = ctx->bs - pos;
 
-  if (len == 0)
-    return;
+  if (len >= want) {
+    if (pos > 0) {
+      memcpy(ctx->block + pos, raw, want);
 
-  if (pos > 0) {
-    size_t want = ctx->bs - pos;
+      raw += want;
+      len -= want;
+      pos = 0;
 
-    if (want > len)
-      want = len;
-
-    memcpy(ctx->block + pos, raw, want);
-
-    pos += want;
-    raw += want;
-    len -= want;
-
-    if (pos < ctx->bs) {
-      ctx->pos = pos;
-      return;
+      keccak_transform(ctx, ctx->block);
     }
 
-    keccak_transform(ctx, ctx->block);
+    while (len >= ctx->bs) {
+      keccak_transform(ctx, raw);
+      raw += ctx->bs;
+      len -= ctx->bs;
+    }
   }
 
-  while (len >= ctx->bs) {
-    keccak_transform(ctx, raw);
-    raw += ctx->bs;
-    len -= ctx->bs;
+  if (len > 0) {
+    memcpy(ctx->block + pos, raw, len);
+    pos += len;
   }
 
-  if (len > 0)
-    memcpy(ctx->block, raw, len);
-
-  ctx->pos = len;
+  ctx->pos = pos;
 }
 
 void
@@ -1251,40 +1233,32 @@ void
 md2_update(md2_t *ctx, const void *data, size_t len) {
   const unsigned char *raw = (const unsigned char *)data;
   size_t pos = ctx->pos;
+  size_t want = 16 - pos;
 
-  if (len == 0)
-    return;
+  if (len >= want) {
+    if (pos > 0) {
+      memcpy(ctx->block + pos, raw, want);
 
-  if (pos > 0) {
-    size_t want = 16 - pos;
+      raw += want;
+      len -= want;
+      pos = 0;
 
-    if (want > len)
-      want = len;
-
-    memcpy(ctx->block + pos, raw, want);
-
-    pos += want;
-    raw += want;
-    len -= want;
-
-    if (pos < 16) {
-      ctx->pos = pos;
-      return;
+      md2_transform(ctx, ctx->block);
     }
 
-    md2_transform(ctx, ctx->block);
+    while (len >= 16) {
+      md2_transform(ctx, raw);
+      raw += 16;
+      len -= 16;
+    }
   }
 
-  while (len >= 16) {
-    md2_transform(ctx, raw);
-    raw += 16;
-    len -= 16;
+  if (len > 0) {
+    memcpy(ctx->block + pos, raw, len);
+    pos += len;
   }
 
-  if (len > 0)
-    memcpy(ctx->block, raw, len);
-
-  ctx->pos = len;
+  ctx->pos = pos;
 }
 
 void
@@ -1415,38 +1389,30 @@ void
 md4_update(md4_t *ctx, const void *data, size_t len) {
   const unsigned char *raw = (const unsigned char *)data;
   size_t pos = ctx->size & 63;
-
-  if (len == 0)
-    return;
+  size_t want = 64 - pos;
 
   ctx->size += len;
 
-  if (pos > 0) {
-    size_t want = 64 - pos;
+  if (len >= want) {
+    if (pos > 0) {
+      memcpy(ctx->block + pos, raw, want);
 
-    if (want > len)
-      want = len;
+      raw += want;
+      len -= want;
+      pos = 0;
 
-    memcpy(ctx->block + pos, raw, want);
+      md4_transform(ctx, ctx->block);
+    }
 
-    pos += want;
-    raw += want;
-    len -= want;
-
-    if (pos < 64)
-      return;
-
-    md4_transform(ctx, ctx->block);
-  }
-
-  while (len >= 64) {
-    md4_transform(ctx, raw);
-    raw += 64;
-    len -= 64;
+    while (len >= 64) {
+      md4_transform(ctx, raw);
+      raw += 64;
+      len -= 64;
+    }
   }
 
   if (len > 0)
-    memcpy(ctx->block, raw, len);
+    memcpy(ctx->block + pos, raw, len);
 }
 
 void
@@ -1602,38 +1568,30 @@ void
 md5_update(md5_t *ctx, const void *data, size_t len) {
   const unsigned char *raw = (const unsigned char *)data;
   size_t pos = ctx->size & 63;
-
-  if (len == 0)
-    return;
+  size_t want = 64 - pos;
 
   ctx->size += len;
 
-  if (pos > 0) {
-    size_t want = 64 - pos;
+  if (len >= want) {
+    if (pos > 0) {
+      memcpy(ctx->block + pos, raw, want);
 
-    if (want > len)
-      want = len;
+      raw += want;
+      len -= want;
+      pos = 0;
 
-    memcpy(ctx->block + pos, raw, want);
+      md5_transform(ctx, ctx->block);
+    }
 
-    pos += want;
-    raw += want;
-    len -= want;
-
-    if (pos < 64)
-      return;
-
-    md5_transform(ctx, ctx->block);
-  }
-
-  while (len >= 64) {
-    md5_transform(ctx, raw);
-    raw += 64;
-    len -= 64;
+    while (len >= 64) {
+      md5_transform(ctx, raw);
+      raw += 64;
+      len -= 64;
+    }
   }
 
   if (len > 0)
-    memcpy(ctx->block, raw, len);
+    memcpy(ctx->block + pos, raw, len);
 }
 
 void
@@ -1955,38 +1913,30 @@ void
 ripemd160_update(ripemd160_t *ctx, const void *data, size_t len) {
   const unsigned char *raw = (const unsigned char *)data;
   size_t pos = ctx->size & 63;
-
-  if (len == 0)
-    return;
+  size_t want = 64 - pos;
 
   ctx->size += len;
 
-  if (pos > 0) {
-    size_t want = 64 - pos;
+  if (len >= want) {
+    if (pos > 0) {
+      memcpy(ctx->block + pos, raw, want);
 
-    if (want > len)
-      want = len;
+      raw += want;
+      len -= want;
+      pos = 0;
 
-    memcpy(ctx->block + pos, raw, want);
+      ripemd160_transform(ctx, ctx->block);
+    }
 
-    pos += want;
-    raw += want;
-    len -= want;
-
-    if (pos < 64)
-      return;
-
-    ripemd160_transform(ctx, ctx->block);
-  }
-
-  while (len >= 64) {
-    ripemd160_transform(ctx, raw);
-    raw += 64;
-    len -= 64;
+    while (len >= 64) {
+      ripemd160_transform(ctx, raw);
+      raw += 64;
+      len -= 64;
+    }
   }
 
   if (len > 0)
-    memcpy(ctx->block, raw, len);
+    memcpy(ctx->block + pos, raw, len);
 }
 
 void
@@ -2208,38 +2158,30 @@ void
 sha1_update(sha1_t *ctx, const void *data, size_t len) {
   const unsigned char *raw = (const unsigned char *)data;
   size_t pos = ctx->size & 63;
-
-  if (len == 0)
-    return;
+  size_t want = 64 - pos;
 
   ctx->size += len;
 
-  if (pos > 0) {
-    size_t want = 64 - pos;
+  if (len >= want) {
+    if (pos > 0) {
+      memcpy(ctx->block + pos, raw, want);
 
-    if (want > len)
-      want = len;
+      raw += want;
+      len -= want;
+      pos = 0;
 
-    memcpy(ctx->block + pos, raw, want);
+      sha1_transform(ctx, ctx->block);
+    }
 
-    pos += want;
-    raw += want;
-    len -= want;
-
-    if (pos < 64)
-      return;
-
-    sha1_transform(ctx, ctx->block);
-  }
-
-  while (len >= 64) {
-    sha1_transform(ctx, raw);
-    raw += 64;
-    len -= 64;
+    while (len >= 64) {
+      sha1_transform(ctx, raw);
+      raw += 64;
+      len -= 64;
+    }
   }
 
   if (len > 0)
-    memcpy(ctx->block, raw, len);
+    memcpy(ctx->block + pos, raw, len);
 }
 
 void
@@ -2487,38 +2429,30 @@ void
 sha256_update(sha256_t *ctx, const void *data, size_t len) {
   const unsigned char *raw = (const unsigned char *)data;
   size_t pos = ctx->size & 63;
-
-  if (len == 0)
-    return;
+  size_t want = 64 - pos;
 
   ctx->size += len;
 
-  if (pos > 0) {
-    size_t want = 64 - pos;
+  if (len >= want) {
+    if (pos > 0) {
+      memcpy(ctx->block + pos, raw, want);
 
-    if (want > len)
-      want = len;
+      raw += want;
+      len -= want;
+      pos = 0;
 
-    memcpy(ctx->block + pos, raw, want);
+      sha256_transform(ctx, ctx->block);
+    }
 
-    pos += want;
-    raw += want;
-    len -= want;
-
-    if (pos < 64)
-      return;
-
-    sha256_transform(ctx, ctx->block);
-  }
-
-  while (len >= 64) {
-    sha256_transform(ctx, raw);
-    raw += 64;
-    len -= 64;
+    while (len >= 64) {
+      sha256_transform(ctx, raw);
+      raw += 64;
+      len -= 64;
+    }
   }
 
   if (len > 0)
-    memcpy(ctx->block, raw, len);
+    memcpy(ctx->block + pos, raw, len);
 }
 
 void
@@ -2792,38 +2726,30 @@ void
 sha512_update(sha512_t *ctx, const void *data, size_t len) {
   const unsigned char *raw = (const unsigned char *)data;
   size_t pos = ctx->size[0] & 127;
-
-  if (len == 0)
-    return;
+  size_t want = 128 - pos;
 
   sha512_increment(ctx, len);
 
-  if (pos > 0) {
-    size_t want = 128 - pos;
+  if (len >= want) {
+    if (pos > 0) {
+      memcpy(ctx->block + pos, raw, want);
 
-    if (want > len)
-      want = len;
+      raw += want;
+      len -= want;
+      pos = 0;
 
-    memcpy(ctx->block + pos, raw, want);
+      sha512_transform(ctx, ctx->block);
+    }
 
-    pos += want;
-    raw += want;
-    len -= want;
-
-    if (pos < 128)
-      return;
-
-    sha512_transform(ctx, ctx->block);
-  }
-
-  while (len >= 128) {
-    sha512_transform(ctx, raw);
-    raw += 128;
-    len -= 128;
+    while (len >= 128) {
+      sha512_transform(ctx, raw);
+      raw += 128;
+      len -= 128;
+    }
   }
 
   if (len > 0)
-    memcpy(ctx->block, raw, len);
+    memcpy(ctx->block + pos, raw, len);
 }
 
 void
@@ -4036,38 +3962,30 @@ void
 whirlpool_update(whirlpool_t *ctx, const void *data, size_t len) {
   const unsigned char *raw = (const unsigned char *)data;
   size_t pos = ctx->size[0] & 63;
-
-  if (len == 0)
-    return;
+  size_t want = 64 - pos;
 
   whirlpool_increment(ctx, len);
 
-  if (pos > 0) {
-    size_t want = 64 - pos;
+  if (len >= want) {
+    if (pos > 0) {
+      memcpy(ctx->block + pos, raw, want);
 
-    if (want > len)
-      want = len;
+      raw += want;
+      len -= want;
+      pos = 0;
 
-    memcpy(ctx->block + pos, raw, want);
+      whirlpool_transform(ctx, ctx->block);
+    }
 
-    pos += want;
-    raw += want;
-    len -= want;
-
-    if (pos < 64)
-      return;
-
-    whirlpool_transform(ctx, ctx->block);
-  }
-
-  while (len >= 64) {
-    whirlpool_transform(ctx, raw);
-    raw += 64;
-    len -= 64;
+    while (len >= 64) {
+      whirlpool_transform(ctx, raw);
+      raw += 64;
+      len -= 64;
+    }
   }
 
   if (len > 0)
-    memcpy(ctx->block, raw, len);
+    memcpy(ctx->block + pos, raw, len);
 }
 
 void
