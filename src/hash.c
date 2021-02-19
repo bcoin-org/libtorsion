@@ -207,11 +207,14 @@ blake2b_update(blake2b_t *ctx, const void *data, size_t len) {
 void
 blake2b_final(blake2b_t *ctx, unsigned char *out) {
   size_t count = ctx->len >> 3;
+  size_t pos = ctx->pos;
   size_t i;
 
-  memset(ctx->block + ctx->pos, 0x00, 128 - ctx->pos);
+  blake2b_increment(ctx, pos);
 
-  blake2b_increment(ctx, ctx->pos);
+  while (pos < 128)
+    ctx->block[pos++] = 0x00;
+
   blake2b_compress(ctx, ctx->block, UINT64_MAX);
 
   for (i = 0; i < count; i++)
@@ -421,11 +424,14 @@ blake2s_update(blake2s_t *ctx, const void *data, size_t len) {
 void
 blake2s_final(blake2s_t *ctx, unsigned char *out) {
   size_t count = ctx->len >> 2;
+  size_t pos = ctx->pos;
   size_t i;
 
-  memset(ctx->block + ctx->pos, 0x00, 64 - ctx->pos);
+  blake2s_increment(ctx, pos);
 
-  blake2s_increment(ctx, ctx->pos);
+  while (pos < 64)
+    ctx->block[pos++] = 0x00;
+
   blake2s_compress(ctx, ctx->block, UINT32_MAX);
 
   for (i = 0; i < count; i++)
@@ -675,18 +681,21 @@ gost94_update(gost94_t *ctx, const void *data, size_t len) {
 
 void
 gost94_final(gost94_t *ctx, unsigned char *out) {
-  uint64_t bits = ctx->size << 3;
   size_t pos = ctx->size & 31;
-  unsigned char D[32];
 
-  memset(D, 0x00, 32);
+  if (pos > 0) {
+    while (pos < 32)
+      ctx->block[pos++] = 0x00;
 
-  if (pos != 0)
-    gost94_update(ctx, D, 32 - pos);
+    gost94_transform(ctx, ctx->block);
+  }
 
-  write64le(D, bits);
+  write64le(ctx->block +  0, ctx->size << 3);
+  write64le(ctx->block +  8, ctx->size >> 61);
+  write64le(ctx->block + 16, 0);
+  write64le(ctx->block + 24, 0);
 
-  gost94_compress(ctx, D);
+  gost94_compress(ctx, ctx->block);
   gost94_compress(ctx, ctx->sigma);
 
   memcpy(out, ctx->state, 32);
@@ -1085,6 +1094,7 @@ keccak_update(keccak_t *ctx, const void *data, size_t len) {
 
 void
 keccak_final(keccak_t *ctx, unsigned char *out, unsigned int pad, size_t len) {
+  size_t pos = ctx->pos;
   size_t i, count;
 
   if (pad == 0)
@@ -1095,9 +1105,11 @@ keccak_final(keccak_t *ctx, unsigned char *out, unsigned int pad, size_t len) {
 
   CHECK(len <= 200);
 
-  memset(ctx->block + ctx->pos, 0x00, ctx->bs - ctx->pos);
+  ctx->block[pos++] = pad & 0xff;
 
-  ctx->block[ctx->pos] |= (pad & 0xff);
+  while (pos < ctx->bs)
+    ctx->block[pos++] = 0x00;
+
   ctx->block[ctx->bs - 1] |= 0x80;
 
   keccak_transform(ctx, ctx->block);
@@ -1269,15 +1281,14 @@ md2_update(md2_t *ctx, const void *data, size_t len) {
 
 void
 md2_final(md2_t *ctx, unsigned char *out) {
-  size_t left = 16 - ctx->pos;
-  unsigned char pad[16];
-  size_t i;
+  size_t pos = ctx->pos;
+  size_t left = 16 - pos;
 
-  for (i = 0; i < left; i++)
-    pad[i] = left;
+  while (pos < 16)
+    ctx->block[pos++] = left;
 
-  md2_update(ctx, pad, left);
-  md2_update(ctx, ctx->checksum, 16);
+  md2_transform(ctx, ctx->block);
+  md2_transform(ctx, ctx->checksum);
 
   memcpy(out, ctx->state, 16);
 }
@@ -1432,15 +1443,26 @@ md4_update(md4_t *ctx, const void *data, size_t len) {
 
 void
 md4_final(md4_t *ctx, unsigned char *out) {
-  static const unsigned char P[64] = { 0x80, 0x00 };
   size_t pos = ctx->size & 63;
-  unsigned char D[8];
   int i;
 
-  write64le(D, ctx->size << 3);
+  ctx->block[pos++] = 0x80;
 
-  md4_update(ctx, P, 1 + ((119 - pos) & 63));
-  md4_update(ctx, D, 8);
+  if (pos > 56) {
+    while (pos < 64)
+      ctx->block[pos++] = 0x00;
+
+    md4_transform(ctx, ctx->block);
+
+    pos = 0;
+  }
+
+  while (pos < 56)
+    ctx->block[pos++] = 0x00;
+
+  write64le(ctx->block + 56, ctx->size << 3);
+
+  md4_transform(ctx, ctx->block);
 
   for (i = 0; i < 4; i++)
     write32le(out + i * 4, ctx->state[i]);
@@ -1608,15 +1630,26 @@ md5_update(md5_t *ctx, const void *data, size_t len) {
 
 void
 md5_final(md5_t *ctx, unsigned char *out) {
-  static const unsigned char P[64] = { 0x80, 0x00 };
   size_t pos = ctx->size & 63;
-  unsigned char D[8];
   int i;
 
-  write64le(D, ctx->size << 3);
+  ctx->block[pos++] = 0x80;
 
-  md5_update(ctx, P, 1 + ((119 - pos) & 63));
-  md5_update(ctx, D, 8);
+  if (pos > 56) {
+    while (pos < 64)
+      ctx->block[pos++] = 0x00;
+
+    md5_transform(ctx, ctx->block);
+
+    pos = 0;
+  }
+
+  while (pos < 56)
+    ctx->block[pos++] = 0x00;
+
+  write64le(ctx->block + 56, ctx->size << 3);
+
+  md5_transform(ctx, ctx->block);
 
   for (i = 0; i < 4; i++)
     write32le(out + i * 4, ctx->state[i]);
@@ -1950,15 +1983,26 @@ ripemd160_update(ripemd160_t *ctx, const void *data, size_t len) {
 
 void
 ripemd160_final(ripemd160_t *ctx, unsigned char *out) {
-  static const unsigned char P[64] = { 0x80, 0x00 };
   size_t pos = ctx->size & 63;
-  unsigned char D[8];
   int i;
 
-  write64le(D, ctx->size << 3);
+  ctx->block[pos++] = 0x80;
 
-  ripemd160_update(ctx, P, 1 + ((119 - pos) & 63));
-  ripemd160_update(ctx, D, 8);
+  if (pos > 56) {
+    while (pos < 64)
+      ctx->block[pos++] = 0x00;
+
+    ripemd160_transform(ctx, ctx->block);
+
+    pos = 0;
+  }
+
+  while (pos < 56)
+    ctx->block[pos++] = 0x00;
+
+  write64le(ctx->block + 56, ctx->size << 3);
+
+  ripemd160_transform(ctx, ctx->block);
 
   for (i = 0; i < 5; i++)
     write32le(out + i * 4, ctx->state[i]);
@@ -2192,15 +2236,26 @@ sha1_update(sha1_t *ctx, const void *data, size_t len) {
 
 void
 sha1_final(sha1_t *ctx, unsigned char *out) {
-  static const unsigned char P[64] = { 0x80, 0x00 };
   size_t pos = ctx->size & 63;
-  unsigned char D[8];
   int i;
 
-  write64be(D, ctx->size << 3);
+  ctx->block[pos++] = 0x80;
 
-  sha1_update(ctx, P, 1 + ((119 - pos) & 63));
-  sha1_update(ctx, D, 8);
+  if (pos > 56) {
+    while (pos < 64)
+      ctx->block[pos++] = 0x00;
+
+    sha1_transform(ctx, ctx->block);
+
+    pos = 0;
+  }
+
+  while (pos < 56)
+    ctx->block[pos++] = 0x00;
+
+  write64be(ctx->block + 56, ctx->size << 3);
+
+  sha1_transform(ctx, ctx->block);
 
   for (i = 0; i < 5; i++)
     write32be(out + i * 4, ctx->state[i]);
@@ -2460,15 +2515,26 @@ sha256_update(sha256_t *ctx, const void *data, size_t len) {
 
 void
 sha256_final(sha256_t *ctx, unsigned char *out) {
-  static const unsigned char P[64] = { 0x80, 0x00 };
   size_t pos = ctx->size & 63;
-  unsigned char D[8];
   int i;
 
-  write64be(D, ctx->size << 3);
+  ctx->block[pos++] = 0x80;
 
-  sha256_update(ctx, P, 1 + ((119 - pos) & 63));
-  sha256_update(ctx, D, 8);
+  if (pos > 56) {
+    while (pos < 64)
+      ctx->block[pos++] = 0x00;
+
+    sha256_transform(ctx, ctx->block);
+
+    pos = 0;
+  }
+
+  while (pos < 56)
+    ctx->block[pos++] = 0x00;
+
+  write64be(ctx->block + 56, ctx->size << 3);
+
+  sha256_transform(ctx, ctx->block);
 
   for (i = 0; i < 8; i++)
     write32be(out + i * 4, ctx->state[i]);
@@ -2744,16 +2810,27 @@ sha512_update(sha512_t *ctx, const void *data, size_t len) {
 
 void
 sha512_final(sha512_t *ctx, unsigned char *out) {
-  static const unsigned char P[128] = { 0x80, 0x00 };
   size_t pos = ctx->size & 127;
-  unsigned char D[16];
   int i;
 
-  write64be(D + 0, ctx->size >> (64 - 3));
-  write64be(D + 8, ctx->size << 3);
+  ctx->block[pos++] = 0x80;
 
-  sha512_update(ctx, P, 1 + ((239 - pos) & 127));
-  sha512_update(ctx, D, 16);
+  if (pos > 112) {
+    while (pos < 128)
+      ctx->block[pos++] = 0x00;
+
+    sha512_transform(ctx, ctx->block);
+
+    pos = 0;
+  }
+
+  while (pos < 112)
+    ctx->block[pos++] = 0x00;
+
+  write64be(ctx->block + 112, ctx->size >> 61);
+  write64be(ctx->block + 120, ctx->size << 3);
+
+  sha512_transform(ctx, ctx->block);
 
   for (i = 0; i < 8; i++)
     write64be(out + i * 8, ctx->state[i]);
@@ -3957,18 +4034,29 @@ whirlpool_update(whirlpool_t *ctx, const void *data, size_t len) {
 
 void
 whirlpool_final(whirlpool_t *ctx, unsigned char *out) {
-  static const unsigned char P[64] = { 0x80, 0x00 };
   size_t pos = ctx->size & 63;
-  unsigned char D[32];
   int i;
 
-  memset(D, 0x00, 16);
+  ctx->block[pos++] = 0x80;
 
-  write64be(D + 16, ctx->size >> (64 - 3));
-  write64be(D + 24, ctx->size << 3);
+  if (pos > 32) {
+    while (pos < 64)
+      ctx->block[pos++] = 0x00;
 
-  whirlpool_update(ctx, P, 1 + ((95 - pos) & 63));
-  whirlpool_update(ctx, D, 32);
+    whirlpool_transform(ctx, ctx->block);
+
+    pos = 0;
+  }
+
+  while (pos < 32)
+    ctx->block[pos++] = 0x00;
+
+  write64be(ctx->block + 32, 0);
+  write64be(ctx->block + 40, 0);
+  write64be(ctx->block + 48, ctx->size >> 61);
+  write64be(ctx->block + 56, ctx->size << 3);
+
+  whirlpool_transform(ctx, ctx->block);
 
   for (i = 0; i < 8; i++)
     write64be(out + i * 8, ctx->state[i]);
