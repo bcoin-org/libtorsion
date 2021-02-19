@@ -7792,6 +7792,29 @@ cipher_stream_final(cipher_stream_t *ctx,
   return 1;
 }
 
+size_t
+cipher_stream_final_size(const cipher_stream_t *ctx) {
+  switch (ctx->mode.type) {
+    case CIPHER_MODE_ECB:
+    case CIPHER_MODE_CBC: {
+      if (!ctx->padding)
+        return 0;
+
+      return ctx->block_size;
+    }
+
+    case CIPHER_MODE_CTS:
+    case CIPHER_MODE_XTS: {
+      if (!ctx->padding)
+        return 0;
+
+      return ctx->block_size + ctx->block_pos;
+    }
+  }
+
+  return 0;
+}
+
 /*
  * Static Encryption/Decryption
  */

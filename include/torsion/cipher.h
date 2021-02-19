@@ -110,6 +110,7 @@ extern "C" {
 #define cipher_stream_crypt torsion_cipher_stream_crypt
 #define cipher_stream_update_size torsion_cipher_stream_update_size
 #define cipher_stream_final torsion_cipher_stream_final
+#define cipher_stream_final_size torsion_cipher_stream_final_size
 #define cipher_static_encrypt torsion_cipher_static_encrypt
 #define cipher_static_decrypt torsion_cipher_static_decrypt
 
@@ -817,6 +818,9 @@ TORSION_EXTERN int
 cipher_stream_final(cipher_stream_t *ctx,
                     unsigned char *output,
                     size_t *output_len);
+
+TORSION_EXTERN size_t
+cipher_stream_final_size(const cipher_stream_t *ctx);
 
 /*
  * Static Encryption/Decryption
