@@ -624,7 +624,7 @@ gost94_sum(gost94_t *ctx, const uint8_t *mp) {
   int i;
 
   for (i = 0; i < 32; i++) {
-    c += ctx->sigma[i] + mp[i];
+    c += (unsigned int)ctx->sigma[i] + mp[i];
     ctx->sigma[i] = c;
     c >>= 8;
   }
@@ -641,15 +641,23 @@ gost94_transform(gost94_t *ctx, const unsigned char *chunk) {
   gost94_sum(ctx, chunk);
 }
 
+static void
+gost94_increment(gost94_t *ctx, uint64_t c) {
+  ctx->size[0] += c; c = (ctx->size[0] < c);
+  ctx->size[1] += c; c = (ctx->size[1] < c);
+  ctx->size[2] += c; c = (ctx->size[2] < c);
+  ctx->size[3] += c;
+}
+
 void
 gost94_update(gost94_t *ctx, const void *data, size_t len) {
   const unsigned char *raw = (const unsigned char *)data;
-  size_t pos = ctx->size & 31;
+  size_t pos = ctx->size[0] & 31;
 
   if (len == 0)
     return;
 
-  ctx->size += len;
+  gost94_increment(ctx, len);
 
   if (pos > 0) {
     size_t want = 32 - pos;
@@ -681,7 +689,7 @@ gost94_update(gost94_t *ctx, const void *data, size_t len) {
 
 void
 gost94_final(gost94_t *ctx, unsigned char *out) {
-  size_t pos = ctx->size & 31;
+  size_t pos = ctx->size[0] & 31;
 
   if (pos > 0) {
     while (pos < 32)
@@ -690,10 +698,10 @@ gost94_final(gost94_t *ctx, unsigned char *out) {
     gost94_transform(ctx, ctx->block);
   }
 
-  write64le(ctx->block +  0, ctx->size << 3);
-  write64le(ctx->block +  8, ctx->size >> 61);
-  write64le(ctx->block + 16, 0);
-  write64le(ctx->block + 24, 0);
+  write64le(ctx->block +  0, ctx->size[0] << 3);
+  write64le(ctx->block +  8, (ctx->size[1] << 3) | (ctx->size[0] >> 61));
+  write64le(ctx->block + 16, (ctx->size[2] << 3) | (ctx->size[1] >> 61));
+  write64le(ctx->block + 24, (ctx->size[3] << 3) | (ctx->size[2] >> 61));
 
   gost94_compress(ctx, ctx->block);
   gost94_compress(ctx, ctx->sigma);
@@ -2558,7 +2566,9 @@ sha384_init(sha384_t *ctx) {
   ctx->state[5] = UINT64_C(0x8eb44a8768581511);
   ctx->state[6] = UINT64_C(0xdb0c2e0d64f98fa7);
   ctx->state[7] = UINT64_C(0x47b5481dbefa4fa4);
-  ctx->size = 0;
+
+  ctx->size[0] = 0;
+  ctx->size[1] = 0;
 }
 
 void
@@ -2595,7 +2605,9 @@ sha512_init(sha512_t *ctx) {
   ctx->state[5] = UINT64_C(0x9b05688c2b3e6c1f);
   ctx->state[6] = UINT64_C(0x1f83d9abfb41bd6b);
   ctx->state[7] = UINT64_C(0x5be0cd19137e2179);
-  ctx->size = 0;
+
+  ctx->size[0] = 0;
+  ctx->size[1] = 0;
 }
 
 static void
@@ -2770,15 +2782,21 @@ sha512_transform(sha512_t *ctx, const unsigned char *chunk) {
   ctx->state[7] += H;
 }
 
+static void
+sha512_increment(sha512_t *ctx, uint64_t c) {
+  ctx->size[0] += c;
+  ctx->size[1] += (ctx->size[0] < c);
+}
+
 void
 sha512_update(sha512_t *ctx, const void *data, size_t len) {
   const unsigned char *raw = (const unsigned char *)data;
-  size_t pos = ctx->size & 127;
+  size_t pos = ctx->size[0] & 127;
 
   if (len == 0)
     return;
 
-  ctx->size += len;
+  sha512_increment(ctx, len);
 
   if (pos > 0) {
     size_t want = 128 - pos;
@@ -2810,7 +2828,7 @@ sha512_update(sha512_t *ctx, const void *data, size_t len) {
 
 void
 sha512_final(sha512_t *ctx, unsigned char *out) {
-  size_t pos = ctx->size & 127;
+  size_t pos = ctx->size[0] & 127;
   int i;
 
   ctx->block[pos++] = 0x80;
@@ -2827,8 +2845,8 @@ sha512_final(sha512_t *ctx, unsigned char *out) {
   while (pos < 112)
     ctx->block[pos++] = 0x00;
 
-  write64be(ctx->block + 112, ctx->size >> 61);
-  write64be(ctx->block + 120, ctx->size << 3);
+  write64be(ctx->block + 112, (ctx->size[1] << 3) | (ctx->size[0] >> 61));
+  write64be(ctx->block + 120, ctx->size[0] << 3);
 
   sha512_transform(ctx, ctx->block);
 
@@ -3949,7 +3967,11 @@ whirlpool_init(whirlpool_t *ctx) {
   ctx->state[5] = UINT64_C(0x0000000000000000);
   ctx->state[6] = UINT64_C(0x0000000000000000);
   ctx->state[7] = UINT64_C(0x0000000000000000);
-  ctx->size = 0;
+
+  ctx->size[0] = 0;
+  ctx->size[1] = 0;
+  ctx->size[2] = 0;
+  ctx->size[3] = 0;
 }
 
 static void
@@ -4002,15 +4024,23 @@ whirlpool_transform(whirlpool_t *ctx, const unsigned char *chunk) {
     ctx->state[i] ^= S[i] ^ B[i];
 }
 
+static void
+whirlpool_increment(whirlpool_t *ctx, uint64_t c) {
+  ctx->size[0] += c; c = (ctx->size[0] < c);
+  ctx->size[1] += c; c = (ctx->size[1] < c);
+  ctx->size[2] += c; c = (ctx->size[2] < c);
+  ctx->size[3] += c;
+}
+
 void
 whirlpool_update(whirlpool_t *ctx, const void *data, size_t len) {
   const unsigned char *raw = (const unsigned char *)data;
-  size_t pos = ctx->size & 63;
+  size_t pos = ctx->size[0] & 63;
 
   if (len == 0)
     return;
 
-  ctx->size += len;
+  whirlpool_increment(ctx, len);
 
   if (pos > 0) {
     size_t want = 64 - pos;
@@ -4042,7 +4072,7 @@ whirlpool_update(whirlpool_t *ctx, const void *data, size_t len) {
 
 void
 whirlpool_final(whirlpool_t *ctx, unsigned char *out) {
-  size_t pos = ctx->size & 63;
+  size_t pos = ctx->size[0] & 63;
   int i;
 
   ctx->block[pos++] = 0x80;
@@ -4059,10 +4089,10 @@ whirlpool_final(whirlpool_t *ctx, unsigned char *out) {
   while (pos < 32)
     ctx->block[pos++] = 0x00;
 
-  write64be(ctx->block + 32, 0);
-  write64be(ctx->block + 40, 0);
-  write64be(ctx->block + 48, ctx->size >> 61);
-  write64be(ctx->block + 56, ctx->size << 3);
+  write64be(ctx->block + 32, (ctx->size[3] << 3) | (ctx->size[2] >> 61));
+  write64be(ctx->block + 40, (ctx->size[2] << 3) | (ctx->size[1] >> 61));
+  write64be(ctx->block + 48, (ctx->size[1] << 3) | (ctx->size[0] >> 61));
+  write64be(ctx->block + 56, ctx->size[0] << 3);
 
   whirlpool_transform(ctx, ctx->block);
 
