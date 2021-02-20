@@ -6057,37 +6057,39 @@ cbc_decrypt(cbc_t *mode, const cipher_t *cipher,
             unsigned char *dst, const unsigned char *src, size_t len) {
   size_t i;
 
-  CHECK((len & (cipher->size - 1)) == 0);
-
   if (dst == src) {
-    unsigned char prev[CIPHER_MAX_BLOCK_SIZE];
+    unsigned char tmp[CIPHER_MAX_BLOCK_SIZE];
+
+    CHECK((len & (cipher->size - 1)) == 0);
 
     while (len > 0) {
-      memcpy(prev, mode->prev, cipher->size);
-      memcpy(mode->prev, src, cipher->size);
-
-      cipher_decrypt(cipher, dst, src);
+      cipher_decrypt(cipher, tmp, src);
 
       for (i = 0; i < cipher->size; i++)
-        dst[i] ^= prev[i];
+        tmp[i] ^= mode->prev[i];
+
+      memcpy(mode->prev, src, cipher->size);
+      memcpy(dst, tmp, cipher->size);
 
       dst += cipher->size;
       src += cipher->size;
       len -= cipher->size;
     }
-  } else {
-    while (len > 0) {
-      cipher_decrypt(cipher, dst, src);
 
-      for (i = 0; i < cipher->size; i++)
-        dst[i] ^= mode->prev[i];
+    torsion_cleanse(tmp, cipher->size);
+  } else if (len > 0) {
+    ecb_decrypt(cipher, dst, src, len);
 
-      memcpy(mode->prev, src, cipher->size);
+    for (i = 0; i < cipher->size; i++)
+      dst[i] ^= mode->prev[i];
 
-      dst += cipher->size;
-      src += cipher->size;
-      len -= cipher->size;
-    }
+    dst += cipher->size;
+    len -= cipher->size;
+
+    for (i = 0; i < len; i++)
+      dst[i] ^= src[i];
+
+    memcpy(mode->prev, src + len, cipher->size);
   }
 }
 
