@@ -6597,9 +6597,6 @@ ghash_aad(ghash_t *ctx, const unsigned char *data, size_t len) {
 
 static void
 ghash_update(ghash_t *ctx, const unsigned char *data, size_t len) {
-  if (len == 0)
-    return;
-
   if (ctx->ctlen == 0)
     ghash_pad(ctx);
 
@@ -6788,21 +6785,21 @@ fail:
   return 0;
 }
 
-static unsigned int
-ccm_log256(size_t lm) {
-  unsigned int L = 0;
+static size_t
+ccm_log256(size_t x) {
+  size_t z = 0;
 
-  while (lm > 0) {
-    lm >>= 1;
-    L += 1;
+  while (x > 0) {
+    x >>= 1;
+    z += 1;
   }
 
-  L = (L + 7) / 8;
+  z = (z + 7) / 8;
 
-  if (L < 2)
-    L = 2;
+  if (z < 2)
+    z = 2;
 
-  return L;
+  return z;
 }
 
 int
