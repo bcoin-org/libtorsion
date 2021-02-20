@@ -13,6 +13,7 @@
 #include <torsion/ecc.h>
 #include <torsion/hash.h>
 #include <torsion/rsa.h>
+#include <torsion/stream.h>
 
 #include "hrtime.h"
 #include "utils.h"
@@ -709,6 +710,29 @@ bench_aes_gcm(drbg_t *rng) {
   bench_end(&tv, i);
 }
 
+static void
+bench_chacha20(drbg_t *rng) {
+  unsigned char raw[977];
+  unsigned char key[32];
+  unsigned char iv[8];
+  chacha20_t ctx;
+  bench_t tv;
+  size_t i;
+
+  drbg_generate(rng, raw, sizeof(raw));
+  drbg_generate(rng, key, sizeof(key));
+  drbg_generate(rng, iv, sizeof(iv));
+
+  bench_start(&tv, "chacha20");
+
+  chacha20_init(&ctx, key, sizeof(key), iv, sizeof(iv), 0);
+
+  for (i = 0; i < 1000000; i++)
+    chacha20_crypt(&ctx, raw, raw, sizeof(raw));
+
+  bench_end(&tv, i);
+}
+
 /*
  * Benchmark Registry
  */
@@ -735,7 +759,8 @@ static const struct {
   B(sha256),
   B(sha3),
   B(aes_ctr),
-  B(aes_gcm)
+  B(aes_gcm),
+  B(chacha20)
 #undef B
 };
 
