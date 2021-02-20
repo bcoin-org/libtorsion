@@ -6170,18 +6170,15 @@ xts_setup(xts_t *mode, const cipher_t *cipher,
 
 static void
 xts_shift(uint8_t *dst, const uint8_t *src, size_t size) {
+  /* Little-endian doubling. */
   uint32_t poly = poly_table[size >> 4];
-  uint8_t c = 0;
-  uint8_t hi;
+  uint8_t c = src[size - 1] >> 7;
   size_t i;
 
-  for (i = 0; i < size; i++) {
-    hi = src[i] >> 7;
+  for (i = size - 1; i >= 1; i--)
+    dst[i] = (src[i] << 1) | (src[i - 1] >> 7);
 
-    dst[i] = (src[i] << 1) | c;
-
-    c = hi;
-  }
+  dst[0] = src[0] << 1;
 
   dst[2] ^= (uint8_t)(poly >> 16) & -c;
   dst[1] ^= (uint8_t)(poly >>  8) & -c;
@@ -6954,18 +6951,15 @@ cmac_init(cmac_t *ctx, const cipher_t *cipher, int flag) {
 
 static void
 cmac_shift(uint8_t *dst, const uint8_t *src, size_t size) {
+  /* Big-endian doubling. */
   uint32_t poly = poly_table[size >> 4];
-  size_t i = size;
-  uint8_t c = 0;
-  uint8_t hi;
+  uint8_t c = src[0] >> 7;
+  size_t i;
 
-  while (i--) {
-    hi = src[i] >> 7;
+  for (i = 0; i < size - 1; i++)
+    dst[i] = (src[i] << 1) | (src[i + 1] >> 7);
 
-    dst[i] = (src[i] << 1) | c;
-
-    c = hi;
-  }
+  dst[size - 1] = src[size - 1] << 1;
 
   dst[size - 3] ^= (uint8_t)(poly >> 16) & -c;
   dst[size - 2] ^= (uint8_t)(poly >>  8) & -c;
