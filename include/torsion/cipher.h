@@ -249,31 +249,22 @@ typedef struct cipher_s {
   } ctx;
 } cipher_t;
 
-typedef struct cbc_s {
-  unsigned char prev[CIPHER_MAX_BLOCK_SIZE];
-} cbc_t;
-
-typedef struct xts_s {
+typedef struct block_mode_s {
   unsigned char tweak[CIPHER_MAX_BLOCK_SIZE];
   unsigned char prev[CIPHER_MAX_BLOCK_SIZE];
-} xts_t;
+} block_mode_t;
 
-typedef struct ctr_s {
-  uint8_t ctr[CIPHER_MAX_BLOCK_SIZE];
+typedef struct stream_mode_s {
   unsigned char state[CIPHER_MAX_BLOCK_SIZE];
+  unsigned char iv[CIPHER_MAX_BLOCK_SIZE];
   size_t pos;
-} ctr_t;
+} stream_mode_t;
 
-typedef struct cfb_s {
-  unsigned char state[CIPHER_MAX_BLOCK_SIZE];
-  unsigned char prev[CIPHER_MAX_BLOCK_SIZE];
-  size_t pos;
-} cfb_t;
-
-typedef struct ofb_s {
-  unsigned char state[CIPHER_MAX_BLOCK_SIZE];
-  size_t pos;
-} ofb_t;
+typedef block_mode_t cbc_t;
+typedef block_mode_t xts_t;
+typedef stream_mode_t ctr_t;
+typedef stream_mode_t cfb_t;
+typedef stream_mode_t ofb_t;
 
 struct __ghash_fe_s {
   uint64_t lo;
@@ -290,11 +281,9 @@ struct __ghash_s {
 };
 
 typedef struct gcm_s {
+  ctr_t ctr;
   struct __ghash_s hash;
-  uint8_t ctr[16];
-  unsigned char state[16];
   unsigned char mask[16];
-  size_t pos;
 } gcm_t;
 
 struct __cmac_s {
@@ -303,29 +292,22 @@ struct __cmac_s {
 };
 
 typedef struct ccm_s {
+  ctr_t ctr;
   struct __cmac_s hash;
-  unsigned char state[16];
-  uint8_t ctr[16];
-  size_t pos;
 } ccm_t;
 
 typedef struct eax_s {
+  ctr_t ctr;
   struct __cmac_s hash1;
   struct __cmac_s hash2;
-  unsigned char state[CIPHER_MAX_BLOCK_SIZE];
   unsigned char mask[CIPHER_MAX_BLOCK_SIZE];
-  uint8_t ctr[CIPHER_MAX_BLOCK_SIZE];
-  size_t pos;
 } eax_t;
 
 struct __cipher_mode_s {
   int type;
   union {
-    cbc_t cbc;
-    xts_t xts;
-    ctr_t ctr;
-    cfb_t cfb;
-    ofb_t ofb;
+    block_mode_t block;
+    stream_mode_t stream;
     gcm_t gcm;
     ccm_t ccm;
     eax_t eax;

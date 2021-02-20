@@ -6320,34 +6320,86 @@ xts_unsteal(xts_t *mode,
 }
 
 /*
+ * Stream (Abstract)
+ */
+
+typedef void stream_f(stream_mode_t *mode, const cipher_t *cipher);
+typedef void xor_f(stream_mode_t *mode, size_t pos, unsigned char *dst,
+                   const unsigned char *src, size_t len);
+
+static TORSION_INLINE void
+stream_update(stream_mode_t *mode,
+              const cipher_t *cipher,
+              stream_f *stream,
+              xor_f *xor,
+              unsigned char *dst,
+              const unsigned char *src,
+              size_t len) {
+  size_t size = cipher->size;
+  size_t pos = mode->pos;
+  size_t want = size - pos;
+
+  if (len >= want) {
+    if (pos > 0) {
+      xor(mode, pos, dst, src, want);
+
+      dst += want;
+      src += want;
+      len -= want;
+      pos = 0;
+    }
+
+    while (len >= size) {
+      stream(mode, cipher);
+
+      xor(mode, 0, dst, src, size);
+
+      dst += size;
+      src += size;
+      len -= size;
+    }
+  }
+
+  if (len > 0) {
+    if (pos == 0)
+      stream(mode, cipher);
+
+    xor(mode, pos, dst, src, len);
+
+    pos += len;
+  }
+
+  mode->pos = pos;
+}
+
+/*
  * CTR
  */
 
 void
 ctr_init(ctr_t *mode, const cipher_t *cipher, const unsigned char *iv) {
-  memcpy(mode->ctr, iv, cipher->size);
+  memcpy(mode->iv, iv, cipher->size);
   /* Defensive memset. */
   memset(mode->state, 0, cipher->size);
   mode->pos = 0;
 }
 
+static void
+ctr_stream(ctr_t *mode, const cipher_t *cipher) {
+  cipher_encrypt(cipher, mode->state, mode->iv);
+  increment_be_var(mode->iv, cipher->size);
+}
+
+static void
+ctr_xor(ctr_t *mode, size_t pos, unsigned char *dst,
+        const unsigned char *src, size_t len) {
+  torsion_memxor3(dst, src, mode->state + pos, len);
+}
+
 void
 ctr_crypt(ctr_t *mode, const cipher_t *cipher,
           unsigned char *dst, const unsigned char *src, size_t len) {
-  size_t mask = cipher->size - 1;
-  size_t i;
-
-  for (i = 0; i < len; i++) {
-    if ((mode->pos & mask) == 0) {
-      cipher_encrypt(cipher, mode->state, mode->ctr);
-
-      increment_be_var(mode->ctr, cipher->size);
-
-      mode->pos = 0;
-    }
-
-    dst[i] = src[i] ^ mode->state[mode->pos++];
-  }
+  stream_update(mode, cipher, ctr_stream, ctr_xor, dst, src, len);
 }
 
 /*
@@ -6356,50 +6408,41 @@ ctr_crypt(ctr_t *mode, const cipher_t *cipher,
 
 void
 cfb_init(cfb_t *mode, const cipher_t *cipher, const unsigned char *iv) {
-  memcpy(mode->prev, iv, cipher->size);
+  memcpy(mode->iv, iv, cipher->size);
   /* Defensive memset. */
   memset(mode->state, 0, cipher->size);
   mode->pos = 0;
 }
 
+static void
+cfb_stream(cfb_t *mode, const cipher_t *cipher) {
+  cipher_encrypt(cipher, mode->state, mode->iv);
+}
+
+static void
+cfb_xor_enc(cfb_t *mode, size_t pos, unsigned char *dst,
+            const unsigned char *src, size_t len) {
+  torsion_memxor3(dst, src, mode->state + pos, len);
+  memcpy(mode->iv + pos, dst, len);
+}
+
+static void
+cfb_xor_dec(cfb_t *mode, size_t pos, unsigned char *dst,
+            const unsigned char *src, size_t len) {
+  memcpy(mode->iv + pos, src, len);
+  torsion_memxor3(dst, src, mode->state + pos, len);
+}
+
 void
 cfb_encrypt(cfb_t *mode, const cipher_t *cipher,
             unsigned char *dst, const unsigned char *src, size_t len) {
-  size_t mask = cipher->size - 1;
-  size_t i;
-
-  for (i = 0; i < len; i++) {
-    if ((mode->pos & mask) == 0) {
-      cipher_encrypt(cipher, mode->state, mode->prev);
-      mode->pos = 0;
-    }
-
-    dst[i] = src[i] ^ mode->state[mode->pos];
-
-    mode->prev[mode->pos] = dst[i];
-
-    mode->pos += 1;
-  }
+  stream_update(mode, cipher, cfb_stream, cfb_xor_enc, dst, src, len);
 }
 
 void
 cfb_decrypt(cfb_t *mode, const cipher_t *cipher,
             unsigned char *dst, const unsigned char *src, size_t len) {
-  size_t mask = cipher->size - 1;
-  size_t i;
-
-  for (i = 0; i < len; i++) {
-    if ((mode->pos & mask) == 0) {
-      cipher_encrypt(cipher, mode->state, mode->prev);
-      mode->pos = 0;
-    }
-
-    mode->prev[mode->pos] = src[i];
-
-    dst[i] = src[i] ^ mode->state[mode->pos];
-
-    mode->pos += 1;
-  }
+  stream_update(mode, cipher, cfb_stream, cfb_xor_dec, dst, src, len);
 }
 
 /*
@@ -6412,20 +6455,15 @@ ofb_init(ofb_t *mode, const cipher_t *cipher, const unsigned char *iv) {
   mode->pos = 0;
 }
 
+static void
+ofb_stream(ofb_t *mode, const cipher_t *cipher) {
+  cipher_encrypt(cipher, mode->state, mode->state);
+}
+
 void
 ofb_crypt(ofb_t *mode, const cipher_t *cipher,
           unsigned char *dst, const unsigned char *src, size_t len) {
-  size_t mask = cipher->size - 1;
-  size_t i;
-
-  for (i = 0; i < len; i++) {
-    if ((mode->pos & mask) == 0) {
-      cipher_encrypt(cipher, mode->state, mode->state);
-      mode->pos = 0;
-    }
-
-    dst[i] = src[i] ^ mode->state[mode->pos++];
-  }
+  stream_update(mode, cipher, ofb_stream, ctr_xor, dst, src, len);
 }
 
 /*
@@ -6622,30 +6660,25 @@ ghash_final(ghash_t *ctx, unsigned char *out) {
  */
 
 static void
+gcm_stream(ctr_t *ctr, const cipher_t *cipher) {
+  cipher_encrypt(cipher, ctr->state, ctr->iv);
+  increment_be(ctr->iv + 12, 4);
+}
+
+static void
 gcm_crypt(gcm_t *mode,
           const cipher_t *cipher,
           unsigned char *dst,
           const unsigned char *src,
           size_t len) {
-  size_t i;
-
-  for (i = 0; i < len; i++) {
-    if ((mode->pos & 15) == 0) {
-      cipher_encrypt(cipher, mode->state, mode->ctr);
-
-      increment_be(mode->ctr + 12, 4);
-
-      mode->pos = 0;
-    }
-
-    dst[i] = src[i] ^ mode->state[mode->pos++];
-  }
+  stream_update(&mode->ctr, cipher, gcm_stream, ctr_xor, dst, src, len);
 }
 
 int
 gcm_init(gcm_t *mode, const cipher_t *cipher,
          const unsigned char *iv, size_t iv_len) {
   static const unsigned char initial[4] = {0, 0, 0, 1};
+  ctr_t *ctr = &mode->ctr;
   unsigned char key[16];
 
   if (cipher->size != 16) {
@@ -6654,20 +6687,20 @@ gcm_init(gcm_t *mode, const cipher_t *cipher,
   }
 
   /* Defensive memset. */
-  memset(mode->state, 0, 16);
-  memset(mode->ctr, 0, 16);
+  memset(ctr->state, 0, 16);
+  memset(ctr->iv, 0, 16);
 
-  mode->pos = 0;
+  ctr->pos = 0;
 
   gcm_crypt(mode, cipher, key, zero64, 16);
 
   if (iv_len == 12) {
-    memcpy(mode->ctr, iv, 12);
-    memcpy(mode->ctr + 12, initial, 4);
+    memcpy(ctr->iv, iv, 12);
+    memcpy(ctr->iv + 12, initial, 4);
   } else {
     ghash_init(&mode->hash, key);
     ghash_update(&mode->hash, iv, iv_len);
-    ghash_final(&mode->hash, mode->ctr);
+    ghash_final(&mode->hash, ctr->iv);
   }
 
   ghash_init(&mode->hash, key);
@@ -6720,16 +6753,37 @@ cbcmac_init(cbcmac_t *ctx, const cipher_t *cipher) {
 static void
 cbcmac_update(cbcmac_t *ctx, const cipher_t *cipher,
               const unsigned char *data, size_t len) {
-  size_t i;
+  const unsigned char *raw = data;
+  size_t pos = ctx->pos;
+  size_t want = cipher->size - pos;
 
-  for (i = 0; i < len; i++) {
-    ctx->mac[ctx->pos++] ^= data[i];
+  if (len >= want) {
+    if (pos > 0) {
+      torsion_memxor(ctx->mac + pos, raw, want);
 
-    if (ctx->pos == cipher->size) {
       cipher_encrypt(cipher, ctx->mac, ctx->mac);
-      ctx->pos = 0;
+
+      raw += want;
+      len -= want;
+      pos = 0;
+    }
+
+    while (len >= cipher->size) {
+      torsion_memxor(ctx->mac, raw, cipher->size);
+
+      cipher_encrypt(cipher, ctx->mac, ctx->mac);
+
+      raw += cipher->size;
+      len -= cipher->size;
     }
   }
+
+  if (len > 0) {
+    torsion_memxor(ctx->mac + pos, raw, len);
+    pos += len;
+  }
+
+  ctx->pos = pos;
 }
 
 static void
@@ -6754,6 +6808,8 @@ cbcmac_final(cbcmac_t *ctx, const cipher_t *cipher, unsigned char *mac) {
 int
 ccm_init(ccm_t *mode, const cipher_t *cipher,
          const unsigned char *iv, size_t iv_len) {
+  ctr_t *ctr = &mode->ctr;
+
   /* CCM is specified to have a block size of 16. */
   if (cipher->size != 16)
     goto fail;
@@ -6769,14 +6825,14 @@ ccm_init(ccm_t *mode, const cipher_t *cipher,
   cbcmac_init(&mode->hash, cipher);
 
   /* Defensive memsets. */
-  memset(mode->ctr, 0, 16);
-  memset(mode->state, 0, 16);
+  memset(ctr->iv, 0, 16);
+  memset(ctr->state, 0, 16);
 
   /* Store the IV here for now. Note that
      ccm_setup _must_ be called after this. */
-  memcpy(mode->state, iv, iv_len);
+  memcpy(ctr->state, iv, iv_len);
 
-  mode->pos = iv_len;
+  ctr->pos = iv_len;
 
   return 1;
 fail:
@@ -6805,8 +6861,9 @@ int
 ccm_setup(ccm_t *mode, const cipher_t *cipher,
           size_t msg_len, size_t tag_len,
           const unsigned char *aad, size_t aad_len) {
-  const unsigned char *iv = mode->state;
-  size_t iv_len = mode->pos;
+  ctr_t *ctr = &mode->ctr;
+  const unsigned char *iv = ctr->state;
+  size_t iv_len = ctr->pos;
   unsigned char block[16];
   size_t Adata = (aad_len > 0);
   size_t lm = msg_len;
@@ -6878,9 +6935,9 @@ ccm_setup(ccm_t *mode, const cipher_t *cipher,
   for (i = 14; i >= 1 + N; i--)
     block[i] = 0;
 
-  memcpy(mode->ctr, block, 16);
+  memcpy(ctr->iv, block, 16);
 
-  mode->pos = 0;
+  ctr->pos = 0;
 
   return 1;
 }
@@ -6888,19 +6945,7 @@ ccm_setup(ccm_t *mode, const cipher_t *cipher,
 static void
 ccm_crypt(ccm_t *mode, const cipher_t *cipher,
           unsigned char *dst, const unsigned char *src, size_t len) {
-  size_t i;
-
-  for (i = 0; i < len; i++) {
-    if ((mode->pos & 15) == 0) {
-      cipher_encrypt(cipher, mode->state, mode->ctr);
-
-      increment_be_var(mode->ctr, 16);
-
-      mode->pos = 0;
-    }
-
-    dst[i] = src[i] ^ mode->state[mode->pos++];
-  }
+  ctr_crypt(&mode->ctr, cipher, dst, src, len);
 }
 
 void
@@ -6919,15 +6964,16 @@ ccm_decrypt(ccm_t *mode, const cipher_t *cipher,
 
 void
 ccm_digest(ccm_t *mode, const cipher_t *cipher, unsigned char *mac) {
-  int i = 16 - ((mode->ctr[0] & 7) + 1);
+  ctr_t *ctr = &mode->ctr;
+  int i = 16 - ((ctr->iv[0] & 7) + 1);
 
   cbcmac_final(&mode->hash, cipher, mac);
 
   /* Recreate S_0. */
   while (i < 16)
-    mode->ctr[i++] = 0;
+    ctr->iv[i++] = 0;
 
-  mode->pos = 0;
+  ctr->pos = 0;
 
   ccm_crypt(mode, cipher, mac, mac, 16);
 }
@@ -6971,16 +7017,37 @@ cmac_shift(uint8_t *dst, const uint8_t *src, size_t size) {
 static void
 cmac_update(cmac_t *ctx, const cipher_t *cipher,
             const unsigned char *data, size_t len) {
-  size_t i;
+  const unsigned char *raw = data;
+  size_t pos = ctx->pos;
+  size_t want = cipher->size - pos;
 
-  for (i = 0; i < len; i++) {
-    if (ctx->pos == cipher->size) {
+  if (len > want) {
+    if (pos > 0) {
+      torsion_memxor(ctx->mac + pos, raw, want);
+
       cipher_encrypt(cipher, ctx->mac, ctx->mac);
-      ctx->pos = 0;
+
+      raw += want;
+      len -= want;
+      pos = 0;
     }
 
-    ctx->mac[ctx->pos++] ^= data[i];
+    while (len > cipher->size) {
+      torsion_memxor(ctx->mac, raw, cipher->size);
+
+      cipher_encrypt(cipher, ctx->mac, ctx->mac);
+
+      raw += cipher->size;
+      len -= cipher->size;
+    }
   }
+
+  if (len > 0) {
+    torsion_memxor(ctx->mac + pos, raw, len);
+    pos += len;
+  }
+
+  ctx->pos = pos;
 }
 
 static void
@@ -7010,21 +7077,23 @@ cmac_final(cmac_t *ctx, const cipher_t *cipher, unsigned char *mac) {
 int
 eax_init(eax_t *mode, const cipher_t *cipher,
          const unsigned char *iv, size_t iv_len) {
+  ctr_t *ctr = &mode->ctr;
+
   if (iv_len == 0) {
     memset(mode, 0, sizeof(*mode));
     return 0;
   }
 
-  mode->pos = 0;
+  ctr->pos = 0;
 
   cmac_init(&mode->hash1, cipher, 0);
   cmac_update(&mode->hash1, cipher, iv, iv_len);
   cmac_final(&mode->hash1, cipher, mode->mask);
 
-  memcpy(mode->ctr, mode->mask, cipher->size);
+  memcpy(ctr->iv, mode->mask, cipher->size);
 
   /* Defensive memset. */
-  memset(mode->state, 0, cipher->size);
+  memset(ctr->state, 0, cipher->size);
 
   cmac_init(&mode->hash1, cipher, 1);
   cmac_init(&mode->hash2, cipher, 2);
@@ -7039,25 +7108,18 @@ eax_aad(eax_t *mode, const cipher_t *cipher,
 }
 
 static void
+eax_stream(ctr_t *ctr, const cipher_t *cipher) {
+  cipher_encrypt(cipher, ctr->state, ctr->iv);
+  increment_be(ctr->iv, cipher->size);
+}
+
+static void
 eax_crypt(eax_t *mode,
           const cipher_t *cipher,
           unsigned char *dst,
           const unsigned char *src,
           size_t len) {
-  size_t mask = cipher->size - 1;
-  size_t i;
-
-  for (i = 0; i < len; i++) {
-    if ((mode->pos & mask) == 0) {
-      cipher_encrypt(cipher, mode->state, mode->ctr);
-
-      increment_be(mode->ctr, cipher->size);
-
-      mode->pos = 0;
-    }
-
-    dst[i] = src[i] ^ mode->state[mode->pos++];
-  }
+  stream_update(&mode->ctr, cipher, eax_stream, ctr_xor, dst, src, len);
 }
 
 void
@@ -7112,7 +7174,7 @@ cipher_mode_init(cipher_mode_t *ctx, const cipher_t *cipher,
       if (iv_len != cipher->size)
         goto fail;
 
-      cbc_init(&ctx->mode.cbc, cipher, iv);
+      cbc_init(&ctx->mode.block, cipher, iv);
 
       return 1;
     }
@@ -7121,7 +7183,7 @@ cipher_mode_init(cipher_mode_t *ctx, const cipher_t *cipher,
       if (iv_len != cipher->size)
         goto fail;
 
-      xts_init(&ctx->mode.xts, cipher, iv);
+      xts_init(&ctx->mode.block, cipher, iv);
 
       return 1;
     }
@@ -7130,7 +7192,7 @@ cipher_mode_init(cipher_mode_t *ctx, const cipher_t *cipher,
       if (iv_len != cipher->size)
         goto fail;
 
-      ctr_init(&ctx->mode.ctr, cipher, iv);
+      ctr_init(&ctx->mode.stream, cipher, iv);
 
       return 1;
     }
@@ -7139,7 +7201,7 @@ cipher_mode_init(cipher_mode_t *ctx, const cipher_t *cipher,
       if (iv_len != cipher->size)
         goto fail;
 
-      cfb_init(&ctx->mode.cfb, cipher, iv);
+      cfb_init(&ctx->mode.stream, cipher, iv);
 
       return 1;
     }
@@ -7148,7 +7210,7 @@ cipher_mode_init(cipher_mode_t *ctx, const cipher_t *cipher,
       if (iv_len != cipher->size)
         goto fail;
 
-      ofb_init(&ctx->mode.ofb, cipher, iv);
+      ofb_init(&ctx->mode.stream, cipher, iv);
 
       return 1;
     }
@@ -7179,7 +7241,7 @@ cipher_mode_xts_setup(cipher_mode_t *ctx,
   if (ctx->type != CIPHER_MODE_XTS)
     return 0;
 
-  return xts_setup(&ctx->mode.xts, cipher, key, key_len);
+  return xts_setup(&ctx->mode.block, cipher, key, key_len);
 }
 
 static int
@@ -7225,19 +7287,19 @@ cipher_mode_encrypt(cipher_mode_t *ctx,
       break;
     case CIPHER_MODE_CBC:
     case CIPHER_MODE_CTS:
-      cbc_encrypt(&ctx->mode.cbc, cipher, dst, src, len);
+      cbc_encrypt(&ctx->mode.block, cipher, dst, src, len);
       break;
     case CIPHER_MODE_XTS:
-      xts_encrypt(&ctx->mode.xts, cipher, dst, src, len);
+      xts_encrypt(&ctx->mode.block, cipher, dst, src, len);
       break;
     case CIPHER_MODE_CTR:
-      ctr_crypt(&ctx->mode.ctr, cipher, dst, src, len);
+      ctr_crypt(&ctx->mode.stream, cipher, dst, src, len);
       break;
     case CIPHER_MODE_CFB:
-      cfb_encrypt(&ctx->mode.cfb, cipher, dst, src, len);
+      cfb_encrypt(&ctx->mode.stream, cipher, dst, src, len);
       break;
     case CIPHER_MODE_OFB:
-      ofb_crypt(&ctx->mode.ofb, cipher, dst, src, len);
+      ofb_crypt(&ctx->mode.stream, cipher, dst, src, len);
       break;
     case CIPHER_MODE_GCM:
       gcm_encrypt(&ctx->mode.gcm, cipher, dst, src, len);
@@ -7267,19 +7329,19 @@ cipher_mode_decrypt(cipher_mode_t *ctx,
       break;
     case CIPHER_MODE_CBC:
     case CIPHER_MODE_CTS:
-      cbc_decrypt(&ctx->mode.cbc, cipher, dst, src, len);
+      cbc_decrypt(&ctx->mode.block, cipher, dst, src, len);
       break;
     case CIPHER_MODE_XTS:
-      xts_decrypt(&ctx->mode.xts, cipher, dst, src, len);
+      xts_decrypt(&ctx->mode.block, cipher, dst, src, len);
       break;
     case CIPHER_MODE_CTR:
-      ctr_crypt(&ctx->mode.ctr, cipher, dst, src, len);
+      ctr_crypt(&ctx->mode.stream, cipher, dst, src, len);
       break;
     case CIPHER_MODE_CFB:
-      cfb_decrypt(&ctx->mode.cfb, cipher, dst, src, len);
+      cfb_decrypt(&ctx->mode.stream, cipher, dst, src, len);
       break;
     case CIPHER_MODE_OFB:
-      ofb_crypt(&ctx->mode.ofb, cipher, dst, src, len);
+      ofb_crypt(&ctx->mode.stream, cipher, dst, src, len);
       break;
     case CIPHER_MODE_GCM:
       gcm_decrypt(&ctx->mode.gcm, cipher, dst, src, len);
@@ -7304,10 +7366,10 @@ cipher_mode_steal(cipher_mode_t *ctx,
                   size_t len) {
   switch (ctx->type) {
     case CIPHER_MODE_CTS:
-      cbc_steal(&ctx->mode.cbc, cipher, last, block, len);
+      cbc_steal(&ctx->mode.block, cipher, last, block, len);
       break;
     case CIPHER_MODE_XTS:
-      xts_steal(&ctx->mode.xts, cipher, last, block, len);
+      xts_steal(&ctx->mode.block, cipher, last, block, len);
       break;
     default:
       torsion_abort(); /* LCOV_EXCL_LINE */
@@ -7323,10 +7385,10 @@ cipher_mode_unsteal(cipher_mode_t *ctx,
                     size_t len) {
   switch (ctx->type) {
     case CIPHER_MODE_CTS:
-      cbc_unsteal(&ctx->mode.cbc, cipher, last, block, len);
+      cbc_unsteal(&ctx->mode.block, cipher, last, block, len);
       break;
     case CIPHER_MODE_XTS:
-      xts_unsteal(&ctx->mode.xts, cipher, last, block, len);
+      xts_unsteal(&ctx->mode.block, cipher, last, block, len);
       break;
     default:
       torsion_abort(); /* LCOV_EXCL_LINE */
