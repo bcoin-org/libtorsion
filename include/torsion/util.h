@@ -27,7 +27,7 @@ extern "C" {
  */
 
 TORSION_EXTERN void
-torsion_cleanse(void *ptr, size_t len);
+torsion_memzero(void *ptr, size_t len);
 
 /*
  * Memequal

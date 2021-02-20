@@ -44,7 +44,7 @@ chachapoly_init(chachapoly_t *aead,
   aead->adlen = 0;
   aead->ctlen = 0;
 
-  torsion_cleanse(polykey, sizeof(polykey));
+  torsion_memzero(polykey, sizeof(polykey));
 }
 
 void

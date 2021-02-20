@@ -5064,7 +5064,7 @@ test_util_cleanse(drbg_t *rng) {
 
   ASSERT(torsion_memcmp(raw, zero, 32) != 0);
 
-  torsion_cleanse(raw, 32);
+  torsion_memzero(raw, 32);
 
   ASSERT(torsion_memcmp(raw, zero, 32) == 0);
 }

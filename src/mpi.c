@@ -1153,11 +1153,11 @@ mpn_zero(mp_limb_t *zp, mp_size_t zn) {
  */
 
 void
-torsion_cleanse(void *, size_t);
+torsion_memzero(void *, size_t);
 
 void
 mpn_cleanse(mp_limb_t *zp, mp_size_t zn) {
-  torsion_cleanse(zp, zn * sizeof(mp_limb_t));
+  torsion_memzero(zp, zn * sizeof(mp_limb_t));
 }
 
 /*

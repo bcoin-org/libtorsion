@@ -210,7 +210,7 @@ TORSION_BARRIER(fe_word_t, fe_word)
 #define ECC_MIN(x, y) ((x) < (y) ? (x) : (y))
 #define ECC_MAX(x, y) ((x) > (y) ? (x) : (y))
 
-#define cleanse torsion_cleanse
+#define cleanse torsion_memzero
 
 /*
  * Scalar Field

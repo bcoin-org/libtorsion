@@ -727,7 +727,7 @@ hash160_final(hash160_t *ctx, unsigned char *out) {
   ripemd160_update(&rmd, tmp, 32);
   ripemd160_final(&rmd, out);
 
-  torsion_cleanse(tmp, sizeof(tmp));
+  torsion_memzero(tmp, sizeof(tmp));
 }
 
 /*
@@ -2245,7 +2245,7 @@ sha224_final(sha224_t *ctx, unsigned char *out) {
 
   memcpy(out, tmp, 28);
 
-  torsion_cleanse(tmp, sizeof(tmp));
+  torsion_memzero(tmp, sizeof(tmp));
 }
 
 /*
@@ -2518,7 +2518,7 @@ sha384_final(sha384_t *ctx, unsigned char *out) {
 
   memcpy(out, tmp, 48);
 
-  torsion_cleanse(tmp, sizeof(tmp));
+  torsion_memzero(tmp, sizeof(tmp));
 }
 
 /*
@@ -4507,8 +4507,8 @@ hmac_init(hmac_t *hmac, int type, const unsigned char *key, size_t len) {
   hash_init(&hmac->outer, type);
   hash_update(&hmac->outer, pad, block_size);
 
-  torsion_cleanse(tmp, hash_size);
-  torsion_cleanse(pad, block_size);
+  torsion_memzero(tmp, hash_size);
+  torsion_memzero(pad, block_size);
 }
 
 void
