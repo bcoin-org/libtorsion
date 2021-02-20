@@ -683,6 +683,32 @@ bench_aes_ctr(drbg_t *rng) {
   bench_end(&tv, i);
 }
 
+static void
+bench_aes_gcm(drbg_t *rng) {
+  unsigned char raw[977];
+  unsigned char key[32];
+  unsigned char iv[12];
+  cipher_t cipher;
+  gcm_t mode;
+  bench_t tv;
+  size_t i;
+
+  drbg_generate(rng, raw, sizeof(raw));
+  drbg_generate(rng, key, sizeof(key));
+  drbg_generate(rng, iv, sizeof(iv));
+
+  bench_start(&tv, "aes_gcm");
+
+  cipher_init(&cipher, CIPHER_AES256, key, sizeof(key));
+
+  gcm_init(&mode, &cipher, iv, sizeof(iv));
+
+  for (i = 0; i < 100000; i++)
+    gcm_encrypt(&mode, &cipher, raw, raw, sizeof(raw));
+
+  bench_end(&tv, i);
+}
+
 /*
  * Benchmark Registry
  */
@@ -708,7 +734,8 @@ static const struct {
   B(hash),
   B(sha256),
   B(sha3),
-  B(aes_ctr)
+  B(aes_ctr),
+  B(aes_gcm)
 #undef B
 };
 
