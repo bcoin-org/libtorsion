@@ -1237,19 +1237,12 @@ test_wei_fuzzy_equality(int type, drbg_t *rng) {
 
   /* Generate a field element in the interval [n, p-1]. */
   for (;;) {
-    int bits = mpn_bitlen(ec->sc_p, sc->limbs);
-    int rn = (bits + MP_LIMB_BITS - 1) / MP_LIMB_BITS;
-
     mpn_zero(r, ARRAY_SIZE(r));
-    mpn_random(r, rn, drbg_rng, rng);
-    mpn_mask(r, r, rn, bits);
+    mpn_randomm(r, ec->sc_p, sc->limbs, drbg_rng, rng);
 
-    if (mpn_cmp(r, ec->sc_p, fe->limbs) >= 0)
-      continue;
+    ASSERT(mpn_add_n(r, r, sc->n, sc->limbs) == 0);
 
-    ASSERT(mpn_add_n(r, r, sc->n, fe->limbs) == 0);
-
-    ASSERT(mpn_cmp(r, sc->n, fe->limbs) >= 0);
+    ASSERT(mpn_cmp(r, sc->n, sc->limbs) >= 0);
     ASSERT(mpn_cmp(r, fe->p, fe->limbs) < 0);
 
     ASSERT(fe_set_sc(fe, sc, x, r));

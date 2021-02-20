@@ -4715,6 +4715,28 @@ mpn_random(mp_limb_t *zp, mp_size_t zn, mp_rng_f *rng, void *arg) {
   rng(zp, zn * sizeof(mp_limb_t), arg);
 }
 
+void
+mpn_randomm(mp_limb_t *zp,
+            const mp_limb_t *xp, mp_size_t xn,
+            mp_rng_f *rng, void *arg) {
+  mp_size_t n = mpn_strip(xp, xn);
+  mp_bits_t s;
+
+  CHECK(zp != xp);
+
+  if (n > 0) {
+    s = mp_clz(xp[n - 1]);
+
+    do {
+      mpn_random(zp, n, rng, arg);
+
+      zp[n - 1] >>= s;
+    } while (mpn_sec_gte_p(zp, xp, n));
+  }
+
+  mpn_zero(zp + n, xn - n);
+}
+
 /*
  * MPV Interface
  */

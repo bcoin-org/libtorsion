@@ -3436,6 +3436,26 @@ test_mpn_random(mp_rng_f *rng, void *arg) {
   }
 }
 
+static void
+test_mpn_randomm(mp_rng_f *rng, void *arg) {
+  mp_limb_t xp[8];
+  mp_limb_t mp[8];
+  int i;
+
+  printf("  - MPN RNG (modulus).\n");
+
+  mpn_random(mp, 8, rng, arg);
+
+  ASSERT(!mpn_zero_p(mp, 8));
+
+  for (i = 0; i < 100; i++) {
+    mpn_randomm(xp, mp, 8, rng, arg);
+
+    ASSERT(!mpn_zero_p(xp, 8));
+    ASSERT(mpn_cmp(xp, mp, 8) < 0);
+  }
+}
+
 /*
  * MPZ
  */
@@ -7942,6 +7962,7 @@ test_mpi_internal(mp_rng_f *rng, void *arg) {
   test_mpn_io(rng, arg);
   test_mpn_io_str(rng, arg);
   test_mpn_random(rng, arg);
+  test_mpn_randomm(rng, arg);
 
   /* MPZ */
   test_mpz_init(rng, arg);

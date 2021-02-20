@@ -110,6 +110,7 @@
 #define mpn_get_str __torsion_mpn_get_str
 #define mpn_print __torsion_mpn_print
 #define mpn_random __torsion_mpn_random
+#define mpn_randomm __torsion_mpn_randomm
 #define mpz_init __torsion_mpz_init
 #define mpz_init2 __torsion_mpz_init2
 #define mpz_init_set __torsion_mpz_init_set
@@ -885,6 +886,11 @@ mpn_print(const mp_limb_t *xp, mp_size_t xn, int base, mp_puts_f *mp_puts);
 
 void
 mpn_random(mp_limb_t *zp, mp_size_t zn, mp_rng_f *rng, void *arg);
+
+void
+mpn_randomm(mp_limb_t *zp,
+            const mp_limb_t *xp, mp_size_t xn,
+            mp_rng_f *rng, void *arg);
 
 /*
  * MPZ Interface
