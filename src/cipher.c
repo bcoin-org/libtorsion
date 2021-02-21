@@ -40,8 +40,6 @@
  * Constants
  */
 
-static const unsigned char zero64[64] = {0};
-
 /* Shifted by four. */
 static const uint32_t poly_table[9] = {
   0x00001b, /* 8 */
@@ -6675,6 +6673,7 @@ int
 gcm_init(gcm_t *mode, const cipher_t *cipher,
          const unsigned char *iv, size_t iv_len) {
   static const unsigned char initial[4] = {0, 0, 0, 1};
+  static const unsigned char zero16[16] = {0};
   ctr_t *ctr = &mode->ctr;
   unsigned char key[16];
 
@@ -6689,7 +6688,7 @@ gcm_init(gcm_t *mode, const cipher_t *cipher,
 
   ctr->pos = 0;
 
-  gcm_crypt(mode, cipher, key, zero64, 16);
+  gcm_crypt(mode, cipher, key, zero16, 16);
 
   if (iv_len == 12) {
     memcpy(ctr->iv, iv, 12);
@@ -6701,7 +6700,7 @@ gcm_init(gcm_t *mode, const cipher_t *cipher,
   }
 
   ghash_init(&mode->hash, key);
-  gcm_crypt(mode, cipher, mode->mask, zero64, 16);
+  gcm_crypt(mode, cipher, mode->mask, zero16, 16);
 
   return 1;
 }
@@ -7049,10 +7048,11 @@ cmac_update(cmac_t *ctx, const cipher_t *cipher,
 
 static void
 cmac_final(cmac_t *ctx, const cipher_t *cipher, unsigned char *mac) {
+  static const unsigned char zero[CIPHER_MAX_BLOCK_SIZE] = {0};
   unsigned char k[CIPHER_MAX_BLOCK_SIZE];
   size_t i;
 
-  cipher_encrypt(cipher, k, zero64);
+  cipher_encrypt(cipher, k, zero);
 
   cmac_shift(k, k, cipher->size);
 
