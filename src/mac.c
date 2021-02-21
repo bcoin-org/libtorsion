@@ -341,6 +341,18 @@ poly1305_update(poly1305_t *ctx, const unsigned char *data, size_t len) {
 }
 
 void
+poly1305_pad(poly1305_t *ctx) {
+  if (ctx->pos > 0) {
+    while (ctx->pos < 16)
+      ctx->block[ctx->pos++] = 0;
+
+    poly1305_blocks(ctx, ctx->block, 16, 0);
+
+    ctx->pos = 0;
+  }
+}
+
+void
 poly1305_final(poly1305_t *ctx, unsigned char *mac) {
 #if defined(POLY1305_HAVE_64BIT)
   struct poly1305_64_s *st = &ctx->state.u64;
