@@ -3485,8 +3485,8 @@ cast5_init(cast5_t *ctx, const unsigned char *key) {
   }
 }
 
-#define R(ctx, l, r, f, i) do {                  \
-  uint32_t t = l;                                \
+#define R(f, i) do {                             \
+  t = l;                                         \
   l = r;                                         \
   r = t ^ f(r, ctx->masking[i], ctx->rotate[i]); \
 } while (0)
@@ -3497,26 +3497,24 @@ cast5_encrypt(const cast5_t *ctx,
               const unsigned char *src) {
   uint32_t l = read32be(src + 0);
   uint32_t r = read32be(src + 4);
+  uint32_t t;
 
-  R(ctx, l, r, f1, 0);
-  R(ctx, l, r, f2, 1);
-  R(ctx, l, r, f3, 2);
-  R(ctx, l, r, f1, 3);
-
-  R(ctx, l, r, f2, 4);
-  R(ctx, l, r, f3, 5);
-  R(ctx, l, r, f1, 6);
-  R(ctx, l, r, f2, 7);
-
-  R(ctx, l, r, f3, 8);
-  R(ctx, l, r, f1, 9);
-  R(ctx, l, r, f2, 10);
-  R(ctx, l, r, f3, 11);
-
-  R(ctx, l, r, f1, 12);
-  R(ctx, l, r, f2, 13);
-  R(ctx, l, r, f3, 14);
-  R(ctx, l, r, f1, 15);
+  R(f1,  0);
+  R(f2,  1);
+  R(f3,  2);
+  R(f1,  3);
+  R(f2,  4);
+  R(f3,  5);
+  R(f1,  6);
+  R(f2,  7);
+  R(f3,  8);
+  R(f1,  9);
+  R(f2, 10);
+  R(f3, 11);
+  R(f1, 12);
+  R(f2, 13);
+  R(f3, 14);
+  R(f1, 15);
 
   write32be(dst + 0, r);
   write32be(dst + 4, l);
@@ -3528,26 +3526,24 @@ cast5_decrypt(const cast5_t *ctx,
               const unsigned char *src) {
   uint32_t l = read32be(src + 0);
   uint32_t r = read32be(src + 4);
+  uint32_t t;
 
-  R(ctx, l, r, f1, 15);
-  R(ctx, l, r, f3, 14);
-  R(ctx, l, r, f2, 13);
-  R(ctx, l, r, f1, 12);
-
-  R(ctx, l, r, f3, 11);
-  R(ctx, l, r, f2, 10);
-  R(ctx, l, r, f1, 9);
-  R(ctx, l, r, f3, 8);
-
-  R(ctx, l, r, f2, 7);
-  R(ctx, l, r, f1, 6);
-  R(ctx, l, r, f3, 5);
-  R(ctx, l, r, f2, 4);
-
-  R(ctx, l, r, f1, 3);
-  R(ctx, l, r, f3, 2);
-  R(ctx, l, r, f2, 1);
-  R(ctx, l, r, f1, 0);
+  R(f1, 15);
+  R(f3, 14);
+  R(f2, 13);
+  R(f1, 12);
+  R(f3, 11);
+  R(f2, 10);
+  R(f1,  9);
+  R(f3,  8);
+  R(f2,  7);
+  R(f1,  6);
+  R(f3,  5);
+  R(f2,  4);
+  R(f1,  3);
+  R(f3,  2);
+  R(f2,  1);
+  R(f1,  0);
 
   write32be(dst + 0, r);
   write32be(dst + 4, l);
@@ -3571,12 +3567,10 @@ cast5_decrypt(const cast5_t *ctx,
  */
 
 static const uint8_t des_pc2_table[48] = {
-  /* inL => outL */
   0x0e, 0x0b, 0x11, 0x04, 0x1b, 0x17, 0x19, 0x00,
   0x0d, 0x16, 0x07, 0x12, 0x05, 0x09, 0x10, 0x18,
   0x02, 0x14, 0x0c, 0x15, 0x01, 0x08, 0x0f, 0x1a,
 
-  /* inR => outR */
   0x0f, 0x04, 0x19, 0x13, 0x09, 0x01, 0x1a, 0x10,
   0x05, 0x0b, 0x17, 0x08, 0x0c, 0x07, 0x11, 0x00,
   0x16, 0x03, 0x0a, 0x0e, 0x06, 0x14, 0x1b, 0x18
@@ -3799,14 +3793,14 @@ des_pc2(uint32_t *xl, uint32_t *xr) {
   uint32_t r = *xr;
   uint32_t u = 0;
   uint32_t v = 0;
-  int i = 0;
+  int i;
 
-  for (; i < 24; i++) {
+  for (i = 0; i < 24; i++) {
     u <<= 1;
     u |= (l >> des_pc2_table[i]) & 1;
   }
 
-  for (; i < 48; i++) {
+  for (i = 24; i < 48; i++) {
     v <<= 1;
     v |= (r >> des_pc2_table[i]) & 1;
   }
@@ -3947,6 +3941,7 @@ void
 des_init(des_t *ctx, const unsigned char *key) {
   uint32_t kl = read32be(key + 0);
   uint32_t kr = read32be(key + 4);
+  uint32_t k0, k1;
   int i, shift;
 
   /* Defensive memset. */
@@ -3960,11 +3955,13 @@ des_init(des_t *ctx, const unsigned char *key) {
     kl = des_r28shl(kl, shift);
     kr = des_r28shl(kr, shift);
 
-    ctx->keys[i + 0] = kl;
-    ctx->keys[i + 1] = kr;
+    k0 = kl;
+    k1 = kr;
 
-    des_pc2(&ctx->keys[i + 0],
-            &ctx->keys[i + 1]);
+    des_pc2(&k0, &k1);
+
+    ctx->keys[i + 0] = k0;
+    ctx->keys[i + 1] = k1;
   }
 }
 
