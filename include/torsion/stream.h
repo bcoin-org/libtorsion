@@ -23,11 +23,9 @@ extern "C" {
 #define arc4_crypt torsion_arc4_crypt
 #define chacha20_init torsion_chacha20_init
 #define chacha20_crypt torsion_chacha20_crypt
-#define chacha20_pad torsion_chacha20_pad
 #define chacha20_derive torsion_chacha20_derive
 #define salsa20_init torsion_salsa20_init
 #define salsa20_crypt torsion_salsa20_crypt
-#define salsa20_pad torsion_salsa20_pad
 #define salsa20_derive torsion_salsa20_derive
 
 /*
