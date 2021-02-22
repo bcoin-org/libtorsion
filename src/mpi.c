@@ -7948,32 +7948,39 @@ mpz_fib2_ui(mpz_t z, mpz_t p, mp_limb_t n) {
 
 void
 mpz_lucnum_ui(mpz_t z, mp_limb_t n) {
-  /* L(n) = f(n-1) + f(n+1) */
-  mpz_t p;
-
-  if (n == 0) {
-    mpz_set_ui(z, 2);
-    return;
-  }
-
-  mpz_init(p);
-
-  mpz_fib2_ui(z, p, n);
-
-  mpz_add(z, z, p); /* z = f(n+1) */
-  mpz_add(z, z, p); /* z += f(n-1) */
-
-  mpz_clear(p);
+  mpz_lucnum2_ui(z, NULL, n);
 }
 
 void
 mpz_lucnum2_ui(mpz_t z, mpz_t p, mp_limb_t n) {
-  if (n != 0)
-    mpz_lucnum_ui(p, n - 1);
-  else
-    p->size = 0;
+  mpz_t fn, fn1;
 
-  mpz_lucnum_ui(z, n);
+  if (n == 0) {
+    if (p != NULL)
+      p->size = 0;
+
+    mpz_set_ui(z, 2);
+
+    return;
+  }
+
+  mpz_init(fn);
+  mpz_init(fn1);
+
+  mpz_fib2_ui(fn, fn1, n);
+
+  if (p != NULL) {
+    /* L[n-1] = 2*F[n] - F[n-1] */
+    mpz_add(p, fn, fn);
+    mpz_sub(p, p, fn1);
+  }
+
+  /* L[n] = F[n] + 2*F[n-1] */
+  mpz_add(z, fn1, fn1);
+  mpz_add(z, z, fn);
+
+  mpz_clear(fn);
+  mpz_clear(fn1);
 }
 
 /*
