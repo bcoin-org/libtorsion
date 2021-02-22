@@ -76,9 +76,9 @@ blake2b_init(blake2b_t *ctx,
 }
 
 static void
-blake2b_increment(blake2b_t *ctx, uint64_t x) {
-  ctx->t[0] += x;
-  ctx->t[1] += (ctx->t[0] < x);
+blake2b_increment(blake2b_t *ctx, uint64_t c) {
+  ctx->t[0] += c;
+  ctx->t[1] += (ctx->t[0] < c);
 }
 
 static void
@@ -180,13 +180,15 @@ blake2b_update(blake2b_t *ctx, const void *data, size_t len) {
   size_t want = 128 - pos;
 
   if (len > want) {
-    memcpy(ctx->block + pos, raw, want);
+    if (pos > 0) {
+      memcpy(ctx->block + pos, raw, want);
 
-    raw += want;
-    len -= want;
-    pos = 0;
+      raw += want;
+      len -= want;
+      pos = 0;
 
-    blake2b_transform(ctx, ctx->block);
+      blake2b_transform(ctx, ctx->block);
+    }
 
     while (len > 128) {
       blake2b_transform(ctx, raw);
@@ -209,12 +211,11 @@ blake2b_final(blake2b_t *ctx, unsigned char *out) {
   size_t pos = ctx->pos;
   size_t i;
 
-  blake2b_increment(ctx, pos);
-
   while (pos < 128)
     ctx->block[pos++] = 0x00;
 
-  blake2b_compress(ctx, ctx->block, UINT64_MAX);
+  blake2b_increment(ctx, ctx->pos);
+  blake2b_compress(ctx, ctx->block, -1);
 
   for (i = 0; i < count; i++)
     write64le(out + i * 8, ctx->h[i]);
@@ -296,9 +297,9 @@ blake2s_init(blake2s_t *ctx,
 }
 
 static void
-blake2s_increment(blake2s_t *ctx, uint32_t x) {
-  ctx->t[0] += x;
-  ctx->t[1] += (ctx->t[0] < x);
+blake2s_increment(blake2s_t *ctx, uint32_t c) {
+  ctx->t[0] += c;
+  ctx->t[1] += (ctx->t[0] < c);
 }
 
 static void
@@ -396,13 +397,15 @@ blake2s_update(blake2s_t *ctx, const void *data, size_t len) {
   size_t want = 64 - pos;
 
   if (len > want) {
-    memcpy(ctx->block + pos, raw, want);
+    if (pos > 0) {
+      memcpy(ctx->block + pos, raw, want);
 
-    raw += want;
-    len -= want;
-    pos = 0;
+      raw += want;
+      len -= want;
+      pos = 0;
 
-    blake2s_transform(ctx, ctx->block);
+      blake2s_transform(ctx, ctx->block);
+    }
 
     while (len > 64) {
       blake2s_transform(ctx, raw);
@@ -425,12 +428,11 @@ blake2s_final(blake2s_t *ctx, unsigned char *out) {
   size_t pos = ctx->pos;
   size_t i;
 
-  blake2s_increment(ctx, pos);
-
   while (pos < 64)
     ctx->block[pos++] = 0x00;
 
-  blake2s_compress(ctx, ctx->block, UINT32_MAX);
+  blake2s_increment(ctx, ctx->pos);
+  blake2s_compress(ctx, ctx->block, -1);
 
   for (i = 0; i < count; i++)
     write32le(out + i * 4, ctx->h[i]);
