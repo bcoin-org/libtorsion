@@ -7763,15 +7763,20 @@ mpz_2fac_ui(mpz_t z, mp_limb_t n) {
 
 void
 mpz_mfac_uiui(mpz_t z, mp_limb_t n, mp_limb_t m) {
-  mp_limb_t i;
+  if (n == 0) {
+    mpz_set_ui(z, 1);
+    return;
+  }
 
-  CHECK(m != 0);
-  CHECK(n <= MP_LIMB_MAX - m);
+  mpz_set_ui(z, n);
 
-  mpz_set_ui(z, 1);
+  if (m == 0)
+    return;
 
-  for (i = 1; i <= n; i += m)
-    mpz_mul_ui(z, z, i);
+  while (n > m) {
+    n -= m;
+    mpz_mul_ui(z, z, n);
+  }
 }
 
 void

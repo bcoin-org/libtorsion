@@ -6817,6 +6817,37 @@ retry:
 
 static void
 test_mpz_factorial(void) {
+  static const mp_limb_t mfac3_tbl[27] = {
+    1,
+    1,
+    2,
+    3,
+    4,
+    10,
+    18,
+    28,
+    80,
+    162,
+    280,
+    880,
+    1944,
+    3640,
+    12320,
+    29160,
+    58240,
+    209440,
+    524880,
+    1106560,
+    4188800,
+    11022480,
+    24344320,
+    96342400,
+    264539520,
+    608608000,
+    2504902400
+  };
+
+  size_t i;
   mpz_t z;
 
   printf("  - MPZ factorial.\n");
@@ -6829,11 +6860,28 @@ test_mpz_factorial(void) {
 
   mpz_2fac_ui(z, 10);
 
-  ASSERT(mpz_cmp_ui(z, 945) == 0);
+  ASSERT(mpz_cmp_ui(z, 3840) == 0);
 
   mpz_mfac_uiui(z, 10, 3);
 
   ASSERT(mpz_cmp_ui(z, 280) == 0);
+
+  for (i = 0; i < ARRAY_SIZE(mfac3_tbl); i++) {
+    mpz_mfac_uiui(z, i, 3);
+    ASSERT(mpz_cmp_ui(z, mfac3_tbl[i]) == 0);
+  }
+
+  mpz_mfac_uiui(z, 0, 0);
+
+  ASSERT(mpz_cmp_ui(z, 1) == 0);
+
+  mpz_mfac_uiui(z, 0, 1);
+
+  ASSERT(mpz_cmp_ui(z, 1) == 0);
+
+  mpz_mfac_uiui(z, 100, 0);
+
+  ASSERT(mpz_cmp_ui(z, 100) == 0);
 
   mpz_clear(z);
 }
