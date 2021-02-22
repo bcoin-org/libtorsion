@@ -7277,15 +7277,19 @@ mpz_kronecker(const mpz_t x, const mpz_t y) {
 
   bits = mpz_ctz(y);
 
-  mpz_init_vla(v, MP_ABS(y->size));
-  mpz_quo_2exp(v, y, bits);
+  if (bits > 0) {
+    mpz_init_vla(v, MP_ABS(y->size));
+    mpz_quo_2exp(v, y, bits);
 
-  k = mpz_jacobi(x, v);
+    k = mpz_jacobi(x, v);
 
-  if (bits & 1)
-    k *= table[x->limbs[0] & 7];
+    if (bits & 1)
+      k *= table[x->limbs[0] & 7];
 
-  mpz_clear_vla(v);
+    mpz_clear_vla(v);
+  } else {
+    k = mpz_jacobi(x, y);
+  }
 
   return k;
 }
