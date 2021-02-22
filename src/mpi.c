@@ -7866,6 +7866,27 @@ mpz_bin_uiui(mpz_t z, mp_limb_t n, mp_limb_t k) {
 }
 
 void
+mpz_bin_siui(mpz_t z, mp_long_t n, mp_limb_t k) {
+  if (n < 0) {
+    /* bin(-n, k) = (-1)^k * bin(n + k - 1, k) */
+    mp_limb_t m = mp_limb_cast(n);
+    mpz_t t;
+
+    if (UNLIKELY(m + k < k)) {
+      mpz_roinit_n(t, &m, -1);
+      mpz_bin_ui(z, t, k);
+    } else {
+      mpz_bin_uiui(z, m + k - 1, k);
+
+      if (k & 1)
+        mpz_neg(z, z);
+    }
+  } else {
+    mpz_bin_uiui(z, n, k);
+  }
+}
+
+void
 mpz_fib_ui(mpz_t z, mp_limb_t n) {
   mpz_fib2_ui(z, NULL, n);
 }

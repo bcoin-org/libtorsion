@@ -236,6 +236,7 @@
 #define mpz_primorial_ui __torsion_mpz_primorial_ui
 #define mpz_bin_ui __torsion_mpz_bin_ui
 #define mpz_bin_uiui __torsion_mpz_bin_uiui
+#define mpz_bin_siui __torsion_mpz_bin_siui
 #define mpz_fib_ui __torsion_mpz_fib_ui
 #define mpz_fib2_ui __torsion_mpz_fib2_ui
 #define mpz_lucnum_ui __torsion_mpz_lucnum_ui
@@ -1382,6 +1383,9 @@ mpz_bin_ui(mpz_t z, const mpz_t n, mp_limb_t k);
 
 void
 mpz_bin_uiui(mpz_t z, mp_limb_t n, mp_limb_t k);
+
+void
+mpz_bin_siui(mpz_t z, mp_long_t n, mp_limb_t k);
 
 void
 mpz_fib_ui(mpz_t z, mp_limb_t n);

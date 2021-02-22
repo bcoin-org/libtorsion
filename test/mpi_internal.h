@@ -6881,6 +6881,16 @@ test_mpz_binomial(void) {
 
   ASSERT(mpz_cmp_ui(z, 84) == 0);
 
+  mpz_bin_siui(z, -9, 3);
+
+  ASSERT(mpz_cmp_si(z, -165) == 0);
+
+  mpz_bin_siui(z, -10, 3); /* z = -220 */
+  mpz_bin_uiui(n, 10 + 3 - 1, 3);
+  mpz_neg(n, n);
+
+  ASSERT(mpz_cmp(z, n) == 0);
+
   mpz_clear(n);
   mpz_clear(z);
 }
