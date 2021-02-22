@@ -7865,27 +7865,52 @@ mpz_bin_uiui(mpz_t z, mp_limb_t n, mp_limb_t k) {
   }
 }
 
-static void
-mpz_fibonacci(mpz_t z, mpz_t p, mp_limb_t n, mp_limb_t f0, mp_limb_t f1) {
-  mpz_t a, b, c;
-  mp_limb_t i;
+void
+mpz_fib_ui(mpz_t z, mp_limb_t n) {
+  mpz_fib2_ui(z, NULL, n);
+}
+
+void
+mpz_fib2_ui(mpz_t z, mpz_t p, mp_limb_t n) {
+  mpz_t a, b, c, d, t;
+  mp_bits_t i;
+
+  if (n == 0) {
+    if (p != NULL)
+      p->size = 0;
+
+    z->size = 0;
+
+    return;
+  }
 
   mpz_init(a);
   mpz_init(b);
   mpz_init(c);
+  mpz_init(d);
+  mpz_init(t);
 
-  if (n == 0) {
-    mpz_set_ui(a, 0);
-    mpz_set_ui(b, f0);
-  } else {
-    mpz_set_ui(a, f0);
-    mpz_set_ui(b, f1);
-  }
+  mpz_set_ui(a, 0);
+  mpz_set_ui(b, 1);
 
-  for (i = 1; i < n; i++) {
-    mpz_add(c, a, b);
-    mpz_swap(a, b);
-    mpz_swap(b, c);
+  n -= 1;
+
+  for (i = mp_bitlen(n) - 1; i >= 0; i--) {
+    mpz_add(t, b, b);
+    mpz_sub(t, t, a);
+    mpz_mul(c, a, t);
+
+    mpz_sqr(d, a);
+    mpz_sqr(t, b);
+    mpz_add(d, d, t);
+
+    if ((n >> i) & 1) {
+      mpz_add(b, c, d);
+      mpz_swap(a, d);
+    } else {
+      mpz_swap(a, c);
+      mpz_swap(b, d);
+    }
   }
 
   if (p != NULL)
@@ -7896,26 +7921,38 @@ mpz_fibonacci(mpz_t z, mpz_t p, mp_limb_t n, mp_limb_t f0, mp_limb_t f1) {
   mpz_clear(a);
   mpz_clear(b);
   mpz_clear(c);
-}
-
-void
-mpz_fib_ui(mpz_t z, mp_limb_t n) {
-  mpz_fibonacci(z, NULL, n, 0, 1);
-}
-
-void
-mpz_fib2_ui(mpz_t z, mpz_t p, mp_limb_t n) {
-  mpz_fibonacci(z, p, n, 0, 1);
+  mpz_clear(d);
+  mpz_clear(t);
 }
 
 void
 mpz_lucnum_ui(mpz_t z, mp_limb_t n) {
-  mpz_fibonacci(z, NULL, n, 2, 1);
+  /* L(n) = f(n-1) + f(n+1) */
+  mpz_t p;
+
+  if (n == 0) {
+    mpz_set_ui(z, 2);
+    return;
+  }
+
+  mpz_init(p);
+
+  mpz_fib2_ui(z, p, n);
+
+  mpz_add(z, z, p); /* z = f(n+1) */
+  mpz_add(z, z, p); /* z += f(n-1) */
+
+  mpz_clear(p);
 }
 
 void
 mpz_lucnum2_ui(mpz_t z, mpz_t p, mp_limb_t n) {
-  mpz_fibonacci(z, p, n, 2, 1);
+  if (n != 0)
+    mpz_lucnum_ui(p, n - 1);
+  else
+    p->size = 0;
+
+  mpz_lucnum_ui(z, n);
 }
 
 /*
