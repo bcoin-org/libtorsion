@@ -3733,12 +3733,12 @@ mpn_invert(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn,
    *
    * [KNUTH] Exercise 4.5.2.39, Page 646.
    */
-  mp_limb_t *ap = &scratch[0 * (yn + 1)];
-  mp_limb_t *bp = &scratch[1 * (yn + 1)];
-  mp_limb_t *up = &scratch[2 * (yn + 1)];
-  mp_limb_t *vp = &scratch[3 * (yn + 1)];
-  mp_size_t an, bn;
-  mp_bits_t az, bz;
+  mp_limb_t *up = &scratch[0 * (yn + 1)];
+  mp_limb_t *vp = &scratch[1 * (yn + 1)];
+  mp_limb_t *ap = &scratch[2 * (yn + 1)];
+  mp_limb_t *bp = &scratch[3 * (yn + 1)];
+  mp_size_t un, vn;
+  mp_bits_t uz, vz;
 
   if (xn > 0 && xp[xn - 1] == 0)
     torsion_abort(); /* LCOV_EXCL_LINE */
@@ -3754,52 +3754,52 @@ mpn_invert(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn,
     return 0;
   }
 
-  mpn_copyi(ap, xp, xn);
-  mpn_copyi(bp, yp, yn);
+  mpn_copyi(up, xp, xn);
+  mpn_copyi(vp, yp, yn);
 
-  mpn_set_1(up, yn + 1, 1);
-  mpn_set_1(vp, yn + 1, 0);
+  mpn_set_1(ap, yn + 1, 1);
+  mpn_set_1(bp, yn + 1, 0);
 
-  an = xn;
-  bn = yn;
+  un = xn;
+  vn = yn;
 
-  while (an != 0) {
-    MPN_SHIFT_ZEROES(az, ap, an);
-    MPN_SHIFT_ZEROES(bz, bp, bn);
+  while (un != 0) {
+    MPN_SHIFT_ZEROES(uz, up, un);
+    MPN_SHIFT_ZEROES(vz, vp, vn);
 
-    while (az--) {
-      if (up[0] & 1)
-        up[yn] = mpn_add_n(up, up, yp, yn);
+    while (uz--) {
+      if (ap[0] & 1)
+        ap[yn] = mpn_add_n(ap, ap, yp, yn);
 
-      mpn_rshift(up, up, yn + up[yn], 1);
+      mpn_rshift(ap, ap, yn + ap[yn], 1);
     }
 
-    while (bz--) {
-      if (vp[0] & 1)
-        vp[yn] = mpn_add_n(vp, vp, yp, yn);
+    while (vz--) {
+      if (bp[0] & 1)
+        bp[yn] = mpn_add_n(bp, bp, yp, yn);
 
-      mpn_rshift(vp, vp, yn + vp[yn], 1);
+      mpn_rshift(bp, bp, yn + bp[yn], 1);
     }
 
-    if (mpn_cmp2(ap, an, bp, bn) >= 0) {
-      mpn_sub_var(ap, ap, an, bp, bn);
-      mpn_sub_mod(up, up, vp, yp, yn);
+    if (mpn_cmp2(up, un, vp, vn) >= 0) {
+      mpn_sub_var(up, up, un, vp, vn);
+      mpn_sub_mod(ap, ap, bp, yp, yn);
 
-      an = mpn_strip(ap, an);
+      un = mpn_strip(up, un);
     } else {
-      mpn_sub_var(bp, bp, bn, ap, an);
-      mpn_sub_mod(vp, vp, up, yp, yn);
+      mpn_sub_var(vp, vp, vn, up, un);
+      mpn_sub_mod(bp, bp, ap, yp, yn);
 
-      bn = mpn_strip(bp, bn);
+      vn = mpn_strip(vp, vn);
     }
   }
 
-  if (bn != 1 || bp[0] != 1) {
+  if (vn != 1 || vp[0] != 1) {
     mpn_zero(zp, yn);
     return 0;
   }
 
-  mpn_copyi(zp, vp, yn);
+  mpn_copyi(zp, bp, yn);
 
   return 1;
 }
@@ -3851,9 +3851,9 @@ mpn_jacobi(const mp_limb_t *xp, mp_size_t xn,
    *
    * [JACOBI] Page 3, Section 3.
    */
-  mp_limb_t *ap = &scratch[0 * yn];
-  mp_limb_t *bp = &scratch[1 * yn];
-  mp_size_t an, bn;
+  mp_limb_t *up = &scratch[0 * yn];
+  mp_limb_t *vp = &scratch[1 * yn];
+  mp_size_t un, vn;
   mp_bits_t bits;
   int j = 1;
 
@@ -3866,41 +3866,41 @@ mpn_jacobi(const mp_limb_t *xp, mp_size_t xn,
   if (xn > yn)
     torsion_abort(); /* LCOV_EXCL_LINE */
 
-  mpn_copyi(ap, xp, xn);
-  mpn_copyi(bp, yp, yn);
+  mpn_copyi(up, xp, xn);
+  mpn_copyi(vp, yp, yn);
 
-  an = xn;
-  bn = yn;
+  un = xn;
+  vn = yn;
 
-  while (an != 0) {
-    MPN_SHIFT_ZEROES(bits, ap, an);
+  while (un != 0) {
+    MPN_SHIFT_ZEROES(bits, up, un);
 
     if (bits & 1) {
-      if ((bp[0] & 7) == 3 || (bp[0] & 7) == 5)
+      if ((vp[0] & 7) == 3 || (vp[0] & 7) == 5)
         j = -j;
     }
 
-    if (mpn_cmp2(ap, an, bp, bn) < 0) {
-      MPN_SWAP(ap, an, bp, bn);
+    if (mpn_cmp2(up, un, vp, vn) < 0) {
+      MPN_SWAP(up, un, vp, vn);
 
-      if ((ap[0] & 3) == 3 && (bp[0] & 3) == 3)
+      if ((up[0] & 3) == 3 && (vp[0] & 3) == 3)
         j = -j;
     }
 
-    mpn_sub_var(ap, ap, an, bp, bn);
+    mpn_sub_var(up, up, un, vp, vn);
 
-    an = mpn_strip(ap, an);
+    un = mpn_strip(up, un);
 
-    if (an > 0) {
-      mpn_rshift(ap, ap, an, 1);
-      an -= (ap[an - 1] == 0);
+    if (un > 0) {
+      mpn_rshift(up, up, un, 1);
+      un -= (up[un - 1] == 0);
     }
 
-    if ((bp[0] & 7) == 3 || (bp[0] & 7) == 5)
+    if ((vp[0] & 7) == 3 || (vp[0] & 7) == 5)
       j = -j;
   }
 
-  if (bn != 1 || bp[0] != 1)
+  if (vn != 1 || vp[0] != 1)
     return 0;
 
   return j;
