@@ -6779,23 +6779,58 @@ test_mpz_remove(mp_rng_f *rng, void *arg) {
   mpz_init(z);
   mpz_init(t);
 
+  mpz_random_nz(x, 128, rng, arg);
+
+  mpz_set_ui(t, 1);
+
+  ASSERT(mpz_remove(z, x, t) == 0);
+  ASSERT(mpz_cmp(z, x) == 0);
+
+  mpz_set_ui(x, 0);
+  mpz_set_ui(t, 2);
+
+  ASSERT(mpz_remove(z, x, t) == 0);
+  ASSERT(mpz_cmp_ui(z, 0) == 0);
+
   for (i = 0; i < 100; i++) {
-retry:
     mpz_random_nz(x, 128, rng, arg);
-    mpz_random_nz(y, 32, rng, arg);
+
+    mpz_add_ui(x, x, mpz_even_p(x));
 
     if (i & 1)
       mpz_neg(x, x);
 
     mpz_set_ui(t, 2);
-    mpz_mul_2exp(x, x, 11);
-    mpz_mul_2exp(y, y, 11);
 
-    ASSERT(mpz_remove(NULL, x, t) == mpz_ctz(x));
-    ASSERT(mpz_remove(NULL, y, t) == mpz_ctz(y));
+    mpz_mul_2exp(x, x, 11);
+
+    ASSERT(mpz_remove(z, x, t) == mpz_ctz(x));
 
     mpz_quo_2exp(x, x, 11);
-    mpz_quo_2exp(y, y, 11);
+
+    ASSERT(mpz_cmp(z, x) == 0);
+
+    mpz_set_ui(t, 4);
+
+    mpz_mul_2exp(x, x, 13);
+
+    ASSERT(mpz_remove(z, x, t) == mpz_ctz(x) / 2);
+
+    mpz_quo_2exp(x, x, 12);
+
+    ASSERT(mpz_cmp(z, x) == 0);
+  }
+
+  for (i = 0; i < 100; i++) {
+retry:
+    mpz_random_nz(x, 128, rng, arg);
+    mpz_random_nz(y, 32, rng, arg);
+
+    if (mp_random_limb(rng, arg) & 1)
+      mpz_neg(x, x);
+
+    if (mp_random_limb(rng, arg) & 1)
+      mpz_neg(y, y);
 
     if (mpz_remove(NULL, x, y) != 0)
       goto retry;

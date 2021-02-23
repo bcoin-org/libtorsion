@@ -7718,15 +7718,44 @@ fail:
 
 mp_bits_t
 mpz_remove(mpz_t z, const mpz_t x, const mpz_t y) {
-  mp_bits_t cnt = 0;
-  mpz_t q, r, n;
+  mp_size_t xn = MP_ABS(x->size);
+  mp_size_t yn = MP_ABS(y->size);
+  mp_bits_t c = 0;
+  mp_bits_t b, s;
+  mpz_t n, q, r;
+  mp_limb_t w;
 
-  if (y->size == 0)
+  if (yn == 0)
     torsion_abort(); /* LCOV_EXCL_LINE */
 
-  mpz_init(q);
-  mpz_init(r);
-  mpz_init(n);
+  w = y->limbs[0];
+
+  if (xn == 0 || (yn == 1 && w == 1)) {
+    if (z != NULL)
+      mpz_set(z, x);
+
+    return 0;
+  }
+
+  if (yn == 1 && (w & (w - 1)) == 0) {
+    b = mp_bitlen(w - 1);
+    c = mpz_ctz(x) / b;
+
+    if (z != NULL) {
+      s = (y->size < 0);
+
+      mpz_quo_2exp(z, x, c * b);
+
+      if (c & s)
+        mpz_neg(z, z);
+    }
+
+    return c;
+  }
+
+  mpz_init_vla(n, xn);
+  mpz_init_vla(q, xn);
+  mpz_init_vla(r, yn);
 
   mpz_set(n, x);
 
@@ -7738,17 +7767,17 @@ mpz_remove(mpz_t z, const mpz_t x, const mpz_t y) {
 
     mpz_swap(n, q);
 
-    cnt += 1;
+    c += 1;
   }
 
   if (z != NULL)
-    mpz_swap(z, n);
+    mpz_set(z, n);
 
-  mpz_clear(q);
-  mpz_clear(r);
-  mpz_clear(n);
+  mpz_clear_vla(n);
+  mpz_clear_vla(q);
+  mpz_clear_vla(r);
 
-  return cnt;
+  return c;
 }
 
 void
