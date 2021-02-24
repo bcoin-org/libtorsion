@@ -8455,21 +8455,18 @@ mpz_probab_prime_p(const mpz_t x, int rounds, mp_rng_f *rng, void *arg) {
    *
    * [BPSW] "Bibliography".
    */
-  mp_size_t xn = x->size;
-  mp_limb_t w, ra, rb;
+  mp_limb_t ra, rb;
 
   /* No negatives. */
-  if (xn <= 0)
+  if (x->size <= 0)
     return 0;
 
-  w = x->limbs[0];
-
   /* Check small primes list. */
-  if (xn == 1 && w < 1024)
-    return mpn_tstbit(mp_primes, w);
+  if (x->size == 1 && x->limbs[0] < 1024)
+    return mpn_tstbit(mp_primes, x->limbs[0]);
 
   /* No even numbers. */
-  if ((w & 1) == 0)
+  if ((x->limbs[0] & 1) == 0)
     return 0;
 
   /* Trial division. */
