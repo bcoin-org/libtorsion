@@ -1095,43 +1095,6 @@ mp_str_limbs(const char *str, int base) {
   return (len + limb_len - 1) / limb_len;
 }
 
-static mp_limb_t *
-mp_eratosthenes(mp_limb_t n) {
-  /* Sieve of Eratosthenes. */
-  mp_limb_t sn, i, p;
-  mp_limb_t *sp;
-  mp_bits_t lo;
-
-  CHECK(n < MP_LOW_MASK * MP_LOW_MASK);
-  CHECK(n <= MP_LIMB_MAX - MP_LIMB_BITS);
-  CHECK(n <= MP_BITS_MAX);
-
-  sn = (n + 1 + MP_LIMB_BITS - 1) / MP_LIMB_BITS;
-
-  CHECK(sn <= MP_SIZE_MAX);
-
-  sp = mp_alloc_limbs(sn);
-
-  for (i = 0; i < sn; i++)
-    sp[i] = MP_LIMB_MAX;
-
-  for (p = 2; p * p <= n; p++) {
-    if (mpn_tstbit(sp, p)) {
-      for (i = p * p; i <= n; i += p)
-        mpn_clrbit(sp, i);
-    }
-  }
-
-  sp[0] &= ~MP_LIMB_C(3);
-
-  lo = (n + 1) % MP_LIMB_BITS;
-
-  if (lo != 0)
-    sp[sn - 1] &= MP_MASK(lo);
-
-  return sp;
-}
-
 /*
  * MPN Interface
  */
@@ -4200,6 +4163,95 @@ mpn_sec_powm(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn,
 }
 
 /*
+ * Primes
+ */
+
+/* First 172 primes (2-1021). */
+static const mp_limb_t mp_primes[] = {
+#if MP_LIMB_BITS == 32
+  MP_LIMB_C(0xa08a28ac), MP_LIMB_C(0x28208a20),
+  MP_LIMB_C(0x02088288), MP_LIMB_C(0x800228a2),
+  MP_LIMB_C(0x20a00a08), MP_LIMB_C(0x80282088),
+  MP_LIMB_C(0x800800a2), MP_LIMB_C(0x08028228),
+  MP_LIMB_C(0x0a20a082), MP_LIMB_C(0x22880020),
+  MP_LIMB_C(0x28020800), MP_LIMB_C(0x88208082),
+  MP_LIMB_C(0x02022020), MP_LIMB_C(0x08828028),
+  MP_LIMB_C(0x8008a202), MP_LIMB_C(0x20880880),
+  MP_LIMB_C(0x20000a00), MP_LIMB_C(0x0a082008),
+  MP_LIMB_C(0x82820802), MP_LIMB_C(0x00800a20),
+  MP_LIMB_C(0x0028208a), MP_LIMB_C(0x20080822),
+  MP_LIMB_C(0x20808020), MP_LIMB_C(0x02208088),
+  MP_LIMB_C(0x20080022), MP_LIMB_C(0x28a00a00),
+  MP_LIMB_C(0x8a200080), MP_LIMB_C(0x008a2000),
+  MP_LIMB_C(0x00808800), MP_LIMB_C(0x02082202),
+  MP_LIMB_C(0x80820880), MP_LIMB_C(0x28220020)
+#else
+  MP_LIMB_C(0x28208a20a08a28ac),
+  MP_LIMB_C(0x800228a202088288),
+  MP_LIMB_C(0x8028208820a00a08),
+  MP_LIMB_C(0x08028228800800a2),
+  MP_LIMB_C(0x228800200a20a082),
+  MP_LIMB_C(0x8820808228020800),
+  MP_LIMB_C(0x0882802802022020),
+  MP_LIMB_C(0x208808808008a202),
+  MP_LIMB_C(0x0a08200820000a00),
+  MP_LIMB_C(0x00800a2082820802),
+  MP_LIMB_C(0x200808220028208a),
+  MP_LIMB_C(0x0220808820808020),
+  MP_LIMB_C(0x28a00a0020080022),
+  MP_LIMB_C(0x008a20008a200080),
+  MP_LIMB_C(0x0208220200808800),
+  MP_LIMB_C(0x2822002080820880)
+#endif
+};
+
+static mp_size_t
+mpn_sieve_size(mp_limb_t n) {
+  mp_limb_t zn;
+
+  CHECK(n < MP_LOW_MASK * MP_LOW_MASK);
+  CHECK(n <= MP_LIMB_MAX - MP_LIMB_BITS);
+  CHECK(n <= MP_BITS_MAX);
+
+  /* ((n + 1) + (L - 1)) / L */
+  zn = (n + MP_LIMB_BITS) / MP_LIMB_BITS;
+
+  CHECK(zn <= MP_SIZE_MAX);
+
+  return zn;
+}
+
+static void
+mpn_sieve(mp_limb_t *zp, mp_limb_t n) {
+  /* Sieve of Eratosthenes. */
+  mp_limb_t zn = (n + MP_LIMB_BITS) / MP_LIMB_BITS;
+  mp_limb_t i, p;
+  mp_bits_t lo;
+
+  if (n < 1024) {
+    mpn_copyi(zp, mp_primes, zn);
+    return;
+  }
+
+  for (i = 0; i < zn; i++)
+    zp[i] = MP_LIMB_MAX;
+
+  for (p = 2; p * p <= n; p++) {
+    if (mpn_tstbit(zp, p)) {
+      for (i = p * p; i <= n; i += p)
+        mpn_clrbit(zp, i);
+    }
+  }
+
+  zp[0] &= ~MP_LIMB_C(3);
+
+  lo = (n + 1) % MP_LIMB_BITS;
+
+  if (lo != 0)
+    zp[zn - 1] &= MP_MASK(lo);
+}
+
+/*
  * Helpers
  */
 
@@ -6177,7 +6229,8 @@ mpz_root(mpz_t z, const mpz_t x, mp_limb_t k) {
 int
 mpz_perfect_power_p(const mpz_t x) {
   mp_limb_t n = mpz_bitlen(x);
-  mp_limb_t *sieve;
+  mp_limb_t *sp;
+  mp_size_t sn;
   mp_limb_t p;
   int ret = 1;
 
@@ -6188,10 +6241,13 @@ mpz_perfect_power_p(const mpz_t x) {
     return 1;
 
   /* Test prime exponents in [3,ceil(log2(x+1))]. */
-  sieve = mp_eratosthenes(n);
+  sn = mpn_sieve_size(n);
+  sp = mp_alloc_vla(sn);
+
+  mpn_sieve(sp, n);
 
   for (p = 3; p <= n; p += 2) {
-    if (mpn_tstbit(sieve, p)) {
+    if (mpn_tstbit(sp, p)) {
       if (mpz_root(NULL, x, p))
         goto done;
     }
@@ -6199,7 +6255,7 @@ mpz_perfect_power_p(const mpz_t x) {
 
   ret = 0;
 done:
-  mp_free_limbs(sieve);
+  mp_free_vla(sp, sn);
   return ret;
 }
 
@@ -7810,7 +7866,8 @@ mpz_mfac_uiui(mpz_t z, mp_limb_t n, mp_limb_t m) {
 
 void
 mpz_primorial_ui(mpz_t z, mp_limb_t n) {
-  mp_limb_t *sieve;
+  mp_limb_t *sp;
+  mp_size_t sn;
   mp_limb_t p;
 
   if (n < 2) {
@@ -7818,16 +7875,19 @@ mpz_primorial_ui(mpz_t z, mp_limb_t n) {
     return;
   }
 
-  sieve = mp_eratosthenes(n);
+  sn = mpn_sieve_size(n);
+  sp = mp_alloc_vla(sn);
+
+  mpn_sieve(sp, n);
 
   mpz_set_ui(z, 2);
 
   for (p = 3; p <= n; p += 2) {
-    if (mpn_tstbit(sieve, p))
+    if (mpn_tstbit(sp, p))
       mpz_mul_ui(z, z, p);
   }
 
-  mp_free_limbs(sieve);
+  mp_free_vla(sp, sn);
 }
 
 void
@@ -8315,25 +8375,24 @@ mpz_probab_prime_p(const mpz_t x, int rounds, mp_rng_f *rng, void *arg) {
    *
    * [BPSW] "Bibliography".
    */
-  /* First 18 primes in a mask (2-61). */
-  static const mp_limb_t primes_lo = MP_LIMB_C(0xa08a28ac);
-  static const mp_limb_t primes_hi = MP_LIMB_C(0x28208a20);
-  mp_limb_t ra, rb;
+  mp_size_t xn = x->size;
+  mp_limb_t w, ra, rb;
 
-  if (x->size <= 0)
+  /* No negatives. */
+  if (xn <= 0)
     return 0;
 
-  if (x->size == 1) {
-    if (x->limbs[0] < 32)
-      return (primes_lo >> x->limbs[0]) & 1;
+  w = x->limbs[0];
 
-    if (x->limbs[0] < 64)
-      return (primes_hi >> (x->limbs[0] - 32)) & 1;
-  }
+  /* Check small primes list. */
+  if (xn == 1 && w < 1024)
+    return mpn_tstbit(mp_primes, w);
 
-  if ((x->limbs[0] & 1) == 0)
+  /* No even numbers. */
+  if ((w & 1) == 0)
     return 0;
 
+  /* Trial division. */
   mpz_mod_primorial(&ra, &rb, x);
 
   if (ra % 3 == 0
@@ -8354,9 +8413,11 @@ mpz_probab_prime_p(const mpz_t x, int rounds, mp_rng_f *rng, void *arg) {
     return 0;
   }
 
+  /* Miller-Rabin primality test. */
   if (!mpz_mr_prime_p(x, rounds + 1, 1, rng, arg))
     return 0;
 
+  /* Lucas primality test. */
   if (!mpz_lucas_prime_p(x, 0))
     return 0;
 

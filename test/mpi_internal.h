@@ -1339,30 +1339,6 @@ test_mp_inv_mod(mp_rng_f *rng, void *arg) {
   }
 }
 
-static void
-test_mp_eratosthenes(void) {
-  mp_size_t len = ARRAY_SIZE(mpz_test_primes);
-  mp_limb_t n = mpz_test_primes[len - 1];
-  mp_limb_t *sieve;
-  mp_size_t i = 0;
-  mp_limb_t p;
-
-  printf("  - Sieve of Eratosthenes.\n");
-
-  sieve = mp_eratosthenes(n);
-
-  for (p = 0; p <= n; p++) {
-    if (mpn_tstbit(sieve, p)) {
-      ASSERT(i < len);
-      ASSERT(p == (mp_limb_t)mpz_test_primes[i++]);
-    }
-  }
-
-  ASSERT(i == len);
-
-  mp_free_limbs(sieve);
-}
-
 /*
  * MPN
  */
@@ -3211,6 +3187,46 @@ test_mpn_powm(mp_rng_f *rng, void *arg) {
 
     ASSERT(mpn_cmp(zp, sp, mn) == 0);
   }
+}
+
+static void
+test_mpn_sieve(void) {
+  mp_size_t len = ARRAY_SIZE(mp_test_primes);
+  mp_limb_t n = mp_test_primes[len - 1];
+  mp_size_t sn = mpn_sieve_size(n);
+  mp_limb_t *sp = mp_alloc_limbs(sn);
+  mp_size_t i = 0;
+  mp_limb_t p;
+
+  printf("  - Sieve of Eratosthenes.\n");
+
+  mpn_sieve(sp, n);
+
+  for (p = 0; p <= n; p++) {
+    if (mpn_tstbit(sp, p)) {
+      ASSERT(i < len);
+      ASSERT(p == mp_test_primes[i++]);
+    }
+  }
+
+  ASSERT(i == len);
+
+  i = 0;
+
+  ASSERT(n >= 1023);
+
+  mpn_sieve(sp, 1023);
+
+  for (p = 0; p <= 1023; p++) {
+    if (mpn_tstbit(sp, p)) {
+      ASSERT(i < len);
+      ASSERT(p == mp_test_primes[i++]);
+    }
+  }
+
+  ASSERT(i == 172);
+
+  mp_free_limbs(sp);
 }
 
 static void
@@ -7202,10 +7218,10 @@ test_mpz_nextprime(mp_rng_f *rng, void *arg) {
 
   mpz_init(x);
 
-  for (i = 0; i < ARRAY_SIZE(mpz_test_primes); i++) {
+  for (i = 0; i < ARRAY_SIZE(mp_test_primes); i++) {
     mpz_nextprime(x, x, rng, arg);
 
-    ASSERT(mpz_cmp_ui(x, mpz_test_primes[i]) == 0);
+    ASSERT(mpz_cmp_ui(x, mp_test_primes[i]) == 0);
   }
 
   mpz_urandomb(x, 128, arc4_rng, &arc4);
@@ -8005,7 +8021,6 @@ test_mpi_internal(mp_rng_f *rng, void *arg) {
   test_mp_inv_3by2(rng, arg);
   test_mp_div_3by2(rng, arg);
   test_mp_inv_mod(rng, arg);
-  test_mp_eratosthenes();
 
   /* MPN */
   test_mpn_init(rng, arg);
@@ -8048,6 +8063,7 @@ test_mpi_internal(mp_rng_f *rng, void *arg) {
   test_mpn_invert(rng, arg);
   test_mpn_jacobi();
   test_mpn_powm(rng, arg);
+  test_mpn_sieve();
   test_mpn_helpers();
   test_mpn_select(rng, arg);
   test_mpn_sec_cmp();
