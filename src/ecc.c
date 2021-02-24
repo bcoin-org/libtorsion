@@ -744,12 +744,12 @@ sc_set_word(const scalar_field_t *sc, sc_t z, mp_limb_t x) {
 static void
 sc_select(const scalar_field_t *sc, sc_t z,
           const sc_t x, const sc_t y, int flag) {
-  mpn_cnd_copy(z, x, y, sc->limbs, flag);
+  mpn_cnd_select(z, x, y, sc->limbs, flag);
 }
 
 static void
 sc_select_zero(const scalar_field_t *sc, sc_t z, const sc_t x, int flag) {
-  mpn_cnd_zero(z, x, sc->limbs, flag);
+  mpn_cnd_select_zero(z, x, sc->limbs, flag);
 }
 
 static int

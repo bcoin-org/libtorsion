@@ -1692,7 +1692,7 @@ mpn_reduce_weak(mp_limb_t *zp, const mp_limb_t *xp,
 
   mp_sub(hi, c, hi, c);
 
-  mpn_cnd_copy(zp, xp, tp, n, c == 0);
+  mpn_cnd_select(zp, xp, tp, n, c == 0);
 
   return c == 0;
 }
@@ -4184,7 +4184,7 @@ mpn_sec_powm(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn,
     b = mpn_getbits(yp, yn, i * MP_FIXED_WIDTH, MP_FIXED_WIDTH);
 
     for (j = 0; j < MP_FIXED_SIZE; j++)
-      mpn_cnd_copy(sp, sp, WND(j), mn, j == b);
+      mpn_cnd_select(sp, sp, WND(j), mn, j == b);
 
     if (i == steps - 1) {
       mpn_copyi(rp, sp, mn);
@@ -4346,10 +4346,10 @@ mpn_sizeinbase(const mp_limb_t *xp, mp_size_t xn, int base) {
  */
 
 void
-mpn_cnd_copy(mp_limb_t *zp, const mp_limb_t *xp,
-                            const mp_limb_t *yp,
-                            mp_size_t n,
-                            int flag) {
+mpn_cnd_select(mp_limb_t *zp, const mp_limb_t *xp,
+                              const mp_limb_t *yp,
+                              mp_size_t n,
+                              int flag) {
   mp_limb_t m = -mp_limb_barrier(flag != 0);
   mp_size_t i;
 
@@ -4358,7 +4358,7 @@ mpn_cnd_copy(mp_limb_t *zp, const mp_limb_t *xp,
 }
 
 void
-mpn_cnd_zero(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t n, int flag) {
+mpn_cnd_select_zero(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t n, int flag) {
   mp_limb_t m = -mp_limb_barrier(flag != 0);
   mp_size_t i;
 
@@ -4427,7 +4427,7 @@ mpn_sec_tabselect(mp_limb_t *zp,
   mp_size_t i;
 
   for (i = 0; i < nents; i++)
-    mpn_cnd_copy(zp, zp, tp + i * n, n, i == which);
+    mpn_cnd_select(zp, zp, tp + i * n, n, i == which);
 }
 
 int

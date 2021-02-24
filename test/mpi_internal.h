@@ -3290,12 +3290,12 @@ test_mpn_cnd_copy(mp_rng_f *rng, void *arg) {
   mpn_random_nz(xp, 4, rng, arg);
   mpn_random_nz(yp, 4, rng, arg);
 
-  mpn_cnd_copy(zp, xp, yp, 4, 0);
+  mpn_cnd_select(zp, xp, yp, 4, 0);
 
   ASSERT(mpn_cmp(zp, xp, 4) == 0);
   ASSERT(mpn_cmp(zp, yp, 4) != 0);
 
-  mpn_cnd_copy(zp, xp, yp, 4, 1);
+  mpn_cnd_select(zp, xp, yp, 4, 1);
 
   ASSERT(mpn_cmp(zp, yp, 4) == 0);
   ASSERT(mpn_cmp(zp, xp, 4) != 0);
@@ -3310,12 +3310,12 @@ test_mpn_cnd_zero(mp_rng_f *rng, void *arg) {
   mpn_random_nz(xp, 4, rng, arg);
   mpn_random_nz(yp, 4, rng, arg);
 
-  mpn_cnd_zero(zp, xp, 4, 0);
+  mpn_cnd_select_zero(zp, xp, 4, 0);
 
   ASSERT(mpn_cmp(zp, xp, 4) == 0);
   ASSERT(!mpn_zero_p(zp, 4));
 
-  mpn_cnd_zero(zp, xp, 4, 1);
+  mpn_cnd_select_zero(zp, xp, 4, 1);
 
   ASSERT(mpn_cmp(zp, xp, 4) != 0);
   ASSERT(mpn_zero_p(zp, 4));
