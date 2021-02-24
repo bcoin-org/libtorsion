@@ -1421,16 +1421,15 @@ fe_export(const prime_field_t *fe, unsigned char *raw, const fe_t x) {
 
 static void
 fe_swap(const prime_field_t *fe, fe_t x, fe_t y, int flag) {
-  fe_word_t cond = (flag != 0);
-  fe_word_t mask = fe_word_barrier(-cond);
-  fe_word_t word;
+  fe_word_t m = -fe_word_barrier(flag != 0);
+  fe_word_t w;
   int i;
 
   for (i = 0; i < fe->words; i++) {
-    word = (x[i] ^ y[i]) & mask;
+    w = (x[i] ^ y[i]) & m;
 
-    x[i] ^= word;
-    y[i] ^= word;
+    x[i] ^= w;
+    y[i] ^= w;
   }
 }
 
