@@ -3023,6 +3023,44 @@ test_mpn_invert(mp_rng_f *rng, void *arg) {
 }
 
 static void
+test_mpn_sec_invert(mp_rng_f *rng, void *arg) {
+  mp_limb_t scratch[MPN_SEC_INVERT_ITCH(MP_P192_LIMBS)];
+  mp_limb_t xp[MP_P192_LIMBS * 2];
+  mp_limb_t zp[MP_P192_LIMBS];
+  mp_limb_t sp[MP_P192_LIMBS * 2];
+  mp_limb_t mp[MP_P192_LIMBS];
+  mp_size_t mn = MP_P192_LIMBS;
+  int i = 0;
+
+  printf("  - MPN secure invert.\n");
+
+  mpn_p192_mod(mp);
+
+  mpn_zero(xp, mn);
+
+  ASSERT(mpn_sec_invert_n(zp, xp, mp, mn, scratch) == 0);
+
+  mpn_copyi(xp, mp, mn);
+
+  ASSERT(mpn_sec_invert_n(zp, xp, mp, mn, scratch) == 0);
+
+  for (i = 0; i < 100; i++) {
+    do {
+      mpn_random(xp, mn * 2, rng, arg);
+      mpn_mod(xp, xp, mn * 2, mp, mn);
+    } while (mpn_zero_p(xp, mn));
+
+    ASSERT(mpn_sec_invert_n(zp, xp, mp, mn, scratch) == 1);
+
+    mpn_mul_n(sp, xp, zp, mn);
+    mpn_mod(sp, sp, mn * 2, mp, mn);
+
+    ASSERT(mpn_strip(sp, mn) == 1);
+    ASSERT(sp[0] == 1);
+  }
+}
+
+static void
 test_mpn_jacobi(void) {
   mp_limb_t scratch[MPN_JACOBI_ITCH(1)];
   mp_limb_t x, y;
@@ -3244,33 +3282,125 @@ test_mpn_helpers(void) {
 }
 
 static void
-test_mpn_select(mp_rng_f *rng, void *arg) {
+test_mpn_cnd_copy(mp_rng_f *rng, void *arg) {
   mp_limb_t xp[4], yp[4], zp[4];
 
-  printf("  - MPN select.\n");
+  printf("  - MPN conditional copy.\n");
 
   mpn_random_nz(xp, 4, rng, arg);
   mpn_random_nz(yp, 4, rng, arg);
 
-  mpn_select(zp, xp, yp, 4, 0);
+  mpn_cnd_copy(zp, xp, yp, 4, 0);
 
   ASSERT(mpn_cmp(zp, xp, 4) == 0);
   ASSERT(mpn_cmp(zp, yp, 4) != 0);
 
-  mpn_select(zp, xp, yp, 4, 1);
+  mpn_cnd_copy(zp, xp, yp, 4, 1);
 
   ASSERT(mpn_cmp(zp, yp, 4) == 0);
   ASSERT(mpn_cmp(zp, xp, 4) != 0);
+}
 
-  mpn_select_zero(zp, xp, 4, 0);
+static void
+test_mpn_cnd_zero(mp_rng_f *rng, void *arg) {
+  mp_limb_t xp[4], yp[4], zp[4];
+
+  printf("  - MPN conditional zero.\n");
+
+  mpn_random_nz(xp, 4, rng, arg);
+  mpn_random_nz(yp, 4, rng, arg);
+
+  mpn_cnd_zero(zp, xp, 4, 0);
 
   ASSERT(mpn_cmp(zp, xp, 4) == 0);
   ASSERT(!mpn_zero_p(zp, 4));
 
-  mpn_select_zero(zp, xp, 4, 1);
+  mpn_cnd_zero(zp, xp, 4, 1);
 
   ASSERT(mpn_cmp(zp, xp, 4) != 0);
   ASSERT(mpn_zero_p(zp, 4));
+}
+
+static void
+test_mpn_cnd_swap(mp_rng_f *rng, void *arg) {
+  mp_limb_t xp[4], yp[4], up[4], vp[4];
+
+  printf("  - MPN conditional swap.\n");
+
+  mpn_random_nz(xp, 4, rng, arg);
+  mpn_random_nz(yp, 4, rng, arg);
+
+  mpn_copyi(up, xp, 4);
+  mpn_copyi(vp, yp, 4);
+
+  mpn_cnd_swap(up, vp, 4, 0);
+
+  ASSERT(mpn_cmp(up, xp, 4) == 0);
+  ASSERT(mpn_cmp(vp, yp, 4) == 0);
+
+  mpn_cnd_swap(up, vp, 4, 1);
+
+  ASSERT(mpn_cmp(up, yp, 4) == 0);
+  ASSERT(mpn_cmp(vp, xp, 4) == 0);
+}
+
+static void
+test_mpn_cnd_add_n(mp_rng_f *rng, void *arg) {
+  mp_limb_t xp[4], yp[4], zp[4], ep[4];
+
+  printf("  - MPN conditional addition.\n");
+
+  mpn_random_nz(xp, 4, rng, arg);
+  mpn_random_nz(yp, 4, rng, arg);
+
+  mpn_add_n(ep, xp, yp, 4);
+
+  mpn_cnd_add_n(zp, xp, yp, 4, 0);
+
+  ASSERT(mpn_cmp(zp, xp, 4) == 0);
+
+  mpn_cnd_add_n(zp, xp, yp, 4, 1);
+
+  ASSERT(mpn_cmp(zp, ep, 4) == 0);
+}
+
+static void
+test_mpn_cnd_sub_n(mp_rng_f *rng, void *arg) {
+  mp_limb_t xp[4], yp[4], zp[4], ep[4];
+
+  printf("  - MPN conditional subtraction.\n");
+
+  mpn_random_nz(xp, 4, rng, arg);
+  mpn_random_nz(yp, 4, rng, arg);
+
+  mpn_sub_n(ep, xp, yp, 4);
+
+  mpn_cnd_sub_n(zp, xp, yp, 4, 0);
+
+  ASSERT(mpn_cmp(zp, xp, 4) == 0);
+
+  mpn_cnd_sub_n(zp, xp, yp, 4, 1);
+
+  ASSERT(mpn_cmp(zp, ep, 4) == 0);
+}
+
+static void
+test_mpn_sec_tabselect(mp_rng_f *rng, void *arg) {
+  mp_limb_t tp[16 * 4];
+  mp_limb_t zp[4];
+  mp_size_t i;
+
+  printf("  - MPN table select.\n");
+
+  mpn_random(tp, 16 * 4, rng, arg);
+
+  for (i = 0; i < 16; i++) {
+    mpn_zero(zp, 4);
+
+    mpn_sec_tabselect(zp, tp, 4, 16, i);
+
+    ASSERT(mpn_cmp(zp, tp + i * 4, 4) == 0);
+  }
 }
 
 static void
@@ -8055,11 +8185,17 @@ test_mpi_internal(mp_rng_f *rng, void *arg) {
   test_mpn_gcd(rng, arg);
   test_mpn_gcdext(rng, arg);
   test_mpn_invert(rng, arg);
+  test_mpn_sec_invert(rng, arg);
   test_mpn_jacobi();
   test_mpn_powm(rng, arg);
   test_mpn_sieve();
   test_mpn_helpers();
-  test_mpn_select(rng, arg);
+  test_mpn_cnd_copy(rng, arg);
+  test_mpn_cnd_zero(rng, arg);
+  test_mpn_cnd_swap(rng, arg);
+  test_mpn_cnd_add_n(rng, arg);
+  test_mpn_cnd_sub_n(rng, arg);
+  test_mpn_sec_tabselect(rng, arg);
   test_mpn_sec_cmp();
   test_mpn_sec_cmp_rand(rng, arg);
   test_mpn_io(rng, arg);

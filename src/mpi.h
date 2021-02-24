@@ -81,6 +81,8 @@
 #define mpn_gcd_1 __torsion_mpn_gcd_1
 #define mpn_invert __torsion_mpn_invert
 #define mpn_invert_n __torsion_mpn_invert_n
+#define mpn_sec_invert __torsion_mpn_sec_invert
+#define mpn_sec_invert_n __torsion_mpn_sec_invert_n
 #define mpn_jacobi __torsion_mpn_jacobi
 #define mpn_jacobi_n __torsion_mpn_jacobi_n
 #define mpn_powm __torsion_mpn_powm
@@ -89,8 +91,12 @@
 #define mpn_bitlen __torsion_mpn_bitlen
 #define mpn_bytelen __torsion_mpn_bytelen
 #define mpn_sizeinbase __torsion_mpn_sizeinbase
-#define mpn_select __torsion_mpn_select
-#define mpn_select_zero __torsion_mpn_select_zero
+#define mpn_cnd_copy __torsion_mpn_cnd_copy
+#define mpn_cnd_zero __torsion_mpn_cnd_zero
+#define mpn_cnd_swap __torsion_mpn_cnd_swap
+#define mpn_cnd_add_n __torsion_mpn_cnd_add_n
+#define mpn_cnd_sub_n __torsion_mpn_cnd_sub_n
+#define mpn_sec_tabselect __torsion_mpn_sec_tabselect
 #define mpn_sec_zero_p __torsion_mpn_sec_zero_p
 #define mpn_sec_equal_p __torsion_mpn_sec_equal_p
 #define mpn_sec_lt_p __torsion_mpn_sec_lt_p
@@ -354,6 +360,7 @@ typedef void mp_end_f(uint64_t *start, uint64_t ops);
 #define MPN_GCD_ITCH(xn, yn) ((xn) + (yn))
 #define MPN_GCD_1_ITCH(xn) (xn)
 #define MPN_INVERT_ITCH(n) (4 * ((n) + 1))
+#define MPN_SEC_INVERT_ITCH(n) ((n) + MPN_SEC_POWM_ITCH(n))
 #define MPN_JACOBI_ITCH(n) (2 * (n))
 #define MPN_SLIDE_ITCH(yn, mn) ((yn) > 2 ? (MP_SLIDE_SIZE * (mn)) : 0)
 #define MPN_POWM_ITCH(yn, mn) (6 * (mn) + MPN_SLIDE_ITCH(yn, mn))
@@ -742,6 +749,17 @@ mpn_invert_n(mp_limb_t *zp, const mp_limb_t *xp,
                             mp_limb_t *scratch);
 
 int
+mpn_sec_invert(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn,
+                              const mp_limb_t *mp, mp_size_t mn,
+                              mp_limb_t *scratch);
+
+int
+mpn_sec_invert_n(mp_limb_t *zp, const mp_limb_t *xp,
+                                const mp_limb_t *yp,
+                                mp_size_t n,
+                                mp_limb_t *scratch);
+
+int
 mpn_jacobi(const mp_limb_t *xp, mp_size_t xn,
            const mp_limb_t *yp, mp_size_t yn,
            mp_limb_t *scratch);
@@ -785,13 +803,35 @@ mpn_sizeinbase(const mp_limb_t *xp, mp_size_t xn, int base);
  */
 
 void
-mpn_select(mp_limb_t *zp, const mp_limb_t *xp,
-                          const mp_limb_t *yp,
-                          mp_size_t n,
-                          int flag);
+mpn_cnd_copy(mp_limb_t *zp, const mp_limb_t *xp,
+                            const mp_limb_t *yp,
+                            mp_size_t n,
+                            int flag);
 
 void
-mpn_select_zero(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t n, int flag);
+mpn_cnd_zero(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t n, int flag);
+
+void
+mpn_cnd_swap(mp_limb_t *xp, mp_limb_t *yp, mp_size_t n, int flag);
+
+mp_limb_t
+mpn_cnd_add_n(mp_limb_t *zp, const mp_limb_t *xp,
+                             const mp_limb_t *yp,
+                             mp_size_t n,
+                             int flag);
+
+mp_limb_t
+mpn_cnd_sub_n(mp_limb_t *zp, const mp_limb_t *xp,
+                             const mp_limb_t *yp,
+                             mp_size_t n,
+                             int flag);
+
+void
+mpn_sec_tabselect(mp_limb_t *zp,
+                  const mp_limb_t *tp,
+                  mp_size_t n,
+                  mp_size_t nents,
+                  mp_size_t which);
 
 int
 mpn_sec_zero_p(const mp_limb_t *xp, mp_size_t xn);

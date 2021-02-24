@@ -1692,7 +1692,7 @@ mpn_reduce_weak(mp_limb_t *zp, const mp_limb_t *xp,
 
   mp_sub(hi, c, hi, c);
 
-  mpn_select(zp, xp, tp, n, c == 0);
+  mpn_cnd_copy(zp, xp, tp, n, c == 0);
 
   return c == 0;
 }
@@ -3816,6 +3816,34 @@ mpn_invert_n(mp_limb_t *zp, const mp_limb_t *xp,
 }
 
 int
+mpn_sec_invert(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn,
+                              const mp_limb_t *mp, mp_size_t mn,
+                              mp_limb_t *scratch) {
+  mp_limb_t *yp = &scratch[0 * mn];
+  mp_limb_t *tp = &scratch[1 * mn];
+  mp_size_t yn = mn;
+
+  if (mn == 0)
+    torsion_abort(); /* LCOV_EXCL_LINE */
+
+  CHECK(mpn_sub_1(yp, mp, mn, 2) == 0);
+
+  yn -= (yp[yn - 1] == 0);
+
+  mpn_sec_powm(zp, xp, xn, yp, yn, mp, mn, tp);
+
+  return mpn_sec_zero_p(zp, mn) ^ 1;
+}
+
+int
+mpn_sec_invert_n(mp_limb_t *zp, const mp_limb_t *xp,
+                                const mp_limb_t *yp,
+                                mp_size_t n,
+                                mp_limb_t *scratch) {
+  return mpn_sec_invert(zp, xp, n, yp, n, scratch);
+}
+
+int
 mpn_jacobi(const mp_limb_t *xp, mp_size_t xn,
            const mp_limb_t *yp, mp_size_t yn,
            mp_limb_t *scratch) {
@@ -4156,7 +4184,7 @@ mpn_sec_powm(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn,
     b = mpn_getbits(yp, yn, i * MP_FIXED_WIDTH, MP_FIXED_WIDTH);
 
     for (j = 0; j < MP_FIXED_SIZE; j++)
-      mpn_select(sp, sp, WND(j), mn, j == b);
+      mpn_cnd_copy(sp, sp, WND(j), mn, j == b);
 
     if (i == steps - 1) {
       mpn_copyi(rp, sp, mn);
@@ -4318,27 +4346,88 @@ mpn_sizeinbase(const mp_limb_t *xp, mp_size_t xn, int base) {
  */
 
 void
-mpn_select(mp_limb_t *zp, const mp_limb_t *xp,
-                          const mp_limb_t *yp,
-                          mp_size_t n,
-                          int flag) {
-  mp_limb_t cond = (flag != 0);
-  mp_limb_t mask0 = mp_limb_barrier(cond - 1);
-  mp_limb_t mask1 = mp_limb_barrier(~mask0);
+mpn_cnd_copy(mp_limb_t *zp, const mp_limb_t *xp,
+                            const mp_limb_t *yp,
+                            mp_size_t n,
+                            int flag) {
+  mp_limb_t m = -mp_limb_barrier(flag != 0);
   mp_size_t i;
 
   for (i = 0; i < n; i++)
-    zp[i] = (xp[i] & mask0) | (yp[i] & mask1);
+    zp[i] = (xp[i] & ~m) | (yp[i] & m);
 }
 
 void
-mpn_select_zero(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t n, int flag) {
-  mp_limb_t cond = (flag != 0);
-  mp_limb_t mask = mp_limb_barrier(cond - 1);
+mpn_cnd_zero(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t n, int flag) {
+  mp_limb_t m = -mp_limb_barrier(flag != 0);
   mp_size_t i;
 
   for (i = 0; i < n; i++)
-    zp[i] = xp[i] & mask;
+    zp[i] = xp[i] & ~m;
+}
+
+void
+mpn_cnd_swap(mp_limb_t *xp, mp_limb_t *yp, mp_size_t n, int flag) {
+  mp_limb_t m = -mp_limb_barrier(flag != 0);
+  mp_limb_t w;
+  mp_size_t i;
+
+  for (i = 0; i < n; i++) {
+    w = (xp[i] ^ yp[i]) & m;
+
+    xp[i] ^= w;
+    yp[i] ^= w;
+  }
+}
+
+mp_limb_t
+mpn_cnd_add_n(mp_limb_t *zp, const mp_limb_t *xp,
+                             const mp_limb_t *yp,
+                             mp_size_t n,
+                             int flag) {
+  mp_limb_t m = -mp_limb_barrier(flag != 0);
+  mp_limb_t c = 0;
+  mp_limb_t y;
+  mp_size_t i;
+
+  for (i = 0; i < n; i++) {
+    y = yp[i] & m;
+
+    mp_add_1(zp[i], c, xp[i], y);
+  }
+
+  return c;
+}
+
+mp_limb_t
+mpn_cnd_sub_n(mp_limb_t *zp, const mp_limb_t *xp,
+                             const mp_limb_t *yp,
+                             mp_size_t n,
+                             int flag) {
+  mp_limb_t m = -mp_limb_barrier(flag != 0);
+  mp_limb_t c = 0;
+  mp_limb_t y;
+  mp_size_t i;
+
+  for (i = 0; i < n; i++) {
+    y = yp[i] & m;
+
+    mp_sub_1(zp[i], c, xp[i], y);
+  }
+
+  return c;
+}
+
+void
+mpn_sec_tabselect(mp_limb_t *zp,
+                  const mp_limb_t *tp,
+                  mp_size_t n,
+                  mp_size_t nents,
+                  mp_size_t which) {
+  mp_size_t i;
+
+  for (i = 0; i < nents; i++)
+    mpn_cnd_copy(zp, zp, tp + i * n, n, i == which);
 }
 
 int
