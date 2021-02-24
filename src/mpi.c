@@ -821,7 +821,7 @@ typedef struct mp_divisor_s {
  * Allocation
  */
 
-mp_limb_t *
+static mp_limb_t *
 mp_alloc_limbs(mp_size_t size) {
   mp_limb_t *ptr;
 
@@ -835,7 +835,7 @@ mp_alloc_limbs(mp_size_t size) {
   return ptr;
 }
 
-mp_limb_t *
+static mp_limb_t *
 mp_realloc_limbs(mp_limb_t *ptr, mp_size_t size) {
   CHECK(size > 0);
 
@@ -847,7 +847,7 @@ mp_realloc_limbs(mp_limb_t *ptr, mp_size_t size) {
   return ptr;
 }
 
-void
+static void
 mp_free_limbs(mp_limb_t *ptr) {
   free(ptr);
 }
@@ -1121,6 +1121,18 @@ torsion_memzero(void *, size_t);
 void
 mpn_cleanse(mp_limb_t *zp, mp_size_t zn) {
   torsion_memzero(zp, zn * sizeof(mp_limb_t));
+}
+
+/*
+ * Internal
+ */
+
+static TORSION_INLINE mp_size_t
+mpn_strip(const mp_limb_t *xp, mp_size_t xn) {
+  while (xn > 0 && xp[xn - 1] == 0)
+    xn -= 1;
+
+  return xn;
 }
 
 /*
@@ -4254,27 +4266,6 @@ mpn_sieve(mp_limb_t *zp, mp_limb_t n) {
 /*
  * Helpers
  */
-
-mp_size_t
-mpn_strip(const mp_limb_t *xp, mp_size_t xn) {
-  while (xn > 0 && xp[xn - 1] == 0)
-    xn -= 1;
-
-  return xn;
-}
-
-int
-mpn_odd_p(const mp_limb_t *xp, mp_size_t xn) {
-  if (xn == 0)
-    return 0;
-
-  return xp[0] & 1;
-}
-
-int
-mpn_even_p(const mp_limb_t *xp, mp_size_t xn) {
-  return !mpn_odd_p(xp, xn);
-}
 
 mp_bits_t
 mpn_ctz(const mp_limb_t *xp, mp_size_t xn) {

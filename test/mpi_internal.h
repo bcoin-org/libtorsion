@@ -3232,17 +3232,11 @@ test_mpn_sieve(void) {
 static void
 test_mpn_helpers(void) {
   static const mp_limb_t trail[4] = {4, 3, 2, 0};
-  static const mp_limb_t odd[4] = {3, 3, 2, 1};
-  static const mp_limb_t even[4] = {4, 3, 2, 1};
   static const mp_limb_t tz[4] = {0, 3, 2, 1};
 
   printf("  - MPN helpers.\n");
 
   ASSERT(mpn_strip(trail, 4) == 3);
-  ASSERT(mpn_odd_p(odd, 4));
-  ASSERT(!mpn_odd_p(even, 4));
-  ASSERT(mpn_even_p(even, 4));
-  ASSERT(!mpn_even_p(odd, 4));
   ASSERT(mpn_ctz(tz, 4) == MP_LIMB_BITS);
   ASSERT(mpn_bitlen(trail, 4) == 2 * MP_LIMB_BITS + 2);
   ASSERT(mpn_bytelen(trail, 4) == ((size_t)mpn_bitlen(trail, 4) + 7) / 8);

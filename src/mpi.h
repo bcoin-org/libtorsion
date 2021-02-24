@@ -18,9 +18,6 @@
  * Symbol Aliases
  */
 
-#define mp_alloc_limbs __torsion_mp_alloc_limbs
-#define mp_realloc_limbs __torsion_mp_realloc_limbs
-#define mp_free_limbs __torsion_mp_free_limbs
 #define mpn_zero __torsion_mpn_zero
 #define mpn_cleanse __torsion_mpn_cleanse
 #define mpn_set_1 __torsion_mpn_set_1
@@ -88,9 +85,6 @@
 #define mpn_jacobi_n __torsion_mpn_jacobi_n
 #define mpn_powm __torsion_mpn_powm
 #define mpn_sec_powm __torsion_mpn_sec_powm
-#define mpn_strip __torsion_mpn_strip
-#define mpn_odd_p __torsion_mpn_odd_p
-#define mpn_even_p __torsion_mpn_even_p
 #define mpn_ctz __torsion_mpn_ctz
 #define mpn_bitlen __torsion_mpn_bitlen
 #define mpn_bytelen __torsion_mpn_bytelen
@@ -373,19 +367,6 @@ typedef void mp_end_f(uint64_t *start, uint64_t ops);
  */
 
 #define MPZ_ROINIT_N(xp, xs) {{(mp_limb_t *)(xp), 0, (xs)}}
-
-/*
- * Allocation
- */
-
-mp_limb_t *
-mp_alloc_limbs(mp_size_t size);
-
-mp_limb_t *
-mp_realloc_limbs(mp_limb_t *ptr, mp_size_t size);
-
-void
-mp_free_limbs(mp_limb_t *ptr);
 
 /*
  * MPN Interface
@@ -786,15 +767,6 @@ mpn_sec_powm(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn,
 /*
  * Helpers
  */
-
-mp_size_t
-mpn_strip(const mp_limb_t *xp, mp_size_t xn);
-
-int
-mpn_odd_p(const mp_limb_t *xp, mp_size_t xn);
-
-int
-mpn_even_p(const mp_limb_t *xp, mp_size_t xn);
 
 mp_bits_t
 mpn_ctz(const mp_limb_t *xp, mp_size_t xn);
