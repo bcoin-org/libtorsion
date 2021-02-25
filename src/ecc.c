@@ -909,7 +909,7 @@ static void
 sc_montmul(const scalar_field_t *sc, sc_t z, const sc_t x, const sc_t y) {
   mp_limb_t scratch[MPN_MONTMUL_ITCH(MAX_SCALAR_LIMBS)]; /* 144 bytes */
 
-  mpn_montmul(z, x, y, sc->n, sc->limbs, sc->k, scratch);
+  mpn_sec_montmul(z, x, y, sc->n, sc->limbs, sc->k, scratch);
 }
 
 static void

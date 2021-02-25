@@ -28,9 +28,13 @@
 #define mpn_add_1 __torsion_mpn_add_1
 #define mpn_add_n __torsion_mpn_add_n
 #define mpn_add __torsion_mpn_add
+#define mpn_sec_add_1 __torsion_mpn_sec_add_1
+#define mpn_sec_add __torsion_mpn_sec_add
 #define mpn_sub_1 __torsion_mpn_sub_1
 #define mpn_sub_n __torsion_mpn_sub_n
 #define mpn_sub __torsion_mpn_sub
+#define mpn_sec_sub_1 __torsion_mpn_sec_sub_1
+#define mpn_sec_sub __torsion_mpn_sec_sub
 #define mpn_mul_1 __torsion_mpn_mul_1
 #define mpn_addmul_1 __torsion_mpn_addmul_1
 #define mpn_submul_1 __torsion_mpn_submul_1
@@ -43,7 +47,7 @@
 #define mpn_reduce __torsion_mpn_reduce
 #define mpn_mont __torsion_mpn_mont
 #define mpn_montmul __torsion_mpn_montmul
-#define mpn_montmul_var __torsion_mpn_montmul_var
+#define mpn_sec_montmul __torsion_mpn_sec_montmul
 #define mpn_divmod_1 __torsion_mpn_divmod_1
 #define mpn_div_1 __torsion_mpn_div_1
 #define mpn_mod_1 __torsion_mpn_mod_1
@@ -432,6 +436,17 @@ mpn_add(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn,
                        const mp_limb_t *yp, mp_size_t yn);
 
 /*
+ * Secure Addition
+ */
+
+mp_limb_t
+mpn_sec_add_1(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn, mp_limb_t y);
+
+mp_limb_t
+mpn_sec_add(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn,
+                           const mp_limb_t *yp, mp_size_t yn);
+
+/*
  * Subtraction
  */
 
@@ -446,6 +461,17 @@ mpn_sub_n(mp_limb_t *zp, const mp_limb_t *xp,
 mp_limb_t
 mpn_sub(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn,
                        const mp_limb_t *yp, mp_size_t yn);
+
+/*
+ * Secure Subtraction
+ */
+
+mp_limb_t
+mpn_sec_sub_1(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn, mp_limb_t y);
+
+mp_limb_t
+mpn_sec_sub(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn,
+                           const mp_limb_t *yp, mp_size_t yn);
 
 /*
  * Multiplication
@@ -532,7 +558,7 @@ mpn_montmul(mp_limb_t *zp, const mp_limb_t *xp,
                            mp_limb_t *scratch);
 
 void
-mpn_montmul_var(mp_limb_t *zp, const mp_limb_t *xp,
+mpn_sec_montmul(mp_limb_t *zp, const mp_limb_t *xp,
                                const mp_limb_t *yp,
                                const mp_limb_t *mp,
                                mp_size_t n,
