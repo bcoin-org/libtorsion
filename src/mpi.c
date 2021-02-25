@@ -4358,15 +4358,6 @@ mpn_cnd_select(mp_limb_t *zp, const mp_limb_t *xp,
 }
 
 void
-mpn_cnd_select_zero(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t n, int flag) {
-  mp_limb_t m = -mp_limb_barrier(flag != 0);
-  mp_size_t i;
-
-  for (i = 0; i < n; i++)
-    zp[i] = xp[i] & ~m;
-}
-
-void
 mpn_cnd_swap(mp_limb_t *xp, mp_limb_t *yp, mp_size_t n, int flag) {
   mp_limb_t m = -mp_limb_barrier(flag != 0);
   mp_limb_t w;

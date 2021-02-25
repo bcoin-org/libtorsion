@@ -749,7 +749,9 @@ sc_select(const scalar_field_t *sc, sc_t z,
 
 static void
 sc_select_zero(const scalar_field_t *sc, sc_t z, const sc_t x, int flag) {
-  mpn_cnd_select_zero(z, x, sc->limbs, flag);
+  static const sc_t y = {0};
+
+  sc_select(sc, z, x, y, flag);
 }
 
 static int

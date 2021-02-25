@@ -3282,10 +3282,10 @@ test_mpn_helpers(void) {
 }
 
 static void
-test_mpn_cnd_copy(mp_rng_f *rng, void *arg) {
+test_mpn_cnd_select(mp_rng_f *rng, void *arg) {
   mp_limb_t xp[4], yp[4], zp[4];
 
-  printf("  - MPN conditional copy.\n");
+  printf("  - MPN conditional select.\n");
 
   mpn_random_nz(xp, 4, rng, arg);
   mpn_random_nz(yp, 4, rng, arg);
@@ -3299,26 +3299,6 @@ test_mpn_cnd_copy(mp_rng_f *rng, void *arg) {
 
   ASSERT(mpn_cmp(zp, yp, 4) == 0);
   ASSERT(mpn_cmp(zp, xp, 4) != 0);
-}
-
-static void
-test_mpn_cnd_zero(mp_rng_f *rng, void *arg) {
-  mp_limb_t xp[4], yp[4], zp[4];
-
-  printf("  - MPN conditional zero.\n");
-
-  mpn_random_nz(xp, 4, rng, arg);
-  mpn_random_nz(yp, 4, rng, arg);
-
-  mpn_cnd_select_zero(zp, xp, 4, 0);
-
-  ASSERT(mpn_cmp(zp, xp, 4) == 0);
-  ASSERT(!mpn_zero_p(zp, 4));
-
-  mpn_cnd_select_zero(zp, xp, 4, 1);
-
-  ASSERT(mpn_cmp(zp, xp, 4) != 0);
-  ASSERT(mpn_zero_p(zp, 4));
 }
 
 static void
@@ -8190,8 +8170,7 @@ test_mpi_internal(mp_rng_f *rng, void *arg) {
   test_mpn_powm(rng, arg);
   test_mpn_sieve();
   test_mpn_helpers();
-  test_mpn_cnd_copy(rng, arg);
-  test_mpn_cnd_zero(rng, arg);
+  test_mpn_cnd_select(rng, arg);
   test_mpn_cnd_swap(rng, arg);
   test_mpn_cnd_add_n(rng, arg);
   test_mpn_cnd_sub_n(rng, arg);

@@ -92,7 +92,6 @@
 #define mpn_bytelen __torsion_mpn_bytelen
 #define mpn_sizeinbase __torsion_mpn_sizeinbase
 #define mpn_cnd_select __torsion_mpn_cnd_select
-#define mpn_cnd_select_zero __torsion_mpn_cnd_select_zero
 #define mpn_cnd_swap __torsion_mpn_cnd_swap
 #define mpn_cnd_add_n __torsion_mpn_cnd_add_n
 #define mpn_cnd_sub_n __torsion_mpn_cnd_sub_n
@@ -807,9 +806,6 @@ mpn_cnd_select(mp_limb_t *zp, const mp_limb_t *xp,
                               const mp_limb_t *yp,
                               mp_size_t n,
                               int flag);
-
-void
-mpn_cnd_select_zero(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t n, int flag);
 
 void
 mpn_cnd_swap(mp_limb_t *xp, mp_limb_t *yp, mp_size_t n, int flag);
