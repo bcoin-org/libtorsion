@@ -4265,8 +4265,8 @@ static void
 mpn_sieve(mp_limb_t *zp, mp_limb_t n) {
   /* Sieve of Eratosthenes. */
   mp_limb_t zn = (n + MP_LIMB_BITS) / MP_LIMB_BITS;
+  mp_bits_t lo = (n + 1) % MP_LIMB_BITS;
   mp_limb_t i, p;
-  mp_bits_t lo;
 
   if (n < 1024) {
     mpn_copyi(zp, mp_primes, zn);
@@ -4284,8 +4284,6 @@ mpn_sieve(mp_limb_t *zp, mp_limb_t n) {
   }
 
   zp[0] &= ~MP_LIMB_C(3);
-
-  lo = (n + 1) % MP_LIMB_BITS;
 
   if (lo != 0)
     zp[zn - 1] &= MP_MASK(lo);
