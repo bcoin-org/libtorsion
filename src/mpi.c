@@ -5291,44 +5291,16 @@ mpz_sub_si(mpz_t z, const mpz_t x, mp_long_t y) {
 
 void
 mpz_ui_sub(mpz_t z, mp_limb_t x, const mpz_t y) {
-  mp_size_t zn;
-
-  if (y->size < 0) {
-    /* x - (-y) == y + x */
-    zn = mpz_addabs_ui(z, y, x);
-  } else {
-    if (y->size == 0) {
-      /* x - 0 == x */
-      z->limbs[0] = x;
-      zn = (x != 0);
-    } else if (mpz_cmpabs_ui(y, x) < 0) {
-      /* x - y == x - y */
-      z->limbs[0] = x - y->limbs[0];
-      zn = 1;
-    } else {
-      /* x - y == -(y - x) */
-      zn = -mpz_subabs_ui(z, y, x);
-    }
-  }
-
-  z->size = zn;
+  /* x - y == -(y - x) */
+  mpz_sub_ui(z, y, x);
+  mpz_neg(z, z);
 }
 
 void
 mpz_si_sub(mpz_t z, mp_long_t x, const mpz_t y) {
-  if (x < 0) {
-    if (y->size < 0) {
-      /* (-x) - (-y) == y - x */
-      mpz_neg(z, y);
-      mpz_sub_ui(z, z, mp_limb_cast(x));
-    } else {
-      /* (-x) - y == -(y + x) */
-      mpz_add_ui(z, y, mp_limb_cast(x));
-      mpz_neg(z, z);
-    }
-  } else {
-    mpz_ui_sub(z, x, y);
-  }
+  /* x - y == -(y - x) */
+  mpz_sub_si(z, y, x);
+  mpz_neg(z, z);
 }
 
 /*
