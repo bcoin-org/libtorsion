@@ -805,22 +805,22 @@ void
 mpn_cnd_select(mp_limb_t *zp, const mp_limb_t *xp,
                               const mp_limb_t *yp,
                               mp_size_t n,
-                              int flag);
+                              mp_limb_t cnd);
 
 void
-mpn_cnd_swap(mp_limb_t *xp, mp_limb_t *yp, mp_size_t n, int flag);
+mpn_cnd_swap(mp_limb_t *xp, mp_limb_t *yp, mp_size_t n, mp_limb_t cnd);
 
 mp_limb_t
 mpn_cnd_add_n(mp_limb_t *zp, const mp_limb_t *xp,
                              const mp_limb_t *yp,
                              mp_size_t n,
-                             int flag);
+                             mp_limb_t cnd);
 
 mp_limb_t
 mpn_cnd_sub_n(mp_limb_t *zp, const mp_limb_t *xp,
                              const mp_limb_t *yp,
                              mp_size_t n,
-                             int flag);
+                             mp_limb_t cnd);
 
 void
 mpn_sec_tabselect(mp_limb_t *zp,

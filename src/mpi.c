@@ -4347,8 +4347,8 @@ void
 mpn_cnd_select(mp_limb_t *zp, const mp_limb_t *xp,
                               const mp_limb_t *yp,
                               mp_size_t n,
-                              int flag) {
-  mp_limb_t m = -mp_limb_barrier(flag != 0);
+                              mp_limb_t cnd) {
+  mp_limb_t m = -mp_limb_barrier(cnd != 0);
   mp_size_t i;
 
   for (i = 0; i < n; i++)
@@ -4356,8 +4356,8 @@ mpn_cnd_select(mp_limb_t *zp, const mp_limb_t *xp,
 }
 
 void
-mpn_cnd_swap(mp_limb_t *xp, mp_limb_t *yp, mp_size_t n, int flag) {
-  mp_limb_t m = -mp_limb_barrier(flag != 0);
+mpn_cnd_swap(mp_limb_t *xp, mp_limb_t *yp, mp_size_t n, mp_limb_t cnd) {
+  mp_limb_t m = -mp_limb_barrier(cnd != 0);
   mp_limb_t w;
   mp_size_t i;
 
@@ -4373,8 +4373,8 @@ mp_limb_t
 mpn_cnd_add_n(mp_limb_t *zp, const mp_limb_t *xp,
                              const mp_limb_t *yp,
                              mp_size_t n,
-                             int flag) {
-  mp_limb_t m = -mp_limb_barrier(flag != 0);
+                             mp_limb_t cnd) {
+  mp_limb_t m = -mp_limb_barrier(cnd != 0);
   mp_limb_t c = 0;
   mp_limb_t y;
   mp_size_t i;
@@ -4392,8 +4392,8 @@ mp_limb_t
 mpn_cnd_sub_n(mp_limb_t *zp, const mp_limb_t *xp,
                              const mp_limb_t *yp,
                              mp_size_t n,
-                             int flag) {
-  mp_limb_t m = -mp_limb_barrier(flag != 0);
+                             mp_limb_t cnd) {
+  mp_limb_t m = -mp_limb_barrier(cnd != 0);
   mp_limb_t c = 0;
   mp_limb_t y;
   mp_size_t i;
