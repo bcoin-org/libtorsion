@@ -3996,7 +3996,7 @@ mpn_div_powm(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn,
     mpn_sqr(sp, rp, mn, tp);
     mpn_mod_inner(rp, sp, sn, &den);
 
-    if (mpn_getbit(yp, yn, i)) {
+    if (mpn_tstbit(yp, i)) {
       mpn_mul_n(sp, rp, ap, mn);
       mpn_mod_inner(rp, sp, sn, &den);
     }
@@ -4081,7 +4081,7 @@ mpn_mont_powm(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn,
   for (i -= 1; i >= 0; i--) {
     mpn_montmul_var(rp, rp, rp, mp, mn, k, tp);
 
-    if (mpn_getbit(yp, yn, i))
+    if (mpn_tstbit(yp, i))
       mpn_montmul_var(rp, rp, ap, mp, mn, k, tp);
   }
 
