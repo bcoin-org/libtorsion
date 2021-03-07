@@ -1227,7 +1227,7 @@ test_wei_fuzzy_equality(int type, drbg_t *rng) {
   wei_t *ec = wei_curve_create(type);
   scalar_field_t *sc = &ec->sc;
   prime_field_t *fe = &ec->fe;
-  mp_limb_t r[MAX_REDUCE_LIMBS];
+  mp_limb_t r[MAX_SCALAR_LIMBS];
   wge_t P;
   jge_t J;
   fe_t x;
@@ -1237,7 +1237,6 @@ test_wei_fuzzy_equality(int type, drbg_t *rng) {
 
   /* Generate a field element in the interval [n, p-1]. */
   for (;;) {
-    mpn_zero(r, ARRAY_SIZE(r));
     mpn_randomm(r, ec->sc_p, sc->limbs, drbg_rng, rng);
 
     ASSERT(mpn_add_n(r, r, sc->n, sc->limbs) == 0);
@@ -1253,7 +1252,7 @@ test_wei_fuzzy_equality(int type, drbg_t *rng) {
     break;
   }
 
-  sc_reduce(sc, k, r);
+  sc_reduce_weak(sc, k, r, 0);
 
   ASSERT(mpn_cmp(k, r, sc->limbs) < 0);
   ASSERT(mpn_cmp(k, sc->n, sc->limbs) < 0);
