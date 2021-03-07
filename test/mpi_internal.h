@@ -846,6 +846,80 @@ mpn_p224_mod(mp_limb_t *zp) {
 }
 
 /*
+ * P256
+ */
+
+#define MP_P256_LIMBS ((256 + MP_LIMB_BITS - 1) / MP_LIMB_BITS)
+
+TORSION_UNUSED static void
+mpn_p256_mod(mp_limb_t *zp) {
+  /* z = 2^256 - 2^224 + 2^192 + 2^96 - 1 */
+  mp_limb_t xp[MP_P256_LIMBS + 1];
+  mp_limb_t ap[MP_P256_LIMBS + 1];
+  mp_limb_t bp[MP_P256_LIMBS + 1];
+  mp_limb_t cp[MP_P256_LIMBS + 1];
+
+  mpn_zero(xp, MP_P256_LIMBS + 1);
+  mpn_zero(ap, MP_P256_LIMBS + 1);
+  mpn_zero(bp, MP_P256_LIMBS + 1);
+  mpn_zero(cp, MP_P256_LIMBS + 1);
+
+  mpn_setbit(xp, 256);
+  mpn_setbit(ap, 224);
+  mpn_setbit(bp, 192);
+  mpn_setbit(cp, 96);
+
+  mpn_sub_n(xp, xp, ap, MP_P256_LIMBS + 1);
+  mpn_add_n(xp, xp, bp, MP_P256_LIMBS + 1);
+  mpn_add_n(xp, xp, cp, MP_P256_LIMBS + 1);
+  mpn_sub_1(zp, xp, MP_P256_LIMBS, 1);
+}
+
+/*
+ * P384
+ */
+
+#define MP_P384_LIMBS ((384 + MP_LIMB_BITS - 1) / MP_LIMB_BITS)
+
+TORSION_UNUSED static void
+mpn_p384_mod(mp_limb_t *zp) {
+  /* z = 2^384 - 2^128 - 2^96 + 2^32 - 1 */
+  mp_limb_t xp[MP_P384_LIMBS + 1];
+  mp_limb_t ap[MP_P384_LIMBS + 1];
+  mp_limb_t bp[MP_P384_LIMBS + 1];
+  mp_limb_t cp[MP_P384_LIMBS + 1];
+
+  mpn_zero(xp, MP_P384_LIMBS + 1);
+  mpn_zero(ap, MP_P384_LIMBS + 1);
+  mpn_zero(bp, MP_P384_LIMBS + 1);
+  mpn_zero(cp, MP_P384_LIMBS + 1);
+
+  mpn_setbit(xp, 384);
+  mpn_setbit(ap, 128);
+  mpn_setbit(bp, 96);
+  mpn_setbit(cp, 32);
+
+  mpn_sub_n(xp, xp, ap, MP_P384_LIMBS + 1);
+  mpn_sub_n(xp, xp, bp, MP_P384_LIMBS + 1);
+  mpn_add_n(xp, xp, cp, MP_P384_LIMBS + 1);
+  mpn_sub_1(zp, xp, MP_P384_LIMBS, 1);
+}
+
+/*
+ * P521
+ */
+
+#define MP_P521_LIMBS ((521 + MP_LIMB_BITS - 1) / MP_LIMB_BITS)
+
+TORSION_UNUSED static void
+mpn_p521_mod(mp_limb_t *zp) {
+  /* z = 2^521 - 1 */
+  mpn_zero(zp, MP_P521_LIMBS);
+  mpn_setbit(zp, 521);
+  mpn_sub_1(zp, zp, MP_P521_LIMBS, 1);
+}
+
+/*
  * K256
  */
 
@@ -868,20 +942,6 @@ mpn_k256_mod(mp_limb_t *zp) {
 }
 
 /*
- * P521
- */
-
-#define MP_P521_LIMBS ((521 + MP_LIMB_BITS - 1) / MP_LIMB_BITS)
-
-TORSION_UNUSED static void
-mpn_p521_mod(mp_limb_t *zp) {
-  /* z = 2^521 - 1 */
-  mpn_zero(zp, MP_P521_LIMBS);
-  mpn_setbit(zp, 521);
-  mpn_sub_1(zp, zp, MP_P521_LIMBS, 1);
-}
-
-/*
  * P25519
  */
 
@@ -893,6 +953,42 @@ mpn_p25519_mod(mp_limb_t *zp) {
   mpn_zero(zp, MP_P25519_LIMBS);
   mpn_setbit(zp, 255);
   mpn_sub_1(zp, zp, MP_P25519_LIMBS, 19);
+}
+
+/*
+ * P448
+ */
+
+#define MP_P448_LIMBS ((448 + MP_LIMB_BITS - 1) / MP_LIMB_BITS)
+
+TORSION_UNUSED static void
+mpn_p448_mod(mp_limb_t *zp) {
+  /* z = 2^448 - 2^224 - 1 */
+  mp_limb_t xp[MP_P448_LIMBS + 1];
+  mp_limb_t yp[MP_P448_LIMBS + 1];
+
+  mpn_zero(xp, MP_P448_LIMBS + 1);
+  mpn_zero(yp, MP_P448_LIMBS + 1);
+
+  mpn_setbit(xp, 448);
+  mpn_setbit(yp, 224);
+
+  mpn_sub_n(xp, xp, yp, MP_P448_LIMBS + 1);
+  mpn_sub_1(zp, xp, MP_P448_LIMBS, 1);
+}
+
+/*
+ * P251
+ */
+
+#define MP_P251_LIMBS ((251 + MP_LIMB_BITS - 1) / MP_LIMB_BITS)
+
+TORSION_UNUSED static void
+mpn_p251_mod(mp_limb_t *zp) {
+  /* z = 2^251 - 9 */
+  mpn_zero(zp, MP_P251_LIMBS);
+  mpn_setbit(zp, 251);
+  mpn_sub_1(zp, zp, MP_P251_LIMBS, 9);
 }
 
 /*
@@ -1009,9 +1105,9 @@ test_mp_helpers(mp_rng_f *rng, void *arg) {
   ASSERT(mp_limb_cast(MP_LONG_C(-100)) == MP_LIMB_C(100));
   ASSERT(mp_long_cast(MP_LIMB_C(100), -1) == MP_LONG_C(-100));
 
-  ASSERT(mp_long_cast(MP_LIMB_HI, 1) == 0);
-  ASSERT(mp_long_cast(MP_LIMB_HI + 1, 1) == 1);
-  ASSERT(mp_long_cast(MP_LIMB_HI + 1, -1) == -1);
+  ASSERT(mp_long_cast(MP_LIMB_HI, 1) == MP_LONG_C(0));
+  ASSERT(mp_long_cast(MP_LIMB_HI + 1, 1) == MP_LONG_C(1));
+  ASSERT(mp_long_cast(MP_LIMB_HI + 1, -1) == MP_LONG_C(-1));
 
   ASSERT(mp_limb_cast(MP_LONG_MIN) == MP_LIMB_HI);
   ASSERT(mp_long_cast(MP_LIMB_HI, -1) == MP_LONG_MIN);
@@ -7093,6 +7189,7 @@ test_mpz_binomial(void) {
   mpz_neg(n, n);
 
   ASSERT(mpz_cmp(z, n) == 0);
+  ASSERT(mpz_cmp_si(z, -220) == 0);
 
   mpz_clear(n);
   mpz_clear(z);
@@ -8084,17 +8181,15 @@ test_mpz_vectors(void) {
 
 static void
 bench_mpn_invert(mp_start_f *start, mp_end_f *end, mp_rng_f *rng, void *arg) {
+  mp_limb_t scratch[MPN_INVERT_ITCH(MP_K256_LIMBS)];
   mp_limb_t xp[MP_K256_LIMBS * 2];
   mp_limb_t zp[MP_K256_LIMBS];
   mp_limb_t mp[MP_K256_LIMBS];
-  mp_limb_t scratch[MPN_INVERT_ITCH(MP_K256_LIMBS)];
   mp_size_t mn = MP_K256_LIMBS;
   uint64_t tv;
   int i;
 
   mpn_k256_mod(mp);
-
-  mpn_zero(xp, mn);
 
   do {
     mpn_random(xp, mn * 2, rng, arg);
