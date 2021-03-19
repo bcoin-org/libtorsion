@@ -8011,20 +8011,20 @@ mpz_bin_siui(mpz_t z, mp_long_t n, mp_limb_t k) {
 }
 
 void
-mpz_fib_ui(mpz_t z, mp_limb_t n) {
-  mpz_fib2_ui(z, NULL, n);
+mpz_fib_ui(mpz_t fn, mp_limb_t n) {
+  mpz_fib2_ui(fn, NULL, n);
 }
 
 void
-mpz_fib2_ui(mpz_t z, mpz_t p, mp_limb_t n) {
+mpz_fib2_ui(mpz_t fn, mpz_t fn1, mp_limb_t n) {
   mpz_t a, b, c, d, t;
   mp_bits_t i;
 
   if (n == 0) {
-    if (p != NULL)
-      p->size = 0;
+    if (fn1 != NULL)
+      fn1->size = 0;
 
-    z->size = 0;
+    fn->size = 0;
 
     return;
   }
@@ -8058,10 +8058,10 @@ mpz_fib2_ui(mpz_t z, mpz_t p, mp_limb_t n) {
     }
   }
 
-  if (p != NULL)
-    mpz_swap(p, a);
+  if (fn1 != NULL)
+    mpz_swap(fn1, a);
 
-  mpz_swap(z, b);
+  mpz_swap(fn, b);
 
   mpz_clear(a);
   mpz_clear(b);
@@ -8071,19 +8071,19 @@ mpz_fib2_ui(mpz_t z, mpz_t p, mp_limb_t n) {
 }
 
 void
-mpz_lucnum_ui(mpz_t z, mp_limb_t n) {
-  mpz_lucnum2_ui(z, NULL, n);
+mpz_lucnum_ui(mpz_t ln, mp_limb_t n) {
+  mpz_lucnum2_ui(ln, NULL, n);
 }
 
 void
-mpz_lucnum2_ui(mpz_t z, mpz_t p, mp_limb_t n) {
+mpz_lucnum2_ui(mpz_t ln, mpz_t ln1, mp_limb_t n) {
   mpz_t fn, fn1;
 
   if (n == 0) {
-    if (p != NULL)
-      p->size = 0;
+    if (ln1 != NULL)
+      ln1->size = 0;
 
-    mpz_set_ui(z, 2);
+    mpz_set_ui(ln, 2);
 
     return;
   }
@@ -8093,15 +8093,15 @@ mpz_lucnum2_ui(mpz_t z, mpz_t p, mp_limb_t n) {
 
   mpz_fib2_ui(fn, fn1, n);
 
-  if (p != NULL) {
+  if (ln1 != NULL) {
     /* L[n-1] = 2*F[n] - F[n-1] */
-    mpz_add(p, fn, fn);
-    mpz_sub(p, p, fn1);
+    mpz_add(ln1, fn, fn);
+    mpz_sub(ln1, ln1, fn1);
   }
 
   /* L[n] = F[n] + 2*F[n-1] */
-  mpz_add(z, fn1, fn1);
-  mpz_add(z, z, fn);
+  mpz_add(ln, fn1, fn1);
+  mpz_add(ln, ln, fn);
 
   mpz_clear(fn);
   mpz_clear(fn1);

@@ -1396,16 +1396,16 @@ void
 mpz_bin_siui(mpz_t z, mp_long_t n, mp_limb_t k);
 
 void
-mpz_fib_ui(mpz_t z, mp_limb_t n);
+mpz_fib_ui(mpz_t fn, mp_limb_t n);
 
 void
-mpz_fib2_ui(mpz_t z, mpz_t p, mp_limb_t n);
+mpz_fib2_ui(mpz_t fn, mpz_t fn1, mp_limb_t n);
 
 void
-mpz_lucnum_ui(mpz_t z, mp_limb_t n);
+mpz_lucnum_ui(mpz_t ln, mp_limb_t n);
 
 void
-mpz_lucnum2_ui(mpz_t z, mpz_t p, mp_limb_t n);
+mpz_lucnum2_ui(mpz_t ln, mpz_t ln1, mp_limb_t n);
 
 /*
  * Primality Testing
