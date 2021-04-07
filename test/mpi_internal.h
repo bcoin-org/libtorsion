@@ -681,34 +681,38 @@ mpz_cmp_str(const mpz_t x, const char *str) {
 
 static mp_size_t
 mpn_sqrtrem(mp_limb_t *zp, mp_limb_t *rp, const mp_limb_t *xp, mp_size_t xn) {
-  mp_size_t zn, rn;
-  mpz_t x, z, r;
+  mp_size_t sn, rn, zn;
+  mpz_t x, s, r;
 
-  CHECK(zp != xp);
-  CHECK(xn > 0);
-  CHECK(xp[xn - 1] != 0);
+  if (zp == xp)
+    torsion_abort(); /* LCOV_EXCL_LINE */
 
-  mpz_roinit_n(x, xp, xn);
-  mpz_init(z);
+  if (xn == 0 || xp[xn - 1] == 0)
+    torsion_abort(); /* LCOV_EXCL_LINE */
+
+  mpz_roset_n(x, xp, xn);
+
+  mpz_init(s);
   mpz_init(r);
 
-  mpz_sqrtrem(z, r, x);
+  mpz_sqrtrem(s, r, x);
 
-  zn = MP_ABS(z->size);
+  sn = MP_ABS(s->size);
   rn = MP_ABS(r->size);
+  zn = (xn + 1) / 2;
 
-  CHECK(zn <= (xn + 1) / 2);
+  CHECK(sn <= zn);
   CHECK(rn <= xn);
 
-  mpn_copyi(zp, z->limbs, zn);
-  mpn_zero(zp + zn, (xn + 1) / 2 - zn);
+  mpn_copyi(zp, s->limbs, sn);
+  mpn_zero(zp + sn, zn - sn);
 
   if (rp != NULL) {
     mpn_copyi(rp, r->limbs, rn);
     mpn_zero(rp + rn, xn - rn);
   }
 
-  mpz_clear(z);
+  mpz_clear(s);
   mpz_clear(r);
 
   return rn;
@@ -718,10 +722,10 @@ static int
 mpn_perfect_square_p(const mp_limb_t *xp, mp_size_t xn) {
   mpz_t x;
 
-  CHECK(xn > 0);
-  CHECK(xp[xn - 1] != 0);
+  if (xn == 0 || xp[xn - 1] == 0)
+    torsion_abort(); /* LCOV_EXCL_LINE */
 
-  mpz_roinit_n(x, xp, xn);
+  mpz_roset_n(x, xp, xn);
 
   return mpz_perfect_square_p(x);
 }
@@ -729,25 +733,31 @@ mpn_perfect_square_p(const mp_limb_t *xp, mp_size_t xn) {
 static mp_size_t
 mpn_gcdext(mp_limb_t *gp,
            mp_limb_t *sp, mp_size_t *sn,
-           mp_limb_t *xp, mp_size_t xn,
-           mp_limb_t *yp, mp_size_t yn) {
-  mpz_t x, y, g, s;
+           const mp_limb_t *xp, mp_size_t xn,
+           const mp_limb_t *yp, mp_size_t yn) {
+  mpz_t x, y, g, b;
   mp_size_t gn, bn;
 
-  CHECK(xn >= yn);
-  CHECK(yn > 0);
-  CHECK(yp[yn - 1] != 0);
+  if (xn == 0)
+    torsion_abort(); /* LCOV_EXCL_LINE */
 
-  mpz_roinit_n(x, xp, xn);
-  mpz_roinit_n(y, yp, yn);
+  if (yn == 0 || yp[yn - 1] == 0)
+    torsion_abort(); /* LCOV_EXCL_LINE */
+
+  if (xn < yn)
+    torsion_abort(); /* LCOV_EXCL_LINE */
+
+  mpz_roset_n(x, xp, mpn_strip(xp, xn));
+  mpz_roset_n(y, yp, yn);
+
   mpz_init(g);
-  mpz_init(s);
+  mpz_init(b);
 
-  mpz_gcdext(g, s, NULL, x, y);
-  mpz_rem(s, s, y);
+  mpz_gcdext(g, b, NULL, x, y);
+  mpz_rem(b, b, y);
 
   gn = MP_ABS(g->size);
-  bn = MP_ABS(s->size);
+  bn = MP_ABS(b->size);
 
   CHECK(gn <= yn);
   CHECK(bn <= yn + 1);
@@ -755,13 +765,13 @@ mpn_gcdext(mp_limb_t *gp,
   mpn_copyi(gp, g->limbs, gn);
   mpn_zero(gp + gn, yn - gn);
 
-  mpn_copyi(sp, s->limbs, bn);
+  mpn_copyi(sp, b->limbs, bn);
   mpn_zero(sp + bn, yn + 1 - bn);
 
-  *sn = s->size;
+  *sn = b->size;
 
   mpz_clear(g);
-  mpz_clear(s);
+  mpz_clear(b);
 
   return gn;
 }

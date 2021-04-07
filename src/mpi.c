@@ -1046,7 +1046,7 @@ mp_long_cast(mp_limb_t x, mp_size_t sign) {
     if (UNLIKELY(x == MP_LIMB_HI))
       return MP_LONG_MIN;
 
-    return -((mp_long_t)(x & (MP_LIMB_HI - 1)));
+    return -(mp_long_t)(x & (MP_LIMB_HI - 1));
   }
 
   return x & (MP_LIMB_HI - 1);
@@ -4996,6 +4996,13 @@ mpz_roset(mpz_t z, const mpz_t x) {
   z->size = x->size;
 }
 
+static void
+mpz_roset_n(mpz_t z, const mp_limb_t *xp, mp_size_t xs) {
+  z->limbs = (mp_limb_t *)xp;
+  z->alloc = 0;
+  z->size = xs;
+}
+
 void
 mpz_roinit_n(mpz_t z, const mp_limb_t *xp, mp_size_t xs) {
   mp_size_t zn = mpn_strip(xp, MP_ABS(xs));
@@ -5018,6 +5025,20 @@ mpz_set_si(mpz_t z, mp_long_t x) {
   z->limbs[0] = mp_limb_cast(x);
   z->size = x < 0 ? -xn : xn;
 }
+
+#define mpz_roinit_ui(z, x) do { \
+  (z)->limbs = &(x);             \
+  (z)->alloc = 0;                \
+  (z)->size = ((x) != 0);        \
+} while (0)
+
+#define mpz_roinit_si(z, x)       \
+  mp_limb_t _t = mp_limb_cast(x); \
+  mp_size_t _n = (_t != 0);       \
+                                  \
+  (z)->limbs = &_t;               \
+  (z)->alloc = 0;                 \
+  (z)->size = (x) < 0 ? -_n : _n
 
 /*
  * Conversion
@@ -6373,14 +6394,13 @@ mpz_and_ui(const mpz_t x, mp_limb_t y) {
 
 void
 mpz_and_si(mpz_t z, const mpz_t x, mp_long_t y) {
-  mp_limb_t v = mp_limb_cast(y);
   mpz_t t;
 
   if (y < 0) {
-    mpz_roinit_n(t, &v, -1);
+    mpz_roinit_si(t, y);
     mpz_and(z, x, t);
   } else {
-    mpz_set_ui(z, mpz_and_ui(x, v));
+    mpz_set_ui(z, mpz_and_ui(x, y));
   }
 }
 
@@ -6465,7 +6485,7 @@ mpz_ior_ui(mpz_t z, const mpz_t x, mp_limb_t y) {
   mpz_t t;
 
   if (x->size < 0) {
-    mpz_roinit_n(t, &y, 1);
+    mpz_roinit_ui(t, y);
     mpz_ior(z, x, t);
   } else if (x->size == 0) {
     mpz_set_ui(z, y);
@@ -6478,10 +6498,10 @@ mpz_ior_ui(mpz_t z, const mpz_t x, mp_limb_t y) {
 
 void
 mpz_ior_si(mpz_t z, const mpz_t x, mp_long_t y) {
-  mp_limb_t v = mp_limb_cast(y);
-  mp_limb_t r;
-
   if (y < 0) {
+    mp_limb_t v = mp_limb_cast(y);
+    mp_limb_t r;
+
     if (x->size < 0) {
       /* (-x) | (-y) == ~(x-1) | ~(y-1)
        *             == ~((x-1) & (y-1))
@@ -6502,7 +6522,7 @@ mpz_ior_si(mpz_t z, const mpz_t x, mp_long_t y) {
     mpz_set_ui(z, r);
     mpz_neg(z, z);
   } else {
-    mpz_ior_ui(z, x, v);
+    mpz_ior_ui(z, x, y);
   }
 }
 
@@ -6576,7 +6596,7 @@ mpz_xor_ui(mpz_t z, const mpz_t x, mp_limb_t y) {
   mpz_t t;
 
   if (x->size < 0) {
-    mpz_roinit_n(t, &y, 1);
+    mpz_roinit_ui(t, y);
     mpz_xor(z, x, t);
   } else if (x->size == 0) {
     mpz_set_ui(z, y);
@@ -6590,14 +6610,13 @@ mpz_xor_ui(mpz_t z, const mpz_t x, mp_limb_t y) {
 
 void
 mpz_xor_si(mpz_t z, const mpz_t x, mp_long_t y) {
-  mp_limb_t v = mp_limb_cast(y);
   mpz_t t;
 
   if (y < 0) {
-    mpz_roinit_n(t, &v, -1);
+    mpz_roinit_si(t, y);
     mpz_xor(z, x, t);
   } else {
-    mpz_xor_ui(z, x, v);
+    mpz_xor_ui(z, x, y);
   }
 }
 
@@ -7351,7 +7370,7 @@ int
 mpz_kronecker(const mpz_t x, const mpz_t y) {
   static const int table[8] = {0, 1, 0, -1, 0, -1, 0, 1};
   mp_bits_t bits;
-  mpz_t v;
+  mpz_t t;
   int k;
 
   if (x->size == 0)
@@ -7366,15 +7385,15 @@ mpz_kronecker(const mpz_t x, const mpz_t y) {
   bits = mpz_ctz(y);
 
   if (bits > 0) {
-    mpz_init_vla(v, MP_ABS(y->size));
-    mpz_quo_2exp(v, y, bits);
+    mpz_init_vla(t, MP_ABS(y->size));
+    mpz_quo_2exp(t, y, bits);
 
-    k = mpz_jacobi(x, v);
+    k = mpz_jacobi(x, t);
 
     if (bits & 1)
       k *= table[x->limbs[0] & 7];
 
-    mpz_clear_vla(v);
+    mpz_clear_vla(t);
   } else {
     k = mpz_jacobi(x, y);
   }
@@ -7386,17 +7405,16 @@ int
 mpz_kronecker_ui(const mpz_t x, mp_limb_t y) {
   mpz_t t;
 
-  mpz_roinit_n(t, &y, 1);
+  mpz_roinit_ui(t, y);
 
   return mpz_kronecker(x, t);
 }
 
 int
 mpz_kronecker_si(const mpz_t x, mp_long_t y) {
-  mp_limb_t v = mp_limb_cast(y);
   mpz_t t;
 
-  mpz_roinit_n(t, &v, y < 0 ? -1 : 1);
+  mpz_roinit_si(t, y);
 
   return mpz_kronecker(x, t);
 }
@@ -7405,17 +7423,16 @@ int
 mpz_ui_kronecker(mp_limb_t x, const mpz_t y) {
   mpz_t t;
 
-  mpz_roinit_n(t, &x, 1);
+  mpz_roinit_ui(t, x);
 
   return mpz_kronecker(t, y);
 }
 
 int
 mpz_si_kronecker(mp_long_t x, const mpz_t y) {
-  mp_limb_t u = mp_limb_cast(x);
   mpz_t t;
 
-  mpz_roinit_n(t, &u, x < 0 ? -1 : 1);
+  mpz_roinit_si(t, x);
 
   return mpz_kronecker(t, y);
 }
@@ -7466,10 +7483,10 @@ mpz_powm(mpz_t z, const mpz_t x, const mpz_t y, const mpz_t m) {
 
 void
 mpz_powm_ui(mpz_t z, const mpz_t x, mp_limb_t y, const mpz_t m) {
-  mpz_t v;
+  mpz_t t;
 
-  mpz_roinit_n(v, &y, 1);
-  mpz_powm(z, x, v, m);
+  mpz_roinit_ui(t, y);
+  mpz_powm(z, x, t, m);
 }
 
 static void
@@ -7997,7 +8014,7 @@ mpz_bin_siui(mpz_t z, mp_long_t n, mp_limb_t k) {
     mpz_t t;
 
     if (UNLIKELY(m + k < k)) {
-      mpz_roinit_n(t, &m, -1);
+      mpz_roset_n(t, &m, -1);
       mpz_bin_ui(z, t, k);
     } else {
       mpz_bin_uiui(z, m + k - 1, k);
