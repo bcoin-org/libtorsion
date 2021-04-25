@@ -1688,214 +1688,6 @@ mpn_mulshift(mp_limb_t *zp, const mp_limb_t *xp,
 }
 
 /*
- * Weak Reduction
- */
-
-int
-mpn_reduce_weak(mp_limb_t *zp, const mp_limb_t *xp,
-                               const mp_limb_t *np,
-                               mp_size_t n,
-                               mp_limb_t hi,
-                               mp_limb_t *scratch) {
-  /* `n` limbs are required for scratch. */
-  mp_limb_t *tp = scratch;
-  mp_limb_t c = mpn_sub_n(tp, xp, np, n);
-
-  c = (hi < c); /* [, c] = hi - c */
-
-  mpn_cnd_select(zp, xp, tp, n, c == 0);
-
-  return c == 0;
-}
-
-/*
- * Barrett Reduction
- */
-
-void
-mpn_barrett(mp_limb_t *mp, const mp_limb_t *np,
-                           mp_size_t n,
-                           mp_size_t shift,
-                           mp_limb_t *scratch) {
-  /* Barrett precomputation.
-   *
-   * [HANDBOOK] Page 603, Section 14.3.3.
-   *
-   * `shift + 1` limbs are required for scratch.
-   *
-   * Must have `shift - n + 1` limbs at mp.
-   */
-  mp_limb_t *xp = scratch;
-  mp_size_t xn = shift + 1;
-
-  CHECK(n > 0);
-  CHECK(shift >= n * 2);
-
-  /* m = 2^(shift * L) / n */
-  mpn_zero(xp, shift);
-
-  xp[shift] = 1;
-
-  mpn_div(xp, xp, xn, np, n);
-
-  CHECK(mpn_strip(xp, xn - n + 1) == shift - n + 1);
-
-  mpn_copyi(mp, xp, shift - n + 1);
-}
-
-void
-mpn_reduce(mp_limb_t *zp, const mp_limb_t *xp,
-                          const mp_limb_t *mp,
-                          const mp_limb_t *np,
-                          mp_size_t n,
-                          mp_size_t shift,
-                          mp_limb_t *scratch) {
-  /* Barrett reduction.
-   *
-   * [HANDBOOK] Algorithm 14.42, Page 604, Section 14.3.3.
-   *
-   * `1 + shift + mn` limbs are required for scratch.
-   *
-   * In other words: `2 * (shift + 1) - n` limbs.
-   */
-  mp_size_t mn = shift - n + 1;
-  mp_limb_t *qp = scratch;
-  mp_limb_t *hp = scratch + 1;
-
-  /* h = x * m */
-  mpn_mul(hp, xp, shift, mp, mn);
-
-  /* h = h >> (shift * L) */
-  hp += shift;
-
-  /* q = x - h * n */
-  mpn_mul(qp, hp, mn, np, n);
-  mpn_sub_n(qp, xp, qp, shift);
-
-  /* q = q - n if q >= n */
-  mpn_reduce_weak(zp, qp, np, n, qp[n], hp);
-
-#ifdef TORSION_VERIFY
-  ASSERT(mpn_cmp(zp, np, n) < 0);
-#endif
-}
-
-/*
- * Montgomery Multiplication (logic from golang)
- */
-
-static mp_limb_t
-mp_inv_mod(mp_limb_t d);
-
-void
-mpn_mont(mp_limb_t *kp,
-         mp_limb_t *rp,
-         const mp_limb_t *mp,
-         mp_size_t n,
-         mp_limb_t *scratch) {
-  /* Montgomery precomputation.
-   *
-   * [HANDBOOK] Page 600, Section 14.3.2.
-   *
-   * `2 * n + 1` limbs are required for scratch.
-   */
-  mp_limb_t *xp = scratch;
-  mp_size_t xn = n * 2 + 1;
-
-  CHECK(n > 0);
-
-  /* k = -m^-1 mod 2^L */
-  kp[0] = -mp_inv_mod(mp[0]);
-
-  /* r = 2^(2 * n * L) mod m */
-  mpn_zero(xp, n * 2);
-
-  xp[n * 2] = 1;
-
-  mpn_mod(rp, xp, xn, mp, n);
-}
-
-static TORSION_INLINE mp_limb_t
-mpn_montmul_inner(const mp_limb_t *xp,
-                  const mp_limb_t *yp,
-                  const mp_limb_t *mp,
-                  mp_size_t n,
-                  mp_limb_t k,
-                  mp_limb_t *scratch) {
-  /* Montgomery multiplication.
-   *
-   * [MONT] Algorithm 4 & 5, Page 5, Section 3.
-   *
-   * `2 * n` limbs are required for scratch.
-   */
-  mp_limb_t *tp = scratch;
-  mp_limb_t c1, c2, c3, cx, cy;
-  mp_size_t i;
-
-  ASSERT(n > 0);
-
-  c2 = mpn_mul_1(tp, xp, n, yp[0]);
-  c3 = mpn_addmul_1(tp, mp, n, tp[0] * k);
-
-  mp_add(tp[n], c1, c2, c3);
-
-  for (i = 1; i < n; i++) {
-    c2 = mpn_addmul_1(tp + i, xp, n, yp[i]);
-    c3 = mpn_addmul_1(tp + i, mp, n, tp[i] * k);
-
-    mp_add(cx, c2, c1, c2);
-    mp_add(cy, c3, cx, c3);
-
-    c1 = c2 | c3;
-
-    tp[n + i] = cy;
-  }
-
-  return c1;
-}
-
-void
-mpn_montmul(mp_limb_t *zp, const mp_limb_t *xp,
-                               const mp_limb_t *yp,
-                               const mp_limb_t *mp,
-                               mp_size_t n,
-                               mp_limb_t k,
-                               mp_limb_t *scratch) {
-  /* Word-by-Word Almost Montgomery Multiplication.
-   *
-   * [MONT] Algorithm 4, Page 5, Section 3.
-   */
-  mp_limb_t *tp = scratch;
-  mp_limb_t c = mpn_montmul_inner(xp, yp, mp, n, k, tp);
-
-  if (c != 0)
-    mpn_sub_n(zp, tp + n, mp, n);
-  else
-    mpn_copyi(zp, tp + n, n);
-}
-
-void
-mpn_sec_montmul(mp_limb_t *zp, const mp_limb_t *xp,
-                               const mp_limb_t *yp,
-                               const mp_limb_t *mp,
-                               mp_size_t n,
-                               mp_limb_t k,
-                               mp_limb_t *scratch) {
-  /* Word-by-Word Montgomery Multiplication.
-   *
-   * [MONT] Algorithm 4, Page 5, Section 3.
-   */
-  mp_limb_t *tp = scratch;
-  mp_limb_t c = mpn_montmul_inner(xp, yp, mp, n, k, tp);
-
-  mpn_reduce_weak(zp, tp + n, mp, n, c, tp);
-
-#ifdef TORSION_VERIFY
-  ASSERT(mpn_cmp(zp, mp, n) < 0);
-#endif
-}
-
-/*
  * Division Helpers
  */
 
@@ -3603,6 +3395,211 @@ mpn_neg(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn) {
   }
 
   return c;
+}
+
+/*
+ * Weak Reduction
+ */
+
+int
+mpn_reduce_weak(mp_limb_t *zp, const mp_limb_t *xp,
+                               const mp_limb_t *np,
+                               mp_size_t n,
+                               mp_limb_t hi,
+                               mp_limb_t *scratch) {
+  /* `n` limbs are required for scratch. */
+  mp_limb_t *tp = scratch;
+  mp_limb_t c = mpn_sub_n(tp, xp, np, n);
+
+  c = (hi < c); /* [, c] = hi - c */
+
+  mpn_cnd_select(zp, xp, tp, n, c == 0);
+
+  return c == 0;
+}
+
+/*
+ * Barrett Reduction
+ */
+
+void
+mpn_barrett(mp_limb_t *mp, const mp_limb_t *np,
+                           mp_size_t n,
+                           mp_size_t shift,
+                           mp_limb_t *scratch) {
+  /* Barrett precomputation.
+   *
+   * [HANDBOOK] Page 603, Section 14.3.3.
+   *
+   * `shift + 1` limbs are required for scratch.
+   *
+   * Must have `shift - n + 1` limbs at mp.
+   */
+  mp_limb_t *xp = scratch;
+  mp_size_t xn = shift + 1;
+
+  CHECK(n > 0);
+  CHECK(shift >= n * 2);
+
+  /* m = 2^(shift * L) / n */
+  mpn_zero(xp, shift);
+
+  xp[shift] = 1;
+
+  mpn_div(xp, xp, xn, np, n);
+
+  CHECK(mpn_strip(xp, xn - n + 1) == shift - n + 1);
+
+  mpn_copyi(mp, xp, shift - n + 1);
+}
+
+void
+mpn_reduce(mp_limb_t *zp, const mp_limb_t *xp,
+                          const mp_limb_t *mp,
+                          const mp_limb_t *np,
+                          mp_size_t n,
+                          mp_size_t shift,
+                          mp_limb_t *scratch) {
+  /* Barrett reduction.
+   *
+   * [HANDBOOK] Algorithm 14.42, Page 604, Section 14.3.3.
+   *
+   * `1 + shift + mn` limbs are required for scratch.
+   *
+   * In other words: `2 * (shift + 1) - n` limbs.
+   */
+  mp_size_t mn = shift - n + 1;
+  mp_limb_t *qp = scratch;
+  mp_limb_t *hp = scratch + 1;
+
+  /* h = x * m */
+  mpn_mul(hp, xp, shift, mp, mn);
+
+  /* h = h >> (shift * L) */
+  hp += shift;
+
+  /* q = x - h * n */
+  mpn_mul(qp, hp, mn, np, n);
+  mpn_sub_n(qp, xp, qp, shift);
+
+  /* q = q - n if q >= n */
+  mpn_reduce_weak(zp, qp, np, n, qp[n], hp);
+
+#ifdef TORSION_VERIFY
+  ASSERT(mpn_cmp(zp, np, n) < 0);
+#endif
+}
+
+/*
+ * Montgomery Multiplication (logic from golang)
+ */
+
+void
+mpn_mont(mp_limb_t *kp,
+         mp_limb_t *rp,
+         const mp_limb_t *mp,
+         mp_size_t n,
+         mp_limb_t *scratch) {
+  /* Montgomery precomputation.
+   *
+   * [HANDBOOK] Page 600, Section 14.3.2.
+   *
+   * `2 * n + 1` limbs are required for scratch.
+   */
+  mp_limb_t *xp = scratch;
+  mp_size_t xn = n * 2 + 1;
+
+  CHECK(n > 0);
+
+  /* k = -m^-1 mod 2^L */
+  kp[0] = -mp_inv_mod(mp[0]);
+
+  /* r = 2^(2 * n * L) mod m */
+  mpn_zero(xp, n * 2);
+
+  xp[n * 2] = 1;
+
+  mpn_mod(rp, xp, xn, mp, n);
+}
+
+static TORSION_INLINE mp_limb_t
+mpn_montmul_inner(const mp_limb_t *xp,
+                  const mp_limb_t *yp,
+                  const mp_limb_t *mp,
+                  mp_size_t n,
+                  mp_limb_t k,
+                  mp_limb_t *scratch) {
+  /* Montgomery multiplication.
+   *
+   * [MONT] Algorithm 4 & 5, Page 5, Section 3.
+   *
+   * `2 * n` limbs are required for scratch.
+   */
+  mp_limb_t *tp = scratch;
+  mp_limb_t c1, c2, c3, cx, cy;
+  mp_size_t i;
+
+  ASSERT(n > 0);
+
+  c2 = mpn_mul_1(tp, xp, n, yp[0]);
+  c3 = mpn_addmul_1(tp, mp, n, tp[0] * k);
+
+  mp_add(tp[n], c1, c2, c3);
+
+  for (i = 1; i < n; i++) {
+    c2 = mpn_addmul_1(tp + i, xp, n, yp[i]);
+    c3 = mpn_addmul_1(tp + i, mp, n, tp[i] * k);
+
+    mp_add(cx, c2, c1, c2);
+    mp_add(cy, c3, cx, c3);
+
+    c1 = c2 | c3;
+
+    tp[n + i] = cy;
+  }
+
+  return c1;
+}
+
+void
+mpn_montmul(mp_limb_t *zp, const mp_limb_t *xp,
+                               const mp_limb_t *yp,
+                               const mp_limb_t *mp,
+                               mp_size_t n,
+                               mp_limb_t k,
+                               mp_limb_t *scratch) {
+  /* Word-by-Word Almost Montgomery Multiplication.
+   *
+   * [MONT] Algorithm 4, Page 5, Section 3.
+   */
+  mp_limb_t *tp = scratch;
+  mp_limb_t c = mpn_montmul_inner(xp, yp, mp, n, k, tp);
+
+  if (c != 0)
+    mpn_sub_n(zp, tp + n, mp, n);
+  else
+    mpn_copyi(zp, tp + n, n);
+}
+
+void
+mpn_sec_montmul(mp_limb_t *zp, const mp_limb_t *xp,
+                               const mp_limb_t *yp,
+                               const mp_limb_t *mp,
+                               mp_size_t n,
+                               mp_limb_t k,
+                               mp_limb_t *scratch) {
+  /* Word-by-Word Montgomery Multiplication.
+   *
+   * [MONT] Algorithm 4, Page 5, Section 3.
+   */
+  mp_limb_t *tp = scratch;
+  mp_limb_t c = mpn_montmul_inner(xp, yp, mp, n, k, tp);
+
+  mpn_reduce_weak(zp, tp + n, mp, n, c, tp);
+
+#ifdef TORSION_VERIFY
+  ASSERT(mpn_cmp(zp, mp, n) < 0);
+#endif
 }
 
 /*
