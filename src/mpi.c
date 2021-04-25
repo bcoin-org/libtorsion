@@ -4844,7 +4844,8 @@ mpn_randomm(mp_limb_t *zp,
   mp_size_t n = mpn_strip(xp, xn);
   mp_bits_t s;
 
-  CHECK(zp != xp);
+  if (zp == xp)
+    torsion_abort(); /* LCOV_EXCL_LINE */
 
   if (n > 0) {
     s = mp_clz(xp[n - 1]);
@@ -4853,7 +4854,7 @@ mpn_randomm(mp_limb_t *zp,
       mpn_random(zp, n, rng, arg);
 
       zp[n - 1] >>= s;
-    } while (mpn_sec_gte_p(zp, xp, n));
+    } while (mpn_cmp(zp, xp, n) >= 0);
   }
 
   mpn_zero(zp + n, xn - n);
@@ -8860,20 +8861,26 @@ mpz_urandomb(mpz_t z, mp_bits_t bits, mp_rng_f *rng, void *arg) {
 
 void
 mpz_urandomm(mpz_t z, const mpz_t x, mp_rng_f *rng, void *arg) {
-  mp_bits_t bits = mpz_bitlen(x);
+  mp_size_t xn, zn;
+  mp_limb_t *zp;
 
-  CHECK(z != x);
+  if (z == x)
+    torsion_abort(); /* LCOV_EXCL_LINE */
 
-  if (bits > 0) {
-    do {
-      mpz_urandomb(z, bits, rng, arg);
-    } while (mpz_cmpabs(z, x) >= 0);
-
-    if (x->size < 0)
-      mpz_neg(z, z);
-  } else {
+  if (x->size == 0) {
     z->size = 0;
+    return;
   }
+
+  xn = MP_ABS(x->size);
+  zn = xn;
+  zp = mpz_grow(z, zn);
+
+  mpn_randomm(zp, x->limbs, xn, rng, arg);
+
+  zn = mpn_strip(zp, zn);
+
+  z->size = x->size < 0 ? -zn : zn;
 }
 
 /*
