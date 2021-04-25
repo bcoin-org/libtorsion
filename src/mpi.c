@@ -3824,10 +3824,13 @@ mpn_sec_invert(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn,
   mp_limb_t *tp = &scratch[1 * mn];
   mp_size_t yn = mn;
 
-  if (mn == 0)
+  if (mn == 0 || mp[mn - 1] == 0)
     torsion_abort(); /* LCOV_EXCL_LINE */
 
-  CHECK(mpn_sec_sub_1(yp, mp, mn, 2) == 0);
+  if (mn == 1 && mp[0] < 3)
+    torsion_abort(); /* LCOV_EXCL_LINE */
+
+  mpn_sub_1(yp, mp, mn, 2);
 
   yn -= (yp[yn - 1] == 0);
 
