@@ -1690,7 +1690,7 @@ mpn_reduce_weak(mp_limb_t *zp, const mp_limb_t *xp,
   mp_limb_t *tp = scratch;
   mp_limb_t c = mpn_sub_n(tp, xp, np, n);
 
-  mp_sub(hi, c, hi, c);
+  c = (hi < c); /* [, c] = hi - c */
 
   mpn_cnd_select(zp, xp, tp, n, c == 0);
 
@@ -1773,6 +1773,9 @@ mpn_reduce(mp_limb_t *zp, const mp_limb_t *xp,
  * Montgomery Multiplication (logic from golang)
  */
 
+static mp_limb_t
+mp_inv_mod(mp_limb_t d);
+
 void
 mpn_mont(mp_limb_t *kp,
          mp_limb_t *rp,
@@ -1787,21 +1790,11 @@ mpn_mont(mp_limb_t *kp,
    */
   mp_limb_t *xp = scratch;
   mp_size_t xn = n * 2 + 1;
-  mp_limb_t k, t;
-  mp_size_t i;
 
   CHECK(n > 0);
 
   /* k = -m^-1 mod 2^L */
-  k = 2 - mp[0];
-  t = mp[0] - 1;
-
-  for (i = 1; i < MP_LIMB_BITS; i <<= 1) {
-    t *= t;
-    k *= (t + 1);
-  }
-
-  kp[0] = -k;
+  kp[0] = -mp_inv_mod(mp[0]);
 
   /* r = 2^(2 * n * L) mod m */
   mpn_zero(xp, n * 2);
@@ -2528,7 +2521,7 @@ mp_div_3by2(mp_limb_t *q, mp_limb_t *k1, mp_limb_t *k0,
 #endif /* !MP_HAVE_ASM_X64 */
 }
 
-TORSION_UNUSED static mp_limb_t
+static mp_limb_t
 mp_inv_mod(mp_limb_t d) {
   /* Compute d^-1 mod B.
    *
