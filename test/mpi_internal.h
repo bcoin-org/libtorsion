@@ -3668,6 +3668,34 @@ test_mpn_cnd_sub_n(mp_rng_f *rng, void *arg) {
 }
 
 static void
+test_mpn_cnd_neg(mp_rng_f *rng, void *arg) {
+  mp_limb_t xp[4], yp[4], cp[4];
+  mp_limb_t c1, c2;
+  int i;
+
+  printf("  - MPN conditional negation.\n");
+
+  for (i = 0; i < 100; i++) {
+    mpn_random(xp, 4, rng, arg);
+    mpn_copyi(yp, xp, 4);
+    mpn_zero(cp, 4);
+
+    c1 = mpn_sub_n(xp, cp, xp, 4);
+    c2 = mpn_cnd_neg(yp, yp, 4, 1);
+
+    ASSERT(c1 == c2);
+    ASSERT(mpn_cmp(xp, yp, 4) == 0);
+  }
+
+  for (i = 0; i < 100; i++) {
+    mpn_random(xp, 4, rng, arg);
+
+    ASSERT(mpn_cnd_neg(yp, xp, 4, 0) == 0);
+    ASSERT(mpn_cmp(xp, yp, 4) == 0);
+  }
+}
+
+static void
 test_mpn_sec_tabselect(mp_rng_f *rng, void *arg) {
   mp_limb_t tp[16 * 4];
   mp_limb_t zp[4];
@@ -8479,6 +8507,7 @@ test_mpi_internal(mp_rng_f *rng, void *arg) {
   test_mpn_cnd_swap(rng, arg);
   test_mpn_cnd_add_n(rng, arg);
   test_mpn_cnd_sub_n(rng, arg);
+  test_mpn_cnd_neg(rng, arg);
   test_mpn_sec_tabselect(rng, arg);
   test_mpn_sec_cmp();
   test_mpn_sec_cmp_rand(rng, arg);

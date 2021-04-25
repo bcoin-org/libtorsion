@@ -4411,6 +4411,30 @@ mpn_cnd_sub_n(mp_limb_t *zp, const mp_limb_t *xp,
   return c;
 }
 
+mp_limb_t
+mpn_cnd_neg(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn, mp_limb_t cnd) {
+  mp_limb_t m = -mp_limb_barrier(cnd != 0);
+  mp_limb_t c = 0;
+  mp_limb_t z;
+  mp_size_t i;
+
+  for (i = 0; i < xn; i++) {
+    /* [z, c] = 0 - x - c
+     *        = -(x + c)
+     *        = ~(x + c) + 1
+     */
+    z = xp[i] + c;
+    c = (z < c);
+    z = (z ^ m) + (m != 0);
+    c += (z > 0);
+    c &= m;
+
+    zp[i] = z;
+  }
+
+  return c;
+}
+
 void
 mpn_sec_tabselect(mp_limb_t *zp,
                   const mp_limb_t *tp,
