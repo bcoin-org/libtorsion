@@ -1665,16 +1665,15 @@ mpn_mulshift(mp_limb_t *zp, const mp_limb_t *xp,
   mp_size_t zn = tn - s;
   mp_limb_t b;
 
-  /* Ensure L <= bits <= 2 * L. */
-  ASSERT(s >= n && s <= n * 2);
-  ASSERT(zn >= 0 && zn <= n);
-  ASSERT(zn != 0);
+  /* Ensure L <= bits < 2 * L. */
+  ASSERT(s >= n && s < n * 2);
+  ASSERT(zn > 0 && zn <= n);
 
   /* t = x * y */
   mpn_mul_n(tp, xp, yp, n);
 
   /* b = (t >> (bits - 1)) & 1 */
-  b = mpn_getbit(tp, tn, bits - 1);
+  b = mpn_tstbit(tp, bits - 1);
 
   /* z = t >> bits */
   if (r != 0)
