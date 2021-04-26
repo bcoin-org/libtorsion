@@ -568,7 +568,7 @@ TORSION_BARRIER(mp_limb_t, mp_limb)
 
 /* [z, c] = ~x + c */
 #define mp_neg_1(z, c, x) do {          \
-  mp_wide_t _w = ~(mp_wide_t)(x) + (c); \
+  mp_wide_t _w = ~(x) + (mp_wide_t)(c); \
   (c) = _w >> MP_LIMB_BITS;             \
   (z) = _w;                             \
 } while (0)
