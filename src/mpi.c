@@ -463,37 +463,36 @@ TORSION_BARRIER(mp_limb_t, mp_limb)
     : "cc", "rax"               \
   )
 
-/* [z, c] = 0 - x - c = -(x + c) */
+/* [z, c] = ~x + c */
 #define mp_neg_1(z, c, x)  \
   __asm__ (                \
+    "notq %q0\n"           \
     "addq %q1, %q0\n"      \
     "setc %b1\n"           \
-    "negq %q0\n"           \
-    "adcq $0, %q1\n"       \
     : "=&r" (z), "+&r" (c) \
     : "0" (x)              \
     : "cc"                 \
   )
 
-/* [z, c] = 0 - x - c = -(x + c) */
+/* [z, c] = ~x + c */
 #define mp_neg_1x4(zp, c, xp) \
   __asm__ __volatile__ (      \
     "shrq %q0\n"              \
     "movq (%q2), %%r8\n"      \
+    "notq %%r8\n"             \
     "adcq $0, %%r8\n"         \
-    "negq %%r8\n"             \
     "movq %%r8, (%q1)\n"      \
     "movq 8(%q2), %%r8\n"     \
+    "notq %%r8\n"             \
     "adcq $0, %%r8\n"         \
-    "negq %%r8\n"             \
     "movq %%r8, 8(%q1)\n"     \
     "movq 16(%q2), %%r8\n"    \
+    "notq %%r8\n"             \
     "adcq $0, %%r8\n"         \
-    "negq %%r8\n"             \
     "movq %%r8, 16(%q1)\n"    \
     "movq 24(%q2), %%r8\n"    \
+    "notq %%r8\n"             \
     "adcq $0, %%r8\n"         \
-    "negq %%r8\n"             \
     "movq %%r8, 24(%q1)\n"    \
     "setb %b0\n"              \
     : "+&r" (c)               \
@@ -567,10 +566,10 @@ TORSION_BARRIER(mp_limb_t, mp_limb)
   (z) = _w;                                        \
 } while (0)
 
-/* [z, c] = 0 - x - c = -(x + c) */
+/* [z, c] = ~x + c */
 #define mp_neg_1(z, c, x) do {          \
-  mp_wide_t _w = -(mp_wide_t)(x) - (c); \
-  (c) = -(_w >> MP_LIMB_BITS);          \
+  mp_wide_t _w = ~(mp_wide_t)(x) + (c); \
+  (c) = _w >> MP_LIMB_BITS;             \
   (z) = _w;                             \
 } while (0)
 
@@ -741,13 +740,10 @@ TORSION_BARRIER(mp_limb_t, mp_limb)
   (z) = _lo;                         \
 } while (0)
 
-/* [z, c] = 0 - x - c = -(x + c) */
+/* [z, c] = ~x + c */
 #define mp_neg_1(z, c, x) do { \
-  mp_limb_t _z = (x) + (c);    \
-  mp_limb_t _c = (_z < (c));   \
-  _z = -_z;                    \
-  _c += (_z > 0);              \
-  (c) = _c;                    \
+  mp_limb_t _z = ~(x) + (c);   \
+  (c) = (_z < (c));            \
   (z) = _z;                    \
 } while (0)
 
@@ -3366,7 +3362,7 @@ mpn_mask(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn, mp_bits_t bits) {
 
 mp_limb_t
 mpn_neg(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn) {
-  mp_limb_t c = 0;
+  mp_limb_t c = 1;
 
   switch (xn & 3) {
     case 3:
@@ -3380,7 +3376,7 @@ mpn_neg(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn) {
   xn >>= 2;
 
   while (xn--) {
-    /* [z, c] = 0 - x - c = -(x + c) */
+    /* [z, c] = ~x + c */
 #if defined(mp_neg_1x4)
     mp_neg_1x4(zp, c, xp);
 #else
@@ -3394,7 +3390,7 @@ mpn_neg(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn) {
     xp += 4;
   }
 
-  return c;
+  return c ^ 1;
 }
 
 /*
@@ -4414,25 +4410,18 @@ mpn_cnd_sub_n(mp_limb_t *zp, const mp_limb_t *xp,
 mp_limb_t
 mpn_cnd_neg(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn, mp_limb_t cnd) {
   mp_limb_t m = -mp_limb_barrier(cnd != 0);
-  mp_limb_t c = 0;
+  mp_limb_t c = (m != 0);
   mp_limb_t z;
   mp_size_t i;
 
   for (i = 0; i < xn; i++) {
-    /* [z, c] = 0 - x - c
-     *        = -(x + c)
-     *        = ~(x + c) + 1
-     */
-    z = xp[i] + c;
+    /* [z, c] = ~x + c */
+    z = (xp[i] ^ m) + c;
     c = (z < c);
-    z = (z ^ m) + (m != 0);
-    c += (z > 0);
-    c &= m;
-
     zp[i] = z;
   }
 
-  return c;
+  return c ^ (m != 0);
 }
 
 void
