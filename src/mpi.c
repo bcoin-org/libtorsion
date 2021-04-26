@@ -4768,24 +4768,28 @@ mpn_set_str(mp_limb_t *zp, mp_size_t zn, const char *str, int base) {
     if (ch >= base)
       goto fail;
 
-    if (shift > 0) {
-      if (n > 0) {
-        c = mpn_lshift(zp, zp, n, shift);
-
-        if (c != 0) {
-          if (n == zn)
-            goto fail;
-
-          zp[n++] = c;
-        }
-
-        zp[0] |= ch;
-      } else if (ch != 0) {
+    if (n == 0) {
+      if (ch != 0) {
         if (n == zn)
           goto fail;
 
         zp[n++] = ch;
       }
+
+      continue;
+    }
+
+    if (shift > 0) {
+      c = mpn_lshift(zp, zp, n, shift);
+
+      if (c != 0) {
+        if (n == zn)
+          goto fail;
+
+        zp[n++] = c;
+      }
+
+      zp[0] |= ch;
     } else {
       c = mpn_mul_1(zp, zp, n, base);
 
