@@ -4347,19 +4347,44 @@ mpn_bytelen(const mp_limb_t *xp, mp_size_t xn) {
 
 size_t
 mpn_sizeinbase(const mp_limb_t *xp, mp_size_t xn, int base) {
-  if (base >= 2 && (base & (base - 1)) == 0) {
-    mp_bits_t len = mpn_bitlen(xp, xn);
-    mp_bits_t den;
+  mp_divisor_t den;
+  mp_limb_t *tp;
+  mp_size_t tn;
+  size_t len;
 
-    if (len == 0)
-      return 1;
+  if (base < 2)
+    torsion_abort(); /* LCOV_EXCL_LINE */
 
-    den = mp_bitlen(base - 1);
+  xn = mpn_strip(xp, xn);
 
-    return (len + den - 1) / den;
+  if (xn == 0)
+    return 1;
+
+  /* Fast case. */
+  if ((base & (base - 1)) == 0) {
+    len = xn * MP_LIMB_BITS - mp_clz(xp[xn - 1]);
+    base = mp_bitlen(base - 1);
+    return (len + base - 1) / base;
   }
 
-  return mpn_get_str(NULL, xp, xn, base);
+  /* Slow case. */
+  tp = mp_alloc_vla(xn);
+  tn = xn;
+  len = 0;
+
+  mpn_copyi(tp, xp, xn);
+
+  mpn_divmod_init_1(&den, base);
+
+  do {
+    mpn_divmod_inner_1(tp, tp, tn, &den);
+    tn -= (tp[tn - 1] == 0);
+    len += 1;
+  } while (tn != 0);
+
+  mp_free_vla(tp, xn);
+
+  return len;
 }
 
 /*
@@ -4765,49 +4790,24 @@ mpn_set_str(mp_limb_t *zp, mp_size_t zn, const char *str, int base) {
 
     ch = table[ch & 0xff];
 
-    if (ch >= base)
+    if (UNLIKELY(ch >= base))
       goto fail;
 
     if (n == 0) {
-      if (ch != 0) {
-        if (n == zn)
-          goto fail;
-
-        zp[n++] = ch;
-      }
-
-      continue;
-    }
-
-    if (shift > 0) {
+      c = ch;
+    } else if (shift > 0) {
       c = mpn_lshift(zp, zp, n, shift);
-
-      if (c != 0) {
-        if (n == zn)
-          goto fail;
-
-        zp[n++] = c;
-      }
-
       zp[0] |= ch;
     } else {
       c = mpn_mul_1(zp, zp, n, base);
+      c += mpn_add_1(zp, zp, n, ch);
+    }
 
-      if (c != 0) {
-        if (n == zn)
-          goto fail;
+    if (c != 0) {
+      if (UNLIKELY(n == zn))
+        goto fail;
 
-        zp[n++] = c;
-      }
-
-      c = mpn_add_1(zp, zp, n, ch);
-
-      if (c != 0) {
-        if (n == zn)
-          goto fail;
-
-        zp[n++] = c;
-      }
+      zp[n++] = c;
     }
   }
 
@@ -4826,23 +4826,22 @@ fail:
 size_t
 mpn_get_str(char *str, const mp_limb_t *xp, mp_size_t xn, int base) {
   const char *charset;
-  mp_bits_t shift = 0;
   mp_divisor_t den;
+  mp_bits_t shift;
   size_t len = 0;
   size_t i, j, k;
   mp_limb_t *tp;
   mp_size_t tn;
   int ch;
 
-  CHECK(base >= 2 && base <= 62);
+  if (base < 2 || base > 62)
+    torsion_abort(); /* LCOV_EXCL_LINE */
 
   xn = mpn_strip(xp, xn);
 
   if (xn == 0) {
-    if (str != NULL) {
-      str[0] = '0';
-      str[1] = '\0';
-    }
+    str[0] = '0';
+    str[1] = '\0';
     return 1;
   }
 
@@ -4851,11 +4850,6 @@ mpn_get_str(char *str, const mp_limb_t *xp, mp_size_t xn, int base) {
 
   mpn_copyi(tp, xp, xn);
 
-  if ((base & (base - 1)) == 0)
-    shift = mp_bitlen(base - 1);
-  else
-    mpn_divmod_init_1(&den, base);
-
   if (base <= 36) {
     charset = "0123456789abcdefghijklmnopqrstuvwxyz";
   } else {
@@ -4863,35 +4857,37 @@ mpn_get_str(char *str, const mp_limb_t *xp, mp_size_t xn, int base) {
                         "abcdefghijklmnopqrstuvwxyz";
   }
 
-  do {
-    if (shift > 0)
+  if ((base & (base - 1)) == 0) {
+    shift = mp_bitlen(base - 1);
+
+    do {
       ch = mpn_rshift(tp, tp, tn, shift);
-    else
+      tn -= (tp[tn - 1] == 0);
+      str[len++] = charset[ch];
+    } while (tn != 0);
+  } else {
+    mpn_divmod_init_1(&den, base);
+
+    do {
       ch = mpn_divmod_inner_1(tp, tp, tn, &den);
-
-    tn -= (tp[tn - 1] == 0);
-
-    if (str != NULL)
-      str[len] = charset[ch];
-
-    len += 1;
-  } while (tn != 0);
+      tn -= (tp[tn - 1] == 0);
+      str[len++] = charset[ch];
+    } while (tn != 0);
+  }
 
   mp_free_vla(tp, xn);
 
-  if (str != NULL) {
-    i = 0;
-    j = len - 1;
-    k = len >> 1;
+  i = 0;
+  j = len - 1;
+  k = len >> 1;
 
-    while (k--) {
-      ch = str[i];
-      str[i++] = str[j];
-      str[j--] = ch;
-    }
-
-    str[len] = '\0';
+  while (k--) {
+    ch = str[i];
+    str[i++] = str[j];
+    str[j--] = ch;
   }
+
+  str[len] = '\0';
 
   return len;
 }

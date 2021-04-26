@@ -3494,6 +3494,7 @@ test_mpn_helpers(void) {
   ASSERT(mpn_bitlen(trail, 4) == 2 * MP_LIMB_BITS + 2);
   ASSERT(mpn_bytelen(trail, 4) == ((size_t)mpn_bitlen(trail, 4) + 7) / 8);
   ASSERT(mpn_sizeinbase(trail, 4, 256) == (size_t)mpn_bytelen(trail, 4));
+  ASSERT(mpn_sizeinbase(trail, 4, 16) == (size_t)mpn_bytelen(trail, 4) * 2 - 1);
 }
 
 static void
@@ -7638,6 +7639,7 @@ test_mpz_helpers(void) {
   ASSERT(mpz_bitlen(trail) == 2 * MP_LIMB_BITS + 2);
   ASSERT(mpz_bytelen(trail) == ((size_t)mpz_bitlen(trail) + 7) / 8);
   ASSERT(mpz_sizeinbase(trail, 256) == (size_t)mpz_bytelen(trail));
+  ASSERT(mpz_sizeinbase(trail, 16) == (size_t)mpz_bytelen(trail) * 2 - 1);
   ASSERT(mpz_getlimbn(trail, 0) == 4);
   ASSERT(mpz_size(trail) == 3);
   ASSERT(mpz_limbs_read(trail) == trailp);
