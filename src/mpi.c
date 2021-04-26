@@ -1227,7 +1227,6 @@ mpn_add_1(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn, mp_limb_t y) {
     x = xp[i];
     z = x + c;
     c = (z < c);
-
     zp[i] = z;
   }
 
@@ -1360,7 +1359,6 @@ mpn_sub_1(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn, mp_limb_t y) {
     x = xp[i];
     z = x - c;
     c = (z > x);
-
     zp[i] = z;
   }
 
@@ -4353,7 +4351,7 @@ mpn_cnd_sub_n(mp_limb_t *zp, const mp_limb_t *xp,
 mp_limb_t
 mpn_cnd_neg(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn, mp_limb_t cnd) {
   mp_limb_t m = -mp_limb_barrier(cnd != 0);
-  mp_limb_t c = (m != 0);
+  mp_limb_t c = 1 & m;
   mp_limb_t z;
   mp_size_t i;
 
@@ -4364,7 +4362,7 @@ mpn_cnd_neg(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn, mp_limb_t cnd) {
     zp[i] = z;
   }
 
-  return c ^ (m != 0);
+  return (c ^ 1) & m;
 }
 
 void
