@@ -3580,11 +3580,11 @@ mpn_montmul_inner(const mp_limb_t *xp,
 
 void
 mpn_montmul(mp_limb_t *zp, const mp_limb_t *xp,
-                               const mp_limb_t *yp,
-                               const mp_limb_t *mp,
-                               mp_size_t n,
-                               mp_limb_t k,
-                               mp_limb_t *scratch) {
+                           const mp_limb_t *yp,
+                           const mp_limb_t *mp,
+                           mp_size_t n,
+                           mp_limb_t k,
+                           mp_limb_t *scratch) {
   /* Word-by-Word Almost Montgomery Multiplication.
    *
    * [MONT] Algorithm 4, Page 5, Section 3.
