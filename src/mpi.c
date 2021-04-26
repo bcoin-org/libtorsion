@@ -2976,65 +2976,6 @@ mpn_divexact(mp_limb_t *qp, const mp_limb_t *np, mp_size_t nn,
 }
 
 /*
- * Round Division
- */
-
-void
-mpn_divround_1(mp_limb_t *qp, const mp_limb_t *np, mp_size_t nn, mp_limb_t d) {
-  /* Requires nn + 1 limbs at qp. */
-  mp_limb_t r = mpn_divmod_1(qp, np, nn, d);
-  mp_limb_t h = d >> 1;
-
-  if (r > h || (r == h && (d & 1) == 0))
-    qp[nn] = mpn_add_1(qp, qp, nn, 1);
-  else
-    qp[nn] = 0;
-}
-
-void
-mpn_divround(mp_limb_t *qp, const mp_limb_t *np, mp_size_t nn,
-                            const mp_limb_t *dp, mp_size_t dn) {
-  /* Requires nn - dn + 2 limbs at qp. */
-  /* Requires nn >= dn - 1. */
-  mp_limb_t *rp, *hp;
-  mp_size_t qn;
-  int odd, cmp;
-
-  if (dn == 1) {
-    mpn_divround_1(qp, np, nn, dp[0]);
-    return;
-  }
-
-  if (dn == 0 || dp[dn - 1] == 0 || nn < dn - 1)
-    torsion_abort(); /* LCOV_EXCL_LINE */
-
-  rp = mp_alloc_vla(dn);
-  hp = mp_alloc_vla(dn);
-
-  mpn_rshift(hp, dp, dn, 1);
-
-  odd = dp[0] & 1;
-
-  if (nn < dn) {
-    mpn_copyi(rp, np, nn);
-    rp[nn] = 0;
-  } else {
-    mpn_divmod(qp, rp, np, nn, dp, dn);
-  }
-
-  cmp = mpn_cmp(rp, hp, dn);
-  qn = nn - dn + 1;
-
-  if (cmp > 0 || (cmp == 0 && odd == 0))
-    qp[qn] = mpn_add_1(qp, qp, qn, 1);
-  else
-    qp[qn] = 0;
-
-  mp_free_vla(rp, dn);
-  mp_free_vla(hp, dn);
-}
-
-/*
  * AND
  */
 
@@ -5862,53 +5803,35 @@ mpz_divexact_si(mpz_t q, const mpz_t n, mp_long_t d) {
 
 void
 mpz_divround(mpz_t q, const mpz_t n, const mpz_t d) {
-  mp_size_t nn = MP_ABS(n->size);
-  mp_size_t dn = MP_ABS(d->size);
-  mp_size_t qn = nn - dn + 2;
-  mp_limb_t *qp;
+  /* Computes q = (n +- (d / 2)) / d. */
+  mpz_t t;
 
-  if (dn == 0)
-    torsion_abort(); /* LCOV_EXCL_LINE */
+  mpz_init_vla(t, mpz_add_size(n, d));
 
-  if (nn == 0 || nn < dn - 1) {
-    q->size = 0;
-    return;
-  }
+  mpz_quo_2exp(t, d, 1);
 
-  qp = mpz_grow(q, qn);
+  if ((n->size ^ d->size) < 0)
+    mpz_sub(t, n, t);
+  else
+    mpz_add(t, n, t);
 
-  mpn_divround(qp, n->limbs, nn, d->limbs, dn);
+  mpz_quo(q, t, d);
 
-  qn -= (qp[qn - 1] == 0);
-
-  if (qn > 0)
-    qn -= (qp[qn - 1] == 0);
-
-  q->size = (n->size ^ d->size) < 0 ? -qn : qn;
+  mpz_clear_vla(t);
 }
 
 void
 mpz_divround_ui(mpz_t q, const mpz_t n, mp_limb_t d) {
-  mp_size_t nn = MP_ABS(n->size);
-  mp_size_t qn = nn + 1;
-  mp_limb_t *qp;
+  mp_size_t s = n->size;
+  mp_limb_t r = mpz_quo_ui(q, n, d);
+  mp_limb_t h = d >> 1;
 
-  if (d == 0)
-    torsion_abort(); /* LCOV_EXCL_LINE */
-
-  if (nn == 0) {
-    q->size = 0;
-    return;
+  if (r > h || (r == h && (d & 1) == 0)) {
+    if (s < 0)
+      mpz_sub_ui(q, q, 1);
+    else
+      mpz_add_ui(q, q, 1);
   }
-
-  qp = mpz_grow(q, qn);
-
-  mpn_divround_1(qp, n->limbs, nn, d);
-
-  qn -= (qp[qn - 1] == 0);
-  qn -= (qp[qn - 1] == 0);
-
-  q->size = n->size < 0 ? -qn : qn;
 }
 
 void

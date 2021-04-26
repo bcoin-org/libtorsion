@@ -50,8 +50,6 @@
 #define mpn_mod __torsion_mpn_mod
 #define mpn_divexact_1 __torsion_mpn_divexact_1
 #define mpn_divexact __torsion_mpn_divexact
-#define mpn_divround_1 __torsion_mpn_divround_1
-#define mpn_divround __torsion_mpn_divround
 #define mpn_and_n __torsion_mpn_and_n
 #define mpn_ior_n __torsion_mpn_ior_n
 #define mpn_xor_n __torsion_mpn_xor_n
@@ -545,17 +543,6 @@ mpn_divexact_1(mp_limb_t *qp, const mp_limb_t *np, mp_size_t nn, mp_limb_t d);
 
 void
 mpn_divexact(mp_limb_t *qp, const mp_limb_t *np, mp_size_t nn,
-                            const mp_limb_t *dp, mp_size_t dn);
-
-/*
- * Round Division
- */
-
-void
-mpn_divround_1(mp_limb_t *qp, const mp_limb_t *np, mp_size_t nn, mp_limb_t d);
-
-void
-mpn_divround(mp_limb_t *qp, const mp_limb_t *np, mp_size_t nn,
                             const mp_limb_t *dp, mp_size_t dn);
 
 /*

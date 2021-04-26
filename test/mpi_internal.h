@@ -675,6 +675,32 @@ mpz_cmp_str(const mpz_t x, const char *str) {
   return cmp;
 }
 
+static void
+mpn_divround(mp_limb_t *qp, const mp_limb_t *np, mp_size_t nn,
+                            const mp_limb_t *dp, mp_size_t dn) {
+  mp_size_t qn = nn - dn + 2;
+  mpz_t z, n, d;
+  mp_size_t zn;
+
+  if (dn == 0 || dp[dn - 1] == 0 || nn < dn - 1)
+    torsion_abort(); /* LCOV_EXCL_LINE */
+
+  mpz_init_n(z, qn);
+  mpz_roset_n(n, np, mpn_strip(np, nn));
+  mpz_roset_n(d, dp, dn);
+
+  mpz_divround(z, n, d);
+
+  zn = MP_ABS(z->size);
+
+  ASSERT(zn <= qn);
+
+  mpn_copyi(qp, z->limbs, zn);
+  mpn_zero(qp + zn, qn - zn);
+
+  mpz_clear(z);
+}
+
 /*
  * To be implemented...
  */
@@ -2366,120 +2392,6 @@ test_mpn_mod_1(mp_rng_f *rng, void *arg) {
     tn = mpn_strip(tp, tn);
 
     ASSERT(tn <= 1 && tp[0] == r);
-  }
-}
-
-static void
-test_mpn_divround(mp_rng_f *rng, void *arg) {
-  mp_limb_t zp[7], np[7], qp[5], dp[4], hp[2];
-  int i;
-
-  printf("  - MPN divround.\n");
-
-  for (i = 0; i < 100; i++) {
-    mpn_random_nz(qp, 4, rng, arg);
-    mpn_random_nz(dp, 2, rng, arg);
-
-    dp[0] &= ~MP_LIMB_HI;
-    dp[1] |= 1;
-
-    mpn_rshift(hp, dp, 2, 1);
-
-    mpn_mul(np, qp, 4, dp, 2);
-
-    if (i & 1) {
-      hp[0] += 1;
-      np[6] = mpn_add(np, np, 6, hp, 2);
-      qp[4] = mpn_add_1(qp, qp, 4, 1);
-    } else {
-      hp[0] -= 1;
-      np[6] = mpn_add(np, np, 6, hp, 2);
-      qp[4] = 0;
-    }
-
-    mpn_divround(zp, np, 7, dp, 2);
-
-    ASSERT(mpn_cmp(zp, qp, 5) == 0);
-    ASSERT(zp[5] == 0);
-    ASSERT(zp[6] == 0);
-  }
-
-  for (i = 0; i < 100; i++) {
-    mpn_random_nz(dp, 4, rng, arg);
-
-    dp[3] |= 1;
-
-    mpn_sub_1(np, dp, 4, 1);
-
-    mpn_divround(qp, np, 4, dp, 4);
-
-    ASSERT(qp[0] == 1);
-    ASSERT(qp[1] == 0);
-  }
-
-  for (i = 0; i < 100; i++) {
-    mpn_random_nz(dp, 1, rng, arg);
-
-    dp[0] |= MP_LIMB_HI;
-    np[0] = dp[0] - 1;
-
-    mpn_divround(qp, np, 1, dp, 1);
-
-    ASSERT(qp[0] == 1);
-    ASSERT(qp[1] == 0);
-
-    mpn_divround(qp, np, 0, dp, 1);
-
-    ASSERT(qp[0] == 0);
-  }
-
-  for (i = 0; i < 100; i++) {
-    mpn_random_nz(dp, 3, rng, arg);
-
-    if (i & 1)
-      dp[0] &= ~MP_LIMB_C(1);
-    else
-      dp[0] |= 1;
-
-    dp[3] = 1;
-
-    mpn_rshift(np, dp, 4, 1);
-
-    mpn_divround(qp, np, 3, dp, 4);
-
-    ASSERT(qp[0] == (mp_limb_t)(i & 1));
-  }
-}
-
-static void
-test_mpn_divround_1(mp_rng_f *rng, void *arg) {
-  mp_limb_t zp[7], np[6], qp[5];
-  mp_limb_t d;
-  int i;
-
-  printf("  - MPN divround (1 limb).\n");
-
-  for (i = 0; i < 100; i++) {
-    mpn_random_nz(qp, 4, rng, arg);
-    mpn_random_nz(&d, 1, rng, arg);
-
-    d += (d == 1);
-
-    np[4] = mpn_mul_1(np, qp, 4, d);
-
-    if (i & 1) {
-      np[5] = mpn_add_1(np, np, 5, (d >> 1) + 1);
-      qp[4] = mpn_add_1(qp, qp, 4, 1);
-    } else {
-      np[5] = mpn_add_1(np, np, 5, (d >> 1) - 1);
-      qp[4] = 0;
-    }
-
-    mpn_divround_1(zp, np, 6, d);
-
-    ASSERT(mpn_cmp(zp, qp, 5) == 0);
-    ASSERT(zp[5] == 0);
-    ASSERT(zp[6] == 0);
   }
 }
 
@@ -8475,8 +8387,6 @@ test_mpi_internal(mp_rng_f *rng, void *arg) {
   test_mpn_sqr(rng, arg);
   test_mpn_mod(rng, arg);
   test_mpn_mod_1(rng, arg);
-  test_mpn_divround(rng, arg);
-  test_mpn_divround_1(rng, arg);
   test_mpn_roots(rng, arg);
   test_mpn_and(rng, arg);
   test_mpn_ior(rng, arg);
