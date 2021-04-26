@@ -87,6 +87,20 @@ typedef uint64_t mp_wide_t;
 TORSION_BARRIER(mp_limb_t, mp_limb)
 
 /*
+ * Compat
+ */
+
+#if TORSION_GNUC_PREREQ(3, 4)
+#  define MP_GNUC_3_4
+#endif
+
+#if defined(__has_builtin)
+#  define mp_has_builtin __has_builtin
+#else
+#  define mp_has_builtin(x) 0
+#endif
+
+/*
  * Macros
  */
 
@@ -94,7 +108,7 @@ TORSION_BARRIER(mp_limb_t, mp_limb)
 #define MP_MAX(x, y) ((x) > (y) ? (x) : (y))
 #define MP_ABS(x) ((x) < 0 ? -(x) : (x))
 
-#if defined(__GNUC__) || TORSION_HAS_BUILTIN(__builtin_alloca)
+#if defined(__GNUC__) || mp_has_builtin(__builtin_alloca)
 /* Available since at least gcc 1.41 (1992). */
 /* Available since clang 3.0.0 (2011). */
 #  define mp_alloca __builtin_alloca
@@ -177,42 +191,34 @@ TORSION_BARRIER(mp_limb_t, mp_limb)
  * Builtins
  */
 
-#if TORSION_GNUC_PREREQ(3, 4)
-#  define mp_has_builtin(x) 1
-#elif defined(__has_builtin)
-#  define mp_has_builtin __has_builtin
-#else
-#  define mp_has_builtin(x) 0
-#endif
-
 #if MP_LIMB_MAX == UINT_MAX
-#  if mp_has_builtin(__builtin_popcount)
+#  if defined(MP_GNUC_3_4) || mp_has_builtin(__builtin_popcount)
 #    define mp_builtin_popcount __builtin_popcount
 #  endif
-#  if mp_has_builtin(__builtin_clz)
+#  if defined(MP_GNUC_3_4) || mp_has_builtin(__builtin_clz)
 #    define mp_builtin_clz __builtin_clz
 #  endif
-#  if mp_has_builtin(__builtin_ctz)
+#  if defined(MP_GNUC_3_4) || mp_has_builtin(__builtin_ctz)
 #    define mp_builtin_ctz __builtin_ctz
 #  endif
 #elif MP_LIMB_MAX == ULONG_MAX
-#  if mp_has_builtin(__builtin_popcountl)
+#  if defined(MP_GNUC_3_4) || mp_has_builtin(__builtin_popcountl)
 #    define mp_builtin_popcount __builtin_popcountl
 #  endif
-#  if mp_has_builtin(__builtin_clzl)
+#  if defined(MP_GNUC_3_4) || mp_has_builtin(__builtin_clzl)
 #    define mp_builtin_clz __builtin_clzl
 #  endif
-#  if mp_has_builtin(__builtin_ctzl)
+#  if defined(MP_GNUC_3_4) || mp_has_builtin(__builtin_ctzl)
 #    define mp_builtin_ctz __builtin_ctzl
 #  endif
 #elif defined(ULLONG_MAX) && MP_LIMB_MAX == ULLONG_MAX
-#  if mp_has_builtin(__builtin_popcountll)
+#  if defined(MP_GNUC_3_4) || mp_has_builtin(__builtin_popcountll)
 #    define mp_builtin_popcount __builtin_popcountll
 #  endif
-#  if mp_has_builtin(__builtin_clzll)
+#  if defined(MP_GNUC_3_4) || mp_has_builtin(__builtin_clzll)
 #    define mp_builtin_clz __builtin_clzll
 #  endif
-#  if mp_has_builtin(__builtin_ctzll)
+#  if defined(MP_GNUC_3_4) || mp_has_builtin(__builtin_ctzll)
 #    define mp_builtin_ctz __builtin_ctzll
 #  endif
 #endif
@@ -1089,6 +1095,82 @@ mp_str_limbs(const char *str, int base) {
   }
 
   return (len + limb_len - 1) / limb_len;
+}
+
+static TORSION_INLINE mp_limb_t
+mp_import_le(const unsigned char *xp) {
+#if MP_LIMB_BITS == 64
+  return ((mp_limb_t)xp[7] << 56)
+       | ((mp_limb_t)xp[6] << 48)
+       | ((mp_limb_t)xp[5] << 40)
+       | ((mp_limb_t)xp[4] << 32)
+       | ((mp_limb_t)xp[3] << 24)
+       | ((mp_limb_t)xp[2] << 16)
+       | ((mp_limb_t)xp[1] <<  8)
+       | ((mp_limb_t)xp[0] <<  0);
+#else
+  return ((mp_limb_t)xp[3] << 24)
+       | ((mp_limb_t)xp[2] << 16)
+       | ((mp_limb_t)xp[1] <<  8)
+       | ((mp_limb_t)xp[0] <<  0);
+#endif
+}
+
+static TORSION_INLINE mp_limb_t
+mp_import_be(const unsigned char *xp) {
+#if MP_LIMB_BITS == 64
+  return ((mp_limb_t)xp[0] << 56)
+       | ((mp_limb_t)xp[1] << 48)
+       | ((mp_limb_t)xp[2] << 40)
+       | ((mp_limb_t)xp[3] << 32)
+       | ((mp_limb_t)xp[4] << 24)
+       | ((mp_limb_t)xp[5] << 16)
+       | ((mp_limb_t)xp[6] <<  8)
+       | ((mp_limb_t)xp[7] <<  0);
+#else
+  return ((mp_limb_t)xp[0] << 24)
+       | ((mp_limb_t)xp[1] << 16)
+       | ((mp_limb_t)xp[2] <<  8)
+       | ((mp_limb_t)xp[3] <<  0);
+#endif
+}
+
+static TORSION_INLINE void
+mp_export_le(unsigned char *zp, mp_limb_t x) {
+#if MP_LIMB_BITS == 64
+  zp[0] = (x >>  0) & 0xff;
+  zp[1] = (x >>  8) & 0xff;
+  zp[2] = (x >> 16) & 0xff;
+  zp[3] = (x >> 24) & 0xff;
+  zp[4] = (x >> 32) & 0xff;
+  zp[5] = (x >> 40) & 0xff;
+  zp[6] = (x >> 48) & 0xff;
+  zp[7] = (x >> 56) & 0xff;
+#else
+  zp[0] = (x >>  0) & 0xff;
+  zp[1] = (x >>  8) & 0xff;
+  zp[2] = (x >> 16) & 0xff;
+  zp[3] = (x >> 24) & 0xff;
+#endif
+}
+
+static TORSION_INLINE void
+mp_export_be(unsigned char *zp, mp_limb_t x) {
+#if MP_LIMB_BITS == 64
+  zp[7] = (x >>  0) & 0xff;
+  zp[6] = (x >>  8) & 0xff;
+  zp[5] = (x >> 16) & 0xff;
+  zp[4] = (x >> 24) & 0xff;
+  zp[3] = (x >> 32) & 0xff;
+  zp[2] = (x >> 40) & 0xff;
+  zp[1] = (x >> 48) & 0xff;
+  zp[0] = (x >> 56) & 0xff;
+#else
+  zp[3] = (x >>  0) & 0xff;
+  zp[2] = (x >>  8) & 0xff;
+  zp[1] = (x >> 16) & 0xff;
+  zp[0] = (x >> 24) & 0xff;
+#endif
 }
 
 /*
@@ -4479,28 +4561,50 @@ mpn_sec_cmp(const mp_limb_t *xp, const mp_limb_t *yp, mp_size_t n) {
 
 void
 mpn_import(mp_limb_t *zp, mp_size_t zn,
-           const unsigned char *raw, size_t len,
+           const unsigned char *xp, size_t xn,
            int endian) {
-  mp_size_t size = mp_size_cast(len);
-  mp_size_t i, j, k;
+  mp_size_t i = 0;
+  mp_limb_t z;
 
   CHECK(endian == 1 || endian == -1);
 
   if (endian == 1) {
-    k = size - 1;
+    xp += xn;
 
-    for (i = 0; i < zn && k >= 0; i++) {
-      zp[i] = 0;
-      for (j = 0; j < MP_LIMB_BYTES && k >= 0; j++)
-        zp[i] |= (mp_limb_t)raw[k--] << (j * 8);
+    while (i < zn && xn >= MP_LIMB_BYTES) {
+      xp -= MP_LIMB_BYTES;
+      xn -= MP_LIMB_BYTES;
+      zp[i++] = mp_import_be(xp);
+    }
+
+    if (i < zn && xn > 0) {
+      xp -= xn;
+      z = 0;
+
+      do {
+        z <<= 8;
+        z |= *xp++;
+      } while (--xn);
+
+      zp[i++] = z;
     }
   } else {
-    k = 0;
+    while (i < zn && xn >= MP_LIMB_BYTES) {
+      zp[i++] = mp_import_le(xp);
+      xp += MP_LIMB_BYTES;
+      xn -= MP_LIMB_BYTES;
+    }
 
-    for (i = 0; i < zn && k < size; i++) {
-      zp[i] = 0;
-      for (j = 0; j < MP_LIMB_BYTES && k < size; j++)
-        zp[i] |= (mp_limb_t)raw[k++] << (j * 8);
+    if (i < zn && xn > 0) {
+      xp += xn;
+      z = 0;
+
+      do {
+        z <<= 8;
+        z |= *--xp;
+      } while (--xn);
+
+      zp[i++] = z;
     }
   }
 
@@ -4513,34 +4617,52 @@ mpn_import(mp_limb_t *zp, mp_size_t zn,
  */
 
 void
-mpn_export(unsigned char *raw, size_t len,
+mpn_export(unsigned char *zp, size_t zn,
            const mp_limb_t *xp, mp_size_t xn,
            int endian) {
-  mp_size_t size = mp_size_cast(len);
-  mp_size_t i, j, k;
+  mp_size_t i = 0;
+  mp_limb_t x;
 
   CHECK(endian == 1 || endian == -1);
 
   if (endian == 1) {
-    k = size - 1;
+    zp += zn;
 
-    for (i = 0; i < xn && k >= 0; i++) {
-      for (j = 0; j < MP_LIMB_BYTES && k >= 0; j++)
-        raw[k--] = (xp[i] >> (j * 8)) & 0xff;
+    while (i < xn && zn >= MP_LIMB_BYTES) {
+      zp -= MP_LIMB_BYTES;
+      zn -= MP_LIMB_BYTES;
+      mp_export_be(zp, xp[i++]);
     }
 
-    while (k >= 0)
-      raw[k--] = 0;
+    if (i < xn && zn > 0) {
+      x = xp[i];
+
+      do {
+        *--zp = x & 0xff;
+        x >>= 8;
+      } while (--zn);
+    }
+
+    while (zn--)
+      *--zp = 0;
   } else {
-    k = 0;
-
-    for (i = 0; i < xn && k < size; i++) {
-      for (j = 0; j < MP_LIMB_BYTES && k < size; j++)
-        raw[k++] = (xp[i] >> (j * 8)) & 0xff;
+    while (i < xn && zn >= MP_LIMB_BYTES) {
+      mp_export_le(zp, xp[i++]);
+      zp += MP_LIMB_BYTES;
+      zn -= MP_LIMB_BYTES;
     }
 
-    while (k < size)
-      raw[k++] = 0;
+    if (i < xn && zn > 0) {
+      x = xp[i];
+
+      do {
+        *zp++ = x & 0xff;
+        x >>= 8;
+      } while (--zn);
+    }
+
+    while (zn--)
+      *zp++ = 0;
   }
 }
 

@@ -3719,26 +3719,32 @@ test_mpn_sec_cmp_rand(mp_rng_f *rng, void *arg) {
 
 static void
 test_mpn_io(mp_rng_f *rng, void *arg) {
-  unsigned char raw[4 * MP_LIMB_BYTES];
-  mp_limb_t xp[4], yp[4];
+  unsigned char raw[32 * MP_LIMB_BYTES];
+  mp_limb_t xp[32], yp[32];
+  mp_size_t n;
+  size_t len;
   int i;
 
   printf("  - MPN I/O.\n");
 
-  for (i = 0; i < 100; i++) {
-    mpn_random(xp, 4, rng, arg);
+  for (n = 1; n <= 32; n++) {
+    len = n * MP_LIMB_BYTES;
 
-    mpn_zero(yp, 4);
-    mpn_export(raw, sizeof(raw), xp, 4, 1);
-    mpn_import(yp, 4, raw, sizeof(raw), 1);
+    for (i = 0; i < 5; i++) {
+      mpn_random(xp, n, rng, arg);
 
-    ASSERT(mpn_cmp(xp, yp, 4) == 0);
+      mpn_zero(yp, n);
+      mpn_export(raw, len, xp, n, 1);
+      mpn_import(yp, n, raw, len, 1);
 
-    mpn_zero(yp, 4);
-    mpn_export(raw, sizeof(raw), xp, 4, -1);
-    mpn_import(yp, 4, raw, sizeof(raw), -1);
+      ASSERT(mpn_cmp(xp, yp, n) == 0);
 
-    ASSERT(mpn_cmp(xp, yp, 4) == 0);
+      mpn_zero(yp, n);
+      mpn_export(raw, len, xp, n, -1);
+      mpn_import(yp, n, raw, len, -1);
+
+      ASSERT(mpn_cmp(xp, yp, n) == 0);
+    }
   }
 }
 

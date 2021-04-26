@@ -873,7 +873,7 @@ mpn_sec_cmp(const mp_limb_t *xp, const mp_limb_t *yp, mp_size_t n);
 
 void
 mpn_import(mp_limb_t *zp, mp_size_t zn,
-           const unsigned char *raw, size_t len,
+           const unsigned char *xp, size_t xn,
            int endian);
 
 /*
@@ -881,7 +881,7 @@ mpn_import(mp_limb_t *zp, mp_size_t zn,
  */
 
 void
-mpn_export(unsigned char *raw, size_t len,
+mpn_export(unsigned char *zp, size_t zn,
            const mp_limb_t *xp, mp_size_t xn,
            int endian);
 
