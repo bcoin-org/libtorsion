@@ -36,7 +36,7 @@ extern "C" {
 #define ctr_drbg_rng __torsion_ctr_drbg_rng
 
 /*
- * Structs
+ * Types
  */
 
 typedef struct hmac_drbg_s {

@@ -45,7 +45,7 @@ extern "C" {
 #define dsa_derive torsion_dsa_derive
 
 /*
- * Defs
+ * Definitions
  */
 
 #define DSA_DEFAULT_BITS 2048

@@ -29,7 +29,7 @@ extern "C" {
 #define siphash256_sum torsion_siphash256_sum
 
 /*
- * Structs
+ * Types
  */
 
 typedef struct poly1305_s {

@@ -211,7 +211,7 @@ extern "C" {
 
 
 /*
- * Defs
+ * Definitions
  */
 
 #define WEI_MAX_FIELD_SIZE 66

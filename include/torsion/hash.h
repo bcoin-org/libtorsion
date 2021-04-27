@@ -135,11 +135,15 @@ extern "C" {
 #define hmac_final torsion_hmac_final
 
 /*
- * Defs
+ * Definitions
  */
 
 #define HASH_MAX_OUTPUT_SIZE 64
 #define HASH_MAX_BLOCK_SIZE 168
+
+/*
+ * Hashes
+ */
 
 typedef enum hash_id {
   HASH_NONE = 0,
@@ -179,7 +183,7 @@ typedef enum hash_id {
 } hash_id_t;
 
 /*
- * Structs
+ * Types
  */
 
 typedef struct blake2b_s {

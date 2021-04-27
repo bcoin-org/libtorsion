@@ -23,7 +23,7 @@ extern "C" {
 #define torsion_randomaddr __torsion_randomaddr
 
 /*
- * Defs
+ * Definitions
  */
 
 #define TORSION_THREAD_SAFETY_NONE 0

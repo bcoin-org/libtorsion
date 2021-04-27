@@ -30,7 +30,7 @@ extern "C" {
 #define chachapoly_final torsion_chachapoly_final
 
 /*
- * Structs
+ * Types
  */
 
 typedef struct chachapoly_s {

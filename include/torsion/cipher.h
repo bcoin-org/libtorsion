@@ -134,6 +134,10 @@ extern "C" {
 #define CIPHER_MAX_ENCRYPT_SIZE(n) CIPHER_MAX_UPDATE_SIZE(n)
 #define CIPHER_MAX_DECRYPT_SIZE(n) CIPHER_MAX_UPDATE_SIZE(n)
 
+/*
+ * Ciphers
+ */
+
 typedef enum cipher_id {
   CIPHER_AES128 = 0,
   CIPHER_AES192,
@@ -162,6 +166,10 @@ typedef enum cipher_id {
   CIPHER_MAX = CIPHER_TWOFISH256
 } cipher_id_t;
 
+/*
+ * Modes
+ */
+
 typedef enum mode_id {
   CIPHER_MODE_RAW = 0,
   CIPHER_MODE_ECB,
@@ -178,7 +186,7 @@ typedef enum mode_id {
 } mode_id_t;
 
 /*
- * Structs
+ * Types
  */
 
 typedef struct aes_s {

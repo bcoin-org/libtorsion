@@ -43,7 +43,7 @@ extern "C" {
 #define rsa_unveil torsion_rsa_unveil
 
 /*
- * Defs
+ * Definitions
  */
 
 #define RSA_DEFAULT_MOD_BITS 2048

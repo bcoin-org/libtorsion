@@ -29,7 +29,7 @@ extern "C" {
 #define salsa20_derive torsion_salsa20_derive
 
 /*
- * Structs
+ * Types
  */
 
 typedef struct arc4_s {
