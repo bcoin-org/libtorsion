@@ -1,5 +1,5 @@
 typedef struct hmac_drbg_vector_s {
-  int type;
+  hash_id_t type;
   const char *entropy;
   const char *reseed;
   const char *add1;

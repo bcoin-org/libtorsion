@@ -1,6 +1,6 @@
 typedef struct cipher_mode_vector_s {
-  int type;
-  int mode;
+  cipher_id_t type;
+  mode_id_t mode;
   const char *key;
   const char *iv;
   const char *input;

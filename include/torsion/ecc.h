@@ -270,6 +270,10 @@ extern "C" {
 #define EDWARDS_CURVE_ED1174 2
 #define EDWARDS_CURVE_MAX 2
 
+typedef int wei_curve_id_t;
+typedef int mont_curve_id_t;
+typedef int edwards_curve_id_t;
+
 /*
  * Types
  */
@@ -287,7 +291,7 @@ typedef void ecdsa_redefine_f(void *, size_t);
  */
 
 TORSION_EXTERN wei_curve_t *
-wei_curve_create(int type);
+wei_curve_create(wei_curve_id_t type);
 
 TORSION_EXTERN void
 wei_curve_destroy(wei_curve_t *ec);
@@ -318,7 +322,7 @@ wei_scratch_destroy(const wei_curve_t *ec, wei_scratch_t *scratch);
  */
 
 TORSION_EXTERN mont_curve_t *
-mont_curve_create(int type);
+mont_curve_create(mont_curve_id_t type);
 
 TORSION_EXTERN void
 mont_curve_destroy(mont_curve_t *ec);
@@ -340,7 +344,7 @@ mont_curve_field_bits(const mont_curve_t *ec);
  */
 
 TORSION_EXTERN edwards_curve_t *
-edwards_curve_create(int type);
+edwards_curve_create(edwards_curve_id_t type);
 
 TORSION_EXTERN void
 edwards_curve_destroy(edwards_curve_t *ec);

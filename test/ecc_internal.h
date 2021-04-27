@@ -778,7 +778,7 @@ test_bytes_lt(drbg_t *rng) {
  */
 
 static void
-test_wei_points(int type,
+test_wei_points(wei_curve_id_t type,
                 const unsigned char points[3][1 + MAX_FIELD_SIZE],
                 drbg_t *rng) {
   wei_t *ec = wei_curve_create(type);
@@ -1147,7 +1147,7 @@ test_wei_points(int type,
 }
 
 static void
-test_wei_degenerate_points(int type,
+test_wei_degenerate_points(wei_curve_id_t type,
                            const unsigned char points[3][1 + MAX_FIELD_SIZE],
                            const unsigned char expect[4][1 + MAX_FIELD_SIZE]) {
   wei_t *ec = wei_curve_create(type);
@@ -1223,7 +1223,7 @@ test_wei_degenerate_points(int type,
 }
 
 static void
-test_wei_fuzzy_equality(int type, drbg_t *rng) {
+test_wei_fuzzy_equality(wei_curve_id_t type, drbg_t *rng) {
   wei_t *ec = wei_curve_create(type);
   scalar_field_t *sc = &ec->sc;
   prime_field_t *fe = &ec->fe;
@@ -1307,7 +1307,7 @@ test_wei_fuzzy_equality(int type, drbg_t *rng) {
 }
 
 static void
-test_wei_mul_g(int type,
+test_wei_mul_g(wei_curve_id_t type,
                const unsigned char *scalar,
                const unsigned char *expect,
                drbg_t *rng) {
@@ -1335,7 +1335,7 @@ test_wei_mul_g(int type,
 }
 
 static void
-test_wei_mul(int type,
+test_wei_mul(wei_curve_id_t type,
              const unsigned char *point,
              const unsigned char *scalar,
              const unsigned char *expect) {
@@ -1358,7 +1358,7 @@ test_wei_mul(int type,
 }
 
 static void
-test_wei_double_mul(int type,
+test_wei_double_mul(wei_curve_id_t type,
                     const unsigned char *point,
                     const unsigned char *scalar1,
                     const unsigned char *scalar2,
@@ -1383,7 +1383,7 @@ test_wei_double_mul(int type,
 }
 
 static void
-test_wei_multi_mul(int type,
+test_wei_multi_mul(wei_curve_id_t type,
                    const unsigned char *point1,
                    const unsigned char *point2,
                    const unsigned char *scalar1,
@@ -2320,7 +2320,7 @@ test_wei_multi_mul_secp256k1(drbg_t *unused) {
  */
 
 static void
-test_mont_points(int type,
+test_mont_points(mont_curve_id_t type,
                  const unsigned char points[3][1 + MAX_FIELD_SIZE],
                  drbg_t *rng) {
   mont_t *ec = mont_curve_create(type);
@@ -2505,7 +2505,7 @@ test_mont_points(int type,
 }
 
 static void
-test_mont_mul_g(int type,
+test_mont_mul_g(mont_curve_id_t type,
                 const unsigned char *scalar,
                 const unsigned char *expect) {
   mont_t *ec = mont_curve_create(type);
@@ -2525,7 +2525,7 @@ test_mont_mul_g(int type,
 }
 
 static void
-test_mont_mul(int type,
+test_mont_mul(mont_curve_id_t type,
               const unsigned char *point,
               const unsigned char *scalar,
               const unsigned char *expect,
@@ -2748,7 +2748,7 @@ test_mont_mul_x448(drbg_t *unused) {
  */
 
 static void
-test_edwards_points(int type,
+test_edwards_points(edwards_curve_id_t type,
                     const unsigned char points[3][MAX_FIELD_SIZE + 1],
                     drbg_t *rng) {
   edwards_t *ec = edwards_curve_create(type);
@@ -2938,7 +2938,7 @@ test_edwards_points(int type,
 }
 
 static void
-test_edwards_mul_g(int type,
+test_edwards_mul_g(edwards_curve_id_t type,
                    const unsigned char *scalar,
                    const unsigned char *expect,
                    drbg_t *rng) {
@@ -2965,7 +2965,7 @@ test_edwards_mul_g(int type,
 }
 
 static void
-test_edwards_mul(int type,
+test_edwards_mul(edwards_curve_id_t type,
                  const unsigned char *point,
                  const unsigned char *scalar,
                  const unsigned char *expect) {
@@ -2987,7 +2987,7 @@ test_edwards_mul(int type,
 }
 
 static void
-test_edwards_double_mul(int type,
+test_edwards_double_mul(edwards_curve_id_t type,
                         const unsigned char *point,
                         const unsigned char *scalar1,
                         const unsigned char *scalar2,
@@ -3011,7 +3011,7 @@ test_edwards_double_mul(int type,
 }
 
 static void
-test_edwards_multi_mul(int type,
+test_edwards_multi_mul(edwards_curve_id_t type,
                        const unsigned char *point1,
                        const unsigned char *point2,
                        const unsigned char *scalar1,

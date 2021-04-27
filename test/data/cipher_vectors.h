@@ -1,5 +1,5 @@
 typedef struct cipher_vector_s {
-  int type;
+  cipher_id_t type;
   const char *key;
   const char *iv;
   const char *expect;

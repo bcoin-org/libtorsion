@@ -333,7 +333,7 @@ test_cipher_contexts(drbg_t *unused) {
   (void)unused;
 
   for (i = 0; i < ARRAY_SIZE(cipher_vectors); i++) {
-    int type = cipher_vectors[i].type;
+    cipher_id_t type = cipher_vectors[i].type;
     size_t size = cipher_block_size(type);
     size_t key_len = sizeof(key);
 
@@ -373,8 +373,8 @@ test_cipher_modes(drbg_t *rng) {
   unsigned int i, j;
 
   for (i = 0; i < ARRAY_SIZE(cipher_mode_vectors); i++) {
-    int type = cipher_mode_vectors[i].type;
-    int mode = cipher_mode_vectors[i].mode;
+    cipher_id_t type = cipher_mode_vectors[i].type;
+    mode_id_t mode = cipher_mode_vectors[i].mode;
     size_t key_len = sizeof(key);
     size_t iv_len = sizeof(iv);
     size_t input_len = sizeof(input);
@@ -521,8 +521,8 @@ test_cipher_aead(drbg_t *rng) {
   unsigned int i, j;
 
   for (i = 0; i < ARRAY_SIZE(cipher_aead_vectors); i++) {
-    int type = cipher_aead_vectors[i].type;
-    int mode = cipher_aead_vectors[i].mode;
+    cipher_id_t type = cipher_aead_vectors[i].type;
+    mode_id_t mode = cipher_aead_vectors[i].mode;
     size_t key_len = sizeof(key);
     size_t iv_len = sizeof(iv);
     size_t aad_len = sizeof(aad);
@@ -680,7 +680,7 @@ test_drbg_hash(drbg_t *unused) {
   (void)unused;
 
   for (i = 0; i < ARRAY_SIZE(hash_drbg_vectors); i++) {
-    int type = hash_drbg_vectors[i].type;
+    hash_id_t type = hash_drbg_vectors[i].type;
     size_t entropy_len = sizeof(entropy);
     size_t reseed_len = sizeof(reseed);
     size_t add1_len = sizeof(add1);
@@ -721,7 +721,7 @@ test_drbg_hmac(drbg_t *unused) {
   (void)unused;
 
   for (i = 0; i < ARRAY_SIZE(hmac_drbg_vectors); i++) {
-    int type = hmac_drbg_vectors[i].type;
+    hash_id_t type = hmac_drbg_vectors[i].type;
     size_t entropy_len = sizeof(entropy);
     size_t reseed_len = sizeof(reseed);
     size_t add1_len = sizeof(add1);
@@ -988,7 +988,7 @@ test_ecdsa_vectors(drbg_t *unused) {
     curves[i] = wei_curve_create(i);
 
   for (i = 0; i < ARRAY_SIZE(ecdsa_vectors); i++) {
-    int type = ecdsa_vectors[i].type;
+    wei_curve_id_t type = ecdsa_vectors[i].type;
     wei_curve_t *ec = curves[type];
     size_t sc_size = wei_curve_scalar_size(ec);
     size_t sig_size = ecdsa_sig_size(ec);
@@ -1817,7 +1817,7 @@ test_eddsa_vectors(drbg_t *unused) {
   inf[0] = 0x01;
 
   for (i = 0; i < ARRAY_SIZE(eddsa_vectors); i++) {
-    int type = eddsa_vectors[i].type;
+    edwards_curve_id_t type = eddsa_vectors[i].type;
     edwards_curve_t *ec = curves[type];
     edwards_scratch_t *scratch = scratches[type];
     size_t fe_size = edwards_curve_field_size(ec);
@@ -3575,10 +3575,11 @@ test_hash_digest(drbg_t *rng) {
   unsigned char out[HASH_MAX_OUTPUT_SIZE];
   unsigned char iv[1024];
   unsigned int i, j;
+  hash_id_t t;
   hash_t hash;
 
   for (i = 0; i < ARRAY_SIZE(hash_vectors); i++) {
-    int type = hash_vectors[i].type;
+    hash_id_t type = hash_vectors[i].type;
     size_t size = hash_output_size(type);
     size_t iv_len = sizeof(iv);
 
@@ -3646,8 +3647,8 @@ test_hash_digest(drbg_t *rng) {
     }
   }
 
-  for (i = 0; i <= HASH_MAX; i++) {
-    int type = i;
+  for (t = HASH_NONE + 1; t <= HASH_MAX; t++) {
+    hash_id_t type = t;
     size_t size = hash_output_size(type);
     size_t iv_len = sizeof(iv);
 
@@ -3708,7 +3709,7 @@ test_hash_hmac(drbg_t *rng) {
   hmac_t hmac;
 
   for (i = 0; i < ARRAY_SIZE(hmac_vectors); i++) {
-    int type = hmac_vectors[i].type;
+    hash_id_t type = hmac_vectors[i].type;
     size_t size = hash_output_size(type);
     size_t data_len = sizeof(data);
     size_t key_len = sizeof(key);
@@ -4014,7 +4015,7 @@ test_kdf_hkdf(drbg_t *unused) {
   (void)unused;
 
   for (i = 0; i < ARRAY_SIZE(hkdf_vectors); i++) {
-    int type = hkdf_vectors[i].type;
+    hash_id_t type = hkdf_vectors[i].type;
     size_t size = hash_output_size(type);
     size_t ikm_len = sizeof(ikm);
     size_t salt_len = sizeof(salt);
@@ -4052,7 +4053,7 @@ test_kdf_pbkdf2(drbg_t *unused) {
   (void)unused;
 
   for (i = 0; i < ARRAY_SIZE(pbkdf2_vectors); i++) {
-    int type = pbkdf2_vectors[i].type;
+    hash_id_t type = pbkdf2_vectors[i].type;
     size_t pass_len = sizeof(pass);
     size_t salt_len = sizeof(salt);
     unsigned int iter = pbkdf2_vectors[i].iter;
@@ -4569,7 +4570,7 @@ test_rsa_vectors(drbg_t *unused) {
   for (i = 0; i < ARRAY_SIZE(rsa_vectors); i++) {
     size_t priv_len = sizeof(priv);
     size_t pub_len = sizeof(pub);
-    int hash = rsa_vectors[i].hash;
+    hash_id_t hash = rsa_vectors[i].hash;
     int salt_len = rsa_vectors[i].salt_len;
     size_t msg_len = sizeof(msg);
     size_t sig1_len = sizeof(sig1);

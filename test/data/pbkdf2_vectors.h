@@ -1,5 +1,5 @@
 typedef struct pbkdf2_vector_s {
-  int type;
+  hash_id_t type;
   const char *pass;
   const char *salt;
   unsigned int iter;

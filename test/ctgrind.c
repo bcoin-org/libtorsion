@@ -41,8 +41,8 @@ redefine(void *ptr, size_t size) {
 }
 
 static void
-test_ecdsa(int curve_name) {
-  wei_curve_t *ec = wei_curve_create(curve_name);
+test_ecdsa(wei_curve_id_t curve_id) {
+  wei_curve_t *ec = wei_curve_create(curve_id);
   unsigned char priv[32];
   unsigned char msg[32];
   unsigned char sig[64];
@@ -53,7 +53,7 @@ test_ecdsa(int curve_name) {
   size_t i;
   int ret;
 
-  printf("Testing ECDSA (%d)...\n", curve_name);
+  printf("Testing ECDSA (%d)...\n", curve_id);
 
   for (i = 0; i < 32; i++)
     priv[i] = i + 65;

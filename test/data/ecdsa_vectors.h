@@ -1,5 +1,5 @@
 typedef struct ecdsa_vector_s {
-  int type;
+  wei_curve_id_t type;
   const char *priv;
   const char *pub;
   const char *tweak;

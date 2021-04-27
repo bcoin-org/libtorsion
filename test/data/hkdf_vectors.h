@@ -1,5 +1,5 @@
 typedef struct hkdf_vector_s {
-  int type;
+  hash_id_t type;
   const char *ikm;
   const char *salt;
   const char *info;

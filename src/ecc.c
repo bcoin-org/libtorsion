@@ -386,8 +386,8 @@ typedef struct jge_s {
 } jge_t;
 
 typedef struct wei_s {
-  int hash;
-  int xof;
+  hash_id_t hash;
+  hash_id_t xof;
   prime_field_t fe;
   scalar_field_t sc;
   unsigned int h;
@@ -423,8 +423,8 @@ typedef struct wei_s {
 } wei_t;
 
 typedef struct wei_def_s {
-  int hash;
-  int xof;
+  hash_id_t hash;
+  hash_id_t xof;
   const prime_def_t *fe;
   const scalar_def_t *sc;
   unsigned int h;
@@ -545,7 +545,7 @@ typedef struct xge_s {
 } xge_t;
 
 typedef struct edwards_s {
-  int hash;
+  hash_id_t hash;
   int context;
   const char *prefix;
   prime_field_t fe;
@@ -574,7 +574,7 @@ typedef struct edwards_s {
 } edwards_t;
 
 typedef struct edwards_def_s {
-  int hash;
+  hash_id_t hash;
   int context;
   const char *prefix;
   const prime_def_t *fe;
@@ -10267,7 +10267,7 @@ static const edwards_def_t *edwards_curves[3] = {
  */
 
 wei_t *
-wei_curve_create(int type) {
+wei_curve_create(wei_curve_id_t type) {
   wei_t *ec = NULL;
 
   if (type < 0 || (size_t)type > ARRAY_SIZE(wei_curves))
@@ -10358,7 +10358,7 @@ wei_scratch_destroy(const wei_t *ec, wei__scratch_t *scratch) {
  */
 
 mont_t *
-mont_curve_create(int type) {
+mont_curve_create(mont_curve_id_t type) {
   mont_t *ec = NULL;
 
   if (type < 0 || (size_t)type > ARRAY_SIZE(mont_curves))
@@ -10402,7 +10402,7 @@ mont_curve_field_bits(const mont_t *ec) {
  */
 
 edwards_t *
-edwards_curve_create(int type) {
+edwards_curve_create(edwards_curve_id_t type) {
   edwards_t *ec = NULL;
 
   if (type < 0 || (size_t)type > ARRAY_SIZE(edwards_curves))
@@ -12229,7 +12229,7 @@ bip340_pubkey_combine(const wei_t *ec,
 }
 
 static void
-bip340_hash_init(hash_t *hash, int type, const char *tag) {
+bip340_hash_init(hash_t *hash, hash_id_t type, const char *tag) {
   /* [BIP340] "Tagged Hashes". */
   size_t hash_size = hash_output_size(type);
   size_t block_size = hash_block_size(type);

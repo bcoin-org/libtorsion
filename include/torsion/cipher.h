@@ -118,6 +118,22 @@ extern "C" {
  * Definitions
  */
 
+#define CIPHER_MAX_BLOCK_SIZE 16
+#define CIPHER_MAX_TAG_SIZE 16
+
+#define _CIPHER_BLOCKS(n) \
+  (((n) + CIPHER_MAX_BLOCK_SIZE - 1) / CIPHER_MAX_BLOCK_SIZE)
+
+/* One extra block due to ctx->last. */
+#define CIPHER_MAX_UPDATE_SIZE(n) \
+  ((_CIPHER_BLOCKS(n) + 1) * CIPHER_MAX_BLOCK_SIZE)
+
+/* 2 * n - 1 bytes due to XTS mode. */
+#define CIPHER_MAX_FINAL_SIZE (2 * CIPHER_MAX_BLOCK_SIZE - 1)
+
+#define CIPHER_MAX_ENCRYPT_SIZE(n) CIPHER_MAX_UPDATE_SIZE(n)
+#define CIPHER_MAX_DECRYPT_SIZE(n) CIPHER_MAX_UPDATE_SIZE(n)
+
 #define CIPHER_AES128 0
 #define CIPHER_AES192 1
 #define CIPHER_AES256 2
@@ -157,21 +173,8 @@ extern "C" {
 #define CIPHER_MODE_EAX 10
 #define CIPHER_MODE_MAX 10
 
-#define CIPHER_MAX_BLOCK_SIZE 16
-#define CIPHER_MAX_TAG_SIZE 16
-
-#define _CIPHER_BLOCKS(n) \
-  (((n) + CIPHER_MAX_BLOCK_SIZE - 1) / CIPHER_MAX_BLOCK_SIZE)
-
-/* One extra block due to ctx->last. */
-#define CIPHER_MAX_UPDATE_SIZE(n) \
-  ((_CIPHER_BLOCKS(n) + 1) * CIPHER_MAX_BLOCK_SIZE)
-
-/* 2 * n - 1 bytes due to XTS mode. */
-#define CIPHER_MAX_FINAL_SIZE (2 * CIPHER_MAX_BLOCK_SIZE - 1)
-
-#define CIPHER_MAX_ENCRYPT_SIZE(n) CIPHER_MAX_UPDATE_SIZE(n)
-#define CIPHER_MAX_DECRYPT_SIZE(n) CIPHER_MAX_UPDATE_SIZE(n)
+typedef int cipher_id_t;
+typedef int mode_id_t;
 
 /*
  * Structs
@@ -232,7 +235,7 @@ typedef struct twofish_s {
 } twofish_t;
 
 typedef struct cipher_s {
-  int type;
+  cipher_id_t type;
   size_t size;
   union {
     aes_t aes;
@@ -304,7 +307,7 @@ typedef struct eax_s {
 } eax_t;
 
 struct __cipher_mode_s {
-  int type;
+  mode_id_t type;
   union {
     block_mode_t block;
     stream_mode_t stream;
@@ -539,13 +542,16 @@ pkcs7_unpad(unsigned char *dst,
  */
 
 TORSION_EXTERN size_t
-cipher_key_size(int type);
+cipher_key_size(cipher_id_t type);
 
 TORSION_EXTERN size_t
-cipher_block_size(int type);
+cipher_block_size(cipher_id_t type);
 
 TORSION_EXTERN int
-cipher_init(cipher_t *ctx, int type, const unsigned char *key, size_t key_len);
+cipher_init(cipher_t *ctx,
+            cipher_id_t type,
+            const unsigned char *key,
+            size_t key_len);
 
 TORSION_EXTERN void
 cipher_encrypt(const cipher_t *ctx,
@@ -755,7 +761,7 @@ eax_digest(eax_t *mode, const cipher_t *cipher, unsigned char *mac);
 
 TORSION_EXTERN int
 cipher_stream_init(cipher_stream_t *ctx,
-                   int type, int mode, int encrypt,
+                   cipher_id_t type, mode_id_t mode, int encrypt,
                    const unsigned char *key, size_t key_len,
                    const unsigned char *iv, size_t iv_len);
 
@@ -811,8 +817,8 @@ cipher_stream_final_size(const cipher_stream_t *ctx);
 TORSION_EXTERN int
 cipher_static_encrypt(unsigned char *ct,
                       size_t *ct_len,
-                      int type,
-                      int mode,
+                      cipher_id_t type,
+                      mode_id_t mode,
                       const unsigned char *key,
                       size_t key_len,
                       const unsigned char *iv,
@@ -823,8 +829,8 @@ cipher_static_encrypt(unsigned char *ct,
 TORSION_EXTERN int
 cipher_static_decrypt(unsigned char *pt,
                       size_t *pt_len,
-                      int type,
-                      int mode,
+                      cipher_id_t type,
+                      mode_id_t mode,
                       const unsigned char *key,
                       size_t key_len,
                       const unsigned char *iv,

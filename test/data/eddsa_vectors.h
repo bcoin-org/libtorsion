@@ -1,5 +1,5 @@
 typedef struct eddsa_vector_s {
-  int type;
+  edwards_curve_id_t type;
   const char *priv;
   const char *scalar;
   const char *prefix;

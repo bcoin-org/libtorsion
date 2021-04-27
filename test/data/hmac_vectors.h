@@ -1,5 +1,5 @@
 typedef struct hmac_vector_s {
-  int type;
+  hash_id_t type;
   const char *data;
   const char *key;
   const char *expect;

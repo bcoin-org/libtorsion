@@ -1,5 +1,5 @@
 typedef struct hash_vector_s {
-  int type;
+  hash_id_t type;
   const char *iv;
   const char *expect;
 } hash_vector_t;

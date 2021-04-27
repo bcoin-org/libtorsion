@@ -1,7 +1,7 @@
 typedef struct rsa_vector_s {
   const char *priv;
   const char *pub;
-  int hash;
+  hash_id_t hash;
   int salt_len;
   const char *msg;
   const char *sig1;
