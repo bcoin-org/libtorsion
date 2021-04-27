@@ -253,26 +253,28 @@ extern "C" {
  * Curves
  */
 
-#define WEI_CURVE_P192 0
-#define WEI_CURVE_P224 1
-#define WEI_CURVE_P256 2
-#define WEI_CURVE_P384 3
-#define WEI_CURVE_P521 4
-#define WEI_CURVE_SECP256K1 5
-#define WEI_CURVE_MAX 5
+typedef enum wei_curve_id {
+  WEI_CURVE_P192 = 0,
+  WEI_CURVE_P224,
+  WEI_CURVE_P256,
+  WEI_CURVE_P384,
+  WEI_CURVE_P521,
+  WEI_CURVE_SECP256K1,
+  WEI_CURVE_MAX = WEI_CURVE_SECP256K1
+} wei_curve_id_t;
 
-#define MONT_CURVE_X25519 0
-#define MONT_CURVE_X448 1
-#define MONT_CURVE_MAX 1
+typedef enum mont_curve_id {
+  MONT_CURVE_X25519 = 0,
+  MONT_CURVE_X448,
+  MONT_CURVE_MAX = MONT_CURVE_X448
+} mont_curve_id_t;
 
-#define EDWARDS_CURVE_ED25519 0
-#define EDWARDS_CURVE_ED448 1
-#define EDWARDS_CURVE_ED1174 2
-#define EDWARDS_CURVE_MAX 2
-
-typedef int wei_curve_id_t;
-typedef int mont_curve_id_t;
-typedef int edwards_curve_id_t;
+typedef enum edwards_curve_id {
+  EDWARDS_CURVE_ED25519 = 0,
+  EDWARDS_CURVE_ED448,
+  EDWARDS_CURVE_ED1174,
+  EDWARDS_CURVE_MAX = EDWARDS_CURVE_ED1174
+} edwards_curve_id_t;
 
 /*
  * Types
