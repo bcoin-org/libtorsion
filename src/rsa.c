@@ -413,7 +413,9 @@ rsa_priv_export_dumb(unsigned char *out, size_t *out_len, const rsa_priv_t *k) {
 }
 
 static int
-rsa_priv_generate(rsa_priv_t *k, int bits, uint64_t exp,
+rsa_priv_generate(rsa_priv_t *k,
+                  mp_bits_t bits,
+                  uint64_t exp,
                   const unsigned char *entropy) {
   /* [RFC8017] Page 9, Section 3.2.
    * [FIPS186] Page 51, Appendix B.3.1
@@ -792,9 +794,10 @@ rsa_priv_set_ned(rsa_priv_t *out,
    */
   mpz_t f, nm1, nm3, g, a, b, c, p, q;
   size_t entropy_len = ENTROPY_SIZE;
-  int i, j, s;
+  mp_bits_t j, s;
   int ret = 0;
   drbg_t rng;
+  int i;
 
   mpz_init(f);
   mpz_init(nm1);
@@ -1080,7 +1083,7 @@ rsa_pub_export_dumb(unsigned char *out, size_t *out_len, const rsa_pub_t *k) {
 
 static int
 rsa_pub_verify(const rsa_pub_t *k) {
-  int bits = mpz_bitlen(k->n);
+  mp_bits_t bits = mpz_bitlen(k->n);
 
   if (mpz_sgn(k->n) < 0)
     return 0;
@@ -1111,8 +1114,8 @@ rsa_pub_encrypt(const rsa_pub_t *k,
   /* [RFC8017] Page 13, Section 5.1.1.
    *           Page 16, Section 5.2.2.
    */
-  mpz_t m;
   int ret = 0;
+  mpz_t m;
 
   mpz_init(m);
 
@@ -1138,7 +1141,8 @@ static int
 rsa_pub_veil(const rsa_pub_t *k,
              unsigned char *out,
              const unsigned char *msg,
-             size_t msg_len, int bits,
+             size_t msg_len,
+             mp_bits_t bits,
              const unsigned char *entropy) {
   mpz_t vmax, rmax, c, v, r;
   int ret = 0;
@@ -1205,7 +1209,7 @@ rsa_pub_unveil(const rsa_pub_t *k,
                unsigned char *out,
                const unsigned char *msg,
                size_t msg_len,
-               int bits) {
+               mp_bits_t bits) {
   int ret = 0;
   mpz_t v;
 
@@ -1297,7 +1301,7 @@ pss_encode(unsigned char *out,
            hash_id_t type,
            const unsigned char *msg,
            size_t msg_len,
-           int embits,
+           mp_bits_t embits,
            const unsigned char *salt,
            size_t salt_len) {
   /* [RFC8017] Page 42, Section 9.1.1. */
@@ -1352,7 +1356,7 @@ pss_verify(hash_id_t type,
            const unsigned char *msg,
            size_t msg_len,
            unsigned char *em,
-           int embits,
+           mp_bits_t embits,
            size_t salt_len) {
   /* [RFC8017] Page 44, Section 9.1.2. */
   size_t hlen = hash_output_size(type);
@@ -1453,7 +1457,7 @@ fail:
 
 unsigned int
 rsa_privkey_bits(const unsigned char *key, size_t key_len) {
-  unsigned int bits = 0;
+  mp_bits_t bits = 0;
   rsa_priv_t k;
 
   rsa_priv_init(&k);
@@ -1576,7 +1580,7 @@ fail:
 
 unsigned int
 rsa_pubkey_bits(const unsigned char *key, size_t key_len) {
-  unsigned int bits = 0;
+  mp_bits_t bits = 0;
   rsa_pub_t k;
 
   rsa_pub_init(&k);
@@ -1812,8 +1816,8 @@ rsa_encrypt(unsigned char *out,
   size_t i, mlen, plen;
   size_t klen = 0;
   rsa_pub_t k;
-  drbg_t rng;
   int ret = 0;
+  drbg_t rng;
 
   drbg_init(&rng, HASH_SHA256, entropy, ENTROPY_SIZE);
 
@@ -1943,11 +1947,11 @@ rsa_sign_pss(unsigned char *out,
   unsigned char *salt = NULL;
   unsigned char *em = out;
   size_t klen = 0;
+  mp_bits_t bits;
   size_t emlen;
   rsa_priv_t k;
-  drbg_t rng;
   int ret = 0;
-  int bits;
+  drbg_t rng;
 
   rsa_priv_init(&k);
 
@@ -2022,9 +2026,9 @@ rsa_verify_pss(hash_id_t type,
   size_t hlen = hash_output_size(type);
   unsigned char *em = NULL;
   size_t klen = 0;
+  mp_bits_t bits;
   rsa_pub_t k;
   int ret = 0;
-  int bits;
 
   rsa_pub_init(&k);
 
@@ -2107,8 +2111,8 @@ rsa_encrypt_oaep(unsigned char *out,
   size_t slen, dlen;
   rsa_pub_t k;
   hash_t hash;
-  drbg_t rng;
   int ret = 0;
+  drbg_t rng;
 
   rsa_pub_init(&k);
 
@@ -2271,8 +2275,8 @@ rsa_veil(unsigned char *out,
          size_t key_len,
          const unsigned char *entropy) {
   rsa_pub_t k;
-  drbg_t rng;
   int ret = 0;
+  drbg_t rng;
 
   rsa_pub_init(&k);
 
