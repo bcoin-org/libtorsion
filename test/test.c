@@ -125,7 +125,8 @@ static const char *edwards_curves[3] = {
   "ED1174"
 };
 
-static const char *hash_names[32] = {
+static const char *hash_names[33] = {
+  "NONE",
   "BLAKE2B_160",
   "BLAKE2B_256",
   "BLAKE2B_384",
@@ -3575,7 +3576,6 @@ test_hash_digest(drbg_t *rng) {
   unsigned char out[HASH_MAX_OUTPUT_SIZE];
   unsigned char iv[1024];
   unsigned int i, j;
-  hash_id_t t;
   hash_t hash;
 
   for (i = 0; i < ARRAY_SIZE(hash_vectors); i++) {
@@ -3647,10 +3647,12 @@ test_hash_digest(drbg_t *rng) {
     }
   }
 
-  for (t = HASH_NONE + 1; t <= HASH_MAX; t++) {
-    hash_id_t type = t;
+  for (i = 1; i <= (unsigned int)HASH_MAX; i++) {
+    hash_id_t type = (hash_id_t)i;
     size_t size = hash_output_size(type);
     size_t iv_len = sizeof(iv);
+
+    printf("  - Hash chunk test (%s)\n", hash_names[type]);
 
     /* Generate our vector. */
     {
