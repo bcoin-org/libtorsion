@@ -226,8 +226,8 @@ typedef struct scalar_field_s {
   int endian;
   int bits;
   int endo_bits;
-  int limbs;
-  int shift;
+  mp_size_t limbs;
+  mp_size_t shift;
   size_t size;
   unsigned int mask;
   mp_limb_t n[MAX_SCALAR_LIMBS];
@@ -275,7 +275,7 @@ typedef struct prime_field_s {
   int endian;
   int bits;
   int words;
-  int limbs;
+  mp_size_t limbs;
   size_t size;
   size_t adj_size;
   unsigned int mask;
@@ -847,10 +847,10 @@ sc_reduce(const scalar_field_t *sc, sc_t z, const mp_limb_t *xp) {
 }
 
 static void
-sc_mod(const scalar_field_t *sc, sc_t z, const mp_limb_t *xp, int xn) {
+sc_mod(const scalar_field_t *sc, sc_t z, const mp_limb_t *xp, mp_size_t xn) {
   /* Called on initialization only. */
   mp_limb_t zp[MAX_REDUCE_LIMBS]; /* 160 bytes */
-  int zn = sc->shift;
+  mp_size_t zn = sc->shift;
 
   ASSERT(xn <= zn);
 
@@ -863,7 +863,7 @@ sc_mod(const scalar_field_t *sc, sc_t z, const mp_limb_t *xp, int xn) {
 static void
 sc_mul(const scalar_field_t *sc, sc_t z, const sc_t x, const sc_t y) {
   mp_limb_t zp[MAX_REDUCE_LIMBS]; /* 160 bytes */
-  int zn = sc->limbs * 2;
+  mp_size_t zn = sc->limbs * 2;
 
   mpn_mul_n(zp, x, y, sc->limbs);
 
@@ -876,7 +876,7 @@ TORSION_UNUSED static void
 sc_sqr(const scalar_field_t *sc, sc_t z, const sc_t x) {
   mp_limb_t scratch[MPN_SQR_ITCH(MAX_SCALAR_LIMBS)]; /* 144 bytes */
   mp_limb_t zp[MAX_REDUCE_LIMBS]; /* 160 bytes */
-  int zn = sc->limbs * 2;
+  mp_size_t zn = sc->limbs * 2;
 
   mpn_sqr(zp, x, sc->limbs, scratch);
 
@@ -888,7 +888,7 @@ sc_sqr(const scalar_field_t *sc, sc_t z, const sc_t x) {
 static void
 sc_mul_word(const scalar_field_t *sc, sc_t z, const sc_t x, mp_limb_t y) {
   mp_limb_t zp[MAX_REDUCE_LIMBS]; /* 160 bytes */
-  int zn = sc->limbs + 1;
+  mp_size_t zn = sc->limbs + 1;
 
   zp[sc->limbs] = mpn_mul_1(zp, x, sc->limbs, y);
 
@@ -1471,10 +1471,10 @@ fe_get_limbs(const prime_field_t *fe, mp_limb_t *zp, const fe_t x) {
 }
 
 static void
-fe_mod(const prime_field_t *fe, fe_t z, const mp_limb_t *xp, int xn) {
+fe_mod(const prime_field_t *fe, fe_t z, const mp_limb_t *xp, mp_size_t xn) {
   /* Called on initialization only. */
   mp_limb_t zp[MAX_FIELD_LIMBS];
-  int zn = fe->limbs;
+  mp_size_t zn = fe->limbs;
 
   if (xn >= fe->limbs) {
     mpn_mod(zp, xp, xn, fe->p, fe->limbs);
