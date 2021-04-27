@@ -3244,8 +3244,8 @@ mpn_getbit(const mp_limb_t *xp, mp_size_t xn, mp_bits_t pos) {
 mp_limb_t
 mpn_getbits(const mp_limb_t *xp, mp_size_t xn, mp_bits_t pos, mp_bits_t width) {
   mp_size_t index = pos / MP_LIMB_BITS;
-  mp_limb_t bits, next;
   mp_bits_t shift, more;
+  mp_limb_t bits, next;
 
   ASSERT(width < MP_LIMB_BITS);
 
@@ -4830,12 +4830,7 @@ fail:
 size_t
 mpn_get_str(char *str, const mp_limb_t *xp, mp_size_t xn, int base) {
   const char *charset;
-  mp_divisor_t den;
-  mp_bits_t shift;
   size_t len = 0;
-  size_t i, j, k;
-  mp_limb_t *tp;
-  mp_size_t tn;
   int ch;
 
   if (base < 2 || base > 62)
@@ -4849,11 +4844,6 @@ mpn_get_str(char *str, const mp_limb_t *xp, mp_size_t xn, int base) {
     return 1;
   }
 
-  tp = mp_alloc_vla(xn);
-  tn = xn;
-
-  mpn_copyi(tp, xp, xn);
-
   if (base <= 36) {
     charset = "0123456789abcdefghijklmnopqrstuvwxyz";
   } else {
@@ -4861,15 +4851,46 @@ mpn_get_str(char *str, const mp_limb_t *xp, mp_size_t xn, int base) {
                         "abcdefghijklmnopqrstuvwxyz";
   }
 
-  if ((base & (base - 1)) == 0) {
-    shift = mp_bitlen(base - 1);
+  if (base == 2 || base == 4 || base == 16) {
+    mp_bits_t shift = mp_bitlen(base - 1);
+    mp_bits_t digits = MP_LIMB_BITS / shift;
+    mp_limb_t mask = base - 1;
+    mp_size_t i;
+    mp_bits_t j;
+    mp_limb_t x;
+
+    for (i = 0; i < xn - 1; i++) {
+      x = xp[i];
+
+      for (j = 0; j < digits; j++) {
+        str[len++] = charset[x & mask];
+        x >>= shift;
+      }
+    }
+
+    x = xp[xn - 1];
 
     do {
-      ch = mpn_rshift(tp, tp, tn, shift);
-      tn -= (tp[tn - 1] == 0);
+      str[len++] = charset[x & mask];
+      x >>= shift;
+    } while (x != 0);
+  } else if ((base & (base - 1)) == 0) {
+    mp_bits_t bits = xn * MP_LIMB_BITS - mp_clz(xp[xn - 1]);
+    mp_bits_t width = mp_bitlen(base - 1);
+    mp_bits_t pos = 0;
+
+    do {
+      ch = mpn_getbits(xp, xn, pos, width);
       str[len++] = charset[ch];
-    } while (tn != 0);
+      pos += width;
+    } while (pos < bits);
   } else {
+    mp_limb_t *tp = mp_alloc_vla(xn);
+    mp_size_t tn = xn;
+    mp_divisor_t den;
+
+    mpn_copyi(tp, xp, xn);
+
     mpn_divmod_init_1(&den, base);
 
     do {
@@ -4877,21 +4898,23 @@ mpn_get_str(char *str, const mp_limb_t *xp, mp_size_t xn, int base) {
       tn -= (tp[tn - 1] == 0);
       str[len++] = charset[ch];
     } while (tn != 0);
+
+    mp_free_vla(tp, xn);
   }
 
-  i = 0;
-  j = len - 1;
-  k = len >> 1;
+  {
+    size_t i = 0;
+    size_t j = len - 1;
+    size_t k = len >> 1;
 
-  while (k--) {
-    ch = str[i];
-    str[i++] = str[j];
-    str[j--] = ch;
+    while (k--) {
+      ch = str[i];
+      str[i++] = str[j];
+      str[j--] = ch;
+    }
   }
 
   str[len] = '\0';
-
-  mp_free_vla(tp, xn);
 
   return len;
 }
