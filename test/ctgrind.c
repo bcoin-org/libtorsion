@@ -81,15 +81,15 @@ test_ecdsa(int curve_name) {
   VALGRIND_MAKE_MEM_DEFINED(sig, sizeof(sig));
   ASSERT(ecdsa_verify(ec, msg, 32, sig, pub, 33));
 
-  /* Schnorr Legacy */
+  /* BIP-Schnorr */
   VALGRIND_MAKE_MEM_UNDEFINED(msg, 32);
   VALGRIND_MAKE_MEM_UNDEFINED(priv, 32);
-  ret = schnorr_legacy_sign(ec, sig, msg, 32, priv);
+  ret = bipschnorr_sign(ec, sig, msg, 32, priv);
   VALGRIND_MAKE_MEM_DEFINED(&ret, sizeof(ret));
   ASSERT(ret);
   VALGRIND_MAKE_MEM_DEFINED(msg, sizeof(msg));
   VALGRIND_MAKE_MEM_DEFINED(sig, sizeof(sig));
-  ASSERT(schnorr_legacy_verify(ec, msg, 32, sig, pub, 33));
+  ASSERT(bipschnorr_verify(ec, msg, 32, sig, pub, 33));
 
   /* ECDH */
   VALGRIND_MAKE_MEM_UNDEFINED(priv, 32);
@@ -131,7 +131,7 @@ test_ecdsa(int curve_name) {
 }
 
 static void
-test_schnorr(void) {
+test_bip340(void) {
   wei_curve_t *ec = wei_curve_create(WEI_CURVE_SECP256K1);
   unsigned char priv[32];
   unsigned char msg[32];
@@ -142,7 +142,7 @@ test_schnorr(void) {
   size_t i;
   int ret;
 
-  printf("Testing Schnorr...\n");
+  printf("Testing BIP340...\n");
 
   for (i = 0; i < 32; i++)
     priv[i] = i + 65;
@@ -154,13 +154,13 @@ test_schnorr(void) {
 
   /* Public key generation */
   VALGRIND_MAKE_MEM_UNDEFINED(priv, 32);
-  ret = schnorr_pubkey_create(ec, pub, priv);
+  ret = bip340_pubkey_create(ec, pub, priv);
   VALGRIND_MAKE_MEM_DEFINED(&ret, sizeof(ret));
   ASSERT(ret);
 
   /* Public key validation */
   VALGRIND_MAKE_MEM_UNDEFINED(pub, 32);
-  ret = schnorr_pubkey_verify(ec, pub);
+  ret = bip340_pubkey_verify(ec, pub);
   VALGRIND_MAKE_MEM_DEFINED(&ret, sizeof(ret));
   VALGRIND_MAKE_MEM_DEFINED(pub, sizeof(pub));
   ASSERT(ret);
@@ -169,43 +169,43 @@ test_schnorr(void) {
   VALGRIND_MAKE_MEM_UNDEFINED(msg, 32);
   VALGRIND_MAKE_MEM_UNDEFINED(priv, 32);
   VALGRIND_MAKE_MEM_UNDEFINED(aux, 32);
-  ret = schnorr_sign(ec, sig, msg, 32, priv, aux);
+  ret = bip340_sign(ec, sig, msg, 32, priv, aux);
   VALGRIND_MAKE_MEM_DEFINED(&ret, sizeof(ret));
   ASSERT(ret);
   VALGRIND_MAKE_MEM_DEFINED(msg, sizeof(msg));
   VALGRIND_MAKE_MEM_DEFINED(sig, sizeof(sig));
-  ASSERT(schnorr_verify(ec, msg, 32, sig, pub));
+  ASSERT(bip340_verify(ec, msg, 32, sig, pub));
 
   /* ECDH */
   VALGRIND_MAKE_MEM_UNDEFINED(pub, 32);
   VALGRIND_MAKE_MEM_UNDEFINED(priv, 32);
-  ret = schnorr_derive(ec, secret, pub, priv);
+  ret = bip340_derive(ec, secret, pub, priv);
   VALGRIND_MAKE_MEM_DEFINED(&ret, sizeof(ret));
   ASSERT(ret);
 
   /* Secret validation */
   VALGRIND_MAKE_MEM_UNDEFINED(secret, 32);
-  ret = schnorr_pubkey_verify(ec, secret);
+  ret = bip340_pubkey_verify(ec, secret);
   VALGRIND_MAKE_MEM_DEFINED(&ret, sizeof(ret));
   ASSERT(ret);
 
   /* Validation */
   VALGRIND_MAKE_MEM_UNDEFINED(priv, 32);
-  ret = schnorr_privkey_verify(ec, priv);
+  ret = bip340_privkey_verify(ec, priv);
   VALGRIND_MAKE_MEM_DEFINED(&ret, sizeof(ret));
   ASSERT(ret);
 
   /* Addition */
   VALGRIND_MAKE_MEM_UNDEFINED(priv, 32);
   VALGRIND_MAKE_MEM_UNDEFINED(msg, 32);
-  ret = schnorr_privkey_tweak_add(ec, priv, priv, msg);
+  ret = bip340_privkey_tweak_add(ec, priv, priv, msg);
   VALGRIND_MAKE_MEM_DEFINED(&ret, sizeof(ret));
   ASSERT(ret);
 
   /* Multiplication */
   VALGRIND_MAKE_MEM_UNDEFINED(priv, 32);
   VALGRIND_MAKE_MEM_UNDEFINED(msg, 32);
-  ret = schnorr_privkey_tweak_mul(ec, priv, priv, msg);
+  ret = bip340_privkey_tweak_mul(ec, priv, priv, msg);
   VALGRIND_MAKE_MEM_DEFINED(&ret, sizeof(ret));
   ASSERT(ret);
 
@@ -410,7 +410,7 @@ main(void) {
 
   test_ecdsa(WEI_CURVE_P256);
   test_ecdsa(WEI_CURVE_SECP256K1);
-  test_schnorr();
+  test_bip340();
   test_ecdh();
   test_eddsa();
   test_ristretto();

@@ -90,8 +90,8 @@ noinst_HEADERS = src/asn1.h                         \
                  test/data/poly1305_vectors.h       \
                  test/data/prime_vectors.h          \
                  test/data/rsa_vectors.h            \
-                 test/data/schnorr_legacy_vectors.h \
-                 test/data/schnorr_vectors.h        \
+                 test/data/bipschnorr_vectors.h     \
+                 test/data/bip340_vectors.h         \
                  test/ecc_internal.h                \
                  test/hrtime.h                      \
                  test/mpi_internal.h                \

@@ -39,6 +39,8 @@
 
 #include "utils.h"
 
+#include "data/bip340_vectors.h"
+#include "data/bipschnorr_vectors.h"
 #include "data/chacha20_vectors.h"
 #include "data/chachapoly_vectors.h"
 #include "data/cipher_aead_vectors.h"
@@ -57,8 +59,6 @@
 #include "data/pbkdf2_vectors.h"
 #include "data/poly1305_vectors.h"
 #include "data/rsa_vectors.h"
-#include "data/schnorr_legacy_vectors.h"
-#include "data/schnorr_vectors.h"
 
 /*
  * String Maps
@@ -1296,7 +1296,7 @@ test_ecdsa_svdw(drbg_t *unused) {
 }
 
 static void
-test_schnorr_legacy_vectors(drbg_t *unused) {
+test_bipschnorr_vectors(drbg_t *unused) {
   wei_curve_t *ec = wei_curve_create(WEI_CURVE_SECP256K1);
   wei_scratch_t *scratch = wei_scratch_create(ec, 10);
   unsigned char priv[32];
@@ -1312,20 +1312,20 @@ test_schnorr_legacy_vectors(drbg_t *unused) {
 
   (void)unused;
 
-  for (i = 0; i < ARRAY_SIZE(schnorr_legacy_vectors); i++) {
+  for (i = 0; i < ARRAY_SIZE(bipschnorr_vectors); i++) {
     size_t priv_len = sizeof(priv);
     size_t pub_len = sizeof(pub);
     size_t msg_len = sizeof(msg);
     size_t sig_len = sizeof(sig);
-    int result = schnorr_legacy_vectors[i].result;
-    const char *comment = schnorr_legacy_vectors[i].comment;
+    int result = bipschnorr_vectors[i].result;
+    const char *comment = bipschnorr_vectors[i].comment;
 
-    printf("  - Schnorr-Legacy vector #%u (%s)\n", i + 1, comment);
+    printf("  - BIP-Schnorr vector #%u (%s)\n", i + 1, comment);
 
-    hex_decode(priv, &priv_len, schnorr_legacy_vectors[i].priv);
-    hex_decode(pub, &pub_len, schnorr_legacy_vectors[i].pub);
-    hex_decode(msg, &msg_len, schnorr_legacy_vectors[i].msg);
-    hex_decode(sig, &sig_len, schnorr_legacy_vectors[i].sig);
+    hex_decode(priv, &priv_len, bipschnorr_vectors[i].priv);
+    hex_decode(pub, &pub_len, bipschnorr_vectors[i].pub);
+    hex_decode(msg, &msg_len, bipschnorr_vectors[i].msg);
+    hex_decode(sig, &sig_len, bipschnorr_vectors[i].sig);
 
     ASSERT(priv_len == 0 || priv_len == 32);
     ASSERT(pub_len == 33);
@@ -1336,22 +1336,22 @@ test_schnorr_legacy_vectors(drbg_t *unused) {
       memset(sig, 0, 64);
 
     if (priv_len > 0) {
-      ASSERT(schnorr_legacy_privkey_verify(ec, priv));
-      ASSERT(schnorr_legacy_pubkey_create(ec, out, &len, priv, 1));
+      ASSERT(bipschnorr_privkey_verify(ec, priv));
+      ASSERT(bipschnorr_pubkey_create(ec, out, &len, priv, 1));
       ASSERT(len == pub_len && torsion_memcmp(out, pub, pub_len) == 0);
-      ASSERT(schnorr_legacy_sign(ec, out, msg, 32, priv));
+      ASSERT(bipschnorr_sign(ec, out, msg, 32, priv));
       ASSERT(torsion_memcmp(out, sig, sig_len) == 0);
     }
 
-    ASSERT(schnorr_legacy_verify(ec, msg, msg_len,
-                                 sig, pub, pub_len) == result);
+    ASSERT(bipschnorr_verify(ec, msg, msg_len,
+                             sig, pub, pub_len) == result);
 
     msgs[0] = msg;
     sigs[0] = sig;
     pubs[0] = pub;
 
-    ASSERT(schnorr_legacy_verify_batch(ec, msgs, &msg_len, sigs,
-                                       pubs, &pub_len, 1, scratch) == result);
+    ASSERT(bipschnorr_verify_batch(ec, msgs, &msg_len, sigs,
+                                   pubs, &pub_len, 1, scratch) == result);
   }
 
   wei_scratch_destroy(ec, scratch);
@@ -1359,7 +1359,7 @@ test_schnorr_legacy_vectors(drbg_t *unused) {
 }
 
 static void
-test_schnorr_legacy_random(drbg_t *rng) {
+test_bipschnorr_random(drbg_t *rng) {
   size_t i, j;
 
   for (i = 0; i < ARRAY_SIZE(wei_curves); i++) {
@@ -1375,9 +1375,9 @@ test_schnorr_legacy_random(drbg_t *rng) {
 
     for (j = 0; j < 10; j++) {
       unsigned char entropy[ENTROPY_SIZE];
-      unsigned char priv[SCHNORR_LEGACY_MAX_PRIV_SIZE];
-      unsigned char sig[SCHNORR_LEGACY_MAX_SIG_SIZE];
-      unsigned char pub[SCHNORR_LEGACY_MAX_PUB_SIZE];
+      unsigned char priv[BIPSCHNORR_MAX_PRIV_SIZE];
+      unsigned char sig[BIPSCHNORR_MAX_SIG_SIZE];
+      unsigned char pub[BIPSCHNORR_MAX_PUB_SIZE];
       unsigned char msg[32];
       size_t pub_len;
 
@@ -1389,27 +1389,27 @@ test_schnorr_legacy_random(drbg_t *rng) {
 
       wei_curve_randomize(ec, entropy);
 
-      ASSERT(schnorr_legacy_sign(ec, sig, msg, 32, priv));
-      ASSERT(schnorr_legacy_pubkey_create(ec, pub, &pub_len, priv, 1));
-      ASSERT(schnorr_legacy_verify(ec, msg, 32, sig, pub, pub_len));
+      ASSERT(bipschnorr_sign(ec, sig, msg, 32, priv));
+      ASSERT(bipschnorr_pubkey_create(ec, pub, &pub_len, priv, 1));
+      ASSERT(bipschnorr_verify(ec, msg, 32, sig, pub, pub_len));
 
       msg[0] ^= 1;
 
-      ASSERT(!schnorr_legacy_verify(ec, msg, 32, sig, pub, pub_len));
+      ASSERT(!bipschnorr_verify(ec, msg, 32, sig, pub, pub_len));
 
       msg[0] ^= 1;
       pub[1] ^= 1;
 
-      ASSERT(!schnorr_legacy_verify(ec, msg, 32, sig, pub, pub_len));
+      ASSERT(!bipschnorr_verify(ec, msg, 32, sig, pub, pub_len));
 
       pub[1] ^= 1;
       sig[0] ^= 1;
 
-      ASSERT(!schnorr_legacy_verify(ec, msg, 32, sig, pub, pub_len));
+      ASSERT(!bipschnorr_verify(ec, msg, 32, sig, pub, pub_len));
 
       sig[0] ^= 1;
 
-      ASSERT(schnorr_legacy_verify(ec, msg, 32, sig, pub, pub_len));
+      ASSERT(bipschnorr_verify(ec, msg, 32, sig, pub, pub_len));
     }
 
     wei_curve_destroy(ec);
@@ -1417,7 +1417,7 @@ test_schnorr_legacy_random(drbg_t *rng) {
 }
 
 static void
-test_schnorr_vectors(drbg_t *unused) {
+test_bip340_vectors(drbg_t *unused) {
   wei_curve_t *ec = wei_curve_create(WEI_CURVE_SECP256K1);
   wei_scratch_t *scratch = wei_scratch_create(ec, 10);
   unsigned char priv[32];
@@ -1433,22 +1433,22 @@ test_schnorr_vectors(drbg_t *unused) {
 
   (void)unused;
 
-  for (i = 0; i < ARRAY_SIZE(schnorr_vectors); i++) {
+  for (i = 0; i < ARRAY_SIZE(bip340_vectors); i++) {
     size_t priv_len = sizeof(priv);
     size_t pub_len = sizeof(pub);
     size_t aux_len = sizeof(aux);
     size_t msg_len = sizeof(msg);
     size_t sig_len = sizeof(sig);
-    int result = schnorr_vectors[i].result;
-    const char *comment = schnorr_vectors[i].comment;
+    int result = bip340_vectors[i].result;
+    const char *comment = bip340_vectors[i].comment;
 
-    printf("  - Schnorr vector #%u (%s)\n", i + 1, comment);
+    printf("  - BIP340 vector #%u (%s)\n", i + 1, comment);
 
-    hex_decode(priv, &priv_len, schnorr_vectors[i].priv);
-    hex_decode(pub, &pub_len, schnorr_vectors[i].pub);
-    hex_decode(aux, &aux_len, schnorr_vectors[i].aux);
-    hex_decode(msg, &msg_len, schnorr_vectors[i].msg);
-    hex_decode(sig, &sig_len, schnorr_vectors[i].sig);
+    hex_decode(priv, &priv_len, bip340_vectors[i].priv);
+    hex_decode(pub, &pub_len, bip340_vectors[i].pub);
+    hex_decode(aux, &aux_len, bip340_vectors[i].aux);
+    hex_decode(msg, &msg_len, bip340_vectors[i].msg);
+    hex_decode(sig, &sig_len, bip340_vectors[i].sig);
 
     ASSERT(priv_len == 0 || priv_len == 32);
     ASSERT(pub_len == 32);
@@ -1460,21 +1460,21 @@ test_schnorr_vectors(drbg_t *unused) {
       memset(aux, 0, 32);
 
     if (priv_len > 0) {
-      ASSERT(schnorr_privkey_verify(ec, priv));
-      ASSERT(schnorr_pubkey_create(ec, out, priv));
+      ASSERT(bip340_privkey_verify(ec, priv));
+      ASSERT(bip340_pubkey_create(ec, out, priv));
       ASSERT(torsion_memcmp(out, pub, pub_len) == 0);
-      ASSERT(schnorr_sign(ec, out, msg, 32, priv, aux));
+      ASSERT(bip340_sign(ec, out, msg, 32, priv, aux));
       ASSERT(torsion_memcmp(out, sig, sig_len) == 0);
     }
 
-    ASSERT(schnorr_verify(ec, msg, msg_len, sig, pub) == result);
+    ASSERT(bip340_verify(ec, msg, msg_len, sig, pub) == result);
 
     msgs[0] = msg;
     sigs[0] = sig;
     pubs[0] = pub;
 
-    ASSERT(schnorr_verify_batch(ec, msgs, &msg_len, sigs,
-                                pubs, 1, scratch) == result);
+    ASSERT(bip340_verify_batch(ec, msgs, &msg_len, sigs,
+                               pubs, 1, scratch) == result);
   }
 
   wei_scratch_destroy(ec, scratch);
@@ -1482,7 +1482,7 @@ test_schnorr_vectors(drbg_t *unused) {
 }
 
 static void
-test_schnorr_random(drbg_t *rng) {
+test_bip340_random(drbg_t *rng) {
   size_t i, j;
 
   for (i = 0; i < ARRAY_SIZE(wei_curves); i++) {
@@ -1493,9 +1493,9 @@ test_schnorr_random(drbg_t *rng) {
 
     for (j = 0; j < 10; j++) {
       unsigned char entropy[ENTROPY_SIZE];
-      unsigned char priv[SCHNORR_MAX_PRIV_SIZE];
-      unsigned char sig[SCHNORR_MAX_SIG_SIZE];
-      unsigned char pub[SCHNORR_MAX_PUB_SIZE];
+      unsigned char priv[BIP340_MAX_PRIV_SIZE];
+      unsigned char sig[BIP340_MAX_SIG_SIZE];
+      unsigned char pub[BIP340_MAX_PUB_SIZE];
       unsigned char msg[32];
       unsigned char aux[32];
 
@@ -1508,27 +1508,27 @@ test_schnorr_random(drbg_t *rng) {
 
       wei_curve_randomize(ec, entropy);
 
-      ASSERT(schnorr_sign(ec, sig, msg, 32, priv, aux));
-      ASSERT(schnorr_pubkey_create(ec, pub, priv));
-      ASSERT(schnorr_verify(ec, msg, 32, sig, pub));
+      ASSERT(bip340_sign(ec, sig, msg, 32, priv, aux));
+      ASSERT(bip340_pubkey_create(ec, pub, priv));
+      ASSERT(bip340_verify(ec, msg, 32, sig, pub));
 
       msg[0] ^= 1;
 
-      ASSERT(!schnorr_verify(ec, msg, 32, sig, pub));
+      ASSERT(!bip340_verify(ec, msg, 32, sig, pub));
 
       msg[0] ^= 1;
       pub[1] ^= 1;
 
-      ASSERT(!schnorr_verify(ec, msg, 32, sig, pub));
+      ASSERT(!bip340_verify(ec, msg, 32, sig, pub));
 
       pub[1] ^= 1;
       sig[0] ^= 1;
 
-      ASSERT(!schnorr_verify(ec, msg, 32, sig, pub));
+      ASSERT(!bip340_verify(ec, msg, 32, sig, pub));
 
       sig[0] ^= 1;
 
-      ASSERT(schnorr_verify(ec, msg, 32, sig, pub));
+      ASSERT(bip340_verify(ec, msg, 32, sig, pub));
     }
 
     wei_curve_destroy(ec);
@@ -5187,10 +5187,10 @@ static const torsion_test_t torsion_tests[] = {
   T(ecdsa_random),
   T(ecdsa_sswu),
   T(ecdsa_svdw),
-  T(schnorr_legacy_vectors),
-  T(schnorr_legacy_random),
-  T(schnorr_vectors),
-  T(schnorr_random),
+  T(bipschnorr_vectors),
+  T(bipschnorr_random),
+  T(bip340_vectors),
+  T(bip340_random),
   T(ecdh_x25519),
   T(ecdh_x448),
   T(ecdh_random),

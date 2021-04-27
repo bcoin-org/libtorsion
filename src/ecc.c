@@ -11448,26 +11448,26 @@ ecdsa_derive(const wei_t *ec,
 }
 
 /*
- * Schnorr Legacy
+ * BIP-Schnorr
  */
 
 int
-schnorr_legacy_support(const wei_t *ec) {
+bipschnorr_support(const wei_t *ec) {
   /* [SCHNORR] "Footnotes". */
   /* Must be congruent to 3 mod 4. */
   return (ec->fe.p[0] & 3) == 3;
 }
 
 size_t
-schnorr_legacy_sig_size(const wei_t *ec) {
+bipschnorr_sig_size(const wei_t *ec) {
   return ec->fe.size + ec->sc.size;
 }
 
 static void
-schnorr_legacy_hash_nonce(const wei_t *ec, sc_t k,
-                          const unsigned char *scalar,
-                          const unsigned char *msg,
-                          size_t msg_len) {
+bipschnorr_hash_nonce(const wei_t *ec, sc_t k,
+                      const unsigned char *scalar,
+                      const unsigned char *msg,
+                      size_t msg_len) {
   const scalar_field_t *sc = &ec->sc;
   unsigned char bytes[MAX_SCALAR_SIZE];
   hash_t hash;
@@ -11488,11 +11488,11 @@ schnorr_legacy_hash_nonce(const wei_t *ec, sc_t k,
 }
 
 static void
-schnorr_legacy_hash_challenge(const wei_t *ec, sc_t e,
-                              const unsigned char *R,
-                              const unsigned char *A,
-                              const unsigned char *msg,
-                              size_t msg_len) {
+bipschnorr_hash_challenge(const wei_t *ec, sc_t e,
+                          const unsigned char *R,
+                          const unsigned char *A,
+                          const unsigned char *msg,
+                          size_t msg_len) {
   const prime_field_t *fe = &ec->fe;
   const scalar_field_t *sc = &ec->sc;
   unsigned char bytes[MAX_SCALAR_SIZE];
@@ -11515,12 +11515,12 @@ schnorr_legacy_hash_challenge(const wei_t *ec, sc_t e,
 }
 
 int
-schnorr_legacy_sign(const wei_t *ec,
-                    unsigned char *sig,
-                    const unsigned char *msg,
-                    size_t msg_len,
-                    const unsigned char *priv) {
-  /* Schnorr Signing.
+bipschnorr_sign(const wei_t *ec,
+                unsigned char *sig,
+                const unsigned char *msg,
+                size_t msg_len,
+                const unsigned char *priv) {
+  /* BIP-Schnorr Signing.
    *
    * [SCHNORR] "Signing".
    * [CASH] "Recommended practices for secure signature generation".
@@ -11562,7 +11562,7 @@ schnorr_legacy_sign(const wei_t *ec,
 
   wei_mul_g(ec, &A, a);
 
-  schnorr_legacy_hash_nonce(ec, k, priv, msg, msg_len);
+  bipschnorr_hash_nonce(ec, k, priv, msg, msg_len);
 
   ret &= sc_is_zero(sc, k) ^ 1;
 
@@ -11573,7 +11573,7 @@ schnorr_legacy_sign(const wei_t *ec,
   ret &= wge_export_x(ec, Rraw, &R);
   ret &= wge_export(ec, Araw, NULL, &A, 1);
 
-  schnorr_legacy_hash_challenge(ec, e, Rraw, Araw, msg, msg_len);
+  bipschnorr_hash_challenge(ec, e, Rraw, Araw, msg, msg_len);
 
   sc_mul(sc, s, e, a);
   sc_add(sc, s, s, k);
@@ -11594,13 +11594,13 @@ schnorr_legacy_sign(const wei_t *ec,
 }
 
 int
-schnorr_legacy_verify(const wei_t *ec,
-                      const unsigned char *msg,
-                      size_t msg_len,
-                      const unsigned char *sig,
-                      const unsigned char *pub,
-                      size_t pub_len) {
-  /* Schnorr Verification.
+bipschnorr_verify(const wei_t *ec,
+                  const unsigned char *msg,
+                  size_t msg_len,
+                  const unsigned char *sig,
+                  const unsigned char *pub,
+                  size_t pub_len) {
+  /* BIP-Schnorr Verification.
    *
    * [SCHNORR] "Verification".
    * [CASH] "Signature verification algorithm".
@@ -11659,7 +11659,7 @@ schnorr_legacy_verify(const wei_t *ec,
 
   ASSERT(wge_export(ec, Araw, NULL, &A, 1));
 
-  schnorr_legacy_hash_challenge(ec, e, Rraw, Araw, msg, msg_len);
+  bipschnorr_hash_challenge(ec, e, Rraw, Araw, msg, msg_len);
 
   sc_neg(sc, e, e);
 
@@ -11675,15 +11675,15 @@ schnorr_legacy_verify(const wei_t *ec,
 }
 
 int
-schnorr_legacy_verify_batch(const wei_t *ec,
-                            const unsigned char *const *msgs,
-                            const size_t *msg_lens,
-                            const unsigned char *const *sigs,
-                            const unsigned char *const *pubs,
-                            const size_t *pub_lens,
-                            size_t len,
-                            wei__scratch_t *scratch) {
-  /* Schnorr Batch Verification.
+bipschnorr_verify_batch(const wei_t *ec,
+                        const unsigned char *const *msgs,
+                        const size_t *msg_lens,
+                        const unsigned char *const *sigs,
+                        const unsigned char *const *pubs,
+                        const size_t *pub_lens,
+                        size_t len,
+                        wei__scratch_t *scratch) {
+  /* BIP-Schnorr Batch Verification.
    *
    * [SCHNORR] "Batch Verification".
    *
@@ -11784,7 +11784,7 @@ schnorr_legacy_verify_batch(const wei_t *ec,
 
     ASSERT(wge_export(ec, Araw, NULL, &A, 1));
 
-    schnorr_legacy_hash_challenge(ec, e, Rraw, Araw, msg, msg_len);
+    bipschnorr_hash_challenge(ec, e, Rraw, Araw, msg, msg_len);
 
     if (j == 0)
       sc_set_word(sc, a, 1);
@@ -11830,42 +11830,42 @@ schnorr_legacy_verify_batch(const wei_t *ec,
 }
 
 /*
- * Schnorr
+ * BIP340
  */
 
 size_t
-schnorr_privkey_size(const wei_t *ec) {
+bip340_privkey_size(const wei_t *ec) {
   return ec->sc.size;
 }
 
 size_t
-schnorr_pubkey_size(const wei_t *ec) {
+bip340_pubkey_size(const wei_t *ec) {
   return ec->fe.size;
 }
 
 size_t
-schnorr_sig_size(const wei_t *ec) {
+bip340_sig_size(const wei_t *ec) {
   return ec->fe.size + ec->sc.size;
 }
 
 void
-schnorr_privkey_generate(const wei_t *ec,
-                         unsigned char *out,
-                         const unsigned char *entropy) {
+bip340_privkey_generate(const wei_t *ec,
+                        unsigned char *out,
+                        const unsigned char *entropy) {
   ecdsa_privkey_generate(ec, out, entropy);
 }
 
 int
-schnorr_privkey_verify(const wei_t *ec, const unsigned char *priv) {
+bip340_privkey_verify(const wei_t *ec, const unsigned char *priv) {
   return ecdsa_privkey_verify(ec, priv);
 }
 
 int
-schnorr_privkey_export(const wei_t *ec,
-                       unsigned char *d_raw,
-                       unsigned char *x_raw,
-                       unsigned char *y_raw,
-                       const unsigned char *priv) {
+bip340_privkey_export(const wei_t *ec,
+                      unsigned char *d_raw,
+                      unsigned char *x_raw,
+                      unsigned char *y_raw,
+                      const unsigned char *priv) {
   const prime_field_t *fe = &ec->fe;
   const scalar_field_t *sc = &ec->sc;
   int ret = 1;
@@ -11896,18 +11896,18 @@ schnorr_privkey_export(const wei_t *ec,
 }
 
 int
-schnorr_privkey_import(const wei_t *ec,
-                       unsigned char *out,
-                       const unsigned char *bytes,
-                       size_t len) {
+bip340_privkey_import(const wei_t *ec,
+                      unsigned char *out,
+                      const unsigned char *bytes,
+                      size_t len) {
   return ecdsa_privkey_import(ec, out, bytes, len);
 }
 
 int
-schnorr_privkey_tweak_add(const wei_t *ec,
-                          unsigned char *out,
-                          const unsigned char *priv,
-                          const unsigned char *tweak) {
+bip340_privkey_tweak_add(const wei_t *ec,
+                         unsigned char *out,
+                         const unsigned char *priv,
+                         const unsigned char *tweak) {
   const scalar_field_t *sc = &ec->sc;
   int ret = 1;
   sc_t a, t;
@@ -11935,24 +11935,24 @@ schnorr_privkey_tweak_add(const wei_t *ec,
 }
 
 int
-schnorr_privkey_tweak_mul(const wei_t *ec,
-                          unsigned char *out,
-                          const unsigned char *priv,
-                          const unsigned char *tweak) {
+bip340_privkey_tweak_mul(const wei_t *ec,
+                         unsigned char *out,
+                         const unsigned char *priv,
+                         const unsigned char *tweak) {
   return ecdsa_privkey_tweak_mul(ec, out, priv, tweak);
 }
 
 int
-schnorr_privkey_invert(const wei_t *ec,
-                       unsigned char *out,
-                       const unsigned char *priv) {
+bip340_privkey_invert(const wei_t *ec,
+                      unsigned char *out,
+                      const unsigned char *priv) {
   return ecdsa_privkey_invert(ec, out, priv);
 }
 
 int
-schnorr_pubkey_create(const wei_t *ec,
-                      unsigned char *pub,
-                      const unsigned char *priv) {
+bip340_pubkey_create(const wei_t *ec,
+                     unsigned char *pub,
+                     const unsigned char *priv) {
   const scalar_field_t *sc = &ec->sc;
   int ret = 1;
   wge_t A;
@@ -11973,9 +11973,9 @@ schnorr_pubkey_create(const wei_t *ec,
 }
 
 void
-schnorr_pubkey_from_uniform(const wei_t *ec,
-                            unsigned char *out,
-                            const unsigned char *bytes) {
+bip340_pubkey_from_uniform(const wei_t *ec,
+                           unsigned char *out,
+                           const unsigned char *bytes) {
   wge_t A;
 
   wei_point_from_uniform(ec, &A, bytes);
@@ -11984,10 +11984,10 @@ schnorr_pubkey_from_uniform(const wei_t *ec,
 }
 
 int
-schnorr_pubkey_to_uniform(const wei_t *ec,
-                          unsigned char *out,
-                          const unsigned char *pub,
-                          unsigned int hint) {
+bip340_pubkey_to_uniform(const wei_t *ec,
+                         unsigned char *out,
+                         const unsigned char *pub,
+                         unsigned int hint) {
   int ret = 1;
   wge_t A;
 
@@ -11998,9 +11998,9 @@ schnorr_pubkey_to_uniform(const wei_t *ec,
 }
 
 int
-schnorr_pubkey_from_hash(const wei_t *ec,
-                         unsigned char *out,
-                         const unsigned char *bytes) {
+bip340_pubkey_from_hash(const wei_t *ec,
+                        unsigned char *out,
+                        const unsigned char *bytes) {
   wge_t A;
 
   wei_point_from_hash(ec, &A, bytes);
@@ -12009,11 +12009,11 @@ schnorr_pubkey_from_hash(const wei_t *ec,
 }
 
 int
-schnorr_pubkey_to_hash(const wei_t *ec,
-                       unsigned char *out,
-                       const unsigned char *pub,
-                       unsigned int subgroup,
-                       const unsigned char *entropy) {
+bip340_pubkey_to_hash(const wei_t *ec,
+                      unsigned char *out,
+                      const unsigned char *pub,
+                      unsigned int subgroup,
+                      const unsigned char *entropy) {
   int ret = 1;
   wge_t A;
 
@@ -12025,17 +12025,17 @@ schnorr_pubkey_to_hash(const wei_t *ec,
 }
 
 int
-schnorr_pubkey_verify(const wei_t *ec, const unsigned char *pub) {
+bip340_pubkey_verify(const wei_t *ec, const unsigned char *pub) {
   wge_t A;
 
   return wge_import_even(ec, &A, pub);
 }
 
 int
-schnorr_pubkey_export(const wei_t *ec,
-                      unsigned char *x_raw,
-                      unsigned char *y_raw,
-                      const unsigned char *pub) {
+bip340_pubkey_export(const wei_t *ec,
+                     unsigned char *x_raw,
+                     unsigned char *y_raw,
+                     const unsigned char *pub) {
   const prime_field_t *fe = &ec->fe;
   int ret = 1;
   wge_t A;
@@ -12049,12 +12049,12 @@ schnorr_pubkey_export(const wei_t *ec,
 }
 
 int
-schnorr_pubkey_import(const wei_t *ec,
-                      unsigned char *out,
-                      const unsigned char *x_raw,
-                      size_t x_len,
-                      const unsigned char *y_raw,
-                      size_t y_len) {
+bip340_pubkey_import(const wei_t *ec,
+                     unsigned char *out,
+                     const unsigned char *x_raw,
+                     size_t x_len,
+                     const unsigned char *y_raw,
+                     size_t y_len) {
   const prime_field_t *fe = &ec->fe;
   int has_x = (x_len > 0);
   int has_y = (y_len > 0);
@@ -12077,11 +12077,11 @@ schnorr_pubkey_import(const wei_t *ec,
 }
 
 int
-schnorr_pubkey_tweak_add(const wei_t *ec,
-                         unsigned char *out,
-                         int *negated,
-                         const unsigned char *pub,
-                         const unsigned char *tweak) {
+bip340_pubkey_tweak_add(const wei_t *ec,
+                        unsigned char *out,
+                        int *negated,
+                        const unsigned char *pub,
+                        const unsigned char *tweak) {
   const scalar_field_t *sc = &ec->sc;
   int ret = 1;
   wge_t A;
@@ -12108,17 +12108,17 @@ schnorr_pubkey_tweak_add(const wei_t *ec,
 }
 
 int
-schnorr_pubkey_tweak_add_check(const wei_t *ec,
-                               const unsigned char *pub,
-                               const unsigned char *tweak,
-                               const unsigned char *expect,
-                               int negated) {
+bip340_pubkey_tweak_add_check(const wei_t *ec,
+                              const unsigned char *pub,
+                              const unsigned char *tweak,
+                              const unsigned char *expect,
+                              int negated) {
   const prime_field_t *fe = &ec->fe;
   unsigned char raw[MAX_FIELD_SIZE];
   int ret = 1;
   int sign;
 
-  ret &= schnorr_pubkey_tweak_add(ec, raw, &sign, pub, tweak);
+  ret &= bip340_pubkey_tweak_add(ec, raw, &sign, pub, tweak);
   ret &= torsion_memequal(raw, expect, fe->size);
   ret &= (sign == (negated != 0));
 
@@ -12126,11 +12126,11 @@ schnorr_pubkey_tweak_add_check(const wei_t *ec,
 }
 
 int
-schnorr_pubkey_tweak_mul(const wei_t *ec,
-                         unsigned char *out,
-                         int *negated,
-                         const unsigned char *pub,
-                         const unsigned char *tweak) {
+bip340_pubkey_tweak_mul(const wei_t *ec,
+                        unsigned char *out,
+                        int *negated,
+                        const unsigned char *pub,
+                        const unsigned char *tweak) {
   const scalar_field_t *sc = &ec->sc;
   int ret = 1;
   wge_t A;
@@ -12152,17 +12152,17 @@ schnorr_pubkey_tweak_mul(const wei_t *ec,
 }
 
 int
-schnorr_pubkey_tweak_mul_check(const wei_t *ec,
-                               const unsigned char *pub,
-                               const unsigned char *tweak,
-                               const unsigned char *expect,
-                               int negated) {
+bip340_pubkey_tweak_mul_check(const wei_t *ec,
+                              const unsigned char *pub,
+                              const unsigned char *tweak,
+                              const unsigned char *expect,
+                              int negated) {
   const prime_field_t *fe = &ec->fe;
   unsigned char raw[MAX_FIELD_SIZE];
   int ret = 1;
   int sign;
 
-  ret &= schnorr_pubkey_tweak_mul(ec, raw, &sign, pub, tweak);
+  ret &= bip340_pubkey_tweak_mul(ec, raw, &sign, pub, tweak);
   ret &= torsion_memequal(raw, expect, fe->size);
   ret &= (sign == (negated != 0));
 
@@ -12170,10 +12170,10 @@ schnorr_pubkey_tweak_mul_check(const wei_t *ec,
 }
 
 int
-schnorr_pubkey_add(const wei_t *ec,
-                   unsigned char *out,
-                   const unsigned char *pub1,
-                   const unsigned char *pub2) {
+bip340_pubkey_add(const wei_t *ec,
+                  unsigned char *out,
+                  const unsigned char *pub1,
+                  const unsigned char *pub2) {
   int ret = 1;
   wge_t P, Q;
 
@@ -12188,10 +12188,10 @@ schnorr_pubkey_add(const wei_t *ec,
 }
 
 int
-schnorr_pubkey_combine(const wei_t *ec,
-                       unsigned char *out,
-                       const unsigned char *const *pubs,
-                       size_t len) {
+bip340_pubkey_combine(const wei_t *ec,
+                      unsigned char *out,
+                      const unsigned char *const *pubs,
+                      size_t len) {
   int ret = 1;
   size_t i;
   wge_t A;
@@ -12219,7 +12219,7 @@ schnorr_pubkey_combine(const wei_t *ec,
 }
 
 static void
-schnorr_hash_init(hash_t *hash, int type, const char *tag) {
+bip340_hash_init(hash_t *hash, int type, const char *tag) {
   /* [BIP340] "Tagged Hashes". */
   size_t hash_size = hash_output_size(type);
   size_t block_size = hash_block_size(type);
@@ -12241,10 +12241,10 @@ schnorr_hash_init(hash_t *hash, int type, const char *tag) {
 }
 
 static void
-schnorr_hash_aux(const wei_t *ec,
-                 unsigned char *out,
-                 const unsigned char *scalar,
-                 const unsigned char *aux) {
+bip340_hash_aux(const wei_t *ec,
+                unsigned char *out,
+                const unsigned char *scalar,
+                const unsigned char *aux) {
   const scalar_field_t *sc = &ec->sc;
   unsigned char bytes[MAX_SCALAR_SIZE];
   hash_t hash;
@@ -12267,7 +12267,7 @@ schnorr_hash_aux(const wei_t *ec,
 
     hash.type = HASH_SHA256;
   } else {
-    schnorr_hash_init(&hash, ec->xof, "BIP0340/aux");
+    bip340_hash_init(&hash, ec->xof, "BIP0340/aux");
   }
 
   hash_update(&hash, aux, 32);
@@ -12281,12 +12281,12 @@ schnorr_hash_aux(const wei_t *ec,
 }
 
 static void
-schnorr_hash_nonce(const wei_t *ec, sc_t k,
-                   const unsigned char *scalar,
-                   const unsigned char *point,
-                   const unsigned char *msg,
-                   size_t msg_len,
-                   const unsigned char *aux) {
+bip340_hash_nonce(const wei_t *ec, sc_t k,
+                  const unsigned char *scalar,
+                  const unsigned char *point,
+                  const unsigned char *msg,
+                  size_t msg_len,
+                  const unsigned char *aux) {
   const prime_field_t *fe = &ec->fe;
   const scalar_field_t *sc = &ec->sc;
   unsigned char secret[MAX_SCALAR_SIZE];
@@ -12296,7 +12296,7 @@ schnorr_hash_nonce(const wei_t *ec, sc_t k,
   STATIC_ASSERT(MAX_SCALAR_SIZE >= HASH_MAX_OUTPUT_SIZE);
 
   if (aux != NULL)
-    schnorr_hash_aux(ec, secret, scalar, aux);
+    bip340_hash_aux(ec, secret, scalar, aux);
   else
     memcpy(secret, scalar, sc->size);
 
@@ -12315,7 +12315,7 @@ schnorr_hash_nonce(const wei_t *ec, sc_t k,
 
     hash.type = HASH_SHA256;
   } else {
-    schnorr_hash_init(&hash, ec->xof, "BIP0340/nonce");
+    bip340_hash_init(&hash, ec->xof, "BIP0340/nonce");
   }
 
   hash_update(&hash, secret, sc->size);
@@ -12333,11 +12333,11 @@ schnorr_hash_nonce(const wei_t *ec, sc_t k,
 }
 
 static void
-schnorr_hash_challenge(const wei_t *ec, sc_t e,
-                       const unsigned char *R,
-                       const unsigned char *A,
-                       const unsigned char *msg,
-                       size_t msg_len) {
+bip340_hash_challenge(const wei_t *ec, sc_t e,
+                      const unsigned char *R,
+                      const unsigned char *A,
+                      const unsigned char *msg,
+                      size_t msg_len) {
   const prime_field_t *fe = &ec->fe;
   const scalar_field_t *sc = &ec->sc;
   unsigned char bytes[MAX_SCALAR_SIZE];
@@ -12360,7 +12360,7 @@ schnorr_hash_challenge(const wei_t *ec, sc_t e,
 
     hash.type = HASH_SHA256;
   } else {
-    schnorr_hash_init(&hash, ec->xof, "BIP0340/challenge");
+    bip340_hash_init(&hash, ec->xof, "BIP0340/challenge");
   }
 
   hash_update(&hash, R, fe->size);
@@ -12377,13 +12377,13 @@ schnorr_hash_challenge(const wei_t *ec, sc_t e,
 }
 
 int
-schnorr_sign(const wei_t *ec,
-             unsigned char *sig,
-             const unsigned char *msg,
-             size_t msg_len,
-             const unsigned char *priv,
-             const unsigned char *aux) {
-  /* Schnorr Signing.
+bip340_sign(const wei_t *ec,
+            unsigned char *sig,
+            const unsigned char *msg,
+            size_t msg_len,
+            const unsigned char *priv,
+            const unsigned char *aux) {
+  /* BIP340 Signing.
    *
    * [BIP340] "Default Signing".
    *
@@ -12434,7 +12434,7 @@ schnorr_sign(const wei_t *ec,
 
   ret &= wge_export_x(ec, Araw, &A);
 
-  schnorr_hash_nonce(ec, k, araw, Araw, msg, msg_len, aux);
+  bip340_hash_nonce(ec, k, araw, Araw, msg, msg_len, aux);
 
   ret &= sc_is_zero(sc, k) ^ 1;
 
@@ -12444,7 +12444,7 @@ schnorr_sign(const wei_t *ec,
 
   ret &= wge_export_x(ec, Rraw, &R);
 
-  schnorr_hash_challenge(ec, e, Rraw, Araw, msg, msg_len);
+  bip340_hash_challenge(ec, e, Rraw, Araw, msg, msg_len);
 
   sc_mul(sc, s, e, a);
   sc_add(sc, s, s, k);
@@ -12466,12 +12466,12 @@ schnorr_sign(const wei_t *ec,
 }
 
 int
-schnorr_verify(const wei_t *ec,
-               const unsigned char *msg,
-               size_t msg_len,
-               const unsigned char *sig,
-               const unsigned char *pub) {
-  /* Schnorr Verification.
+bip340_verify(const wei_t *ec,
+              const unsigned char *msg,
+              size_t msg_len,
+              const unsigned char *sig,
+              const unsigned char *pub) {
+  /* BIP340 Verification.
    *
    * [BIP340] "Verification".
    *
@@ -12520,7 +12520,7 @@ schnorr_verify(const wei_t *ec,
   if (!wge_import_even(ec, &A, pub))
     return 0;
 
-  schnorr_hash_challenge(ec, e, Rraw, pub, msg, msg_len);
+  bip340_hash_challenge(ec, e, Rraw, pub, msg, msg_len);
 
   sc_neg(sc, e, e);
 
@@ -12536,14 +12536,14 @@ schnorr_verify(const wei_t *ec,
 }
 
 int
-schnorr_verify_batch(const wei_t *ec,
-                     const unsigned char *const *msgs,
-                     const size_t *msg_lens,
-                     const unsigned char *const *sigs,
-                     const unsigned char *const *pubs,
-                     size_t len,
-                     wei__scratch_t *scratch) {
-  /* Schnorr Batch Verification.
+bip340_verify_batch(const wei_t *ec,
+                    const unsigned char *const *msgs,
+                    const size_t *msg_lens,
+                    const unsigned char *const *sigs,
+                    const unsigned char *const *pubs,
+                    size_t len,
+                    wei__scratch_t *scratch) {
+  /* BIP340 Batch Verification.
    *
    * [BIP340] "Batch Verification".
    *
@@ -12632,7 +12632,7 @@ schnorr_verify_batch(const wei_t *ec,
     if (!wge_import_even(ec, &A, pub))
       return 0;
 
-    schnorr_hash_challenge(ec, e, Rraw, pub, msg, msg_len);
+    bip340_hash_challenge(ec, e, Rraw, pub, msg, msg_len);
 
     if (j == 0)
       sc_set_word(sc, a, 1);
@@ -12678,10 +12678,10 @@ schnorr_verify_batch(const wei_t *ec,
 }
 
 int
-schnorr_derive(const wei_t *ec,
-               unsigned char *secret,
-               const unsigned char *pub,
-               const unsigned char *priv) {
+bip340_derive(const wei_t *ec,
+              unsigned char *secret,
+              const unsigned char *pub,
+              const unsigned char *priv) {
   const scalar_field_t *sc = &ec->sc;
   int ret = 1;
   wge_t A, P;

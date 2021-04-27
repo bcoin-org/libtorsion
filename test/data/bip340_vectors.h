@@ -1,4 +1,4 @@
-typedef struct schnorr_vector_s {
+typedef struct bip340_vector_s {
   const char *priv;
   const char *pub;
   const char *aux;
@@ -6,9 +6,9 @@ typedef struct schnorr_vector_s {
   const char *sig;
   int result;
   const char *comment;
-} schnorr_vector_t;
+} bip340_vector_t;
 
-static const schnorr_vector_t schnorr_vectors[] = {
+static const bip340_vector_t bip340_vectors[] = {
   {
     "0000000000000000000000000000000000000000000000000000000000000003",
     "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",

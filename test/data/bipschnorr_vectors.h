@@ -1,13 +1,13 @@
-typedef struct schnorr_legacy_vector_s {
+typedef struct bipschnorr_vector_s {
   const char *priv;
   const char *pub;
   const char *msg;
   const char *sig;
   int result;
   const char *comment;
-} schnorr_legacy_vector_t;
+} bipschnorr_vector_t;
 
-static const schnorr_legacy_vector_t schnorr_legacy_vectors[] = {
+static const bipschnorr_vector_t bipschnorr_vectors[] = {
   {
     "0000000000000000000000000000000000000000000000000000000000000001",
     "0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
