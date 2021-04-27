@@ -4351,10 +4351,7 @@ mpn_bytelen(const mp_limb_t *xp, mp_size_t xn) {
 
 size_t
 mpn_sizeinbase(const mp_limb_t *xp, mp_size_t xn, int base) {
-  mp_divisor_t den;
-  mp_limb_t *tp;
-  mp_size_t tn;
-  size_t len;
+  size_t len = 0;
 
   if (base < 2)
     torsion_abort(); /* LCOV_EXCL_LINE */
@@ -4364,29 +4361,28 @@ mpn_sizeinbase(const mp_limb_t *xp, mp_size_t xn, int base) {
   if (xn == 0)
     return 1;
 
-  /* Fast case. */
   if ((base & (base - 1)) == 0) {
-    len = xn * MP_LIMB_BITS - mp_clz(xp[xn - 1]);
-    base = mp_bitlen(base - 1);
-    return (len + base - 1) / base;
+    mp_bits_t bits = xn * MP_LIMB_BITS - mp_clz(xp[xn - 1]);
+    mp_bits_t width = mp_bitlen(base - 1);
+
+    len = (bits + width - 1) / width;
+  } else {
+    mp_limb_t *tp = mp_alloc_vla(xn);
+    mp_size_t tn = xn;
+    mp_divisor_t den;
+
+    mpn_copyi(tp, xp, xn);
+
+    mpn_divmod_init_1(&den, base);
+
+    do {
+      mpn_divmod_inner_1(tp, tp, tn, &den);
+      tn -= (tp[tn - 1] == 0);
+      len += 1;
+    } while (tn != 0);
+
+    mp_free_vla(tp, xn);
   }
-
-  /* Slow case. */
-  tp = mp_alloc_vla(xn);
-  tn = xn;
-  len = 0;
-
-  mpn_copyi(tp, xp, xn);
-
-  mpn_divmod_init_1(&den, base);
-
-  do {
-    mpn_divmod_inner_1(tp, tp, tn, &den);
-    tn -= (tp[tn - 1] == 0);
-    len += 1;
-  } while (tn != 0);
-
-  mp_free_vla(tp, xn);
 
   return len;
 }
