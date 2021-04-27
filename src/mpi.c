@@ -1312,8 +1312,10 @@ mpn_add_1(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn, mp_limb_t y) {
     zp[i] = z;
   }
 
-  if (zp != xp && i < xn)
-    mpn_copyi(zp + i, xp + i, xn - i);
+  if (zp != xp) {
+    for (; i < xn; i++)
+      zp[i] = xp[i];
+  }
 
   return c;
 }
@@ -1444,8 +1446,10 @@ mpn_sub_1(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn, mp_limb_t y) {
     zp[i] = z;
   }
 
-  if (zp != xp && i < xn)
-    mpn_copyi(zp + i, xp + i, xn - i);
+  if (zp != xp) {
+    for (; i < xn; i++)
+      zp[i] = xp[i];
+  }
 
   return c;
 }
@@ -4875,8 +4879,6 @@ mpn_get_str(char *str, const mp_limb_t *xp, mp_size_t xn, int base) {
     } while (tn != 0);
   }
 
-  mp_free_vla(tp, xn);
-
   i = 0;
   j = len - 1;
   k = len >> 1;
@@ -4888,6 +4890,8 @@ mpn_get_str(char *str, const mp_limb_t *xp, mp_size_t xn, int base) {
   }
 
   str[len] = '\0';
+
+  mp_free_vla(tp, xn);
 
   return len;
 }
