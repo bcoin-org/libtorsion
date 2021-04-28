@@ -1174,6 +1174,12 @@ mp_export_be(unsigned char *zp, mp_limb_t x) {
 }
 
 /*
+ * Globals
+ */
+
+const int mp_bits_per_limb = MP_LIMB_BITS;
+
+/*
  * MPN Interface
  */
 
@@ -5107,13 +5113,15 @@ mpz_roset_n(mpz_t z, const mp_limb_t *xp, mp_size_t xs) {
   z->size = xs;
 }
 
-void
+const struct mpz_s *
 mpz_roinit_n(mpz_t z, const mp_limb_t *xp, mp_size_t xs) {
   mp_size_t zn = mpn_strip(xp, MP_ABS(xs));
 
   z->limbs = (mp_limb_t *)xp;
   z->alloc = 0;
   z->size = xs < 0 ? -zn : zn;
+
+  return z;
 }
 
 void
@@ -8767,7 +8775,7 @@ mpz_getlimbn(const mpz_t x, mp_size_t n) {
   return x->limbs[n];
 }
 
-mp_size_t
+size_t
 mpz_size(const mpz_t x) {
   return MP_ABS(x->size);
 }

@@ -18,6 +18,7 @@
  * Symbol Aliases
  */
 
+#define mp_bits_per_limb __torsion_mp_bits_per_limb
 #define mpn_zero __torsion_mpn_zero
 #define mpn_cleanse __torsion_mpn_cleanse
 #define mpn_set_1 __torsion_mpn_set_1
@@ -311,6 +312,7 @@ typedef int32_t mp_long_t;
 
 typedef long mp_size_t;
 typedef long mp_bits_t;
+typedef mp_bits_t mp_bitcnt_t; /* compat */
 
 #define MP_SIZE_C(x) x ## L
 #define MP_SIZE_MIN LONG_MIN
@@ -318,8 +320,6 @@ typedef long mp_bits_t;
 #define MP_BITS_C(x) x ## L
 #define MP_BITS_MIN LONG_MIN
 #define MP_BITS_MAX LONG_MAX
-
-typedef mp_bits_t mp_bitcnt_t; /* compat */
 
 #define MP_LIMB_HI (MP_LIMB_C(1) << (MP_LIMB_BITS - 1))
 #define MP_MASK(bits) ((MP_LIMB_C(1) << (bits)) - 1)
@@ -333,6 +333,21 @@ struct mpz_s {
 };
 
 typedef struct mpz_s mpz_t[1];
+
+/* Note: these types aren't strictly documented,
+ * but they are sometimes referenced in the docs[1],
+ * and they are no doubt used by programmers as
+ * they have been mentioned on the mailing list
+ * a number of times[2][3].
+ *
+ * [1] https://gmplib.org/manual/Integer-Special-Functions
+ * [2] https://gmplib.org/list-archives/gmp-discuss/2011-February/004493.html
+ * [3] https://gmplib.org/list-archives/gmp-discuss/2009-May/003769.html
+ */
+typedef mp_limb_t *mp_ptr;
+typedef const mp_limb_t *mp_srcptr;
+typedef struct mpz_s *mpz_ptr;
+typedef const struct mpz_s *mpz_srcptr;
 
 typedef int mp_puts_f(const char *s);
 typedef void mp_rng_f(void *out, size_t size, void *arg);
@@ -376,6 +391,13 @@ typedef void mp_end_f(uint64_t *start, uint64_t ops);
  */
 
 #define MPZ_ROINIT_N(xp, xs) {{(mp_limb_t *)(xp), 0, (xs)}}
+
+/*
+ * Globals
+ */
+
+/* https://gmplib.org/manual/Useful-Macros-and-Constants */
+extern const int mp_bits_per_limb;
 
 /*
  * MPN Interface
@@ -964,7 +986,7 @@ mpz_set(mpz_t z, const mpz_t x);
 void
 mpz_roset(mpz_t z, const mpz_t x);
 
-void
+const struct mpz_s *
 mpz_roinit_n(mpz_t z, const mp_limb_t *xp, mp_size_t xs);
 
 void
@@ -1490,7 +1512,7 @@ mpz_realloc2(mpz_t z, mp_bits_t bits);
 mp_limb_t
 mpz_getlimbn(const mpz_t x, mp_size_t n);
 
-mp_size_t
+size_t
 mpz_size(const mpz_t x);
 
 const mp_limb_t *
