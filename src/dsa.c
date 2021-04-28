@@ -1027,8 +1027,13 @@ dsa_privkey_import(unsigned char *out, size_t *out_len,
   if (!dsa_priv_import_dumb(&k, key, key_len))
     goto fail;
 
-  if (!dsa_priv_recover(&k))
-    goto fail;
+  if (mpz_sgn(k.y) == 0) {
+    if (!dsa_priv_recover(&k))
+      goto fail;
+  } else {
+    if (!dsa_priv_is_sane(&k))
+      goto fail;
+  }
 
   dsa_priv_export(out, out_len, &k);
   ret = 1;
