@@ -139,7 +139,7 @@ extern "C" {
  */
 
 typedef enum cipher_id {
-  CIPHER_AES128 = 0,
+  CIPHER_AES128,
   CIPHER_AES192,
   CIPHER_AES256,
   CIPHER_ARC2,
@@ -171,7 +171,7 @@ typedef enum cipher_id {
  */
 
 typedef enum mode_id {
-  CIPHER_MODE_RAW = 0,
+  CIPHER_MODE_RAW,
   CIPHER_MODE_ECB,
   CIPHER_MODE_CBC,
   CIPHER_MODE_CTS,

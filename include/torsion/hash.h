@@ -146,7 +146,7 @@ extern "C" {
  */
 
 typedef enum hash_id {
-  HASH_NONE = 0,
+  HASH_NONE,
   HASH_BLAKE2B_160,
   HASH_BLAKE2B_256,
   HASH_BLAKE2B_384,
