@@ -178,8 +178,7 @@ typedef enum hash_id {
   HASH_SHA3_512,
   HASH_SHAKE128,
   HASH_SHAKE256,
-  HASH_WHIRLPOOL,
-  HASH_MAX = HASH_WHIRLPOOL
+  HASH_WHIRLPOOL
 } hash_id_t;
 
 /*

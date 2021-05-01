@@ -259,21 +259,18 @@ typedef enum wei_curve_id {
   WEI_CURVE_P256,
   WEI_CURVE_P384,
   WEI_CURVE_P521,
-  WEI_CURVE_SECP256K1,
-  WEI_CURVE_MAX = WEI_CURVE_SECP256K1
+  WEI_CURVE_SECP256K1
 } wei_curve_id_t;
 
 typedef enum mont_curve_id {
   MONT_CURVE_X25519,
-  MONT_CURVE_X448,
-  MONT_CURVE_MAX = MONT_CURVE_X448
+  MONT_CURVE_X448
 } mont_curve_id_t;
 
 typedef enum edwards_curve_id {
   EDWARDS_CURVE_ED25519,
   EDWARDS_CURVE_ED448,
-  EDWARDS_CURVE_ED1174,
-  EDWARDS_CURVE_MAX = EDWARDS_CURVE_ED1174
+  EDWARDS_CURVE_ED1174
 } edwards_curve_id_t;
 
 /*
