@@ -49,19 +49,15 @@ static void
 bench_puts64(const char *pre, uint64_t x) {
   /* Implement our own PRIu64. */
   char str[20 + 1];
-  int i, j, k, ch;
   int len = 0;
+  int i = 0;
+  int ch;
 
-  if (x == 0) {
-    str[len++] = '0';
-  } else {
-    do {
-      str[len++] = (x % 10) + '0';
-      x /= 10;
-    } while (x > 0);
-  }
+  do {
+    str[len++] = (x % 10) + '0';
+    x /= 10;
+  } while (x != 0);
 
-  i = 0;
   j = len - 1;
   k = len >> 1;
 
