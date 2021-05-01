@@ -328,8 +328,8 @@ test_cipher_contexts(drbg_t *unused) {
   unsigned char iv[CIPHER_MAX_BLOCK_SIZE];
   unsigned char expect[CIPHER_MAX_BLOCK_SIZE];
   unsigned char data[CIPHER_MAX_BLOCK_SIZE];
-  cipher_t ctx;
   unsigned int i, j;
+  cipher_t ctx;
 
   (void)unused;
 
@@ -338,7 +338,6 @@ test_cipher_contexts(drbg_t *unused) {
     size_t size = cipher_block_size(type);
     size_t key_len = sizeof(key);
 
-    ASSERT(type >= 0 && type <= CIPHER_MAX);
     ASSERT(size != 0);
 
     printf("  - Cipher vector #%u (%s)\n", i + 1, cipher_names[type]);
@@ -381,9 +380,6 @@ test_cipher_modes(drbg_t *rng) {
     size_t input_len = sizeof(input);
     size_t output_len = sizeof(output);
     size_t len, len1, len2;
-
-    ASSERT(type >= 0 && type <= CIPHER_MAX);
-    ASSERT(mode >= 0 && mode <= CIPHER_MODE_MAX);
 
     printf("  - Cipher mode vector #%u (%s-%s)\n",
            i + 1, cipher_names[type], cipher_modes[mode]);
@@ -531,9 +527,6 @@ test_cipher_aead(drbg_t *rng) {
     size_t output_len = sizeof(output);
     size_t tag_len = sizeof(tag);
     size_t len;
-
-    ASSERT(type >= 0 && type <= CIPHER_MAX);
-    ASSERT(mode >= 0 && mode <= CIPHER_MODE_MAX);
 
     printf("  - Cipher AEAD vector #%u (%s-%s)\n",
            i + 1, cipher_names[type], cipher_modes[mode]);
@@ -977,7 +970,7 @@ test_ecdsa_vectors(drbg_t *unused) {
   unsigned char tweakneg[ECDSA_MAX_PRIV_SIZE];
   unsigned char tweakinv[ECDSA_MAX_PRIV_SIZE];
   unsigned char out[ECDSA_MAX_DER_SIZE];
-  wei_curve_t *curves[WEI_CURVE_MAX + 1];
+  wei_curve_t *curves[ARRAY_SIZE(wei_curves)];
   const unsigned char *pubs[3];
   size_t publens[3];
   unsigned int flag;
@@ -1164,13 +1157,13 @@ test_ecdsa_random(drbg_t *rng) {
   size_t i, j;
 
   for (i = 0; i < ARRAY_SIZE(wei_curves); i++) {
-    const char *id = wei_curves[i];
-    wei_curve_t *ec = wei_curve_create(i);
+    wei_curve_id_t type = (wei_curve_id_t)i;
+    wei_curve_t *ec = wei_curve_create(type);
     size_t fe_size = wei_curve_field_size(ec);
     size_t fe_bits = wei_curve_field_bits(ec);
     size_t sc_size = wei_curve_scalar_size(ec);
 
-    printf("  - %s\n", id);
+    printf("  - %s\n", wei_curves[type]);
 
     for (j = 0; j < 10; j++) {
       unsigned char entropy[ENTROPY_SIZE];
@@ -1364,15 +1357,15 @@ test_bipschnorr_random(drbg_t *rng) {
   size_t i, j;
 
   for (i = 0; i < ARRAY_SIZE(wei_curves); i++) {
-    const char *id = wei_curves[i];
+    wei_curve_id_t type = (wei_curve_id_t)i;
     wei_curve_t *ec;
 
-    if (i == WEI_CURVE_P224)
+    if (type == WEI_CURVE_P224)
       continue;
 
-    ec = wei_curve_create(i);
+    ec = wei_curve_create(type);
 
-    printf("  - %s\n", id);
+    printf("  - %s\n", wei_curves[type]);
 
     for (j = 0; j < 10; j++) {
       unsigned char entropy[ENTROPY_SIZE];
@@ -1487,10 +1480,10 @@ test_bip340_random(drbg_t *rng) {
   size_t i, j;
 
   for (i = 0; i < ARRAY_SIZE(wei_curves); i++) {
-    const char *id = wei_curves[i];
-    wei_curve_t *ec = wei_curve_create(i);
+    wei_curve_id_t type = (wei_curve_id_t)i;
+    wei_curve_t *ec = wei_curve_create(type);
 
-    printf("  - %s\n", id);
+    printf("  - %s\n", wei_curves[type]);
 
     for (j = 0; j < 10; j++) {
       unsigned char entropy[ENTROPY_SIZE];
@@ -1707,11 +1700,11 @@ test_ecdh_random(drbg_t *rng) {
   size_t i, j;
 
   for (i = 0; i < ARRAY_SIZE(mont_curves); i++) {
-    const char *id = mont_curves[i];
-    mont_curve_t *ec = mont_curve_create(i);
+    mont_curve_id_t type = (mont_curve_id_t)i;
+    mont_curve_t *ec = mont_curve_create(type);
     size_t fe_size = mont_curve_field_size(ec);
 
-    printf("  - %s\n", id);
+    printf("  - %s\n", mont_curves[type]);
 
     for (j = 0; j < 10; j++) {
       unsigned char alice_priv[ECDH_MAX_PRIV_SIZE];
@@ -1799,8 +1792,8 @@ test_eddsa_vectors(drbg_t *unused) {
   unsigned char tweakinv[EDWARDS_MAX_SCALAR_SIZE];
   unsigned char inf[EDDSA_MAX_PUB_SIZE];
   unsigned char out[EDDSA_MAX_SIG_SIZE];
-  edwards_curve_t *curves[EDWARDS_CURVE_MAX + 1];
-  edwards_scratch_t *scratches[EDWARDS_CURVE_MAX + 1];
+  edwards_curve_t *curves[ARRAY_SIZE(edwards_curves)];
+  edwards_scratch_t *scratches[ARRAY_SIZE(edwards_curves)];
   const unsigned char *pubs[3];
   const unsigned char *msgs[1];
   const unsigned char *sigs[1];
@@ -2016,12 +2009,12 @@ test_eddsa_random(drbg_t *rng) {
   size_t i, j;
 
   for (i = 0; i < ARRAY_SIZE(edwards_curves); i++) {
-    const char *id = edwards_curves[i];
-    edwards_curve_t *ec = edwards_curve_create(i);
+    edwards_curve_id_t type = (edwards_curve_id_t)i;
+    edwards_curve_t *ec = edwards_curve_create(type);
     size_t fe_size = edwards_curve_field_size(ec);
     size_t sc_size = edwards_curve_scalar_size(ec);
 
-    printf("  - %s\n", id);
+    printf("  - %s\n", edwards_curves[type]);
 
     for (j = 0; j < 10; j++) {
       unsigned char entropy[ENTROPY_SIZE];
@@ -3647,7 +3640,7 @@ test_hash_digest(drbg_t *rng) {
     }
   }
 
-  for (i = 1; i <= (unsigned int)HASH_MAX; i++) {
+  for (i = 1; i < ARRAY_SIZE(hash_names); i++) {
     hash_id_t type = (hash_id_t)i;
     size_t size = hash_output_size(type);
     size_t iv_len = sizeof(iv);

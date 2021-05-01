@@ -35,14 +35,23 @@
 #include <torsion/util.h>
 #include "utils.h"
 
+static const char *wei_curves[6] = {
+  "P192",
+  "P224",
+  "P256",
+  "P384",
+  "P521",
+  "SECP256K1"
+};
+
 static void
 redefine(void *ptr, size_t size) {
   VALGRIND_MAKE_MEM_DEFINED(ptr, size);
 }
 
 static void
-test_ecdsa(wei_curve_id_t curve_id) {
-  wei_curve_t *ec = wei_curve_create(curve_id);
+test_ecdsa(wei_curve_id_t type) {
+  wei_curve_t *ec = wei_curve_create(type);
   unsigned char priv[32];
   unsigned char msg[32];
   unsigned char sig[64];
@@ -53,7 +62,7 @@ test_ecdsa(wei_curve_id_t curve_id) {
   size_t i;
   int ret;
 
-  printf("Testing ECDSA (%d)...\n", curve_id);
+  printf("Testing ECDSA (%s)...\n", wei_curves[type]);
 
   for (i = 0; i < 32; i++)
     priv[i] = i + 65;
