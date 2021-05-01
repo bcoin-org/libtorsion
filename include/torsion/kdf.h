@@ -14,6 +14,7 @@ extern "C" {
 #include <stddef.h>
 #include <stdint.h>
 #include "common.h"
+#include "hash.h"
 
 /*
  * Symbol Aliases
