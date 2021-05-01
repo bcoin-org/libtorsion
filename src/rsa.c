@@ -1237,7 +1237,7 @@ static int
 get_digest_info(const unsigned char **data, size_t *len, hash_id_t type) {
   const unsigned char *info;
 
-  if (type < 0 || (size_t)type > ARRAY_SIZE(digest_info))
+  if (type < 0 || (size_t)type >= ARRAY_SIZE(digest_info))
     return 0;
 
   info = digest_info[type];

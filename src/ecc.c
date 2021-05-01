@@ -10270,7 +10270,7 @@ wei_t *
 wei_curve_create(wei_curve_id_t type) {
   wei_t *ec = NULL;
 
-  if (type < 0 || (size_t)type > ARRAY_SIZE(wei_curves))
+  if (type < 0 || (size_t)type >= ARRAY_SIZE(wei_curves))
     return NULL;
 
   ec = checked_malloc(sizeof(wei_t));
@@ -10361,7 +10361,7 @@ mont_t *
 mont_curve_create(mont_curve_id_t type) {
   mont_t *ec = NULL;
 
-  if (type < 0 || (size_t)type > ARRAY_SIZE(mont_curves))
+  if (type < 0 || (size_t)type >= ARRAY_SIZE(mont_curves))
     return NULL;
 
   ec = checked_malloc(sizeof(mont_t));
@@ -10405,7 +10405,7 @@ edwards_t *
 edwards_curve_create(edwards_curve_id_t type) {
   edwards_t *ec = NULL;
 
-  if (type < 0 || (size_t)type > ARRAY_SIZE(edwards_curves))
+  if (type < 0 || (size_t)type >= ARRAY_SIZE(edwards_curves))
     return NULL;
 
   ec = checked_malloc(sizeof(edwards_t));
