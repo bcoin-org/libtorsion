@@ -110,7 +110,7 @@
 #  include <time.h> /* clock_gettime */
 #  ifdef __linux__
 #    if defined(__GLIBC_PREREQ)
-#      define TORSION_GLIBC_PREREQ(maj, min) __GLIBC_PREREQ(maj, min)
+#      define TORSION_GLIBC_PREREQ __GLIBC_PREREQ
 #    else
 #      define TORSION_GLIBC_PREREQ(maj, min) 0
 #    endif
