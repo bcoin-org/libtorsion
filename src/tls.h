@@ -323,7 +323,6 @@
 #  if __HP_cc >= 55502 /* A.05.55.02 (2004) */
 #    define TORSION_TLS_GNUC
 #  endif
-#  define TORSION_TLS_GNUC
 #elif defined(__WATCOMC__)
 #  if __WATCOMC__ >= 1200 /* Open Watcom 1.0 (2003) */
 #    define TORSION_TLS_MSVC
