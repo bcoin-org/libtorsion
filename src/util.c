@@ -48,8 +48,8 @@ torsion_memzero(void *ptr, size_t len) {
 
 int
 torsion_memequal(const void *x, const void *y, size_t n) {
-  const unsigned char *xp = x;
-  const unsigned char *yp = y;
+  const unsigned char *xp = (const unsigned char *)x;
+  const unsigned char *yp = (const unsigned char *)y;
   uint32_t z = 0;
 
   while (n--)
@@ -64,8 +64,8 @@ torsion_memequal(const void *x, const void *y, size_t n) {
 
 void
 torsion_memxor(void *z, const void *x, size_t n) {
-  const unsigned char *xp = x;
-  unsigned char *zp = z;
+  const unsigned char *xp = (const unsigned char *)x;
+  unsigned char *zp = (unsigned char *)z;
 
   while (n--)
     *zp++ ^= *xp++;
@@ -73,9 +73,9 @@ torsion_memxor(void *z, const void *x, size_t n) {
 
 void
 torsion_memxor3(void *z, const void *x, const void *y, size_t n) {
-  const unsigned char *xp = x;
-  const unsigned char *yp = y;
-  unsigned char *zp = z;
+  const unsigned char *xp = (const unsigned char *)x;
+  const unsigned char *yp = (const unsigned char *)y;
+  unsigned char *zp = (unsigned char *)z;
 
   while (n--)
     *zp++ = *xp++ ^ *yp++;

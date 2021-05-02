@@ -279,7 +279,7 @@ done:
 #ifdef HAVE_DLITERATEPHDR
 static int
 sha512_write_phdr(struct dl_phdr_info *info, size_t size, void *data) {
-  sha512_t *hash = data;
+  sha512_t *hash = (sha512_t *)data;
 
   (void)size;
 
@@ -430,7 +430,7 @@ sha512_write_cpuids(sha512_t *hash) {
 static void
 sha512_write_perfdata(sha512_t *hash, size_t max) {
   size_t size = max < 80 ? max : max / 40;
-  BYTE *data = malloc(size);
+  BYTE *data = (BYTE *)malloc(size);
   DWORD nread;
   LSTATUS ret;
 
@@ -453,7 +453,7 @@ sha512_write_perfdata(sha512_t *hash, size_t max) {
     if (size > max)
       size = max;
 
-    data = realloc(data, size);
+    data = (BYTE *)realloc(data, size);
 
     if (data == NULL)
       break;
@@ -604,7 +604,7 @@ sha512_write_static_env(sha512_t *hash) {
       ret = GetAdaptersAddresses(AF_UNSPEC, flags, NULL, addrs, &size);
 
       if (ret == ERROR_BUFFER_OVERFLOW) {
-        addrs = realloc(addrs, size);
+        addrs = (IP_ADAPTER_ADDRESSES *)realloc(addrs, size);
 
         if (addrs == NULL)
           break;

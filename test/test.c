@@ -979,7 +979,7 @@ test_ecdsa_vectors(drbg_t *unused) {
   (void)unused;
 
   for (i = 0; i < ARRAY_SIZE(curves); i++)
-    curves[i] = wei_curve_create(i);
+    curves[i] = wei_curve_create((wei_curve_id_t)i);
 
   for (i = 0; i < ARRAY_SIZE(ecdsa_vectors); i++) {
     wei_curve_id_t type = ecdsa_vectors[i].type;
@@ -1802,7 +1802,7 @@ test_eddsa_vectors(drbg_t *unused) {
   (void)unused;
 
   for (i = 0; i < ARRAY_SIZE(curves); i++) {
-    curves[i] = edwards_curve_create(i);
+    curves[i] = edwards_curve_create((edwards_curve_id_t)i);
     scratches[i] = edwards_scratch_create(curves[i], 10);
   }
 
@@ -4276,7 +4276,7 @@ test_mpi_internal(drbg_t *rng) {
 #ifdef TORSION_HAVE_RNG
 static int
 looks_random(const void *data, size_t size) {
-  const unsigned char *raw = data;
+  const unsigned char *raw = (const unsigned char *)data;
   uint64_t sum = 0;
   uint64_t avg;
   size_t i, j;
@@ -4321,9 +4321,9 @@ test_rand_getrandom(drbg_t *unused) {
 
 #ifdef TORSION_HAVE_ZLIB
 static size_t
-rand_deflate_perc(const void *data, size_t size) {
+rand_deflate_perc(const unsigned char *data, size_t size) {
   size_t len = compressBound(size);
-  unsigned char *buf = malloc(len);
+  unsigned char *buf = (unsigned char *)malloc(len);
 
   ASSERT(size != 0);
   ASSERT(buf != NULL);
@@ -4337,7 +4337,7 @@ rand_deflate_perc(const void *data, size_t size) {
 static void
 test_rand_deflate_sanity(drbg_t *unused) {
   size_t size = (size_t)4 << 20;
-  unsigned char *data = malloc(size);
+  unsigned char *data = (unsigned char *)malloc(size);
 
   (void)unused;
 
@@ -4353,7 +4353,7 @@ test_rand_deflate_sanity(drbg_t *unused) {
 static void
 test_rand_getentropy_deflate(drbg_t *unused) {
   size_t size = (size_t)4 << 20;
-  unsigned char *data = malloc(size);
+  unsigned char *data = (unsigned char *)malloc(size);
 
   (void)unused;
 
@@ -4367,7 +4367,7 @@ test_rand_getentropy_deflate(drbg_t *unused) {
 static void
 test_rand_getrandom_deflate(drbg_t *unused) {
   size_t size = (size_t)4 << 20;
-  unsigned char *data = malloc(size);
+  unsigned char *data = (unsigned char *)malloc(size);
 
   (void)unused;
 
@@ -4419,7 +4419,7 @@ typedef struct rng_res_s {
 
 static void *
 thread_random(void *ptr) {
-  rng_res_t *obj = ptr;
+  rng_res_t *obj = (rng_res_t *)ptr;
 
   obj->ptr = torsion_randomaddr();
 
@@ -4951,9 +4951,9 @@ test_stream_salsa20(drbg_t *rng) {
   };
 
   size_t size = 131072;
-  unsigned char *inp = malloc(size);
-  unsigned char *out = malloc(size);
-  unsigned char *exp = malloc(size);
+  unsigned char *inp = (unsigned char *)malloc(size);
+  unsigned char *out = (unsigned char *)malloc(size);
+  unsigned char *exp = (unsigned char *)malloc(size);
   unsigned char acc[64];
   unsigned int i, j, k;
   salsa20_t ctx;

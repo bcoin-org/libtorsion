@@ -2756,7 +2756,7 @@ wge_fixed_points_var(const wei_t *ec, wge_t *out, const wge_t *p) {
   const scalar_field_t *sc = &ec->sc;
   mp_bits_t steps = FIXED_STEPS(sc->bits);
   mp_bits_t size = steps * FIXED_SIZE;
-  jge_t *wnds = checked_malloc(size * sizeof(jge_t)); /* 442.2kb */
+  jge_t *wnds = (jge_t *)checked_malloc(size * sizeof(jge_t)); /* 442.2kb */
   mp_bits_t i, j;
   jge_t g;
 
@@ -2783,7 +2783,7 @@ static void
 wge_naf_points_var(const wei_t *ec, wge_t *out, const wge_t *p, int width) {
   /* NOTE: Only called on initialization. */
   int size = 1 << (width - 2);
-  jge_t *wnd = checked_malloc(size * sizeof(jge_t)); /* 216kb */
+  jge_t *wnd = (jge_t *)checked_malloc(size * sizeof(jge_t)); /* 216kb */
   jge_t j, dbl;
   int i;
 
@@ -7055,7 +7055,7 @@ xge_normalize_all_var(const edwards_t *ec, xge_t *out,
                       const xge_t *in, size_t len) {
   /* Montgomery's trick. */
   const prime_field_t *fe = &ec->fe;
-  fe_t *invs = checked_malloc(len * sizeof(fe_t));
+  fe_t *invs = (fe_t *)checked_malloc(len * sizeof(fe_t));
   fe_t acc;
   size_t i;
 
@@ -10273,7 +10273,7 @@ wei_curve_create(wei_curve_id_t type) {
   if (type < 0 || (size_t)type >= ARRAY_SIZE(wei_curves))
     return NULL;
 
-  ec = checked_malloc(sizeof(wei_t));
+  ec = (wei_t *)checked_malloc(sizeof(wei_t));
 
   wei_init(ec, wei_curves[type]);
 
@@ -10316,24 +10316,25 @@ wei_curve_field_bits(const wei_t *ec) {
 
 wei__scratch_t *
 wei_scratch_create(const wei_t *ec, size_t size) {
-  wei__scratch_t *scratch = checked_malloc(sizeof(wei__scratch_t));
+  wei__scratch_t *scratch =
+    (wei__scratch_t *)checked_malloc(sizeof(wei__scratch_t));
   size_t length = ec->endo ? size : size / 2;
   size_t bits = ec->endo ? ec->sc.endo_bits : ec->sc.bits;
   size_t i;
 
   scratch->size = size;
-  scratch->wnd = checked_malloc(length * JSF_SIZE * sizeof(jge_t));
-  scratch->wnds = checked_malloc(length * sizeof(jge_t *));
-  scratch->naf = checked_malloc(length * (bits + 1) * sizeof(int));
-  scratch->nafs = checked_malloc(length * sizeof(int *));
+  scratch->wnd = (jge_t *)checked_malloc(length * JSF_SIZE * sizeof(jge_t));
+  scratch->wnds = (jge_t **)checked_malloc(length * sizeof(jge_t *));
+  scratch->naf = (int *)checked_malloc(length * (bits + 1) * sizeof(int));
+  scratch->nafs = (int **)checked_malloc(length * sizeof(int *));
 
   for (i = 0; i < length; i++) {
     scratch->wnds[i] = &scratch->wnd[i * JSF_SIZE];
     scratch->nafs[i] = &scratch->naf[i * (bits + 1)];
   }
 
-  scratch->points = checked_malloc(size * sizeof(wge_t));
-  scratch->coeffs = checked_malloc(size * sizeof(sc_t));
+  scratch->points = (wge_t *)checked_malloc(size * sizeof(wge_t));
+  scratch->coeffs = (sc_t *)checked_malloc(size * sizeof(sc_t));
 
   return scratch;
 }
@@ -10364,7 +10365,7 @@ mont_curve_create(mont_curve_id_t type) {
   if (type < 0 || (size_t)type >= ARRAY_SIZE(mont_curves))
     return NULL;
 
-  ec = checked_malloc(sizeof(mont_t));
+  ec = (mont_t *)checked_malloc(sizeof(mont_t));
 
   mont_init(ec, mont_curves[type]);
 
@@ -10408,7 +10409,7 @@ edwards_curve_create(edwards_curve_id_t type) {
   if (type < 0 || (size_t)type >= ARRAY_SIZE(edwards_curves))
     return NULL;
 
-  ec = checked_malloc(sizeof(edwards_t));
+  ec = (edwards_t *)checked_malloc(sizeof(edwards_t));
 
   edwards_init(ec, edwards_curves[type]);
 
@@ -10451,24 +10452,25 @@ edwards_curve_field_bits(const edwards_t *ec) {
 
 edwards__scratch_t *
 edwards_scratch_create(const edwards_t *ec, size_t size) {
-  edwards__scratch_t *scratch = checked_malloc(sizeof(edwards__scratch_t));
+  edwards__scratch_t *scratch =
+    (edwards__scratch_t *)checked_malloc(sizeof(edwards__scratch_t));
   size_t length = size / 2;
   size_t bits = ec->sc.bits;
   size_t i;
 
   scratch->size = size;
-  scratch->wnd = checked_malloc(length * JSF_SIZE * sizeof(xge_t));
-  scratch->wnds = checked_malloc(length * sizeof(xge_t *));
-  scratch->naf = checked_malloc(length * (bits + 1) * sizeof(int));
-  scratch->nafs = checked_malloc(length * sizeof(int *));
+  scratch->wnd = (xge_t *)checked_malloc(length * JSF_SIZE * sizeof(xge_t));
+  scratch->wnds = (xge_t **)checked_malloc(length * sizeof(xge_t *));
+  scratch->naf = (int *)checked_malloc(length * (bits + 1) * sizeof(int));
+  scratch->nafs = (int **)checked_malloc(length * sizeof(int *));
 
   for (i = 0; i < length; i++) {
     scratch->wnds[i] = &scratch->wnd[i * JSF_SIZE];
     scratch->nafs[i] = &scratch->naf[i * (bits + 1)];
   }
 
-  scratch->points = checked_malloc(size * sizeof(xge_t));
-  scratch->coeffs = checked_malloc(size * sizeof(sc_t));
+  scratch->points = (xge_t *)checked_malloc(size * sizeof(xge_t));
+  scratch->coeffs = (sc_t *)checked_malloc(size * sizeof(sc_t));
 
   return scratch;
 }

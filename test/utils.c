@@ -17,8 +17,8 @@ __torsion_test_assert_fail(const char *file, int line, const char *expr) {
 
 int
 __torsion_test_memcmp(const void *s1, const void *s2, size_t n) {
-  const unsigned char *x = s1;
-  const unsigned char *y = s2;
+  const unsigned char *x = (const unsigned char *)s1;
+  const unsigned char *y = (const unsigned char *)s2;
   size_t i;
 
   for (i = 0; i < n; i++) {

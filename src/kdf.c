@@ -965,9 +965,9 @@ scrypt_derive(unsigned char *out,
   if (len == 0)
     return 1;
 
-  B = malloc(128 * R * P);
-  XY = malloc(256 * R);
-  V = malloc(128 * R * N);
+  B = (uint8_t *)malloc(128 * R * P);
+  XY = (uint8_t *)malloc(256 * R);
+  V = (uint8_t *)malloc(128 * R * N);
 
   if (B == NULL || XY == NULL || V == NULL)
     goto fail;

@@ -143,14 +143,15 @@ static void
 rng_generate(rng_t *rng, void *dst, size_t size) {
   unsigned char *key = (unsigned char *)rng->key;
   unsigned char *nonce = (unsigned char *)&rng->nonce;
+  unsigned char *raw = (unsigned char *)dst;
   chacha20_t ctx;
 
   if (size > 0)
-    memset(dst, 0, size);
+    memset(raw, 0, size);
 
   /* Read the keystream. */
   chacha20_init(&ctx, key, 32, nonce, 8, rng->zero);
-  chacha20_crypt(&ctx, dst, dst, size);
+  chacha20_crypt(&ctx, raw, raw, size);
 
   /* Mix in some user entropy. */
   rng->key[0] ^= size;
@@ -331,7 +332,7 @@ torsion_threadsafety(void) {
 
 uint64_t
 torsion_randomaddr(void) {
-  void *ptr = &rng_state;
+  void *ptr = (void *)&rng_state;
 #if defined(UINTPTR_MAX)
   return (uintptr_t)ptr;
 #else

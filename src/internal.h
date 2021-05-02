@@ -98,6 +98,10 @@
 #if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L
 #  undef _Static_assert
 #  define STATIC_ASSERT(expr) _Static_assert(expr, "")
+#elif defined(__cplusplus) && (__cplusplus + 0L) >= 201703L
+#  define STATIC_ASSERT(expr) static_assert(expr)
+#elif defined(__cplusplus) && (__cplusplus + 0L) >= 201103L
+#  define STATIC_ASSERT(expr) static_assert(expr, "")
 #elif TORSION_GNUC_PREREQ(2, 7)
 #  define __TORSION_STATIC_ASSERT(x, y) \
      typedef char __torsion_assert_ ## y[(x) ? 1 : -1] __attribute__((unused))
@@ -113,11 +117,14 @@
 
 #if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 199901L
 #  define TORSION_INLINE inline
+#elif defined(__cplusplus) && (__cplusplus + 0L) >= 199711L
+#  define TORSION_INLINE inline
 #elif TORSION_GNUC_PREREQ(2, 7)
 #  define TORSION_INLINE __inline__
 #elif defined(_MSC_VER) && _MSC_VER >= 900
 #  define TORSION_INLINE __inline
-#elif defined(__SUNPRO_C) && __SUNPRO_C >= 0x560
+#elif (defined(__SUNPRO_C) && __SUNPRO_C >= 0x560) \
+   || (defined(__SUNPRO_CC) && __SUNPRO_CC >= 0x560)
 #  define TORSION_INLINE inline
 #else
 #  define TORSION_INLINE
@@ -137,20 +144,26 @@
 
 #if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L
 #  define TORSION_NORETURN _Noreturn
+#elif defined(__cplusplus) && (__cplusplus + 0L) >= 201103L
+#  undef noreturn
+#  define TORSION_NORETURN [[noreturn]]
 #elif TORSION_GNUC_PREREQ(2, 7)
 #  undef noreturn
 #  define TORSION_NORETURN __attribute__((noreturn))
 #elif defined(_MSC_VER) && _MSC_VER >= 1200
 #  undef noreturn
 #  define TORSION_NORETURN __declspec(noreturn)
-#elif defined(__SUNPRO_C) && __SUNPRO_C >= 0x590
+#elif (defined(__SUNPRO_C) && __SUNPRO_C >= 0x590) \
+   || (defined(__SUNPRO_CC) && __SUNPRO_CC >= 0x590)
 #  undef noreturn
 #  define TORSION_NORETURN __attribute__((noreturn))
 #else
 #  define TORSION_NORETURN
 #endif
 
-#if TORSION_GNUC_PREREQ(2, 7)
+#if defined(__cplusplus) && (__cplusplus + 0L) >= 201703L
+#  define TORSION_UNUSED [[maybe_unused]]
+#elif TORSION_GNUC_PREREQ(2, 7)
 #  define TORSION_UNUSED __attribute__((unused))
 #else
 #  define TORSION_UNUSED

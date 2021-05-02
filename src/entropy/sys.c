@@ -260,6 +260,9 @@
 #    define HAVE_BCRYPTGENRANDOM
 #  else
 #    define RtlGenRandom SystemFunction036
+#    ifdef __cplusplus
+extern "C"
+#    endif
 BOOLEAN NTAPI
 RtlGenRandom(PVOID RandomBuffer, ULONG RandomBufferLength);
 #    pragma comment(lib, "advapi32.lib")
@@ -349,7 +352,8 @@ RtlGenRandom(PVOID RandomBuffer, ULONG RandomBufferLength);
 #    endif
 #    define DEV_RANDOM_NAME "/dev/random"
 #  elif defined(__sun) && defined(__SVR4) /* 11.3 (2015) */
-#    if defined(__SUNPRO_C) && __SUNPRO_C >= 0x5140 /* 5.14 (2016) */
+#    if (defined(__SUNPRO_C) && __SUNPRO_C >= 0x5140) \
+     || (defined(__SUNPRO_CC) && __SUNPRO_CC >= 0x5140) /* 5.14 (2016) */
 #      include <sys/random.h> /* getrandom */
 #      define HAVE_GETRANDOM
 #    endif
@@ -508,8 +512,8 @@ torsion_callrand(void *dst, size_t size) {
 #elif defined(_WIN32)
   return RtlGenRandom((PVOID)dst, (ULONG)size) == TRUE;
 #elif defined(HAVE_RANDABYTES) /* __vxworks */
+  unsigned char *data = (unsigned char *)dst;
   size_t max = (size_t)INT_MAX;
-  unsigned char *data = dst;
   int ret;
 
   for (;;) {
@@ -548,7 +552,7 @@ torsion_callrand(void *dst, size_t size) {
 #elif defined(__wasi__)
   return __wasi_random_get((uint8_t *)dst, size) == 0;
 #elif defined(HAVE_GETRANDOM)
-  unsigned char *data = dst;
+  unsigned char *data = (unsigned char *)dst;
   size_t max = 256;
   int nread;
 
@@ -572,7 +576,7 @@ torsion_callrand(void *dst, size_t size) {
 
   return 1;
 #elif defined(HAVE_GETENTROPY)
-  unsigned char *data = dst;
+  unsigned char *data = (unsigned char *)dst;
   size_t max = 256;
 
 #ifdef __APPLE__
@@ -596,7 +600,7 @@ torsion_callrand(void *dst, size_t size) {
   return 1;
 #elif defined(HAVE_SYSCTL_ARND)
   static int name[2] = {CTL_KERN, KERN_ARND};
-  unsigned char *data = dst;
+  unsigned char *data = (unsigned char *)dst;
   size_t max = 256;
   size_t nread;
 
@@ -631,7 +635,7 @@ torsion_callrand(void *dst, size_t size) {
 #ifdef HAVE_DEV_RANDOM
 static int
 torsion_devrand(const char *name, void *dst, size_t size) {
-  unsigned char *data = dst;
+  unsigned char *data = (unsigned char *)dst;
   struct stat st;
   int fd, nread;
 #ifdef __linux__
@@ -719,8 +723,8 @@ static int
 torsion_uuidrand(void *dst, size_t size) {
   /* Called if we cannot open /dev/urandom (idea from libuv). */
   static int name[3] = {1, 40, 6}; /* kern.random.uuid */
+  unsigned char *data = (unsigned char *)dst;
   struct torsion__sysctl_args args;
-  unsigned char *data = dst;
   size_t max = 14;
   char uuid[16];
   size_t nread;

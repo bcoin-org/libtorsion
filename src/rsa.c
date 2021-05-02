@@ -1775,7 +1775,7 @@ rsa_verify(hash_id_t type,
   if (klen < tlen + 11)
     goto fail;
 
-  em = malloc(klen);
+  em = (unsigned char *)malloc(klen);
 
   if (em == NULL)
     goto fail;
@@ -1984,7 +1984,7 @@ rsa_sign_pss(unsigned char *out,
     goto fail;
 
   if (salt_len > 0) {
-    salt = malloc(salt_len);
+    salt = (unsigned char *)malloc(salt_len);
 
     if (salt == NULL)
       goto fail;
@@ -2058,7 +2058,7 @@ rsa_verify_pss(hash_id_t type,
   if (salt_len > klen)
     goto fail;
 
-  em = malloc(klen);
+  em = (unsigned char *)malloc(klen);
 
   if (em == NULL)
     goto fail;

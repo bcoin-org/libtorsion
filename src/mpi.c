@@ -829,7 +829,7 @@ mp_alloc_limbs(mp_size_t size) {
 
   CHECK(size > 0);
 
-  ptr = malloc(size * sizeof(mp_limb_t));
+  ptr = (mp_limb_t *)malloc(size * sizeof(mp_limb_t));
 
   if (ptr == NULL)
     torsion_abort(); /* LCOV_EXCL_LINE */
@@ -841,7 +841,7 @@ static mp_limb_t *
 mp_realloc_limbs(mp_limb_t *ptr, mp_size_t size) {
   CHECK(size > 0);
 
-  ptr = realloc(ptr, size * sizeof(mp_limb_t));
+  ptr = (mp_limb_t *)realloc(ptr, size * sizeof(mp_limb_t));
 
   if (ptr == NULL)
     torsion_abort(); /* LCOV_EXCL_LINE */
@@ -860,7 +860,7 @@ mp_alloc_str(size_t size) {
 
   CHECK(size != 0);
 
-  ptr = malloc(size);
+  ptr = (char *)malloc(size);
 
   if (ptr == NULL)
     torsion_abort(); /* LCOV_EXCL_LINE */
@@ -1199,6 +1199,9 @@ mpn_zero(mp_limb_t *zp, mp_size_t zn) {
  * Uninitialization
  */
 
+#ifdef __cplusplus
+extern "C"
+#endif
 void
 torsion_memzero(void *, size_t);
 

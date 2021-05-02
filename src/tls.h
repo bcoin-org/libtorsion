@@ -9,7 +9,7 @@
 
 /* TLS Compiler Support
  *
- * GCC:
+ * GCC / G++:
  *
  * - Supports TLS via __thread[1].
  * - TLS first implemented in GCC 3.3[1].
@@ -37,7 +37,7 @@
  * - No support for ARM Cygwin as of Clang 12.0[20].
  * - No support for Haiku as of Clang 12.0[21].
  *
- * Intel C:
+ * Intel C/C++:
  *
  * - Supports TLS via __thread[22], __declspec(thread)[23].
  * - Intel mentions __thread in documentation from 2004[22].
@@ -58,13 +58,13 @@
  *   samples claims to have written them in 1995. This
  *   means TLS would have been supported in MSVC 4.0.
  *
- * Sun Pro C / Sun Studio / Solaris Studio:
+ * Sun Pro C/C++ / Sun Studio / Solaris Studio:
  *
  * - Supports TLS via __thread[29].
  * - First mentioned in documentation for Sun Studio 12[30].
  *   This would suggest support from 5.9 onward.
  *
- * IBM XL C:
+ * IBM XL C/C++:
  *
  * - Supports TLS via __thread[31].
  * - Support added for Linux in XL C 8.0[32].
@@ -86,19 +86,19 @@
  * - Supports TLS via __thread, __declspec(thread)[37][38].
  * - Mentioned on the gnulib mailing list[39].
  *
- * HP ANSI C:
+ * HP ANSI C / HP aC++:
  *
  * - Supports TLS via __thread[40].
  * - The release notes suggest this has been the
  *   case since at least version A.05.55.02.
  *
- * Watcom C:
+ * Watcom C/C++:
  *
  * - TLS supported via __declspec(thread)[41].
  * - TLS supported since at least version 11.0c[41].
  *   Notable as this predates Open Watcom.
  *
- * Wind River Compiler (Diab C):
+ * Wind River Compiler (Diab C/C++):
  *
  * - TLS supported via __thread[42][43].
  * - TLS supported since at least 2007 (5.6)[43].
@@ -109,7 +109,7 @@
  * - TLS first implemented in NWCC 0.7.5 (2008).
  *   See develop/oldnews/NEWS-0.7.5.
  *
- * Metrowerks C:
+ * Metrowerks C/C++:
  *
  * - TLS supported via __declspec(thread)[45].
  *   Documentation explicitly states this is
@@ -146,6 +146,10 @@
  *   However, some compilers do not define STDC_NO_THREADS
  *   or do not define it directly (in particular, Intel C
  *   versions less than 18.0.0[52]).
+ *
+ * C++11:
+ *
+ * - C++11 specifies support for thread_local[53].
  *
  * [1] https://gcc.gnu.org/onlinedocs/gcc-3.3.1/gcc/Thread-Local.html
  * [2] https://github.com/gcc-mirror/gcc/commit/8893239dc4ed32bd3bb4e00d6e43b859554ab82a
@@ -199,6 +203,7 @@
  * [50] https://github.com/IanHarvey/pcc/commit/109a8ee
  * [51] https://en.cppreference.com/w/c/keyword/_Thread_local
  * [52] https://software.intel.com/en-us/forums/intel-c-compiler/topic/721059
+ * [53] https://en.cppreference.com/w/cpp/language/storage_duration
  */
 
 /* Apple Quirks
@@ -323,6 +328,10 @@
 #  if __HP_cc >= 55502 /* A.05.55.02 (2004) */
 #    define TORSION_TLS_GNUC
 #  endif
+#elif defined(__HP_aCC)
+#  if __HP_aCC >= 55502 /* A.05.55.02 (2004) */
+#    define TORSION_TLS_GNUC
+#  endif
 #elif defined(__WATCOMC__)
 #  if __WATCOMC__ >= 1200 /* Open Watcom 1.0 (2003) */
 #    define TORSION_TLS_MSVC
@@ -343,6 +352,10 @@
 #  endif
 #elif defined(__SUNPRO_C)
 #  if __SUNPRO_C >= 0x590 /* 5.9 (2007) */
+#    define TORSION_TLS_GNUC
+#  endif
+#elif defined(__SUNPRO_CC)
+#  if __SUNPRO_CC >= 0x590 /* 5.9 (2007) */
 #    define TORSION_TLS_GNUC
 #  endif
 #elif defined(__INTEL_COMPILER)
@@ -366,7 +379,8 @@
 #    if defined(TORSION__APPLE_OS) && __apple_build_version__ >= 8000038 /* 800.0.38 (2016) */
 #      define TORSION_TLS_GNUC
 #    endif
-#  elif TORSION__HAS_EXTENSION(c_thread_local) /* 3.4 (late 2013) */
+#  elif TORSION__HAS_EXTENSION(c_thread_local) \
+     || TORSION__HAS_EXTENSION(cxx_thread_local) /* 3.4 (late 2013) */
 #    if defined(__ANDROID__)
 #      if defined(__clang_major__) && __clang_major__ >= 5 /* 5.0 (2017) */
 #        define TORSION_TLS_GNUC
@@ -417,6 +431,8 @@
 #  ifndef __STDC_NO_THREADS__
 #    define TORSION_TLS_STDC
 #  endif
+#elif defined(__cplusplus) && (__cplusplus + 0L) >= 201103L
+#  define TORSION_TLS_CPP
 #endif
 
 #ifdef TORSION_TLS_BOTH
@@ -437,6 +453,9 @@
 #elif defined(TORSION_TLS_STDC)
 #  define TORSION_HAVE_TLS
 #  define TORSION_TLS _Thread_local
+#elif defined(TORSION_TLS_CPP)
+#  define TORSION_HAVE_TLS
+#  define TORSION_TLS thread_local
 #else
 #  define TORSION_TLS
 #endif

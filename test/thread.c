@@ -24,7 +24,8 @@ struct torsion_thread_s {
 
 struct torsion_thread_s *
 torsion_thread_alloc(void) {
-  struct torsion_thread_s *thread = malloc(sizeof(struct torsion_thread_s));
+  struct torsion_thread_s *thread =
+    (struct torsion_thread_s *)malloc(sizeof(struct torsion_thread_s));
 
   if (thread == NULL)
     abort();
@@ -68,7 +69,7 @@ torsion_thread_create(struct torsion_thread_s *thread,
   if (attr != NULL)
     return -1;
 
-  args = malloc(sizeof(torsion_thread_args_t));
+  args = (torsion_thread_args_t *)malloc(sizeof(torsion_thread_args_t));
 
   if (args == NULL)
     return -1;

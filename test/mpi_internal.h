@@ -123,9 +123,9 @@ static const arc4_t arc4_initial = {
 
 static void
 arc4_rng(void *out, size_t size, void *arg) {
-  uint8_t *dst = out;
+  uint8_t *dst = (uint8_t *)out;
+  arc4_t *ctx = (arc4_t *)arg;
   size_t len = size;
-  arc4_t *ctx = arg;
   uint8_t *s = ctx->s;
   uint8_t i = ctx->i;
   uint8_t j = ctx->j;
