@@ -932,7 +932,7 @@ scrypt_derive(unsigned char *out,
               uint32_t r,
               uint32_t p,
               size_t len) {
-  int t = HASH_SHA256;
+  hash_id_t t = HASH_SHA256;
   uint8_t *B = NULL;
   uint8_t *V = NULL;
   uint8_t *XY = NULL;
