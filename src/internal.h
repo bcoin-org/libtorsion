@@ -107,6 +107,8 @@
 #  define TORSION_INLINE __inline__
 #elif defined(_MSC_VER) && _MSC_VER >= 900
 #  define TORSION_INLINE __inline
+#elif defined(__SUNPRO_C) && __SUNPRO_C >= 0x560
+#  define TORSION_INLINE inline
 #else
 #  define TORSION_INLINE
 #endif
@@ -129,6 +131,9 @@
 #elif defined(_MSC_VER) && _MSC_VER >= 1200
 #  undef noreturn
 #  define TORSION_NORETURN __declspec(noreturn)
+#elif defined(__SUNPRO_C) && __SUNPRO_C >= 0x590
+#  undef noreturn
+#  define TORSION_NORETURN __attribute__((noreturn))
 #else
 #  define TORSION_NORETURN
 #endif

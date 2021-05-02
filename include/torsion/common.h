@@ -13,11 +13,16 @@
 #    define TORSION_EXTERN EMSCRIPTEN_KEEPALIVE
 #  elif defined(__wasm__)
 #    define TORSION_EXTERN __attribute__((visibility("default")))
-#  elif defined(_MSC_VER) || defined(__BORLANDC__)
+#  elif defined(_MSC_VER) || defined(__BORLANDC__) \
+     || defined(__WATCOMC__) || defined(__DMC__)
 #    define TORSION_EXTERN __declspec(dllexport)
-#  elif defined(__GNUC__) && __GNUC__ >= 4
+#  elif defined(__GNUC__)
+#    if ((__GNUC__ << 16) + __GNUC_MINOR__ >= 0x30003) /* 3.3 */
+#      define TORSION_EXTERN __attribute__((visibility("default")))
+#    endif
+#  elif defined(__SUNPRO_C) && __SUNPRO_C >= 0x590 /* 5.9 */
 #    define TORSION_EXTERN __attribute__((visibility("default")))
-#  elif defined(__SUNPRO_C) && __SUNPRO_C >= 0x550
+#  elif defined(__SUNPRO_C) && __SUNPRO_C >= 0x550 /* 5.5 */
 #    define TORSION_EXTERN __global
 #  endif
 #endif
