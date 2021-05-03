@@ -6329,7 +6329,7 @@ static TORSION_INLINE void
 stream_update(stream_mode_t *mode,
               const cipher_t *cipher,
               stream_f *stream,
-              xor_f *xor,
+              xor_f *permute,
               unsigned char *dst,
               const unsigned char *src,
               size_t len) {
@@ -6339,7 +6339,7 @@ stream_update(stream_mode_t *mode,
 
   if (len >= want) {
     if (pos > 0) {
-      xor(mode, pos, dst, src, want);
+      permute(mode, pos, dst, src, want);
 
       dst += want;
       src += want;
@@ -6350,7 +6350,7 @@ stream_update(stream_mode_t *mode,
     while (len >= size) {
       stream(mode, cipher);
 
-      xor(mode, 0, dst, src, size);
+      permute(mode, 0, dst, src, size);
 
       dst += size;
       src += size;
@@ -6362,7 +6362,7 @@ stream_update(stream_mode_t *mode,
     if (pos == 0)
       stream(mode, cipher);
 
-    xor(mode, pos, dst, src, len);
+    permute(mode, pos, dst, src, len);
 
     pos += len;
   }

@@ -4950,7 +4950,7 @@ test_stream_salsa20(drbg_t *rng) {
   unsigned char *inp = malloc(size);
   unsigned char *out = malloc(size);
   unsigned char *exp = malloc(size);
-  unsigned char xor[64];
+  unsigned char acc[64];
   unsigned int i, j, k;
   salsa20_t ctx;
 
@@ -4970,17 +4970,17 @@ test_stream_salsa20(drbg_t *rng) {
     /* One-shot encryption. */
     {
       memset(out, 0, size);
-      memset(xor, 0, 64);
+      memset(acc, 0, 64);
 
       salsa20_init(&ctx, key, 32, nonce, 8, 0);
       salsa20_crypt(&ctx, out, inp, size);
 
       for (j = 0; j < size; j += 64) {
         for (k = 0; k < 64; k++)
-          xor[k] ^= out[j + k];
+          acc[k] ^= out[j + k];
       }
 
-      ASSERT(torsion_memcmp(xor, expect, 64) == 0);
+      ASSERT(torsion_memcmp(acc, expect, 64) == 0);
     }
 
     /* Get our vector. */
