@@ -33,9 +33,9 @@
  * - Support for OpenBSD added in Clang 5.0[16].
  * - Support for iOS Simulator added in Clang 7.0[17].
  * - Support for RISC-V added in Clang 9.0[18].
- * - No support for x86-64 Cygwin as of Clang 10.0[19].
- * - No support for ARM Cygwin as of Clang 10.0[20].
- * - No support for Haiku as of Clang 10.0[21].
+ * - No support for x86-64 Cygwin as of Clang 12.0[19].
+ * - No support for ARM Cygwin as of Clang 12.0[20].
+ * - No support for Haiku as of Clang 12.0[21].
  *
  * Intel C:
  *
@@ -165,9 +165,9 @@
  * [16] https://github.com/llvm/llvm-project/blob/llvmorg-5.0.0/clang/lib/Basic/Targets.cpp#L555
  * [17] https://github.com/llvm/llvm-project/blob/llvmorg-7.0.0/clang/lib/Basic/Targets/OSTargets.h#L103
  * [18] https://github.com/llvm/llvm-project/blob/llvmorg-9.0.0/clang/lib/Basic/Targets/RISCV.h#L24
- * [19] https://github.com/llvm/llvm-project/blob/llvmorg-10.0.0/clang/lib/Basic/Targets/X86.h#L819
- * [20] https://github.com/llvm/llvm-project/blob/llvmorg-10.0.0/clang/lib/Basic/Targets/ARM.cpp#L1208
- * [21] https://github.com/llvm/llvm-project/blob/llvmorg-10.0.0/clang/lib/Basic/Targets/OSTargets.h#L310
+ * [19] https://github.com/llvm/llvm-project/blob/llvmorg-12.0.0/clang/lib/Basic/Targets/X86.h#L833
+ * [20] https://github.com/llvm/llvm-project/blob/llvmorg-12.0.0/clang/lib/Basic/Targets/ARM.cpp#L1248
+ * [21] https://github.com/llvm/llvm-project/blob/llvmorg-12.0.0/clang/lib/Basic/Targets/OSTargets.h#L291
  * [22] https://software.intel.com/sites/default/files/ae/4f/6320
  * [23] https://community.intel.com/t5/Intel-C-Compiler/Thread-local-storage-support-on-Windows/td-p/949321
  * [24] https://community.intel.com/t5/Intel-C-Compiler/thread-local-storage-linking-problems/td-p/932631
