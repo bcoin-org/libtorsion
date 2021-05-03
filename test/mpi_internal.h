@@ -2542,7 +2542,7 @@ test_mpn_xor(mp_rng_f *rng, void *arg) {
     for (j = 0; j < 4; j++)
       ep[j] = ~(xp[j] ^ yp[j]);
 
-    mpn_nxor_n(tp, xp, yp, 4);
+    mpn_xnor_n(tp, xp, yp, 4);
 
     ASSERT(mpn_cmp(tp, ep, 4) == 0);
   }

@@ -58,7 +58,7 @@
 #define mpn_iorn_n __torsion_mpn_iorn_n
 #define mpn_nand_n __torsion_mpn_nand_n
 #define mpn_nior_n __torsion_mpn_nior_n
-#define mpn_nxor_n __torsion_mpn_nxor_n
+#define mpn_xnor_n __torsion_mpn_xnor_n
 #define mpn_com __torsion_mpn_com
 #define mpn_lshift __torsion_mpn_lshift
 #define mpn_rshift __torsion_mpn_rshift
@@ -635,7 +635,7 @@ mpn_nior_n(mp_limb_t *zp, const mp_limb_t *xp,
  */
 
 void
-mpn_nxor_n(mp_limb_t *zp, const mp_limb_t *xp,
+mpn_xnor_n(mp_limb_t *zp, const mp_limb_t *xp,
                           const mp_limb_t *yp,
                           mp_size_t n);
 

@@ -3168,7 +3168,7 @@ mpn_nior_n(mp_limb_t *zp, const mp_limb_t *xp,
  */
 
 void
-mpn_nxor_n(mp_limb_t *zp, const mp_limb_t *xp,
+mpn_xnor_n(mp_limb_t *zp, const mp_limb_t *xp,
                           const mp_limb_t *yp,
                           mp_size_t n) {
   mp_size_t i;
