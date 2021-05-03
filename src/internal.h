@@ -22,15 +22,11 @@
  */
 
 #if defined(__GNUC__) && defined(__GNUC_MINOR__)
-#  define TORSION_GNUC ((__GNUC__ << 16) + __GNUC_MINOR__)
-#elif defined(__GNUC__)
-#  define TORSION_GNUC (__GNUC__ << 16)
+#  define TORSION_GNUC_PREREQ(maj, min) \
+    ((__GNUC__ << 16) + __GNUC_MINOR__ >= ((maj) << 16) + (min))
 #else
-#  define TORSION_GNUC 0
+#  define TORSION_GNUC_PREREQ(maj, min) 0
 #endif
-
-#define TORSION_GNUC_PREREQ(maj, min) \
-  (TORSION_GNUC >= ((maj) << 16) + (min))
 
 /*
  * Builtins
