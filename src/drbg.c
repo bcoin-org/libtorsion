@@ -84,7 +84,7 @@ hmac_drbg_reseed(hmac_drbg_t *drbg,
 void
 hmac_drbg_generate(hmac_drbg_t *drbg, void *out, size_t len,
                    const unsigned char *add, size_t add_len) {
-  unsigned char *raw = (unsigned char *)out;
+  unsigned char *raw = out;
   size_t size = drbg->size;
   hmac_t kmac;
 
@@ -270,7 +270,7 @@ hash_drbg_generate(hash_drbg_t *drbg,
                    size_t add_len) {
   static const unsigned char one[1] = {0x01};
   static const unsigned char two[1] = {0x02};
-  unsigned char *raw = (unsigned char *)out;
+  unsigned char *raw = out;
   unsigned char H[HASH_MAX_OUTPUT_SIZE];
   unsigned char V[111];
 
@@ -537,8 +537,8 @@ ctr_drbg_generate(ctr_drbg_t *drbg,
                   size_t len,
                   const unsigned char *add,
                   size_t add_len) {
-  unsigned char *raw = (unsigned char *)out;
   unsigned char tmp[MAX_ENT_SIZE];
+  unsigned char *raw = out;
 
   if (add_len > 0) {
     if (drbg->derivation) {

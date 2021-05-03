@@ -175,7 +175,7 @@ blake2b_transform(blake2b_t *ctx, const unsigned char *chunk) {
 
 void
 blake2b_update(blake2b_t *ctx, const void *data, size_t len) {
-  const unsigned char *raw = (const unsigned char *)data;
+  const unsigned char *raw = data;
   size_t pos = ctx->pos;
   size_t want = 128 - pos;
 
@@ -392,7 +392,7 @@ blake2s_transform(blake2s_t *ctx, const unsigned char *chunk) {
 
 void
 blake2s_update(blake2s_t *ctx, const void *data, size_t len) {
-  const unsigned char *raw = (const unsigned char *)data;
+  const unsigned char *raw = data;
   size_t pos = ctx->pos;
   size_t want = 64 - pos;
 
@@ -651,7 +651,7 @@ gost94_increment(gost94_t *ctx, uint64_t c) {
 
 void
 gost94_update(gost94_t *ctx, const void *data, size_t len) {
-  const unsigned char *raw = (const unsigned char *)data;
+  const unsigned char *raw = data;
   size_t pos = ctx->size[0] & 31;
   size_t want = 32 - pos;
 
@@ -1054,7 +1054,7 @@ keccak_transform(keccak_t *ctx, const unsigned char *chunk) {
 
 void
 keccak_update(keccak_t *ctx, const void *data, size_t len) {
-  const unsigned char *raw = (const unsigned char *)data;
+  const unsigned char *raw = data;
   size_t pos = ctx->pos;
   size_t want = ctx->bs - pos;
 
@@ -1233,7 +1233,7 @@ md2_transform(md2_t *ctx, const unsigned char *chunk) {
 
 void
 md2_update(md2_t *ctx, const void *data, size_t len) {
-  const unsigned char *raw = (const unsigned char *)data;
+  const unsigned char *raw = data;
   size_t pos = ctx->pos;
   size_t want = 16 - pos;
 
@@ -1389,7 +1389,7 @@ md4_transform(md4_t *ctx, const unsigned char *chunk) {
 
 void
 md4_update(md4_t *ctx, const void *data, size_t len) {
-  const unsigned char *raw = (const unsigned char *)data;
+  const unsigned char *raw = data;
   size_t pos = ctx->size & 63;
   size_t want = 64 - pos;
 
@@ -1568,7 +1568,7 @@ md5_transform(md5_t *ctx, const unsigned char *chunk) {
 
 void
 md5_update(md5_t *ctx, const void *data, size_t len) {
-  const unsigned char *raw = (const unsigned char *)data;
+  const unsigned char *raw = data;
   size_t pos = ctx->size & 63;
   size_t want = 64 - pos;
 
@@ -1913,7 +1913,7 @@ ripemd160_transform(ripemd160_t *ctx, const unsigned char *chunk) {
 
 void
 ripemd160_update(ripemd160_t *ctx, const void *data, size_t len) {
-  const unsigned char *raw = (const unsigned char *)data;
+  const unsigned char *raw = data;
   size_t pos = ctx->size & 63;
   size_t want = 64 - pos;
 
@@ -2158,7 +2158,7 @@ sha1_transform(sha1_t *ctx, const unsigned char *chunk) {
 
 void
 sha1_update(sha1_t *ctx, const void *data, size_t len) {
-  const unsigned char *raw = (const unsigned char *)data;
+  const unsigned char *raw = data;
   size_t pos = ctx->size & 63;
   size_t want = 64 - pos;
 
@@ -2429,7 +2429,7 @@ sha256_transform(sha256_t *ctx, const unsigned char *chunk) {
 
 void
 sha256_update(sha256_t *ctx, const void *data, size_t len) {
-  const unsigned char *raw = (const unsigned char *)data;
+  const unsigned char *raw = data;
   size_t pos = ctx->size & 63;
   size_t want = 64 - pos;
 
@@ -2726,7 +2726,7 @@ sha512_increment(sha512_t *ctx, uint64_t c) {
 
 void
 sha512_update(sha512_t *ctx, const void *data, size_t len) {
-  const unsigned char *raw = (const unsigned char *)data;
+  const unsigned char *raw = data;
   size_t pos = ctx->size[0] & 127;
   size_t want = 128 - pos;
 
@@ -3962,7 +3962,7 @@ whirlpool_increment(whirlpool_t *ctx, uint64_t c) {
 
 void
 whirlpool_update(whirlpool_t *ctx, const void *data, size_t len) {
-  const unsigned char *raw = (const unsigned char *)data;
+  const unsigned char *raw = data;
   size_t pos = ctx->size[0] & 63;
   size_t want = 64 - pos;
 

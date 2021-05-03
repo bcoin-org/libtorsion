@@ -331,7 +331,7 @@ torsion_threadsafety(void) {
 
 uint64_t
 torsion_randomaddr(void) {
-  void *ptr = (void *)&rng_state;
+  void *ptr = &rng_state;
 #if defined(UINTPTR_MAX)
   return (uintptr_t)ptr;
 #else

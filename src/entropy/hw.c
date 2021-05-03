@@ -682,9 +682,9 @@ torsion_rdseed(void) {
 int
 torsion_hwrand(void *dst, size_t size) {
 #if defined(HAVE_CPUIDEX) || defined(HAVE_CPUID) || defined(HAVE_DARN)
-  unsigned char *data = (unsigned char *)dst;
   int has_rdrand = torsion_has_rdrand();
   int has_rdseed = torsion_has_rdseed();
+  unsigned char *data = dst;
   uint64_t x;
   int i;
 

@@ -508,8 +508,8 @@ torsion_callrand(void *dst, size_t size) {
 #elif defined(_WIN32)
   return RtlGenRandom((PVOID)dst, (ULONG)size) == TRUE;
 #elif defined(HAVE_RANDABYTES) /* __vxworks */
-  unsigned char *data = (unsigned char *)dst;
   size_t max = (size_t)INT_MAX;
+  unsigned char *data = dst;
   int ret;
 
   for (;;) {
@@ -548,7 +548,7 @@ torsion_callrand(void *dst, size_t size) {
 #elif defined(__wasi__)
   return __wasi_random_get((uint8_t *)dst, size) == 0;
 #elif defined(HAVE_GETRANDOM)
-  unsigned char *data = (unsigned char *)dst;
+  unsigned char *data = dst;
   size_t max = 256;
   int nread;
 
@@ -572,7 +572,7 @@ torsion_callrand(void *dst, size_t size) {
 
   return 1;
 #elif defined(HAVE_GETENTROPY)
-  unsigned char *data = (unsigned char *)dst;
+  unsigned char *data = dst;
   size_t max = 256;
 
 #ifdef __APPLE__
@@ -596,7 +596,7 @@ torsion_callrand(void *dst, size_t size) {
   return 1;
 #elif defined(HAVE_SYSCTL_ARND)
   static int name[2] = {CTL_KERN, KERN_ARND};
-  unsigned char *data = (unsigned char *)dst;
+  unsigned char *data = dst;
   size_t max = 256;
   size_t nread;
 
@@ -631,7 +631,7 @@ torsion_callrand(void *dst, size_t size) {
 #ifdef HAVE_DEV_RANDOM
 static int
 torsion_devrand(const char *name, void *dst, size_t size) {
-  unsigned char *data = (unsigned char *)dst;
+  unsigned char *data = dst;
   struct stat st;
   int fd, nread;
 #ifdef __linux__
