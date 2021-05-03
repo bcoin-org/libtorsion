@@ -22,11 +22,15 @@
  */
 
 #if defined(__GNUC__) && defined(__GNUC_MINOR__)
-#  define TORSION_GNUC_PREREQ(maj, min) \
-    ((__GNUC__ << 16) + __GNUC_MINOR__ >= ((maj) << 16) + (min))
+#  define TORSION_GNUC ((__GNUC__ << 16) + __GNUC_MINOR__)
+#elif defined(__GNUC__)
+#  define TORSION_GNUC (__GNUC__ << 16)
 #else
-#  define TORSION_GNUC_PREREQ(maj, min) 0
+#  define TORSION_GNUC 0
 #endif
+
+#define TORSION_GNUC_PREREQ(maj, min) \
+  (TORSION_GNUC >= ((maj) << 16) + (min))
 
 /*
  * Builtins
@@ -48,6 +52,7 @@
  */
 
 #undef CHECK_ALWAYS
+#undef CHECK_NEVER
 #undef CHECK
 
 #define CHECK_ALWAYS(expr) do { \
@@ -55,10 +60,14 @@
     __torsion_abort();          \
 } while (0)
 
+#define CHECK_NEVER(expr) do { \
+  (void)(expr);                \
+} while (0)
+
 #if !defined(TORSION_COVERAGE)
-#  define CHECK(expr) CHECK_ALWAYS(expr)
+#  define CHECK CHECK_ALWAYS
 #else
-#  define CHECK(expr) do { (void)(expr); } while (0)
+#  define CHECK CHECK_NEVER
 #endif
 
 /*
@@ -66,6 +75,7 @@
  */
 
 #undef ASSERT_ALWAYS
+#undef ASSERT_NEVER
 #undef ASSERT
 
 #define ASSERT_ALWAYS(expr) do {                      \
@@ -73,10 +83,14 @@
     __torsion_assert_fail(__FILE__, __LINE__, #expr); \
 } while (0)
 
+#define ASSERT_NEVER(expr) do { \
+  (void)(expr);                 \
+} while (0)
+
 #if defined(TORSION_DEBUG) && !defined(TORSION_COVERAGE)
-#  define ASSERT(expr) ASSERT_ALWAYS(expr)
+#  define ASSERT ASSERT_ALWAYS
 #else
-#  define ASSERT(expr) do { (void)(expr); } while (0)
+#  define ASSERT ASSERT_NEVER
 #endif
 
 /*
@@ -119,6 +133,8 @@
 #  define TORSION_RESTRICT __restrict__
 #elif defined(_MSC_VER) && _MSC_VER >= 1400
 #  define TORSION_RESTRICT __restrict
+#elif defined(__SUNPRO_C) && __SUNPRO_C >= 0x530
+#  define TORSION_RESTRICT _Restrict
 #else
 #  define TORSION_RESTRICT
 #endif
