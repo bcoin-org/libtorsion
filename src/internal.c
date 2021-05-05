@@ -11,7 +11,7 @@
 #include <stdlib.h>
 #include "internal.h"
 
-void
+TORSION_NORETURN void
 __torsion_assert_fail(const char *file, int line, const char *expr) {
   /* LCOV_EXCL_START */
 #if defined(TORSION_DEBUG)
@@ -26,7 +26,7 @@ __torsion_assert_fail(const char *file, int line, const char *expr) {
   /* LCOV_EXCL_STOP */
 }
 
-void
+TORSION_NORETURN void
 __torsion_abort(void) {
   abort(); /* LCOV_EXCL_LINE */
 }
