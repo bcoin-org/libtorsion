@@ -581,7 +581,7 @@ torsion_##name##_update(sha3_t *ctx, const void *data, size_t len);  \
 TORSION_EXTERN void                                                  \
 torsion_##name##_final(sha3_t *ctx, unsigned char *out, size_t len);
 
-__TORSION_DEFINE_SHAKE(shake224)
+__TORSION_DEFINE_SHAKE(shake128)
 __TORSION_DEFINE_SHAKE(shake256)
 
 /*
