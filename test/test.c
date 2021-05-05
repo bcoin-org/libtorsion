@@ -3102,6 +3102,7 @@ test_encoding_base16(drbg_t *unused) {
 
   unsigned char buf[32];
   unsigned int i;
+  char out[32];
   size_t len;
 
   (void)unused;
@@ -3116,8 +3117,8 @@ test_encoding_base16(drbg_t *unused) {
     ASSERT(base16_decode(buf, &len, hex, strlen(hex)));
     ASSERT(len == strlen(str) && torsion_memcmp(buf, str, len) == 0);
 
-    base16_encode((char *)buf, &len, (unsigned char *)str, strlen(str));
-    ASSERT(len == strlen(hex) && torsion_memcmp(buf, hex, len) == 0);
+    base16_encode(out, &len, (const unsigned char *)str, strlen(str));
+    ASSERT(len == strlen(hex) && torsion_memcmp(out, hex, len) == 0);
   }
 
   for (i = 0; i < ARRAY_SIZE(vectors_le); i++) {
@@ -3130,8 +3131,8 @@ test_encoding_base16(drbg_t *unused) {
     ASSERT(base16le_decode(buf, &len, hex, strlen(hex)));
     ASSERT(len == strlen(str) && torsion_memcmp(buf, str, len) == 0);
 
-    base16le_encode((char *)buf, &len, (unsigned char *)str, strlen(str));
-    ASSERT(len == strlen(hex) && torsion_memcmp(buf, hex, len) == 0);
+    base16le_encode(out, &len, (const unsigned char *)str, strlen(str));
+    ASSERT(len == strlen(hex) && torsion_memcmp(out, hex, len) == 0);
   }
 
   for (i = 0; i < ARRAY_SIZE(invalid); i++) {
@@ -3171,6 +3172,7 @@ test_encoding_base32(drbg_t *unused) {
 
   unsigned char buf[32];
   unsigned int i;
+  char out[32];
   size_t len;
 
   (void)unused;
@@ -3185,8 +3187,8 @@ test_encoding_base32(drbg_t *unused) {
     ASSERT(base32_decode(buf, &len, b32, strlen(b32), 1));
     ASSERT(len == strlen(str) && torsion_memcmp(buf, str, len) == 0);
 
-    base32_encode((char *)buf, &len, (unsigned char *)str, strlen(str), 1);
-    ASSERT(len == strlen(b32) && torsion_memcmp(buf, b32, len) == 0);
+    base32_encode(out, &len, (const unsigned char *)str, strlen(str), 1);
+    ASSERT(len == strlen(b32) && torsion_memcmp(out, b32, len) == 0);
   }
 
   for (i = 0; i < ARRAY_SIZE(vectors_hex); i++) {
@@ -3199,8 +3201,8 @@ test_encoding_base32(drbg_t *unused) {
     ASSERT(base32hex_decode(buf, &len, b32, strlen(b32), 1));
     ASSERT(len == strlen(str) && torsion_memcmp(buf, str, len) == 0);
 
-    base32hex_encode((char *)buf, &len, (unsigned char *)str, strlen(str), 1);
-    ASSERT(len == strlen(b32) && torsion_memcmp(buf, b32, len) == 0);
+    base32hex_encode(out, &len, (const unsigned char *)str, strlen(str), 1);
+    ASSERT(len == strlen(b32) && torsion_memcmp(out, b32, len) == 0);
   }
 }
 
@@ -3230,8 +3232,9 @@ test_encoding_base58(drbg_t *unused) {
 
   unsigned char buf[128];
   unsigned char data[128];
-  unsigned int i;
   size_t len, dlen;
+  unsigned int i;
+  char out[128];
 
   (void)unused;
 
@@ -3247,8 +3250,8 @@ test_encoding_base58(drbg_t *unused) {
     ASSERT(base58_decode(buf, &len, b58, strlen(b58)));
     ASSERT(len == dlen && torsion_memcmp(buf, data, len) == 0);
 
-    ASSERT(base58_encode((char *)buf, &len, data, dlen));
-    ASSERT(len == strlen(b58) && torsion_memcmp(buf, b58, len) == 0);
+    ASSERT(base58_encode(out, &len, data, dlen));
+    ASSERT(len == strlen(b58) && torsion_memcmp(out, b58, len) == 0);
   }
 }
 
@@ -3299,6 +3302,7 @@ test_encoding_base64(drbg_t *unused) {
 
   unsigned char buf[32];
   unsigned int i;
+  char out[32];
   size_t len;
 
   (void)unused;
@@ -3313,8 +3317,8 @@ test_encoding_base64(drbg_t *unused) {
     ASSERT(base64_decode(buf, &len, b64, strlen(b64)));
     ASSERT(len == strlen(str) && torsion_memcmp(buf, str, len) == 0);
 
-    base64_encode((char *)buf, &len, (unsigned char *)str, strlen(str));
-    ASSERT(len == strlen(b64) && torsion_memcmp(buf, b64, len) == 0);
+    base64_encode(out, &len, (const unsigned char *)str, strlen(str));
+    ASSERT(len == strlen(b64) && torsion_memcmp(out, b64, len) == 0);
   }
 
   for (i = 0; i < ARRAY_SIZE(invalid); i++) {
@@ -3336,8 +3340,8 @@ test_encoding_base64(drbg_t *unused) {
     ASSERT(base64url_decode(buf, &len, b64, strlen(b64)));
     ASSERT(len == strlen(str) && torsion_memcmp(buf, str, len) == 0);
 
-    base64url_encode((char *)buf, &len, (unsigned char *)str, strlen(str));
-    ASSERT(len == strlen(b64) && torsion_memcmp(buf, b64, len) == 0);
+    base64url_encode(out, &len, (const unsigned char *)str, strlen(str));
+    ASSERT(len == strlen(b64) && torsion_memcmp(out, b64, len) == 0);
   }
 
   for (i = 0; i < ARRAY_SIZE(invalid_url); i++) {
