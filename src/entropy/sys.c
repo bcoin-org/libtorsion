@@ -55,6 +55,11 @@
  *   https://docs.oracle.com/cd/E88353_01/html/E37841/getrandom-2.html
  *   https://docs.oracle.com/cd/E36784_01/html/E36884/random-7d.html
  *
+ * HP-UX:
+ *   https://nixdoc.net/man-pages/HP-UX/man7/random.7.html
+ *   https://nixdoc.net/man-pages/HP-UX/man7/urandom.7.html
+ *   https://docstore.mik.ua/manuals/hp-ux/en/B2355-60130/random.7.html
+ *
  * AIX:
  *   https://www.ibm.com/support/knowledgecenter/ssw_aix_71/filesreference/random.html
  *   https://www.ibm.com/docs/en/aix/7.1?topic=files-random-urandom-devices
@@ -63,6 +68,9 @@
  * IBM i (with PASE):
  *   https://www.ibm.com/docs/pt/i/7.1?topic=pi-whats-new-i-71
  *   https://www.ibm.com/support/knowledgecenter/en/ssw_ibm_i_71/rzalf/rzalf.pdf
+ *
+ * QNX:
+ *   http://www.qnx.com/developers/docs/6.5.0/topic/com.qnx.doc.neutrino_utilities/r/random.html
  *
  * Haiku:
  *   No official documentation for /dev/random.
@@ -186,12 +194,20 @@
  *   Fallback: /dev/random
  *   Support: getrandom(2) added in Solaris 11.3 (2015) (SunOS 5.11.3).
  *
+ * HP-UX:
+ *   Source: /dev/random
+ *   Fallback: none
+ *
  * AIX:
  *   Source: /dev/random
  *   Fallback: none
  *
  * IBM i (with PASE):
  *   Source: /dev/urandom
+ *   Fallback: none
+ *
+ * QNX:
+ *   Source: /dev/random
  *   Fallback: none
  *
  * Haiku:
@@ -382,9 +398,13 @@ RtlGenRandom(PVOID RandomBuffer, ULONG RandomBufferLength);
 #      define HAVE_GETRANDOM
 #    endif
 #    define DEV_RANDOM_NAME "/dev/random"
+#  elif defined(__hpux)
+#    define DEV_RANDOM_NAME "/dev/random"
 #  elif defined(__PASE__) /* IBM i disguised as AIX */
 #    define DEV_RANDOM_NAME "/dev/urandom"
 #  elif defined(_AIX)
+#    define DEV_RANDOM_NAME "/dev/random"
+#  elif defined(__QNX__)
 #    define DEV_RANDOM_NAME "/dev/random"
 #  elif defined(__HAIKU__)
 #    define DEV_RANDOM_NAME "/dev/random"
