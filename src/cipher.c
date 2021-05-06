@@ -1852,13 +1852,13 @@ blowfish_decrypt(const blowfish_t *ctx,
  *   https://github.com/aead/camellia/blob/master/camellia.go
  */
 
-#define SIGMA camellia_SIGMA
+#define sigma camellia_SIGMA
 #define S1 camellia_S1
 #define S2 camellia_S2
 #define S3 camellia_S3
 #define S4 camellia_S4
 
-static const uint32_t SIGMA[12] = {
+static const uint32_t sigma[12] = {
   0xa09e667f, 0x3bcc908b, 0xb67ae858, 0x4caa73b2,
   0xc6ef372f, 0xe94f82be, 0x54ff53a5, 0xf1d36f1c,
   0x10e527fa, 0xde682d1d, 0xb05688c2, 0xb3e6c1fd
@@ -2181,16 +2181,16 @@ camellia128_init(camellia_t *ctx, const unsigned char *key) {
   k[2] = s2;
   k[3] = s3;
 
-  F(s0, s1, s2, s3, SIGMA[0], SIGMA[1]);
-  F(s2, s3, s0, s1, SIGMA[2], SIGMA[3]);
+  F(s0, s1, s2, s3, sigma[0], sigma[1]);
+  F(s2, s3, s0, s1, sigma[2], sigma[3]);
 
   s0 ^= k[0];
   s1 ^= k[1];
   s2 ^= k[2];
   s3 ^= k[3];
 
-  F(s0, s1, s2, s3, SIGMA[4], SIGMA[5]);
-  F(s2, s3, s0, s1, SIGMA[6], SIGMA[7]);
+  F(s0, s1, s2, s3, sigma[4], sigma[5]);
+  F(s2, s3, s0, s1, sigma[6], sigma[7]);
 
   k[4] = s0;
   k[5] = s1;
@@ -2440,16 +2440,16 @@ camellia256_init(camellia_t *ctx, const unsigned char *key, size_t key_len) {
   s2 = k[10] ^ k[2];
   s3 = k[11] ^ k[3];
 
-  F(s0, s1, s2, s3, SIGMA[0], SIGMA[1]);
-  F(s2, s3, s0, s1, SIGMA[2], SIGMA[3]);
+  F(s0, s1, s2, s3, sigma[0], sigma[1]);
+  F(s2, s3, s0, s1, sigma[2], sigma[3]);
 
   s0 ^= k[0];
   s1 ^= k[1];
   s2 ^= k[2];
   s3 ^= k[3];
 
-  F(s0, s1, s2, s3, SIGMA[4], SIGMA[5]);
-  F(s2, s3, s0, s1, SIGMA[6], SIGMA[7]);
+  F(s0, s1, s2, s3, sigma[4], sigma[5]);
+  F(s2, s3, s0, s1, sigma[6], sigma[7]);
 
   k[12] = s0;
   k[13] = s1;
@@ -2461,8 +2461,8 @@ camellia256_init(camellia_t *ctx, const unsigned char *key, size_t key_len) {
   s2 ^= k[10];
   s3 ^= k[11];
 
-  F(s0, s1, s2, s3, SIGMA[8], SIGMA[9]);
-  F(s2, s3, s0, s1, SIGMA[10], SIGMA[11]);
+  F(s0, s1, s2, s3, sigma[8], sigma[9]);
+  F(s2, s3, s0, s1, sigma[10], sigma[11]);
 
   k[4] = s0;
   k[5] = s1;
@@ -2782,7 +2782,7 @@ camellia_decrypt(const camellia_t *ctx,
     camellia256_decrypt(ctx, dst, src);
 }
 
-#undef SIGMA
+#undef sigma
 #undef S1
 #undef S2
 #undef S3
@@ -6321,6 +6321,10 @@ xts_unsteal(xts_t *mode,
  * Stream (Abstract)
  */
 
+/* Avoid violating ISO C section 7.1.3. */
+#define stream_f xstream_f
+#define stream_update xstream_update
+
 typedef void stream_f(stream_mode_t *mode, const cipher_t *cipher);
 typedef void xor_f(stream_mode_t *mode, size_t pos, unsigned char *dst,
                    const unsigned char *src, size_t len);
@@ -6475,8 +6479,8 @@ ofb_crypt(ofb_t *mode, const cipher_t *cipher,
  *   https://github.com/DaGenix/rust-crypto/blob/master/src/ghash.rs
  */
 
-typedef struct __ghash_s ghash_t;
-typedef struct __ghash_fe_s gfe_t;
+typedef struct ghash_s ghash_t;
+typedef struct ghash_fe_s gfe_t;
 
 static const uint16_t ghash_reduction[16] = {
   0x0000, 0x1c20, 0x3840, 0x2460,
@@ -6741,7 +6745,7 @@ gcm_digest(gcm_t *mode, unsigned char *mac) {
  * CBC-MAC
  */
 
-typedef struct __cmac_s cbcmac_t;
+typedef struct cmac_s cbcmac_t;
 
 static void
 cbcmac_init(cbcmac_t *ctx, const cipher_t *cipher) {
@@ -6982,7 +6986,7 @@ ccm_digest(ccm_t *mode, const cipher_t *cipher, unsigned char *mac) {
  * https://tools.ietf.org/html/rfc4493
  */
 
-typedef struct __cmac_s cmac_t;
+typedef struct cmac_s cmac_t;
 
 static void
 cmac_init(cmac_t *ctx, const cipher_t *cipher, int flag) {
@@ -7153,7 +7157,7 @@ eax_digest(eax_t *mode, const cipher_t *cipher, unsigned char *mac) {
  * Cipher Mode
  */
 
-typedef struct __cipher_mode_s cipher_mode_t;
+typedef struct cipher_mode_s cipher_mode_t;
 
 static int
 cipher_mode_init(cipher_mode_t *ctx, const cipher_t *cipher,

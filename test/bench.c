@@ -338,12 +338,12 @@ typedef void mp_end_f(bench_t *start, uint64_t ops);
 typedef void mp_rng_f(void *out, size_t size, void *arg);
 
 void
-__torsion_bench_mpi_internal(mp_start_f *start, mp_end_f *end,
-                             mp_rng_f *rng, void *arg);
+torsion__bench_mpi_internal(mp_start_f *start, mp_end_f *end,
+                            mp_rng_f *rng, void *arg);
 
 static void
 bench_mpi_internal(drbg_t *rng) {
-  __torsion_bench_mpi_internal(bench_start, bench_end, drbg_rng, rng);
+  torsion__bench_mpi_internal(bench_start, bench_end, drbg_rng, rng);
 }
 
 static void

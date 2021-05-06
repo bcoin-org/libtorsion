@@ -4,16 +4,16 @@
  * https://github.com/bcoin-org/libtorsion
  */
 
-#ifndef _TORSION_UTILS_H
-#define _TORSION_UTILS_H
+#ifndef TORSION_UTILS_H
+#define TORSION_UTILS_H
 
 #include <stddef.h>
 
 #undef ASSERT
 
-#define ASSERT(expr) do {                                  \
-  if (!(expr))                                             \
-    __torsion_test_assert_fail(__FILE__, __LINE__, #expr); \
+#define ASSERT(expr) do {                                 \
+  if (!(expr))                                            \
+    torsion__test_assert_fail(__FILE__, __LINE__, #expr); \
 } while (0)
 
 #define ENTROPY_SIZE 32
@@ -21,16 +21,16 @@
 
 #if defined(__GNUC__) && !defined(__clang__) && !defined(__INTEL_COMPILER)
 /* Avoid a GCC bug: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=95189 */
-#  define torsion_memcmp __torsion_test_memcmp
+#  define torsion_memcmp torsion__test_memcmp
 #else
 #  include <string.h>
 #  define torsion_memcmp memcmp
 #endif
 
 void
-__torsion_test_assert_fail(const char *file, int line, const char *expr);
+torsion__test_assert_fail(const char *file, int line, const char *expr);
 
 int
-__torsion_test_memcmp(const void *s1, const void *s2, size_t n);
+torsion__test_memcmp(const void *s1, const void *s2, size_t n);
 
-#endif /* _TORSION_UTILS_H */
+#endif /* TORSION_UTILS_H */

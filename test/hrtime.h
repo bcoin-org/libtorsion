@@ -4,12 +4,12 @@
  * https://github.com/bcoin-org/libtorsion
  */
 
-#ifndef _TORSION_HRTIME_H
-#define _TORSION_HRTIME_H
+#ifndef TORSION_HRTIME_H
+#define TORSION_HRTIME_H
 
 #include <stdint.h>
 
 uint64_t
 torsion_hrtime(void);
 
-#endif /* _TORSION_HRTIME_H */
+#endif /* TORSION_HRTIME_H */

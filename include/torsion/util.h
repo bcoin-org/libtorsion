@@ -4,8 +4,8 @@
  * https://github.com/bcoin-org/libtorsion
  */
 
-#ifndef _TORSION_UTIL_H
-#define _TORSION_UTIL_H
+#ifndef TORSION_UTIL_H
+#define TORSION_UTIL_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -61,4 +61,4 @@ murmur3_tweak(const unsigned char *data,
 }
 #endif
 
-#endif /* _TORSION_UTIL_H */
+#endif /* TORSION_UTIL_H */

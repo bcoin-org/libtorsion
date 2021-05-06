@@ -4262,11 +4262,11 @@ test_mac_siphash(drbg_t *unused) {
 typedef void mp_rng_f(void *out, size_t size, void *arg);
 
 void
-__torsion_test_mpi_internal(mp_rng_f *rng, void *arg);
+torsion__test_mpi_internal(mp_rng_f *rng, void *arg);
 
 static void
 test_mpi_internal(drbg_t *rng) {
-  __torsion_test_mpi_internal(drbg_rng, rng);
+  torsion__test_mpi_internal(drbg_rng, rng);
 }
 
 /*

@@ -4,8 +4,8 @@
  * https://github.com/bcoin-org/libtorsion
  */
 
-#ifndef _TORSION_TLS_H
-#define _TORSION_TLS_H
+#ifndef TORSION_TLS_H
+#define TORSION_TLS_H
 
 /* TLS Compiler Support
  *
@@ -490,4 +490,4 @@
 
 #endif /* !TORSION_HAVE_CONFIG */
 
-#endif /* _TORSION_TLS_H */
+#endif /* TORSION_TLS_H */

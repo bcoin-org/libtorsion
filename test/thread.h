@@ -4,8 +4,8 @@
  * https://github.com/bcoin-org/libtorsion
  */
 
-#ifndef _TORSION_THREAD_H
-#define _TORSION_THREAD_H
+#ifndef TORSION_THREAD_H
+#define TORSION_THREAD_H
 
 typedef struct torsion_thread_s torsion_thread_t;
 typedef void torsion_thread_attr_t;
@@ -26,4 +26,4 @@ torsion_thread_create(torsion_thread_t *thread,
 int
 torsion_thread_join(torsion_thread_t *thread, void **retval);
 
-#endif /* _TORSION_THREAD_H */
+#endif /* TORSION_THREAD_H */

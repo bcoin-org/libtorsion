@@ -4,8 +4,8 @@
  * https://github.com/bcoin-org/libtorsion
  */
 
-#ifndef _TORSION_MAC_H
-#define _TORSION_MAC_H
+#ifndef TORSION_MAC_H
+#define TORSION_MAC_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -92,4 +92,4 @@ siphash256_sum(uint64_t num, const unsigned char *key);
 }
 #endif
 
-#endif /* _TORSION_MAC_H */
+#endif /* TORSION_MAC_H */

@@ -4,8 +4,8 @@
  * https://github.com/bcoin-org/libtorsion
  */
 
-#ifndef _TORSION_CIPHER_H
-#define _TORSION_CIPHER_H
+#ifndef TORSION_CIPHER_H
+#define TORSION_CIPHER_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -121,12 +121,12 @@ extern "C" {
 #define CIPHER_MAX_BLOCK_SIZE 16
 #define CIPHER_MAX_TAG_SIZE 16
 
-#define _CIPHER_BLOCKS(n) \
+#define CIPHER_BLOCKS(n) \
   (((n) + CIPHER_MAX_BLOCK_SIZE - 1) / CIPHER_MAX_BLOCK_SIZE)
 
 /* One extra block due to ctx->last. */
 #define CIPHER_MAX_UPDATE_SIZE(n) \
-  ((_CIPHER_BLOCKS(n) + 1) * CIPHER_MAX_BLOCK_SIZE)
+  ((CIPHER_BLOCKS(n) + 1) * CIPHER_MAX_BLOCK_SIZE)
 
 /* 2 * n - 1 bytes due to XTS mode. */
 #define CIPHER_MAX_FINAL_SIZE (2 * CIPHER_MAX_BLOCK_SIZE - 1)
@@ -264,6 +264,9 @@ typedef struct block_mode_s {
   unsigned char prev[CIPHER_MAX_BLOCK_SIZE];
 } block_mode_t;
 
+/* Avoid violating ISO C section 7.1.3. */
+#define stream_mode_t xstream_mode_t
+
 typedef struct stream_mode_s {
   unsigned char state[CIPHER_MAX_BLOCK_SIZE];
   unsigned char iv[CIPHER_MAX_BLOCK_SIZE];
@@ -276,14 +279,14 @@ typedef stream_mode_t ctr_t;
 typedef stream_mode_t cfb_t;
 typedef stream_mode_t ofb_t;
 
-struct __ghash_fe_s {
+struct ghash_fe_s {
   uint64_t lo;
   uint64_t hi;
 };
 
-struct __ghash_s {
-  struct __ghash_fe_s state;
-  struct __ghash_fe_s table[16];
+struct ghash_s {
+  struct ghash_fe_s state;
+  struct ghash_fe_s table[16];
   unsigned char block[16];
   uint64_t adlen;
   uint64_t ctlen;
@@ -292,28 +295,28 @@ struct __ghash_s {
 
 typedef struct gcm_s {
   ctr_t ctr;
-  struct __ghash_s hash;
+  struct ghash_s hash;
   unsigned char mask[16];
 } gcm_t;
 
-struct __cmac_s {
+struct cmac_s {
   unsigned char mac[CIPHER_MAX_BLOCK_SIZE];
   size_t pos;
 };
 
 typedef struct ccm_s {
   ctr_t ctr;
-  struct __cmac_s hash;
+  struct cmac_s hash;
 } ccm_t;
 
 typedef struct eax_s {
   ctr_t ctr;
-  struct __cmac_s hash1;
-  struct __cmac_s hash2;
+  struct cmac_s hash1;
+  struct cmac_s hash2;
   unsigned char mask[CIPHER_MAX_BLOCK_SIZE];
 } eax_t;
 
-struct __cipher_mode_s {
+struct cipher_mode_s {
   mode_id_t type;
   union {
     block_mode_t block;
@@ -337,7 +340,7 @@ typedef struct cipher_stream_s {
   unsigned char last[CIPHER_MAX_BLOCK_SIZE];
   unsigned char tag[CIPHER_MAX_TAG_SIZE];
   cipher_t cipher;
-  struct __cipher_mode_s mode;
+  struct cipher_mode_s mode;
 } cipher_stream_t;
 
 /*
@@ -849,4 +852,4 @@ cipher_static_decrypt(unsigned char *pt,
 }
 #endif
 
-#endif /* _TORSION_CIPHER_H */
+#endif /* TORSION_CIPHER_H */

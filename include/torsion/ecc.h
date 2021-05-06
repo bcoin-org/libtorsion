@@ -4,8 +4,8 @@
  * https://github.com/bcoin-org/libtorsion
  */
 
-#ifndef _TORSION_ECC_H
-#define _TORSION_ECC_H
+#ifndef TORSION_ECC_H
+#define TORSION_ECC_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -207,7 +207,7 @@ extern "C" {
 #define ristretto_pubkey_negate torsion_ristretto_pubkey_negate
 #define ristretto_derive torsion_ristretto_derive
 
-#define test_ecc_internal __torsion_test_ecc_internal
+#define test_ecc_internal torsion__test_ecc_internal
 
 
 /*
@@ -1337,4 +1337,4 @@ test_ecc_internal(struct hmac_drbg_s *rng);
 }
 #endif
 
-#endif /* _TORSION_ECC_H */
+#endif /* TORSION_ECC_H */

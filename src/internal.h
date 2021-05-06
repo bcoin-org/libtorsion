@@ -4,8 +4,8 @@
  * https://github.com/bcoin-org/libtorsion
  */
 
-#ifndef _TORSION_INTERNAL_H
-#define _TORSION_INTERNAL_H
+#ifndef TORSION_INTERNAL_H
+#define TORSION_INTERNAL_H
 
 /*
  * Clang Compat
@@ -53,7 +53,7 @@
 
 #define CHECK_ALWAYS(expr) do { \
   if (UNLIKELY(!(expr)))        \
-    __torsion_abort();          \
+    torsion__abort();           \
 } while (0)
 
 #define CHECK_NEVER(expr) do { \
@@ -74,9 +74,9 @@
 #undef ASSERT_NEVER
 #undef ASSERT
 
-#define ASSERT_ALWAYS(expr) do {                      \
-  if (UNLIKELY(!(expr)))                              \
-    __torsion_assert_fail(__FILE__, __LINE__, #expr); \
+#define ASSERT_ALWAYS(expr) do {                     \
+  if (UNLIKELY(!(expr)))                             \
+    torsion__assert_fail(__FILE__, __LINE__, #expr); \
 } while (0)
 
 #define ASSERT_NEVER(expr) do { \
@@ -103,12 +103,12 @@
 #elif defined(__cplusplus) && (__cplusplus + 0L) >= 201103L
 #  define STATIC_ASSERT(expr) static_assert(expr, "")
 #elif TORSION_GNUC_PREREQ(2, 7)
-#  define __TORSION_STATIC_ASSERT(x, y) \
-     typedef char __torsion_assert_ ## y[(x) ? 1 : -1] __attribute__((unused))
-#  define _TORSION_STATIC_ASSERT(x, y) __TORSION_STATIC_ASSERT(x, y)
-#  define STATIC_ASSERT(expr) _TORSION_STATIC_ASSERT(expr, __LINE__)
+#  define STATIC_ASSERT_2(x, y) \
+     typedef char torsion__assert_ ## y[(x) ? 1 : -1] __attribute__((unused))
+#  define STATIC_ASSERT_1(x, y) STATIC_ASSERT_2(x, y)
+#  define STATIC_ASSERT(expr) STATIC_ASSERT_1(expr, __LINE__)
 #else
-#  define STATIC_ASSERT(expr) struct __torsion_assert_empty
+#  define STATIC_ASSERT(expr) struct torsion__assert_empty
 #endif
 
 /*
@@ -180,10 +180,10 @@
  */
 
 /* Any decent compiler should be able to optimize this out. */
-static const unsigned long __torsion_endian_check TORSION_UNUSED = 1;
+static const unsigned long torsion__endian_check TORSION_UNUSED = 1;
 
 #define TORSION_BIGENDIAN \
-  (*((const unsigned char *)&__torsion_endian_check) == 0)
+  (*((const unsigned char *)&torsion__endian_check) == 0)
 
 /*
  * Configuration
@@ -321,23 +321,23 @@ prefix ## _barrier(type x) {          \
  * Helpers
  */
 
-#define torsion_abort __torsion_abort
+#define torsion_abort torsion__abort
 
 #if defined(__GNUC__) && !defined(__clang__) && !defined(__INTEL_COMPILER)
 /* Avoid a GCC bug: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=95189 */
-#  define torsion_memcmp __torsion_memcmp
+#  define torsion_memcmp torsion__memcmp
 #else
 /* Note: caller must include <string.h>. */
 #  define torsion_memcmp memcmp
 #endif
 
 TORSION_NORETURN void
-__torsion_assert_fail(const char *file, int line, const char *expr);
+torsion__assert_fail(const char *file, int line, const char *expr);
 
 TORSION_NORETURN void
-__torsion_abort(void);
+torsion__abort(void);
 
 int
-__torsion_memcmp(const void *s1, const void *s2, size_t n);
+torsion__memcmp(const void *s1, const void *s2, size_t n);
 
-#endif /* _TORSION_INTERNAL_H */
+#endif /* TORSION_INTERNAL_H */

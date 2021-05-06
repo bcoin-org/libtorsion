@@ -4,8 +4,8 @@
  * https://github.com/bcoin-org/libtorsion
  */
 
-#ifndef _TORSION_RSA_H
-#define _TORSION_RSA_H
+#ifndef TORSION_RSA_H
+#define TORSION_RSA_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -252,4 +252,4 @@ rsa_unveil(unsigned char *out,
 }
 #endif
 
-#endif /* _TORSION_RSA_H */
+#endif /* TORSION_RSA_H */

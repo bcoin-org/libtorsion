@@ -12,7 +12,7 @@
 #include "internal.h"
 
 TORSION_NORETURN void
-__torsion_assert_fail(const char *file, int line, const char *expr) {
+torsion__assert_fail(const char *file, int line, const char *expr) {
   /* LCOV_EXCL_START */
 #if defined(TORSION_DEBUG)
   fprintf(stderr, "%s:%d: Assertion `%s' failed.\n", file, line, expr);
@@ -27,12 +27,12 @@ __torsion_assert_fail(const char *file, int line, const char *expr) {
 }
 
 TORSION_NORETURN void
-__torsion_abort(void) {
+torsion__abort(void) {
   abort(); /* LCOV_EXCL_LINE */
 }
 
 int
-__torsion_memcmp(const void *s1, const void *s2, size_t n) {
+torsion__memcmp(const void *s1, const void *s2, size_t n) {
   const unsigned char *x = (const unsigned char *)s1;
   const unsigned char *y = (const unsigned char *)s2;
   size_t i;

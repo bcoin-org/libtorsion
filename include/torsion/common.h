@@ -4,8 +4,8 @@
  * https://github.com/bcoin-org/libtorsion
  */
 
-#ifndef _TORSION_COMMON_H
-#define _TORSION_COMMON_H
+#ifndef TORSION_COMMON_H
+#define TORSION_COMMON_H
 
 #ifdef TORSION_BUILD
 #  if defined(__EMSCRIPTEN__)
@@ -27,4 +27,4 @@
 #  define TORSION_EXTERN
 #endif
 
-#endif /* _TORSION_COMMON_H */
+#endif /* TORSION_COMMON_H */
