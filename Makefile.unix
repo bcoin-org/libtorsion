@@ -48,10 +48,6 @@ COMMON_CFLAGS = -ansi                     \
                 -I./include               \
                 -O3
 
-ifeq ($(CC), clang++)
-COMMON_CFLAGS += -Wno-deprecated
-endif
-
 ifeq ($(shell uname -s), Darwin)
 COMMON_CFLAGS += -mmacosx-version-min=10.7
 endif
