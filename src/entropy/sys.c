@@ -52,11 +52,14 @@
  *   https://docs.oracle.com/cd/E88353_01/html/E37841/getrandom-2.html
  *   https://docs.oracle.com/cd/E36784_01/html/E36884/random-7d.html
  *
- * IBM i (PASE):
- *   https://www.ibm.com/support/knowledgecenter/en/ssw_ibm_i_71/rzalf/rzalf.pdf
- *
  * AIX:
  *   https://www.ibm.com/support/knowledgecenter/ssw_aix_71/filesreference/random.html
+ *   https://www.ibm.com/docs/en/aix/7.1?topic=files-random-urandom-devices
+ *   https://www.ibm.com/docs/en/aix/7.2?topic=files-random-urandom-devices
+ *
+ * IBM i (with PASE):
+ *   https://www.ibm.com/docs/pt/i/7.1?topic=pi-whats-new-i-71
+ *   https://www.ibm.com/support/knowledgecenter/en/ssw_ibm_i_71/rzalf/rzalf.pdf
  *
  * Haiku:
  *   No official documentation for /dev/random.
@@ -175,12 +178,12 @@
  *   Fallback: /dev/random
  *   Support: getrandom(2) added in Solaris 11.3 (2015) (SunOS 5.11.3).
  *
- * IBM i (PASE):
- *   Source: /dev/urandom
- *   Fallback: none
- *
  * AIX:
  *   Source: /dev/random
+ *   Fallback: none
+ *
+ * IBM i (with PASE):
+ *   Source: /dev/urandom
  *   Fallback: none
  *
  * Haiku:
@@ -310,7 +313,7 @@ RtlGenRandom(PVOID RandomBuffer, ULONG RandomBufferLength);
 #    endif
 #    define DEV_RANDOM_NAME "/dev/random"
 #  elif defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
-#    include <sys/param.h>
+#    include <sys/param.h> /* <osreldate.h> prior to 3.0.1 (1998) */
 #    if defined(__FreeBSD_version) && __FreeBSD_version >= 1200000 /* 12.0 (2018) */
 #      include <sys/random.h> /* getrandom, getentropy */
 #      define HAVE_GETRANDOM
@@ -326,7 +329,7 @@ RtlGenRandom(PVOID RandomBuffer, ULONG RandomBufferLength);
 #  elif defined(__OpenBSD__)
 #    include <sys/param.h>
 #    if defined(OpenBSD) && OpenBSD >= 201411 /* 5.6 (2014) */
-#      define HAVE_GETENTROPY /* resides in unistd.h */
+#      define HAVE_GETENTROPY /* resides in <unistd.h> */
 #    endif
 #    if defined(OpenBSD) && OpenBSD >= 200511 /* 3.8 (2005) */
 #      include <sys/sysctl.h> /* sysctl */
@@ -358,7 +361,7 @@ RtlGenRandom(PVOID RandomBuffer, ULONG RandomBufferLength);
 #      define HAVE_GETRANDOM
 #    endif
 #    define DEV_RANDOM_NAME "/dev/random"
-#  elif defined(__PASE__)
+#  elif defined(__PASE__) /* IBM i disguised as AIX */
 #    define DEV_RANDOM_NAME "/dev/urandom"
 #  elif defined(_AIX)
 #    define DEV_RANDOM_NAME "/dev/random"
@@ -513,7 +516,7 @@ torsion_callrand(void *dst, size_t size) {
   return RtlGenRandom((PVOID)dst, (ULONG)size) == TRUE;
 #elif defined(HAVE_RANDABYTES) /* __vxworks */
   unsigned char *data = (unsigned char *)dst;
-  size_t max = (size_t)INT_MAX;
+  size_t max = INT_MAX;
   int ret;
 
   for (;;) {
