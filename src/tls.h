@@ -41,10 +41,12 @@
  *
  * - Supports TLS via __thread[22], __declspec(thread)[23].
  * - Intel mentions __thread in documentation from 2004[22].
- *   This would suggest support from version 8.x onward.
- * - Furthermore, this post[24] suggests __thread existed
- *   at least as far back as 2006 (version 9.0 or 10.0).
+ *   This user guide lists __INTEL_COMPILER as 810, implying
+ *   support on Linux from 8.1.0 onward. The Intel C++ 8.1
+ *   release notes confirm this[24].
  * - Apple and Mach-O support implemented in 15.0[25].
+ * - The exact version for Windows support is unknown
+ *   (though, wikipedia cites the 10.0 documentation).
  *
  * MSVC:
  *
@@ -53,6 +55,8 @@
  *   from 2009 suggests it existed in VS .NET 2002 (7.0).
  * - Another project dating from 1996-2003 suggests
  *   TLS was supported in Visual Studio 6.0 (1998)[28].
+ * - Wikipedia cites the VS .NET 2003 documentation as
+ *   a source for __declspec(thread).
  * - Usage of TLS appears on the MSDN Library CD for
  *   Visual Studio 6.0 (1998). The author of the code
  *   samples claims to have written them in 1995. This
@@ -173,15 +177,18 @@
  * [20] https://github.com/llvm/llvm-project/blob/llvmorg-12.0.0/clang/lib/Basic/Targets/ARM.cpp#L1248
  * [21] https://github.com/llvm/llvm-project/blob/llvmorg-12.0.0/clang/lib/Basic/Targets/OSTargets.h#L291
  * [22] https://software.intel.com/sites/default/files/ae/4f/6320
- * [23] https://community.intel.com/t5/Intel-C-Compiler/Thread-local-storage-support-on-Windows/td-p/949321
- * [24] https://community.intel.com/t5/Intel-C-Compiler/thread-local-storage-linking-problems/td-p/932631
+        http://download.intel.com/support/performancetools/c/linux/sb/clin81_relnotes.pdf#4
+ * [23] http://software.intel.com/sites/default/files/m/2/4/8/5/d/16949-347599.pdf#155
+ * [24] https://www.tu-chemnitz.de/mathematik/mrz/neues/8.1/C++ReleaseNotes.htm
  * [25] https://community.intel.com/t5/Intel-C-Compiler/Mach-O-thread-local-storage/td-p/948267
  * [26] https://docs.microsoft.com/en-us/cpp/c-language/thread-local-storage
+        https://docs.microsoft.com/en-us/previous-versions/6yh4a9k1%28v%3dvs.140%29
  * [27] https://github.com/snaewe/loki-lib/commit/7d8e59abc8f48785d564ddabab5ba3f01cd24444
  * [28] http://www.simkin.co.uk/Docs/cpp/api/skGeneral_8h-source.html
  * [29] https://docs.oracle.com/cd/E18659_01/html/821-1383/bkaeg.html
  * [30] https://docs.oracle.com/cd/E19205-01/819-5267/bkaeg/index.html
  * [31] https://www.ibm.com/support/knowledgecenter/en/SSXVZZ_13.1.3/com.ibm.xlcpp1313.lelinux.doc/language_ref/thread.html
+        http://www-01.ibm.com/support/docview.wss?uid=swg27007322&aid=1#6
  * [32] https://www.ibm.com/support/pages/node/318521#6
  * [33] http://docs.embarcadero.com/products/rad_studio/delphiAndcpp2009/HelpUpdate2/EN/html/devwin32/threadsusingthreadlocalvariables_xml.html
  * [34] http://docwiki.embarcadero.com/RADStudio/Sydney/en/Declspec(thread)
@@ -359,20 +366,23 @@
 #    define TORSION_TLS_GNUC
 #  endif
 #elif defined(__INTEL_COMPILER)
-#  if defined(__APPLE__) && defined(__MACH__)
-#    if defined(TORSION__APPLE_OS) && __INTEL_COMPILER >= 1500 /* 15.0.0 (2014) */
+#  if defined(__GNUC__) && defined(__GNUC_MINOR__)
+#    if ((__GNUC__ << 16) + __GNUC_MINOR__ >= 0x30003) /* 3.3 */
+#      define TORSION__GNUC_3_3
+#    endif
+#  endif
+#  if defined(TORSION__APPLE_OS) && __INTEL_COMPILER >= 1500 /* 15.0.0 (2014) */
+#    ifdef TORSION__GNUC_3_3
 #      define TORSION_TLS_GNUC
 #    endif
-#  elif __INTEL_COMPILER >= 800 /* 8.0.0 (2003) */
-#    define TORSION_TLS_BOTH
-#  endif
-#elif defined(__ICC)
-#  if !defined(__APPLE__) && __ICC >= 800 /* 8.0.0 (2003) */
-#    define TORSION_TLS_GNUC
-#  endif
-#elif defined(__ICL)
-#  if __ICL >= 800 /* 8.0.0 (2003) */
-#    define TORSION_TLS_MSVC
+#  elif defined(__linux__) && __INTEL_COMPILER >= 810 /* 8.1.0 (2004) */
+#    ifdef TORSION__GNUC_3_3
+#      define TORSION_TLS_GNUC
+#    endif
+#  elif defined(_WIN32) && __INTEL_COMPILER >= 1000 /* 10.0.0 (2007) */
+#    ifdef _MSC_VER
+#      define TORSION_TLS_MSVC
+#    endif
 #  endif
 #elif defined(__clang__)
 #  if defined(__apple_build_version__)
