@@ -34,13 +34,20 @@
 
 #undef LIKELY
 #undef UNLIKELY
+#undef UNPREDICTABLE
 
 #if TORSION_GNUC_PREREQ(3, 0) || TORSION_HAS_BUILTIN(__builtin_expect)
-#  define LIKELY(x) __builtin_expect(!!(x), 1)
-#  define UNLIKELY(x) __builtin_expect(!!(x), 0)
+#  define LIKELY(x) __builtin_expect(x, 1)
+#  define UNLIKELY(x) __builtin_expect(x, 0)
 #else
 #  define LIKELY(x) (x)
 #  define UNLIKELY(x) (x)
+#endif
+
+#if TORSION_HAS_BUILTIN(__builtin_unpredictable)
+#  define UNPREDICTABLE __builtin_unpredictable
+#else
+#  define UNPREDICTABLE(x) (x)
 #endif
 
 /*

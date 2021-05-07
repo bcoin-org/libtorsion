@@ -2142,7 +2142,7 @@ mp_div_2by1(mp_limb_t *q, mp_limb_t *r,
 
   r0 = u0 - q1 * d;
 
-  if (r0 > q0) {
+  if (UNPREDICTABLE(r0 > q0)) {
     q1 -= 1;
     r0 += d;
   }
@@ -2394,7 +2394,7 @@ mp_div_3by2(mp_limb_t *q, mp_limb_t *k1, mp_limb_t *k0,
    */
   q1 += 1;
 
-  if (r1 >= q0) {
+  if (UNPREDICTABLE(r1 >= q0)) {
     q1 -= 1;
     r0 += d0;
     r1 += d1 + (r0 < d0);
