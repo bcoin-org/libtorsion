@@ -72,10 +72,10 @@ sha512_update_tsc(sha512_t *hash) {
  */
 
 typedef struct rng_s {
-  uint64_t key[4];
+  uint32_t key[8];
   uint64_t zero;
   uint64_t nonce;
-  uint32_t pool[16];
+  uint32_t pool[128];
   size_t pos;
   int rdrand;
 } rng_t;
@@ -140,27 +140,46 @@ rng_init(rng_t *rng) {
 }
 
 static void
-rng_generate(rng_t *rng, void *dst, size_t size) {
+rng_crypt(rng_t *rng,
+          unsigned char *dst,
+          const unsigned char *src,
+          size_t size) {
   unsigned char *key = (unsigned char *)rng->key;
   unsigned char *nonce = (unsigned char *)&rng->nonce;
-  unsigned char *raw = (unsigned char *)dst;
   chacha20_t ctx;
+
+  chacha20_init(&ctx, key, 32, nonce, 8, rng->zero);
+  chacha20_crypt(&ctx, dst, src, size);
+
+  torsion_memzero(&ctx, sizeof(ctx));
+}
+
+static void
+rng_read(rng_t *rng, void *dst, size_t size) {
+  unsigned char *raw = (unsigned char *)dst;
 
   if (size > 0)
     memset(raw, 0, size);
 
+  rng_crypt(rng, raw, raw, size);
+}
+
+static void
+rng_generate(rng_t *rng, void *dst, size_t size) {
+  unsigned char *key = (unsigned char *)rng->key;
+
   /* Read the keystream. */
-  chacha20_init(&ctx, key, 32, nonce, 8, rng->zero);
-  chacha20_crypt(&ctx, raw, raw, size);
+  rng_read(rng, dst, size);
 
   /* Mix in some user entropy. */
   rng->key[0] ^= size;
+  rng->key[1] ^= (uint64_t)size >> 32;
 
   /* Mix in some hardware entropy. We sacrifice
      only 32 bits here, lest RDRAND is backdoored.
      See: https://pastebin.com/A07q3nL3 */
   if (rng->rdrand)
-    rng->key[3] ^= (uint32_t)torsion_rdrand();
+    rng->key[7] ^= (uint32_t)torsion_rdrand();
 
   /* Re-key immediately. */
   rng->nonce++;
@@ -172,21 +191,30 @@ rng_generate(rng_t *rng, void *dst, size_t size) {
      there's probably not really a difference in
      terms of security, as the outputs in both
      scenarios are dependent on the key. */
-  chacha20_init(&ctx, key, 32, nonce, 8, rng->zero);
-  chacha20_crypt(&ctx, key, key, 32);
-
-  /* Cleanse the chacha state. */
-  torsion_memzero(&ctx, sizeof(ctx));
+  rng_crypt(rng, key, key, 32);
 }
 
 static uint32_t
 rng_random(rng_t *rng) {
-  if ((rng->pos & 15) == 0) {
-    rng_generate(rng, rng->pool, 64);
-    rng->pos = 0;
+  size_t i;
+
+  if (rng->pos == 0) {
+    /* Read the keystream. */
+    rng_read(rng, rng->pool, 512);
+
+    /* Mix in some hardware entropy. */
+    if (rng->rdrand)
+      rng->key[7] ^= (uint32_t)torsion_rdrand();
+
+    /* Re-key immediately. */
+    for (i = 0; i < 8; i++)
+      rng->key[i] ^= rng->pool[120 + i];
+
+    rng->nonce++;
+    rng->pos = 120;
   }
 
-  return rng->pool[rng->pos++];
+  return rng->pool[--rng->pos];
 }
 
 static uint32_t
