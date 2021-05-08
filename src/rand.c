@@ -297,7 +297,14 @@ rng_global_init(void) {
 
 int
 torsion_getentropy(void *dst, size_t size) {
-  return torsion_sysrand(dst, size);
+  if (!torsion_sysrand(dst, size)) {
+    if (size > 0)
+      memset(dst, 0, size);
+
+    return 0;
+  }
+
+  return 1;
 }
 
 int
@@ -305,7 +312,11 @@ torsion_getrandom(void *dst, size_t size) {
   rng_global_lock();
 
   if (!rng_global_init()) {
+    if (size > 0)
+      memset(dst, 0, size);
+
     rng_global_unlock();
+
     return 0;
   }
 
@@ -320,6 +331,7 @@ torsion_random(uint32_t *num) {
   rng_global_lock();
 
   if (!rng_global_init()) {
+    *num = 0;
     rng_global_unlock();
     return 0;
   }
@@ -336,6 +348,7 @@ torsion_uniform(uint32_t *num, uint32_t max) {
   rng_global_lock();
 
   if (!rng_global_init()) {
+    *num = 0;
     rng_global_unlock();
     return 0;
   }
