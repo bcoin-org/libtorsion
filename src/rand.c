@@ -140,34 +140,30 @@ rng_init(rng_t *rng) {
 }
 
 static void
-rng_crypt(rng_t *rng,
-          unsigned char *dst,
-          const unsigned char *src,
-          size_t size) {
-  unsigned char *key = (unsigned char *)rng->key;
-  unsigned char *nonce = (unsigned char *)&rng->nonce;
+rng_crypt(const rng_t *rng, void *data, size_t size) {
   chacha20_t ctx;
 
-  chacha20_init(&ctx, key, 32, nonce, 8, rng->zero);
-  chacha20_crypt(&ctx, dst, src, size);
+  chacha20_init(&ctx, (const unsigned char *)rng->key, 32,
+                      (const unsigned char *)&rng->nonce, 8,
+                      rng->zero);
+
+  chacha20_crypt(&ctx, (unsigned char *)data,
+                       (const unsigned char *)data,
+                       size);
 
   torsion_memzero(&ctx, sizeof(ctx));
 }
 
 static void
-rng_read(rng_t *rng, void *dst, size_t size) {
-  unsigned char *raw = (unsigned char *)dst;
-
+rng_read(const rng_t *rng, void *dst, size_t size) {
   if (size > 0)
-    memset(raw, 0, size);
+    memset(dst, 0, size);
 
-  rng_crypt(rng, raw, raw, size);
+  rng_crypt(rng, dst, size);
 }
 
 static void
 rng_generate(rng_t *rng, void *dst, size_t size) {
-  unsigned char *key = (unsigned char *)rng->key;
-
   /* Read the keystream. */
   rng_read(rng, dst, size);
 
@@ -191,7 +187,7 @@ rng_generate(rng_t *rng, void *dst, size_t size) {
      there's probably not really a difference in
      terms of security, as the outputs in both
      scenarios are dependent on the key. */
-  rng_crypt(rng, key, key, 32);
+  rng_crypt(rng, rng->key, 32);
 }
 
 static uint32_t
