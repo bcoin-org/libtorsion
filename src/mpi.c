@@ -4495,7 +4495,7 @@ mpn_sec_tabselect(mp_limb_t *zp,
 
 int
 mpn_sec_zero_p(const mp_limb_t *xp, mp_size_t xn) {
-  /* Compute (x == y) in constant time. */
+  /* Compute (x == 0) in constant time. */
   mp_limb_t w = 0;
   mp_size_t i;
 
