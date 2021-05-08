@@ -4844,6 +4844,26 @@ test_stream_chacha20(drbg_t *rng) {
       ASSERT(torsion_memcmp(data, input, input_len) == 0);
     }
 
+    /* One-shot encryption (with overlap). */
+    {
+      memcpy(data, input, input_len);
+
+      chacha20_init(&ctx, key, key_len, nonce, nonce_len, counter);
+      chacha20_crypt(&ctx, data, data, input_len);
+
+      ASSERT(torsion_memcmp(data, output, output_len) == 0);
+    }
+
+    /* One-shot decryption (with overlap). */
+    {
+      memcpy(data, output, output_len);
+
+      chacha20_init(&ctx, key, key_len, nonce, nonce_len, counter);
+      chacha20_crypt(&ctx, data, data, output_len);
+
+      ASSERT(torsion_memcmp(data, input, input_len) == 0);
+    }
+
     /* 1 byte chunks. */
     {
       chacha20_init(&ctx, key, key_len, nonce, nonce_len, counter);
@@ -4978,6 +4998,22 @@ test_stream_salsa20(drbg_t *rng) {
 
       salsa20_init(&ctx, key, 32, nonce, 8, 0);
       salsa20_crypt(&ctx, out, inp, size);
+
+      for (j = 0; j < size; j += 64) {
+        for (k = 0; k < 64; k++)
+          acc[k] ^= out[j + k];
+      }
+
+      ASSERT(torsion_memcmp(acc, expect, 64) == 0);
+    }
+
+    /* One-shot encryption (with overlap). */
+    {
+      memcpy(out, inp, size);
+      memset(acc, 0, 64);
+
+      salsa20_init(&ctx, key, 32, nonce, 8, 0);
+      salsa20_crypt(&ctx, out, out, size);
 
       for (j = 0; j < size; j += 64) {
         for (k = 0; k < 64; k++)
