@@ -3401,8 +3401,9 @@ static const uint8_t X[4] = {6, 7, 4, 5};
 
 static TORSION_INLINE uint32_t
 f1(uint32_t d, uint32_t m, uint32_t r) {
+  uint32_t c = -(uint32_t)(r != 0);
   uint32_t t = m + d;
-  uint32_t I = (t << r) | (t >> (32 - r));;
+  uint32_t I = (t << r) | (t >> ((32 - r) & c));
 
   return (((S[0][(I >> 24) & 0xff]
           ^ S[1][(I >> 16) & 0xff])
@@ -3412,8 +3413,9 @@ f1(uint32_t d, uint32_t m, uint32_t r) {
 
 static TORSION_INLINE uint32_t
 f2(uint32_t d, uint32_t m, uint32_t r) {
+  uint32_t c = -(uint32_t)(r != 0);
   uint32_t t = m ^ d;
-  uint32_t I = (t << r) | (t >> (32 - r));
+  uint32_t I = (t << r) | (t >> ((32 - r) & c));
 
   return (((S[0][(I >> 24) & 0xff]
           - S[1][(I >> 16) & 0xff])
@@ -3423,8 +3425,9 @@ f2(uint32_t d, uint32_t m, uint32_t r) {
 
 static TORSION_INLINE uint32_t
 f3(uint32_t d, uint32_t m, uint32_t r) {
+  uint32_t c = -(uint32_t)(r != 0);
   uint32_t t = m - d;
-  uint32_t I = (t << r) | (t >> (32 - r));
+  uint32_t I = (t << r) | (t >> ((32 - r) & c));
 
   return (((S[0][(I >> 24) & 0xff]
           + S[1][(I >> 16) & 0xff])
