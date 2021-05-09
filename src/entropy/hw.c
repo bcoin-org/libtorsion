@@ -44,6 +44,10 @@
  *   https://www.felixcloutier.com/x86/rdrand
  *   https://www.felixcloutier.com/x86/rdseed
  *
+ * ARMv8.5-A (rndr/rndrrs):
+ *   https://developer.arm.com/documentation/ddi0595/2021-03/AArch64-Registers/RNDR--Random-Number
+ *   https://developer.arm.com/documentation/ddi0595/2021-03/AArch64-Registers/RNDRRS--Reseeded-Random-Number
+ *
  * POWER9/POWER10 (darn):
  *   https://www.docdroid.net/tWT7hjD/powerisa-v30-pdf
  *   https://openpowerfoundation.org/?resource_lib=power-isa-version-3-0
@@ -89,8 +93,13 @@
  * use hardware entropy to supplement our full entropy pool.
  *
  * On POWER9 and POWER10, the `darn` (Deliver A Random Number)
- * instruction is available. We have `torsion_rdrand` return
- * the output of `darn` if this is the case.
+ * instruction is available. We have `torsion_rdrand` as well
+ * as `torsion_rdseed` return the output of `darn` if this is
+ * the case.
+ *
+ * ARMv8.5-A provides new system registers (RNDR and RNDRRS)
+ * to be used with the MRS instruction. Similar to `darn`, we
+ * have `torsion_{rdrand,rdseed}` output the proper values.
  *
  * For other hardware, torsion_rdrand and torsion_rdseed are
  * no-ops returning zero. torsion_has_rd{rand,seed} MUST be
@@ -166,6 +175,8 @@
 #  define HAVE_INLINE_ASM
 #  if defined(__i386__) || defined(__amd64__) || defined(__x86_64__)
 #    define HAVE_CPUID
+#  elif defined(__aarch64__) && defined(__ARM_FEATURE_RNG)
+#    define HAVE_RNDR
 #  elif defined(__powerpc64__) && (defined(_ARCH_PWR9) || defined(_ARCH_PWR10))
 #    define HAVE_DARN
 #  endif
@@ -438,8 +449,23 @@ torsion_has_rdrand(void) {
   torsion_cpuid(&eax, &ebx, &ecx, &edx, 1, 0);
 
   return (ecx >> 30) & 1;
+#elif defined(HAVE_RNDR)
+  uint64_t x = 0;
+
+  /* Note that `mrs %0, id_aa64isar0_el1` can be
+   * spelled out as:
+   *
+   *   .inst (0xd5200000 | 0x180600 | %0)
+   *              |            |       |
+   *             mrs        sysreg    reg
+   */
+  __asm__ __volatile__ (
+    "mrs %0, s3_0_c0_c6_0\n" /* ID_AA64ISAR0_EL1 */
+    : "=r" (x)
+  );
+
+  return (x >> 60) == 1;
 #elif defined(HAVE_DARN)
-  /* We have `darn` masquerade as `rdrand`. */
   return 1;
 #else
   return 0;
@@ -454,6 +480,10 @@ torsion_has_rdseed(void) {
   torsion_cpuid(&eax, &ebx, &ecx, &edx, 7, 0);
 
   return (ebx >> 18) & 1;
+#elif defined(HAVE_RNDR)
+  return torsion_has_rdrand();
+#elif defined(HAVE_DARN)
+  return 1;
 #else
   return 0;
 #endif
@@ -524,8 +554,8 @@ torsion_rdrand(void) {
   return ((uint64_t)hi << 32) | lo;
 #else /* !__i386__ */
   /* Borrowed from Bitcoin Core. */
-  uint8_t ok;
   uint64_t r;
+  uint8_t ok;
   int i;
 
   for (i = 0; i < 10; i++) {
@@ -543,20 +573,58 @@ torsion_rdrand(void) {
 
   return r;
 #endif /* !__i386__ */
+#elif defined(HAVE_RNDR)
+  uint64_t r = 0;
+  uint32_t ok;
+  int i;
+
+  for (i = 0; i < 10; i++) {
+    /* Note that `mrs %0, rndr` can be spelled out as:
+     *
+     *   .inst (0xd5200000 | 0x1b2400 | %0)
+     *              |            |       |
+     *             mrs        sysreg    reg
+     *
+     * Though, this presents a difficulty in that %0
+     * will be expanded to `x<n>` instead of `<n>`.
+     * That is to say, %0 becomes x3 instead of 3.
+     *
+     * We can solve this with some crazy macros like
+     * the linux kernel does, but it's probably not
+     * worth the effort.
+     */
+    __asm__ __volatile__ (
+      "mrs %0, s3_3_c2_c4_0\n" /* rndr */
+      "cset %w1, ne\n"
+      : "=r" (r), "=r" (ok)
+      :
+      : "cc"
+    );
+
+    if (ok)
+      break;
+
+    r = 0;
+  }
+
+  return r;
 #elif defined(HAVE_DARN)
   uint64_t r = 0;
   int i;
 
   for (i = 0; i < 10; i++) {
-    /* Note that `darn %0, 1` can be spelled out as:
+    /* Darn modes:
      *
-     *   .long (0x7c0005e6 | (%0 << 21) | (1 << 16))
+     *   0 = 32 bit (conditioned)
+     *   1 = conditioned
+     *   2 = raw
+     *   3 = reserved
      *
-     * The above was taken from the linux kernel
+     * Spelling below was taken from the linux kernel
      * (after stripping out a load of preprocessor).
      */
     __asm__ __volatile__ (
-      "darn %0, 1\n"
+      ".long (0x7c0005e6 | (%0 << 21) | (1 << 16))\n" /* darn %0, 1 */
       : "=r" (r)
     );
 
@@ -670,6 +738,49 @@ torsion_rdseed(void) {
 
   return r;
 #endif /* !__i386__ */
+#elif defined(HAVE_RNDR)
+  uint32_t ok;
+  uint64_t r;
+
+  for (;;) {
+    /* Note that `mrs %0, rndrrs` can be spelled out as:
+     *
+     *   .inst (0xd5200000 | 0x1b2420 | %0)
+     *              |            |       |
+     *             mrs        sysreg    reg
+     */
+    __asm__ __volatile__ (
+      "mrs %0, s3_3_c2_c4_1\n" /* rndrrs */
+      "cset %w1, ne\n"
+      : "=r" (r), "=r" (ok)
+      :
+      : "cc"
+    );
+
+    if (ok)
+      break;
+
+    __asm__ __volatile__ ("yield\n");
+  }
+
+  return r;
+#elif defined(HAVE_DARN)
+  uint64_t r;
+
+  for (;;) {
+    __asm__ __volatile__ (
+      ".long (0x7c0005e6 | (%0 << 21) | (2 << 16))\n" /* darn %0, 2 */
+      : "=r" (r)
+    );
+
+    if (r != UINT64_MAX)
+      break;
+
+    /* https://stackoverflow.com/questions/5425506 */
+    __asm__ __volatile__ ("or 27, 27, 27\n");
+  }
+
+  return r;
 #else
   return 0;
 #endif
