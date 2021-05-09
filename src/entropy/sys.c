@@ -39,6 +39,9 @@
  *   https://man.openbsd.org/random.4
  *
  * NetBSD:
+ *   https://www.netbsd.org/~riastradh/tmp/20200510/getrandom.html
+ *   https://github.com/NetBSD/src/blob/6ec11dd/sys/sys/random.h
+ *   https://www.netbsd.org/changes/changes-10.0.html
  *   https://netbsd.gw.com/cgi-bin/man-cgi?sysctl+3+NetBSD-8.0
  *   https://github.com/NetBSD/src/commit/0a9d2ad
  *   https://github.com/NetBSD/src/commit/3f78162
@@ -163,9 +166,11 @@
  *            kern.arandom removed in OpenBSD 6.1 (2017).
  *
  * NetBSD:
- *   Source: sysctl(2) w/ kern.arandom
- *   Fallback: /dev/urandom
- *   Support: kern.arandom added in NetBSD 2.0 (2004).
+ *   Source: getrandom(2)
+ *   Fallback 1: sysctl(2) w/ kern.arandom
+ *   Fallback 2: /dev/urandom
+ *   Support: getrandom(2) added in NetBSD 10.0 (2021).
+ *            kern.arandom added in NetBSD 2.0 (2004).
  *            kern.arandom modernized in NetBSD 4.0 (2007).
  *
  * DragonFly BSD:
@@ -340,6 +345,10 @@ RtlGenRandom(PVOID RandomBuffer, ULONG RandomBufferLength);
 #    define DEV_RANDOM_NAME "/dev/urandom"
 #  elif defined(__NetBSD__)
 #    include <sys/param.h>
+#    if defined(__NetBSD_Version__) && __NetBSD_Version__ >= 1000000000 /* 10.0 (2021) */
+#      include <sys/random.h> /* getrandom */
+#      define HAVE_GETRANDOM
+#    endif
 #    if defined(__NetBSD_Version__) && __NetBSD_Version__ >= 400000000 /* 4.0 (2007) */
 #      include <sys/sysctl.h> /* sysctl */
 #      if defined(CTL_KERN) && defined(KERN_ARND)
