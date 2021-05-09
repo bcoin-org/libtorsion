@@ -123,8 +123,13 @@
 #undef HAVE_RDTSC
 #undef HAVE_INLINE_ASM
 #undef HAVE_CPUID
+#undef HAVE_RNDR
 #undef HAVE_DARN
+#undef HAVE_GETAUXVAL
+#undef HAVE_ELFAUXINFO
+#undef HAVE_POWERSET
 
+/* High-resolution time. */
 #if defined(_WIN32)
 #  include <windows.h> /* QueryPerformanceCounter, GetSystemTimeAsFileTime */
 #  pragma comment(lib, "kernel32.lib")
@@ -163,6 +168,7 @@
 #  include <time.h> /* time */
 #endif
 
+/* Detect CPU features and ASM/intrinsic support. */
 #if defined(_MSC_VER) && _MSC_VER >= 1900 /* VS 2015 */
 #  if defined(_M_IX86) || defined(_M_AMD64) || defined(_M_X64)
 #    include <intrin.h> /* __cpuidex, __rdtsc */
@@ -175,10 +181,41 @@
 #  define HAVE_INLINE_ASM
 #  if defined(__i386__) || defined(__amd64__) || defined(__x86_64__)
 #    define HAVE_CPUID
-#  elif defined(__aarch64__) && defined(__ARM_FEATURE_RNG)
+#  elif defined(__aarch64__)
 #    define HAVE_RNDR
-#  elif defined(__powerpc64__) && (defined(_ARCH_PWR9) || defined(_ARCH_PWR10))
+#  elif defined(__powerpc64__)
 #    define HAVE_DARN
+#  endif
+#endif
+
+/* Some insanity to detect darn support at runtime. */
+#ifdef HAVE_DARN
+#  if defined(__GLIBC_PREREQ)
+#    define TORSION_GLIBC_PREREQ __GLIBC_PREREQ
+#  else
+#    define TORSION_GLIBC_PREREQ(maj, min) 0
+#  endif
+#  if TORSION_GLIBC_PREREQ(2, 16)
+#    include <sys/auxv.h> /* getauxval */
+#    ifndef AT_HWCAP2
+#      define AT_HWCAP2 26
+#    endif
+#    define HAVE_GETAUXVAL
+#  elif defined(__FreeBSD__)
+#    include <sys/param.h>
+#    if defined(__FreeBSD_version) && __FreeBSD_version >= 1200000 /* 12.0 */
+#      include <sys/auxv.h> /* elf_aux_info */
+#      ifndef AT_HWCAP2
+#        define AT_HWCAP2 26
+#      endif
+#      define HAVE_ELFAUXINFO
+#    endif
+#  elif defined(_AIX53) && !defined(__PASE__)
+#    include <sys/systemcfg.h> /* __power_set */
+#    ifndef __power_set
+#      define __power_set(x) (_system_configuration.implementation & (x))
+#    endif
+#    define HAVE_POWERSET
 #  endif
 #endif
 
@@ -449,6 +486,9 @@ torsion_has_rdrand(void) {
   torsion_cpuid(&eax, &ebx, &ecx, &edx, 1, 0);
 
   return (ecx >> 30) & 1;
+#elif defined(HAVE_RNDR) && defined(__ARM_FEATURE_RNG)
+  /* Explicitly built with ARM RNG support. */
+  return 1;
 #elif defined(HAVE_RNDR)
   uint64_t x = 0;
 
@@ -465,8 +505,26 @@ torsion_has_rdrand(void) {
   );
 
   return (x >> 60) == 1;
-#elif defined(HAVE_DARN)
+#elif defined(HAVE_DARN) && (defined(_ARCH_PWR9) || defined(_ARCH_PWR10))
+  /* Explicitly built for Power 9/10. */
   return 1;
+#elif defined(HAVE_GETAUXVAL) /* HAVE_DARN */
+  /* Bit 21 = DARN support (PPC_FEATURE2_DARN) */
+  return (getauxval(AT_HWCAP2) >> 21) & 1;
+#elif defined(HAVE_ELFAUXINFO) /* HAVE_DARN */
+  unsigned long val;
+
+  if (elf_aux_info(AT_HWCAP2, &val, sizeof(val)) != 0)
+    return 0;
+
+  /* Bit 23 = PowerISA 3.00 (PPC_FEATURE2_ARCH_3_00) */
+  return (val >> 23) & 1;
+#elif defined(HAVE_POWERSET) /* HAVE_DARN */
+  /* Power 9 and greater. */
+  return __power_set(0xffffffffU << 17) != 0;
+#elif defined(HAVE_DARN)
+  /* Nothing we can do here. */
+  return 0;
 #else
   return 0;
 #endif
@@ -483,7 +541,7 @@ torsion_has_rdseed(void) {
 #elif defined(HAVE_RNDR)
   return torsion_has_rdrand();
 #elif defined(HAVE_DARN)
-  return 1;
+  return torsion_has_rdrand();
 #else
   return 0;
 #endif
