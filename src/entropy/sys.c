@@ -261,9 +261,6 @@
 #  if defined(_MSC_VER) && _MSC_VER > 1500 /* VS 2008 */ \
    && defined(_WIN32_WINNT) && _WIN32_WINNT >= 0x0600 /* Vista (2007) */
 #    include <bcrypt.h> /* BCryptGenRandom */
-#    ifndef STATUS_SUCCESS
-#      define STATUS_SUCCESS ((NTSTATUS)0)
-#    endif
 #    pragma comment(lib, "bcrypt.lib")
 #    define HAVE_BCRYPTGENRANDOM
 #  else
@@ -438,9 +435,9 @@ torsion_open(const char *name, int flags) {
  * Emscripten Entropy
  */
 
-#ifdef __EMSCRIPTEN__
-#if defined(EM_JS)
-EM_JS(unsigned short, js_random_get, (unsigned char *dst, unsigned int len), {
+#if defined(__EMSCRIPTEN__) && defined(EM_JS)
+
+EM_JS(unsigned short, js__random_get, (unsigned char *dst, unsigned int len), {
   if (ENVIRONMENT_IS_NODE) {
     var crypto = module.require('crypto');
     var buf = Buffer.from(HEAPU8.buffer, dst, len);
@@ -486,7 +483,27 @@ EM_JS(unsigned short, js_random_get, (unsigned char *dst, unsigned int len), {
 
   return 1;
 })
-#else /* !EM_JS */
+
+static uint16_t
+js_random_get(uint8_t *dst, size_t len) {
+  size_t max = UINT_MAX;
+
+  while (len > 0) {
+    if (max > len)
+      max = len;
+
+    if (js__random_get(dst, max) != 0)
+      return 1;
+
+    dst += max;
+    len -= max;
+  }
+
+  return 0;
+}
+
+#elif defined(__EMSCRIPTEN__) /* !EM_JS */
+
 static uint16_t
 js_random_get(uint8_t *dst, size_t len) {
   unsigned char uuid[16];
@@ -509,8 +526,8 @@ js_random_get(uint8_t *dst, size_t len) {
 
   return 0;
 }
+
 #endif /* !EM_JS */
-#endif /* __EMSCRIPTEN__ */
 
 /*
  * Syscall Entropy
@@ -519,10 +536,38 @@ js_random_get(uint8_t *dst, size_t len) {
 static int
 torsion_callrand(void *dst, size_t size) {
 #if defined(HAVE_BCRYPTGENRANDOM) /* _WIN32 */
-  return BCryptGenRandom(NULL, (PUCHAR)dst, (ULONG)size,
-                         BCRYPT_USE_SYSTEM_PREFERRED_RNG) == STATUS_SUCCESS;
+  unsigned long flags = BCRYPT_USE_SYSTEM_PREFERRED_RNG;
+  unsigned char *data = (unsigned char *)dst;
+  size_t max = ULONG_MAX;
+
+  while (size > 0) {
+    if (max > size)
+      max = size;
+
+    if (BCryptGenRandom(NULL, data, max, flags) != 0)
+      return 0;
+
+    data += max;
+    size -= max;
+  }
+
+  return 1;
 #elif defined(_WIN32)
-  return RtlGenRandom((PVOID)dst, (ULONG)size) == TRUE;
+  unsigned char *data = (unsigned char *)dst;
+  size_t max = ULONG_MAX;
+
+  while (size > 0) {
+    if (max > size)
+      max = size;
+
+    if (!RtlGenRandom(data, max))
+      return 0;
+
+    data += max;
+    size -= max;
+  }
+
+  return 1;
 #elif defined(HAVE_RANDABYTES) /* __vxworks */
   unsigned char *data = (unsigned char *)dst;
   size_t max = INT_MAX;
@@ -544,9 +589,7 @@ torsion_callrand(void *dst, size_t size) {
     if (max > size)
       max = size;
 
-    ret = randABytes(data, (int)max);
-
-    if (ret != 0)
+    if (randABytes(data, max) != 0)
       return 0;
 
     data += max;
