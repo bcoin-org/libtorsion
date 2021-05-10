@@ -125,9 +125,15 @@
 #undef HAVE_QPC
 #undef HAVE_CLOCK_GETTIME
 #undef HAVE_GETTIMEOFDAY
-#undef HAVE_INTRIN
-#undef HAVE_INTRIN32
-#undef HAVE_INTRIN64
+#undef HAVE_RDTSC
+#undef HAVE_CPUIDEX
+#undef HAVE_RDRAND
+#undef HAVE_RDRAND32
+#undef HAVE_RDRAND64
+#undef HAVE_RDSEED
+#undef HAVE_RDSEED32
+#undef HAVE_RDSEED64
+#undef HAVE_READSTATUSREG
 #undef HAVE_ASM_INTEL
 #undef HAVE_ASM_X86
 #undef HAVE_ASM_X64
@@ -137,6 +143,7 @@
 #undef HAVE_ELFAUXINFO
 #undef HAVE_POWERSET
 #undef HAVE_AUXVAL
+#undef HAVE_PERFMON /* Define if ARM FEAT_PMUv3 is supported. */
 
 /* High-resolution time. */
 #if defined(_WIN32)
@@ -177,18 +184,38 @@
 #  include <time.h> /* time */
 #endif
 
-/* Detect CPU features and ASM/intrinsic support. */
-#if defined(_MSC_VER) && _MSC_VER >= 1900 /* VS 2015 */
+/* Detect intrinsic and ASM support. */
+#if defined(_MSC_VER)
 #  if defined(_M_IX86) || defined(_M_AMD64) || defined(_M_X64)
-#    include <intrin.h> /* __cpuidex, __rdtsc */
-#    include <immintrin.h> /* _rd{rand,seed}{32,64}_step */
-#    pragma intrinsic(__cpuidex, __rdtsc)
-#    define HAVE_INTRIN
-#    if defined(_M_AMD64) || defined(_M_X64)
-#      define HAVE_INTRIN64
-#    else
-#      define HAVE_INTRIN32
+#    if _MSC_VER >= 1400 /* VS 2005 */
+#      include <intrin.h> /* __cpuidex, __rdtsc */
+#      pragma intrinsic(__rdtsc)
+#      define HAVE_RDTSC
 #    endif
+#    if _MSC_VER >= 1600 /* VS 2010 */
+#      pragma intrinsic(__cpuidex)
+#      define HAVE_CPUIDEX
+#    endif
+#    if _MSC_VER >= 1700 /* VS 2012 */
+#      include <immintrin.h> /* _rd{rand,seed}{32,64}_step */
+#      define HAVE_RDRAND
+#      if defined(_M_AMD64) || defined(_M_X64)
+#        define HAVE_RDRAND64
+#      else
+#        define HAVE_RDRAND32
+#      endif
+#    endif
+#    if _MSC_VER >= 1800 /* VS 2013 */
+#      define HAVE_RDSEED
+#      if defined(_M_AMD64) || defined(_M_X64)
+#        define HAVE_RDSEED64
+#      else
+#        define HAVE_RDSEED32
+#      endif
+#    endif
+#  elif defined(_M_ARM64)
+#    include <intrin.h>
+#    define HAVE_READSTATUSREG
 #  endif
 #elif (defined(__GNUC__) && __GNUC__ >= 4) || defined(__IBM_GCC_ASM)
 #  if defined(__amd64__) || defined(__x86_64__)
@@ -381,8 +408,10 @@ torsion_hrtime(void) {
 
 uint64_t
 torsion_rdtsc(void) {
-#if defined(HAVE_INTRIN)
+#if defined(HAVE_RDTSC)
   return __rdtsc();
+#elif defined(HAVE_READSTATUSREG) && defined(HAVE_PERFMON)
+  return _ReadStatusReg(0x5ce8); /* ARM64_PMCCNTR_EL0 */
 #elif defined(HAVE_QPC)
   LARGE_INTEGER ctr;
 
@@ -409,7 +438,7 @@ torsion_rdtsc(void) {
   );
 
   return (hi << 32) | lo;
-#elif defined(HAVE_ASM_ARM64) && defined(HAVE_ARM_PERFMON)
+#elif defined(HAVE_ASM_ARM64) && defined(HAVE_PERFMON)
   uint64_t ts;
 
   /* Note that `mrs %0, pmccntr_el0` can be
@@ -462,7 +491,7 @@ torsion_rdtsc(void) {
 
 int
 torsion_has_cpuid(void) {
-#if defined(HAVE_INTRIN)
+#if defined(HAVE_CPUIDEX)
   return 1;
 #elif defined(HAVE_ASM_X86)
   uint32_t ax, bx;
@@ -499,7 +528,7 @@ torsion_cpuid(uint32_t *a,
               uint32_t *d,
               uint32_t leaf,
               uint32_t subleaf) {
-#if defined(HAVE_INTRIN)
+#if defined(HAVE_CPUIDEX)
   unsigned int regs[4];
 
   __cpuidex((int *)regs, leaf, subleaf);
@@ -549,7 +578,7 @@ torsion_has_rdrand(void) {
 #if defined(HAVE_ASM_INTEL) && defined(__RDRND__)
   /* Explicitly built with RDRAND support (-mrdrnd). */
   return 1;
-#elif defined(HAVE_INTRIN) || defined(HAVE_ASM_INTEL)
+#elif defined(HAVE_RDRAND) || defined(HAVE_ASM_INTEL)
   uint32_t eax, ebx, ecx, edx;
 
   torsion_cpuid(&eax, &ebx, &ecx, &edx, 0, 0);
@@ -609,7 +638,7 @@ torsion_has_rdseed(void) {
 #if defined(HAVE_ASM_INTEL) && defined(__RDSEED__)
   /* Explicitly built with RDSEED support (-mrdseed). */
   return 1;
-#elif defined(HAVE_INTRIN) || defined(HAVE_ASM_INTEL)
+#elif defined(HAVE_RDSEED) || defined(HAVE_ASM_INTEL)
   uint32_t eax, ebx, ecx, edx;
 
   torsion_cpuid(&eax, &ebx, &ecx, &edx, 0, 0);
@@ -631,7 +660,7 @@ torsion_has_rdseed(void) {
 
 uint64_t
 torsion_rdrand(void) {
-#if defined(HAVE_INTRIN32)
+#if defined(HAVE_RDRAND32)
   unsigned int lo, hi;
   int i;
 
@@ -646,7 +675,7 @@ torsion_rdrand(void) {
   }
 
   return ((uint64_t)hi << 32) | lo;
-#elif defined(HAVE_INTRIN64)
+#elif defined(HAVE_RDRAND64)
   unsigned __int64 r;
   int i;
 
@@ -776,7 +805,7 @@ torsion_rdrand(void) {
 
 uint64_t
 torsion_rdseed(void) {
-#if defined(HAVE_INTRIN32)
+#if defined(HAVE_RDSEED32)
   unsigned int lo, hi;
 
   for (;;) {
@@ -798,7 +827,7 @@ torsion_rdseed(void) {
   }
 
   return ((uint64_t)hi << 32) | lo;
-#elif defined(HAVE_INTRIN64)
+#elif defined(HAVE_RDSEED64)
   unsigned __int64 r;
 
   for (;;) {
