@@ -214,8 +214,9 @@
 #      endif
 #    endif
 #  elif defined(_M_ARM64)
-#    include <intrin.h>
-#    define HAVE_READSTATUSREG
+#    ifdef _WIN32
+#      define HAVE_READSTATUSREG /* included from <windows.h> */
+#    endif
 #  endif
 #elif (defined(__GNUC__) && __GNUC__ >= 4) || defined(__IBM_GCC_ASM)
 #  if defined(__amd64__) || defined(__x86_64__)
@@ -226,14 +227,14 @@
 #    define HAVE_ASM_X86
 #  elif defined(__aarch64__)
 #    define HAVE_ASM_ARM64
-#  elif defined(__powerpc64__) || defined(_ARCH_PPC64)
+#  elif defined(__powerpc64__) || defined(_ARCH_PPC64) || defined(__PPC64__)
 #    define HAVE_ASM_PPC64
 #  endif
 #endif
 
 /* Some insanity to detect features at runtime. */
 #if defined(HAVE_ASM_ARM64) || defined(HAVE_ASM_PPC64)
-#  if defined(__GLIBC_PREREQ)
+#  if defined(__GLIBC__) && defined(__GLIBC_PREREQ)
 #    define TORSION_GLIBC_PREREQ __GLIBC_PREREQ
 #  else
 #    define TORSION_GLIBC_PREREQ(maj, min) 0
