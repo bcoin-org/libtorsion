@@ -440,7 +440,7 @@ torsion_open(const char *name, int flags) {
 
 #ifdef __EMSCRIPTEN__
 #if defined(EM_JS)
-EM_JS(unsigned short, js_random_get, (unsigned char *dst, unsigned long len), {
+EM_JS(unsigned short, js_random_get, (unsigned char *dst, unsigned int len), {
   if (ENVIRONMENT_IS_NODE) {
     var crypto = module.require('crypto');
     var buf = Buffer.from(HEAPU8.buffer, dst, len);
@@ -531,14 +531,14 @@ torsion_callrand(void *dst, size_t size) {
   for (;;) {
     ret = randSecure();
 
-    if (ret != 0)
+    if (ret < 0)
+      return 0;
+
+    if (ret > 0)
       break;
 
     taskDelay(5);
   }
-
-  if (ret != 1)
-    return 0;
 
   while (size > 0) {
     if (max > size)
