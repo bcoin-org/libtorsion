@@ -97,6 +97,8 @@
  *   https://github.com/emscripten-core/emscripten/blob/7c3ced6/src/library_uuid.js#L31
  *   https://github.com/emscripten-core/emscripten/blob/32e1d73/system/include/uuid/uuid.h
  *   https://github.com/emscripten-core/emscripten/commit/385a660
+ *   https://github.com/emscripten-core/emscripten/blob/048f028/system/include/compat/sys/random.h
+ *   https://github.com/emscripten-core/emscripten/commit/048f028
  */
 
 /**
@@ -229,6 +231,7 @@
  *     Fallback: uuid_generate(3)
  *   Support: EM_JS added in Emscripten 1.37.36 (2018).
  *            uuid_generate(3) added in Emscripten 1.8.6 (2014).
+ *            getentropy(3) added in Emscripten 2.0.5 (2020).
  *
  * [1] https://docs.rs/getrandom/0.1.14/getrandom/
  */
