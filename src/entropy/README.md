@@ -4,6 +4,7 @@ This directory contains various entropy sources for seeding an RNG.
 
 - `env.c` - Manual entropy gathering (`/proc`, `sysctl`,
   `HKEY_PERFORMANCE_DATA`).
+- `hrt.c` - High-resolution time (e.g. `clock_gettime`).
 - `hw.c` - Hardware entropy sources (`cpuid`, `rdtsc`, `rdrand`, `rdseed`).
 - `sys.c` - OS/System entropy sources (`getrandom`, `getentropy`,
   `sysctl(kern.arandom)`, `/dev/{u,}random`, etc).

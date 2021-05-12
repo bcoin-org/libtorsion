@@ -371,6 +371,7 @@ set(torsion_sources src/aead.c
                     src/util.c)
 
 set(rng_sources src/entropy/env.c
+                src/entropy/hrt.c
                 src/entropy/hw.c
                 src/entropy/sys.c
                 src/rand.c)

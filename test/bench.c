@@ -15,7 +15,6 @@
 #include <torsion/rsa.h>
 #include <torsion/stream.h>
 
-#include "hrtime.h"
 #include "utils.h"
 
 /*

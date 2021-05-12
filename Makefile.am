@@ -93,7 +93,6 @@ noinst_HEADERS = src/asn1.h                         \
                  test/data/bipschnorr_vectors.h     \
                  test/data/bip340_vectors.h         \
                  test/ecc_internal.h                \
-                 test/hrtime.h                      \
                  test/mpi_internal.h                \
                  test/thread.h                      \
                  test/utils.h
@@ -125,6 +124,7 @@ torsion_sources = src/aead.c     \
                   src/util.c
 
 rng_sources = src/entropy/env.c \
+              src/entropy/hrt.c \
               src/entropy/hw.c  \
               src/entropy/sys.c \
               src/rand.c

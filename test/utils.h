@@ -8,6 +8,7 @@
 #define TORSION_UTILS_H
 
 #include <stddef.h>
+#include <stdint.h>
 
 #undef ASSERT
 
@@ -32,5 +33,8 @@ torsion__test_assert_fail(const char *file, int line, const char *expr);
 
 int
 torsion__test_memcmp(const void *s1, const void *s2, size_t n);
+
+uint64_t
+torsion_hrtime(void);
 
 #endif /* TORSION_UTILS_H */
