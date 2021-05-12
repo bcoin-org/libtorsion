@@ -626,14 +626,14 @@ torsion_rdseed(void) {
     if (_rdseed32_step(&lo))
       break;
 
-    _asm { rep nop }
+    _mm_pause(); /* _asm pause */
   }
 
   for (;;) {
     if (_rdseed32_step(&hi))
       break;
 
-    _asm { rep nop }
+    _mm_pause(); /* _asm pause */
   }
 
   return ((uint64_t)hi << 32) | lo;
