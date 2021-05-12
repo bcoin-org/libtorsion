@@ -24,6 +24,15 @@
  * OSX/iOS:
  *   https://developer.apple.com/documentation/kernel/1462446-mach_absolute_time
  *
+ * Solaris/Illumos:
+ *   https://docs.oracle.com/cd/E86824_01/html/E54766/gethrtime-3c.html
+ *
+ * HP-UX:
+ *   https://docstore.mik.ua/manuals/hp-ux/en/B2355-60130/gethrtime.3C.html
+ *
+ * AIX:
+ *   https://www.ibm.com/docs/en/aix/7.1?topic=r-read-real-time-read-wall-timetime-base-time-mread-real-time-subroutine
+ *
  * VxWorks:
  *   https://docs.windriver.com/bundle/vxworks_7_application_core_os_sr0630-enus/page/CORE/clockLib.html
  *
@@ -76,6 +85,8 @@
  *
  *   - QueryPerformanceCounter, GetSystemTimeAsFileTime (win32)
  *   - mach_absolute_time (apple)
+ *   - gethrtime (solaris, hpux)
+ *   - read_wall_time (aix)
  *   - clock_gettime (vxworks)
  *   - zx_clock_get_monotonic (fuchsia)
  *   - clock_gettime (unix)
@@ -128,6 +139,7 @@
 
 #undef HAVE_QPC
 #undef HAVE_CLOCK_GETTIME
+#undef HAVE_GETHRTIME
 #undef HAVE_GETTIMEOFDAY
 #undef HAVE_RDTSC
 #undef HAVE_CPUIDEX
@@ -159,7 +171,7 @@
 #elif defined(__APPLE__) && defined(__MACH__)
 #  include <mach/mach.h> /* KERN_SUCCESS */
 #  include <mach/mach_time.h> /* mach_timebase_info, mach_absolute_time */
-#elif defined(__vxworks)
+#elif defined(__vxworks) || defined(__VMS)
 #  include <time.h> /* clock_gettime, time */
 #  if defined(CLOCK_REALTIME) || defined(CLOCK_MONOTONIC)
 #    define HAVE_CLOCK_GETTIME
@@ -172,6 +184,14 @@
 #  include <emscripten.h> /* emscripten_get_now */
 #elif defined(__wasi__)
 #  include <wasi/api.h> /* __wasi_clock_time_get */
+#elif defined(__sun) && defined(__SVR4)
+#  include <sys/time.h> /* gethrtime */
+#  define HAVE_GETHRTIME
+#elif defined(__hpux)
+#  include <time.h> /* gethrtime */
+#  define HAVE_GETHRTIME
+#elif defined(_AIX)
+#  include <sys/time.h> /* read_wall_time */
 #elif defined(__unix) || defined(__unix__)
 #  include <time.h> /* clock_gettime */
 #  include <unistd.h> /* _POSIX_TIMERS, _XOPEN_VERSION */
@@ -386,6 +406,19 @@ torsion_hrtime(void) {
 #endif
 
   return ts;
+#elif defined(HAVE_GETHRTIME)
+  hrtime_t ts = gethrtime();
+
+  if (ts == (hrtime_t)-1)
+    abort();
+
+  return ts;
+#elif defined(_AIX)
+  timebasestruct_t tb;
+
+  read_wall_time(&tb, TIMEBASE_SZ);
+
+  return (uint64_t)tb.tb_high * 1000000000 + (uint64_t)tb.tb_low;
 #elif defined(HAVE_CLOCK_GETTIME)
   struct timespec ts;
 
