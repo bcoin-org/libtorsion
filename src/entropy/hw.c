@@ -62,6 +62,7 @@
  *   https://developer.arm.com/documentation/ddi0595/2021-03/AArch64-Registers/RNDR--Random-Number
  *   https://developer.arm.com/documentation/ddi0595/2021-03/AArch64-Registers/RNDRRS--Reseeded-Random-Number
  *   https://developer.arm.com/documentation/ddi0595/2021-03/AArch64-Registers/PMCCNTR-EL0--Performance-Monitors-Cycle-Count-Register
+ *   https://developer.arm.com/documentation/ddi0595/2020-12/AArch64-Registers/CNTPCT-EL0--Counter-timer-Physical-Count-register
  *   https://developer.arm.com/documentation/ddi0595/2021-03/AArch64-Registers/ID-AA64ISAR0-EL1--AArch64-Instruction-Set-Attribute-Register-0
  *   https://developer.arm.com/documentation/ddi0595/2021-03/AArch64-Registers/ID-DFR0-EL1--AArch32-Debug-Feature-Register-0
  *
@@ -251,9 +252,8 @@
 #      define HAVE_ASM_RDTSC /* fallback to _asm */
 #    endif
 #  elif defined(_M_ARM64)
-#    ifdef _WIN32
-#      define HAVE_READSTATUSREG /* included from <windows.h> */
-#    endif
+#    include <intrin.h> /* _ReadStatusReg */
+#    define HAVE_READSTATUSREG
 #  endif
 #elif (defined(__GNUC__) && __GNUC__ >= 4) || defined(__IBM_GCC_ASM)
 #  if defined(__amd64__) || defined(__x86_64__)
@@ -477,6 +477,8 @@ torsion_rdtsc(void) {
   _asm rdtsc
 #elif defined(HAVE_READSTATUSREG) && defined(HAVE_PERFMON)
   return _ReadStatusReg(0x5ce8); /* ARM64_PMCCNTR_EL0 */
+#elif defined(HAVE_READSTATUSREG)
+  return _ReadStatusReg(0x5f01); /* ARM64_CNTPCT_EL0 */
 #elif defined(HAVE_ASM_X86)
   uint64_t ts;
 
@@ -516,6 +518,22 @@ torsion_rdtsc(void) {
    */
   __asm__ __volatile__ (
     "mrs %0, s3_3_c9_c13_0\n" /* PMCCNTR_EL0 */
+    : "=r" (ts)
+  );
+
+  return ts;
+#elif defined(HAVE_ASM_ARM64)
+  uint64_t ts;
+
+  /* Note that `mrs %0, CNTPCT_EL0` can be
+   * spelled out as:
+   *
+   *   .inst (0xd5200000 | 0x1be020 | %0)
+   *              |            |       |
+   *             mrs        sysreg    reg
+   */
+  __asm__ __volatile__ (
+    "mrs %0, s3_3_c14_c0_1\n" /* CNTPCT_EL0 */
     : "=r" (ts)
   );
 
