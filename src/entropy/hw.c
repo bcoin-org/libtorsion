@@ -19,6 +19,10 @@
  *
  * Unix:
  *   http://man7.org/linux/man-pages/man2/gettimeofday.2.html
+ *   https://man7.org/linux/man-pages/man2/clock_gettime.2.html
+ *
+ * OSX/iOS:
+ *   https://developer.apple.com/documentation/kernel/1462446-mach_absolute_time
  *
  * VxWorks:
  *   https://docs.windriver.com/bundle/vxworks_7_application_core_os_sr0630-enus/page/CORE/clockLib.html
@@ -157,7 +161,7 @@
 #  include <mach/mach_time.h> /* mach_timebase_info, mach_absolute_time */
 #elif defined(__vxworks)
 #  include <time.h> /* clock_gettime, time */
-#  if defined(CLOCK_REALTIME) && defined(CLOCK_MONOTONIC)
+#  if defined(CLOCK_REALTIME) || defined(CLOCK_MONOTONIC)
 #    define HAVE_CLOCK_GETTIME
 #  endif
 #elif defined(__Fuchsia__) || defined(__fuchsia__)
@@ -170,15 +174,24 @@
 #  include <wasi/api.h> /* __wasi_clock_time_get */
 #elif defined(__unix) || defined(__unix__)
 #  include <time.h> /* clock_gettime */
-#  include <unistd.h> /* _POSIX_VERSION */
-#  if defined(_POSIX_VERSION) && _POSIX_VERSION >= 199309L
-#    if defined(CLOCK_REALTIME) && defined(CLOCK_MONOTONIC)
-#      define HAVE_CLOCK_GETTIME
+#  include <unistd.h> /* _POSIX_TIMERS, _XOPEN_VERSION */
+#  if defined(__GLIBC__) && defined(__GLIBC_PREREQ)
+#    define TORSION_GLIBC_PREREQ __GLIBC_PREREQ
+#  else
+#    define TORSION_GLIBC_PREREQ(maj, min) 0
+#  endif
+#  if defined(_POSIX_TIMERS) && (_POSIX_TIMERS + 0) > 0
+#    if !defined(__GLIBC__) || TORSION_GLIBC_PREREQ(2, 17)
+#      if defined(CLOCK_REALTIME) || defined(CLOCK_MONOTONIC)
+#        define HAVE_CLOCK_GETTIME /* _POSIX_VERSION = 199309L */
+#      endif
 #    endif
 #  endif
 #  ifndef HAVE_CLOCK_GETTIME
-#    include <sys/time.h> /* gettimeofday */
-#    define HAVE_GETTIMEOFDAY
+#    if defined(_XOPEN_VERSION) && _XOPEN_VERSION >= 500
+#      include <sys/time.h> /* gettimeofday */
+#      define HAVE_GETTIMEOFDAY
+#    endif
 #  endif
 #else
 #  include <time.h> /* time */
@@ -376,9 +389,21 @@ torsion_hrtime(void) {
 #elif defined(HAVE_CLOCK_GETTIME)
   struct timespec ts;
 
-  if (clock_gettime(CLOCK_MONOTONIC, &ts) != 0) {
-    if (clock_gettime(CLOCK_REALTIME, &ts) != 0)
-      abort();
+#ifdef CLOCK_BOOTTIME
+  if (clock_gettime(CLOCK_BOOTTIME, &ts) != 0)
+#endif
+  {
+#ifdef CLOCK_MONOTONIC
+    if (clock_gettime(CLOCK_MONOTONIC, &ts) != 0)
+#endif
+    {
+#ifdef CLOCK_REALTIME
+      if (clock_gettime(CLOCK_REALTIME, &ts) != 0)
+#endif
+      {
+        abort();
+      }
+    }
   }
 
   return (uint64_t)ts.tv_sec * 1000000000 + (uint64_t)ts.tv_nsec;

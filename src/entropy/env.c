@@ -74,6 +74,7 @@
 #undef HAVE_GETIFADDRS
 #undef HAVE_GETAUXVAL
 #undef HAVE_SYSCTL
+#undef HAVE_GETTIMEOFDAY
 #undef HAVE_CLOCK_GETTIME
 #undef HAVE_GETHOSTNAME
 #undef HAVE_GETSID
@@ -108,12 +109,12 @@
 #  include <fcntl.h> /* open */
 #  include <unistd.h> /* stat, read, close, gethostname */
 #  include <time.h> /* clock_gettime */
+#  if defined(__GLIBC__) && defined(__GLIBC_PREREQ)
+#    define TORSION_GLIBC_PREREQ __GLIBC_PREREQ
+#  else
+#    define TORSION_GLIBC_PREREQ(maj, min) 0
+#  endif
 #  ifdef __linux__
-#    if defined(__GLIBC_PREREQ)
-#      define TORSION_GLIBC_PREREQ __GLIBC_PREREQ
-#    else
-#      define TORSION_GLIBC_PREREQ(maj, min) 0
-#    endif
 #    if TORSION_GLIBC_PREREQ(2, 3)
 #      if defined(__GNUC__) && defined(__SIZEOF_INT128__)
 #        include <link.h> /* dl_iterate_phdr */
@@ -155,12 +156,17 @@
 extern char **environ;
 #    endif
 #  endif
-#  ifdef _POSIX_VERSION
-#    if _POSIX_VERSION >= 199309L
+#  if defined(_XOPEN_VERSION) && _XOPEN_VERSION >= 500
+#    define HAVE_GETTIMEOFDAY
+#  endif
+#  if defined(_POSIX_TIMERS) && (_POSIX_TIMERS + 0) > 0
+#    if !defined(__GLIBC__) || TORSION_GLIBC_PREREQ(2, 17)
 #      if defined(CLOCK_REALTIME) || defined(CLOCK_MONOTONIC)
-#        define HAVE_CLOCK_GETTIME
+#        define HAVE_CLOCK_GETTIME /* _POSIX_VERSION = 199309L */
 #      endif
 #    endif
+#  endif
+#  ifdef _POSIX_VERSION
 #    if _POSIX_VERSION >= 200112L
 #      define HAVE_GETHOSTNAME
 #    endif
@@ -1010,6 +1016,7 @@ sha512_write_dynamic_env(sha512_t *hash) {
   sha512_write_perfdata(hash, 10000000);
 #endif
 #else /* !_WIN32 */
+#ifdef HAVE_GETTIMEOFDAY
   /* System time. */
   {
     struct timeval tv;
@@ -1019,6 +1026,7 @@ sha512_write_dynamic_env(sha512_t *hash) {
     if (gettimeofday(&tv, NULL) == 0)
       sha512_write(hash, &tv, sizeof(tv));
   }
+#endif /* HAVE_GETTIMEOFDAY */
 
 #ifdef HAVE_CLOCK_GETTIME
   /* Various clocks. */
