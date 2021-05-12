@@ -306,8 +306,7 @@ RtlGenRandom(PVOID RandomBuffer, ULONG RandomBufferLength);
 #elif defined(__wasi__)
 #  include <wasi/api.h> /* __wasi_random_get */
 #  define HAVE_WASI_RANDOM_GET
-#elif defined(__unix) || defined(__unix__)     \
-  || (defined(__APPLE__) && defined(__MACH__))
+#elif defined(TORSION_UNIX)
 #  include <sys/types.h> /* open */
 #  include <sys/stat.h> /* open, stat */
 #  include <fcntl.h> /* open, fcntl */

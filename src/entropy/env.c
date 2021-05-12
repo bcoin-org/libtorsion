@@ -99,8 +99,7 @@
 /* No reliable entropy sources available for emscripten. */
 #elif defined(__wasi__)
 /* Could gather static entropy from args/env in the future. */
-#elif defined(__unix) || defined(__unix__)     \
-  || (defined(__APPLE__) && defined(__MACH__))
+#elif defined(TORSION_UNIX)
 #  include <sys/types.h> /* open */
 #  include <sys/stat.h> /* open, stat */
 #  include <sys/time.h> /* gettimeofday, timeval */

@@ -194,7 +194,7 @@
 #  define HAVE_GETHRTIME
 #elif defined(_AIX)
 #  include <sys/time.h> /* read_wall_time */
-#elif defined(__unix) || defined(__unix__)
+#elif defined(TORSION_UNIX)
 #  include <time.h> /* clock_gettime */
 #  include <unistd.h> /* _POSIX_TIMERS, _XOPEN_VERSION */
 #  if defined(__GLIBC__) && defined(__GLIBC_PREREQ)
