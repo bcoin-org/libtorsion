@@ -141,6 +141,7 @@
 #undef HAVE_CLOCK_GETTIME
 #undef HAVE_GETHRTIME
 #undef HAVE_GETTIMEOFDAY
+#undef HAVE_ASM_RDTSC
 #undef HAVE_RDTSC
 #undef HAVE_CPUIDEX
 #undef HAVE_RDRAND
@@ -245,6 +246,9 @@
 #      else
 #        define HAVE_RDSEED32
 #      endif
+#    endif
+#    if !defined(HAVE_RDTSC) && defined(_M_IX86)
+#      define HAVE_ASM_RDTSC /* fallback to _asm */
 #    endif
 #  elif defined(_M_ARM64)
 #    ifdef _WIN32
@@ -469,15 +473,10 @@ uint64_t
 torsion_rdtsc(void) {
 #if defined(HAVE_RDTSC)
   return __rdtsc();
+#elif defined(HAVE_ASM_RDTSC)
+  _asm rdtsc
 #elif defined(HAVE_READSTATUSREG) && defined(HAVE_PERFMON)
   return _ReadStatusReg(0x5ce8); /* ARM64_PMCCNTR_EL0 */
-#elif defined(HAVE_QPC)
-  LARGE_INTEGER ctr;
-
-  if (!QueryPerformanceCounter(&ctr))
-    abort();
-
-  return (uint64_t)ctr.QuadPart;
 #elif defined(HAVE_ASM_X86)
   uint64_t ts;
 
