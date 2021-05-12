@@ -129,6 +129,7 @@
  *   Source: BCryptGenRandom
  *   Fallback: RtlGenRandom (SystemFunction036)
  *   Support: BCryptGenRandom added in Windows Vista (2007).
+ *            BCRYPT_USE_SYSTEM_PREFERRED_RNG added in Windows 7 (2009).
  *            RtlGenRandom added in Windows XP (2001).
  *
  * Linux/Android:
@@ -249,7 +250,13 @@
 #include "entropy.h"
 
 #undef HAVE_BCRYPTGENRANDOM
+#undef HAVE_RTLGENRANDOM
 #undef HAVE_RANDABYTES
+#undef HAVE_CPRNG_DRAW
+#undef HAVE_SYS_RANDOM_GET
+#undef HAVE_JS_RANDOM_GET
+#undef HAVE_UUID_GENERATE
+#undef HAVE_WASI_RANDOM_GET
 #undef HAVE_GETRANDOM
 #undef HAVE_SYSCTL_UUID
 #undef HAVE_GETENTROPY
@@ -261,12 +268,11 @@
 
 #if defined(_WIN32)
 #  include <windows.h> /* _WIN32_WINNT */
-#  if defined(_MSC_VER) && _MSC_VER > 1500 /* VS 2008 */ \
-   && defined(_WIN32_WINNT) && _WIN32_WINNT >= 0x0600 /* Vista (2007) */
+#  if defined(_WIN32_WINNT) && _WIN32_WINNT >= 0x0601 /* Windows 7 (2009) */
 #    include <bcrypt.h> /* BCryptGenRandom */
 #    pragma comment(lib, "bcrypt.lib")
 #    define HAVE_BCRYPTGENRANDOM
-#  else
+#  elif defined(_WIN32_WINNT) && _WIN32_WINNT >= 0x0501 /* Windows XP (2001) */
 #    define RtlGenRandom SystemFunction036
 #    ifdef __cplusplus
 extern "C"
@@ -274,6 +280,7 @@ extern "C"
 BOOLEAN NTAPI
 RtlGenRandom(PVOID RandomBuffer, ULONG RandomBufferLength);
 #    pragma comment(lib, "advapi32.lib")
+#    define HAVE_RTLGENRANDOM
 #  endif
 #elif defined(__vxworks)
 #  include <version.h>
@@ -284,15 +291,21 @@ RtlGenRandom(PVOID RandomBuffer, ULONG RandomBufferLength);
 #  endif
 #elif defined(__Fuchsia__) || defined(__fuchsia__)
 #  include <zircon/syscalls.h> /* zx_cprng_draw */
+#  define HAVE_CPRNG_DRAW
 #elif defined(__CloudABI__)
 #  include <cloudabi_syscalls.h> /* cloudabi_sys_random_get */
+#  define HAVE_SYS_RANDOM_GET
 #elif defined(__EMSCRIPTEN__)
 #  include <emscripten.h> /* EM_JS */
-#  ifndef EM_JS /* 1.37.36 (2018) */
+#  if defined(EM_JS) /* 1.37.36 (2018) */
+#    define HAVE_JS_RANDOM_GET
+#  else
 #    include <uuid/uuid.h> /* uuid_generate (1.8.6 (2014)) */
+#    define HAVE_UUID_GENERATE
 #  endif
 #elif defined(__wasi__)
 #  include <wasi/api.h> /* __wasi_random_get */
+#  define HAVE_WASI_RANDOM_GET
 #elif defined(__unix) || defined(__unix__)     \
   || (defined(__APPLE__) && defined(__MACH__))
 #  include <sys/types.h> /* open */
@@ -438,9 +451,8 @@ torsion_open(const char *name, int flags) {
  * Emscripten Entropy
  */
 
-#if defined(__EMSCRIPTEN__) && defined(EM_JS)
-
-EM_JS(unsigned short, js__random_get, (unsigned char *dst, unsigned int len), {
+#ifdef HAVE_JS_RANDOM_GET
+EM_JS(unsigned short, js_random_get, (unsigned char *dst, unsigned int len), {
   if (ENVIRONMENT_IS_NODE) {
     var crypto = module.require('crypto');
     var buf = Buffer.from(HEAPU8.buffer, dst, len);
@@ -486,51 +498,7 @@ EM_JS(unsigned short, js__random_get, (unsigned char *dst, unsigned int len), {
 
   return 1;
 })
-
-static uint16_t
-js_random_get(uint8_t *dst, size_t len) {
-  size_t max = UINT_MAX;
-
-  while (len > 0) {
-    if (max > len)
-      max = len;
-
-    if (js__random_get(dst, max) != 0)
-      return 1;
-
-    dst += max;
-    len -= max;
-  }
-
-  return 0;
-}
-
-#elif defined(__EMSCRIPTEN__) /* !EM_JS */
-
-static uint16_t
-js_random_get(uint8_t *dst, size_t len) {
-  unsigned char uuid[16];
-  size_t max = 14;
-
-  while (len > 0) {
-    if (max > len)
-      max = len;
-
-    uuid_generate(uuid);
-
-    uuid[6] = uuid[14];
-    uuid[8] = uuid[15];
-
-    memcpy(dst, uuid, max);
-
-    dst += max;
-    len -= max;
-  }
-
-  return 0;
-}
-
-#endif /* !EM_JS */
+#endif /* HAVE_JS_RANDOM_GET */
 
 /*
  * Syscall Entropy
@@ -538,7 +506,7 @@ js_random_get(uint8_t *dst, size_t len) {
 
 static int
 torsion_callrand(void *dst, size_t size) {
-#if defined(HAVE_BCRYPTGENRANDOM) /* _WIN32 */
+#if defined(HAVE_BCRYPTGENRANDOM)
   unsigned long flags = BCRYPT_USE_SYSTEM_PREFERRED_RNG;
   unsigned char *data = (unsigned char *)dst;
   size_t max = ULONG_MAX;
@@ -555,7 +523,7 @@ torsion_callrand(void *dst, size_t size) {
   }
 
   return 1;
-#elif defined(_WIN32)
+#elif defined(HAVE_RTLGENRANDOM)
   unsigned char *data = (unsigned char *)dst;
   size_t max = ULONG_MAX;
 
@@ -571,7 +539,7 @@ torsion_callrand(void *dst, size_t size) {
   }
 
   return 1;
-#elif defined(HAVE_RANDABYTES) /* __vxworks */
+#elif defined(HAVE_RANDABYTES)
   unsigned char *data = (unsigned char *)dst;
   size_t max = INT_MAX;
   int ret;
@@ -600,14 +568,49 @@ torsion_callrand(void *dst, size_t size) {
   }
 
   return 1;
-#elif defined(__Fuchsia__) || defined(__fuchsia__)
+#elif defined(HAVE_CPRNG_DRAW)
   zx_cprng_draw(dst, size);
   return 1;
-#elif defined(__CloudABI__)
+#elif defined(HAVE_SYS_RANDOM_GET)
   return cloudabi_sys_random_get(dst, size) == 0;
-#elif defined(__EMSCRIPTEN__)
-  return js_random_get((uint8_t *)dst, size) == 0;
-#elif defined(__wasi__)
+#elif defined(HAVE_JS_RANDOM_GET)
+  unsigned char *data = (unsigned char *)dst;
+  size_t max = UINT_MAX;
+
+  while (size > 0) {
+    if (max > size)
+      max = size;
+
+    if (js_random_get(data, max) != 0)
+      return 0;
+
+    data += max;
+    size -= max;
+  }
+
+  return 1;
+#elif defined(HAVE_UUID_GENERATE)
+  unsigned char *data = (unsigned char *)dst;
+  unsigned char uuid[16];
+  size_t max = 14;
+
+  while (size > 0) {
+    if (max > size)
+      max = size;
+
+    uuid_generate(uuid);
+
+    uuid[6] = uuid[14];
+    uuid[8] = uuid[15];
+
+    memcpy(data, uuid, max);
+
+    data += max;
+    size -= max;
+  }
+
+  return 1;
+#elif defined(HAVE_WASI_RANDOM_GET)
   return __wasi_random_get((uint8_t *)dst, size) == 0;
 #elif defined(HAVE_GETRANDOM)
   unsigned char *data = (unsigned char *)dst;
