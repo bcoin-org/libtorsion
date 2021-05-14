@@ -69,6 +69,9 @@
  *   https://www.ibm.com/docs/pt/i/7.1?topic=pi-whats-new-i-71
  *   https://www.ibm.com/support/knowledgecenter/en/ssw_ibm_i_71/rzalf/rzalf.pdf
  *
+ * z/OS:
+ *   https://www.ibm.com/docs/en/zos/2.1.0?topic=files-random-number
+ *
  * QNX:
  *   http://www.qnx.com/developers/docs/6.5.0/topic/com.qnx.doc.neutrino_utilities/r/random.html
  *
@@ -204,6 +207,10 @@
  *
  * IBM i (with PASE):
  *   Source: /dev/urandom
+ *   Fallback: none
+ *
+ * z/OS:
+ *   Source: /dev/random
  *   Fallback: none
  *
  * QNX:
@@ -406,6 +413,8 @@ RtlGenRandom(PVOID RandomBuffer, ULONG RandomBufferLength);
 #  elif defined(__PASE__) /* IBM i disguised as AIX */
 #    define DEV_RANDOM_NAME "/dev/urandom"
 #  elif defined(_AIX)
+#    define DEV_RANDOM_NAME "/dev/random"
+#  elif defined(__MVS__)
 #    define DEV_RANDOM_NAME "/dev/random"
 #  elif defined(__QNX__)
 #    define DEV_RANDOM_NAME "/dev/random"
