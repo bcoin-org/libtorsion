@@ -313,8 +313,11 @@ RtlGenRandom(PVOID RandomBuffer, ULONG RandomBufferLength);
 #  define HAVE_SYS_RANDOM_GET
 #elif defined(__EMSCRIPTEN__)
 #  include <emscripten.h> /* EM_JS */
-#  if defined(EM_JS) /* 1.37.36 (2018) */
+#  if !defined(__wasm64__) && defined(EM_JS) /* 1.37.36 (2018) */
 #    define HAVE_JS_RANDOM_GET
+#  elif __has_include(<sys/random.h>) /* 2.0.5 (2020) */
+#    include <sys/random.h> /* getentropy */
+#    define HAVE_GETENTROPY
 #  else
 #    include <uuid/uuid.h> /* uuid_generate (1.8.6 (2014)) */
 #    define HAVE_UUID_GENERATE
@@ -471,7 +474,7 @@ torsion_open(const char *name, int flags) {
  */
 
 #ifdef HAVE_JS_RANDOM_GET
-EM_JS(unsigned short, js_random_get, (unsigned char *dst, unsigned int len), {
+EM_JS(unsigned short, js_random_get, (unsigned char *dst, unsigned long len), {
   if (ENVIRONMENT_IS_NODE) {
     var crypto = module.require('crypto');
     var buf = Buffer.from(HEAPU8.buffer, dst, len);
@@ -593,21 +596,7 @@ torsion_callrand(void *dst, size_t size) {
 #elif defined(HAVE_SYS_RANDOM_GET)
   return cloudabi_sys_random_get(dst, size) == 0;
 #elif defined(HAVE_JS_RANDOM_GET)
-  unsigned char *data = (unsigned char *)dst;
-  size_t max = UINT_MAX;
-
-  while (size > 0) {
-    if (max > size)
-      max = size;
-
-    if (js_random_get(data, max) != 0)
-      return 0;
-
-    data += max;
-    size -= max;
-  }
-
-  return 1;
+  return js_random_get((uint8_t *)dst, size) == 0;
 #elif defined(HAVE_UUID_GENERATE)
   unsigned char *data = (unsigned char *)dst;
   unsigned char uuid[16];
