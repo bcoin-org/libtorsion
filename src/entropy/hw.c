@@ -746,8 +746,12 @@ torsion_hwrand(void *dst, size_t size) {
   uint64_t x;
   int i;
 
-  if (!has_rdrand && !has_rdseed)
+  if (!has_rdrand && !has_rdseed) {
+    if (size > 0)
+      memset(dst, 0, size);
+
     return 0;
+  }
 
   while (size > 0) {
     if (has_rdseed) {

@@ -297,14 +297,7 @@ rng_global_init(void) {
 
 int
 torsion_getentropy(void *dst, size_t size) {
-  if (!torsion_sysrand(dst, size)) {
-    if (size > 0)
-      memset(dst, 0, size);
-
-    return 0;
-  }
-
-  return 1;
+  return torsion_sysrand(dst, size);
 }
 
 int

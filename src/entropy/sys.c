@@ -879,5 +879,7 @@ torsion_sysrand(void *dst, size_t size) {
     return 1;
 #endif
 
+  memset(dst, 0, size);
+
   return 0;
 }

@@ -1147,7 +1147,7 @@ torsion_envrand(unsigned char *seed) {
   sha512_final(&hash, seed);
   return 1;
 #else /* !HAVE_MANUAL_ENTROPY */
-  (void)seed;
+  memset(seed, 0, 64);
   return 0;
 #endif /* !HAVE_MANUAL_ENTROPY */
 }
