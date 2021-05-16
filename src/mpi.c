@@ -2296,11 +2296,11 @@ mp_div_3by2(mp_limb_t *q, mp_limb_t *k1, mp_limb_t *k0,
                            /* (t1, t0) = (rdx, rax) */
 
     /* (r1, r0) = (r1, u0) - ((t1, t0) + (d1, d0)) */
-    "addq %q7, %%rax\n"    /* t0 += d0 */
-    "adcq %q6, %%rdx\n"    /* t1 += d1 + cf */
     "movq %q5, %q2\n"      /* r0 = u0 */
     "subq %%rax, %q2\n"    /* r0 -= t0 */
     "sbbq %%rdx, %q1\n"    /* r1 -= t1 + cf */
+    "subq %q7, %q2\n"      /* r0 -= d0 */
+    "sbbq %q6, %q1\n"      /* r1 -= d1 + cf */
 
     /* q1 += 1 */
     "addq $1, %q0\n" /* q1 += 1 */
