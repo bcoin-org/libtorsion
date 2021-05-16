@@ -2396,6 +2396,57 @@ test_mpn_mod_1(mp_rng_f *rng, void *arg) {
 }
 
 static void
+test_mpn_divmod_except(void) {
+  static const char ns[] = ""
+    "000000000003ffff ffffffffffffffff ffffffffffffffff ffffffffffffffff"
+    "0000000000000000 0000000000000000 0000000000000000 0000000000000000"
+    "0000000000000000 0000000000000000 0000000000000000 0000000000000000"
+    "000000000000003f ffffffffffffffff ffffffffffffffff ffffffffffffffff"
+    "ffffffffffffffff";
+
+  static const char ds[] = ""
+    "ffffffffffffffff ffffffffffffffff ffffffffffffffff ffffffffffffffff"
+    "ffffffffffffffff ffffffffffffffff ffffffffffffffff ffffffffffffffff"
+    "ff80000000000000";
+
+  static const char qs[] = ""
+    "000000000003ffff ffffffffffffffff ffffffffffffffff ffffffffffffffff"
+    "0000000000000000 0000000000000000 0000000000000000 0000000000000000";
+
+  static const char rs[] = "00000000000001ff"
+    "ffffffffffffffff ffffffffffffffff ffffffffffffffff ff8000000000003f"
+    "ffffffffffffffff ffffffffffffffff ffffffffffffffff ffffffffffffffff";
+
+  mp_limb_t np[17 * 2];
+  mp_limb_t dp[9 * 2];
+  mp_limb_t qp[ARRAY_SIZE(np) - ARRAY_SIZE(dp) + 1];
+  mp_limb_t rp[ARRAY_SIZE(dp)];
+  mp_limb_t e1p[ARRAY_SIZE(qp)];
+  mp_limb_t e2p[ARRAY_SIZE(rp)];
+  mp_size_t nn = ARRAY_SIZE(np);
+  mp_size_t dn = ARRAY_SIZE(dp);
+  mp_size_t qn = ARRAY_SIZE(qp);
+  mp_size_t rn = ARRAY_SIZE(rp);
+
+  printf("  - MPN div/mod (exceptional cases).\n");
+
+  ASSERT(mpn_set_str(np, nn, ns, 16));
+  ASSERT(mpn_set_str(dp, dn, ds, 16));
+  ASSERT(mpn_set_str(e1p, qn, qs, 16));
+  ASSERT(mpn_set_str(e2p, rn, rs, 16));
+
+  nn = mpn_strip(np, nn);
+  dn = mpn_strip(dp, dn);
+  qn = nn - dn + 1;
+  rn = dn;
+
+  mpn_divmod(qp, rp, np, nn, dp, dn);
+
+  ASSERT(mpn_cmp(qp, e1p, qn) == 0);
+  ASSERT(mpn_cmp(rp, e2p, rn) == 0);
+}
+
+static void
 test_mpn_roots(mp_rng_f *rng, void *arg) {
   mp_limb_t xp[4], zp[4], rp[4], tp[4], sp[4];
   mp_size_t xn = 4;
@@ -8395,6 +8446,7 @@ test_mpi_internal(mp_rng_f *rng, void *arg) {
   test_mpn_sqr(rng, arg);
   test_mpn_mod(rng, arg);
   test_mpn_mod_1(rng, arg);
+  test_mpn_divmod_except();
   test_mpn_roots(rng, arg);
   test_mpn_and(rng, arg);
   test_mpn_ior(rng, arg);
