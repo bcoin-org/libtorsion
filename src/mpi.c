@@ -2343,15 +2343,16 @@ mp_div_3by2(mp_limb_t *q, mp_limb_t *k1, mp_limb_t *k0,
   q0 += u1;
   q1 += u2 + (q0 < u1);
 
+  r0 = u0;
   r1 = u1 - d1 * q1;
 
   mp_mul(t1, t0, d0, q1);
 
-  t0 += d0;
-  t1 += d1 + (t0 < d0);
+  r1 -= t1 + (r0 < t0);
+  r0 -= t0;
 
-  r0 = u0 - t0;
-  r1 = r1 - t1 - (r0 > u0);
+  r1 -= d1 + (r0 < d0);
+  r0 -= d0;
 
   /* At this point, we have computed:
    *
