@@ -2402,9 +2402,8 @@ mp_div_3by2(mp_limb_t *q, mp_limb_t *k1, mp_limb_t *k0,
 
   if (UNLIKELY(r1 > d1 || (r1 == d1 && r0 >= d0))) {
     q1 += 1;
-    t0 = r0 - d0;
-    r1 = r1 - d1 - (t0 > r0);
-    r0 = t0;
+    r1 -= d1 + (r0 < d0);
+    r0 -= d0;
   }
 
   *q = q1;
