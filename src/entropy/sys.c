@@ -55,7 +55,7 @@
  *   https://docs.oracle.com/cd/E88353_01/html/E37841/getrandom-2.html
  *   https://docs.oracle.com/cd/E36784_01/html/E36884/random-7d.html
  *
- * HP-UX:
+ * HP-UX (*):
  *   https://nixdoc.net/man-pages/HP-UX/man7/random.7.html
  *   https://nixdoc.net/man-pages/HP-UX/man7/urandom.7.html
  *   https://docstore.mik.ua/manuals/hp-ux/en/B2355-60130/random.7.html
@@ -69,7 +69,7 @@
  *   https://www.ibm.com/docs/pt/i/7.1?topic=pi-whats-new-i-71
  *   https://www.ibm.com/support/knowledgecenter/en/ssw_ibm_i_71/rzalf/rzalf.pdf
  *
- * z/OS:
+ * z/OS (*):
  *   https://www.ibm.com/docs/en/zos/2.1.0?topic=files-random-number
  *
  * QNX:
@@ -77,6 +77,11 @@
  *
  * Haiku:
  *   No official documentation for /dev/random.
+ *   https://github.com/haiku/haiku/blob/8f16317/src/add-ons/kernel/bus_managers/random/driver.cpp
+ *
+ * Minix (*):
+ *   https://wiki.minix3.org/doku.php?id=developersguide:overviewofminixservers
+ *   https://github.com/Stichting-MINIX-Research-Foundation/minix/blob/1aad172/minix/drivers/system/random/main.c
  *
  * Redox:
  *   https://github.com/redox-os/randd/blob/2f0ad18/src/main.rs
@@ -197,7 +202,7 @@
  *   Fallback: /dev/random
  *   Support: getrandom(2) added in Solaris 11.3 (2015) (SunOS 5.11.3).
  *
- * HP-UX:
+ * HP-UX (*):
  *   Source: /dev/random
  *   Fallback: none
  *
@@ -209,7 +214,7 @@
  *   Source: /dev/urandom
  *   Fallback: none
  *
- * z/OS:
+ * z/OS (*):
  *   Source: /dev/random
  *   Fallback: none
  *
@@ -218,6 +223,10 @@
  *   Fallback: none
  *
  * Haiku:
+ *   Source: /dev/random
+ *   Fallback: none
+ *
+ * Minix (*):
  *   Source: /dev/random
  *   Fallback: none
  *
@@ -408,17 +417,19 @@ RtlGenRandom(PVOID RandomBuffer, ULONG RandomBufferLength);
 #      define HAVE_GETRANDOM
 #    endif
 #    define DEV_RANDOM_NAME "/dev/random"
-#  elif defined(__hpux)
+#  elif defined(__hpux) /* (*) */
 #    define DEV_RANDOM_NAME "/dev/random"
 #  elif defined(__PASE__) /* IBM i disguised as AIX */
 #    define DEV_RANDOM_NAME "/dev/urandom"
 #  elif defined(_AIX)
 #    define DEV_RANDOM_NAME "/dev/random"
-#  elif defined(__MVS__)
+#  elif defined(__MVS__) /* (*) */
 #    define DEV_RANDOM_NAME "/dev/random"
 #  elif defined(__QNX__)
 #    define DEV_RANDOM_NAME "/dev/random"
 #  elif defined(__HAIKU__)
+#    define DEV_RANDOM_NAME "/dev/random"
+#  elif defined(__minix) /* (*) */
 #    define DEV_RANDOM_NAME "/dev/random"
 #  elif defined(__redox__)
 #    define DEV_RANDOM_NAME "rand:"
