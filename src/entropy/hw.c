@@ -94,8 +94,8 @@
 #undef HAVE_ASM_ARM64
 #undef HAVE_ASM_PPC64
 #undef HAVE_GETAUXVAL
-#undef HAVE_ELFAUXINFO
-#undef HAVE_POWERSET
+#undef HAVE_ELF_AUX_INFO
+#undef HAVE_POWER_SET
 #undef HAVE_AUXVAL
 #undef HAVE_PERFMON /* Define if ARM FEAT_PMUv3 is supported. */
 
@@ -164,7 +164,7 @@
 #    include <sys/param.h>
 #    if defined(__FreeBSD_version) && __FreeBSD_version >= 1200000 /* 12.0 */
 #      include <sys/auxv.h> /* elf_aux_info */
-#      define HAVE_ELFAUXINFO
+#      define HAVE_ELF_AUX_INFO
 #      define HAVE_AUXVAL
 #    endif
 #  elif defined(HAVE_ASM_PPC64) && defined(_AIX53) && !defined(__PASE__)
@@ -172,7 +172,7 @@
 #    ifndef __power_set
 #      define __power_set(x) (_system_configuration.implementation & (x))
 #    endif
-#    define HAVE_POWERSET
+#    define HAVE_POWER_SET
 #  endif
 #  ifdef HAVE_AUXVAL
 #    ifndef AT_HWCAP
@@ -190,7 +190,7 @@
 
 #if defined(HAVE_GETAUXVAL)
 #  define torsion_auxval getauxval
-#elif defined(HAVE_ELFAUXINFO)
+#elif defined(HAVE_ELF_AUX_INFO)
 __attribute__((unused)) static unsigned long
 torsion_auxval(unsigned long type) {
   unsigned long val;
@@ -420,7 +420,7 @@ torsion_has_rdrand(void) {
 #elif defined(HAVE_ASM_PPC64) && defined(HAVE_AUXVAL)
   /* Bit 21 = DARN support (PPC_FEATURE2_DARN) */
   return (torsion_auxval(AT_HWCAP2) >> 21) & 1;
-#elif defined(HAVE_ASM_PPC64) && defined(HAVE_POWERSET)
+#elif defined(HAVE_ASM_PPC64) && defined(HAVE_POWER_SET)
   /* Check for POWER9 or greater. */
   return __power_set(0xffffffffU << 17) != 0;
 #else
