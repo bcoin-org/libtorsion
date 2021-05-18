@@ -1076,8 +1076,18 @@ sha512_write_dynamic_env(sha512_t *hash) {
     if (getrusage(RUSAGE_SELF, &usage) == 0)
       sha512_write(hash, &usage, sizeof(usage));
 
+#ifdef RUSAGE_CHILDREN
+    if (getrusage(RUSAGE_CHILDREN, &usage) == 0)
+      sha512_write(hash, &usage, sizeof(usage));
+#endif
+
 #ifdef RUSAGE_THREAD
     if (getrusage(RUSAGE_THREAD, &usage) == 0)
+      sha512_write(hash, &usage, sizeof(usage));
+#endif
+
+#if defined(RUSAGE_LWP) && !defined(RUSAGE_THREAD)
+    if (getrusage(RUSAGE_LWP, &usage) == 0)
       sha512_write(hash, &usage, sizeof(usage));
 #endif
   }
