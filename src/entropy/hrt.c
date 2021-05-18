@@ -107,7 +107,7 @@
 #  include <ssdef.h> /* SS$_NORMAL */
 #  include <starlet.h> /* sys$gettim{,_prec} */
 #  ifdef __DECC
-#   pragma message disable DOLLARID
+#    pragma message disable DOLLARID
 #  endif
 #elif defined(__vxworks)
 #  include <time.h> /* clock_gettime, time */

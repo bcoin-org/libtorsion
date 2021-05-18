@@ -330,7 +330,7 @@ RtlGenRandom(PVOID RandomBuffer, ULONG RandomBufferLength);
 #    include <starlet.h> /* sys$get_entropy */
 #    include <lib$routines.h> /* lib$signal */
 #    ifdef __DECC
-#     pragma message disable DOLLARID
+#      pragma message disable DOLLARID
 #    endif
 #    define HAVE_SYS_GET_ENTROPY
 #  endif
