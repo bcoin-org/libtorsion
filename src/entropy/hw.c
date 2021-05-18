@@ -764,15 +764,15 @@ torsion_hwrand(void *dst, size_t size) {
         x ^= torsion_rdrand();
     }
 
-    if (size < 8) {
+    if (size < sizeof(x)) {
       memcpy(data, &x, size);
       break;
     }
 
-    memcpy(data, &x, 8);
+    memcpy(data, &x, sizeof(x));
 
-    data += 8;
-    size -= 8;
+    data += sizeof(x);
+    size -= sizeof(x);
   }
 
   return 1;
