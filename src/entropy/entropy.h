@@ -66,7 +66,7 @@ torsion_rdseed(void);
 int
 torsion_hwrand(void *dst, size_t size);
 
-uint64_t
+long
 torsion_getpid(void);
 
 int

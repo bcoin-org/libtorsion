@@ -273,12 +273,12 @@ rng_global_unlock(void) {
 static TORSION_TLS struct {
   rng_t rng;
   int started;
-  uint64_t pid;
+  long pid;
 } rng_state;
 
 static int
 rng_global_init(void) {
-  uint64_t pid = torsion_getpid();
+  long pid = torsion_getpid();
 
   if (!rng_state.started || rng_state.pid != pid) {
     if (!rng_init(&rng_state.rng))

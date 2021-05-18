@@ -285,7 +285,6 @@
 
 #include <errno.h>
 #include <limits.h>
-#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 #include "entropy.h"
@@ -660,7 +659,7 @@ torsion_callrand(void *dst, size_t size) {
 #elif defined(HAVE_SYS_RANDOM_GET)
   return cloudabi_sys_random_get(dst, size) == 0;
 #elif defined(HAVE_JS_RANDOM_GET)
-  return js_random_get((uint8_t *)dst, size) == 0;
+  return js_random_get((unsigned char *)dst, size) == 0;
 #elif defined(HAVE_UUID_GENERATE)
   unsigned char *data = (unsigned char *)dst;
   unsigned char uuid[16];
@@ -683,7 +682,7 @@ torsion_callrand(void *dst, size_t size) {
 
   return 1;
 #elif defined(HAVE_WASI_RANDOM_GET)
-  return __wasi_random_get((uint8_t *)dst, size) == 0;
+  return __wasi_random_get((unsigned char *)dst, size) == 0;
 #elif defined(HAVE_GETRANDOM)
   unsigned char *data = (unsigned char *)dst;
   size_t max = 256;
@@ -898,10 +897,10 @@ torsion_uuidrand(void *dst, size_t size) {
  * PID (exposed for a fork-aware RNG)
  */
 
-uint64_t
+long
 torsion_getpid(void) {
 #if defined(HAVE_GETPID)
-  return (uint64_t)getpid();
+  return (long)getpid();
 #else
   return 0;
 #endif
