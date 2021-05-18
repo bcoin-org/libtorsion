@@ -607,14 +607,14 @@ torsion_rdseed(void) {
     if (_rdseed32_step(&lo))
       break;
 
-    _mm_pause(); /* _asm pause */
+    _asm { rep nop }
   }
 
   for (;;) {
     if (_rdseed32_step(&hi))
       break;
 
-    _mm_pause(); /* _asm pause */
+    _asm { rep nop }
   }
 
   return ((uint64_t)hi << 32) | lo;
@@ -646,7 +646,9 @@ torsion_rdseed(void) {
     if (ok)
       break;
 
-    __asm__ __volatile__ ("pause\n");
+    __asm__ __volatile__ (
+      ".byte 0xf3, 0x90\n" /* pause */
+    );
   }
 
   for (;;) {
@@ -661,7 +663,9 @@ torsion_rdseed(void) {
     if (ok)
       break;
 
-    __asm__ __volatile__ ("pause\n");
+    __asm__ __volatile__ (
+      ".byte 0xf3, 0x90\n" /* pause */
+    );
   }
 
   return ((uint64_t)hi << 32) | lo;
