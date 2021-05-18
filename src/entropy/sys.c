@@ -88,6 +88,12 @@
  *   https://github.com/redox-os/relibc/blob/a6fffd3/src/platform/redox/mod.rs#L559
  *   https://github.com/redox-os/relibc/commit/a6fffd3
  *
+ * DJGPP:
+ *   http://wwww.asb.com/usr/wlkngowl/software.htm#noise
+ *   https://cypherpunks.venona.com/date/1995/12/msg01101.html
+ *   https://web.archive.org/web/20200202174514/http://www.rahul.net/dkaufman/index.html
+ *   https://en.wikipedia.org/wiki//dev/random#Other_operating_systems
+ *
  * VMS:
  *   https://vmssoftware.com/about/roadmap/
  *   https://github.com/openssl/openssl/pull/8926
@@ -237,6 +243,11 @@
  * Redox:
  *   Source: rand:
  *   Fallback: none
+ *
+ * DJGPP:
+ *   Source: /dev/urandom$
+ *   Fallback: none
+ *   Support: Requires NOISE.SYS.
  *
  * Unix:
  *   Source: /dev/urandom
@@ -453,6 +464,8 @@ RtlGenRandom(PVOID RandomBuffer, ULONG RandomBufferLength);
 #    define DEV_RANDOM_NAME "/dev/random"
 #  elif defined(__redox__)
 #    define DEV_RANDOM_NAME "rand:"
+#  elif defined(__DJGPP__)
+#    define DEV_RANDOM_NAME "/dev/urandom$"
 #  else
 #    define DEV_RANDOM_NAME "/dev/urandom"
 #    define ALT_RANDOM_NAME "/dev/random"
