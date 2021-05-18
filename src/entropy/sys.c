@@ -6,7 +6,7 @@
  * Resources:
  *   https://en.wikipedia.org/wiki/Entropy-supplying_system_calls
  *   https://en.wikipedia.org/wiki/CryptGenRandom
- *   https://en.wikipedia.org/wiki/dev/random
+ *   https://en.wikipedia.org/wiki//dev/random
  *
  * Windows:
  *   https://docs.microsoft.com/en-us/windows/win32/api/bcrypt/nf-bcrypt-bcryptgenrandom
@@ -18,7 +18,7 @@
  *   https://man7.org/linux/man-pages/man2/_sysctl.2.html
  *   https://github.com/torvalds/linux/blob/v5.4/include/uapi/linux/sysctl.h
  *
- * OSX/iOS:
+ * OSX/iOS/tvOS/watchOS:
  *   https://www.unix.com/man-page/mojave/2/getentropy/
  *   https://www.unix.com/man-page/mojave/4/random/
  *
@@ -93,6 +93,9 @@
  *   https://cypherpunks.venona.com/date/1995/12/msg01101.html
  *   https://web.archive.org/web/20200202174514/http://www.rahul.net/dkaufman/index.html
  *   https://en.wikipedia.org/wiki//dev/random#Other_operating_systems
+ *
+ * Unix:
+ *   https://en.wikipedia.org/wiki//dev/random
  *
  * VMS:
  *   https://vmssoftware.com/about/roadmap/

@@ -8,11 +8,7 @@
  *   https://docs.microsoft.com/en-us/windows/win32/api/profileapi/nf-profileapi-queryperformancefrequency
  *   https://docs.microsoft.com/en-us/windows/win32/api/sysinfoapi/nf-sysinfoapi-getsystemtimeasfiletime
  *
- * Unix:
- *   http://man7.org/linux/man-pages/man2/gettimeofday.2.html
- *   https://man7.org/linux/man-pages/man2/clock_gettime.2.html
- *
- * OSX/iOS:
+ * OSX/iOS/tvOS/watchOS:
  *   https://developer.apple.com/documentation/kernel/1462446-mach_absolute_time
  *
  * Solaris/Illumos:
@@ -23,6 +19,10 @@
  *
  * AIX:
  *   https://www.ibm.com/docs/en/aix/7.1?topic=r-read-real-time-read-wall-timetime-base-time-mread-real-time-subroutine
+ *
+ * Unix:
+ *   https://pubs.opengroup.org/onlinepubs/009604599/functions/gettimeofday.html
+ *   https://pubs.opengroup.org/onlinepubs/009695399/functions/clock_getres.html
  *
  * VMS:
  *   http://uprpon.upr.edu/help?key=System_Services~$GETTIM
@@ -44,6 +44,9 @@
  *
  * Emscripten (wasm, asm.js):
  *   https://emscripten.org/docs/api_reference/emscripten.h.html
+ *
+ * ANSI C:
+ *   http://port70.net/~nsz/c/c89/c89-draft.html#4.12.2.4
  */
 
 /**
@@ -53,24 +56,27 @@
  *
  * This includes:
  *
- *   - QueryPerformanceCounter, GetSystemTimeAsFileTime (win32)
+ *   - QueryPerformanceCounter (win32)
+ *   - GetSystemTimeAsFileTime (win32 legacy)
  *   - mach_absolute_time (apple)
  *   - gethrtime (solaris, hpux)
  *   - read_wall_time (aix)
- *   - sys$gettim{,_prec} (vms)
- *   - clock_gettime (vxworks)
- *   - zx_clock_get_monotonic (fuchsia)
  *   - clock_gettime (unix)
  *   - gettimeofday (unix legacy)
+ *   - sys$gettim_prec (vms)
+ *   - sys$gettim (vms legacy)
+ *   - clock_gettime (vxworks)
+ *   - zx_clock_get_monotonic (fuchsia)
  *   - cloudabi_sys_clock_time_get (cloudabi)
  *   - __wasi_clock_time_get (wasi)
  *   - emscripten_get_now (emscripten)
  *
  * Note that the only clocks which do not have nanosecond
- * precision are `GetSystemTimeAsFileTime` and `gettimeofday`.
+ * precision are `GetSystemTimeAsFileTime`, `gettimeofday`,
+ * and `sys$gettim`.
  *
  * If no OS clocks are present, we fall back to standard
- * C89 time functions (i.e. time(2)).
+ * ANSI time functions (i.e. time(2)).
  *
  * Furthermore, QueryPerformance{Counter,Frequency} may fail
  * on Windows 2000. For this reason, we require Windows XP or
@@ -87,7 +93,7 @@
 #include <stdlib.h> /* abort */
 #include "entropy.h"
 
-#undef HAVE_QPC
+#undef HAVE_QUERYPERFORMANCECOUNTER
 #undef HAVE_CLOCK_GETTIME
 #undef HAVE_GETHRTIME
 #undef HAVE_GETTIMEOFDAY
@@ -97,7 +103,7 @@
 #  include <windows.h> /* QueryPerformanceCounter, GetSystemTimeAsFileTime */
 #  pragma comment(lib, "kernel32.lib")
 #  if defined(_WIN32_WINNT) && _WIN32_WINNT >= 0x0501 /* Windows XP */
-#    define HAVE_QPC
+#    define HAVE_QUERYPERFORMANCECOUNTER
 #  endif
 #elif defined(__VMS)
 #  define __NEW_STARLET 1
@@ -131,7 +137,7 @@
 #elif defined(_AIX)
 #  include <sys/time.h> /* read_wall_time */
 #elif defined(TORSION_UNIX)
-#  include <time.h> /* clock_gettime */
+#  include <time.h> /* clock_gettime, time */
 #  include <unistd.h> /* _POSIX_TIMERS, _XOPEN_VERSION */
 #  if defined(__GLIBC__) && defined(__GLIBC_PREREQ)
 #    define TORSION_GLIBC_PREREQ __GLIBC_PREREQ
@@ -161,7 +167,7 @@
 
 uint64_t
 torsion_hrtime(void) {
-#if defined(HAVE_QPC) /* _WIN32 */
+#if defined(HAVE_QUERYPERFORMANCECOUNTER) /* _WIN32 */
   static unsigned int scale = 1000000000;
   LARGE_INTEGER freq, ctr;
   double scaled, result;
@@ -211,21 +217,24 @@ torsion_hrtime(void) {
   ul.LowPart = ft.dwLowDateTime;
   ul.HighPart = ft.dwHighDateTime;
 
-  return (uint64_t)(ul.QuadPart - epoch) * 100;
+  return ((uint64_t)ul.QuadPart - epoch) * 100;
 #elif defined(__VMS)
   uint64_t ts = 0;
+  uint64_t scale;
   int ret;
 
 #if defined(__CRTL_VER) && __CRTL_VER >= 80400000 /* 8.4 */
   ret = sys$gettim_prec((void *)&ts);
+  scale = 1; /* Unsure on this. */
 #else
   ret = sys$gettim((void *)&ts);
+  scale = 100;
 #endif
 
   if (ret != SS$_NORMAL)
     abort();
 
-  return ts;
+  return ts * scale;
 #elif defined(__Fuchsia__) || defined(__fuchsia__)
   return zx_clock_get_monotonic();
 #elif defined(__CloudABI__)
@@ -277,7 +286,7 @@ torsion_hrtime(void) {
   if (clock_gettime(CLOCK_BOOTTIME, &ts) != 0)
 #endif
   {
-#ifdef CLOCK_MONOTONIC
+#ifdef CLOCK_MONOTONIC /* _POSIX_MONOTONIC_CLOCK */
     if (clock_gettime(CLOCK_MONOTONIC, &ts) != 0)
 #endif
     {
