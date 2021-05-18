@@ -879,7 +879,19 @@ mp_free_str(char *ptr) {
 
 static TORSION_INLINE mp_bits_t
 mp_popcount(mp_limb_t x) {
-#if defined(mp_builtin_popcount)
+#if defined(MP_HAVE_ASM_X64) && defined(__POPCNT__)
+  /* Explicitly built with POPCNT support (-mpopcnt). */
+  mp_limb_t z;
+
+  __asm__ (
+    "popcntq %q1, %q0\n"
+    : "=r" (z)
+    : "rm" (x)
+    : "cc"
+  );
+
+  return z;
+#elif defined(mp_builtin_popcount)
   return mp_builtin_popcount(x);
 #else
   /* https://graphics.stanford.edu/~seander/bithacks.html#CountBitsSetParallel */
