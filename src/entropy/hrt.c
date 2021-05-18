@@ -99,9 +99,6 @@
 #  if defined(_WIN32_WINNT) && _WIN32_WINNT >= 0x0501 /* Windows XP */
 #    define HAVE_QPC
 #  endif
-#elif defined(__APPLE__) && defined(__MACH__)
-#  include <mach/mach.h> /* KERN_SUCCESS */
-#  include <mach/mach_time.h> /* mach_timebase_info, mach_absolute_time */
 #elif defined(__VMS)
 #  define __NEW_STARLET 1
 #  include <ssdef.h> /* SS$_NORMAL */
@@ -122,6 +119,9 @@
 #  include <emscripten.h> /* emscripten_get_now */
 #elif defined(__wasi__)
 #  include <wasi/api.h> /* __wasi_clock_time_get */
+#elif defined(__APPLE__) && defined(__MACH__)
+#  include <mach/mach.h> /* KERN_SUCCESS */
+#  include <mach/mach_time.h> /* mach_timebase_info, mach_absolute_time */
 #elif defined(__sun) && defined(__SVR4)
 #  include <sys/time.h> /* gethrtime */
 #  define HAVE_GETHRTIME
@@ -212,16 +212,6 @@ torsion_hrtime(void) {
   ul.HighPart = ft.dwHighDateTime;
 
   return (uint64_t)(ul.QuadPart - epoch) * 100;
-#elif defined(__APPLE__) && defined(__MACH__)
-  mach_timebase_info_data_t info;
-
-  if (mach_timebase_info(&info) != KERN_SUCCESS)
-    abort();
-
-  if (info.denom == 0)
-    abort();
-
-  return mach_absolute_time() * info.numer / info.denom;
 #elif defined(__VMS)
   uint64_t ts = 0;
   int ret;
@@ -257,6 +247,16 @@ torsion_hrtime(void) {
 #endif
 
   return ts;
+#elif defined(__APPLE__) && defined(__MACH__)
+  mach_timebase_info_data_t info;
+
+  if (mach_timebase_info(&info) != KERN_SUCCESS)
+    abort();
+
+  if (info.denom == 0)
+    abort();
+
+  return mach_absolute_time() * info.numer / info.denom;
 #elif defined(HAVE_GETHRTIME)
   hrtime_t ts = gethrtime();
 
