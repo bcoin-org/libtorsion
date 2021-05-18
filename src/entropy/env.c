@@ -534,6 +534,14 @@ sha512_write_static_env(sha512_t *hash) {
   sha512_write_string(hash, PACKAGE_STRING);
 #endif
 
+#ifdef __STDC_VERSION__
+  sha512_write_int(hash, __STDC_VERSION__);
+#endif
+
+#ifdef __cplusplus
+  sha512_write_int(hash, __cplusplus + 0L);
+#endif
+
   /* CPU features. */
   if (torsion_has_cpuid())
     sha512_write_cpuids(hash);
