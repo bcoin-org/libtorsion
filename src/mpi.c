@@ -1864,7 +1864,7 @@ mp_div(mp_limb_t *q, mp_limb_t *r,
 
   q0 = ((udiv128_f *)udiv128_code)(n1, n0, d, &r0);
 #else
-  __asm {
+  _asm {
     mov eax, n0
     mov edx, n1
     div d
