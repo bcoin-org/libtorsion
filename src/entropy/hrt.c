@@ -24,6 +24,10 @@
  * AIX:
  *   https://www.ibm.com/docs/en/aix/7.1?topic=r-read-real-time-read-wall-timetime-base-time-mread-real-time-subroutine
  *
+ * VMS:
+ *   http://uprpon.upr.edu/help?key=System_Services~$GETTIM
+ *   http://uprpon.upr.edu/help?key=System_Services~$GETTIM_PREC
+ *
  * VxWorks:
  *   https://docs.windriver.com/bundle/vxworks_7_application_core_os_sr0630-enus/page/CORE/clockLib.html
  *
@@ -53,6 +57,7 @@
  *   - mach_absolute_time (apple)
  *   - gethrtime (solaris, hpux)
  *   - read_wall_time (aix)
+ *   - sys$gettim{,_prec} (vms)
  *   - clock_gettime (vxworks)
  *   - zx_clock_get_monotonic (fuchsia)
  *   - clock_gettime (unix)
@@ -97,7 +102,14 @@
 #elif defined(__APPLE__) && defined(__MACH__)
 #  include <mach/mach.h> /* KERN_SUCCESS */
 #  include <mach/mach_time.h> /* mach_timebase_info, mach_absolute_time */
-#elif defined(__vxworks) || defined(__VMS)
+#elif defined(__VMS)
+#  define __NEW_STARLET 1
+#  include <ssdef.h> /* SS$_NORMAL */
+#  include <starlet.h> /* sys$gettim{,_prec} */
+#  ifdef __DECC
+#   pragma message disable DOLLARID
+#  endif
+#elif defined(__vxworks)
 #  include <time.h> /* clock_gettime, time */
 #  if defined(CLOCK_REALTIME) || defined(CLOCK_MONOTONIC)
 #    define HAVE_CLOCK_GETTIME
@@ -210,6 +222,20 @@ torsion_hrtime(void) {
     abort();
 
   return mach_absolute_time() * info.numer / info.denom;
+#elif defined(__VMS)
+  uint64_t ts = 0;
+  int ret;
+
+#if defined(__CRTL_VER) && __CRTL_VER >= 80400000 /* 8.4 */
+  ret = sys$gettim_prec((void *)&ts);
+#else
+  ret = sys$gettim((void *)&ts);
+#endif
+
+  if (ret != SS$_NORMAL)
+    abort();
+
+  return ts;
 #elif defined(__Fuchsia__) || defined(__fuchsia__)
   return zx_clock_get_monotonic();
 #elif defined(__CloudABI__)

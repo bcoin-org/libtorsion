@@ -89,6 +89,8 @@
 #  pragma comment(lib, "kernel32.lib")
 #  pragma comment(lib, "psapi.lib")
 #  define HAVE_MANUAL_ENTROPY
+#elif defined(__VMS)
+/* Unsupported. */
 #elif defined(__vxworks)
 /* Unsupported. */
 #elif defined(__Fuchsia__) || defined(__fuchsia__)

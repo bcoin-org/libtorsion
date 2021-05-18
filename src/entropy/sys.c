@@ -88,6 +88,10 @@
  *   https://github.com/redox-os/relibc/blob/a6fffd3/src/platform/redox/mod.rs#L559
  *   https://github.com/redox-os/relibc/commit/a6fffd3
  *
+ * VMS:
+ *   https://vmssoftware.com/about/roadmap/
+ *   https://github.com/openssl/openssl/pull/8926
+ *
  * VxWorks:
  *   https://docs.windriver.com/bundle/vxworks_7_application_core_os_sr0630-enus/page/CORE/randomNumGenLib.html
  *
@@ -238,6 +242,11 @@
  *   Source: /dev/urandom
  *   Fallback: /dev/random
  *
+ * VMS:
+ *   Source: SYS$GET_ENTROPY
+ *   Fallback: none
+ *   Support: SYS$GET_ENTROPY added in OpenVMS 9.2 (2021).
+ *
  * VxWorks:
  *   Source: randABytes (after polling randSecure)
  *   Fallback: none
@@ -283,6 +292,7 @@
 
 #undef HAVE_BCRYPTGENRANDOM
 #undef HAVE_RTLGENRANDOM
+#undef HAVE_SYS_GET_ENTROPY
 #undef HAVE_RANDABYTES
 #undef HAVE_CPRNG_DRAW
 #undef HAVE_SYS_RANDOM_GET
@@ -313,6 +323,17 @@ BOOLEAN NTAPI
 RtlGenRandom(PVOID RandomBuffer, ULONG RandomBufferLength);
 #    pragma comment(lib, "advapi32.lib")
 #    define HAVE_RTLGENRANDOM
+#  endif
+#elif defined(__VMS)
+#  if defined(__VMS_VER) && __VMS_VER >= 90200022 /* 9.2 (2021) */
+#    define __NEW_STARLET 1
+#    include <ssdef.h> /* SS$_NORMAL, SS$_RETRY */
+#    include <starlet.h> /* sys$get_entropy */
+#    include <lib$routines.h> /* lib$signal */
+#    ifdef __DECC
+#     pragma message disable DOLLARID
+#    endif
+#    define HAVE_SYS_GET_ENTROPY
 #  endif
 #elif defined(__vxworks)
 #  include <version.h>
@@ -575,6 +596,29 @@ torsion_callrand(void *dst, size_t size) {
 
     if (!RtlGenRandom(data, max))
       return 0;
+
+    data += max;
+    size -= max;
+  }
+
+  return 1;
+#elif defined(HAVE_SYS_GET_ENTROPY)
+  unsigned char *data = (unsigned char *)dst;
+  size_t max = 256;
+  int ret;
+
+  while (size > 0) {
+    if (max > size)
+      max = size;
+
+    do {
+      ret = sys$get_entropy(data, max);
+    } while (ret == SS$_RETRY);
+
+    if (ret != SS$_NORMAL) {
+      lib$signal(ret);
+      return 0;
+    }
 
     data += max;
     size -= max;
