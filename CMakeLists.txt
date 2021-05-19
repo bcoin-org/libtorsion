@@ -288,10 +288,6 @@ if(WIN32 AND NOT TORSION_WASM)
   list(APPEND torsion_defines _WIN32_WINNT=0x0600)
 endif()
 
-if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND NOT TORSION_WASM)
-  list(APPEND torsion_defines _POSIX_C_SOURCE=200112)
-endif()
-
 if(TORSION_HAS_ASM)
   list(APPEND torsion_defines TORSION_HAVE_ASM)
 endif()

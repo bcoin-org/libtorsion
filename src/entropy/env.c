@@ -55,11 +55,7 @@
  * be re-enabled by defining TORSION_USE_PERFDATA.
  */
 
-#if !defined(_WIN32) && !defined(_GNU_SOURCE)
-/* For gethostname(3), getsid(3), getpgid(3),
-   clock_gettime(2), dl_iterate_phdr(3). */
-#  define _GNU_SOURCE
-#endif
+#include "posix.h"
 
 #include <errno.h>
 #include <limits.h>
@@ -101,7 +97,7 @@
 /* No reliable entropy sources available for emscripten. */
 #elif defined(__wasi__)
 /* Could gather static entropy from args/env in the future. */
-#elif defined(TORSION_UNIX)
+#elif defined(TORSION_POSIX)
 #  include <sys/types.h> /* open */
 #  include <sys/stat.h> /* open, stat */
 #  include <sys/time.h> /* gettimeofday, timeval */

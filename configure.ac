@@ -162,8 +162,6 @@ AS_IF([test x"$WASM" != x"yes"], [
     AX_CHECK_COMPILE_FLAG([-mmacosx-version-min=10.7],
                           [CFLAGS="$CFLAGS -mmacosx-version-min=10.7"])
   ])
-
-  AS_CASE([$host_os], [linux*], [CFLAGS="$CFLAGS -D_POSIX_C_SOURCE=200112"])
 ])
 
 AS_IF([test x"$enable_coverage" = x"yes"], [

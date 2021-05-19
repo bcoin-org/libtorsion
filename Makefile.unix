@@ -52,10 +52,6 @@ ifeq ($(shell uname -s), Darwin)
 COMMON_CFLAGS += -mmacosx-version-min=10.7
 endif
 
-ifeq ($(shell uname -s), Linux)
-COMMON_CFLAGS += -D_POSIX_C_SOURCE=200112
-endif
-
 ifeq ($(ENABLE_COVERAGE), 1)
 COMMON_CFLAGS += -O0 --coverage
 endif

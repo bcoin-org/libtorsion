@@ -294,10 +294,7 @@
  * [1] https://docs.rs/getrandom/0.1.14/getrandom/
  */
 
-#if defined(__linux__) && !defined(_GNU_SOURCE)
-/* For syscall(2). */
-#  define _GNU_SOURCE
-#endif
+#include "posix.h"
 
 #include <errno.h>
 #include <limits.h>
@@ -377,7 +374,7 @@ RtlGenRandom(PVOID RandomBuffer, ULONG RandomBufferLength);
 #elif defined(__wasi__)
 #  include <wasi/api.h> /* __wasi_random_get */
 #  define HAVE_WASI_RANDOM_GET
-#elif defined(TORSION_UNIX)
+#elif defined(TORSION_POSIX)
 #  include <sys/types.h> /* open */
 #  include <sys/stat.h> /* open, stat */
 #  include <fcntl.h> /* open, fcntl */
@@ -400,12 +397,12 @@ RtlGenRandom(PVOID RandomBuffer, ULONG RandomBufferLength);
 #      define HAVE_GETENTROPY
 #    endif
 #    define DEV_RANDOM_NAME "/dev/random"
-#  elif defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
+#  elif defined(__FreeBSD__)
 #    include <sys/param.h> /* <osreldate.h> prior to 3.0.1 (1998) */
 #    if defined(__FreeBSD_version) && __FreeBSD_version >= 1200000 /* 12.0 (2018) */
-#      include <sys/random.h> /* getrandom, getentropy */
+#      include <sys/random.h> /* getrandom */
 #      define HAVE_GETRANDOM
-#      define HAVE_GETENTROPY
+#      define HAVE_GETENTROPY /* resides in <unistd.h> */
 #    endif
 #    if defined(__FreeBSD_version) && __FreeBSD_version >= 701000 /* 7.1 (2009) */
 #      include <sys/sysctl.h> /* sysctl */

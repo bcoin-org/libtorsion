@@ -89,10 +89,7 @@
  * above (otherwise we fall back to GetSystemTimeAsFileTime).
  */
 
-#if !defined(_WIN32) && !defined(_GNU_SOURCE)
-/* For clock_gettime(2). */
-#  define _GNU_SOURCE
-#endif
+#include "posix.h"
 
 #include <stddef.h>
 #include <stdint.h>
@@ -144,7 +141,7 @@
 #  include <sys/time.h> /* read_wall_time */
 #elif defined(__MVS__) && defined(_MI_BUILTIN)
 #  include <builtins.h> /* __stck, __stckf */
-#elif defined(TORSION_UNIX)
+#elif defined(TORSION_POSIX)
 #  include <time.h> /* clock_gettime, time */
 #  include <unistd.h> /* _POSIX_TIMERS, _XOPEN_VERSION */
 #  if defined(__GLIBC__) && defined(__GLIBC_PREREQ)
