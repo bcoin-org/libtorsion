@@ -71,6 +71,7 @@
  *
  * z/OS (*):
  *   https://www.ibm.com/docs/en/zos/2.1.0?topic=files-random-number
+ *   https://github.com/ibmruntimes/zoslib/blob/6493e33/include/zos-base.h#L415
  *
  * QNX:
  *   http://www.qnx.com/developers/docs/6.5.0/topic/com.qnx.doc.neutrino_utilities/r/random.html
@@ -228,8 +229,9 @@
  *   Fallback: none
  *
  * z/OS (*):
- *   Source: /dev/random
- *   Fallback: none
+ *   Source: getentropy(3)
+ *   Fallback: /dev/random
+ *   Support: getentropy(3) requires zoslib.
  *
  * QNX:
  *   Source: /dev/random
@@ -458,6 +460,13 @@ RtlGenRandom(PVOID RandomBuffer, ULONG RandomBufferLength);
 #  elif defined(_AIX)
 #    define DEV_RANDOM_NAME "/dev/random"
 #  elif defined(__MVS__) /* (*) */
+#    if defined(__xlC__) || defined(__clang__)
+#      ifndef __cplusplus
+#        pragma weak getentropy
+int getentropy(void *, size_t); /* <zos-base.h> */
+#        define HAVE_GETENTROPY
+#      endif
+#    endif
 #    define DEV_RANDOM_NAME "/dev/random"
 #  elif defined(__QNX__)
 #    define DEV_RANDOM_NAME "/dev/random"
@@ -727,9 +736,14 @@ torsion_callrand(void *dst, size_t size) {
   unsigned char *data = (unsigned char *)dst;
   size_t max = 256;
 
-#ifdef __APPLE__
+#if defined(__APPLE__) || defined(__MVS__)
   /* Apple uses weak symbols depending on
-     the minimum OS version requested. */
+   * the minimum OS version requested.
+   *
+   * This check is also useful for z/OS
+   * in order to see whether we're linked
+   * to zoslib.
+   */
   if (getentropy == NULL)
     return 0;
 #endif
