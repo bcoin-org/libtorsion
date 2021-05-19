@@ -287,7 +287,7 @@ torsion_hrtime(void) {
 #elif defined(_AIX)
   timebasestruct_t tb;
 
-  read_wall_time(&tb, TIMEBASE_SZ);
+  read_wall_time(&tb, TIMEBASE_SZ); /* == RTC_POWER_PC */
 
   return (uint64_t)tb.tb_high * 1000000000 + (uint64_t)tb.tb_low;
 #elif defined(__MVS__)
