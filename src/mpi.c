@@ -1796,44 +1796,27 @@ static void MP_MSVC_CDECL
 mp_div(mp_limb_t *q, mp_limb_t *r,
        mp_limb_t n1, mp_limb_t n0,
        mp_limb_t d) {
-#if defined(MP_HAVE_ASM_X86) || defined(MP_HAVE_ASM_X64)
-  mp_limb_t q0, r0;
-
-  /* [q, r] = (n1, n0) / d */
-  __asm__ (
 #if defined(MP_HAVE_ASM_X64)
+  __asm__ (
     "divq %q4\n"
-#else
-    "divl %k4\n"
-#endif
-    : "=a" (q0), "=d" (r0)
+    : "=a" (*q), "=d" (*r)
     : "0" (n0), "1" (n1), "rm" (d)
     : "cc"
   );
-
-  if (q != NULL)
-    *q = q0;
-
-  if (r != NULL)
-    *r = r0;
-#elif defined(MP_HAVE_UDIV64) || defined(MP_HAVE_UDIV128)
-  mp_limb_t q0, r0;
-
-  /* [q, r] = (n1, n0) / d */
-#if defined(MP_HAVE_UDIV128)
-  q0 = _udiv128(n1, n0, d, &r0);
-#else
+#elif defined(MP_HAVE_ASM_X86)
+  __asm__ (
+    "divl %k4\n"
+    : "=a" (*q), "=d" (*r)
+    : "0" (n0), "1" (n1), "rm" (d)
+    : "cc"
+  );
+#elif defined(MP_HAVE_UDIV128)
+  *q = _udiv128(n1, n0, d, r);
+#elif defined(MP_HAVE_UDIV64)
   mp_wide_t n = ((mp_wide_t)n1 << MP_LIMB_BITS) | n0;
 
-  q0 = _udiv64(n, d, (unsigned int *)&r0);
-#endif
-
-  if (q != NULL)
-    *q = q0;
-
-  if (r != NULL)
-    *r = r0;
-#elif defined(MP_MSVC_ASM_X86) || defined(MP_MSVC_ASM_X64)
+  *q = _udiv64(n, d, (unsigned int *)r);
+#elif defined(MP_MSVC_ASM_X64)
   /* Utilize a clever hack[1][2] from fahickman/r128[3] in
    * order to implement the _udiv128 and _udiv64 intrinsics
    * on older versions of MSVC, keeping in mind windows'
@@ -1846,10 +1829,6 @@ mp_div(mp_limb_t *q, mp_limb_t *r,
    * [3] https://github.com/fahickman/r128
    * [4] https://docs.microsoft.com/en-us/cpp/build/x64-calling-convention
    */
-  mp_limb_t q0, r0;
-
-  /* [q, r] = (n1, n0) / d */
-#if defined(MP_MSVC_ASM_X64)
   typedef mp_limb_t udiv128_f(mp_limb_t n1, mp_limb_t n0,
                               mp_limb_t d, mp_limb_t *r);
 
@@ -1862,8 +1841,10 @@ mp_div(mp_limb_t *q, mp_limb_t *r,
     0xc3              /* retq */
   };
 
-  q0 = ((udiv128_f *)udiv128_code)(n1, n0, d, &r0);
-#else
+  *q = ((udiv128_f *)udiv128_code)(n1, n0, d, r);
+#elif defined(MP_MSVC_ASM_X86)
+  mp_limb_t q0, r0;
+
   _asm {
     mov eax, n0
     mov edx, n1
@@ -1871,13 +1852,9 @@ mp_div(mp_limb_t *q, mp_limb_t *r,
     mov q0, eax
     mov r0, edx
   }
-#endif
 
-  if (q != NULL)
-    *q = q0;
-
-  if (r != NULL)
-    *r = r0;
+  *q = q0;
+  *r = r0;
 #else
   /* Code adapted from the `divlu2` function
    * in Hacker's Delight[1].
@@ -1894,14 +1871,8 @@ mp_div(mp_limb_t *q, mp_limb_t *r,
   mp_bits_t s;
 
   if (n1 == 0) {
-    q0 = n0 / d;
-
-    if (q != NULL)
-      *q = q0;
-
-    if (r != NULL)
-      *r = n0 - q0 * d;
-
+    *q = n0 / d;
+    *r = n0 - (*q) * d;
     return;
   }
 
@@ -1956,12 +1927,8 @@ mp_div(mp_limb_t *q, mp_limb_t *r,
       break;
   }
 
-  if (q != NULL)
-    *q = q1 * b + q0;
-
-  /* If remainder is wanted, return it. */
-  if (r != NULL)
-    *r = (un21 * b + un0 - q0 * d) >> s;
+  *q = q1 * b + q0;
+  *r = (un21 * b + un0 - q0 * d) >> s;
 #endif
 }
 
@@ -2015,11 +1982,11 @@ mp_inv_2by1(mp_limb_t d) {
    * [1] https://go-review.googlesource.com/c/go/+/250417
    * [2] https://go-review.googlesource.com/c/go/+/250417/comment/380e8f18_ad97735c/
    */
-  mp_limb_t q;
+  mp_limb_t q, r;
 
   ASSERT(d >= MP_LIMB_HI);
 
-  mp_div(&q, NULL, ~d, MP_LIMB_MAX, d);
+  mp_div(&q, &r, ~d, MP_LIMB_MAX, d);
 
   return q;
 }
