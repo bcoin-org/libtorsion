@@ -142,10 +142,7 @@
 #  define HAVE_GETHRTIME
 #elif defined(_AIX)
 #  include <sys/time.h> /* read_wall_time */
-#elif defined(__MVS__)
-#  if defined(__xlC__) && !defined(_EXT)
-#    pragma extension /* LANGLVL(EXTENDED) */
-#  endif
+#elif defined(__MVS__) && defined(_MI_BUILTIN)
 #  include <builtins.h> /* __stck, __stckf */
 #elif defined(TORSION_UNIX)
 #  include <time.h> /* clock_gettime, time */
@@ -290,7 +287,7 @@ torsion_hrtime(void) {
   read_wall_time(&tb, TIMEBASE_SZ); /* == RTC_POWER_PC */
 
   return (uint64_t)tb.tb_high * 1000000000 + (uint64_t)tb.tb_low;
-#elif defined(__MVS__)
+#elif defined(__MVS__) && defined(_MI_BUILTIN)
   static const uint64_t epoch = UINT64_C(2208988800000000000);
   unsigned long long ts;
   int ret;
