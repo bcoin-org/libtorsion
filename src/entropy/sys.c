@@ -338,7 +338,7 @@ RtlGenRandom(PVOID RandomBuffer, ULONG RandomBufferLength);
 #    define HAVE_RTLGENRANDOM
 #  endif
 #elif defined(__VMS)
-#  if defined(__VMS_VER) && __VMS_VER >= 90200022 /* 9.2 (2021) */
+#  if defined(__CRTL_VER) && __CRTL_VER >= 90200000 /* 9.2 (2021) */
 #    define __NEW_STARLET 1
 #    include <ssdef.h> /* SS$_NORMAL, SS$_RETRY */
 #    include <starlet.h> /* sys$get_entropy */
