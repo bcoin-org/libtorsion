@@ -21,6 +21,8 @@
  * For reference:
  *
  *   - glibc: https://github.com/bminor/glibc/blob/6c57d32/include/features.h
+ *   - bionic: https://github.com/aosp-mirror/platform_bionic/blob/a1112fd/libc/include/sys/cdefs.h#L162
+ *   - musl: https://github.com/ifduyue/musl/blob/1febd21/include/features.h
  *   - cygwin: https://github.com/cygwin/cygwin/blob/8050ef2/newlib/libc/include/sys/features.h
  *   - darwin: https://github.com/apple/darwin-xnu/blob/d4061fb/bsd/sys/cdefs.h#L792
  *   - freebsd: https://github.com/freebsd/freebsd-src/blob/cfad8bd/sys/sys/cdefs.h#L638
@@ -59,12 +61,21 @@
 #elif defined(__sun) && defined(__SVR4)
 #  undef _XOPEN_SOURCE
 #  undef __EXTENSIONS__
+#  undef _REENTRANT
 #  define _XOPEN_SOURCE 500
 #  define __EXTENSIONS__
+#  define _REENTRANT
 #elif defined(__hpux)
 #  undef _HPUX_SOURCE
+#  undef _REENTRANT
 #  define _HPUX_SOURCE
-#elif defined(_AIX) || defined(__MVS__)
+#  define _REENTRANT
+#elif defined(_AIX)
+#  undef _ALL_SOURCE
+#  undef _THREAD_SAFE
+#  define _ALL_SOURCE
+#  define _THREAD_SAFE
+#elif defined(__MVS__)
 #  undef _ALL_SOURCE
 #  define _ALL_SOURCE
 #elif defined(__QNX__)
@@ -99,6 +110,9 @@
 #elif defined(__HAIKU__)
 /* unix not defined on GCC (Haiku Patch).
    Note that it _is_ defined on Clang. */
+#  define TORSION_POSIX
+#elif defined(__vxworks)
+/* unix not defined on GCC (?). */
 #  define TORSION_POSIX
 #elif defined(__CloudABI__)
 /* unix not defined on Clang. */
