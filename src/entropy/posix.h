@@ -16,6 +16,8 @@
  * 2. Some OSes won't even work at all without _POSIX_SOURCE
  *    defined.
  *
+ * 3. Some OSes just have really bad defaults.
+ *
  * For reference:
  *
  *   - glibc: https://github.com/bminor/glibc/blob/6c57d32/include/features.h
@@ -31,7 +33,8 @@
  *   - hpux: https://nixdoc.net/man-pages/HP-UX/man5/stdsyms.5.html
  *   - aix: ??
  *   - z/os: https://www.ibm.com/docs/en/zos/2.3.0?topic=files-feature-test-macros
- *   - qnx: ??
+ *   - qnx: http://www.qnx.com/developers/docs/6.5.0_sp1/topic/com.qnx.doc.neutrino_prog/devel.html
+            https://github.com/vocho/openqnx/blob/cc95df3/trunk/lib/c/public/sys/platform.h
  *   - haiku: https://github.com/haiku/haiku/blob/144f45a/headers/compatibility/bsd/features.h
  *            https://github.com/haiku/haiku/blob/144f45a/headers/posix/unistd.h
  *   - minix: https://github.com/Stichting-MINIX-Research-Foundation/minix/blob/4db99f4/sys/sys/featuretest.h
@@ -40,6 +43,8 @@
  *   - cloudabi: https://github.com/NuxiNL/cloudlibc/blob/7e5c649/src/include/unistd.h
  *   - wasi: https://github.com/WebAssembly/wasi-libc/blob/575e157/libc-top-half/musl/include/features.h
  *   - emscripten: https://github.com/emscripten-core/emscripten/blob/dee59ba/system/lib/libc/musl/include/features.h
+ *   - posix: https://pubs.opengroup.org/onlinepubs/7908799/xsh/compilation.html
+ *            https://pubs.opengroup.org/onlinepubs/007904975/functions/xsh_chap02_02.html
  */
 
 #if defined(__linux__) || defined(__CYGWIN__)
@@ -54,7 +59,7 @@
 #elif defined(__sun) && defined(__SVR4)
 #  undef _XOPEN_SOURCE
 #  undef __EXTENSIONS__
-#  define _XOPEN_SOURCE 600
+#  define _XOPEN_SOURCE 500
 #  define __EXTENSIONS__
 #elif defined(__hpux)
 #  undef _HPUX_SOURCE
@@ -62,6 +67,9 @@
 #elif defined(_AIX) || defined(__MVS__)
 #  undef _ALL_SOURCE
 #  define _ALL_SOURCE
+#elif defined(__QNX__)
+#  undef _QNX_SOURCE
+#  define _QNX_SOURCE
 #elif defined(__HAIKU__)
 #  undef _BSD_SOURCE
 #  define _BSD_SOURCE
@@ -82,15 +90,25 @@
 #elif defined(__linux__) || defined(_AIX)
 /* unix not defined on IBM XL C. */
 #  define TORSION_POSIX
-#elif defined(__HAIKU__)
-/* unix not defined on GCC (Haiku Patch).
-   Note that it _is_ defined on Clang. */
+#elif defined(__MVS__)
+/* unix not defined on Clang or XL C. */
 #  define TORSION_POSIX
 #elif defined(__QNX__)
 /* unix not defined on GCC. */
 #  define TORSION_POSIX
-#elif defined(__MVS__)
-/* unix not defined on Clang or XL C. */
+#elif defined(__HAIKU__)
+/* unix not defined on GCC (Haiku Patch).
+   Note that it _is_ defined on Clang. */
+#  define TORSION_POSIX
+#elif defined(__CloudABI__)
+/* unix not defined on Clang. */
+#  define TORSION_POSIX
+#elif defined(__wasi__)
+/* unix not defined on Clang. */
+#  define TORSION_POSIX
+#elif defined(__EMSCRIPTEN__)
+/* unix not defined on (raw) Clang, but
+   it is defined by emcc since 2016. */
 #  define TORSION_POSIX
 #endif
 
