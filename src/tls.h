@@ -73,6 +73,10 @@
  * - Supports TLS via __thread[31].
  * - Support added for Linux in XL C 8.0[32].
  * - Support added for AIX in XL C 10.1[32].
+ *   - Presumably supports IBM i with PASE.
+ * - Support added for Blue Gene in unknown version.
+ *   - Supported at least as far back as 12.1.
+ * - Support not yet added for z/OS.
  * - Note that -qtls must be passed on the command line.
  *
  * C++ Builder:
@@ -139,9 +143,15 @@
  * - TLS supported via __thread and #pragma tls[48].
  * - TLS first implemented in 1.0.0[49][50].
  *
+ * VSI C (Compaq C, DEC C, VAX C):
+ *
+ * - TLS supported via __declspec(thread)[51].
+ * - Documentation suggests TLS is supported at
+ *   least as far back as 7.4-1[51].
+ *
  * C11:
  *
- * - C11 specifies support for _Thread_local[51].
+ * - C11 specifies support for _Thread_local[52].
  * - Support can be tested by checking both:
  *
  *     __STDC_VERSION__ >= 201112L
@@ -149,11 +159,11 @@
  *
  *   However, some compilers do not define STDC_NO_THREADS
  *   or do not define it directly (in particular, Intel C
- *   versions less than 18.0.0[52]).
+ *   versions less than 18.0.0[53]).
  *
  * C++11:
  *
- * - C++11 specifies support for thread_local[53].
+ * - C++11 specifies support for thread_local[54].
  *
  * [1] https://gcc.gnu.org/onlinedocs/gcc-3.3.1/gcc/Thread-Local.html
  * [2] https://github.com/gcc-mirror/gcc/commit/8893239dc4ed32bd3bb4e00d6e43b859554ab82a
@@ -208,9 +218,10 @@
  * [48] https://github.com/IanHarvey/pcc/blob/master/cc/ccom/gcc_compat.c#L261
  * [49] https://github.com/IanHarvey/pcc/commit/e2ad48a
  * [50] https://github.com/IanHarvey/pcc/commit/109a8ee
- * [51] https://en.cppreference.com/w/c/keyword/_Thread_local
- * [52] https://software.intel.com/en-us/forums/intel-c-compiler/topic/721059
- * [53] https://en.cppreference.com/w/cpp/language/storage_duration
+ * [51] https://vmssoftware.com/docs/VSI_C_USER.pdf
+ * [52] https://en.cppreference.com/w/c/keyword/_Thread_local
+ * [53] https://software.intel.com/en-us/forums/intel-c-compiler/topic/721059
+ * [54] https://en.cppreference.com/w/cpp/language/storage_duration
  */
 
 /* Apple Quirks
@@ -405,10 +416,18 @@
 #    if __xlC__ >= 0x0800 /* 8.0.0 (unknown) */
 #      define TORSION_TLS_GNUC
 #    endif
-#  else /* _AIX */
+#  elif defined(_AIX)
 #    if __xlC__ >= 0x0A01 /* 10.1.0 (2008) */
 #      define TORSION_TLS_GNUC
 #    endif
+#  elif defined(__bg__)
+#    if __xlC__ >= 0x0C01 /* 12.1.0 (unknown) */
+#      define TORSION_TLS_GNUC
+#    endif
+#  endif
+#elif defined(__DECC)
+#  if defined(__DECC_VER) && __DECC_VER >= 70490001 /* 7.4-1 */
+#    define TORSION_TLS_MSVC
 #  endif
 #elif defined(__CC_ARM)
 /* Newer ARM CC versions are based on clang and should be caught above. */
