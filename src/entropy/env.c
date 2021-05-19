@@ -98,13 +98,13 @@
 #elif defined(__wasi__)
 /* Could gather static entropy from args/env in the future. */
 #elif defined(TORSION_POSIX)
-#  include <sys/types.h> /* open */
-#  include <sys/stat.h> /* open, stat */
+#  include <sys/types.h> /* types */
+#  include <sys/stat.h> /* stat */
 #  include <sys/time.h> /* gettimeofday, timeval */
 #  include <sys/resource.h> /* getrusage */
 #  include <sys/utsname.h> /* uname */
-#  include <fcntl.h> /* open */
-#  include <unistd.h> /* stat, read, close, gethostname */
+#  include <fcntl.h> /* open, O_* */
+#  include <unistd.h> /* read, close, gethostname */
 #  include <time.h> /* clock_gettime */
 #  if defined(__GLIBC__) && defined(__GLIBC_PREREQ)
 #    define TORSION_GLIBC_PREREQ __GLIBC_PREREQ

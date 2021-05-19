@@ -375,13 +375,13 @@ RtlGenRandom(PVOID RandomBuffer, ULONG RandomBufferLength);
 #  include <wasi/api.h> /* __wasi_random_get */
 #  define HAVE_WASI_RANDOM_GET
 #elif defined(TORSION_POSIX)
-#  include <sys/types.h> /* open */
-#  include <sys/stat.h> /* open, stat */
-#  include <fcntl.h> /* open, fcntl */
-#  include <unistd.h> /* stat, read, close, syscall */
+#  include <sys/types.h> /* types */
+#  include <sys/stat.h> /* stat, S_* */
+#  include <fcntl.h> /* open, fcntl, O_* */
+#  include <unistd.h> /* read, close, syscall */
 #  if defined(__linux__)
 #    include <poll.h> /* poll */
-#    include <sys/syscall.h> /* syscall */
+#    include <sys/syscall.h> /* SYS_* */
 #    if defined(SYS_getrandom) && defined(__NR_getrandom) /* 3.17 (2014) */
 #      define getrandom(buf, len, flags) syscall(SYS_getrandom, buf, len, flags)
 #      define HAVE_GETRANDOM
