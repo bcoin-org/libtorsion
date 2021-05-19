@@ -504,6 +504,23 @@
 #  ifdef __BIONIC__
 #    define TORSION_HAVE_PTHREAD
 #  endif
+#elif defined(__MVS__)
+/* According to libuv, z/OS has builtin
+ * pthread support.
+ *
+ * Note that z/OS requires one of the
+ * following feature test macros:
+ *
+ *   _ALL_SOURCE (implies _OPEN_THREADS=1)
+ *   _OPEN_THREADS=1
+ *   _UNIX03_THREADS
+ */
+#  if defined(_ALL_SOURCE) || defined(_OPEN_THREADS) || defined(_UNIX03_THREADS)
+#    define TORSION_HAVE_PTHREAD
+#  endif
+#elif defined(__QNX__)
+/* QNX has builtin pthread support. */
+#  define TORSION_HAVE_PTHREAD
 #endif
 
 /* Allow overrides (for testing). */
