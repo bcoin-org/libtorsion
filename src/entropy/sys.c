@@ -457,13 +457,8 @@ RtlGenRandom(PVOID RandomBuffer, ULONG RandomBufferLength);
 #  elif defined(_AIX)
 #    define DEV_RANDOM_NAME "/dev/random"
 #  elif defined(__MVS__) /* (*) */
-#    if defined(__xlC__) || defined(__clang__)
-#      ifndef __cplusplus
-#        pragma weak getentropy
-int getentropy(void *, size_t); /* <zos-base.h> */
-#        define HAVE_GETENTROPY
-#      endif
-#    endif
+#    include <dlfcn.h> /* dlopen, dlsym */
+#    define HAVE_GETENTROPY
 #    define DEV_RANDOM_NAME "/dev/random"
 #  elif defined(__QNX__)
 #    define DEV_RANDOM_NAME "/dev/random"
@@ -733,14 +728,19 @@ torsion_callrand(void *dst, size_t size) {
   unsigned char *data = (unsigned char *)dst;
   size_t max = 256;
 
-#if defined(__APPLE__) || defined(__MVS__)
+#ifdef __MVS__
+  /* Check for linkage to zoslib. */
+  typedef int getentropy_f(void *, size_t);
+  getentropy_f *getentropy =
+    (getentropy_f *)dlsym(dlopen(NULL, 0), "getentropy");
+
+  if (getentropy == NULL)
+    return 0;
+#endif
+
+#ifdef __APPLE__
   /* Apple uses weak symbols depending on
-   * the minimum OS version requested.
-   *
-   * This check is also useful for z/OS
-   * in order to see whether we're linked
-   * to zoslib.
-   */
+     the minimum OS version requested. */
   if (getentropy == NULL)
     return 0;
 #endif
