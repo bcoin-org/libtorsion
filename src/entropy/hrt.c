@@ -20,6 +20,10 @@
  * AIX:
  *   https://www.ibm.com/docs/en/aix/7.1?topic=r-read-real-time-read-wall-timetime-base-time-mread-real-time-subroutine
  *
+ * z/OS:
+ *   https://www.ibm.com/docs/en/zos/2.3.0?topic=functions-general-instructions
+ *   https://groups.google.com/g/bit.listserv.ibm-main/c/qWWkdociQMQ
+ *
  * Unix:
  *   https://pubs.opengroup.org/onlinepubs/009604599/functions/gettimeofday.html
  *   https://pubs.opengroup.org/onlinepubs/009695399/functions/clock_getres.html
@@ -61,6 +65,8 @@
  *   - mach_absolute_time (apple)
  *   - gethrtime (solaris, hpux)
  *   - read_wall_time (aix)
+ *   - __stckf (zos)
+ *   - __stck (zos legacy)
  *   - clock_gettime (unix)
  *   - gettimeofday (unix legacy)
  *   - sys$gettim_prec (vms)
@@ -136,6 +142,11 @@
 #  define HAVE_GETHRTIME
 #elif defined(_AIX)
 #  include <sys/time.h> /* read_wall_time */
+#elif defined(__MVS__)
+#  if defined(__xlC__) && !defined(_EXT)
+#    pragma extension /* LANGLVL(EXTENDED) */
+#  endif
+#  include <builtins.h> /* __stck, __stckf */
 #elif defined(TORSION_UNIX)
 #  include <time.h> /* clock_gettime, time */
 #  include <unistd.h> /* _POSIX_TIMERS, _XOPEN_VERSION */
@@ -279,6 +290,26 @@ torsion_hrtime(void) {
   read_wall_time(&tb, TIMEBASE_SZ);
 
   return (uint64_t)tb.tb_high * 1000000000 + (uint64_t)tb.tb_low;
+#elif defined(__MVS__)
+  static const uint64_t epoch = UINT64_C(2208988800000000000);
+  unsigned long long ts;
+  int ret;
+
+#if defined(__ARCH__) && __ARCH__ >= 7
+  ret = __stckf(&ts);
+#else
+  ret = __stck(&ts);
+#endif
+
+  if (ret < 0 || ret > 1)
+    abort();
+
+  ts = (ts / 512) * 125; /* ts /= 4.096 */
+
+  if (ret == 0)
+    ts -= epoch;
+
+  return ts;
 #elif defined(HAVE_CLOCK_GETTIME)
   struct timespec ts;
 
