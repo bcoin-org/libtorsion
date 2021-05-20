@@ -66,11 +66,12 @@
 #include "entropy.h"
 
 #undef HAVE_MANUAL_ENTROPY
+#undef HAVE_GETTIMEOFDAY
+#undef HAVE_GETRUSAGE
 #undef HAVE_DLITERATEPHDR
 #undef HAVE_GETIFADDRS
 #undef HAVE_GETAUXVAL
 #undef HAVE_SYSCTL
-#undef HAVE_GETTIMEOFDAY
 #undef HAVE_CLOCK_GETTIME
 #undef HAVE_GETHOSTNAME
 #undef HAVE_GETSID
@@ -100,12 +101,16 @@
 #elif defined(TORSION_POSIX)
 #  include <sys/types.h> /* types */
 #  include <sys/stat.h> /* stat */
-#  include <sys/time.h> /* gettimeofday, timeval */
-#  include <sys/resource.h> /* getrusage */
 #  include <sys/utsname.h> /* uname */
 #  include <fcntl.h> /* open, O_* */
 #  include <unistd.h> /* read, close, gethostname */
 #  include <time.h> /* clock_gettime */
+#  if defined(_XOPEN_VERSION) && _XOPEN_VERSION >= 500
+#    include <sys/time.h> /* gettimeofday, timeval */
+#    include <sys/resource.h> /* getrusage */
+#    define HAVE_GETTIMEOFDAY
+#    define HAVE_GETRUSAGE
+#  endif
 #  if defined(__GLIBC__) && defined(__GLIBC_PREREQ)
 #    define TORSION_GLIBC_PREREQ __GLIBC_PREREQ
 #  else
@@ -152,9 +157,6 @@
 #    ifndef environ
 extern char **environ;
 #    endif
-#  endif
-#  if defined(_XOPEN_VERSION) && _XOPEN_VERSION >= 500
-#    define HAVE_GETTIMEOFDAY
 #  endif
 #  if defined(_POSIX_TIMERS) && (_POSIX_TIMERS + 0) > 0
 #    if !defined(__GLIBC__) || TORSION_GLIBC_PREREQ(2, 17)
@@ -1063,6 +1065,7 @@ sha512_write_dynamic_env(sha512_t *hash) {
   }
 #endif /* HAVE_CLOCK_GETTIME */
 
+#ifdef HAVE_GETRUSAGE
   /* Current resource usage. */
   {
     struct rusage usage;
@@ -1087,6 +1090,7 @@ sha512_write_dynamic_env(sha512_t *hash) {
       sha512_write(hash, &usage, sizeof(usage));
 #endif
   }
+#endif
 
 #ifdef __linux__
   sha512_write_file(hash, "/proc/diskstats");
