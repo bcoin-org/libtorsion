@@ -120,7 +120,7 @@
 #  if defined(CLOCK_REALTIME) || defined(CLOCK_MONOTONIC)
 #    define HAVE_CLOCK_GETTIME
 #  endif
-#elif defined(__Fuchsia__) || defined(__fuchsia__)
+#elif defined(__Fuchsia__)
 #  include <zircon/syscalls.h> /* zx_clock_get_monotonic */
 #elif defined(__CloudABI__)
 #  include <cloudabi_syscalls.h> /* cloudabi_sys_clock_time_get */
@@ -240,7 +240,7 @@ torsion_hrtime(void) {
     abort();
 
   return ts * scale;
-#elif defined(__Fuchsia__) || defined(__fuchsia__)
+#elif defined(__Fuchsia__)
   return zx_clock_get_monotonic();
 #elif defined(__CloudABI__)
   uint64_t ts;

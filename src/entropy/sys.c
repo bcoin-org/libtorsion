@@ -366,7 +366,7 @@ RtlGenRandom(PVOID RandomBuffer, ULONG RandomBufferLength);
 #    include <taskLib.h> /* taskDelay */
 #    define HAVE_RANDABYTES
 #  endif
-#elif defined(__Fuchsia__) || defined(__fuchsia__)
+#elif defined(__Fuchsia__)
 #  include <zircon/syscalls.h> /* zx_cprng_draw */
 #  define HAVE_CPRNG_DRAW
 #elif defined(__CloudABI__)
