@@ -55,6 +55,12 @@
  *   https://docs.oracle.com/cd/E88353_01/html/E37841/getrandom-2.html
  *   https://docs.oracle.com/cd/E36784_01/html/E36884/random-7d.html
  *
+ * Cygwin (*):
+ *   https://github.com/cygwin/cygwin/blob/8050ef2/winsup/cygwin/include/sys/random.h
+ *   https://github.com/cygwin/cygwin/blob/8050ef2/winsup/cygwin/include/cygwin/version.h#L473
+ *   https://github.com/cygwin/cygwin/blob/8050ef2/winsup/cygwin/release/2.7.0
+ *   https://github.com/cygwin/cygwin/blob/8050ef2/winsup/cygwin/release/2.8.0
+ *
  * HP-UX (*):
  *   https://nixdoc.net/man-pages/HP-UX/man7/random.7.html
  *   https://nixdoc.net/man-pages/HP-UX/man7/urandom.7.html
@@ -215,6 +221,12 @@
  *   Source: getrandom(2)
  *   Fallback: /dev/random
  *   Support: getrandom(2) added in Solaris 11.3 (2015) (SunOS 5.11.3).
+ *
+ * Cygwin (*):
+ *   Source: getrandom(2)
+ *   Fallback: /dev/random
+ *   Support: getrandom(2) added in Cygwin 2.7.0 (2017).
+ *            getrandom(2) fixed in Cygwin 2.8.0 (2017).
  *
  * HP-UX (*):
  *   Source: /dev/random
@@ -448,6 +460,15 @@ RtlGenRandom(PVOID RandomBuffer, ULONG RandomBufferLength);
      || (defined(__SUNPRO_CC) && __SUNPRO_CC >= 0x5140) /* 5.14 (2016) */
 #      include <sys/random.h> /* getrandom */
 #      define HAVE_GETRANDOM
+#      define HAVE_GETENTROPY /* resides in <unistd.h> */
+#    endif
+#    define DEV_RANDOM_NAME "/dev/random"
+#  elif defined(__CYGWIN__) /* (*) */
+#    include <cygwin/version.h>
+#    if CYGWIN_VERSION_API_MAJOR > 0 || CYGWIN_VERSION_API_MINOR >= 306 /* 2.7.0 (2017) */
+#      include <sys/random.h> /* getrandom, getentropy */
+#      define HAVE_GETRANDOM
+#      define HAVE_GETENTROPY
 #    endif
 #    define DEV_RANDOM_NAME "/dev/random"
 #  elif defined(__hpux) /* (*) */
@@ -731,6 +752,7 @@ torsion_callrand(void *dst, size_t size) {
 #ifdef __MVS__
   /* Check for linkage to zoslib. */
   typedef int getentropy_f(void *, size_t);
+
   getentropy_f *getentropy =
     (getentropy_f *)dlsym(dlopen(NULL, 0), "getentropy");
 
