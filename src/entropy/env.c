@@ -161,7 +161,7 @@ extern char **environ;
 #  if defined(_POSIX_TIMERS) && (_POSIX_TIMERS + 0) > 0
 #    if !defined(__GLIBC__) || TORSION_GLIBC_PREREQ(2, 17)
 #      if defined(CLOCK_REALTIME) || defined(CLOCK_MONOTONIC)
-#        define HAVE_CLOCK_GETTIME /* _POSIX_VERSION = 199309L */
+#        define HAVE_CLOCK_GETTIME
 #      endif
 #    endif
 #  endif
