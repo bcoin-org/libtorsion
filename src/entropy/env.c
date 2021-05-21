@@ -99,14 +99,14 @@
 #elif defined(__wasi__)
 /* Could gather static entropy from args/env in the future. */
 #elif defined(TORSION_POSIX)
-#  include <sys/types.h> /* types */
-#  include <sys/stat.h> /* stat */
+#  include <sys/types.h> /* mode_t, off_t, pid_t */
+#  include <sys/stat.h> /* stat, fstat */
 #  include <sys/utsname.h> /* uname */
 #  include <fcntl.h> /* open, O_* */
-#  include <unistd.h> /* read, close, gethostname */
+#  include <unistd.h> /* read, close, get{*id,cwd,hostname} */
 #  include <time.h> /* clock_gettime */
 #  if defined(_XOPEN_VERSION) && _XOPEN_VERSION >= 500
-#    include <sys/time.h> /* gettimeofday, timeval */
+#    include <sys/time.h> /* gettimeofday */
 #    include <sys/resource.h> /* getrusage */
 #    define HAVE_GETTIMEOFDAY
 #    define HAVE_GETRUSAGE
@@ -122,7 +122,7 @@
 #        include <link.h> /* dl_iterate_phdr */
 #        define HAVE_DLITERATEPHDR
 #      endif
-#      include <sys/socket.h> /* AF_INET{,6} */
+#      include <sys/socket.h> /* sockaddr, AF_INET{,6} */
 #      include <netinet/in.h> /* sockaddr_in{,6} */
 #      include <ifaddrs.h> /* getifaddrs */
 #      define HAVE_GETIFADDRS
@@ -137,8 +137,8 @@
    || defined(__OpenBSD__)   \
    || defined(__NetBSD__)    \
    || defined(__DragonFly__)
-#    include <sys/sysctl.h> /* sysctl */
-#    include <sys/socket.h> /* AF_INET{,6} */
+#    include <sys/sysctl.h> /* sysctl, {CTL,HW,KERN,VM}_* */
+#    include <sys/socket.h> /* sockaddr, AF_INET{,6} */
 #    include <netinet/in.h> /* sockaddr_in{,6} */
 #    include <ifaddrs.h> /* getifaddrs */
 #    define HAVE_SYSCTL

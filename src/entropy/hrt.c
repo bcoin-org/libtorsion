@@ -130,7 +130,7 @@
 #  include <wasi/api.h> /* __wasi_clock_time_get */
 #elif defined(__APPLE__) && defined(__MACH__)
 #  include <mach/mach.h> /* KERN_SUCCESS */
-#  include <mach/mach_time.h> /* mach_timebase_info, mach_absolute_time */
+#  include <mach/mach_time.h> /* mach_timebase_{info,time} */
 #elif defined(__sun) && defined(__SVR4)
 #  include <sys/time.h> /* gethrtime */
 #  define HAVE_GETHRTIME
@@ -140,7 +140,7 @@
 #elif defined(_AIX)
 #  include <sys/time.h> /* read_wall_time */
 #elif defined(__MVS__) && defined(_MI_BUILTIN)
-#  include <builtins.h> /* __stck, __stckf */
+#  include <builtins.h> /* __stck{,f} */
 #elif defined(TORSION_POSIX)
 #  include <time.h> /* clock_gettime, time */
 #  include <unistd.h> /* _POSIX_TIMERS, _XOPEN_VERSION */
