@@ -22,7 +22,6 @@
  *
  * z/OS:
  *   https://www.ibm.com/docs/en/zos/2.3.0?topic=functions-general-instructions
- *   https://groups.google.com/g/bit.listserv.ibm-main/c/qWWkdociQMQ
  *
  * Unix:
  *   https://pubs.opengroup.org/onlinepubs/009604599/functions/gettimeofday.html
@@ -224,22 +223,28 @@ torsion_hrtime(void) {
 
   return ((uint64_t)ul.QuadPart - epoch) * 100;
 #elif defined(__VMS)
-  uint64_t ts = 0;
-  uint64_t scale;
-  int ret;
+  /* VMS is similar to Windows time in that it uses
+   * 100ns units. The only difference is that it
+   * picks a time epoch of November 17th, 1858[1].
+   *
+   * [1] https://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.362.7968&rep=rep1&type=pdf
+   */
+  static const uint64_t epoch = UINT64_C(35067168000000000);
+  uint64_t ts;
 
 #if defined(__CRTL_VER) && __CRTL_VER >= 80400000 /* 8.4 */
   ret = sys$gettim_prec((void *)&ts);
-  scale = 1; /* Unsure on this. */
+
+  if (ret == SS$_LOWPREC)
+    ret = SS$_NORMAL;
 #else
   ret = sys$gettim((void *)&ts);
-  scale = 100;
 #endif
 
   if (ret != SS$_NORMAL)
     abort();
 
-  return ts * scale;
+  return (ts - epoch) * 100;
 #elif defined(__Fuchsia__)
   return zx_clock_get_monotonic();
 #elif defined(__CloudABI__)
@@ -285,10 +290,25 @@ torsion_hrtime(void) {
 
   return (uint64_t)tb.tb_high * 1000000000 + (uint64_t)tb.tb_low;
 #elif defined(__MVS__) && defined(_MI_BUILTIN)
+  /* The z/arch clock is so high precision that we
+   * actually need to downgrade it by dividing the
+   * units by 4.096 in order to get nanoseconds.
+   *
+   * It picks a time epoch of January 1st, 1900.
+   */
   static const uint64_t epoch = UINT64_C(2208988800000000000);
   unsigned long long ts;
   int ret;
 
+  /* Condition Codes[1]:
+   *
+   *   0 = clock set
+   *   1 = clock not set
+   *   2 = clock error
+   *   3 = clock stopped
+   *
+   * [1] https://groups.google.com/g/bit.listserv.ibm-main/c/qWWkdociQMQ
+   */
 #if defined(__ARCH__) && __ARCH__ >= 7
   ret = __stckf(&ts);
 #else
