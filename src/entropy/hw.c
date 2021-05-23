@@ -366,7 +366,7 @@ torsion_has_cpuid(void) {
     "pushfl\n"
     "popl %k0\n"
     "movl %k0, %k1\n"
-    "xorl $0x00200000, %k0\n"
+    "xorl $0x200000, %k0\n"
     "pushl %k0\n"
     "popfl\n"
     "pushfl\n"
@@ -374,8 +374,7 @@ torsion_has_cpuid(void) {
     "popfl\n"
     : "=&r" (ax),
       "=&r" (bx)
-    :
-    : "cc"
+    :: "cc"
   );
 
   return ((ax ^ bx) >> 21) & 1;
