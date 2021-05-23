@@ -418,8 +418,10 @@ torsion_cpuid(uint32_t *a,
   }
 #elif defined(HAVE_ASM_X64)
   __asm__ __volatile__ (
+    "xchgq %%rbx, %q1\n"
     "cpuid\n"
-    : "=a" (*a), "=b" (*b), "=c" (*c), "=d" (*d)
+    "xchgq %%rbx, %q1\n"
+    : "=a" (*a), "=&r" (*b), "=c" (*c), "=d" (*d)
     : "0" (leaf), "2" (subleaf)
   );
 #else
