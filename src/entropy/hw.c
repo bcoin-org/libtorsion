@@ -92,6 +92,8 @@
 #undef HAVE_ASM_X86
 #undef HAVE_ASM_X64
 #undef HAVE_ASM_ARM64
+#undef HAVE_ASM_PPC
+#undef HAVE_ASM_PPC32
 #undef HAVE_ASM_PPC64
 #undef HAVE_GETAUXVAL
 #undef HAVE_ELF_AUX_INFO
@@ -145,12 +147,16 @@
 #  elif defined(__aarch64__)
 #    define HAVE_ASM_ARM64
 #  elif defined(__powerpc64__) || defined(_ARCH_PPC64) || defined(__PPC64__)
+#    define HAVE_ASM_PPC
 #    define HAVE_ASM_PPC64
+#  elif defined(__powerpc__) || defined(_ARCH_PPC) || defined(__PPC__)
+#    define HAVE_ASM_PPC
+#    define HAVE_ASM_PPC32
 #  endif
 #endif
 
 /* Some insanity to detect features at runtime. */
-#if defined(HAVE_ASM_ARM64) || defined(HAVE_ASM_PPC64)
+#if defined(HAVE_ASM_ARM64) || defined(HAVE_ASM_PPC)
 #  if defined(__GLIBC__) && defined(__GLIBC_PREREQ)
 #    define TORSION_GLIBC_PREREQ __GLIBC_PREREQ
 #  else
@@ -167,7 +173,7 @@
 #      define HAVE_ELF_AUX_INFO
 #      define HAVE_AUXVAL
 #    endif
-#  elif defined(HAVE_ASM_PPC64) && defined(_AIX53) && !defined(__PASE__)
+#  elif defined(HAVE_ASM_PPC) && defined(_AIX53) && !defined(__PASE__)
 #    include <sys/systemcfg.h> /* __power_set */
 #    ifndef __power_set
 #      define __power_set(x) (_system_configuration.implementation & (x))
@@ -257,6 +263,21 @@ torsion_rdtsc(void) {
   );
 
   return ts;
+#elif defined(HAVE_ASM_PPC32)
+  uint32_t hi, lo, c;
+
+  do {
+    __asm__ __volatile__ (
+      "mftbu %0\n" /* mfspr %0, 269 */
+      "mftb  %1\n" /* mfspr %1, 268 */
+      "mftbu %2\n" /* mfspr %2, 269 */
+      : "=r" (hi),
+        "=r" (lo),
+        "=r" (c)
+    );
+  } while (hi != c);
+
+  return ((uint64_t)hi << 32) | lo;
 #elif defined(HAVE_ASM_PPC64)
   uint64_t ts;
 
@@ -414,13 +435,13 @@ torsion_has_rdrand(void) {
   }
 
   return 0;
-#elif defined(HAVE_ASM_PPC64) && (defined(_ARCH_PWR9) || defined(_ARCH_PWR10))
+#elif defined(HAVE_ASM_PPC) && (defined(_ARCH_PWR9) || defined(_ARCH_PWR10))
   /* Explicitly built for POWER9 (-mcpu=power9 or -mpower9-vector). */
   return 1;
-#elif defined(HAVE_ASM_PPC64) && defined(HAVE_AUXVAL)
+#elif defined(HAVE_ASM_PPC) && defined(HAVE_AUXVAL)
   /* Bit 21 = DARN support (PPC_FEATURE2_DARN) */
   return (torsion_auxval(AT_HWCAP2) >> 21) & 1;
-#elif defined(HAVE_ASM_PPC64) && defined(HAVE_POWER_SET)
+#elif defined(HAVE_ASM_PPC) && defined(HAVE_POWER_SET)
   /* Check for POWER9 or greater. */
   return __power_set(0xffffffffU << 17) != 0;
 #else
@@ -446,6 +467,9 @@ torsion_has_rdseed(void) {
   return (ebx >> 18) & 1;
 #elif defined(HAVE_ASM_ARM64)
   return torsion_has_rdrand();
+#elif defined(HAVE_ASM_PPC32)
+  /* Nothing comparable to rdseed on PPC32. */
+  return 0;
 #elif defined(HAVE_ASM_PPC64)
   return torsion_has_rdrand();
 #else
@@ -566,6 +590,35 @@ torsion_rdrand(void) {
   }
 
   return r;
+#elif defined(HAVE_ASM_PPC32)
+  uint32_t lo, hi;
+  int i;
+
+  for (i = 0; i < 10; i++) {
+    __asm__ __volatile__ (
+      ".long (0x7c0005e6 | (%0 << 21))\n" /* darn %0, 0 */
+      : "=r" (lo)
+    );
+
+    if (lo != UINT32_MAX)
+      break;
+
+    lo = 0;
+  }
+
+  for (i = 0; i < 10; i++) {
+    __asm__ __volatile__ (
+      ".long (0x7c0005e6 | (%0 << 21))\n" /* darn %0, 0 */
+      : "=r" (hi)
+    );
+
+    if (hi != UINT32_MAX)
+      break;
+
+    hi = 0;
+  }
+
+  return ((uint64_t)hi << 32) | lo;
 #elif defined(HAVE_ASM_PPC64)
   uint64_t r;
   int i;
@@ -716,6 +769,10 @@ torsion_rdseed(void) {
   }
 
   return r;
+#elif defined(HAVE_ASM_PPC32)
+  /* Nothing comparable to rdseed on PPC32. */
+  __asm__ __volatile__ ("trap\n");
+  return 0;
 #elif defined(HAVE_ASM_PPC64)
   uint64_t r;
 
