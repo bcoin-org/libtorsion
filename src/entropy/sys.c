@@ -250,7 +250,7 @@
  *   Fallback: none
  *
  * Haiku:
- *   Source: /dev/random
+ *   Source: /dev/random (identical to /dev/urandom)
  *   Fallback: none
  *
  * Minix (*):
