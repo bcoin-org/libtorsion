@@ -50,7 +50,7 @@
  *   https://openpowerfoundation.org/?resource_lib=power-isa-version-3-0
  *   https://www.docdroid.net/tWT7hjD/powerisa-v30-pdf
  *
- * RISC-V (mentropy, pollentropy):
+ * RISC-V (mentropy, pollentropy, rdcycle):
  *   https://github.com/riscv/riscv-isa-manual/releases
  *   https://github.com/riscv/riscv-crypto/releases
  */
