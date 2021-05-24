@@ -159,8 +159,10 @@
 #elif defined(__MVS__)
 #  undef _ALL_SOURCE
 #  undef _UNIX03_SOURCE
+#  undef _UNIX03_THREADS
 #  define _ALL_SOURCE
-#  define _UNIX03_SOURCE /* <dlfcn.h> */
+#  define _UNIX03_SOURCE
+#  define _UNIX03_THREADS
 #elif defined(__QNX__)
 #  undef _QNX_SOURCE
 #  define _QNX_SOURCE
