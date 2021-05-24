@@ -8,7 +8,7 @@
  *   https://en.wikipedia.org/wiki/CPUID
  *   https://en.wikipedia.org/wiki/RDRAND
  *
- * Windows (x86 / x64):
+ * Windows (x86, x64):
  *   https://docs.microsoft.com/en-us/cpp/intrinsics/rdtsc
  *   https://docs.microsoft.com/en-us/cpp/intrinsics/cpuid-cpuidex
  *   https://software.intel.com/sites/landingpage/IntrinsicsGuide/#text=_rdrand32_step
@@ -16,7 +16,9 @@
  *   https://software.intel.com/sites/landingpage/IntrinsicsGuide/#text=_rdseed32_step
  *   https://software.intel.com/sites/landingpage/IntrinsicsGuide/#text=_rdseed64_step
  *
- * Windows (arm64):
+ * Windows (arm, arm64):
+ *   https://docs.microsoft.com/en-us/cpp/intrinsics/arm-intrinsics
+ *   https://docs.microsoft.com/en-us/cpp/intrinsics/arm-intrinsics?view=msvc-160#MoveFromCo
  *   https://docs.microsoft.com/en-us/cpp/intrinsics/arm64-intrinsics
  *
  * x86{,-64}:
@@ -25,17 +27,28 @@
  *   https://www.felixcloutier.com/x86/rdrand
  *   https://www.felixcloutier.com/x86/rdseed
  *
- * ARMv8.5-A (rndr, rndrrs, pmccntr_el0):
+ * ARM (pmccntr, cntvct):
+ *   https://developer.arm.com/documentation/dui0068/b/ARM-Instruction-Reference/ARM-coprocessor-instructions/MRC--MRC2
+ *   https://developer.arm.com/documentation/ddi0595/2021-03/AArch32-Registers/PMUSERENR--Performance-Monitors-User-Enable-Register
+ *   https://developer.arm.com/documentation/ddi0595/2021-03/AArch32-Registers/PMCNTENSET--Performance-Monitors-Count-Enable-Set-register
+ *   https://developer.arm.com/documentation/ddi0595/2021-03/AArch32-Registers/PMCCNTR--Performance-Monitors-Cycle-Count-Register
+ *   https://developer.arm.com/documentation/ddi0595/2021-03/AArch32-Registers/CNTVCT--Counter-timer-Virtual-Count-register
+ *   https://developer.arm.com/documentation/ddi0595/2021-03/AArch32-Registers/ID-DFR0--Debug-Feature-Register-0
+ *
+ * ARMv8.5-A (rndr, rndrrs, pmccntr_el0, cntvct_el0):
  *   https://developer.arm.com/documentation/dui0068/b/ARM-Instruction-Reference/Miscellaneous-ARM-instructions/MRS
+ *   https://developer.arm.com/documentation/ddi0595/2021-03/AArch64-Registers/ID-AA64ISAR0-EL1--AArch64-Instruction-Set-Attribute-Register-0
  *   https://developer.arm.com/documentation/ddi0595/2021-03/AArch64-Registers/RNDR--Random-Number
  *   https://developer.arm.com/documentation/ddi0595/2021-03/AArch64-Registers/RNDRRS--Reseeded-Random-Number
+ *   https://developer.arm.com/documentation/ddi0595/2021-03/AArch64-Registers/PMUSERENR-EL0--Performance-Monitors-User-Enable-Register
+ *   https://developer.arm.com/documentation/ddi0595/2021-03/AArch64-Registers/PMCNTENSET-EL0--Performance-Monitors-Count-Enable-Set-register
  *   https://developer.arm.com/documentation/ddi0595/2021-03/AArch64-Registers/PMCCNTR-EL0--Performance-Monitors-Cycle-Count-Register
- *   https://developer.arm.com/documentation/ddi0595/2021-03/AArch64-Registers/ID-AA64ISAR0-EL1--AArch64-Instruction-Set-Attribute-Register-0
+ *   https://developer.arm.com/documentation/ddi0595/2021-03/AArch64-Registers/CNTVCT-EL0--Counter-timer-Virtual-Count-register
  *   https://developer.arm.com/documentation/ddi0595/2021-03/AArch64-Registers/ID-DFR0-EL1--AArch32-Debug-Feature-Register-0
  *
  * POWER9/POWER10 (darn, mftb):
- *   https://www.docdroid.net/tWT7hjD/powerisa-v30-pdf
  *   https://openpowerfoundation.org/?resource_lib=power-isa-version-3-0
+ *   https://www.docdroid.net/tWT7hjD/powerisa-v30-pdf
  *
  * RISC-V (mentropy, pollentropy):
  *   https://github.com/riscv/riscv-isa-manual/releases
@@ -50,8 +63,8 @@
  * use RDTSC if there is an instrinsic for it (win32) or if
  * the compiler supports inline ASM (gcc/clang).
  *
- * For ARM, PPC and RISC-V, we use PMCCNTR_EL0, MFTB, and
- * RDCYCLE respectively.
+ * For ARM, PPC and RISC-V, we use PMCCNTR, MFTB, and RDCYCLE
+ * respectively.
  *
  * For other hardware, we fallback to whatever system clocks
  * are available. See `hrt.c` for a list of functions.
@@ -98,10 +111,12 @@
 #undef HAVE_RDSEED32
 #undef HAVE_RDSEED64
 #undef HAVE_ASM_RDTSC
-#undef HAVE_READSTATUSREG
+#undef HAVE_MRC
+#undef HAVE_MRS
 #undef HAVE_ASM_INTEL
 #undef HAVE_ASM_X86
 #undef HAVE_ASM_X64
+#undef HAVE_ASM_ARM32
 #undef HAVE_ASM_ARM64
 #undef HAVE_ASM_PPC
 #undef HAVE_ASM_PPC32
@@ -109,11 +124,12 @@
 #undef HAVE_ASM_RISCV
 #undef HAVE_ASM_RISCV32
 #undef HAVE_ASM_RISCV64
+#undef HAVE_ASM_ZARCH
+#undef HAVE_IBM_ZARCH
 #undef HAVE_GETAUXVAL
 #undef HAVE_ELF_AUX_INFO
 #undef HAVE_POWER_SET
 #undef HAVE_AUXVAL
-#undef HAVE_PERFMON /* Define if ARM FEAT_PMUv3 is supported. */
 #undef HAVE_MENTROPY /* Define if RISC-V code is in machine mode. */
 
 /* Detect intrinsic and ASM support. */
@@ -150,7 +166,10 @@
 #    endif
 #  elif defined(_M_ARM64)
 #    include <intrin.h> /* _ReadStatusReg */
-#    define HAVE_READSTATUSREG
+#    define HAVE_MRS
+#  elif defined(_M_ARM)
+#    include <intrin.h> /* _MoveFromCoprocessor */
+#    define HAVE_MRC
 #  endif
 #elif (defined(__GNUC__) && __GNUC__ >= 4) || defined(__IBM_GCC_ASM)
 #  if defined(__amd64__) || defined(__x86_64__)
@@ -161,13 +180,15 @@
 #    define HAVE_ASM_X86
 #  elif defined(__aarch64__)
 #    define HAVE_ASM_ARM64
+#  elif defined(__arm__) && defined(__ARM_ARCH) && __ARM_ARCH >= 6
+#    define HAVE_ASM_ARM32
 #  elif defined(__powerpc64__) || defined(_ARCH_PPC64) || defined(__PPC64__)
 #    define HAVE_ASM_PPC
 #    define HAVE_ASM_PPC64
 #  elif defined(__powerpc__) || defined(_ARCH_PPC) || defined(__PPC__)
 #    define HAVE_ASM_PPC
 #    define HAVE_ASM_PPC32
-#  elif defined(__riscv) && defined(__riscv_xlen) && defined(HAVE_MENTROPY)
+#  elif defined(__riscv) && defined(__riscv_xlen)
 #    if __riscv_xlen == 32
 #      define HAVE_ASM_RISCV
 #      define HAVE_ASM_RISCV32
@@ -177,7 +198,16 @@
 #      define HAVE_ASM_RISCV64
 #      define riscv_word_t uint64_t
 #    endif
+#    ifndef HAVE_MENTROPY
+#      undef HAVE_ASM_RISCV
+#    endif
+#  elif defined(__s390x__) || defined(__zarch__)
+#    define HAVE_ASM_ZARCH
 #  endif
+#elif defined(__370__) && defined(__64BIT__) && defined(__IBM_ASM_SUPPORT)
+/* XL C for z/OS has slightly different asm features/syntax. */
+/* https://www.ibm.com/docs/en/zos/2.4.0?topic=hlasm */
+#  define HAVE_IBM_ZARCH
 #endif
 
 /* Some insanity to detect features at runtime. */
@@ -239,12 +269,34 @@ torsion_auxval(unsigned long type) {
 
 uint64_t
 torsion_rdtsc(void) {
-#if defined(HAVE_RDTSC)
-  return __rdtsc();
-#elif defined(HAVE_ASM_RDTSC)
+#if defined(HAVE_ASM_RDTSC)
   _asm rdtsc
-#elif defined(HAVE_READSTATUSREG) && defined(HAVE_PERFMON)
-  return _ReadStatusReg(0x5ce8); /* ARM64_PMCCNTR_EL0 */
+#elif defined(HAVE_RDTSC)
+  return __rdtsc();
+#elif defined(HAVE_MRC)
+  uint32_t x = _MoveFromCoprocessor(15, 0, 9, 14, 0); /* PMUSERENR */
+
+  if (x & 1) { /* EN == 1 */
+    x = _MoveFromCoprocessor(15, 0, 9, 12, 1); /* PMCNTENSET */
+
+    if ((x >> 31) & 1) { /* C == 1 */
+      x = _MoveFromCoprocessor(15, 0, 9, 13, 0); /* PMCCNTR */
+      return (uint64_t)x << 6;
+    }
+  }
+
+  return torsion_hrtime();
+#elif defined(HAVE_MRS)
+  uint64_t x = _ReadStatusReg(0x5cf0); /* PMUSERENR_EL0 */
+
+  if (x & 1) { /* EN == 1 */
+    x = _ReadStatusReg(0x5ce1); /* PMCNTENSET_EL0 */
+
+    if ((x >> 31) & 1) /* C == 1 */
+      return _ReadStatusReg(0x5ce8); /* PMCCNTR_EL0 */
+  }
+
+  return _ReadStatusReg(0x5f02); /* CNTVCT_EL0 */
 #elif defined(HAVE_ASM_X86)
   uint64_t ts;
 
@@ -264,8 +316,39 @@ torsion_rdtsc(void) {
   );
 
   return (hi << 32) | lo;
-#elif defined(HAVE_ASM_ARM64) && defined(HAVE_PERFMON)
-  uint64_t ts;
+#elif defined(HAVE_ASM_ARM32)
+  uint32_t x;
+
+  /* Requires FEAT_PMUv3. We _could_ check:
+   *
+   *   ((ID_DFR0 >> 24) & 15) >= 3
+   *
+   * But that is an EL1 register.
+   */
+  __asm__ __volatile__ (
+    "mrc p15, 0, %0, c9, c14, 0\n" /* PMUSERENR */
+    : "=r" (x)
+  );
+
+  if (x & 1) { /* EN == 1 */
+    __asm__ __volatile__ (
+      "mrc p15, 0, %0, c9, c12, 1\n" /* PMCNTENSET */
+      : "=r" (x)
+    );
+
+    if ((x >> 31) & 1) { /* C == 1 */
+      __asm__ __volatile__ (
+        "mrc p15, 0, %0, c9, c13, 0\n" /* PMCCNTR */
+        : "=r" (x)
+      );
+
+      return (uint64_t)x << 6;
+    }
+  }
+
+  return torsion_hrtime();
+#elif defined(HAVE_ASM_ARM64)
+  uint64_t x;
 
   /* Note that `mrs %0, pmccntr_el0` can be
    * spelled out as:
@@ -283,11 +366,39 @@ torsion_rdtsc(void) {
    * feature registers (yet).
    */
   __asm__ __volatile__ (
-    "mrs %0, s3_3_c9_c13_0\n" /* PMCCNTR_EL0 */
-    : "=r" (ts)
+    "mrs %0, s3_3_c9_c14_0\n" /* PMUSERENR_EL0 */
+    : "=r" (x)
   );
 
-  return ts;
+  if (x & 1) { /* EN == 1 */
+    __asm__ __volatile__ (
+      "mrs %0, s3_3_c9_c12_1\n" /* PMCNTENSET_EL0 */
+      : "=r" (x)
+    );
+
+    if ((x >> 31) & 1) { /* C == 1 */
+      __asm__ __volatile__ (
+        "mrs %0, s3_3_c9_c13_0\n" /* PMCCNTR_EL0 */
+        : "=r" (x)
+      );
+
+      return x;
+    }
+  }
+
+  /* Note that `mrs %0, cntvct_el0` can be
+   * spelled out as:
+   *
+   *   .inst (0xd5200000 | 0x1be040 | %0)
+   *              |            |       |
+   *             mrs        sysreg    reg
+   */
+  __asm__ __volatile__ (
+    "mrs %0, s3_3_c14_c0_2\n" /* CNTVCT_EL0 */
+    : "=r" (x)
+  );
+
+  return x;
 #elif defined(HAVE_ASM_PPC32)
   uint32_t hi, lo, c;
 
@@ -341,6 +452,31 @@ torsion_rdtsc(void) {
   __asm__ __volatile__ (
     "rdcycle %0\n"
     : "=r" (ts)
+  );
+
+  return ts;
+#elif defined(HAVE_ASM_ZARCH)
+  uint64_t ts;
+
+  __asm__ __volatile__ (
+    "stck %0\n"
+    : "=Q" (ts)
+    :: "cc"
+  );
+
+  return ts;
+#elif defined(HAVE_IBM_ZARCH)
+  uint64_t ts;
+
+  /* Does z/OS XL C support "cc"? */
+  __asm volatile (
+#if defined(__ARCH__) && __ARCH__ >= 7
+    " stckf %0 "
+#else
+    " stck %0 "
+#endif
+    : "=m" (ts)
+    ::
   );
 
   return ts;
