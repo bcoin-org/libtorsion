@@ -27,12 +27,11 @@
  *   https://www.felixcloutier.com/x86/rdrand
  *   https://www.felixcloutier.com/x86/rdseed
  *
- * ARM (pmccntr, cntvct):
+ * ARM (pmccntr):
  *   https://developer.arm.com/documentation/dui0068/b/ARM-Instruction-Reference/ARM-coprocessor-instructions/MRC--MRC2
  *   https://developer.arm.com/documentation/ddi0595/2021-03/AArch32-Registers/PMUSERENR--Performance-Monitors-User-Enable-Register
  *   https://developer.arm.com/documentation/ddi0595/2021-03/AArch32-Registers/PMCNTENSET--Performance-Monitors-Count-Enable-Set-register
  *   https://developer.arm.com/documentation/ddi0595/2021-03/AArch32-Registers/PMCCNTR--Performance-Monitors-Cycle-Count-Register
- *   https://developer.arm.com/documentation/ddi0595/2021-03/AArch32-Registers/CNTVCT--Counter-timer-Virtual-Count-register
  *   https://developer.arm.com/documentation/ddi0595/2021-03/AArch32-Registers/ID-DFR0--Debug-Feature-Register-0
  *
  * ARMv8.5-A (rndr, rndrrs, pmccntr_el0, cntvct_el0):
