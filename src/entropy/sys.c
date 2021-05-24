@@ -819,12 +819,11 @@ torsion_devrand(const char *name, void *dst, size_t size) {
   unsigned char *data = (unsigned char *)dst;
   struct stat st;
   int fd, nread;
-
 #ifdef __linux__
-  if (strcmp(name, "/dev/urandom") == 0) {
-    struct pollfd pfd;
-    int r;
+  struct pollfd pfd;
+  int r;
 
+  if (strcmp(name, "/dev/urandom") == 0) {
     do {
       fd = torsion_open("/dev/random", O_RDONLY);
     } while (fd == -1 && errno == EINTR);
