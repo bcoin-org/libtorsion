@@ -716,8 +716,7 @@ torsion_rdrand(void) {
       ".byte 0x0f, 0xc7, 0xf0\n" /* rdrand %eax */
       "setc %b1\n"
       : "=a" (lo), "=q" (ok)
-      :
-      : "cc"
+      :: "cc"
     );
 
     if (ok)
@@ -729,8 +728,7 @@ torsion_rdrand(void) {
       ".byte 0x0f, 0xc7, 0xf0\n" /* rdrand %eax */
       "setc %b1\n"
       : "=a" (hi), "=q" (ok)
-      :
-      : "cc"
+      :: "cc"
     );
 
     if (ok)
@@ -749,8 +747,7 @@ torsion_rdrand(void) {
       ".byte 0x48, 0x0f, 0xc7, 0xf0\n" /* rdrand %rax */
       "setc %b1\n"
       : "=a" (r), "=q" (ok)
-      :
-      : "cc"
+      :: "cc"
     );
 
     if (ok)
@@ -782,8 +779,7 @@ torsion_rdrand(void) {
       "mrs %0, s3_3_c2_c4_0\n" /* RNDR */
       "cset %w1, ne\n"
       : "=r" (r), "=r" (ok)
-      :
-      : "cc"
+      :: "cc"
     );
 
     if (ok)
@@ -897,8 +893,7 @@ torsion_rdseed(void) {
       ".byte 0x0f, 0xc7, 0xf8\n" /* rdseed %eax */
       "setc %b1\n"
       : "=a" (lo), "=q" (ok)
-      :
-      : "cc"
+      :: "cc"
     );
 
     if (ok)
@@ -914,8 +909,7 @@ torsion_rdseed(void) {
       ".byte 0x0f, 0xc7, 0xf8\n" /* rdseed %eax */
       "setc %b1\n"
       : "=a" (hi), "=q" (ok)
-      :
-      : "cc"
+      :: "cc"
     );
 
     if (ok)
@@ -937,8 +931,7 @@ torsion_rdseed(void) {
       ".byte 0x48, 0x0f, 0xc7, 0xf8\n" /* rdseed %rax */
       "setc %b1\n"
       : "=a" (r), "=q" (ok)
-      :
-      : "cc"
+      :: "cc"
     );
 
     if (ok)
@@ -963,8 +956,7 @@ torsion_rdseed(void) {
       "mrs %0, s3_3_c2_c4_1\n" /* RNDRRS */
       "cset %w1, ne\n"
       : "=r" (r), "=r" (ok)
-      :
-      : "cc"
+      :: "cc"
     );
 
     if (ok)
