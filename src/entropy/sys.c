@@ -819,35 +819,38 @@ torsion_devrand(const char *name, void *dst, size_t size) {
   unsigned char *data = (unsigned char *)dst;
   struct stat st;
   int fd, nread;
+
 #ifdef __linux__
-  struct pollfd pfd;
-  int r;
+  if (strcmp(name, "/dev/urandom") == 0) {
+    struct pollfd pfd;
+    int r;
 
-  do {
-    fd = torsion_open("/dev/random", O_RDONLY);
-  } while (fd == -1 && errno == EINTR);
+    do {
+      fd = torsion_open("/dev/random", O_RDONLY);
+    } while (fd == -1 && errno == EINTR);
 
-  if (fd == -1)
-    return 0;
+    if (fd == -1)
+      return 0;
 
-  if (fstat(fd, &st) != 0)
-    goto fail;
+    if (fstat(fd, &st) != 0)
+      goto fail;
 
-  if (!S_ISCHR(st.st_mode))
-    goto fail;
+    if (!S_ISCHR(st.st_mode))
+      goto fail;
 
-  pfd.fd = fd;
-  pfd.events = POLLIN;
-  pfd.revents = 0;
+    pfd.fd = fd;
+    pfd.events = POLLIN;
+    pfd.revents = 0;
 
-  do {
-    r = poll(&pfd, 1, -1);
-  } while (r == -1 && errno == EINTR);
+    do {
+      r = poll(&pfd, 1, -1);
+    } while (r == -1 && errno == EINTR);
 
-  if (r != 1)
-    goto fail;
+    if (r != 1)
+      goto fail;
 
-  close(fd);
+    close(fd);
+  }
 #endif
 
   do {
