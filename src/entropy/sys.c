@@ -77,7 +77,6 @@
  *
  * z/OS (*):
  *   https://www.ibm.com/docs/en/zos/2.1.0?topic=files-random-number
- *   https://github.com/ibmruntimes/zoslib/blob/6493e33/include/zos-base.h#L415
  *
  * QNX:
  *   http://www.qnx.com/developers/docs/6.5.0/topic/com.qnx.doc.neutrino_utilities/r/random.html
@@ -241,9 +240,8 @@
  *   Fallback: none
  *
  * z/OS (*):
- *   Source: getentropy(3)
- *   Fallback: /dev/random
- *   Support: getentropy(3) requires zoslib.
+ *   Source: /dev/random
+ *   Fallback: none
  *
  * QNX:
  *   Source: /dev/random
@@ -478,8 +476,6 @@ RtlGenRandom(PVOID RandomBuffer, ULONG RandomBufferLength);
 #  elif defined(_AIX)
 #    define DEV_RANDOM_NAME "/dev/random"
 #  elif defined(__MVS__) /* (*) */
-#    include <dlfcn.h> /* dlopen, dlsym */
-#    define HAVE_GETENTROPY
 #    define DEV_RANDOM_NAME "/dev/random"
 #  elif defined(__QNX__)
 #    define DEV_RANDOM_NAME "/dev/random"
@@ -748,17 +744,6 @@ torsion_callrand(void *dst, size_t size) {
 #elif defined(HAVE_GETENTROPY)
   unsigned char *data = (unsigned char *)dst;
   size_t max = 256;
-
-#ifdef __MVS__
-  /* Check for linkage to zoslib. */
-  typedef int getentropy_f(void *, size_t);
-
-  getentropy_f *getentropy =
-    (getentropy_f *)dlsym(dlopen(NULL, 0), "getentropy");
-
-  if (getentropy == NULL)
-    return 0;
-#endif
 
 #ifdef __APPLE__
   /* Apple uses weak symbols depending on
