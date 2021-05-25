@@ -242,13 +242,6 @@ torsion_rdtsc(void) {
 #elif defined(HAVE_ASM_ARM64)
   uint64_t ts;
 
-  /* Note that `mrs %0, cntvct_el0` can be
-   * spelled out as:
-   *
-   *   .inst (0xd5200000 | 0x1be040 | %0)
-   *              |            |       |
-   *             mrs        sysreg    reg
-   */
   __asm__ __volatile__ (
     "mrs %0, s3_3_c14_c0_2\n" /* CNTVCT_EL0 */
     : "=r" (ts)
@@ -273,14 +266,6 @@ torsion_rdtsc(void) {
 #elif defined(HAVE_ASM_PPC64)
   uint64_t ts;
 
-  /* mftb  %0 = mftb  %0, 268
-   *          = mfspr %0, 268
-   * mftbu %0 = mftb  %0, 269
-   *          = mfspr %0, 269
-   *
-   * mfspr available since 2.01
-   * (excludes 601 and POWER3).
-   */
   __asm__ __volatile__ (
     "mfspr %0, 268\n" /* mftb %0 */
     : "=r" (ts)
@@ -411,13 +396,6 @@ torsion_has_rdrand(void) {
   if ((torsion_auxval(AT_HWCAP) >> 11) & 1) {
     uint64_t isar0;
 
-    /* Note that `mrs %0, id_aa64isar0_el1` can be
-     * spelled out as:
-     *
-     *   .inst (0xd5200000 | 0x180600 | %0)
-     *              |            |       |
-     *             mrs        sysreg    reg
-     */
     __asm__ __volatile__ (
       "mrs %0, s3_0_c0_c6_0\n" /* ID_AA64ISAR0_EL1 */
       : "=r" (isar0)
@@ -553,20 +531,6 @@ torsion_rdrand(void) {
   int i;
 
   for (i = 0; i < 10; i++) {
-    /* Note that `mrs %0, rndr` can be spelled out as:
-     *
-     *   .inst (0xd5200000 | 0x1b2400 | %0)
-     *              |            |       |
-     *             mrs        sysreg    reg
-     *
-     * Though, this presents a difficulty in that %0
-     * will be expanded to `x<n>` instead of `<n>`.
-     * That is to say, %0 becomes x3 instead of 3.
-     *
-     * We can solve this with some crazy macros like
-     * the linux kernel does, but it's probably not
-     * worth the effort.
-     */
     __asm__ __volatile__ (
       "mrs %0, s3_3_c2_c4_0\n" /* RNDR */
       "cset %w1, ne\n"
@@ -613,16 +577,6 @@ torsion_rdrand(void) {
   int i;
 
   for (i = 0; i < 10; i++) {
-    /* Darn modes:
-     *
-     *   0 = 32 bit (conditioned)
-     *   1 = 64 bit (conditioned)
-     *   2 = 64 bit (raw)
-     *   3 = reserved
-     *
-     * Spelling below was taken from the linux kernel
-     * (after stripping out a load of preprocessor).
-     */
     __asm__ __volatile__ (
       ".long (0x7c0005e6 | (%0 << 21) | (1 << 16))\n" /* darn %0, 1 */
       : "=r" (r)
@@ -734,12 +688,6 @@ torsion_rdseed(void) {
   uint32_t ok;
 
   for (;;) {
-    /* Note that `mrs %0, rndrrs` can be spelled out as:
-     *
-     *   .inst (0xd5200000 | 0x1b2420 | %0)
-     *              |            |       |
-     *             mrs        sysreg    reg
-     */
     __asm__ __volatile__ (
       "mrs %0, s3_3_c2_c4_1\n" /* RNDRRS */
       "cset %w1, ne\n"
