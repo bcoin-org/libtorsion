@@ -123,8 +123,6 @@
 #undef HAVE_ASM_RISCV
 #undef HAVE_ASM_RISCV32
 #undef HAVE_ASM_RISCV64
-#undef HAVE_ASM_ZARCH
-#undef HAVE_IBM_ZARCH
 #undef HAVE_GETAUXVAL
 #undef HAVE_ELF_AUX_INFO
 #undef HAVE_POWER_SET
@@ -200,13 +198,7 @@
 #    ifndef HAVE_MENTROPY
 #      undef HAVE_ASM_RISCV
 #    endif
-#  elif defined(__s390x__) || defined(__zarch__)
-#    define HAVE_ASM_ZARCH
 #  endif
-#elif defined(__370__) && defined(__64BIT__) && defined(__IBM_ASM_SUPPORT)
-/* XL C for z/OS has slightly different asm features/syntax. */
-/* https://www.ibm.com/docs/en/zos/2.4.0?topic=hlasm */
-#  define HAVE_IBM_ZARCH
 #endif
 
 /* Some insanity to detect features at runtime. */
@@ -451,31 +443,6 @@ torsion_rdtsc(void) {
   __asm__ __volatile__ (
     "rdcycle %0\n"
     : "=r" (ts)
-  );
-
-  return ts;
-#elif defined(HAVE_ASM_ZARCH)
-  uint64_t ts;
-
-  __asm__ __volatile__ (
-    "stck %0\n"
-    : "=Q" (ts)
-    :: "cc"
-  );
-
-  return ts;
-#elif defined(HAVE_IBM_ZARCH)
-  uint64_t ts;
-
-  /* Does z/OS XL C support "cc"? */
-  __asm volatile (
-#if defined(__ARCH__) && __ARCH__ >= 7
-    " stckf %0 "
-#else
-    " stck %0 "
-#endif
-    : "=m" (ts)
-    ::
   );
 
   return ts;
