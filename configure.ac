@@ -190,10 +190,14 @@ has_zlib=no
 AS_IF([test x"$enable_asm" = x"yes"], [
   AC_MSG_CHECKING(for inline asm support)
   AC_COMPILE_IFELSE([
-    AC_LANG_PROGRAM([[]], [[
+    AC_LANG_PROGRAM([[
+      #if !defined(__GNUC__) && !defined(__clang__)
+      #  error "not a gnu-compatible compiler"
+      #endif
+    ]], [[
       unsigned char ptr[32];
       int x = 0;
-      __asm__ ("" : "+r" (x) ::);
+      __asm__ ("" : "+r" (x));
       __asm__ __volatile__ ("" :: "r" (ptr) : "memory");
     ]])
   ], [
@@ -206,6 +210,9 @@ AS_IF([test x"$enable_asm" = x"yes"], [
   AC_MSG_CHECKING(for x86 inline asm support)
   AC_COMPILE_IFELSE([
     AC_LANG_PROGRAM([[
+      #if !defined(__GNUC__) && !defined(__clang__)
+      #  error "not a gnu-compatible compiler"
+      #endif
       #if defined(__amd64__) || defined(__x86_64__)
       #  error "not an x86 platform"
       #endif
@@ -213,14 +220,22 @@ AS_IF([test x"$enable_asm" = x"yes"], [
       #  error "not an x86 platform"
       #endif
     ]], [[
-      unsigned int n1 = 0;
-      unsigned int n0 = 100;
-      unsigned int d = 3;
-      unsigned int q0, r0;
+      unsigned int z = 953;
+      unsigned int c = 709;
+      unsigned int x = 109;
+      unsigned int y = 577;
       __asm__ __volatile__ (
-        "divl %k4\n"
-        : "=a" (q0), "=d" (r0)
-        : "0" (n0), "1" (n1), "rm" (d)
+        "movl %k2, %%eax\n"
+        "mull %k3\n"
+        "addl %k4, %%eax\n"
+        "adcl $0, %%edx\n"
+        "subl %%eax, %k0\n"
+        "adcl $0, %%edx\n"
+        : "+r" (z), "=&d" (c)
+        : "%rm" (x), "rm" (y),
+          "rm" (c)
+        : "cc", "memory",
+          "eax"
       );
     ]])
   ], [
@@ -233,20 +248,29 @@ AS_IF([test x"$enable_asm" = x"yes"], [
   AC_MSG_CHECKING(for x86_64 inline asm support)
   AC_COMPILE_IFELSE([
     AC_LANG_PROGRAM([[
+      #if !defined(__GNUC__) && !defined(__clang__)
+      #  error "not a gnu-compatible compiler"
+      #endif
       #if !defined(__amd64__) && !defined(__x86_64__)
       #  error "not an x64 platform"
       #endif
     ]], [[
-      unsigned int dst[8], src[8];
+      unsigned long long z = 953;
+      unsigned long long c = 709;
+      unsigned long long x = 109;
+      unsigned long long y = 577;
       __asm__ __volatile__ (
-        "movups (%%rsi), %%xmm0\n"
-        "movups 16(%%rsi), %%xmm1\n"
-        "pxor %%xmm1, %%xmm0\n"
-        "movups %%xmm0,(%%rdi)\n"
-        "movups %%xmm1,16(%%rdi)\n"
-        :
-        : "D" (dst), "S" (src)
-        : "xmm0", "xmm1", "cc", "memory"
+        "movq %q2, %%rax\n"
+        "mulq %q3\n"
+        "addq %q4, %%rax\n"
+        "adcq $0, %%rdx\n"
+        "subq %%rax, %q0\n"
+        "adcq $0, %%rdx\n"
+        : "+r" (z), "=&d" (c)
+        : "%rm" (x), "rm" (y),
+          "rm" (c)
+        : "cc", "memory",
+          "rax"
       );
     ]])
   ], [

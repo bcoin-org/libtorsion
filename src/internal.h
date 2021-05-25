@@ -294,7 +294,7 @@ TORSION_EXTENSION typedef signed __int128 torsion_int128_t;
 #define TORSION_BARRIER(type, prefix) \
 static TORSION_INLINE type            \
 prefix ## _barrier(type x) {          \
-  __asm__ ("" : "+r" (x) ::);         \
+  __asm__ ("" : "+r" (x));            \
   return x;                           \
 }
 #else

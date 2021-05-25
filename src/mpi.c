@@ -223,6 +223,12 @@ TORSION_BARRIER(mp_limb_t, mp_limb)
 #  endif
 #endif
 
+#ifdef __PCC__
+/* PCC tries to call out to a
+   function that isn't linked. */
+#  undef mp_builtin_popcount
+#endif
+
 /*
  * Intrinsics
  */
@@ -3221,36 +3227,36 @@ mpn_rshift(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn, mp_bits_t bits) {
 
 mp_limb_t
 mpn_getbit(const mp_limb_t *xp, mp_size_t xn, mp_bits_t pos) {
-  mp_size_t index = pos / MP_LIMB_BITS;
+  mp_size_t s = pos / MP_LIMB_BITS;
 
-  if (index >= xn)
+  if (s >= xn)
     return 0;
 
-  return (xp[index] >> (pos % MP_LIMB_BITS)) & 1;
+  return (xp[s] >> (pos % MP_LIMB_BITS)) & 1;
 }
 
 mp_limb_t
 mpn_getbits(const mp_limb_t *xp, mp_size_t xn, mp_bits_t pos, mp_bits_t width) {
-  mp_size_t index = pos / MP_LIMB_BITS;
-  mp_bits_t shift, more;
-  mp_limb_t bits, next;
+  mp_size_t s = pos / MP_LIMB_BITS;
+  mp_bits_t r, m;
+  mp_limb_t z, b;
 
   ASSERT(width < MP_LIMB_BITS);
 
-  if (index >= xn)
+  if (s >= xn)
     return 0;
 
-  shift = pos % MP_LIMB_BITS;
-  bits = (xp[index] >> shift) & MP_MASK(width);
+  r = pos % MP_LIMB_BITS;
+  z = (xp[s] >> r) & MP_MASK(width);
 
-  if (shift + width > MP_LIMB_BITS && index + 1 < xn) {
-    more = shift + width - MP_LIMB_BITS;
-    next = xp[index + 1] & MP_MASK(more);
+  if (r + width > MP_LIMB_BITS && s + 1 < xn) {
+    m = r + width - MP_LIMB_BITS;
+    b = xp[s + 1] & MP_MASK(m);
 
-    bits |= next << (MP_LIMB_BITS - shift);
+    z |= b << (MP_LIMB_BITS - r);
   }
 
-  return bits;
+  return z;
 }
 
 int

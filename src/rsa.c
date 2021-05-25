@@ -1878,7 +1878,7 @@ rsa_decrypt(unsigned char *out,
             const unsigned char *entropy) {
   /* [RFC8017] Page 29, Section 7.2.2. */
   unsigned char *em = out;
-  uint32_t i, zero, two, index, looking;
+  uint32_t i, zero, two, index_, looking;
   uint32_t equals0, validps, valid, offset;
   size_t klen = 0;
   rsa_priv_t k;
@@ -1906,18 +1906,18 @@ rsa_decrypt(unsigned char *out,
   /* EM = 0x00 || 0x02 || PS || 0x00 || M */
   zero = safe_equal(em[0], 0x00);
   two = safe_equal(em[1], 0x02);
-  index = 0;
+  index_ = 0;
   looking = 1;
 
   for (i = 2; i < klen; i++) {
     equals0 = safe_equal(em[i], 0x00);
-    index = safe_select(index, i, looking & equals0);
+    index_ = safe_select(index_, i, looking & equals0);
     looking = safe_select(looking, 0, equals0);
   }
 
-  validps = safe_lte(2 + 8, index);
+  validps = safe_lte(2 + 8, index_);
   valid = zero & two & (looking ^ 1) & validps;
-  offset = safe_select(0, index + 1, valid);
+  offset = safe_select(0, index_ + 1, valid);
 
   if (valid == 0)
     goto fail;
@@ -2189,7 +2189,7 @@ rsa_decrypt_oaep(unsigned char *out,
   size_t i, slen, dlen, rlen;
   size_t hlen = hash_output_size(type);
   size_t klen = 0;
-  uint32_t zero, lvalid, looking, index;
+  uint32_t zero, lvalid, looking, index_;
   uint32_t invalid, valid, equals0, equals1;
   unsigned char expect[HASH_MAX_OUTPUT_SIZE];
   rsa_priv_t k;
@@ -2238,13 +2238,13 @@ rsa_decrypt_oaep(unsigned char *out,
   rlen = dlen - hlen;
 
   looking = 1;
-  index = 0;
+  index_ = 0;
   invalid = 0;
 
   for (i = 0; i < rlen; i++) {
     equals0 = safe_equal(rest[i], 0x00);
     equals1 = safe_equal(rest[i], 0x01);
-    index = safe_select(index, i, looking & equals1);
+    index_ = safe_select(index_, i, looking & equals1);
     looking = safe_select(looking, 0, equals1);
     invalid = safe_select(invalid, 1, looking & (equals0 ^ 1));
   }
@@ -2254,8 +2254,8 @@ rsa_decrypt_oaep(unsigned char *out,
   if (valid == 0)
     goto fail;
 
-  *out_len = rlen - (index + 1);
-  memmove(out, rest + index + 1, *out_len);
+  *out_len = rlen - (index_ + 1);
+  memmove(out, rest + index_ + 1, *out_len);
 
   ret = 1;
 fail:

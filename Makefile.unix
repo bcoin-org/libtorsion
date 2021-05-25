@@ -36,7 +36,17 @@ endif
 # CFLAGS
 #
 
-COMMON_CFLAGS = -ansi                     \
+ifeq ($(CC), g++)
+CSTD ?= c++98
+else
+ifeq ($(CC), clang++)
+CSTD ?= c++98
+else
+CSTD ?= c89
+endif
+endif
+
+COMMON_CFLAGS = -std=$(CSTD)              \
                 -pedantic                 \
                 -Wall                     \
                 -Wextra                   \
@@ -47,6 +57,10 @@ COMMON_CFLAGS = -ansi                     \
                 -Wshadow                  \
                 -I./include               \
                 -O3
+
+ifeq ($(CC), clang++)
+COMMON_CFLAGS += -Wno-deprecated
+endif
 
 ifeq ($(shell uname -s), Darwin)
 COMMON_CFLAGS += -mmacosx-version-min=10.7
