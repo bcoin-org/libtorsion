@@ -110,12 +110,10 @@
 #undef HAVE_RDSEED32
 #undef HAVE_RDSEED64
 #undef HAVE_ASM_RDTSC
-#undef HAVE_MRC
 #undef HAVE_MRS
 #undef HAVE_ASM_INTEL
 #undef HAVE_ASM_X86
 #undef HAVE_ASM_X64
-#undef HAVE_ASM_ARM32
 #undef HAVE_ASM_ARM64
 #undef HAVE_ASM_PPC
 #undef HAVE_ASM_PPC32
@@ -164,9 +162,6 @@
 #  elif defined(_M_ARM64)
 #    include <intrin.h> /* _ReadStatusReg */
 #    define HAVE_MRS
-#  elif defined(_M_ARM)
-#    include <intrin.h> /* _MoveFromCoprocessor */
-#    define HAVE_MRC
 #  endif
 #elif (defined(__GNUC__) && __GNUC__ >= 4) || defined(__IBM_GCC_ASM)
 #  if defined(__amd64__) || defined(__x86_64__)
@@ -177,8 +172,6 @@
 #    define HAVE_ASM_X86
 #  elif defined(__aarch64__)
 #    define HAVE_ASM_ARM64
-#  elif defined(__arm__) && defined(__ARM_ARCH) && __ARM_ARCH >= 6
-#    define HAVE_ASM_ARM32
 #  elif defined(__powerpc64__) || defined(_ARCH_PPC64) || defined(__PPC64__)
 #    define HAVE_ASM_PPC
 #    define HAVE_ASM_PPC64
@@ -264,19 +257,6 @@ torsion_rdtsc(void) {
   _asm rdtsc
 #elif defined(HAVE_RDTSC)
   return __rdtsc();
-#elif defined(HAVE_MRC)
-  uint32_t x = _MoveFromCoprocessor(15, 0, 9, 14, 0); /* PMUSERENR */
-
-  if (x & 1) { /* EN == 1 */
-    x = _MoveFromCoprocessor(15, 0, 9, 12, 1); /* PMCNTENSET */
-
-    if ((x >> 31) & 1) { /* C == 1 */
-      x = _MoveFromCoprocessor(15, 0, 9, 13, 0); /* PMCCNTR */
-      return (uint64_t)x << 6;
-    }
-  }
-
-  return torsion_hrtime();
 #elif defined(HAVE_MRS)
   uint64_t x = _ReadStatusReg(0x5cf0); /* PMUSERENR_EL0 */
 
@@ -307,37 +287,6 @@ torsion_rdtsc(void) {
   );
 
   return (hi << 32) | lo;
-#elif defined(HAVE_ASM_ARM32)
-  uint32_t x;
-
-  /* Requires FEAT_PMUv3. We _could_ check:
-   *
-   *   ((ID_DFR0 >> 24) & 15) >= 3
-   *
-   * But that is an EL1 register.
-   */
-  __asm__ __volatile__ (
-    "mrc p15, 0, %0, c9, c14, 0\n" /* PMUSERENR */
-    : "=r" (x)
-  );
-
-  if (x & 1) { /* EN == 1 */
-    __asm__ __volatile__ (
-      "mrc p15, 0, %0, c9, c12, 1\n" /* PMCNTENSET */
-      : "=r" (x)
-    );
-
-    if ((x >> 31) & 1) { /* C == 1 */
-      __asm__ __volatile__ (
-        "mrc p15, 0, %0, c9, c13, 0\n" /* PMCCNTR */
-        : "=r" (x)
-      );
-
-      return (uint64_t)x << 6;
-    }
-  }
-
-  return torsion_hrtime();
 #elif defined(HAVE_ASM_ARM64)
   uint64_t x;
 
