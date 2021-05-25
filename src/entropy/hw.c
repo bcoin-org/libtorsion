@@ -16,38 +16,24 @@
  *   https://software.intel.com/sites/landingpage/IntrinsicsGuide/#text=_rdseed32_step
  *   https://software.intel.com/sites/landingpage/IntrinsicsGuide/#text=_rdseed64_step
  *
- * Windows (arm, arm64):
- *   https://docs.microsoft.com/en-us/cpp/intrinsics/arm-intrinsics
- *   https://docs.microsoft.com/en-us/cpp/intrinsics/arm-intrinsics?view=msvc-160#MoveFromCo
+ * Windows (arm64):
  *   https://docs.microsoft.com/en-us/cpp/intrinsics/arm64-intrinsics
  *
- * x86{,-64}:
+ * x86{,-64} (rdtsc, rdrand, rdseed):
  *   https://www.felixcloutier.com/x86/rdtsc
  *   https://www.felixcloutier.com/x86/cpuid
  *   https://www.felixcloutier.com/x86/rdrand
  *   https://www.felixcloutier.com/x86/rdseed
  *
- * ARM (pmccntr):
- *   https://developer.arm.com/documentation/dui0068/b/ARM-Instruction-Reference/ARM-coprocessor-instructions/MRC--MRC2
- *   https://developer.arm.com/documentation/ddi0595/2021-03/AArch32-Registers/PMUSERENR--Performance-Monitors-User-Enable-Register
- *   https://developer.arm.com/documentation/ddi0595/2021-03/AArch32-Registers/PMCNTENSET--Performance-Monitors-Count-Enable-Set-register
- *   https://developer.arm.com/documentation/ddi0595/2021-03/AArch32-Registers/PMCCNTR--Performance-Monitors-Cycle-Count-Register
- *   https://developer.arm.com/documentation/ddi0595/2021-03/AArch32-Registers/ID-DFR0--Debug-Feature-Register-0
- *
- * ARMv8.5-A (rndr, rndrrs, pmccntr_el0, cntvct_el0):
+ * ARMv8.5-A (cntvct, rndr, rndrrs):
  *   https://developer.arm.com/documentation/dui0068/b/ARM-Instruction-Reference/Miscellaneous-ARM-instructions/MRS
+ *   https://developer.arm.com/documentation/ddi0595/2021-03/AArch64-Registers/CNTVCT-EL0--Counter-timer-Virtual-Count-register
  *   https://developer.arm.com/documentation/ddi0595/2021-03/AArch64-Registers/ID-AA64ISAR0-EL1--AArch64-Instruction-Set-Attribute-Register-0
  *   https://developer.arm.com/documentation/ddi0595/2021-03/AArch64-Registers/RNDR--Random-Number
  *   https://developer.arm.com/documentation/ddi0595/2021-03/AArch64-Registers/RNDRRS--Reseeded-Random-Number
- *   https://developer.arm.com/documentation/ddi0595/2021-03/AArch64-Registers/PMUSERENR-EL0--Performance-Monitors-User-Enable-Register
- *   https://developer.arm.com/documentation/ddi0595/2021-03/AArch64-Registers/PMCNTENSET-EL0--Performance-Monitors-Count-Enable-Set-register
- *   https://developer.arm.com/documentation/ddi0595/2021-03/AArch64-Registers/PMCCNTR-EL0--Performance-Monitors-Cycle-Count-Register
- *   https://developer.arm.com/documentation/ddi0595/2021-03/AArch64-Registers/CNTVCT-EL0--Counter-timer-Virtual-Count-register
- *   https://developer.arm.com/documentation/ddi0595/2021-03/AArch64-Registers/ID-DFR0-EL1--AArch32-Debug-Feature-Register-0
  *
- * POWER9/POWER10 (darn, mftb):
+ * POWER9/POWER10 (mftb, darn):
  *   https://openpowerfoundation.org/?resource_lib=power-isa-version-3-0
- *   https://www.docdroid.net/tWT7hjD/powerisa-v30-pdf
  */
 
 /**
@@ -58,7 +44,7 @@
  * use RDTSC if there is an instrinsic for it (win32) or if
  * the compiler supports inline ASM (gcc/clang).
  *
- * For ARM and PPC we use PMCCNTR and MFTB respectively.
+ * For ARM64 and PPC we use CNTVCT and MFTB respectively.
  *
  * For other hardware, we fallback to whatever system clocks
  * are available. See `hrt.c` for a list of functions.
@@ -90,6 +76,7 @@
 #include <string.h>
 #include "entropy.h"
 
+#undef HAVE_ASM_RDTSC
 #undef HAVE_RDTSC
 #undef HAVE_CPUIDEX
 #undef HAVE_RDRAND
@@ -98,7 +85,6 @@
 #undef HAVE_RDSEED
 #undef HAVE_RDSEED32
 #undef HAVE_RDSEED64
-#undef HAVE_ASM_RDTSC
 #undef HAVE_MRS
 #undef HAVE_ASM_INTEL
 #undef HAVE_ASM_X86
@@ -163,6 +149,9 @@
 #  elif defined(__powerpc__) || defined(_ARCH_PPC) || defined(__PPC__)
 #    define HAVE_ASM_PPC
 #    define HAVE_ASM_PPC32
+#  endif
+#  ifndef __GNUC__
+#    define __volatile__ volatile
 #  endif
 #endif
 
@@ -230,15 +219,6 @@ torsion_rdtsc(void) {
 #elif defined(HAVE_RDTSC)
   return __rdtsc();
 #elif defined(HAVE_MRS)
-  uint64_t x = _ReadStatusReg(0x5cf0); /* PMUSERENR_EL0 */
-
-  if (x & 1) { /* EN == 1 */
-    x = _ReadStatusReg(0x5ce1); /* PMCNTENSET_EL0 */
-
-    if ((x >> 31) & 1) /* C == 1 */
-      return _ReadStatusReg(0x5ce8); /* PMCCNTR_EL0 */
-  }
-
   return _ReadStatusReg(0x5f02); /* CNTVCT_EL0 */
 #elif defined(HAVE_ASM_X86)
   uint64_t ts;
@@ -260,43 +240,7 @@ torsion_rdtsc(void) {
 
   return (hi << 32) | lo;
 #elif defined(HAVE_ASM_ARM64)
-  uint64_t x;
-
-  /* Note that `mrs %0, pmccntr_el0` can be
-   * spelled out as:
-   *
-   *   .inst (0xd5200000 | 0x1b9d00 | %0)
-   *              |            |       |
-   *             mrs        sysreg    reg
-   *
-   * Requires FEAT_PMUv3. We _could_ check:
-   *
-   *   ((ID_DFR0_EL1 >> 24) & 15) >= 3
-   *
-   * But that is an EL1 register and the
-   * kernel doesn't emulate the debug
-   * feature registers (yet).
-   */
-  __asm__ __volatile__ (
-    "mrs %0, s3_3_c9_c14_0\n" /* PMUSERENR_EL0 */
-    : "=r" (x)
-  );
-
-  if (x & 1) { /* EN == 1 */
-    __asm__ __volatile__ (
-      "mrs %0, s3_3_c9_c12_1\n" /* PMCNTENSET_EL0 */
-      : "=r" (x)
-    );
-
-    if ((x >> 31) & 1) { /* C == 1 */
-      __asm__ __volatile__ (
-        "mrs %0, s3_3_c9_c13_0\n" /* PMCCNTR_EL0 */
-        : "=r" (x)
-      );
-
-      return x;
-    }
-  }
+  uint64_t ts;
 
   /* Note that `mrs %0, cntvct_el0` can be
    * spelled out as:
@@ -307,10 +251,10 @@ torsion_rdtsc(void) {
    */
   __asm__ __volatile__ (
     "mrs %0, s3_3_c14_c0_2\n" /* CNTVCT_EL0 */
-    : "=r" (x)
+    : "=r" (ts)
   );
 
-  return x;
+  return ts;
 #elif defined(HAVE_ASM_PPC32)
   uint32_t hi, lo, c;
 
