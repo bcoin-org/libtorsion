@@ -48,10 +48,6 @@
  * POWER9/POWER10 (darn, mftb):
  *   https://openpowerfoundation.org/?resource_lib=power-isa-version-3-0
  *   https://www.docdroid.net/tWT7hjD/powerisa-v30-pdf
- *
- * RISC-V (mentropy, pollentropy, rdcycle):
- *   https://github.com/riscv/riscv-isa-manual/releases
- *   https://github.com/riscv/riscv-crypto/releases
  */
 
 /**
@@ -62,8 +58,7 @@
  * use RDTSC if there is an instrinsic for it (win32) or if
  * the compiler supports inline ASM (gcc/clang).
  *
- * For ARM, PPC and RISC-V, we use PMCCNTR, MFTB, and RDCYCLE
- * respectively.
+ * For ARM and PPC we use PMCCNTR and MFTB respectively.
  *
  * For other hardware, we fallback to whatever system clocks
  * are available. See `hrt.c` for a list of functions.
@@ -84,12 +79,6 @@
  * ARMv8.5-A provides new system registers (RNDR and RNDRRS)
  * to be used with the MRS instruction. Similar to `darn`, we
  * have `torsion_{rdrand,rdseed}` output the proper values.
- *
- * The very bleeding edge of RISC-V specifies `pollentropy`,
- * a pseudo-instruction which reads from a special `mentropy`
- * register, similar to ARM. We have preliminary support for
- * this. `mentropy` can only be read in machine mode as of
- * right now, but this may change in the future (hopefully).
  *
  * For other hardware, torsion_rdrand and torsion_rdseed are
  * no-ops returning zero. torsion_has_rd{rand,seed} MUST be
@@ -118,14 +107,10 @@
 #undef HAVE_ASM_PPC
 #undef HAVE_ASM_PPC32
 #undef HAVE_ASM_PPC64
-#undef HAVE_ASM_RISCV
-#undef HAVE_ASM_RISCV32
-#undef HAVE_ASM_RISCV64
 #undef HAVE_GETAUXVAL
 #undef HAVE_ELF_AUX_INFO
 #undef HAVE_POWER_SET
 #undef HAVE_AUXVAL
-#undef HAVE_MENTROPY /* Define if RISC-V code is in machine mode. */
 
 /* Detect intrinsic and ASM support. */
 #if defined(_MSC_VER)
@@ -178,19 +163,6 @@
 #  elif defined(__powerpc__) || defined(_ARCH_PPC) || defined(__PPC__)
 #    define HAVE_ASM_PPC
 #    define HAVE_ASM_PPC32
-#  elif defined(__riscv) && defined(__riscv_xlen)
-#    if __riscv_xlen == 32
-#      define HAVE_ASM_RISCV
-#      define HAVE_ASM_RISCV32
-#      define riscv_word_t uint32_t
-#    elif __riscv_xlen == 64
-#      define HAVE_ASM_RISCV
-#      define HAVE_ASM_RISCV64
-#      define riscv_word_t uint64_t
-#    endif
-#    ifndef HAVE_MENTROPY
-#      undef HAVE_ASM_RISCV
-#    endif
 #  endif
 #endif
 
@@ -371,30 +343,6 @@ torsion_rdtsc(void) {
   );
 
   return ts;
-#elif defined(HAVE_ASM_RISCV32)
-  uint32_t hi, lo, c;
-
-  do {
-    __asm__ __volatile__ (
-      "rdcycleh %0\n"
-      "rdcycle  %1\n"
-      "rdcycleh %2\n"
-      : "=r" (hi),
-        "=r" (lo),
-        "=r" (c)
-    );
-  } while (hi != c);
-
-  return ((uint64_t)hi << 32) | lo;
-#elif defined(HAVE_ASM_RISCV64)
-  uint64_t ts;
-
-  __asm__ __volatile__ (
-    "rdcycle %0\n"
-    : "=r" (ts)
-  );
-
-  return ts;
 #else
   /* Fall back to high-resolution time. */
   return torsion_hrtime();
@@ -545,9 +493,6 @@ torsion_has_rdrand(void) {
 #elif defined(HAVE_ASM_PPC) && defined(HAVE_POWER_SET)
   /* Check for POWER9 or greater. */
   return __power_set(0xffffffffU << 17) != 0;
-#elif defined(HAVE_ASM_RISCV)
-  /* Nothing comparable to rdrand on RISC-V. */
-  return 0;
 #else
   return 0;
 #endif
@@ -576,18 +521,6 @@ torsion_has_rdseed(void) {
   return 0;
 #elif defined(HAVE_ASM_PPC64)
   return torsion_has_rdrand();
-#elif defined(HAVE_ASM_RISCV) && defined(__riscv_zkr)
-  /* Explicitly built with TRNG support (-march=rv{32,64}ik). */
-  return 1;
-#elif defined(HAVE_ASM_RISCV)
-  riscv_word_t misa;
-
-  __asm__ __volatile__ (
-    "csrr %0, 0x301\n" /* MISA */
-    : "=r" (misa)
-  );
-
-  return (misa >> 10) & 1;
 #else
   return 0;
 #endif
@@ -758,10 +691,6 @@ torsion_rdrand(void) {
   }
 
   return r;
-#elif defined(HAVE_ASM_RISCV)
-  /* Nothing comparable to rdrand on RISC-V. */
-  __asm__ __volatile__ ("unimp\n");
-  return 0;
 #else
   return 0;
 #endif
@@ -899,36 +828,6 @@ torsion_rdseed(void) {
 
     /* https://stackoverflow.com/questions/5425506 */
     __asm__ __volatile__ ("or 27, 27, 27\n" ::: "cc");
-  }
-
-  return r;
-#elif defined(HAVE_ASM_RISCV)
-  uint64_t r = 0;
-  riscv_word_t w;
-  int i, flag;
-
-  for (i = 0; i < 4; i++) {
-    for (;;) {
-      __asm__ __volatile__ (
-        "csrrs %0, 0xf15, x0\n" /* MENTROPY */
-        : "=r" (w)
-      );
-
-      flag = (w >> 30) & 3;
-
-      if (flag == 1) /* ES16 */
-        break;
-
-      if (flag == 3) { /* DEAD */
-        __asm__ __volatile__ ("unimp\n");
-        return 0;
-      }
-
-      __asm__ __volatile__ ("wfi\n");
-    }
-
-    r <<= 16;
-    r |= (w & 0xffff);
   }
 
   return r;
