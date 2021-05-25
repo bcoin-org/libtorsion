@@ -508,7 +508,10 @@ RtlGenRandom(PVOID RandomBuffer, ULONG RandomBufferLength);
 #ifdef HAVE_DEV_RANDOM
 static int
 torsion_open(const char *name, int flags) {
-  int fd, r;
+  int fd;
+#ifdef FD_CLOEXEC
+  int r;
+#endif
 
 #ifdef O_CLOEXEC
   fd = open(name, flags | O_CLOEXEC);
@@ -519,7 +522,7 @@ torsion_open(const char *name, int flags) {
 
   fd = open(name, flags);
 
-#if defined(F_GETFD) && defined(F_SETFD) && defined(FD_CLOEXEC)
+#ifdef FD_CLOEXEC
   if (fd == -1)
     return fd;
 
@@ -535,8 +538,6 @@ torsion_open(const char *name, int flags) {
   do {
     r = fcntl(fd, F_SETFD, flags);
   } while (r == -1 && errno == EINTR);
-#else
-  (void)r;
 #endif
 
   return fd;
