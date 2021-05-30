@@ -645,6 +645,26 @@ TORSION_BARRIER(mp_limb_t, mp_limb)
   (lo) = _lo;                  \
 } while (0)
 
+#elif defined(MP_HAVE_ASM_X64) /* !MP_HAVE_WIDE */
+
+/* [hi, lo] = x * y */
+#define mp_mul(hi, lo, x, y) \
+  __asm__ (                  \
+    "mulq %q3\n"             \
+    : "=a" (lo), "=d" (hi)   \
+    : "%0" (x), "rm" (y)     \
+    : "cc"                   \
+  )
+
+/* [hi, lo] = x^2 */
+#define mp_sqr(hi, lo, x)  \
+  __asm__ (                \
+    "mulq %%rax\n"         \
+    : "=a" (lo), "=d" (hi) \
+    : "0" (x)              \
+    : "cc"                 \
+  )
+
 #else /* !MP_HAVE_WIDE */
 
 /* [hi, lo] = x * y (muldwu.c in Hacker's Delight) */
