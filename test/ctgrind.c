@@ -408,6 +408,26 @@ test_util(void) {
   ret = torsion_memequal(x, z, 32);
   VALGRIND_MAKE_MEM_DEFINED(&ret, sizeof(ret));
   ASSERT(!ret);
+
+  /* x == x */
+  VALGRIND_MAKE_MEM_UNDEFINED(x, 32);
+  ret = torsion_memcmp(x, x, 32);
+  VALGRIND_MAKE_MEM_DEFINED(&ret, sizeof(ret));
+  ASSERT(ret == 0);
+
+  /* x == y */
+  VALGRIND_MAKE_MEM_UNDEFINED(x, 32);
+  VALGRIND_MAKE_MEM_UNDEFINED(y, 32);
+  ret = torsion_memcmp(x, y, 32);
+  VALGRIND_MAKE_MEM_DEFINED(&ret, sizeof(ret));
+  ASSERT(ret == 0);
+
+  /* x != z */
+  VALGRIND_MAKE_MEM_UNDEFINED(x, 32);
+  VALGRIND_MAKE_MEM_UNDEFINED(z, 32);
+  ret = torsion_memcmp(x, z, 32);
+  VALGRIND_MAKE_MEM_DEFINED(&ret, sizeof(ret));
+  ASSERT(ret != 0);
 }
 
 int
