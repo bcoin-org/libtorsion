@@ -8019,7 +8019,7 @@ ristretto_invert(const edwards_t *ec, fe_t u,
    */
   const prime_field_t *fe = &ec->fe;
   unsigned int sign = (hint >> 4) & 15;
-  unsigned int index_ = hint & 15;
+  unsigned int idx = hint & 15;
   int len = ec->h >> 1;
   qge_t quartic[8];
   int i;
@@ -8033,7 +8033,7 @@ ristretto_invert(const edwards_t *ec, fe_t u,
     fe_neg(fe, quartic[len + i].t, quartic[i].t);
   }
 
-  return qge_invert(ec, u, &quartic[index_ % ec->h], sign);
+  return qge_invert(ec, u, &quartic[idx % ec->h], sign);
 }
 
 static void
