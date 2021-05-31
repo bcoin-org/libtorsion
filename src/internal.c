@@ -30,17 +30,3 @@ TORSION_NORETURN void
 torsion__abort(void) {
   abort(); /* LCOV_EXCL_LINE */
 }
-
-int
-torsion__memcmp(const void *s1, const void *s2, size_t n) {
-  const unsigned char *x = (const unsigned char *)s1;
-  const unsigned char *y = (const unsigned char *)s2;
-  size_t i;
-
-  for (i = 0; i < n; i++) {
-    if (x[i] != y[i])
-      return (int)x[i] - (int)y[i];
-  }
-
-  return 0;
-}

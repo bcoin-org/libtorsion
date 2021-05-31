@@ -23,21 +23,31 @@ extern "C" {
 #define murmur3_tweak torsion_murmur3_tweak
 
 /*
- * Memzero
+ * Memory Zero
  */
 
 TORSION_EXTERN void
 torsion_memzero(void *ptr, size_t len);
 
 /*
- * Memequal
+ * Memory Compare
+ */
+
+TORSION_EXTERN int
+torsion_memcmp(const void *x, const void *y, size_t n);
+
+TORSION_EXTERN int
+torsion_memcmp_var(const void *x, const void *y, size_t n);
+
+/*
+ * Memory Equal
  */
 
 TORSION_EXTERN int
 torsion_memequal(const void *x, const void *y, size_t n);
 
 /*
- * Memxor
+ * Memory XOR
  */
 
 TORSION_EXTERN void

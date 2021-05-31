@@ -14,6 +14,7 @@
 #include <torsion/hash.h>
 #include <torsion/rsa.h>
 #include <torsion/stream.h>
+#include <torsion/util.h>
 
 #include "utils.h"
 
@@ -514,7 +515,7 @@ bench_rsa_sign(drbg_t *rng) {
                                             priv, sizeof(priv),
                                             entropy));
     ASSERT(len == sizeof(sig));
-    ASSERT(torsion_memcmp(out, sig, sizeof(sig)) == 0);
+    ASSERT(torsion_memcmp_var(out, sig, sizeof(sig)) == 0);
   }
 
   bench_end(&tv, i);

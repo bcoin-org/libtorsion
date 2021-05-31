@@ -11,7 +11,7 @@
 #include <limits.h>
 
 #undef ASSERT
-#define ASSERT(expr) ASSERT_ALWAYS(expr)
+#define ASSERT ASSERT_ALWAYS
 
 /*
  * Debug Helpers
@@ -141,7 +141,7 @@ wge_equal_raw(const wei_t *ec, const wge_t *a, const unsigned char *b) {
   if (!wge_export(ec, raw, &len, a, 1))
     return 0;
 
-  return torsion_memcmp(b, raw, len) == 0;
+  return torsion_memcmp_var(b, raw, len) == 0;
 }
 
 static int
@@ -160,7 +160,7 @@ mge_equal_raw(const mont_t *ec, const mge_t *a, const unsigned char *b) {
   if (!mge_export(ec, raw, NULL, a))
     return 0;
 
-  return torsion_memcmp(b, raw, ec->fe.size) == 0;
+  return torsion_memcmp_var(b, raw, ec->fe.size) == 0;
 }
 
 static int
@@ -170,7 +170,7 @@ pge_equal_raw(const mont_t *ec, const pge_t *a, const unsigned char *b) {
   if (!pge_export(ec, raw, a))
     return 0;
 
-  return torsion_memcmp(b, raw, ec->fe.size) == 0;
+  return torsion_memcmp_var(b, raw, ec->fe.size) == 0;
 }
 
 static int
@@ -179,7 +179,7 @@ xge_equal_raw(const edwards_t *ec, const xge_t *a, const unsigned char *b) {
 
   xge_export(ec, raw, a);
 
-  return torsion_memcmp(b, raw, ec->fe.adj_size) == 0;
+  return torsion_memcmp_var(b, raw, ec->fe.adj_size) == 0;
 }
 
 static int
@@ -188,7 +188,7 @@ rge_equal_raw(const edwards_t *ec, const rge_t *a, const unsigned char *b) {
 
   rge_export(ec, raw, a);
 
-  return torsion_memcmp(b, raw, ec->fe.size) == 0;
+  return torsion_memcmp_var(b, raw, ec->fe.size) == 0;
 }
 
 TORSION_UNUSED static void
@@ -359,13 +359,14 @@ rge_normalize(const edwards_t *ec, rge_t *r, const rge_t *p) {
  */
 
 static int
-revcmp(const unsigned char *a, const unsigned char *b, size_t n) {
-  while (n--) {
-    if (a[n] < b[n])
-      return -1;
+revcmp(const void *x, const void *y, size_t n) {
+  const unsigned char *xp = (const unsigned char *)x;
+  const unsigned char *yp = (const unsigned char *)y;
+  size_t i;
 
-    if (a[n] > b[n])
-      return 1;
+  for (i = n - 1; i != (size_t)-1; i--) {
+    if (xp[i] != yp[i])
+      return (int)xp[i] - (int)yp[i];
   }
 
   return 0;
@@ -381,31 +382,6 @@ drbg_uniform(drbg_t *rng, unsigned int mod) {
   drbg_generate(rng, &x, sizeof(x));
 
   return x % mod;
-}
-
-/*
- * Memcmp
- */
-
-static void
-test_memcmp(drbg_t *unused) {
-  static const unsigned char a[4] = {0, 1, 2, 3};
-  static const unsigned char b[4] = {0, 1, 2, 3};
-  static const unsigned char c[4] = {3, 2, 1, 0};
-  static const unsigned char d[4] = {3, 2, 1, 0};
-
-  (void)unused;
-
-  ASSERT(torsion_memcmp(a, b, 4) == 0);
-  ASSERT(torsion_memcmp(c, d, 4) == 0);
-  ASSERT(torsion_memcmp(a, b, 4) >= 0);
-  ASSERT(torsion_memcmp(c, d, 4) >= 0);
-  ASSERT(torsion_memcmp(a, b, 4) <= 0);
-  ASSERT(torsion_memcmp(c, d, 4) <= 0);
-  ASSERT(torsion_memcmp(a, c, 4) != 0);
-  ASSERT(torsion_memcmp(c, a, 4) != 0);
-  ASSERT(torsion_memcmp(a, c, 4) < 0);
-  ASSERT(torsion_memcmp(c, a, 4) > 0);
 }
 
 /*
@@ -469,7 +445,7 @@ test_scalar_encoding_secq256k1(drbg_t *unused) {
 
   sc_export(sc, raw, r);
 
-  ASSERT(torsion_memcmp(raw, expect1, 32) == 0);
+  ASSERT(torsion_memcmp_var(raw, expect1, 32) == 0);
 
   sc_export(sc, raw, sc->n);
 
@@ -479,7 +455,7 @@ test_scalar_encoding_secq256k1(drbg_t *unused) {
 
   sc_export(sc, raw, r);
 
-  ASSERT(torsion_memcmp(raw, expect2, 32) == 0);
+  ASSERT(torsion_memcmp_var(raw, expect2, 32) == 0);
 }
 
 static void
@@ -543,7 +519,7 @@ test_scalar_encoding_q25519(drbg_t *unused) {
 
   sc_export(sc, raw, r);
 
-  ASSERT(torsion_memcmp(raw, expect1, 32) == 0);
+  ASSERT(torsion_memcmp_var(raw, expect1, 32) == 0);
 
   sc_export(sc, raw, sc->n);
 
@@ -553,7 +529,7 @@ test_scalar_encoding_q25519(drbg_t *unused) {
 
   sc_export(sc, raw, r);
 
-  ASSERT(torsion_memcmp(raw, expect2, 32) == 0);
+  ASSERT(torsion_memcmp_var(raw, expect2, 32) == 0);
 }
 
 static void
@@ -629,7 +605,7 @@ test_scalar_reduce_secq256k1(drbg_t *unused) {
 
   sc_export(sc, max, r);
 
-  ASSERT(torsion_memcmp(max, expect, 32) == 0);
+  ASSERT(torsion_memcmp_var(max, expect, 32) == 0);
 }
 
 static void
@@ -680,8 +656,8 @@ test_scalar_naf(drbg_t *unused) {
   ASSERT(sc_naf_var(&sc, naf1, k1, 2) == ARRAY_SIZE(expect1));
   ASSERT(sc_naf_var(&sc, naf2, k2, 2) == ARRAY_SIZE(expect2));
 
-  ASSERT(torsion_memcmp(naf1, expect1, sizeof(expect1)) == 0);
-  ASSERT(torsion_memcmp(naf2, expect2, sizeof(expect2)) == 0);
+  ASSERT(torsion_memcmp_var(naf1, expect1, sizeof(expect1)) == 0);
+  ASSERT(torsion_memcmp_var(naf2, expect2, sizeof(expect2)) == 0);
 }
 
 static void
@@ -699,7 +675,7 @@ test_scalar_jsf(drbg_t *unused) {
   scalar_field_init(&sc, &field_secq256k1, 1);
 
   ASSERT(sc_jsf_var(&sc, jsf, k1, k2) == ARRAY_SIZE(expect));
-  ASSERT(torsion_memcmp(jsf, expect, sizeof(expect)) == 0);
+  ASSERT(torsion_memcmp_var(jsf, expect, sizeof(expect)) == 0);
 }
 
 /*
@@ -3919,9 +3895,6 @@ test_ristretto_batch_encode(drbg_t *unused) {
 void
 test_ecc_internal(drbg_t *rng) {
   printf("Testing internal ECC functions...\n");
-
-  /* Memcmp */
-  test_memcmp(rng);
 
   /* Scalar */
   test_scalar_encoding_secq256k1(rng);

@@ -9,13 +9,14 @@
 #include <string.h>
 #include <stdint.h>
 #include <limits.h>
+
 #include "data/jacobi_vectors.h"
 #include "data/kronecker_vectors.h"
 #include "data/mpz_vectors.h"
 #include "data/prime_vectors.h"
 
 #undef ASSERT
-#define ASSERT(expr) ASSERT_ALWAYS(expr)
+#define ASSERT ASSERT_ALWAYS
 
 /*
  * Helpers

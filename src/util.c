@@ -15,14 +15,13 @@
 #include "internal.h"
 
 /*
- * Memzero
+ * Memory Zero
  *
  * Resources:
+ *   http://www.daemonology.net/blog/2014-09-04-how-to-zero-a-buffer.html
  *   https://github.com/jedisct1/libsodium/blob/3b26a5c/src/libsodium/sodium/utils.c#L112
  *   https://github.com/torvalds/linux/blob/37d4e84/include/linux/string.h#L233
  *   https://github.com/torvalds/linux/blob/37d4e84/include/linux/compiler-gcc.h#L21
- *   https://github.com/bminor/glibc/blob/master/string/explicit_bzero.c
- *   http://www.daemonology.net/blog/2014-09-04-how-to-zero-a-buffer.html
  */
 
 void
@@ -49,7 +48,52 @@ torsion_memzero(void *ptr, size_t len) {
 }
 
 /*
- * Memequal
+ * Memory Compare
+ */
+
+int
+torsion_memcmp(const void *x, const void *y, size_t n) {
+  const unsigned char *xp = (const unsigned char *)x;
+  const unsigned char *yp = (const unsigned char *)y;
+  uint32_t eq = 1;
+  uint32_t lt = 0;
+  uint32_t a, b;
+  size_t i;
+
+  for (i = 0; i < n; i++) {
+    a = xp[i];
+    b = yp[i];
+    lt |= eq & ((a - b) >> 31);
+    eq &= ((a ^ b) - 1) >> 31;
+  }
+
+  return (1 - 2 * (int)lt) * (1 - (int)eq);
+}
+
+int
+torsion_memcmp_var(const void *x, const void *y, size_t n) {
+  /* Exposing this function is necessary to avoid a
+   * particularly nasty GCC bug[1][2]. We could use
+   * the constant-time function above for testing,
+   * but its behavior is harder to audit/verify.
+   *
+   * [1] https://gcc.gnu.org/bugzilla/show_bug.cgi?id=95189
+   * [2] https://github.com/bitcoin-core/secp256k1/issues/823
+   */
+  const unsigned char *xp = (const unsigned char *)x;
+  const unsigned char *yp = (const unsigned char *)y;
+  size_t i;
+
+  for (i = 0; i < n; i++) {
+    if (xp[i] != yp[i])
+      return (int)xp[i] - (int)yp[i];
+  }
+
+  return 0;
+}
+
+/*
+ * Memory Equal
  */
 
 int
@@ -65,7 +109,7 @@ torsion_memequal(const void *x, const void *y, size_t n) {
 }
 
 /*
- * Memxor
+ * Memory XOR
  */
 
 void
