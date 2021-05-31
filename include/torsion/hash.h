@@ -315,7 +315,7 @@ blake2b_final(blake2b_t *ctx, unsigned char *out);
  * BLAKE2b-{160,256,384,512}
  */
 
-#define TORSION__DEFINE_BLAKE2(name, bits)                           \
+#define TORSION__DEFINE_BLAKE2(name, bits)                            \
 TORSION_EXTERN void                                                   \
 torsion_##name##bits##_init(name##_t *ctx,                            \
                             const unsigned char *key, size_t keylen); \
@@ -413,7 +413,7 @@ keccak_final(keccak_t *ctx, unsigned char *out, unsigned int pad, size_t len);
  * Keccak{224,256,384,512}
  */
 
-#define TORSION__DEFINE_KECCAK(name)                               \
+#define TORSION__DEFINE_KECCAK(name)                                \
 TORSION_EXTERN void                                                 \
 torsion_##name##_init(sha3_t *ctx);                                 \
                                                                     \
@@ -571,7 +571,7 @@ TORSION__DEFINE_KECCAK(sha3_512)
  * SHAKE{128,256}
  */
 
-#define TORSION__DEFINE_SHAKE(name)                                 \
+#define TORSION__DEFINE_SHAKE(name)                                  \
 TORSION_EXTERN void                                                  \
 torsion_##name##_init(sha3_t *ctx);                                  \
                                                                      \
