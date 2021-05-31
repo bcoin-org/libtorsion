@@ -225,29 +225,38 @@ typedef struct rsa_priv_s {
 } rsa_priv_t;
 
 /*
- * Helpers
+ * Constant Time
  */
 
 TORSION_BARRIER(uint32_t, uint32)
 
 static TORSION_INLINE uint32_t
-safe_equal(uint32_t x, uint32_t y) {
+cnd_select(uint32_t x, uint32_t y, uint32_t c) {
+  uint32_t m = -uint32_barrier(c != 0);
+  return (x & ~m) | (y & m);
+}
+
+static TORSION_INLINE void
+cnd_memcpy(unsigned char *z, const unsigned char *x, size_t n, uint32_t c) {
+  uint32_t m = -uint32_barrier(c != 0);
+  size_t i;
+
+  for (i = 0; i < n; i++)
+    z[i] = (z[i] & ~m) | (x[i] & m);
+}
+
+static TORSION_INLINE uint32_t
+sec_equal(uint32_t x, uint32_t y) {
   return ((x ^ y) - 1) >> 31;
 }
 
 static TORSION_INLINE uint32_t
-safe_select(uint32_t x, uint32_t y, uint32_t c) {
-  uint32_t m = -uint32_barrier(c);
-  return (x & ~m) | (y & m);
-}
-
-static TORSION_INLINE uint32_t
-safe_lte(uint32_t x, uint32_t y) {
+sec_lte(uint32_t x, uint32_t y) {
   return (x - y - 1) >> 31;
 }
 
 static TORSION_INLINE uint32_t
-safe_memequal(const unsigned char *x, const unsigned char *y, size_t n) {
+sec_memequal(const unsigned char *x, const unsigned char *y, size_t n) {
   return torsion_memequal(x, y, n);
 }
 
@@ -1415,7 +1424,7 @@ pss_verify(hash_id_t type,
   hash_update(&hash, salt, slen);
   hash_final(&hash, h0, hlen);
 
-  return safe_memequal(h0, h, hlen);
+  return sec_memequal(h0, h, hlen);
 }
 
 /*
@@ -1732,11 +1741,11 @@ rsa_verify(hash_id_t type,
    *           Page 45, Section 9.2.
    */
   size_t hlen = hash_output_size(type);
-  size_t i, prefix_len, tlen;
-  size_t klen = 0;
   const unsigned char *prefix;
+  size_t i, prefix_len, tlen;
   unsigned char *em = NULL;
-  uint32_t ok;
+  size_t klen = 0;
+  uint32_t ok = 1;
   rsa_pub_t k;
   int ret = 0;
 
@@ -1775,17 +1784,15 @@ rsa_verify(hash_id_t type,
     goto fail;
 
   /* EM = 0x00 || 0x01 || PS || 0x00 || T */
-  ok = 1;
-
-  ok &= safe_equal(em[0], 0x00);
-  ok &= safe_equal(em[1], 0x01);
+  ok &= sec_equal(em[0], 0x00);
+  ok &= sec_equal(em[1], 0x01);
 
   for (i = 2; i < klen - tlen - 1; i++)
-    ok &= safe_equal(em[i], 0xff);
+    ok &= sec_equal(em[i], 0xff);
 
-  ok &= safe_equal(em[klen - tlen - 1], 0x00);
-  ok &= safe_memequal(em + klen - tlen, prefix, prefix_len);
-  ok &= safe_memequal(em + klen - hlen, msg, msg_len);
+  ok &= sec_equal(em[klen - tlen - 1], 0x00);
+  ok &= sec_memequal(em + klen - tlen, prefix, prefix_len);
+  ok &= sec_memequal(em + klen - hlen, msg, msg_len);
 
   ret = (ok == 1);
 fail:
@@ -1832,6 +1839,10 @@ rsa_encrypt(unsigned char *out,
   mlen = msg_len;
   plen = klen - mlen - 3;
 
+  /* Do this early to allow overlap. */
+  if (msg_len > 0)
+    memmove(em + klen - mlen, msg, msg_len);
+
   em[0] = 0x00;
   em[1] = 0x02;
 
@@ -1839,13 +1850,10 @@ rsa_encrypt(unsigned char *out,
 
   for (i = 2; i < 2 + plen; i++) {
     while (em[i] == 0x00)
-      drbg_generate(&rng, em + i, 1);
+      drbg_generate(&rng, &em[i], 1);
   }
 
   em[klen - mlen - 1] = 0x00;
-
-  if (msg_len > 0)
-    memcpy(em + klen - mlen, msg, msg_len);
 
   if (!rsa_pub_encrypt(&k, out, em, klen))
     goto fail;
@@ -1869,8 +1877,8 @@ rsa_decrypt(unsigned char *out,
             const unsigned char *entropy) {
   /* [RFC8017] Page 29, Section 7.2.2. */
   unsigned char *em = out;
-  uint32_t i, zero, two, index_, looking;
-  uint32_t equals0, validps, valid, offset;
+  uint32_t i, zero, two, offset, looking;
+  uint32_t equals0, validps, valid;
   size_t klen = 0;
   rsa_priv_t k;
   int ret = 0;
@@ -1895,27 +1903,27 @@ rsa_decrypt(unsigned char *out,
     goto fail;
 
   /* EM = 0x00 || 0x02 || PS || 0x00 || M */
-  zero = safe_equal(em[0], 0x00);
-  two = safe_equal(em[1], 0x02);
-  index_ = 0;
+  zero = sec_equal(em[0], 0x00);
+  two = sec_equal(em[1], 0x02);
+  offset = 0;
   looking = 1;
 
   for (i = 2; i < klen; i++) {
-    equals0 = safe_equal(em[i], 0x00);
-    index_ = safe_select(index_, i, looking & equals0);
-    looking = safe_select(looking, 0, equals0);
+    equals0 = sec_equal(em[i], 0x00);
+    offset = cnd_select(offset, i, looking & equals0);
+    looking = cnd_select(looking, 0, equals0);
   }
 
-  validps = safe_lte(2 + 8, index_);
+  validps = sec_lte(2 + 8, offset);
   valid = zero & two & (looking ^ 1) & validps;
-  offset = safe_select(0, index_ + 1, valid);
+  offset = cnd_select(0, offset + 1, valid);
 
   if (valid == 0)
     goto fail;
 
-  *out_len = klen - offset;
-  memmove(out, em + offset, *out_len);
+  memmove(out, em + offset, klen - offset);
 
+  *out_len = klen - offset;
   ret = 1;
 fail:
   rsa_priv_clear(&k);
@@ -1935,6 +1943,7 @@ rsa_sign_pss(unsigned char *out,
              const unsigned char *entropy) {
   /* [RFC8017] Page 33, Section 8.1.1. */
   size_t hlen = hash_output_size(type);
+  unsigned char blind[ENTROPY_SIZE];
   unsigned char *salt = NULL;
   unsigned char *em = out;
   size_t klen = 0;
@@ -1945,6 +1954,8 @@ rsa_sign_pss(unsigned char *out,
   drbg_t rng;
 
   rsa_priv_init(&k);
+
+  drbg_init(&rng, HASH_SHA256, entropy, ENTROPY_SIZE);
 
   if (!hash_has_backend(type))
     goto fail;
@@ -1981,17 +1992,18 @@ rsa_sign_pss(unsigned char *out,
       goto fail;
   }
 
-  drbg_init(&rng, HASH_SHA512, entropy, ENTROPY_SIZE);
   drbg_generate(&rng, salt, salt_len);
 
   if (!pss_encode(em, &emlen, type, msg, msg_len, bits - 1, salt, salt_len))
     goto fail;
 
+  drbg_generate(&rng, blind, ENTROPY_SIZE);
+
   /* Note that `em` may be one byte less
    * than the modulus size in the case
    * of (bits - 1) mod 8 == 0.
    */
-  if (!rsa_priv_decrypt(&k, out, em, emlen, 1, entropy))
+  if (!rsa_priv_decrypt(&k, out, em, emlen, 1, blind))
     goto fail;
 
   *out_len = klen;
@@ -1999,6 +2011,7 @@ rsa_sign_pss(unsigned char *out,
 fail:
   rsa_priv_clear(&k);
   torsion_memzero(&rng, sizeof(rng));
+  torsion_memzero(blind, sizeof(blind));
   if (salt != NULL) free(salt);
   if (ret == 0) torsion_memzero(out, klen);
   return ret;
@@ -2134,6 +2147,10 @@ rsa_encrypt_oaep(unsigned char *out,
   db = &em[1 + hlen];
   dlen = klen - (1 + hlen);
 
+  /* Do this early to allow overlap. */
+  if (msg_len > 0)
+    memmove(db + dlen - mlen, msg, msg_len);
+
   em[0] = 0x00;
 
   drbg_init(&rng, HASH_SHA256, entropy, ENTROPY_SIZE);
@@ -2143,9 +2160,6 @@ rsa_encrypt_oaep(unsigned char *out,
   memset(db + hlen, 0x00, dlen - mlen - 1 - hlen);
 
   db[dlen - mlen - 1] = 0x01;
-
-  if (mlen > 0)
-    memcpy(db + dlen - mlen, msg, mlen);
 
   mgf1xor(type, db, dlen, seed, slen);
   mgf1xor(type, seed, slen, db, dlen);
@@ -2180,7 +2194,7 @@ rsa_decrypt_oaep(unsigned char *out,
   size_t i, slen, dlen, rlen;
   size_t hlen = hash_output_size(type);
   size_t klen = 0;
-  uint32_t zero, lvalid, looking, index_;
+  uint32_t zero, lvalid, looking, offset;
   uint32_t invalid, valid, equals0, equals1;
   unsigned char expect[HASH_MAX_OUTPUT_SIZE];
   rsa_priv_t k;
@@ -2214,7 +2228,7 @@ rsa_decrypt_oaep(unsigned char *out,
   hash_final(&hash, expect, hlen);
 
   /* EM = 0x00 || (seed) || (Hash(L) || PS || 0x01 || M) */
-  zero = safe_equal(em[0], 0x00);
+  zero = sec_equal(em[0], 0x00);
   seed = &em[1];
   slen = hlen;
   db = &em[hlen + 1];
@@ -2224,20 +2238,20 @@ rsa_decrypt_oaep(unsigned char *out,
   mgf1xor(type, db, dlen, seed, slen);
 
   lhash = &db[0];
-  lvalid = safe_memequal(lhash, expect, hlen);
+  lvalid = sec_memequal(lhash, expect, hlen);
   rest = &db[hlen];
   rlen = dlen - hlen;
 
   looking = 1;
-  index_ = 0;
+  offset = 0;
   invalid = 0;
 
   for (i = 0; i < rlen; i++) {
-    equals0 = safe_equal(rest[i], 0x00);
-    equals1 = safe_equal(rest[i], 0x01);
-    index_ = safe_select(index_, i, looking & equals1);
-    looking = safe_select(looking, 0, equals1);
-    invalid = safe_select(invalid, 1, looking & (equals0 ^ 1));
+    equals0 = sec_equal(rest[i], 0x00);
+    equals1 = sec_equal(rest[i], 0x01);
+    offset = cnd_select(offset, i, looking & equals1);
+    looking = cnd_select(looking, 0, equals1);
+    invalid = cnd_select(invalid, 1, looking & (equals0 ^ 1));
   }
 
   valid = zero & lvalid & (invalid ^ 1) & (looking ^ 1);
@@ -2245,9 +2259,11 @@ rsa_decrypt_oaep(unsigned char *out,
   if (valid == 0)
     goto fail;
 
-  *out_len = rlen - (index_ + 1);
-  memmove(out, rest + index_ + 1, *out_len);
+  offset += 1;
 
+  memmove(out, rest + offset, rlen - offset);
+
+  *out_len = rlen - offset;
   ret = 1;
 fail:
   rsa_priv_clear(&k);
