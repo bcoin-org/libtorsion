@@ -171,9 +171,7 @@
 uint64_t
 torsion_hrtime(void) {
 #if defined(HAVE_QUERYPERFORMANCECOUNTER) /* _WIN32 */
-  static unsigned int scale = 1000000000;
   LARGE_INTEGER freq, ctr;
-  double scaled, result;
 
   if (!QueryPerformanceFrequency(&freq))
     return 0;
@@ -193,10 +191,21 @@ torsion_hrtime(void) {
    * [2] https://github.com/libuv/libuv/issues/1633
    * [3] https://github.com/libuv/libuv/pull/2866
    */
-  scaled = (double)freq.QuadPart / scale;
-  result = (double)ctr.QuadPart / scaled;
+#if defined(_MSC_VER)
+  {
+    static unsigned int scale = 1000000000;
+    double scaled = (double)freq.QuadPart / scale;
+    double result = (double)ctr.QuadPart / scaled;
 
-  return (uint64_t)result;
+    return (uint64_t)result;
+  }
+#else
+  {
+    double sec = (double)ctr.QuadPart / (double)freq.QuadPart;
+
+    return (uint64_t)(sec * 1000000000.0);
+  }
+#endif
 #elif defined(_WIN32)
   /* There was no reliable nanosecond precision
    * time available on Windows prior to XP. We
