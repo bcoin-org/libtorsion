@@ -313,7 +313,7 @@ prefix ## _barrier(type x) {          \
 #  error "Two's complement is required."
 #endif
 
-#if '0' != 48 || 'A' != 65 || 'a' != 97
+#if ' ' != 32 || '0' != 48 || 'A' != 65 || 'a' != 97
 #  error "ASCII support is required."
 #endif
 
