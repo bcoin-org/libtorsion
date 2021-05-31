@@ -92,7 +92,6 @@
 
 #include <stddef.h>
 #include <stdint.h>
-#include <stdlib.h> /* abort */
 #include "entropy.h"
 
 #undef HAVE_QUERYPERFORMANCECOUNTER
@@ -177,13 +176,13 @@ torsion_hrtime(void) {
   double scaled, result;
 
   if (!QueryPerformanceFrequency(&freq))
-    abort();
+    return 0;
 
   if (!QueryPerformanceCounter(&ctr))
-    abort();
+    return 0;
 
   if (freq.QuadPart == 0)
-    abort();
+    return 0;
 
   /* We have no idea of the magnitude of `freq`,
    * so we must resort to double arithmetic[1].
@@ -242,7 +241,7 @@ torsion_hrtime(void) {
 #endif
 
   if (ret != SS$_NORMAL)
-    abort();
+    return 0;
 
   return (ts - epoch) * 100;
 #elif defined(__Fuchsia__)
@@ -251,7 +250,7 @@ torsion_hrtime(void) {
   uint64_t ts;
 
   if (cloudabi_sys_clock_time_get(CLOUDABI_CLOCK_MONOTONIC, 1, &ts) != 0)
-    abort();
+    return 0;
 
   return ts;
 #elif defined(__EMSCRIPTEN__)
@@ -262,7 +261,7 @@ torsion_hrtime(void) {
 #ifdef TORSION_WASM_BIGINT
   /* Requires --experimental-wasm-bigint at the moment. */
   if (__wasi_clock_time_get(__WASI_CLOCKID_MONOTONIC, 1, &ts) != 0)
-    abort();
+    return 0;
 #endif
 
   return ts;
@@ -270,17 +269,17 @@ torsion_hrtime(void) {
   mach_timebase_info_data_t info;
 
   if (mach_timebase_info(&info) != KERN_SUCCESS)
-    abort();
+    return 0;
 
   if (info.denom == 0)
-    abort();
+    return 0;
 
   return mach_absolute_time() * info.numer / info.denom;
 #elif defined(HAVE_GETHRTIME)
   hrtime_t ts = gethrtime();
 
   if (ts == (hrtime_t)-1)
-    abort();
+    return 0;
 
   return ts;
 #elif defined(_AIX)
@@ -316,7 +315,7 @@ torsion_hrtime(void) {
 #endif
 
   if (ret < 0 || ret > 1)
-    abort();
+    return 0;
 
   ts = (ts / 512) * 125; /* ts /= 4.096 */
 
@@ -339,7 +338,7 @@ torsion_hrtime(void) {
       if (clock_gettime(CLOCK_REALTIME, &ts) != 0)
 #endif
       {
-        abort();
+        return 0;
       }
     }
   }
@@ -349,7 +348,7 @@ torsion_hrtime(void) {
   struct timeval tv;
 
   if (gettimeofday(&tv, NULL) != 0)
-    abort();
+    return 0;
 
   return (uint64_t)tv.tv_sec * 1000000000 + (uint64_t)tv.tv_usec * 1000;
 #else
