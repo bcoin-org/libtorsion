@@ -13,6 +13,10 @@
  *     K. Moriarty, B. Kaliski, J. Jonsson, A. Rusch
  *     https://tools.ietf.org/html/rfc8017
  *
+ *   [RFC5246] The Transport Layer Security (TLS) Protocol Version 1.2
+ *     T. Dierks, E. Rescorla
+ *     https://tools.ietf.org/html/rfc5246
+ *
  *   [FIPS186] Federal Information Processing Standards Publication 186-4
  *     National Institute of Standards and Technology
  *     https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.186-4.pdf
@@ -1867,6 +1871,34 @@ fail:
   return ret;
 }
 
+static int
+pkcs1v15_unpad(size_t *off, const unsigned char *em, size_t len) {
+  /* [RFC8017] Page 29, Section 7.2.2. */
+  uint32_t klen = len;
+  uint32_t offset = 0;
+  uint32_t looking = 1;
+  uint32_t equals0;
+  uint32_t ok = 1;
+  uint32_t i;
+
+  /* EM = 0x00 || 0x02 || PS || 0x00 || M */
+  ok &= sec_equal(em[0], 0x00);
+  ok &= sec_equal(em[1], 0x02);
+
+  for (i = 2; i < klen; i++) {
+    equals0 = sec_equal(em[i], 0x00);
+    offset = cnd_select(offset, i, looking & equals0);
+    looking = cnd_select(looking, 0, equals0);
+  }
+
+  ok &= (looking ^ 1);
+  ok &= sec_lte(2 + 8, offset);
+
+  *off = cnd_select(0, offset + 1, ok);
+
+  return ok;
+}
+
 int
 rsa_decrypt(unsigned char *out,
             size_t *out_len,
@@ -1877,9 +1909,8 @@ rsa_decrypt(unsigned char *out,
             const unsigned char *entropy) {
   /* [RFC8017] Page 29, Section 7.2.2. */
   unsigned char *em = out;
-  uint32_t i, zero, two, offset, looking;
-  uint32_t equals0, validps, valid;
   size_t klen = 0;
+  size_t offset;
   rsa_priv_t k;
   int ret = 0;
 
@@ -1902,23 +1933,7 @@ rsa_decrypt(unsigned char *out,
   if (!rsa_priv_decrypt(&k, em, msg, msg_len, 1, entropy))
     goto fail;
 
-  /* EM = 0x00 || 0x02 || PS || 0x00 || M */
-  zero = sec_equal(em[0], 0x00);
-  two = sec_equal(em[1], 0x02);
-  offset = 0;
-  looking = 1;
-
-  for (i = 2; i < klen; i++) {
-    equals0 = sec_equal(em[i], 0x00);
-    offset = cnd_select(offset, i, looking & equals0);
-    looking = cnd_select(looking, 0, equals0);
-  }
-
-  validps = sec_lte(2 + 8, offset);
-  valid = zero & two & (looking ^ 1) & validps;
-  offset = cnd_select(0, offset + 1, valid);
-
-  if (valid == 0)
+  if (!pkcs1v15_unpad(&offset, em, klen))
     goto fail;
 
   memmove(out, em + offset, klen - offset);
@@ -1928,6 +1943,82 @@ rsa_decrypt(unsigned char *out,
 fail:
   rsa_priv_clear(&k);
   if (ret == 0) torsion_memzero(out, klen);
+  return ret;
+}
+
+int
+rsa_decrypt_key(unsigned char *out,
+                size_t out_len,
+                const unsigned char *msg,
+                size_t msg_len,
+                const unsigned char *key,
+                size_t key_len,
+                const unsigned char *entropy) {
+  /* Mitigation for Bleichenbacher's attack. */
+  /* [RFC8017] Page 29, Section 7.2.2. */
+  /* [RFC5246] Page 59, Section 7.4.7.1. */
+  unsigned char blind[ENTROPY_SIZE];
+  unsigned char *em = NULL;
+  size_t klen = 0;
+  size_t offset;
+  rsa_priv_t k;
+  int ret = 0;
+  int ok = 1;
+  drbg_t rng;
+
+  rsa_priv_init(&k);
+
+  drbg_init(&rng, HASH_SHA256, entropy, ENTROPY_SIZE);
+
+  if (out_len > RSA_MAX_MOD_SIZE - 11)
+    goto fail;
+
+  if (!rsa_priv_import(&k, key, key_len))
+    goto fail;
+
+  if (!rsa_priv_verify(&k))
+    goto fail;
+
+  klen = mpz_bytelen(k.n);
+
+  if (msg_len != klen)
+    goto fail;
+
+  if (klen < out_len + 11)
+    goto fail;
+
+  em = (unsigned char *)malloc(klen);
+
+  if (em == NULL)
+    goto fail;
+
+  drbg_generate(&rng, blind, ENTROPY_SIZE);
+
+  if (!rsa_priv_decrypt(&k, em, msg, msg_len, 1, blind))
+    goto fail;
+
+  drbg_generate(&rng, out, out_len);
+
+  ok &= pkcs1v15_unpad(&offset, em, klen);
+  ok &= sec_equal(klen - offset, out_len);
+
+  cnd_memcpy(out, em + klen - out_len, out_len, ok);
+
+  ret = 1;
+fail:
+  rsa_priv_clear(&k);
+
+  torsion_memzero(&rng, sizeof(rng));
+  torsion_memzero(blind, sizeof(blind));
+
+  if (em != NULL) {
+    torsion_memzero(em, klen);
+    free(em);
+  }
+
+  if (ret == 0)
+    torsion_memzero(out, out_len);
+
   return ret;
 }
 

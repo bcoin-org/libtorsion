@@ -4711,6 +4711,21 @@ test_rsa_vectors(drbg_t *unused) {
     ASSERT(len == msg_len);
     ASSERT(torsion_memcmp_var(out, msg, msg_len) == 0);
 
+    /* RSA-PKCS1v1.5 type 2 (session key). */
+    ASSERT(rsa_decrypt_key(out, msg_len, ct1, ct1_len,
+                           priv, priv_len, entropy));
+    ASSERT(torsion_memcmp_var(out, msg, msg_len) == 0);
+
+    ASSERT(rsa_encrypt(tmp, &len, msg, msg_len, pub, pub_len, entropy));
+    ASSERT(rsa_decrypt_key(out, msg_len, tmp, len, priv, priv_len, entropy));
+    ASSERT(torsion_memcmp_var(out, msg, msg_len) == 0);
+
+    ASSERT(rsa_encrypt(tmp, &len, msg, msg_len, pub, pub_len, entropy));
+    tmp[12] ^= 1;
+    memcpy(out, msg, msg_len);
+    ASSERT(rsa_decrypt_key(out, msg_len, tmp, len, priv, priv_len, entropy));
+    ASSERT(torsion_memcmp_var(out, msg, msg_len) != 0);
+
     /* RSA-OAEP. */
     ASSERT(rsa_decrypt_oaep(out, &len, hash, ct2, ct2_len,
                             priv, priv_len, label, sizeof(label), entropy));

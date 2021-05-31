@@ -185,6 +185,15 @@ rsa_decrypt(unsigned char *out,
             const unsigned char *entropy);
 
 TORSION_EXTERN int
+rsa_decrypt_key(unsigned char *out,
+                size_t out_len,
+                const unsigned char *msg,
+                size_t msg_len,
+                const unsigned char *key,
+                size_t key_len,
+                const unsigned char *entropy);
+
+TORSION_EXTERN int
 rsa_sign_pss(unsigned char *out,
              size_t *out_len,
              hash_id_t type,
