@@ -5289,9 +5289,9 @@ static int
 mont_validate_x(const mont_t *ec, const fe_t x);
 
 static void
-_mont_to_edwards(const prime_field_t *fe, xge_t *r,
-                 const mge_t *p, const fe_t c,
-                 int invert, int isogeny);
+mont_to_edwards(const prime_field_t *fe, xge_t *r,
+                const mge_t *p, const fe_t c,
+                int invert, int isogeny);
 
 static void
 mont_mul(const mont_t *ec, pge_t *r, const pge_t *p, const sc_t k, int affine);
@@ -5596,7 +5596,7 @@ mge_set_pge(const mont_t *ec, mge_t *r, const pge_t *p, int sign) {
 
 static void
 mge_export_xge(const mont_t *ec, xge_t *r, const mge_t *p) {
-  _mont_to_edwards(&ec->fe, r, p, ec->c, ec->invert, 1);
+  mont_to_edwards(&ec->fe, r, p, ec->c, ec->invert, 1);
 }
 
 /*
@@ -6408,9 +6408,9 @@ static void
 edwards_mul(const edwards_t *ec, xge_t *r, const xge_t *p, const sc_t k);
 
 static void
-_edwards_to_mont(const prime_field_t *fe, mge_t *r,
-                 const xge_t *p, const fe_t c,
-                 int invert, int isogeny);
+edwards_to_mont(const prime_field_t *fe, mge_t *r,
+                const xge_t *p, const fe_t c,
+                int invert, int isogeny);
 
 /*
  * Edwards Extended Point
@@ -7142,7 +7142,7 @@ xge_jsf_points(const edwards_t *ec, xge_t *out,
 
 static void
 xge_export_mge(const edwards_t *ec, mge_t *r, const xge_t *p) {
-  _edwards_to_mont(&ec->fe, r, p, ec->c, ec->invert, 1);
+  edwards_to_mont(&ec->fe, r, p, ec->c, ec->invert, 1);
 }
 
 /*
@@ -7686,7 +7686,7 @@ edwards_elligator2(const edwards_t *ec, xge_t *r, const fe_t u) {
 
   m.inf = 0;
 
-  _mont_to_edwards(fe, r, &m, ec->c, ec->invert, 0);
+  mont_to_edwards(fe, r, &m, ec->c, ec->invert, 0);
 }
 
 static int
@@ -7717,7 +7717,7 @@ edwards_invert2(const edwards_t *ec, fe_t u,
   int ret = 1;
   mge_t m;
 
-  _edwards_to_mont(fe, &m, p, ec->c, ec->invert, 0);
+  edwards_to_mont(fe, &m, p, ec->c, ec->invert, 0);
 
   fe_mul(fe, x0, m.x, ec->Bi);
   fe_mul(fe, y0, m.y, ec->Bi);
@@ -8810,9 +8810,9 @@ qge_invert(const edwards_t *ec, fe_t r, const qge_t *p, unsigned int hint) {
  */
 
 static void
-_mont_to_edwards(const prime_field_t *fe, xge_t *r,
-                 const mge_t *p, const fe_t c,
-                 int invert, int isogeny) {
+mont_to_edwards(const prime_field_t *fe, xge_t *r,
+                const mge_t *p, const fe_t c,
+                int invert, int isogeny) {
   /* [RFC7748] Section 4.1 & 4.2. */
   /* [MONT3] Page 6, Section 2.5. */
   /* [TWISTED] Theorem 3.2, Page 4, Section 3. */
@@ -8937,9 +8937,9 @@ _mont_to_edwards(const prime_field_t *fe, xge_t *r,
 }
 
 static void
-_edwards_to_mont(const prime_field_t *fe, mge_t *r,
-                 const xge_t *p, const fe_t c,
-                 int invert, int isogeny) {
+edwards_to_mont(const prime_field_t *fe, mge_t *r,
+                const xge_t *p, const fe_t c,
+                int invert, int isogeny) {
   /* [RFC7748] Section 4.1 & 4.2. */
   /* [MONT3] Page 6, Section 2.5. */
   /* [TWISTED] Theorem 3.2, Page 4, Section 3. */
