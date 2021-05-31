@@ -626,8 +626,7 @@ dsa_priv_create(dsa_priv_t *k,
 
 static int
 dsa_priv_generate(dsa_priv_t *k, mp_bits_t bits, const unsigned char *entropy) {
-  unsigned char entropy1[ENTROPY_SIZE];
-  unsigned char entropy2[ENTROPY_SIZE];
+  unsigned char seed[ENTROPY_SIZE];
   dsa_group_t group;
   int ret = 0;
   drbg_t rng;
@@ -635,19 +634,19 @@ dsa_priv_generate(dsa_priv_t *k, mp_bits_t bits, const unsigned char *entropy) {
   dsa_group_init(&group);
 
   drbg_init(&rng, HASH_SHA256, entropy, ENTROPY_SIZE);
-  drbg_generate(&rng, entropy2, ENTROPY_SIZE);
-  drbg_generate(&rng, entropy1, ENTROPY_SIZE);
+  drbg_generate(&rng, seed, ENTROPY_SIZE);
 
-  if (!dsa_group_generate(&group, bits, entropy1))
+  if (!dsa_group_generate(&group, bits, seed))
     goto fail;
 
-  dsa_priv_create(k, &group, entropy2);
+  drbg_generate(&rng, seed, ENTROPY_SIZE);
+  dsa_priv_create(k, &group, seed);
+
   ret = 1;
 fail:
   dsa_group_clear(&group);
   torsion_memzero(&rng, sizeof(rng));
-  torsion_memzero(entropy1, sizeof(entropy1));
-  torsion_memzero(entropy2, sizeof(entropy2));
+  torsion_memzero(seed, sizeof(seed));
   return ret;
 }
 
