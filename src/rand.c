@@ -52,17 +52,6 @@
  */
 
 static void
-sha512_update_ptr(sha512_t *hash, const void *ptr) {
-#if defined(UINTPTR_MAX)
-  uintptr_t uptr = (uintptr_t)ptr;
-#else
-  size_t uptr = (size_t)ptr;
-#endif
-
-  sha512_update(hash, &uptr, sizeof(uptr));
-}
-
-static void
 sha512_update_tsc(sha512_t *hash) {
   uint64_t tsc = torsion_rdtsc();
 
@@ -90,8 +79,6 @@ rng_init(rng_t *rng) {
   memset(rng, 0, sizeof(*rng));
 
   sha512_init(&hash);
-  sha512_update_ptr(&hash, rng);
-  sha512_update_ptr(&hash, seed);
   sha512_update_tsc(&hash);
 
   /* OS entropy (64 bytes). */
@@ -376,12 +363,7 @@ torsion_threadsafety(void) {
 #endif
 }
 
-uint64_t
+void *
 torsion_randomaddr(void) {
-  void *ptr = (void *)&rng_state;
-#if defined(UINTPTR_MAX)
-  return (uintptr_t)ptr;
-#else
-  return (size_t)ptr;
-#endif
+  return (void *)&rng_state;
 }

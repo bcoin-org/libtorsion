@@ -4460,7 +4460,7 @@ test_rand_uniform(drbg_t *unused) {
 
 #ifdef TORSION_HAVE_THREADS
 typedef struct rng_res_s {
-  uint64_t ptr;
+  void *ptr;
   unsigned char data[32];
 } rng_res_t;
 
@@ -4518,7 +4518,9 @@ test_rand_thread_safety(drbg_t *unused) {
 
   thread_random(&x0);
 
-  ASSERT(x0.ptr && x1.ptr && x2.ptr);
+  ASSERT(x0.ptr != NULL);
+  ASSERT(x1.ptr != NULL);
+  ASSERT(x2.ptr != NULL);
 
   if (torsion_threadsafety() == TORSION_THREADSAFETY_TLS) {
     ASSERT(x0.ptr != x1.ptr);
