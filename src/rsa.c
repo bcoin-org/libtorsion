@@ -230,34 +230,25 @@ typedef struct rsa_priv_s {
 
 TORSION_BARRIER(uint32_t, uint32)
 
-#define B uint32_barrier
-
 static TORSION_INLINE uint32_t
 safe_equal(uint32_t x, uint32_t y) {
-  return ((B(x) ^ B(y)) - 1) >> 31;
+  return ((x ^ y) - 1) >> 31;
 }
 
 static TORSION_INLINE uint32_t
-safe_select(uint32_t x, uint32_t y, uint32_t v) {
-  return (B(x) & (B(v) - 1)) | (B(y) & ~(B(v) - 1));
+safe_select(uint32_t x, uint32_t y, uint32_t c) {
+  uint32_t m = -uint32_barrier(c);
+  return (x & ~m) | (y & m);
 }
 
 static TORSION_INLINE uint32_t
 safe_lte(uint32_t x, uint32_t y) {
-  return (B(x) - B(y) - 1) >> 31;
+  return (x - y - 1) >> 31;
 }
 
-#undef B
-
 static TORSION_INLINE uint32_t
-safe_memequal(const unsigned char *x, const unsigned char *y, size_t len) {
-  uint32_t v = 0;
-  size_t i;
-
-  for (i = 0; i < len; i++)
-    v |= (uint32_t)x[i] ^ (uint32_t)y[i];
-
-  return (v - 1) >> 31;
+safe_memequal(const unsigned char *x, const unsigned char *y, size_t n) {
+  return torsion_memequal(x, y, n);
 }
 
 /*
