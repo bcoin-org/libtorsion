@@ -1132,6 +1132,12 @@ mp_str_limbs(const char *str, int base) {
   return (len + limb_len - 1) / limb_len;
 }
 
+static int
+mp_host_endian(void) {
+  static const mp_limb_t x = 1;
+  return *((const unsigned char *)&x) == 0 ? 1 : -1;
+}
+
 static TORSION_INLINE mp_limb_t
 mp_import_le(const unsigned char *xp) {
 #if MP_LIMB_BITS == 64
@@ -4602,7 +4608,8 @@ mpn_import(mp_limb_t *zp, mp_size_t zn,
   mp_size_t i = 0;
   mp_limb_t z;
 
-  CHECK(endian == 1 || endian == -1);
+  if (endian == 0)
+    endian = mp_host_endian();
 
   if (endian == 1) {
     xp += xn;
@@ -4624,7 +4631,7 @@ mpn_import(mp_limb_t *zp, mp_size_t zn,
 
       zp[i++] = z;
     }
-  } else {
+  } else if (endian == -1) {
     while (i < zn && xn >= MP_LIMB_BYTES) {
       zp[i++] = mp_import_le(xp);
       xp += MP_LIMB_BYTES;
@@ -4642,6 +4649,8 @@ mpn_import(mp_limb_t *zp, mp_size_t zn,
 
       zp[i++] = z;
     }
+  } else {
+    torsion_abort(); /* LCOV_EXCL_LINE */
   }
 
   while (i < zn)
@@ -4659,7 +4668,8 @@ mpn_export(unsigned char *zp, size_t zn,
   mp_size_t i = 0;
   mp_limb_t x;
 
-  CHECK(endian == 1 || endian == -1);
+  if (endian == 0)
+    endian = mp_host_endian();
 
   if (endian == 1) {
     zp += zn;
@@ -4681,7 +4691,7 @@ mpn_export(unsigned char *zp, size_t zn,
 
     while (zn--)
       *--zp = 0;
-  } else {
+  } else if (endian == -1) {
     while (i < xn && zn >= MP_LIMB_BYTES) {
       mp_export_le(zp, xp[i++]);
       zp += MP_LIMB_BYTES;
@@ -4699,6 +4709,8 @@ mpn_export(unsigned char *zp, size_t zn,
 
     while (zn--)
       *zp++ = 0;
+  } else {
+    torsion_abort(); /* LCOV_EXCL_LINE */
   }
 }
 

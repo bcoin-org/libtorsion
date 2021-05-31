@@ -3797,6 +3797,18 @@ test_mpn_io(mp_rng_f *rng, void *arg) {
       mpn_import(yp, n, raw, len, -1);
 
       ASSERT(mpn_cmp(xp, yp, n) == 0);
+
+      mpn_zero(yp, n);
+      mpn_export(raw, len, xp, n, 0);
+      mpn_import(yp, n, raw, len, mp_host_endian());
+
+      ASSERT(mpn_cmp(xp, yp, n) == 0);
+
+      mpn_zero(yp, n);
+      mpn_export(raw, len, xp, n, mp_host_endian());
+      mpn_import(yp, n, raw, len, 0);
+
+      ASSERT(mpn_cmp(xp, yp, n) == 0);
     }
   }
 }
@@ -7788,6 +7800,18 @@ test_mpz_io(mp_rng_f *rng, void *arg) {
     mpz_set_ui(y, 0);
     mpz_export(raw, x, sizeof(raw), -1);
     mpz_import(y, raw, sizeof(raw), -1);
+
+    ASSERT(mpz_cmp(x, y) == 0);
+
+    mpz_set_ui(y, 0);
+    mpz_export(raw, x, sizeof(raw), 0);
+    mpz_import(y, raw, sizeof(raw), mp_host_endian());
+
+    ASSERT(mpz_cmp(x, y) == 0);
+
+    mpz_set_ui(y, 0);
+    mpz_export(raw, x, sizeof(raw), mp_host_endian());
+    mpz_import(y, raw, sizeof(raw), 0);
 
     ASSERT(mpz_cmp(x, y) == 0);
   }
