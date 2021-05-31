@@ -96,7 +96,7 @@ rng_init(rng_t *rng) {
 
   /* OS entropy (64 bytes). */
   if (!torsion_sysrand(seed, 64))
-    return 0;
+    return 0; /* LCOV_EXCL_LINE */
 
   sha512_update(&hash, seed, 64);
   sha512_update_tsc(&hash);
@@ -256,7 +256,7 @@ static void
 rng_global_lock(void) {
 #ifdef TORSION_USE_LOCK
   if (pthread_mutex_lock(&rng_lock) != 0)
-    torsion_abort();
+    torsion_abort(); /* LCOV_EXCL_LINE */
 #endif
 }
 
@@ -264,7 +264,7 @@ static void
 rng_global_unlock(void) {
 #ifdef TORSION_USE_LOCK
   if (pthread_mutex_unlock(&rng_lock) != 0)
-    torsion_abort();
+    torsion_abort(); /* LCOV_EXCL_LINE */
 #endif
 }
 
@@ -284,7 +284,7 @@ rng_global_init(void) {
 
   if (!rng_state.started || rng_state.pid != pid) {
     if (!rng_init(&rng_state.rng))
-      return 0;
+      return 0; /* LCOV_EXCL_LINE */
 
     rng_state.started = 1;
     rng_state.pid = pid;
@@ -306,6 +306,7 @@ int
 torsion_getrandom(void *dst, size_t size) {
   rng_global_lock();
 
+  /* LCOV_EXCL_START */
   if (!rng_global_init()) {
     if (size > 0)
       memset(dst, 0, size);
@@ -314,6 +315,7 @@ torsion_getrandom(void *dst, size_t size) {
 
     return 0;
   }
+  /* LCOV_EXCL_STOP */
 
   rng_generate(&rng_state.rng, dst, size);
   rng_global_unlock();
@@ -325,11 +327,13 @@ int
 torsion_random(uint32_t *num) {
   rng_global_lock();
 
+  /* LCOV_EXCL_START */
   if (!rng_global_init()) {
     *num = 0;
     rng_global_unlock();
     return 0;
   }
+  /* LCOV_EXCL_STOP */
 
   *num = rng_random(&rng_state.rng);
 
@@ -342,11 +346,13 @@ int
 torsion_uniform(uint32_t *num, uint32_t max) {
   rng_global_lock();
 
+  /* LCOV_EXCL_START */
   if (!rng_global_init()) {
     *num = 0;
     rng_global_unlock();
     return 0;
   }
+  /* LCOV_EXCL_STOP */
 
   *num = rng_uniform(&rng_state.rng, max);
 
