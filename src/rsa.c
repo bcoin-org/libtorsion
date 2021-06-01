@@ -1843,10 +1843,6 @@ rsa_encrypt(unsigned char *out,
   mlen = msg_len;
   plen = klen - mlen - 3;
 
-  /* Do this early to allow overlap. */
-  if (msg_len > 0)
-    memmove(em + klen - mlen, msg, msg_len);
-
   em[0] = 0x00;
   em[1] = 0x02;
 
@@ -1858,6 +1854,9 @@ rsa_encrypt(unsigned char *out,
   }
 
   em[klen - mlen - 1] = 0x00;
+
+  if (msg_len > 0)
+    memcpy(em + klen - mlen, msg, msg_len);
 
   if (!rsa_pub_encrypt(&k, out, em, klen))
     goto fail;
@@ -2238,10 +2237,6 @@ rsa_encrypt_oaep(unsigned char *out,
   db = &em[1 + hlen];
   dlen = klen - (1 + hlen);
 
-  /* Do this early to allow overlap. */
-  if (msg_len > 0)
-    memmove(db + dlen - mlen, msg, msg_len);
-
   em[0] = 0x00;
 
   drbg_init(&rng, HASH_SHA256, entropy, ENTROPY_SIZE);
@@ -2251,6 +2246,9 @@ rsa_encrypt_oaep(unsigned char *out,
   memset(db + hlen, 0x00, dlen - mlen - 1 - hlen);
 
   db[dlen - mlen - 1] = 0x01;
+
+  if (msg_len > 0)
+    memcpy(db + dlen - mlen, msg, msg_len);
 
   mgf1xor(type, db, dlen, seed, slen);
   mgf1xor(type, seed, slen, db, dlen);
