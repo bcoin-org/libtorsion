@@ -318,6 +318,7 @@
 #undef HAVE_RANDABYTES
 #undef HAVE_CPRNG_DRAW
 #undef HAVE_SYS_RANDOM_GET
+#undef HAVE_SYS_RANDOM_H
 #undef HAVE_JS_RANDOM_GET
 #undef HAVE_UUID_GENERATE
 #undef HAVE_WASI_RANDOM_GET
@@ -372,9 +373,14 @@ RtlGenRandom(PVOID RandomBuffer, ULONG RandomBufferLength);
 #  define HAVE_SYS_RANDOM_GET
 #elif defined(__EMSCRIPTEN__)
 #  include <emscripten.h> /* EM_JS */
-#  if !defined(__wasm64__) && defined(EM_JS) /* 1.37.36 (2018) */
+#  ifdef __has_include
+#    if __has_include(<sys/random.h>)
+#      define HAVE_SYS_RANDOM_H
+#    endif
+#  endif
+#  if defined(EM_JS) && !defined(__wasm64__) /* 1.37.36 (2018) */
 #    define HAVE_JS_RANDOM_GET
-#  elif __has_include(<sys/random.h>) /* 2.0.5 (2020) */
+#  elif defined(HAVE_SYS_RANDOM_H) /* 2.0.5 (2020) */
 #    include <sys/random.h> /* getentropy */
 #    define HAVE_GETENTROPY
 #  else
