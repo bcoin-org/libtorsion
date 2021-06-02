@@ -609,16 +609,15 @@ typedef xge_t rge_t;
  */
 
 static int
-bytes_lt(const unsigned char *x, const unsigned char *y, size_t len) {
+bytes_lt(const unsigned char *xp, const unsigned char *yp, size_t n) {
   /* Compute (x < y) in constant time. */
-  size_t i = len;
   uint32_t eq = 1;
   uint32_t lt = 0;
   uint32_t a, b;
 
-  while (i--) {
-    a = x[i];
-    b = y[i];
+  while (n--) {
+    a = xp[n];
+    b = yp[n];
     lt |= eq & ((a - b) >> 31);
     eq &= ((a ^ b) - 1) >> 31;
   }
@@ -627,81 +626,80 @@ bytes_lt(const unsigned char *x, const unsigned char *y, size_t len) {
 }
 
 static void
-reverse_copy(unsigned char *dst, const unsigned char *src, size_t len) {
-  size_t i = 0;
-  size_t j = len - 1;
+reverse_copy(unsigned char *zp, const unsigned char *xp, size_t n) {
+  xp += n;
 
-  while (len--)
-    dst[i++] = src[j--];
+  while (n--)
+    *zp++ = *--xp;
 }
 
 static void
-reverse_bytes(unsigned char *raw, size_t len) {
+reverse_bytes(unsigned char *zp, size_t n) {
   size_t i = 0;
-  size_t j = len - 1;
-  unsigned char tmp;
+  size_t j = n - 1;
+  unsigned char zpi;
 
-  len >>= 1;
+  n >>= 1;
 
-  while (len--) {
-    tmp = raw[i];
-    raw[i++] = raw[j];
-    raw[j--] = tmp;
+  while (n--) {
+    zpi = zp[i];
+    zp[i++] = zp[j];
+    zp[j--] = zpi;
   }
 }
 
 static int
-byte_pad_be(unsigned char *out, size_t size,
-            const unsigned char *raw, size_t len) {
-  while (len > size && raw[0] == 0x00) {
-    raw += 1;
-    len -= 1;
+byte_pad_be(unsigned char *zp, size_t zn,
+            const unsigned char *xp, size_t xn) {
+  while (xn > zn && xp[0] == 0x00) {
+    xp += 1;
+    xn -= 1;
   }
 
-  if (len > size) {
-    memset(out, 0, size);
+  if (xn > zn) {
+    memset(zp, 0, zn);
     return 0;
   }
 
-  memset(out, 0, size - len);
+  memset(zp, 0, zn - xn);
 
-  if (len > 0)
-    memcpy(out + size - len, raw, len);
+  if (xn > 0)
+    memcpy(zp + zn - xn, xp, xn);
 
   return 1;
 }
 
 static int
-byte_pad_le(unsigned char *out, size_t size,
-            const unsigned char *raw, size_t len) {
-  while (len > size && raw[len - 1] == 0x00)
-    len -= 1;
+byte_pad_le(unsigned char *zp, size_t zn,
+            const unsigned char *xp, size_t xn) {
+  while (xn > zn && xp[xn - 1] == 0x00)
+    xn -= 1;
 
-  if (len > size) {
-    memset(out, 0, size);
+  if (xn > zn) {
+    memset(zp, 0, zn);
     return 0;
   }
 
-  if (len > 0)
-    memcpy(out, raw, len);
+  if (xn > 0)
+    memcpy(zp, xp, xn);
 
-  memset(out + len, 0, size - len);
+  memset(zp + xn, 0, zn - xn);
 
   return 1;
 }
 
 static int
-byte_pad(unsigned char *out, size_t size,
-         const unsigned char *raw, size_t len,
+byte_pad(unsigned char *zp, size_t zn,
+         const unsigned char *xp, size_t xn,
          int endian) {
   int ret = 0;
 
   if (endian == 1)
-    ret = byte_pad_be(out, size, raw, len);
+    ret = byte_pad_be(zp, zn, xp, xn);
   else if (endian == -1)
-    ret = byte_pad_le(out, size, raw, len);
+    ret = byte_pad_le(zp, zn, xp, xn);
   else
-    memset(out, 0, size);
+    memset(zp, 0, zn);
 
   return ret;
 }
