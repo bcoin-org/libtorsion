@@ -18,114 +18,79 @@
  */
 
 TORSION_UNUSED static void
-sc_out_str(const scalar_field_t *sc, const sc_t a) {
-  char str[(MAX_SCALAR_BITS + 3) / 4 + 1];
-
-  mpn_get_str(str, a, sc->limbs, 16);
-
-  fputs(str, stdout);
+sc_print(const scalar_field_t *sc, const sc_t x, mp_puts_f *mp_puts) {
+  mpn_print(x, sc->limbs, 16, mp_puts);
 }
 
 TORSION_UNUSED static void
-sc_print(const scalar_field_t *sc, const sc_t a) {
-  sc_out_str(sc, a);
-  printf("\n");
-}
-
-TORSION_UNUSED static void
-fe_out_str(const prime_field_t *fe, const fe_t a) {
-  char str[(MAX_FIELD_BITS + 3) / 4 + 1];
+fe_print(const prime_field_t *fe, const fe_t x, mp_puts_f *mp_puts) {
   mp_limb_t xp[MAX_FIELD_LIMBS];
 
-  fe_get_limbs(fe, xp, a);
+  fe_get_limbs(fe, xp, x);
 
-  mpn_get_str(str, xp, fe->limbs, 16);
-
-  fputs(str, stdout);
+  mpn_print(xp, fe->limbs, 16, mp_puts);
 }
 
 TORSION_UNUSED static void
-fe_print(const prime_field_t *fe, const fe_t a) {
-  fe_out_str(fe, a);
-  printf("\n");
-}
-
-TORSION_UNUSED static void
-wge_print(const wei_t *ec, const wge_t *p) {
+wge_print(const wei_t *ec, const wge_t *p, mp_puts_f *mp_puts) {
   const prime_field_t *fe = &ec->fe;
 
   if (p->inf) {
-    printf("(infinity)\n");
+    mp_puts("(infinity)");
   } else {
-    printf("(");
-    fe_out_str(fe, p->x);
-    printf(", ");
-    fe_out_str(fe, p->y);
-    printf(")\n");
+    fe_print(fe, p->x, mp_puts);
+    fe_print(fe, p->y, mp_puts);
   }
 }
 
 TORSION_UNUSED static void
-jge_print(const wei_t *ec, const jge_t *p) {
+jge_print(const wei_t *ec, const jge_t *p, mp_puts_f *mp_puts) {
   const prime_field_t *fe = &ec->fe;
 
   if (p->inf) {
-    printf("(infinity)\n");
+    mp_puts("(infinity)");
   } else {
-    printf("(");
-    fe_out_str(fe, p->x);
-    printf(", ");
-    fe_out_str(fe, p->y);
-    printf(", ");
-    fe_out_str(fe, p->z);
-    printf(")\n");
+    fe_print(fe, p->x, mp_puts);
+    fe_print(fe, p->y, mp_puts);
+    fe_print(fe, p->z, mp_puts);
   }
 }
 
 TORSION_UNUSED static void
-mge_print(const mont_t *ec, const mge_t *p) {
+mge_print(const mont_t *ec, const mge_t *p, mp_puts_f *mp_puts) {
   const prime_field_t *fe = &ec->fe;
 
-  if (mge_is_zero(ec, p)) {
-    printf("(infinity)\n");
+  if (p->inf) {
+    mp_puts("(infinity)");
   } else {
-    printf("(");
-    fe_out_str(fe, p->x);
-    printf(", ");
-    fe_out_str(fe, p->y);
-    printf(")\n");
+    fe_print(fe, p->x, mp_puts);
+    fe_print(fe, p->y, mp_puts);
   }
 }
 
 TORSION_UNUSED static void
-pge_print(const mont_t *ec, const pge_t *p) {
+pge_print(const mont_t *ec, const pge_t *p, mp_puts_f *mp_puts) {
   const prime_field_t *fe = &ec->fe;
 
   if (pge_is_zero(ec, p)) {
-    printf("(infinity)\n");
+    mp_puts("(infinity)");
   } else {
-    printf("(");
-    fe_out_str(fe, p->x);
-    printf(", ");
-    fe_out_str(fe, p->z);
-    printf(")\n");
+    fe_print(fe, p->x, mp_puts);
+    fe_print(fe, p->z, mp_puts);
   }
 }
 
 TORSION_UNUSED static void
-xge_print(const edwards_t *ec, const xge_t *p) {
+xge_print(const edwards_t *ec, const xge_t *p, mp_puts_f *mp_puts) {
   const prime_field_t *fe = &ec->fe;
 
   if (xge_is_zero(ec, p)) {
-    printf("(infinity)\n");
+    mp_puts("(infinity)");
   } else {
-    printf("(");
-    fe_out_str(fe, p->x);
-    printf(", ");
-    fe_out_str(fe, p->y);
-    printf(", ");
-    fe_out_str(fe, p->z);
-    printf(")\n");
+    fe_print(fe, p->x, mp_puts);
+    fe_print(fe, p->y, mp_puts);
+    fe_print(fe, p->z, mp_puts);
+    fe_print(fe, p->t, mp_puts);
   }
 }
 
@@ -134,83 +99,92 @@ xge_print(const edwards_t *ec, const xge_t *p) {
  */
 
 static int
-wge_equal_raw(const wei_t *ec, const wge_t *a, const unsigned char *b) {
-  unsigned char raw[1 + MAX_FIELD_SIZE];
+wge_equal_raw(const wei_t *ec, const wge_t *p,
+              const unsigned char *raw, int compact) {
+  unsigned char tmp[MAX_PUB_SIZE];
+  int ret = 1;
   size_t len;
 
-  if (!wge_export(ec, raw, &len, a, 1))
-    return 0;
+  ret &= wge_export(ec, tmp, &len, p, compact);
+  ret &= torsion_memequal(tmp, raw, len);
 
-  return torsion_memcmp_var(b, raw, len) == 0;
+  return ret;
 }
 
 static int
-jge_equal_raw(const wei_t *ec, const jge_t *a, const unsigned char *b) {
+jge_equal_raw(const wei_t *ec, const jge_t *p,
+              const unsigned char *raw, int compact) {
   wge_t t;
 
-  wge_set_jge_var(ec, &t, a);
+  wge_set_jge(ec, &t, p);
 
-  return wge_equal_raw(ec, &t, b);
+  return wge_equal_raw(ec, &t, raw, compact);
 }
 
 static int
-mge_equal_raw(const mont_t *ec, const mge_t *a, const unsigned char *b) {
-  unsigned char raw[MAX_FIELD_SIZE];
+mge_equal_raw(const mont_t *ec, const mge_t *p, const unsigned char *raw) {
+  const prime_field_t *fe = &ec->fe;
+  unsigned char tmp[MAX_FIELD_SIZE];
+  int ret = 1;
 
-  if (!mge_export(ec, raw, NULL, a))
-    return 0;
+  ret &= mge_export(ec, tmp, NULL, p);
+  ret &= torsion_memequal(tmp, raw, fe->size);
 
-  return torsion_memcmp_var(b, raw, ec->fe.size) == 0;
+  return ret;
 }
 
 static int
-pge_equal_raw(const mont_t *ec, const pge_t *a, const unsigned char *b) {
-  unsigned char raw[MAX_FIELD_SIZE];
+pge_equal_raw(const mont_t *ec, const pge_t *p, const unsigned char *raw) {
+  const prime_field_t *fe = &ec->fe;
+  unsigned char tmp[MAX_FIELD_SIZE];
+  int ret = 1;
 
-  if (!pge_export(ec, raw, a))
-    return 0;
+  ret &= pge_export(ec, tmp, p);
+  ret &= torsion_memequal(tmp, raw, fe->size);
 
-  return torsion_memcmp_var(b, raw, ec->fe.size) == 0;
+  return ret;
 }
 
 static int
-xge_equal_raw(const edwards_t *ec, const xge_t *a, const unsigned char *b) {
-  unsigned char raw[MAX_FIELD_SIZE + 1];
+xge_equal_raw(const edwards_t *ec, const xge_t *p, const unsigned char *raw) {
+  const prime_field_t *fe = &ec->fe;
+  unsigned char tmp[MAX_FIELD_SIZE + 1];
 
-  xge_export(ec, raw, a);
+  xge_export(ec, tmp, p);
 
-  return torsion_memcmp_var(b, raw, ec->fe.adj_size) == 0;
+  return torsion_memequal(tmp, raw, fe->adj_size);
 }
 
 static int
-rge_equal_raw(const edwards_t *ec, const rge_t *a, const unsigned char *b) {
-  unsigned char raw[MAX_FIELD_SIZE];
+rge_equal_raw(const edwards_t *ec, const rge_t *p, const unsigned char *raw) {
+  const prime_field_t *fe = &ec->fe;
+  unsigned char tmp[MAX_FIELD_SIZE];
 
-  rge_export(ec, raw, a);
+  rge_export(ec, tmp, p);
 
-  return torsion_memcmp_var(b, raw, ec->fe.size) == 0;
+  return torsion_memequal(tmp, raw, fe->size);
 }
 
 TORSION_UNUSED static void
-wge_set_jge_zinv(const wei_t *ec, wge_t *r, const jge_t *p, const fe_t a) {
+wge_set_jge_zinv(const wei_t *ec, wge_t *r, const jge_t *p, const fe_t z) {
   /* https://hyperelliptic.org/EFD/g1p/auto-shortw-jacobian.html#scaling-z
    * 3M + 1S
    */
   const prime_field_t *fe = &ec->fe;
-  int inf = fe_is_zero(fe, a);
-  fe_t aa;
+  int inf = fe_is_zero(fe, z);
+  fe_t zz;
 
   ASSERT(!p->inf);
 
-  /* AA = A^2 */
-  fe_sqr(fe, aa, a);
+  /* ZZ = Z^2 */
+  fe_sqr(fe, zz, z);
 
-  /* X3 = X1 * AA */
-  fe_mul(fe, r->x, p->x, aa);
+  /* X3 = X1 * ZZ */
+  fe_mul(fe, r->x, p->x, zz);
 
-  /* Y3 = Y1 * AA * A */
-  fe_mul(fe, r->y, p->y, aa);
-  fe_mul(fe, r->y, r->y, a);
+  /* Y3 = Y1 * ZZ * Z */
+  fe_mul(fe, r->y, p->y, zz);
+  fe_mul(fe, r->y, r->y, z);
 
   /* Check for infinity. */
   r->inf = inf;
@@ -404,8 +378,7 @@ test_scalar_encoding_secq256k1(drbg_t *unused) {
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01
   };
 
-  scalar_field_t field;
-  scalar_field_t *sc = &field;
+  scalar_field_t sc[1];
   mp_limb_t r[MAX_SCALAR_LIMBS];
   mp_limb_t t[MAX_REDUCE_LIMBS];
   unsigned char raw[MAX_SCALAR_SIZE];
@@ -474,8 +447,7 @@ test_scalar_encoding_q25519(drbg_t *unused) {
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
   };
 
-  scalar_field_t field;
-  scalar_field_t *sc = &field;
+  scalar_field_t sc[1];
   mp_limb_t r[MAX_SCALAR_LIMBS];
   mp_limb_t t[MAX_REDUCE_LIMBS];
   unsigned char raw[MAX_SCALAR_SIZE];
@@ -534,8 +506,7 @@ test_scalar_encoding_q25519(drbg_t *unused) {
 
 static void
 test_scalar_addsub_secq256k1(drbg_t *rng) {
-  scalar_field_t field;
-  scalar_field_t *sc = &field;
+  scalar_field_t sc[1];
   sc_t two, a, b, ae, mb, aa1, aa2, ab, a1, a2;
   int i;
 
@@ -588,8 +559,7 @@ test_scalar_reduce_secq256k1(drbg_t *unused) {
     0x40, 0x2d, 0xa1, 0x73, 0x2f, 0xc9, 0xbe, 0xbe
   };
 
-  scalar_field_t field;
-  scalar_field_t *sc = &field;
+  scalar_field_t sc[1];
   unsigned char max[32];
   sc_t r;
 
@@ -612,8 +582,7 @@ static void
 test_scalar_invert_q251(drbg_t *rng) {
   /* Not tested anywhere else at the moment. */
   static const sc_t one = {1, 0};
-  scalar_field_t field;
-  scalar_field_t *sc = &field;
+  scalar_field_t sc[1];
   sc_t x, y;
 
   printf("  - Testing scalar inversion (q251).\n");
@@ -645,16 +614,16 @@ test_scalar_naf(drbg_t *unused) {
   static const int expect2[] = {0, -1, 0, 1, 0, -1, 0, 1};
   int naf1[MAX_SCALAR_BITS + 1];
   int naf2[MAX_SCALAR_BITS + 1];
-  scalar_field_t sc;
+  scalar_field_t sc[1];
 
   (void)unused;
 
   printf("  - Testing NAF.\n");
 
-  scalar_field_init(&sc, &field_secq256k1, 1);
+  scalar_field_init(sc, &field_secq256k1, 1);
 
-  ASSERT(sc_naf_var(&sc, naf1, k1, 2) == ARRAY_SIZE(expect1));
-  ASSERT(sc_naf_var(&sc, naf2, k2, 2) == ARRAY_SIZE(expect2));
+  ASSERT(sc_naf_var(sc, naf1, k1, 2) == ARRAY_SIZE(expect1));
+  ASSERT(sc_naf_var(sc, naf2, k2, 2) == ARRAY_SIZE(expect2));
 
   ASSERT(torsion_memcmp_var(naf1, expect1, sizeof(expect1)) == 0);
   ASSERT(torsion_memcmp_var(naf2, expect2, sizeof(expect2)) == 0);
@@ -666,15 +635,15 @@ test_scalar_jsf(drbg_t *unused) {
   static const sc_t k2 = {102, 0};
   static const int expect[] = {-1, -3, 0, -5, 0, 7, 3};
   int jsf[MAX_SCALAR_BITS + 1];
-  scalar_field_t sc;
+  scalar_field_t sc[1];
 
   (void)unused;
 
   printf("  - Testing JSF.\n");
 
-  scalar_field_init(&sc, &field_secq256k1, 1);
+  scalar_field_init(sc, &field_secq256k1, 1);
 
-  ASSERT(sc_jsf_var(&sc, jsf, k1, k2) == ARRAY_SIZE(expect));
+  ASSERT(sc_jsf_var(sc, jsf, k1, k2) == ARRAY_SIZE(expect));
   ASSERT(torsion_memcmp_var(jsf, expect, sizeof(expect)) == 0);
 }
 
@@ -684,8 +653,7 @@ test_scalar_jsf(drbg_t *unused) {
 
 static void
 test_field_element(drbg_t *unused) {
-  prime_field_t field;
-  prime_field_t *fe = &field;
+  prime_field_t fe[1];
   unsigned char raw[MAX_FIELD_SIZE];
   fe_t t;
 
@@ -758,8 +726,8 @@ test_wei_points(wei_curve_id_t type,
                 const unsigned char points[3][1 + MAX_FIELD_SIZE],
                 drbg_t *rng) {
   wei_t *ec = wei_curve_create(type);
-  scalar_field_t *sc = &ec->sc;
-  prime_field_t *fe = &ec->fe;
+  const scalar_field_t *sc = &ec->sc;
+  const prime_field_t *fe = &ec->fe;
   jge_t jo, jg, jp, jq, jr;
   wge_t o, g, p, q, r;
   jge_t jmg, jmq, jmr;
@@ -1103,7 +1071,7 @@ test_wei_points(wei_curve_id_t type,
 
   ASSERT(!wge_is_zero(ec, &p));
   ASSERT(wge_equal(ec, &p, &r));
-  ASSERT(wge_equal_raw(ec, &p, points[2]));
+  ASSERT(wge_equal_raw(ec, &p, points[2], 1));
 
   /*
    * Normalization / Export (constant time)
@@ -1113,7 +1081,7 @@ test_wei_points(wei_curve_id_t type,
 
   ASSERT(!wge_is_zero(ec, &p));
   ASSERT(wge_equal(ec, &p, &r));
-  ASSERT(wge_equal_raw(ec, &p, points[2]));
+  ASSERT(wge_equal_raw(ec, &p, points[2], 1));
 
   /*
    * Cleanup
@@ -1127,7 +1095,7 @@ test_wei_degenerate_points(wei_curve_id_t type,
                            const unsigned char points[3][1 + MAX_FIELD_SIZE],
                            const unsigned char expect[4][1 + MAX_FIELD_SIZE]) {
   wei_t *ec = wei_curve_create(type);
-  prime_field_t *fe = &ec->fe;
+  const prime_field_t *fe = &ec->fe;
   wge_t p, q0, q1, e0, e1, e2, e3, r;
   jge_t pj, qj0, qj1, ej0, ej1, ej2, ej3, rj, rm;
 
@@ -1155,9 +1123,9 @@ test_wei_degenerate_points(wei_curve_id_t type,
   ASSERT(jge_equal(ec, &rj, &ej0));
   ASSERT(jge_equal(ec, &rm, &ej0));
 
-  ASSERT(wge_equal_raw(ec, &r, expect[0]));
-  ASSERT(jge_equal_raw(ec, &rj, expect[0]));
-  ASSERT(jge_equal_raw(ec, &rm, expect[0]));
+  ASSERT(wge_equal_raw(ec, &r, expect[0], 1));
+  ASSERT(jge_equal_raw(ec, &rj, expect[0], 1));
+  ASSERT(jge_equal_raw(ec, &rm, expect[0], 1));
 
   wge_sub(ec, &r, &p, &q0);
   jge_sub(ec, &rj, &pj, &qj0);
@@ -1167,9 +1135,9 @@ test_wei_degenerate_points(wei_curve_id_t type,
   ASSERT(jge_equal(ec, &rj, &ej1));
   ASSERT(jge_equal(ec, &rm, &ej1));
 
-  ASSERT(wge_equal_raw(ec, &r, expect[1]));
-  ASSERT(jge_equal_raw(ec, &rj, expect[1]));
-  ASSERT(jge_equal_raw(ec, &rm, expect[1]));
+  ASSERT(wge_equal_raw(ec, &r, expect[1], 1));
+  ASSERT(jge_equal_raw(ec, &rj, expect[1], 1));
+  ASSERT(jge_equal_raw(ec, &rm, expect[1], 1));
 
   wge_add(ec, &r, &p, &q1);
   jge_add(ec, &rj, &pj, &qj1);
@@ -1179,9 +1147,9 @@ test_wei_degenerate_points(wei_curve_id_t type,
   ASSERT(jge_equal(ec, &rj, &ej2));
   ASSERT(jge_equal(ec, &rm, &ej2));
 
-  ASSERT(wge_equal_raw(ec, &r, expect[2]));
-  ASSERT(jge_equal_raw(ec, &rj, expect[2]));
-  ASSERT(jge_equal_raw(ec, &rm, expect[2]));
+  ASSERT(wge_equal_raw(ec, &r, expect[2], 1));
+  ASSERT(jge_equal_raw(ec, &rj, expect[2], 1));
+  ASSERT(jge_equal_raw(ec, &rm, expect[2], 1));
 
   wge_sub(ec, &r, &p, &q1);
   jge_sub(ec, &rj, &pj, &qj1);
@@ -1191,9 +1159,9 @@ test_wei_degenerate_points(wei_curve_id_t type,
   ASSERT(jge_equal(ec, &rj, &ej3));
   ASSERT(jge_equal(ec, &rm, &ej3));
 
-  ASSERT(wge_equal_raw(ec, &r, expect[3]));
-  ASSERT(jge_equal_raw(ec, &rj, expect[3]));
-  ASSERT(jge_equal_raw(ec, &rm, expect[3]));
+  ASSERT(wge_equal_raw(ec, &r, expect[3], 1));
+  ASSERT(jge_equal_raw(ec, &rj, expect[3], 1));
+  ASSERT(jge_equal_raw(ec, &rm, expect[3], 1));
 
   wei_curve_destroy(ec);
 }
@@ -1201,8 +1169,8 @@ test_wei_degenerate_points(wei_curve_id_t type,
 static void
 test_wei_fuzzy_equality(wei_curve_id_t type, drbg_t *rng) {
   wei_t *ec = wei_curve_create(type);
-  scalar_field_t *sc = &ec->sc;
-  prime_field_t *fe = &ec->fe;
+  const scalar_field_t *sc = &ec->sc;
+  const prime_field_t *fe = &ec->fe;
   mp_limb_t r[MAX_SCALAR_LIMBS];
   wge_t P;
   jge_t J;
@@ -1289,8 +1257,8 @@ test_wei_mul_g(wei_curve_id_t type,
                drbg_t *rng) {
   unsigned char entropy[ENTROPY_SIZE];
   wei_t *ec = wei_curve_create(type);
-  scalar_field_t *sc = &ec->sc;
-  prime_field_t *fe = &ec->fe;
+  const scalar_field_t *sc = &ec->sc;
+  const prime_field_t *fe = &ec->fe;
   wge_t q, r;
   sc_t k;
 
@@ -1305,7 +1273,7 @@ test_wei_mul_g(wei_curve_id_t type,
   wei_mul_g(ec, &q, k);
 
   ASSERT(wge_equal(ec, &q, &r));
-  ASSERT(wge_equal_raw(ec, &q, expect));
+  ASSERT(wge_equal_raw(ec, &q, expect, 1));
 
   wei_curve_destroy(ec);
 }
@@ -1316,8 +1284,8 @@ test_wei_mul(wei_curve_id_t type,
              const unsigned char *scalar,
              const unsigned char *expect) {
   wei_t *ec = wei_curve_create(type);
-  scalar_field_t *sc = &ec->sc;
-  prime_field_t *fe = &ec->fe;
+  const scalar_field_t *sc = &ec->sc;
+  const prime_field_t *fe = &ec->fe;
   wge_t p, q, r;
   sc_t k;
 
@@ -1328,7 +1296,7 @@ test_wei_mul(wei_curve_id_t type,
   wei_mul(ec, &q, &p, k);
 
   ASSERT(wge_equal(ec, &q, &r));
-  ASSERT(wge_equal_raw(ec, &q, expect));
+  ASSERT(wge_equal_raw(ec, &q, expect, 1));
 
   wei_curve_destroy(ec);
 }
@@ -1340,8 +1308,8 @@ test_wei_double_mul(wei_curve_id_t type,
                     const unsigned char *scalar2,
                     const unsigned char *expect) {
   wei_t *ec = wei_curve_create(type);
-  scalar_field_t *sc = &ec->sc;
-  prime_field_t *fe = &ec->fe;
+  const scalar_field_t *sc = &ec->sc;
+  const prime_field_t *fe = &ec->fe;
   wge_t p, q, r;
   sc_t k1, k2;
 
@@ -1353,7 +1321,7 @@ test_wei_double_mul(wei_curve_id_t type,
   wei_mul_double_var(ec, &q, k1, &p, k2);
 
   ASSERT(wge_equal(ec, &q, &r));
-  ASSERT(wge_equal_raw(ec, &q, expect));
+  ASSERT(wge_equal_raw(ec, &q, expect, 1));
 
   wei_curve_destroy(ec);
 }
@@ -1368,8 +1336,8 @@ test_wei_multi_mul(wei_curve_id_t type,
                    const unsigned char *expect) {
   wei_t *ec = wei_curve_create(type);
   wei_scratch_t *scratch = wei_scratch_create(ec, 2);
-  scalar_field_t *sc = &ec->sc;
-  prime_field_t *fe = &ec->fe;
+  const scalar_field_t *sc = &ec->sc;
+  const prime_field_t *fe = &ec->fe;
   wge_t p1, p2, q, r;
   sc_t k0, k1, k2;
   wge_t points[2];
@@ -1391,7 +1359,7 @@ test_wei_multi_mul(wei_curve_id_t type,
   wei_mul_multi_var(ec, &q, k0, points, (const sc_t *)coeffs, 2, scratch);
 
   ASSERT(wge_equal(ec, &q, &r));
-  ASSERT(wge_equal_raw(ec, &q, expect));
+  ASSERT(wge_equal_raw(ec, &q, expect, 1));
 
   wei_scratch_destroy(ec, scratch);
   wei_curve_destroy(ec);
@@ -1899,7 +1867,7 @@ test_wei_scalar_decomposition_secp256k1(drbg_t *rng) {
   };
 
   wei_t *ec = wei_curve_create(WEI_CURVE_SECP256K1);
-  scalar_field_t *sc = &ec->sc;
+  const scalar_field_t *sc = &ec->sc;
   sc_t k1b, k2b;
   size_t i;
 
@@ -2300,7 +2268,7 @@ test_mont_points(mont_curve_id_t type,
                  const unsigned char points[3][1 + MAX_FIELD_SIZE],
                  drbg_t *rng) {
   mont_t *ec = mont_curve_create(type);
-  scalar_field_t *sc = &ec->sc;
+  const scalar_field_t *sc = &ec->sc;
   pge_t jo, jg, jp, jq, jr;
   mge_t o, g, p, q, r;
   mge_t mg, mq, mr;
@@ -2485,7 +2453,7 @@ test_mont_mul_g(mont_curve_id_t type,
                 const unsigned char *scalar,
                 const unsigned char *expect) {
   mont_t *ec = mont_curve_create(type);
-  scalar_field_t *sc = &ec->sc;
+  const scalar_field_t *sc = &ec->sc;
   pge_t q, r;
   sc_t k;
 
@@ -2507,7 +2475,7 @@ test_mont_mul(mont_curve_id_t type,
               const unsigned char *expect,
               int affine) {
   mont_t *ec = mont_curve_create(type);
-  scalar_field_t *sc = &ec->sc;
+  const scalar_field_t *sc = &ec->sc;
   pge_t p, q, r;
   sc_t k;
 
@@ -2728,7 +2696,7 @@ test_edwards_points(edwards_curve_id_t type,
                     const unsigned char points[3][MAX_FIELD_SIZE + 1],
                     drbg_t *rng) {
   edwards_t *ec = edwards_curve_create(type);
-  scalar_field_t *sc = &ec->sc;
+  const scalar_field_t *sc = &ec->sc;
   xge_t o, g, p, q, r;
   xge_t mg, mq, mr;
   unsigned int i;
@@ -2920,7 +2888,7 @@ test_edwards_mul_g(edwards_curve_id_t type,
                    drbg_t *rng) {
   unsigned char entropy[ENTROPY_SIZE];
   edwards_t *ec = edwards_curve_create(type);
-  scalar_field_t *sc = &ec->sc;
+  const scalar_field_t *sc = &ec->sc;
   xge_t q, r;
   sc_t k;
 
@@ -2946,7 +2914,7 @@ test_edwards_mul(edwards_curve_id_t type,
                  const unsigned char *scalar,
                  const unsigned char *expect) {
   edwards_t *ec = edwards_curve_create(type);
-  scalar_field_t *sc = &ec->sc;
+  const scalar_field_t *sc = &ec->sc;
   xge_t p, q, r;
   sc_t k;
 
@@ -2969,7 +2937,7 @@ test_edwards_double_mul(edwards_curve_id_t type,
                         const unsigned char *scalar2,
                         const unsigned char *expect) {
   edwards_t *ec = edwards_curve_create(type);
-  scalar_field_t *sc = &ec->sc;
+  const scalar_field_t *sc = &ec->sc;
   xge_t p, q, r;
   sc_t k1, k2;
 
@@ -2996,7 +2964,7 @@ test_edwards_multi_mul(edwards_curve_id_t type,
                        const unsigned char *expect) {
   edwards_t *ec = edwards_curve_create(type);
   edwards_scratch_t *scratch = edwards_scratch_create(ec, 2);
-  scalar_field_t *sc = &ec->sc;
+  const scalar_field_t *sc = &ec->sc;
   xge_t p1, p2, q, r;
   sc_t k0, k1, k2;
   xge_t points[2];
@@ -3812,7 +3780,7 @@ test_ristretto_elligator(drbg_t *unused) {
   };
 
   edwards_t *ec = edwards_curve_create(EDWARDS_CURVE_ED25519);
-  prime_field_t *fe = &ec->fe;
+  const prime_field_t *fe = &ec->fe;
   size_t i, j, total;
   fe_t r0, r1;
   rge_t p, q;
