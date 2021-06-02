@@ -719,7 +719,7 @@ checked_malloc(size_t size) {
  */
 
 static void
-fe_export(const prime_field_t *fe, unsigned char *raw, const fe_t x);
+fe_export(const prime_field_t *fe, unsigned char *zp, const fe_t x);
 
 static void
 sc_zero(const scalar_field_t *sc, sc_t z) {
@@ -941,15 +941,15 @@ sc_normal(const scalar_field_t *sc, sc_t z, const sc_t x) {
 }
 
 static void
-sc_import_raw(const scalar_field_t *sc, sc_t z, const unsigned char *raw) {
-  mpn_import(z, sc->limbs, raw, sc->size, sc->endian);
+sc_import_raw(const scalar_field_t *sc, sc_t z, const unsigned char *xp) {
+  mpn_import(z, sc->limbs, xp, sc->size, sc->endian);
 }
 
 static int
-sc_import(const scalar_field_t *sc, sc_t z, const unsigned char *raw) {
+sc_import(const scalar_field_t *sc, sc_t z, const unsigned char *xp) {
   int ret = 1;
 
-  sc_import_raw(sc, z, raw);
+  sc_import_raw(sc, z, xp);
 
   ret &= sc_is_canonical(sc, z);
 
@@ -960,17 +960,17 @@ sc_import(const scalar_field_t *sc, sc_t z, const unsigned char *raw) {
 
 static int
 sc_import_wide(const scalar_field_t *sc, sc_t z,
-               const unsigned char *raw, size_t len) {
+               const unsigned char *xp, size_t xn) {
   mp_limb_t zp[MAX_REDUCE_LIMBS]; /* 160 bytes */
   int ret = 1;
 
-  ASSERT(len * 8 <= (size_t)sc->shift * MP_LIMB_BITS);
+  ASSERT(xn * 8 <= (size_t)sc->shift * MP_LIMB_BITS);
 
-  mpn_import(zp, sc->shift, raw, len, sc->endian);
+  mpn_import(zp, sc->shift, xp, xn, sc->endian);
 
   ret &= mpn_sec_lt_p(zp, sc->n, sc->limbs);
 
-  if (len > sc->size)
+  if (xn > sc->size)
     ret &= mpn_sec_zero_p(zp + sc->limbs, sc->shift - sc->limbs);
 
   sc_reduce(sc, z, zp);
@@ -981,54 +981,54 @@ sc_import_wide(const scalar_field_t *sc, sc_t z,
 }
 
 static int
-sc_import_weak(const scalar_field_t *sc, sc_t z, const unsigned char *raw) {
-  sc_import_raw(sc, z, raw);
+sc_import_weak(const scalar_field_t *sc, sc_t z, const unsigned char *xp) {
+  sc_import_raw(sc, z, xp);
 
   return sc_reduce_weak(sc, z, z, 0) ^ 1;
 }
 
 static int
-sc_import_strong(const scalar_field_t *sc, sc_t z, const unsigned char *raw) {
-  return sc_import_wide(sc, z, raw, sc->size);
+sc_import_strong(const scalar_field_t *sc, sc_t z, const unsigned char *xp) {
+  return sc_import_wide(sc, z, xp, sc->size);
 }
 
 static int
-sc_import_reduce(const scalar_field_t *sc, sc_t z, const unsigned char *raw) {
+sc_import_reduce(const scalar_field_t *sc, sc_t z, const unsigned char *xp) {
   if ((sc->bits & 7) == 0)
-    return sc_import_weak(sc, z, raw);
+    return sc_import_weak(sc, z, xp);
 
-  return sc_import_strong(sc, z, raw);
+  return sc_import_strong(sc, z, xp);
 }
 
 static int
 sc_import_pad_raw(const scalar_field_t *sc, sc_t z,
-                  const unsigned char *raw, size_t len) {
+                  const unsigned char *xp, size_t xn) {
   if (sc->endian == 1) {
-    while (len > sc->size && raw[0] == 0x00) {
-      raw += 1;
-      len -= 1;
+    while (xn > sc->size && xp[0] == 0x00) {
+      xp += 1;
+      xn -= 1;
     }
   } else {
-    while (len > sc->size && raw[len - 1] == 0x00)
-      len -= 1;
+    while (xn > sc->size && xp[xn - 1] == 0x00)
+      xn -= 1;
   }
 
-  if (len > sc->size) {
+  if (xn > sc->size) {
     mpn_zero(z, sc->limbs);
     return 0;
   }
 
-  mpn_import(z, sc->limbs, raw, len, sc->endian);
+  mpn_import(z, sc->limbs, xp, xn, sc->endian);
 
   return 1;
 }
 
 static int
 sc_import_pad(const scalar_field_t *sc, sc_t z,
-              const unsigned char *raw, size_t len) {
+              const unsigned char *xp, size_t xn) {
   int ret = 1;
 
-  ret &= sc_import_pad_raw(sc, z, raw, len);
+  ret &= sc_import_pad_raw(sc, z, xp, xn);
   ret &= sc_is_canonical(sc, z);
 
   sc_select_zero(sc, z, z, ret ^ 1);
@@ -1037,8 +1037,8 @@ sc_import_pad(const scalar_field_t *sc, sc_t z,
 }
 
 static void
-sc_export(const scalar_field_t *sc, unsigned char *raw, const sc_t x) {
-  mpn_export(raw, sc->size, x, sc->limbs, sc->endian);
+sc_export(const scalar_field_t *sc, unsigned char *zp, const sc_t x) {
+  mpn_export(zp, sc->size, x, sc->limbs, sc->endian);
 }
 
 static int
@@ -1361,15 +1361,15 @@ fe_cleanse(const prime_field_t *fe, fe_t z) {
 }
 
 static int
-fe_import(const prime_field_t *fe, fe_t z, const unsigned char *raw) {
+fe_import(const prime_field_t *fe, fe_t z, const unsigned char *xp) {
   unsigned char tmp[MAX_FIELD_SIZE];
   int ret = 1;
 
   /* Swap endianness if necessary. */
   if (fe->endian == 1)
-    reverse_copy(tmp, raw, fe->size);
+    reverse_copy(tmp, xp, fe->size);
   else
-    memcpy(tmp, raw, fe->size);
+    memcpy(tmp, xp, fe->size);
 
   /* Ensure 0 <= x < p. */
   ret &= bytes_lt(tmp, fe->raw, fe->size);
@@ -1388,24 +1388,24 @@ fe_import(const prime_field_t *fe, fe_t z, const unsigned char *raw) {
 }
 
 static int
-fe_import_be(const prime_field_t *fe, fe_t z, const unsigned char *raw) {
+fe_import_be(const prime_field_t *fe, fe_t z, const unsigned char *xp) {
   unsigned char tmp[MAX_FIELD_SIZE];
 
   if (fe->endian == -1) {
-    reverse_copy(tmp, raw, fe->size);
-    raw = tmp;
+    reverse_copy(tmp, xp, fe->size);
+    xp = tmp;
   }
 
-  return fe_import(fe, z, raw);
+  return fe_import(fe, z, xp);
 }
 
 static int
 fe_import_pad(const prime_field_t *fe, fe_t z,
-              const unsigned char *raw, size_t len) {
+              const unsigned char *xp, size_t xn) {
   unsigned char tmp[MAX_FIELD_SIZE];
   int ret = 1;
 
-  ret &= byte_pad(tmp, fe->size, raw, len, fe->endian);
+  ret &= byte_pad(tmp, fe->size, xp, xn, fe->endian);
   ret &= fe_import(fe, z, tmp);
 
   cleanse(tmp, fe->size);
@@ -1414,17 +1414,17 @@ fe_import_pad(const prime_field_t *fe, fe_t z,
 }
 
 static void
-fe_export(const prime_field_t *fe, unsigned char *raw, const fe_t x) {
+fe_export(const prime_field_t *fe, unsigned char *zp, const fe_t x) {
   if (fe->from_montgomery != NULL) {
     fe_t t;
     fe->from_montgomery(t, x);
-    fe->to_bytes(raw, t);
+    fe->to_bytes(zp, t);
   } else {
-    fe->to_bytes(raw, x);
+    fe->to_bytes(zp, x);
   }
 
   if (fe->endian == 1)
-    reverse_bytes(raw, fe->size);
+    reverse_bytes(zp, fe->size);
 }
 
 static void
