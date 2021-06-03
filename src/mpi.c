@@ -4409,6 +4409,15 @@ mpn_sizeinbase(const mp_limb_t *xp, mp_size_t xn, int base) {
  */
 
 void
+mpn_cnd_zero(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn, mp_limb_t cnd) {
+  mp_limb_t m = -mp_limb_barrier(cnd != 0);
+  mp_size_t i;
+
+  for (i = 0; i < xn; i++)
+    zp[i] = xp[i] & ~m;
+}
+
+void
 mpn_cnd_select(mp_limb_t *zp, const mp_limb_t *xp,
                               const mp_limb_t *yp,
                               mp_size_t n,

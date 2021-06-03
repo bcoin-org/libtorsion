@@ -94,6 +94,7 @@
 #define mpn_bitlen torsion__mpn_bitlen
 #define mpn_bytelen torsion__mpn_bytelen
 #define mpn_sizeinbase torsion__mpn_sizeinbase
+#define mpn_cnd_zero torsion__mpn_cnd_zero
 #define mpn_cnd_select torsion__mpn_cnd_select
 #define mpn_cnd_swap torsion__mpn_cnd_swap
 #define mpn_cnd_add_n torsion__mpn_cnd_add_n
@@ -836,6 +837,9 @@ mpn_sizeinbase(const mp_limb_t *xp, mp_size_t xn, int base);
 /*
  * Constant Time
  */
+
+void
+mpn_cnd_zero(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn, mp_limb_t cnd);
 
 void
 mpn_cnd_select(mp_limb_t *zp, const mp_limb_t *xp,
