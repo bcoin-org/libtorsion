@@ -242,7 +242,7 @@ typedef struct scalar_field_s {
 
 typedef struct scalar_def_s {
   mp_bits_t bits;
-  const unsigned char n[MAX_FIELD_SIZE];
+  unsigned char n[MAX_FIELD_SIZE];
   sc_invert_f *invert;
 } scalar_def_t;
 
@@ -315,7 +315,7 @@ typedef struct prime_field_s {
 typedef struct prime_def_s {
   mp_bits_t bits;
   fe_size_t words;
-  const unsigned char p[MAX_FIELD_SIZE];
+  unsigned char p[MAX_FIELD_SIZE];
   fe_add_f *add;
   fe_sub_f *sub;
   fe_opp_f *opp;
@@ -344,12 +344,12 @@ typedef struct prime_def_s {
  */
 
 typedef struct endo_def_s {
-  const unsigned char beta[MAX_FIELD_SIZE];
-  const unsigned char lambda[MAX_SCALAR_SIZE];
-  const unsigned char b1[MAX_SCALAR_SIZE];
-  const unsigned char b2[MAX_SCALAR_SIZE];
-  const unsigned char g1[MAX_SCALAR_SIZE];
-  const unsigned char g2[MAX_SCALAR_SIZE];
+  unsigned char beta[MAX_FIELD_SIZE];
+  unsigned char lambda[MAX_SCALAR_SIZE];
+  unsigned char b1[MAX_SCALAR_SIZE];
+  unsigned char b2[MAX_SCALAR_SIZE];
+  unsigned char g1[MAX_SCALAR_SIZE];
+  unsigned char g2[MAX_SCALAR_SIZE];
   mp_bits_t prec;
 } endo_def_t;
 
@@ -358,8 +358,8 @@ typedef struct endo_def_s {
  */
 
 typedef struct subgroup_def_s {
-  const unsigned char x[MAX_FIELD_SIZE];
-  const unsigned char y[MAX_FIELD_SIZE];
+  unsigned char x[MAX_FIELD_SIZE];
+  unsigned char y[MAX_FIELD_SIZE];
   int inf;
 } subgroup_def_t;
 
@@ -429,11 +429,11 @@ typedef struct wei_def_s {
   const scalar_def_t *sc;
   unsigned int h;
   int z;
-  const unsigned char a[MAX_FIELD_SIZE];
-  const unsigned char b[MAX_FIELD_SIZE];
-  const unsigned char x[MAX_FIELD_SIZE];
-  const unsigned char y[MAX_FIELD_SIZE];
-  const unsigned char c[MAX_FIELD_SIZE];
+  unsigned char a[MAX_FIELD_SIZE];
+  unsigned char b[MAX_FIELD_SIZE];
+  unsigned char x[MAX_FIELD_SIZE];
+  unsigned char y[MAX_FIELD_SIZE];
+  unsigned char c[MAX_FIELD_SIZE];
   const subgroup_def_t *torsion;
   const endo_def_t *endo;
 } wei_def_t;
@@ -493,11 +493,11 @@ typedef struct mont_def_s {
   unsigned int h;
   int z;
   int invert;
-  const unsigned char a[MAX_FIELD_SIZE];
-  const unsigned char b[MAX_FIELD_SIZE];
-  const unsigned char x[MAX_FIELD_SIZE];
-  const unsigned char y[MAX_FIELD_SIZE];
-  const unsigned char c[MAX_FIELD_SIZE];
+  unsigned char a[MAX_FIELD_SIZE];
+  unsigned char b[MAX_FIELD_SIZE];
+  unsigned char x[MAX_FIELD_SIZE];
+  unsigned char y[MAX_FIELD_SIZE];
+  unsigned char c[MAX_FIELD_SIZE];
   const subgroup_def_t *torsion;
 } mont_def_t;
 
@@ -516,13 +516,13 @@ typedef struct ristretto_s {
 } ristretto_t;
 
 typedef struct ristretto_def_s {
-  const unsigned char qnr[MAX_FIELD_SIZE];
-  const unsigned char qnrds[MAX_FIELD_SIZE];
-  const unsigned char adm1s[MAX_FIELD_SIZE];
-  const unsigned char adm1si[MAX_FIELD_SIZE];
-  const unsigned char dmaddpa[MAX_FIELD_SIZE];
-  const unsigned char amdsi[MAX_FIELD_SIZE];
-  const unsigned char dmasi[MAX_FIELD_SIZE];
+  unsigned char qnr[MAX_FIELD_SIZE];
+  unsigned char qnrds[MAX_FIELD_SIZE];
+  unsigned char adm1s[MAX_FIELD_SIZE];
+  unsigned char adm1si[MAX_FIELD_SIZE];
+  unsigned char dmaddpa[MAX_FIELD_SIZE];
+  unsigned char amdsi[MAX_FIELD_SIZE];
+  unsigned char dmasi[MAX_FIELD_SIZE];
 } ristretto_def_t;
 
 /* qge = jacobi quartic group element */
@@ -582,11 +582,11 @@ typedef struct edwards_def_s {
   unsigned int h;
   int z;
   int invert;
-  const unsigned char a[MAX_FIELD_SIZE];
-  const unsigned char d[MAX_FIELD_SIZE];
-  const unsigned char x[MAX_FIELD_SIZE];
-  const unsigned char y[MAX_FIELD_SIZE];
-  const unsigned char c[MAX_FIELD_SIZE];
+  unsigned char a[MAX_FIELD_SIZE];
+  unsigned char d[MAX_FIELD_SIZE];
+  unsigned char x[MAX_FIELD_SIZE];
+  unsigned char y[MAX_FIELD_SIZE];
+  unsigned char c[MAX_FIELD_SIZE];
   const subgroup_def_t *torsion;
   const ristretto_def_t *ristretto;
 } edwards_def_t;
