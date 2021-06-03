@@ -2286,12 +2286,12 @@ wge_select(const wei_t *ec,
            const wge_t *p2,
            int flag) {
   const prime_field_t *fe = &ec->fe;
-  int cond = int_barrier(flag != 0);
+  int m = -int_barrier(flag != 0);
 
   fe_select(fe, p3->x, p1->x, p2->x, flag);
   fe_select(fe, p3->y, p1->y, p2->y, flag);
 
-  p3->inf = (p1->inf & (cond ^ 1)) | (p2->inf & cond);
+  p3->inf = (p1->inf & ~m) | (p2->inf & m);
 }
 
 static void
@@ -2842,14 +2842,14 @@ jge_select(const wei_t *ec,
            const jge_t *p2,
            int flag) {
   const prime_field_t *fe = &ec->fe;
-  int cond = int_barrier(flag != 0);
+  int m = -int_barrier(flag != 0);
 
   fe_select(fe, p3->x, p1->x, p2->x, flag);
   fe_select(fe, p3->y, p1->y, p2->y, flag);
   fe_select(fe, p3->z, p1->z, p2->z, flag);
 
-  p3->inf = (p1->inf & (cond ^ 1)) | (p2->inf & cond);
-  p3->aff = (p1->aff & (cond ^ 1)) | (p2->aff & cond);
+  p3->inf = (p1->inf & ~m) | (p2->inf & m);
+  p3->aff = (p1->aff & ~m) | (p2->aff & m);
 }
 
 static void
