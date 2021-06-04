@@ -238,12 +238,12 @@ static const unsigned long torsion__endian_check TORSION_UNUSED = 1;
  *   mips64:
  *     gcc <=5.4.0 (gnuc 5.4.9)
  *
- *   power64/power64le:
+ *   power64:
  *     gcc <=6.3.0 (gnuc 6.3.0)
  *     clang <=12.0.0 (gnuc 4.2.1)
  *     at <=12.0.0 (gnuc 8.2.1)
  *
- *   risc-v64:
+ *   riscv64:
  *     gcc <=8.2.0 (gnuc 8.2.0)
  *     clang <=12.0.0 (gnuc 4.2.1)
  *
