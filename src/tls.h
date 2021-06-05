@@ -521,6 +521,15 @@
 #elif defined(__QNX__)
 /* QNX has builtin pthread support. */
 #  define TORSION_HAVE_PTHREAD
+#elif (defined(__linux__)                                 \
+   || (defined(__FreeBSD_kernel__) && defined(__GLIBC__)) \
+   || defined(__OpenBSD__)                                \
+   || defined(__NetBSD__)                                 \
+   || defined(__gnu_hurd__))
+/* Clang defines _REENTRANT with -pthread. */
+#  if defined(__clang__) && defined(_REENTRANT)
+#    define TORSION_HAVE_PTHREAD
+#  endif
 #endif
 
 /* Allow overrides (for testing). */
