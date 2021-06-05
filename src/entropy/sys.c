@@ -811,7 +811,7 @@ torsion_devrand(const char *name, void *dst, size_t size) {
   unsigned char *data = (unsigned char *)dst;
   struct stat st;
   int fd, nread;
-  size_t nbyte;
+  size_t max;
 #ifdef __linux__
   struct pollfd pfd;
   int r;
@@ -859,19 +859,19 @@ torsion_devrand(const char *name, void *dst, size_t size) {
     goto fail;
 
   while (size > 0) {
-    nbyte = size;
+    max = INT_MAX;
 
-    if (nbyte > INT_MAX)
-      nbyte = INT_MAX;
+    if (max > size)
+      max = size;
 
     do {
-      nread = read(fd, data, nbyte);
+      nread = read(fd, data, max);
     } while (nread < 0 && (errno == EINTR || errno == EAGAIN));
 
     if (nread <= 0)
       break;
 
-    if ((size_t)nread > nbyte)
+    if ((size_t)nread > max)
       abort();
 
     data += nread;
