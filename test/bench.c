@@ -333,13 +333,11 @@ bench_eddsa_derive(drbg_t *rng) {
   edwards_curve_destroy(ec);
 }
 
-typedef void mp_start_f(bench_t *start, const char *name);
-typedef void mp_end_f(bench_t *start, uint64_t ops);
-typedef void mp_rng_f(void *out, size_t size, void *arg);
-
 void
-torsion__bench_mpi_internal(mp_start_f *start, mp_end_f *end,
-                            mp_rng_f *rng, void *arg);
+torsion__bench_mpi_internal(void (*start)(bench_t *, const char *),
+                            void (*end)(bench_t *, uint64_t),
+                            void (*rng)(void *, size_t, void *),
+                            void *arg);
 
 static void
 bench_mpi_internal(drbg_t *rng) {
