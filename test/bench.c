@@ -768,24 +768,87 @@ static const struct {
 
 int
 main(int argc, char **argv) {
-  drbg_t rng;
+  size_t args_len = 0;
+  char *args[256];
+  int grep = 0;
   size_t i, j;
+  drbg_t rng;
   int found;
+
+  if ((size_t)argc > ARRAY_SIZE(args)) {
+    fprintf(stderr, "Too many arguments.\n");
+    return 1;
+  }
+
+  for (i = 1; i < (size_t)argc; i++) {
+    if (strcmp(argv[i], "-g") == 0 || strcmp(argv[i], "--grep") == 0) {
+      grep = 1;
+      continue;
+    }
+
+    if (strcmp(argv[i], "-l") == 0 || strcmp(argv[i], "--list") == 0) {
+      for (j = 0; j < ARRAY_SIZE(torsion_benches); j++)
+        printf("%s\n", torsion_benches[j].name);
+      return 0;
+    }
+
+    if (strcmp(argv[i], "-h") == 0 || strcmp(argv[i], "--help") == 0) {
+      printf("%s",
+        "\n"
+        "  Usage: ./torsion_bench [options] [bench-name]\n"
+        "\n"
+        "  Options:\n"
+        "\n"
+        "    -g, --grep   treat [bench-name] as a substring\n"
+        "    -l, --list   list all benchmark names\n"
+        "    -h, --help   output usage information\n"
+        "\n"
+      );
+      return 0;
+    }
+
+    if (argv[i][0] == '-') {
+      fprintf(stderr, "Unknown argument: %s.\n", argv[i]);
+      return 1;
+    }
+
+    args[args_len++] = argv[i];
+  }
 
   drbg_init_rand(&rng);
 
-  if (argc <= 1) {
+  if (grep) {
+    found = 0;
+
+    for (i = 0; i < args_len; i++) {
+      for (j = 0; j < ARRAY_SIZE(torsion_benches); j++) {
+        if (strstr(torsion_benches[j].name, args[i]) != NULL) {
+          torsion_benches[j].run(&rng);
+          found = 1;
+        }
+      }
+    }
+
+    if (!found) {
+      fprintf(stderr, "No benchmarks found.\n");
+      return 1;
+    }
+
+    return 0;
+  }
+
+  if (args_len == 0) {
     for (i = 0; i < ARRAY_SIZE(torsion_benches); i++)
       torsion_benches[i].run(&rng);
 
     return 0;
   }
 
-  for (i = 1; i < (size_t)argc; i++) {
+  for (i = 0; i < args_len; i++) {
     found = 0;
 
     for (j = 0; j < ARRAY_SIZE(torsion_benches); j++) {
-      if (strcmp(torsion_benches[j].name, argv[i]) == 0) {
+      if (strcmp(torsion_benches[j].name, args[i]) == 0) {
         torsion_benches[j].run(&rng);
         found = 1;
         break;
@@ -793,7 +856,7 @@ main(int argc, char **argv) {
     }
 
     if (!found) {
-      fprintf(stderr, "Unknown benchmark: %s.\n", argv[i]);
+      fprintf(stderr, "Unknown benchmark: %s.\n", args[i]);
       return 1;
     }
   }
