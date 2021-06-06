@@ -139,7 +139,7 @@
 #  include <sys/time.h> /* read_wall_time */
 #elif defined(__MVS__) && defined(_MI_BUILTIN)
 #  include <builtins.h> /* __stck{,f} */
-#elif defined(TORSION_POSIX)
+#else
 #  include <time.h> /* clock_gettime, time */
 #  include <unistd.h> /* _POSIX_TIMERS, _XOPEN_VERSION */
 #  if defined(__GLIBC__) && defined(__GLIBC_PREREQ)

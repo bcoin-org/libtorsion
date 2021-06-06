@@ -525,6 +525,7 @@
    || (defined(__FreeBSD_kernel__) && defined(__GLIBC__)) \
    || defined(__OpenBSD__)                                \
    || defined(__NetBSD__)                                 \
+   || (defined(__sun) && defined(__SVR4))                 \
    || defined(__gnu_hurd__)
 /* Clang defines _REENTRANT with -pthread. */
 #  if defined(__clang__) && defined(_REENTRANT)

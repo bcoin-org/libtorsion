@@ -139,23 +139,17 @@
 #elif defined(__sun) && defined(__SVR4)
 #  undef _XOPEN_SOURCE
 #  undef __EXTENSIONS__
-#  undef _REENTRANT
 #  define _XOPEN_SOURCE 500
 #  define __EXTENSIONS__
-#  define _REENTRANT
 #elif defined(__CYGWIN__)
 #  undef _GNU_SOURCE
 #  define _GNU_SOURCE
 #elif defined(__hpux)
 #  undef _HPUX_SOURCE
-#  undef _REENTRANT
 #  define _HPUX_SOURCE
-#  define _REENTRANT
 #elif defined(_AIX)
 #  undef _ALL_SOURCE
-#  undef _THREAD_SAFE
 #  define _ALL_SOURCE
-#  define _THREAD_SAFE
 #elif defined(__MVS__)
 #  undef _ALL_SOURCE
 #  undef _UNIX03_SOURCE
@@ -172,52 +166,6 @@
 #elif defined(__wasi__) || defined(__EMSCRIPTEN__)
 #  undef _GNU_SOURCE
 #  define _GNU_SOURCE
-#endif
-
-/**
- * POSIX Detection
- *
- * We can always try to detect POSIX support by testing
- * `__unix` or `__unix__`. However, a lot of POSIX OSes
- * are not necessarily unix, and even if they are, a
- * number of compilers neglect to define the unix macros
- * anyway.
- *
- * Below, we basically keep track of every POSIX OS that
- * does not have the unix definitions.
- */
-
-#if defined(__unix) || defined(__unix__)
-#  define TORSION_POSIX
-#elif defined(__APPLE__) && defined(__MACH__)
-/* unix not defined on GCC/Clang. */
-#  define TORSION_POSIX
-#elif defined(__linux__) || defined(_AIX)
-/* unix not defined on IBM XL C. */
-#  define TORSION_POSIX
-#elif defined(__MVS__)
-/* unix not defined on Clang or XL C. */
-#  define TORSION_POSIX
-#elif defined(__QNX__)
-/* unix not defined on GCC. */
-#  define TORSION_POSIX
-#elif defined(__HAIKU__)
-/* unix not defined on GCC (Haiku Patch).
-   Note that it _is_ defined on Clang. */
-#  define TORSION_POSIX
-#elif defined(__vxworks)
-/* unix not defined on GCC (?). */
-#  define TORSION_POSIX
-#elif defined(__CloudABI__)
-/* unix not defined on Clang. */
-#  define TORSION_POSIX
-#elif defined(__wasi__)
-/* unix not defined on Clang. */
-#  define TORSION_POSIX
-#elif defined(__EMSCRIPTEN__)
-/* unix not defined on Clang, but
-   is defined by emcc since 2016. */
-#  define TORSION_POSIX
 #endif
 
 #endif /* TORSION_POSIX_H */

@@ -98,7 +98,7 @@
 /* No reliable entropy sources available for emscripten. */
 #elif defined(__wasi__)
 /* Could gather static entropy from args/env in the future. */
-#elif defined(TORSION_POSIX)
+#else
 #  include <sys/types.h> /* mode_t, off_t, pid_t */
 #  include <sys/stat.h> /* stat, fstat */
 #  include <sys/utsname.h> /* uname */
