@@ -160,8 +160,6 @@
 #      define HAVE_GETTIMEOFDAY
 #    endif
 #  endif
-#else
-#  include <time.h> /* time */
 #endif
 
 /*
