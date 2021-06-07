@@ -326,11 +326,15 @@ AS_IF([test x"$enable_int128" = x"yes"], [
 ])
 
 AS_IF([test x"$enable_pthread" = x"yes" -a x"$WASM" != x"yes"], [
+  torsion_save_CFLAGS="$CFLAGS"
+  torsion_save_LIBS="$LIBS"
+
+  AC_CHECK_DEFINE([__TINYC__], [
+    CFLAGS="$CFLAGS -D_REENTRANT"
+  ])
+
   AX_PTHREAD([
     AC_MSG_CHECKING(for pthread mutex support)
-
-    torsion_save_CFLAGS="$CFLAGS"
-    torsion_save_LIBS="$LIBS"
 
     CFLAGS="$CFLAGS $PTHREAD_CFLAGS"
     LIBS="$PTHREAD_LIBS $LIBS"
@@ -347,11 +351,11 @@ AS_IF([test x"$enable_pthread" = x"yes" -a x"$WASM" != x"yes"], [
       has_pthread=yes
     ])
 
-    CFLAGS="$torsion_save_CFLAGS"
-    LIBS="$torsion_save_LIBS"
-
     AC_MSG_RESULT([$has_pthread])
   ])
+
+  CFLAGS="$torsion_save_CFLAGS"
+  LIBS="$torsion_save_LIBS"
 ])
 
 AS_IF([test x"$enable_tls" = x"yes"], [
