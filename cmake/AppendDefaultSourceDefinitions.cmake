@@ -194,7 +194,14 @@ function(append_default_source_definitions name)
     list(APPEND ${name} _BSD_SOURCE)
   endif()
 
-  if(CMAKE_SYSTEM_NAME STREQUAL "Wasm") # WASI
+  # WASI Legacy
+  if(CMAKE_SYSTEM_NAME STREQUAL "Wasm")
+    if(CMAKE_C_COMPILER_TARGET MATCHES ".*-wasi")
+      list(APPEND ${name} _GNU_SOURCE)
+    endif()
+  endif()
+
+  if(CMAKE_SYSTEM_NAME STREQUAL "WASI")
     list(APPEND ${name} _GNU_SOURCE)
   endif()
 
