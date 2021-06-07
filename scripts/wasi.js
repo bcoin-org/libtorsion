@@ -14,7 +14,7 @@ if (process.argv.length < 3) {
   process.exit(1);
 }
 
-const code = fs.readFileSync(process.argv[2])
+const code = fs.readFileSync(process.argv[2]);
 const module_ = new WebAssembly.Module(code);
 
 const wasi = new WASI({
