@@ -15,11 +15,10 @@ AC_INIT([libtorsion], [m4_substr(TORSION_PKG_VERSION, 0)],
 AC_CONFIG_AUX_DIR([build-aux])
 AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_SRCDIR([include/torsion/ecc.h])
-AC_CANONICAL_HOST
+AC_CANONICAL_TARGET
 AC_LANG_ASSERT(C)
 : ${CFLAGS=""}
 AC_PROG_CC
-AC_PROG_CC_C89
 
 AM_INIT_AUTOMAKE([1.11 foreign subdir-objects no-dist])
 AM_PROG_CC_C_O
@@ -157,11 +156,11 @@ AX_CHECK_COMPILE_FLAG([-O3], [CFLAGS="$CFLAGS -O3"])
 AS_IF([test x"$WASM" != x"yes"], [
   AX_CHECK_COMPILE_FLAG([-fvisibility=hidden],
                         [CFLAGS="$CFLAGS -fvisibility=hidden"])
+])
 
-  AS_CASE([$host_os], [darwin*], [
-    AX_CHECK_COMPILE_FLAG([-mmacosx-version-min=10.7],
-                          [CFLAGS="$CFLAGS -mmacosx-version-min=10.7"])
-  ])
+AS_CASE([$target_os], [darwin*], [
+  AX_CHECK_COMPILE_FLAG([-mmacosx-version-min=10.7],
+                        [CFLAGS="$CFLAGS -mmacosx-version-min=10.7"])
 ])
 
 AS_IF([test x"$enable_coverage" = x"yes"], [

@@ -45,69 +45,69 @@
 #   DEALINGS IN THE SOFTWARE.
 
 AC_DEFUN([AX_DEFAULT_SOURCE], [
-  AC_REQUIRE([AC_CANONICAL_HOST])
+  AC_REQUIRE([AC_CANONICAL_TARGET])
 
-  AS_CASE([$host_os], [linux*], [
+  AS_CASE([$target_os], [linux*], [
     AC_DEFINE([_GNU_SOURCE])
   ])
 
-  AS_CASE([$host_os], [gnu*], [
+  AS_CASE([$target_os], [gnu*], [
     AC_DEFINE([_GNU_SOURCE])
   ])
 
-  AS_CASE([$host_os], [kfreebsd*], [
+  AS_CASE([$target_os], [kfreebsd*], [
     AC_DEFINE([_GNU_SOURCE])
   ])
 
-  AS_CASE([$host_os], [knetbsd*], [
+  AS_CASE([$target_os], [knetbsd*], [
     AC_DEFINE([_GNU_SOURCE])
   ])
 
-  AS_CASE([$host_os], [solaris*], [
+  AS_CASE([$target_os], [solaris*], [
     AC_DEFINE([__EXTENSIONS__])
     AC_DEFINE([_XOPEN_SOURCE], [500])
   ])
 
-  AS_CASE([$host_os], [cygwin*], [
+  AS_CASE([$target_os], [cygwin*], [
     AC_DEFINE([_GNU_SOURCE])
   ])
 
-  AS_CASE([$host_os], [msys*], [
+  AS_CASE([$target_os], [msys*], [
     AC_DEFINE([_GNU_SOURCE])
   ])
 
-  AS_CASE([$host_os], [hpux*], [
+  AS_CASE([$target_os], [hpux*], [
     AC_DEFINE([_HPUX_SOURCE])
     AC_DEFINE([_XOPEN_SOURCE], [500])
   ])
 
-  AS_CASE([$host_os], [nonstopux*], [
+  AS_CASE([$target_os], [nonstopux*], [
     AC_DEFINE([_TANDEM_SOURCE])
   ])
 
-  AS_CASE([$host_os], [aix*], [
+  AS_CASE([$target_os], [aix*], [
     AC_DEFINE([_ALL_SOURCE])
   ])
 
-  AS_CASE([$host_os], [openedition*], [
+  AS_CASE([$target_os], [openedition*], [
     AC_DEFINE([_ALL_SOURCE])
     AC_DEFINE([_UNIX03_SOURCE])
     AC_DEFINE([_UNIX03_THREADS])
   ])
 
-  AS_CASE([$host_os], [qnx* | nto-qnx*], [
+  AS_CASE([$target_os], [qnx* | nto-qnx*], [
     AC_DEFINE([_QNX_SOURCE])
   ])
 
-  AS_CASE([$host_os], [haiku*], [
+  AS_CASE([$target_os], [haiku*], [
     AC_DEFINE([_BSD_SOURCE])
   ])
 
-  AS_CASE([$host_os], [wasi*], [
+  AS_CASE([$target_os], [wasi*], [
     AC_DEFINE([_GNU_SOURCE])
   ])
 
-  AS_CASE([$host_os], [emscripten*], [
+  AS_CASE([$target_os], [emscripten*], [
     AC_DEFINE([_GNU_SOURCE])
   ])
 ])dnl AX_DEFAULT_SOURCE
