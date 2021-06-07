@@ -228,9 +228,9 @@ AS_IF([test x"$enable_asm" = x"yes"], [
         "movl %k2, %%eax\n"
         "mull %k3\n"
         "addl %k4, %%eax\n"
-        "adcl $0, %%edx\n"
+        "adcl \@S|@0, %%edx\n"
         "subl %%eax, %k0\n"
-        "adcl $0, %%edx\n"
+        "adcl \@S|@0, %%edx\n"
         : "+r" (z), "=&d" (c)
         : "%rm" (x), "rm" (y),
           "rm" (c)
@@ -263,9 +263,9 @@ AS_IF([test x"$enable_asm" = x"yes"], [
         "movq %q2, %%rax\n"
         "mulq %q3\n"
         "addq %q4, %%rax\n"
-        "adcq $0, %%rdx\n"
+        "adcq \@S|@0, %%rdx\n"
         "subq %%rax, %q0\n"
-        "adcq $0, %%rdx\n"
+        "adcq \@S|@0, %%rdx\n"
         : "+r" (z), "=&d" (c)
         : "%rm" (x), "rm" (y),
           "rm" (c)
