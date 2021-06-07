@@ -6,6 +6,8 @@ if(COMMAND check_c_thread_local_storage)
   return()
 endif()
 
+include(CheckCSourceCompiles)
+
 function(check_c_thread_local_storage name)
   set(${name} "" PARENT_SCOPE)
 
