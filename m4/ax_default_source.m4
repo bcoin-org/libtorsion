@@ -59,9 +59,13 @@ AC_DEFUN([AX_DEFAULT_SOURCE], [
     AC_DEFINE([_GNU_SOURCE])
   ])
 
+  AS_CASE([$host_os], [knetbsd*], [
+    AC_DEFINE([_GNU_SOURCE])
+  ])
+
   AS_CASE([$host_os], [solaris*], [
-    AC_DEFINE([_XOPEN_SOURCE], [500])
     AC_DEFINE([__EXTENSIONS__])
+    AC_DEFINE([_XOPEN_SOURCE], [500])
   ])
 
   AS_CASE([$host_os], [cygwin*], [
@@ -74,6 +78,11 @@ AC_DEFUN([AX_DEFAULT_SOURCE], [
 
   AS_CASE([$host_os], [hpux*], [
     AC_DEFINE([_HPUX_SOURCE])
+    AC_DEFINE([_XOPEN_SOURCE], [500])
+  ])
+
+  AS_CASE([$host_os], [nonstopux*], [
+    AC_DEFINE([_TANDEM_SOURCE])
   ])
 
   AS_CASE([$host_os], [aix*], [
@@ -86,7 +95,7 @@ AC_DEFUN([AX_DEFAULT_SOURCE], [
     AC_DEFINE([_UNIX03_THREADS])
   ])
 
-  AS_CASE([$host_os], [qnx*], [
+  AS_CASE([$host_os], [qnx* | nto-qnx*], [
     AC_DEFINE([_QNX_SOURCE])
   ])
 

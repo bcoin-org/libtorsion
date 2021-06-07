@@ -83,6 +83,9 @@
  *   https://nixdoc.net/man-pages/HP-UX/man5/stdsyms.5.html
  *   https://nixdoc.net/man-pages/HP-UX/man5/unistd.5.html
  *
+ * NonStop:
+ *   No information available.
+ *
  * AIX:
  *   https://www.ibm.com/docs/en/aix/7.2?topic=files-unistdh-file
  *
@@ -136,17 +139,25 @@
 #elif defined(__FreeBSD_kernel__) && defined(__GLIBC__)
 #  undef _GNU_SOURCE
 #  define _GNU_SOURCE
+#elif defined(__NetBSD_kernel__) && defined(__GLIBC__)
+#  undef _GNU_SOURCE
+#  define _GNU_SOURCE
 #elif defined(__sun) && defined(__SVR4)
-#  undef _XOPEN_SOURCE
 #  undef __EXTENSIONS__
-#  define _XOPEN_SOURCE 500
+#  undef _XOPEN_SOURCE
 #  define __EXTENSIONS__
+#  define _XOPEN_SOURCE 500
 #elif defined(__CYGWIN__)
 #  undef _GNU_SOURCE
 #  define _GNU_SOURCE
 #elif defined(__hpux)
 #  undef _HPUX_SOURCE
+#  undef _XOPEN_SOURCE
 #  define _HPUX_SOURCE
+#  define _XOPEN_SOURCE 500
+#elif defined(__TANDEM)
+#  undef _TANDEM_SOURCE
+#  define _TANDEM_SOURCE
 #elif defined(_AIX)
 #  undef _ALL_SOURCE
 #  define _ALL_SOURCE

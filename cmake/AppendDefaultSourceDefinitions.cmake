@@ -82,6 +82,9 @@
 #   https://nixdoc.net/man-pages/HP-UX/man5/stdsyms.5.html
 #   https://nixdoc.net/man-pages/HP-UX/man5/unistd.5.html
 #
+# NonStop:
+#   No information available.
+#
 # AIX:
 #   https://www.ibm.com/docs/en/aix/7.2?topic=files-unistdh-file
 #
@@ -147,9 +150,13 @@ function(append_default_source_definitions name)
     list(APPEND ${name} _GNU_SOURCE)
   endif()
 
+  if(CMAKE_SYSTEM_NAME STREQUAL "GNU/kNetBSD")
+    list(APPEND ${name} _GNU_SOURCE)
+  endif()
+
   if(CMAKE_SYSTEM_NAME STREQUAL "SunOS")
-    list(APPEND ${name} _XOPEN_SOURCE=500)
     list(APPEND ${name} __EXTENSIONS__)
+    list(APPEND ${name} _XOPEN_SOURCE=500)
   endif()
 
   if(CMAKE_SYSTEM_NAME MATCHES "CYGWIN.*")
@@ -162,6 +169,11 @@ function(append_default_source_definitions name)
 
   if(CMAKE_SYSTEM_NAME STREQUAL "HP-UX")
     list(APPEND ${name} _HPUX_SOURCE)
+    list(APPEND ${name} _XOPEN_SOURCE=500)
+  endif()
+
+  if(CMAKE_SYSTEM_NAME MATCHES "NONSTOP.*")
+    list(APPEND ${name} _TANDEM_SOURCE)
   endif()
 
   if(CMAKE_SYSTEM_NAME STREQUAL "AIX")
