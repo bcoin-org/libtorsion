@@ -34,6 +34,10 @@
  *
  * POWER9/POWER10 (mftb, darn):
  *   https://openpowerfoundation.org/?resource_lib=power-isa-version-3-0
+ *
+ * RISC-V (mentropy, pollentropy, rdcycle):
+ *   https://github.com/riscv/riscv-isa-manual/releases
+ *   https://github.com/riscv/riscv-crypto/releases
  */
 
 /**
@@ -44,7 +48,8 @@
  * use RDTSC if there is an instrinsic for it (win32) or if
  * the compiler supports inline ASM (gcc/clang).
  *
- * For ARM64 and PPC we use CNTVCT and MFTB respectively.
+ * For ARM, PPC and RISC-V, we use PMCCNTR, MFTB, and RDCYCLE
+ * respectively.
  *
  * For other hardware, we fallback to whatever system clocks
  * are available. See `hrt.c` for a list of functions.
@@ -65,6 +70,12 @@
  * ARMv8.5-A provides new system registers (RNDR and RNDRRS)
  * to be used with the MRS instruction. Similar to `darn`, we
  * have `torsion_{rdrand,rdseed}` output the proper values.
+ *
+ * The very bleeding edge of RISC-V specifies `pollentropy`,
+ * a pseudo-instruction which reads from a special `mentropy`
+ * register, similar to ARM. We have preliminary support for
+ * this. `mentropy` can only be read in machine mode as of
+ * right now, but this may change in the future (hopefully).
  *
  * For other hardware, torsion_rdrand and torsion_rdseed are
  * no-ops returning zero. torsion_has_rd{rand,seed} MUST be
@@ -93,10 +104,14 @@
 #undef HAVE_ASM_PPC
 #undef HAVE_ASM_PPC32
 #undef HAVE_ASM_PPC64
+#undef HAVE_ASM_RISCV
+#undef HAVE_ASM_RISCV32
+#undef HAVE_ASM_RISCV64
 #undef HAVE_GETAUXVAL
 #undef HAVE_ELF_AUX_INFO
 #undef HAVE_POWER_SET
 #undef HAVE_AUXVAL
+#undef HAVE_MACHINE /* Define if RISC-V code is in machine mode. */
 
 /* Detect intrinsic and ASM support. */
 #if defined(_MSC_VER)
@@ -149,6 +164,16 @@
 #  elif defined(__powerpc__) || defined(_ARCH_PPC) || defined(__PPC__)
 #    define HAVE_ASM_PPC
 #    define HAVE_ASM_PPC32
+#  elif defined(__riscv) && defined(__riscv_xlen) && defined(HAVE_MACHINE)
+#    if __riscv_xlen == 32
+#      define HAVE_ASM_RISCV
+#      define HAVE_ASM_RISCV32
+#      define riscv_word_t uint32_t
+#    elif __riscv_xlen == 64
+#      define HAVE_ASM_RISCV
+#      define HAVE_ASM_RISCV64
+#      define riscv_word_t uint64_t
+#    endif
 #  endif
 #  ifndef __GNUC__
 #    define __volatile__ volatile
@@ -164,6 +189,9 @@
  || defined(HAVE_ASM_PPC64)
 #  define step_word_t uint64_t
 #  define step_word_size 64
+#elif defined(HAVE_ASM_RISCV)
+#  define step_word_t uint16_t
+#  define step_word_size 16
 #else
 #  define step_word_t uint32_t
 #  define step_word_size 32
@@ -283,6 +311,30 @@ torsion_rdtsc(void) {
   );
 
   return ts;
+#elif defined(HAVE_ASM_RISCV32)
+  uint32_t hi, lo, c;
+
+  do {
+    __asm__ __volatile__ (
+      "rdcycleh %0\n"
+      "rdcycle  %1\n"
+      "rdcycleh %2\n"
+      : "=r" (hi),
+        "=r" (lo),
+        "=r" (c)
+    );
+  } while (hi != c);
+
+  return ((uint64_t)hi << 32) | lo;
+#elif defined(HAVE_ASM_RISCV64)
+  uint64_t ts;
+
+  __asm__ __volatile__ (
+    "rdcycle %0\n"
+    : "=r" (ts)
+  );
+
+  return ts;
 #else
   /* Fall back to high-resolution time. */
   return torsion_hrtime();
@@ -393,6 +445,8 @@ torsion_cpuid(uint32_t *a,
 #elif defined(HAVE_ASM_PPC)
 /* https://stackoverflow.com/questions/5425506 */
 #  define torsion_pause() __asm__ __volatile__ ("or 27, 27, 27\n" ::: "cc")
+#elif defined(HAVE_ASM_RISCV)
+#  define torsion_pause() __asm__ __volatile__ ("wfi\n")
 #else
 #  define torsion_pause() do { } while (0)
 #endif
@@ -474,6 +528,18 @@ torsion_has_rdseed(void) {
   return torsion_has_rdrand();
 #elif defined(HAVE_ASM_PPC64)
   return torsion_has_rdrand();
+#elif defined(HAVE_ASM_RISCV) && defined(__riscv_zkr)
+  /* Explicitly built with TRNG support (-march=rv{32,64}ik). */
+  return 1;
+#elif defined(HAVE_ASM_RISCV)
+  riscv_word_t misa;
+
+  __asm__ __volatile__ (
+    "csrr %0, 0x301\n" /* MISA */
+    : "=r" (misa)
+  );
+
+  return (misa >> 10) & 1;
 #else
   return 0;
 #endif
@@ -588,6 +654,17 @@ torsion_rdseed_step(step_word_t *z) {
   );
 
   return *z != UINT64_MAX;
+#elif defined(HAVE_ASM_RISCV)
+  riscv_word_t w;
+
+  __asm__ __volatile__ (
+    "csrrs %0, 0xf15, x0\n" /* MENTROPY */
+    : "=r" (w)
+  );
+
+  *z = w & 0xffff;
+
+  return ((w >> 30) & 3) == 1; /* ES16 */
 #else
   *z = 0;
   return 1;
@@ -646,17 +723,41 @@ torsion_rdtest(void) {
 
 uint32_t
 torsion_rdrand32(void) {
+#if step_word_size == 16
+  step_word_t hi = torsion_rdrand();
+  step_word_t lo = torsion_rdrand();
+
+  return ((uint32_t)hi << 16) | lo;
+#else
   return (uint32_t)torsion_rdrand();
+#endif
 }
 
 uint32_t
 torsion_rdseed32(void) {
+#if step_word_size == 16
+  step_word_t hi = torsion_rdseed();
+  step_word_t lo = torsion_rdseed();
+
+  return ((uint32_t)hi << 16) | lo;
+#else
   return (uint32_t)torsion_rdseed();
+#endif
 }
 
 uint64_t
 torsion_rdrand64(void) {
-#if step_word_size == 32
+#if step_word_size == 16
+  step_word_t a = torsion_rdrand();
+  step_word_t b = torsion_rdrand();
+  step_word_t c = torsion_rdrand();
+  step_word_t d = torsion_rdrand();
+
+  return ((uint64_t)a << 48)
+       | ((uint64_t)b << 32)
+       | ((uint64_t)c << 16)
+       | ((uint64_t)d <<  0);
+#elif step_word_size == 32
   step_word_t hi = torsion_rdrand();
   step_word_t lo = torsion_rdrand();
 
@@ -668,7 +769,17 @@ torsion_rdrand64(void) {
 
 uint64_t
 torsion_rdseed64(void) {
-#if step_word_size == 32
+#if step_word_size == 16
+  step_word_t a = torsion_rdseed();
+  step_word_t b = torsion_rdseed();
+  step_word_t c = torsion_rdseed();
+  step_word_t d = torsion_rdseed();
+
+  return ((uint64_t)a << 48)
+       | ((uint64_t)b << 32)
+       | ((uint64_t)c << 16)
+       | ((uint64_t)d <<  0);
+#elif step_word_size == 32
   step_word_t hi = torsion_rdseed();
   step_word_t lo = torsion_rdseed();
 
