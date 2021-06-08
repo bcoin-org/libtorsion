@@ -533,7 +533,7 @@ torsion_rdrand_step(step_word_t *z) {
   return *z != UINT32_MAX;
 #elif defined(HAVE_ASM_PPC64)
   __asm__ __volatile__ (
-    ".long (0x7c0005e6 | (%0 << 21) | (1 << 16))\n" /* darn %0, 1 */
+    ".long (0x7c0105e6 | (%0 << 21))\n" /* darn %0, 1 */
     : "=r" (*z)
   );
 
@@ -584,8 +584,9 @@ torsion_rdseed_step(step_word_t *z) {
 
   return ok != 0;
 #elif defined(HAVE_ASM_PPC64)
+
   __asm__ __volatile__ (
-    ".long (0x7c0005e6 | (%0 << 21) | (2 << 16))\n" /* darn %0, 2 */
+    ".long (0x7c0205e6 | (%0 << 21))\n" /* darn %0, 2 */
     : "=r" (*z)
   );
 
