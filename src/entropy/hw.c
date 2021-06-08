@@ -581,7 +581,6 @@ torsion_rdseed_step(step_word_t *z) {
 
   return c;
 #elif defined(HAVE_ASM_PPC64)
-
   __asm__ __volatile__ (
     ".long (0x7c0205e6 | (%0 << 21))\n" /* darn %0, 2 */
     : "=r" (*z)
