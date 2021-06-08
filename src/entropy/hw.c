@@ -489,38 +489,38 @@ torsion_rdrand_step(step_word_t *z) {
 #elif defined(HAVE_RDRAND64)
   return _rdrand64_step(z);
 #elif defined(HAVE_ASM_X86)
-  uint8_t ok;
+  uint8_t c;
 
   __asm__ __volatile__ (
     ".byte 0x0f, 0xc7, 0xf0\n" /* rdrand %eax */
     "setc %b1\n"
-    : "=a" (*z), "=q" (ok)
+    : "=a" (*z), "=q" (c)
     :: "cc"
   );
 
-  return ok;
+  return c;
 #elif defined(HAVE_ASM_X64)
-  uint8_t ok;
+  uint8_t c;
 
   __asm__ __volatile__ (
     ".byte 0x48, 0x0f, 0xc7, 0xf0\n" /* rdrand %rax */
     "setc %b1\n"
-    : "=a" (*z), "=q" (ok)
+    : "=a" (*z), "=q" (c)
     :: "cc"
   );
 
-  return ok;
+  return c;
 #elif defined(HAVE_ASM_ARM64)
-  uint32_t ok;
+  uint32_t c;
 
   __asm__ __volatile__ (
     "mrs %0, s3_3_c2_c4_0\n" /* RNDR */
     "cset %w1, ne\n"
-    : "=r" (*z), "=r" (ok)
+    : "=r" (*z), "=r" (c)
     :: "cc"
   );
 
-  return ok != 0;
+  return c;
 #elif defined(HAVE_ASM_PPC32)
   __asm__ __volatile__ (
     ".long (0x7c0005e6 | (%0 << 21))\n" /* darn %0, 0 */
@@ -548,38 +548,38 @@ torsion_rdseed_step(step_word_t *z) {
 #elif defined(HAVE_RDSEED64)
   return _rdseed64_step(z);
 #elif defined(HAVE_ASM_X86)
-  uint8_t ok;
+  uint8_t c;
 
   __asm__ __volatile__ (
     ".byte 0x0f, 0xc7, 0xf8\n" /* rdseed %eax */
     "setc %b1\n"
-    : "=a" (*z), "=q" (ok)
+    : "=a" (*z), "=q" (c)
     :: "cc"
   );
 
-  return ok;
+  return c;
 #elif defined(HAVE_ASM_X64)
-  uint8_t ok;
+  uint8_t c;
 
   __asm__ __volatile__ (
     ".byte 0x48, 0x0f, 0xc7, 0xf8\n" /* rdseed %rax */
     "setc %b1\n"
-    : "=a" (*z), "=q" (ok)
+    : "=a" (*z), "=q" (c)
     :: "cc"
   );
 
-  return ok;
+  return c;
 #elif defined(HAVE_ASM_ARM64)
-  uint32_t ok;
+  uint32_t c;
 
   __asm__ __volatile__ (
     "mrs %0, s3_3_c2_c4_1\n" /* RNDRRS */
     "cset %w1, ne\n"
-    : "=r" (*z), "=r" (ok)
+    : "=r" (*z), "=r" (c)
     :: "cc"
   );
 
-  return ok != 0;
+  return c;
 #elif defined(HAVE_ASM_PPC64)
 
   __asm__ __volatile__ (
