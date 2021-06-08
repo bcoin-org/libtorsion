@@ -164,7 +164,7 @@ rng_generate(rng_t *rng, void *dst, size_t size) {
      only 32 bits here, lest RDRAND is backdoored.
      See: https://pastebin.com/A07q3nL3 */
   if (rng->rdrand)
-    rng->key[7] ^= (uint32_t)torsion_rdrand();
+    rng->key[7] ^= torsion_rdrand32();
 
   /* Re-key immediately. */
   rng->nonce++;
@@ -190,7 +190,7 @@ rng_random(rng_t *rng) {
 
     /* Mix in some hardware entropy. */
     if (rng->rdrand)
-      rng->key[7] ^= (uint32_t)torsion_rdrand();
+      rng->key[7] ^= torsion_rdrand32();
 
     /* Re-key every 512 bytes. */
     for (i = 0; i < 8; i++)

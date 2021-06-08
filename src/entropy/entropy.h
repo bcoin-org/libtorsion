@@ -21,8 +21,10 @@
 #define torsion_cpuid torsion__cpuid
 #define torsion_has_rdrand torsion__has_rdrand
 #define torsion_has_rdseed torsion__has_rdseed
-#define torsion_rdrand torsion__rdrand
-#define torsion_rdseed torsion__rdseed
+#define torsion_rdrand32 torsion__rdrand32
+#define torsion_rdseed32 torsion__rdseed32
+#define torsion_rdrand64 torsion__rdrand64
+#define torsion_rdseed64 torsion__rdseed64
 #define torsion_hwrand torsion__hwrand
 #define torsion_getpid torsion__getpid
 #define torsion_sysrand torsion__sysrand
@@ -57,11 +59,17 @@ torsion_has_rdrand(void);
 int
 torsion_has_rdseed(void);
 
-uint64_t
-torsion_rdrand(void);
+uint32_t
+torsion_rdrand32(void);
+
+uint32_t
+torsion_rdseed32(void);
 
 uint64_t
-torsion_rdseed(void);
+torsion_rdrand64(void);
+
+uint64_t
+torsion_rdseed64(void);
 
 int
 torsion_hwrand(void *dst, size_t size);

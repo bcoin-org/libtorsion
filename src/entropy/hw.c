@@ -155,6 +155,19 @@
 #  endif
 #endif
 
+#if defined(HAVE_RDRAND64)  \
+ || defined(HAVE_RDSEED64)  \
+ || defined(HAVE_MRS)       \
+ || defined(HAVE_ASM_X64)   \
+ || defined(HAVE_ASM_ARM64) \
+ || defined(HAVE_ASM_PPC64)
+#  define step_word_t uint64_t
+#  define step_word_size 64
+#else
+#  define step_word_t uint32_t
+#  define step_word_size 32
+#endif
+
 /* Some insanity to detect features at runtime. */
 #if defined(HAVE_ASM_ARM64) || defined(HAVE_ASM_PPC)
 #  if defined(__GLIBC__) && defined(__GLIBC_PREREQ)
@@ -364,7 +377,30 @@ torsion_cpuid(uint32_t *a,
 }
 
 /*
- * RDRAND/RDSEED
+ * Pause
+ */
+
+#if defined(HAVE_RDSEED32)
+#  define torsion_pause() _asm { rep nop }
+#elif defined(HAVE_RDSEED64)
+#  define torsion_pause _mm_pause
+#elif defined(HAVE_MRS)
+#  define torsion_pause __yield
+#elif defined(HAVE_ASM_X86)
+#  define torsion_pause() __asm__ __volatile__ (".byte 0xf3, 0x90\n")
+#elif defined(HAVE_ASM_X64)
+#  define torsion_pause() __asm__ __volatile__ ("pause\n")
+#elif defined(HAVE_ASM_ARM64)
+#  define torsion_pause() __asm__ __volatile__ ("yield\n")
+#elif defined(HAVE_ASM_PPC)
+/* https://stackoverflow.com/questions/5425506 */
+#  define torsion_pause() __asm__ __volatile__ ("or 27, 27, 27\n" ::: "cc")
+#else
+#  define torsion_pause() do { } while (0)
+#endif
+
+/*
+ * Feature Testing
  */
 
 int
@@ -438,9 +474,6 @@ torsion_has_rdseed(void) {
   return (ebx >> 18) & 1;
 #elif defined(HAVE_ASM_ARM64)
   return torsion_has_rdrand();
-#elif defined(HAVE_ASM_PPC32)
-  /* Nothing comparable to rdseed on PPC32. */
-  return 0;
 #elif defined(HAVE_ASM_PPC64)
   return torsion_has_rdrand();
 #else
@@ -448,283 +481,202 @@ torsion_has_rdseed(void) {
 #endif
 }
 
-uint64_t
-torsion_rdrand(void) {
+/*
+ * Intrinsics
+ */
+
+static int
+torsion_rdrand_step(step_word_t *z) {
 #if defined(HAVE_RDRAND32)
-  unsigned int lo, hi;
-  int i;
-
-  for (i = 0; i < 10; i++) {
-    if (_rdrand32_step(&lo))
-      break;
-  }
-
-  for (i = 0; i < 10; i++) {
-    if (_rdrand32_step(&hi))
-      break;
-  }
-
-  return ((uint64_t)hi << 32) | lo;
+  return _rdrand32_step((unsigned int *)z);
 #elif defined(HAVE_RDRAND64)
-  unsigned __int64 r;
-  int i;
-
-  for (i = 0; i < 10; i++) {
-    if (_rdrand64_step(&r))
-      break;
-  }
-
-  return r;
+  return _rdrand64_step(z);
 #elif defined(HAVE_ASM_X86)
-  /* Borrowed from Bitcoin Core. */
-  uint32_t lo, hi;
   uint8_t ok;
-  int i;
 
-  for (i = 0; i < 10; i++) {
-    __asm__ __volatile__ (
-      ".byte 0x0f, 0xc7, 0xf0\n" /* rdrand %eax */
-      "setc %b1\n"
-      : "=a" (lo), "=q" (ok)
-      :: "cc"
-    );
+  __asm__ __volatile__ (
+    ".byte 0x0f, 0xc7, 0xf0\n" /* rdrand %eax */
+    "setc %b1\n"
+    : "=a" (*z), "=q" (ok)
+    :: "cc"
+  );
 
-    if (ok)
-      break;
-  }
-
-  for (i = 0; i < 10; i++) {
-    __asm__ __volatile__ (
-      ".byte 0x0f, 0xc7, 0xf0\n" /* rdrand %eax */
-      "setc %b1\n"
-      : "=a" (hi), "=q" (ok)
-      :: "cc"
-    );
-
-    if (ok)
-      break;
-  }
-
-  return ((uint64_t)hi << 32) | lo;
+  return ok;
 #elif defined(HAVE_ASM_X64)
-  /* Borrowed from Bitcoin Core. */
-  uint64_t r;
   uint8_t ok;
-  int i;
 
-  for (i = 0; i < 10; i++) {
-    __asm__ __volatile__ (
-      ".byte 0x48, 0x0f, 0xc7, 0xf0\n" /* rdrand %rax */
-      "setc %b1\n"
-      : "=a" (r), "=q" (ok)
-      :: "cc"
-    );
+  __asm__ __volatile__ (
+    ".byte 0x48, 0x0f, 0xc7, 0xf0\n" /* rdrand %rax */
+    "setc %b1\n"
+    : "=a" (*z), "=q" (ok)
+    :: "cc"
+  );
 
-    if (ok)
-      break;
-  }
-
-  return r;
+  return ok;
 #elif defined(HAVE_ASM_ARM64)
-  uint64_t r;
   uint32_t ok;
-  int i;
 
-  for (i = 0; i < 10; i++) {
-    __asm__ __volatile__ (
-      "mrs %0, s3_3_c2_c4_0\n" /* RNDR */
-      "cset %w1, ne\n"
-      : "=r" (r), "=r" (ok)
-      :: "cc"
-    );
+  __asm__ __volatile__ (
+    "mrs %0, s3_3_c2_c4_0\n" /* RNDR */
+    "cset %w1, ne\n"
+    : "=r" (*z), "=r" (ok)
+    :: "cc"
+  );
 
-    if (ok)
-      break;
-  }
-
-  return r;
+  return ok != 0;
 #elif defined(HAVE_ASM_PPC32)
-  uint32_t lo, hi;
+  __asm__ __volatile__ (
+    ".long (0x7c0005e6 | (%0 << 21))\n" /* darn %0, 0 */
+    : "=r" (*z)
+  );
+
+  return *z != UINT32_MAX;
+#elif defined(HAVE_ASM_PPC64)
+  __asm__ __volatile__ (
+    ".long (0x7c0005e6 | (%0 << 21) | (1 << 16))\n" /* darn %0, 1 */
+    : "=r" (*z)
+  );
+
+  return *z != UINT64_MAX;
+#else
+  *z = 0;
+  return 1;
+#endif
+}
+
+static int
+torsion_rdseed_step(step_word_t *z) {
+#if defined(HAVE_RDSEED32)
+  return _rdseed32_step((unsigned int *)z);
+#elif defined(HAVE_RDSEED64)
+  return _rdseed64_step(z);
+#elif defined(HAVE_ASM_X86)
+  uint8_t ok;
+
+  __asm__ __volatile__ (
+    ".byte 0x0f, 0xc7, 0xf8\n" /* rdseed %eax */
+    "setc %b1\n"
+    : "=a" (*z), "=q" (ok)
+    :: "cc"
+  );
+
+  return ok;
+#elif defined(HAVE_ASM_X64)
+  uint8_t ok;
+
+  __asm__ __volatile__ (
+    ".byte 0x48, 0x0f, 0xc7, 0xf8\n" /* rdseed %rax */
+    "setc %b1\n"
+    : "=a" (*z), "=q" (ok)
+    :: "cc"
+  );
+
+  return ok;
+#elif defined(HAVE_ASM_ARM64)
+  uint32_t ok;
+
+  __asm__ __volatile__ (
+    "mrs %0, s3_3_c2_c4_1\n" /* RNDRRS */
+    "cset %w1, ne\n"
+    : "=r" (*z), "=r" (ok)
+    :: "cc"
+  );
+
+  return ok != 0;
+#elif defined(HAVE_ASM_PPC64)
+  __asm__ __volatile__ (
+    ".long (0x7c0005e6 | (%0 << 21) | (2 << 16))\n" /* darn %0, 2 */
+    : "=r" (*z)
+  );
+
+  return *z != UINT64_MAX;
+#else
+  *z = 0;
+  return 1;
+#endif
+}
+
+/*
+ * Polling
+ */
+
+static step_word_t
+torsion_rdrand(void) {
+  step_word_t z;
   int i;
 
   for (i = 0; i < 10; i++) {
-    __asm__ __volatile__ (
-      ".long (0x7c0005e6 | (%0 << 21))\n" /* darn %0, 0 */
-      : "=r" (lo)
-    );
+    if (torsion_rdrand_step(&z))
+      break;
+  }
 
-    if (lo != UINT32_MAX)
+  return z;
+}
+
+static step_word_t
+torsion_rdseed(void) {
+  step_word_t z;
+
+  for (;;) {
+    if (torsion_rdseed_step(&z))
       break;
 
-    lo = 0;
+    torsion_pause();
   }
+
+  return z;
+}
+
+static int
+torsion_rdtest(void) {
+  step_word_t z;
+  int i;
 
   for (i = 0; i < 10; i++) {
-    __asm__ __volatile__ (
-      ".long (0x7c0005e6 | (%0 << 21))\n" /* darn %0, 0 */
-      : "=r" (hi)
-    );
+    if (torsion_rdseed_step(&z))
+      return 1;
 
-    if (hi != UINT32_MAX)
-      break;
-
-    hi = 0;
+    torsion_pause();
   }
+
+  return 0;
+}
+
+/*
+ * RDRAND/RDSEED
+ */
+
+uint32_t
+torsion_rdrand32(void) {
+  return (uint32_t)torsion_rdrand();
+}
+
+uint32_t
+torsion_rdseed32(void) {
+  return (uint32_t)torsion_rdseed();
+}
+
+uint64_t
+torsion_rdrand64(void) {
+#if step_word_size == 32
+  step_word_t hi = torsion_rdrand();
+  step_word_t lo = torsion_rdrand();
 
   return ((uint64_t)hi << 32) | lo;
-#elif defined(HAVE_ASM_PPC64)
-  uint64_t r;
-  int i;
-
-  for (i = 0; i < 10; i++) {
-    __asm__ __volatile__ (
-      ".long (0x7c0005e6 | (%0 << 21) | (1 << 16))\n" /* darn %0, 1 */
-      : "=r" (r)
-    );
-
-    if (r != UINT64_MAX)
-      break;
-
-    r = 0;
-  }
-
-  return r;
 #else
-  return 0;
+  return torsion_rdrand();
 #endif
 }
 
 uint64_t
-torsion_rdseed(void) {
-#if defined(HAVE_RDSEED32)
-  unsigned int lo, hi;
-
-  for (;;) {
-    if (_rdseed32_step(&lo))
-      break;
-
-    _asm { rep nop }
-  }
-
-  for (;;) {
-    if (_rdseed32_step(&hi))
-      break;
-
-    _asm { rep nop }
-  }
+torsion_rdseed64(void) {
+#if step_word_size == 32
+  step_word_t hi = torsion_rdseed();
+  step_word_t lo = torsion_rdseed();
 
   return ((uint64_t)hi << 32) | lo;
-#elif defined(HAVE_RDSEED64)
-  unsigned __int64 r;
-
-  for (;;) {
-    if (_rdseed64_step(&r))
-      break;
-
-    _mm_pause();
-  }
-
-  return r;
-#elif defined(HAVE_ASM_X86)
-  /* Borrowed from Bitcoin Core. */
-  uint32_t lo, hi;
-  uint8_t ok;
-
-  for (;;) {
-    __asm__ __volatile__ (
-      ".byte 0x0f, 0xc7, 0xf8\n" /* rdseed %eax */
-      "setc %b1\n"
-      : "=a" (lo), "=q" (ok)
-      :: "cc"
-    );
-
-    if (ok)
-      break;
-
-    __asm__ __volatile__ (
-      ".byte 0xf3, 0x90\n" /* pause */
-    );
-  }
-
-  for (;;) {
-    __asm__ __volatile__ (
-      ".byte 0x0f, 0xc7, 0xf8\n" /* rdseed %eax */
-      "setc %b1\n"
-      : "=a" (hi), "=q" (ok)
-      :: "cc"
-    );
-
-    if (ok)
-      break;
-
-    __asm__ __volatile__ (
-      ".byte 0xf3, 0x90\n" /* pause */
-    );
-  }
-
-  return ((uint64_t)hi << 32) | lo;
-#elif defined(HAVE_ASM_X64)
-  /* Borrowed from Bitcoin Core. */
-  uint64_t r;
-  uint8_t ok;
-
-  for (;;) {
-    __asm__ __volatile__ (
-      ".byte 0x48, 0x0f, 0xc7, 0xf8\n" /* rdseed %rax */
-      "setc %b1\n"
-      : "=a" (r), "=q" (ok)
-      :: "cc"
-    );
-
-    if (ok)
-      break;
-
-    __asm__ __volatile__ ("pause\n");
-  }
-
-  return r;
-#elif defined(HAVE_ASM_ARM64)
-  uint64_t r;
-  uint32_t ok;
-
-  for (;;) {
-    __asm__ __volatile__ (
-      "mrs %0, s3_3_c2_c4_1\n" /* RNDRRS */
-      "cset %w1, ne\n"
-      : "=r" (r), "=r" (ok)
-      :: "cc"
-    );
-
-    if (ok)
-      break;
-
-    __asm__ __volatile__ ("yield\n");
-  }
-
-  return r;
-#elif defined(HAVE_ASM_PPC32)
-  /* Nothing comparable to rdseed on PPC32. */
-  __asm__ __volatile__ ("trap\n");
-  return 0;
-#elif defined(HAVE_ASM_PPC64)
-  uint64_t r;
-
-  for (;;) {
-    __asm__ __volatile__ (
-      ".long (0x7c0005e6 | (%0 << 21) | (2 << 16))\n" /* darn %0, 2 */
-      : "=r" (r)
-    );
-
-    if (r != UINT64_MAX)
-      break;
-
-    /* https://stackoverflow.com/questions/5425506 */
-    __asm__ __volatile__ ("or 27, 27, 27\n" ::: "cc");
-  }
-
-  return r;
 #else
-  return 0;
+  return torsion_rdseed();
 #endif
 }
 
@@ -737,15 +689,14 @@ torsion_hwrand(void *dst, size_t size) {
   unsigned char *data = (unsigned char *)dst;
   int has_rdrand = torsion_has_rdrand();
   int has_rdseed = torsion_has_rdseed();
-  uint64_t x;
+  step_word_t x;
   int i;
 
-  if (!has_rdrand && !has_rdseed) {
-    if (size > 0)
-      memset(dst, 0, size);
+  if (!has_rdrand && !has_rdseed)
+    goto fail;
 
-    return 0;
-  }
+  if (has_rdseed && !torsion_rdtest())
+    goto fail;
 
   while (size > 0) {
     if (has_rdseed) {
@@ -770,4 +721,9 @@ torsion_hwrand(void *dst, size_t size) {
   }
 
   return 1;
+fail:
+  if (size > 0)
+    memset(dst, 0, size);
+
+  return 0;
 }
