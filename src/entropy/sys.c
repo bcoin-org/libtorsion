@@ -807,7 +807,7 @@ torsion_callrand(void *dst, size_t size) {
 
 #ifdef HAVE_DEV_RANDOM
 static int
-torsion_devrand(const char *name, void *dst, size_t size) {
+torsion_devrand(void *dst, size_t size, const char *name) {
   unsigned char *data = (unsigned char *)dst;
   struct stat st;
   int fd, nread;
@@ -968,12 +968,12 @@ torsion_sysrand(void *dst, size_t size) {
     return 1;
 
 #ifdef DEV_RANDOM_NAME
-  if (torsion_devrand(DEV_RANDOM_NAME, dst, size))
+  if (torsion_devrand(dst, size, DEV_RANDOM_NAME))
     return 1;
 #endif
 
 #ifdef ALT_RANDOM_NAME
-  if (torsion_devrand(ALT_RANDOM_NAME, dst, size))
+  if (torsion_devrand(dst, size, ALT_RANDOM_NAME))
     return 1;
 #endif
 
