@@ -155,6 +155,7 @@
 #  endif
 #endif
 
+/* Determine step word width. */
 #if defined(HAVE_RDRAND64)  \
  || defined(HAVE_RDSEED64)  \
  || defined(HAVE_MRS)       \
