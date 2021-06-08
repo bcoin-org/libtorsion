@@ -171,14 +171,11 @@
 /* Some insanity to detect features at runtime. */
 #if defined(HAVE_ASM_ARM64) || defined(HAVE_ASM_PPC)
 #  if defined(__GLIBC__) && defined(__GLIBC_PREREQ)
-#    define TORSION_GLIBC_PREREQ __GLIBC_PREREQ
-#  else
-#    define TORSION_GLIBC_PREREQ(maj, min) 0
-#  endif
-#  if TORSION_GLIBC_PREREQ(2, 16)
-#    include <sys/auxv.h> /* getauxval */
-#    define HAVE_GETAUXVAL
-#    define HAVE_AUXVAL
+#    if __GLIBC_PREREQ(2, 16)
+#      include <sys/auxv.h> /* getauxval */
+#      define HAVE_GETAUXVAL
+#      define HAVE_AUXVAL
+#    endif
 #  elif defined(__FreeBSD__)
 #    include <sys/param.h>
 #    if defined(__FreeBSD_version) && __FreeBSD_version >= 1200000 /* 12.0 */

@@ -97,6 +97,7 @@
 #undef HAVE_QUERYPERFORMANCECOUNTER
 #undef HAVE_CLOCK_GETTIME
 #undef HAVE_GETHRTIME
+#undef HAVE_REALTIME
 #undef HAVE_GETTIMEOFDAY
 
 /* High-resolution time. */
@@ -143,12 +144,12 @@
 #  include <time.h> /* clock_gettime, time */
 #  include <unistd.h> /* _POSIX_TIMERS, _XOPEN_VERSION */
 #  if defined(__GLIBC__) && defined(__GLIBC_PREREQ)
-#    define TORSION_GLIBC_PREREQ __GLIBC_PREREQ
-#  else
-#    define TORSION_GLIBC_PREREQ(maj, min) 0
+#    if __GLIBC_PREREQ(2, 17)
+#      define HAVE_REALTIME
+#    endif
 #  endif
 #  if defined(_POSIX_TIMERS) && (_POSIX_TIMERS + 0) > 0
-#    if !defined(__GLIBC__) || TORSION_GLIBC_PREREQ(2, 17)
+#    if !defined(__GLIBC__) || defined(HAVE_REALTIME)
 #      if defined(CLOCK_REALTIME) || defined(CLOCK_MONOTONIC)
 #        define HAVE_CLOCK_GETTIME
 #      endif

@@ -71,6 +71,7 @@
 #undef HAVE_DLITERATEPHDR
 #undef HAVE_GETIFADDRS
 #undef HAVE_GETAUXVAL
+#undef HAVE_REALTIME
 #undef HAVE_SYSCTL
 #undef HAVE_CLOCK_GETTIME
 #undef HAVE_GETHOSTNAME
@@ -112,31 +113,30 @@
 #    define HAVE_GETRUSAGE
 #  endif
 #  if defined(__GLIBC__) && defined(__GLIBC_PREREQ)
-#    define TORSION_GLIBC_PREREQ __GLIBC_PREREQ
-#  else
-#    define TORSION_GLIBC_PREREQ(maj, min) 0
-#  endif
-#  ifdef __linux__
-#    if TORSION_GLIBC_PREREQ(2, 3)
-#      if defined(__GNUC__) && defined(__SIZEOF_INT128__)
-#        include <link.h> /* dl_iterate_phdr */
-#        define HAVE_DLITERATEPHDR
+#    if __GLIBC_PREREQ(2, 3)
+#      if defined(__GNUC__) && defined(__SIZEOF_POINTER__)
+#        if __SIZEOF_POINTER__ == 4 || defined(__SIZEOF_INT128__)
+#          include <link.h> /* dl_iterate_phdr */
+#          define HAVE_DLITERATEPHDR
+#        endif
 #      endif
 #      include <sys/socket.h> /* sockaddr, AF_INET{,6} */
 #      include <netinet/in.h> /* sockaddr_in{,6} */
 #      include <ifaddrs.h> /* getifaddrs */
 #      define HAVE_GETIFADDRS
 #    endif
-#    if TORSION_GLIBC_PREREQ(2, 16)
+#    if __GLIBC_PREREQ(2, 16)
 #      include <sys/auxv.h> /* getauxval */
 #      define HAVE_GETAUXVAL
 #    endif
-#  endif
-#  if defined(__APPLE__)     \
-   || defined(__FreeBSD__)   \
-   || defined(__OpenBSD__)   \
-   || defined(__NetBSD__)    \
-   || defined(__DragonFly__)
+#    if __GLIBC_PREREQ(2, 17)
+#      define HAVE_REALTIME
+#    endif
+#  elif defined(__APPLE__)     \
+     || defined(__FreeBSD__)   \
+     || defined(__OpenBSD__)   \
+     || defined(__NetBSD__)    \
+     || defined(__DragonFly__)
 #    include <sys/sysctl.h> /* sysctl, {CTL,HW,KERN,VM}_* */
 #    include <sys/socket.h> /* sockaddr, AF_INET{,6} */
 #    include <netinet/in.h> /* sockaddr_in{,6} */
@@ -159,7 +159,7 @@ extern char **environ;
 #    endif
 #  endif
 #  if defined(_POSIX_TIMERS) && (_POSIX_TIMERS + 0) > 0
-#    if !defined(__GLIBC__) || TORSION_GLIBC_PREREQ(2, 17)
+#    if !defined(__GLIBC__) || defined(HAVE_REALTIME)
 #      if defined(CLOCK_REALTIME) || defined(CLOCK_MONOTONIC)
 #        define HAVE_CLOCK_GETTIME
 #      endif
