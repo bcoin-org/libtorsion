@@ -53,6 +53,7 @@
  * Darwin:
  *   https://github.com/apple/darwin-xnu/blob/d4061fb/bsd/sys/cdefs.h#L792
  *   https://github.com/apple/darwin-xnu/blob/d4061fb/bsd/sys/unistd.h
+ *   https://opensource.apple.com/source/Libc/Libc-1439.40.11/include/unistd.h.auto.html
  *
  * FreeBSD:
  *   https://github.com/freebsd/freebsd-src/blob/cfad8bd/sys/sys/cdefs.h#L638
@@ -74,6 +75,7 @@
  *   https://docs.oracle.com/cd/E19253-01/816-5175/standards-5/index.html
  *   https://github.com/illumos/illumos-gate/blob/9ecd05b/usr/src/uts/common/sys/feature_tests.h
  *   https://github.com/illumos/illumos-gate/blob/9ecd05b/usr/src/uts/common/sys/unistd.h
+ *   https://github.com/illumos/illumos-gate/blob/9ecd05b/usr/src/head/unistd.h
  *
  * Cygwin:
  *   https://github.com/cygwin/cygwin/blob/8050ef2/newlib/libc/include/sys/features.h
