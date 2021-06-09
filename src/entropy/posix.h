@@ -1,11 +1,11 @@
 /*!
- * posix.h - posix compat for libtorsion
+ * ftm.h - feature test macros for libtorsion
  * Copyright (c) 2020, Christopher Jeffrey (MIT License).
  * https://github.com/bcoin-org/libtorsion
  */
 
-#ifndef TORSION_POSIX_H
-#define TORSION_POSIX_H
+#ifndef TORSION_FTM_H
+#define TORSION_FTM_H
 
 /**
  * Feature Test Macros
@@ -36,6 +36,10 @@
  * APIs regardless of the language standard chosen.
  *
  * Resources:
+ *
+ * Windows:
+ *   https://docs.microsoft.com/en-us/cpp/porting/modifying-winver-and-win32-winnt
+ *   https://docs.microsoft.com/en-us/windows/win32/winprog/using-the-windows-headers
  *
  * glibc:
  *   https://man7.org/linux/man-pages/man7/feature_test_macros.7.html
@@ -251,4 +255,4 @@
 #  endif
 #endif
 
-#endif /* TORSION_POSIX_H */
+#endif /* TORSION_FTM_H */

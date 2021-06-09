@@ -296,10 +296,6 @@ endif()
 
 set(torsion_defines)
 
-if(WIN32)
-  list(APPEND torsion_defines _WIN32_WINNT=0x0501)
-endif()
-
 list(APPEND torsion_defines TORSION_HAVE_CONFIG)
 
 if(TORSION_HAS_ASM)
