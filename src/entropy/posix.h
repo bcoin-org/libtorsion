@@ -86,7 +86,7 @@
  *   https://nixdoc.net/man-pages/HP-UX/man5/unistd.5.html
  *
  * NonStop:
- *   No information available.
+ *   https://www.gnu.org/software/autoconf/manual/autoconf-2.67/html_node/Posix-Variants.html
  *
  * AIX:
  *   https://www.ibm.com/docs/en/aix/7.2?topic=files-unistdh-file
@@ -112,7 +112,20 @@
  * Redox:
  *   https://github.com/redox-os/relibc/blob/9790289/include/bits/unistd.h
  *
+ * DJGPP:
+ *   http://www.delorie.com/djgpp/zip-picker.html
+ *   https://www.mirrorservice.org/sites/ftp.delorie.com/pub/djgpp/current/v2/
+ *
+ * VMS:
+ *   https://www.google.com/search?q="__NEW_STARLET"
+ *
  * VxWorks:
+ *   https://usermanual.wiki/Document/vxworksapplicationprogrammersguide67.1056677699/view
+ *   https://www.google.com/search?q=vxworks+"_POSIX_SOURCE"
+ *   https://www.google.com/search?q=vxworks+"_POSIX_C_SOURCE"
+ *   https://www.google.com/search?q=vxworks+"_XOPEN_SOURCE"
+ *
+ * Fuchsia:
  *   No information available.
  *
  * CloudABI:
@@ -132,9 +145,16 @@
  *   https://pubs.opengroup.org/onlinepubs/007904875/basedefs/unistd.h.html
  */
 
-#if defined(__linux__)
+#if defined(_WIN32)
+/* Unnecessary (defaults to everything). */
+#  ifndef _WIN32_WINNT
+#    define _WIN32_WINNT 0x0501
+#  endif
+#elif defined(__linux__)
 #  undef _GNU_SOURCE
+#  undef _DEFAULT_SOURCE
 #  define _GNU_SOURCE
+#  define _DEFAULT_SOURCE
 #elif defined(__gnu_hurd__)
 #  undef _GNU_SOURCE
 #  define _GNU_SOURCE
@@ -144,6 +164,22 @@
 #elif defined(__NetBSD_kernel__) && defined(__GLIBC__)
 #  undef _GNU_SOURCE
 #  define _GNU_SOURCE
+#elif defined(__APPLE__) && defined(__MACH__)
+/* Unnecessary (defaults to everything). */
+#  undef _DARWIN_C_SOURCE
+#  define _DARWIN_C_SOURCE
+#elif defined(__FreeBSD__)
+/* Unnecessary (defaults to everything). */
+#elif defined(__OpenBSD__)
+/* Unnecessary (defaults to everything). */
+#elif defined(__NetBSD__)
+/* Unnecessary (defaults to everything). */
+#  undef _NETBSD_SOURCE
+#  undef _XOPEN_SOURCE
+#  define _NETBSD_SOURCE
+#  define _XOPEN_SOURCE 500
+#elif defined(__DragonFly__)
+/* Unnecessary (defaults to everything). */
 #elif defined(__sun) && defined(__SVR4)
 #  undef __EXTENSIONS__
 #  undef _XOPEN_SOURCE
@@ -159,7 +195,9 @@
 #  define _XOPEN_SOURCE 500
 #elif defined(__TANDEM)
 #  undef _TANDEM_SOURCE
+#  undef _XOPEN_SOURCE
 #  define _TANDEM_SOURCE
+#  define _XOPEN_SOURCE 500
 #elif defined(_AIX)
 #  undef _ALL_SOURCE
 #  define _ALL_SOURCE
@@ -176,9 +214,41 @@
 #elif defined(__HAIKU__)
 #  undef _BSD_SOURCE
 #  define _BSD_SOURCE
+#elif defined(__minix)
+/* Unnecessary (defaults to everything). */
+#  undef _MINIX
+#  define _MINIX
+#elif defined(__redox__)
+/* Unnecessary (defaults to everything). */
+#elif defined(__DJGPP__)
+/* Unnecessary (defaults to everything). */
+#elif defined(__VMS)
+#  undef __NEW_STARLET
+#  define __NEW_STARLET 1
+#elif defined(__vxworks)
+/* VxWorks supports the standard macros, but
+   I'm current unsure whether _POSIX_C_SOURCE
+   would disable earlier versions of clock_*. */
+#elif defined(__Fuchsia__)
+/* Unknown. */
+#elif defined(__CloudABI__)
+/* Nothing. */
 #elif defined(__wasi__) || defined(__EMSCRIPTEN__)
 #  undef _GNU_SOURCE
+#  undef _DEFAULT_SOURCE
 #  define _GNU_SOURCE
+#  define _DEFAULT_SOURCE
+#else
+/* Fall back to standard macros. */
+#  ifndef _POSIX_SOURCE
+#    define _POSIX_SOURCE
+#  endif
+#  ifndef _POSIX_C_SOURCE
+#    define _POSIX_C_SOURCE 200112L
+#  endif
+#  ifndef _XOPEN_SOURCE
+#    define _XOPEN_SOURCE 600
+#  endif
 #endif
 
 #endif /* TORSION_POSIX_H */

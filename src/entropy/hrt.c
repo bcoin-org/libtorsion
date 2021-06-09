@@ -108,7 +108,6 @@
 #    define HAVE_QUERYPERFORMANCECOUNTER
 #  endif
 #elif defined(__VMS)
-#  define __NEW_STARLET 1
 #  include <ssdef.h> /* SS$_NORMAL */
 #  include <starlet.h> /* sys$gettim{,_prec} */
 #  ifdef __DECC
