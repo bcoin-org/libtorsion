@@ -88,7 +88,7 @@
  * above (otherwise we fall back to GetSystemTimeAsFileTime).
  */
 
-#include "posix.h"
+#include "ftm.h"
 
 #include <stddef.h>
 #include <stdint.h>

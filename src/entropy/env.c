@@ -55,7 +55,7 @@
  * be re-enabled by defining TORSION_USE_PERFDATA.
  */
 
-#include "posix.h"
+#include "ftm.h"
 
 #include <errno.h>
 #include <limits.h>
