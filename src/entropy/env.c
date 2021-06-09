@@ -55,6 +55,8 @@
  * be re-enabled by defining TORSION_USE_PERFDATA.
  */
 
+#include "posix.h"
+
 #include <errno.h>
 #include <limits.h>
 #include <stdint.h>
@@ -114,10 +116,8 @@
 #    if __GLIBC_PREREQ(2, 3)
 #      if defined(__GNUC__) && defined(__SIZEOF_POINTER__)
 #        if __SIZEOF_POINTER__ == 4 || defined(__SIZEOF_INT128__)
-#          ifdef _GNU_SOURCE
-#            include <link.h> /* dl_iterate_phdr */
-#            define HAVE_DLITERATEPHDR
-#          endif
+#          include <link.h> /* dl_iterate_phdr */
+#          define HAVE_DLITERATEPHDR
 #        endif
 #      endif
 #      include <sys/socket.h> /* sockaddr, AF_INET{,6} */

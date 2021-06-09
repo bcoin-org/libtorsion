@@ -298,10 +298,6 @@ set(torsion_defines)
 
 if(WIN32)
   list(APPEND torsion_defines _WIN32_WINNT=0x0501)
-else()
-  list(APPEND torsion_defines _POSIX_SOURCE
-                              _POSIX_C_SOURCE=200112L
-                              _XOPEN_SOURCE=500)
 endif()
 
 list(APPEND torsion_defines TORSION_HAVE_CONFIG)

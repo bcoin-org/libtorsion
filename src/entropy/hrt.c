@@ -88,6 +88,8 @@
  * above (otherwise we fall back to GetSystemTimeAsFileTime).
  */
 
+#include "posix.h"
+
 #include <stddef.h>
 #include <stdint.h>
 #include "entropy.h"
@@ -128,13 +130,13 @@
 #elif defined(__APPLE__) && defined(__MACH__)
 #  include <mach/mach.h> /* KERN_SUCCESS */
 #  include <mach/mach_time.h> /* mach_timebase_{info,time} */
-#elif defined(__sun) && defined(__SVR4) && defined(__EXTENSIONS__)
+#elif defined(__sun) && defined(__SVR4)
 #  include <sys/time.h> /* gethrtime */
 #  define HAVE_GETHRTIME
-#elif defined(__hpux) && defined(_HPUX_SOURCE)
+#elif defined(__hpux)
 #  include <time.h> /* gethrtime */
 #  define HAVE_GETHRTIME
-#elif defined(_AIX) && defined(_ALL_SOURCE)
+#elif defined(_AIX)
 #  include <sys/time.h> /* read_wall_time */
 #elif defined(__MVS__) && defined(_MI_BUILTIN)
 #  include <builtins.h> /* __stck{,f} */
