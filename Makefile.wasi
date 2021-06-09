@@ -23,13 +23,11 @@ ENABLE_TESTS ?= 1
 
 COMMON_CFLAGS := --target=$(TARGET)        \
                  --sysroot=$(SYSROOT)      \
-                 -std=c89                  \
                  -pedantic                 \
                  -Wall                     \
                  -Wextra                   \
                  -Wcast-align              \
                  -Wno-implicit-fallthrough \
-                 -Wno-long-long            \
                  -Wno-overlength-strings   \
                  -Wshadow                  \
                  -I./include               \

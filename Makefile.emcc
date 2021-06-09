@@ -20,13 +20,11 @@ ENABLE_TESTS ?= 1
 # CFLAGS
 #
 
-COMMON_CFLAGS = -std=c89                  \
-                -pedantic                 \
+COMMON_CFLAGS = -pedantic                 \
                 -Wall                     \
                 -Wextra                   \
                 -Wcast-align              \
                 -Wno-implicit-fallthrough \
-                -Wno-long-long            \
                 -Wno-overlength-strings   \
                 -Wshadow                  \
                 -I./include               \

@@ -99,8 +99,7 @@ noinst_HEADERS = src/asn1.h                         \
 
 if ENABLE_RNG
 include_HEADERS += include/torsion/rand.h
-noinst_HEADERS += src/entropy/entropy.h \
-                  src/entropy/ftm.h
+noinst_HEADERS += src/entropy/entropy.h
 endif
 
 #

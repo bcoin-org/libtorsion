@@ -133,28 +133,8 @@ AC_ARG_ENABLE(
 )
 
 dnl
-dnl `long long` support
-dnl
-
-has_longlong=no
-
-torsion_save_CFLAGS="$CFLAGS"
-CFLAGS="-std=c89"
-
-AC_CHECK_TYPE([long long], [has_longlong=yes])
-AC_CHECK_TYPE([__int64], [has_longlong=yes])
-
-CFLAGS="$torsion_save_CFLAGS"
-
-dnl
 dnl Flags
 dnl
-
-AS_IF([test x"$has_longlong" = x"yes"], [
-  AX_CHECK_COMPILE_FLAG([-std=c89], [CFLAGS="$CFLAGS -std=c89"])
-], [
-  AX_CHECK_COMPILE_FLAG([-std=c99], [CFLAGS="$CFLAGS -std=c99"])
-])
 
 AX_CHECK_COMPILE_FLAG([-pedantic], [CFLAGS="$CFLAGS -pedantic"])
 AX_CHECK_COMPILE_FLAG([-Wall], [CFLAGS="$CFLAGS -Wall"])
@@ -162,7 +142,6 @@ AX_CHECK_COMPILE_FLAG([-Wextra], [CFLAGS="$CFLAGS -Wextra"])
 AX_CHECK_COMPILE_FLAG([-Wcast-align], [CFLAGS="$CFLAGS -Wcast-align"])
 AX_CHECK_COMPILE_FLAG([-Wno-implicit-fallthrough],
                       [CFLAGS="$CFLAGS -Wno-implicit-fallthrough"])
-AX_CHECK_COMPILE_FLAG([-Wno-long-long], [CFLAGS="$CFLAGS -Wno-long-long"])
 AX_CHECK_COMPILE_FLAG([-Wno-overlength-strings],
                       [CFLAGS="$CFLAGS -Wno-overlength-strings"])
 AX_CHECK_COMPILE_FLAG([-Wshadow], [CFLAGS="$CFLAGS -Wshadow"])
