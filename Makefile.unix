@@ -56,6 +56,9 @@ COMMON_CFLAGS = -std=$(CSTD)              \
                 -Wno-overlength-strings   \
                 -Wshadow                  \
                 -I./include               \
+                -D_POSIX_SOURCE           \
+                -D_POSIX_C_SOURCE=200112L \
+                -D_XOPEN_SOURCE=500       \
                 -O3
 
 ifeq ($(CC), clang++)

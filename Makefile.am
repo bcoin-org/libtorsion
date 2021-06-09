@@ -134,7 +134,10 @@ if ENABLE_RNG
 torsion_sources += $(rng_sources)
 endif
 
-torsion_cflags = -I$(top_srcdir)/include
+torsion_cflags = -I$(top_srcdir)/include   \
+                 -D_POSIX_SOURCE           \
+                 -D_POSIX_C_SOURCE=200112L \
+                 -D_XOPEN_SOURCE=500
 
 bench_sources = test/bench.c test/hrtime.c test/utils.c
 test_sources = test/test.c test/utils.c

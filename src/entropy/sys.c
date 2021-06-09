@@ -314,8 +314,6 @@
  * [1] https://docs.rs/getrandom/0.1.14/getrandom/
  */
 
-#include "posix.h"
-
 #include <errno.h>
 #include <limits.h>
 #include <stdlib.h>
@@ -341,6 +339,12 @@
 #undef DEV_RANDOM_NAME
 #undef ALT_RANDOM_NAME
 
+#if defined(__cplusplus)
+#  define TORSION_EXTERN_C extern "C"
+#else
+#  define TORSION_EXTERN_C
+#endif
+
 #if defined(_WIN32)
 #  include <windows.h> /* _WIN32_WINNT */
 #  if defined(_WIN32_WINNT) && _WIN32_WINNT >= 0x0601 /* Windows 7 (2009) */
@@ -349,10 +353,7 @@
 #    define HAVE_BCRYPTGENRANDOM
 #  elif defined(_WIN32_WINNT) && _WIN32_WINNT >= 0x0501 /* Windows XP (2001) */
 #    define RtlGenRandom SystemFunction036
-#    ifdef __cplusplus
-extern "C"
-#    endif
-BOOLEAN NTAPI
+TORSION_EXTERN_C BOOLEAN NTAPI
 RtlGenRandom(PVOID RandomBuffer, ULONG RandomBufferLength);
 #    pragma comment(lib, "advapi32.lib")
 #    define HAVE_RTLGENRANDOM
@@ -408,6 +409,7 @@ RtlGenRandom(PVOID RandomBuffer, ULONG RandomBufferLength);
 #  if defined(__linux__)
 #    include <poll.h> /* poll */
 #    include <sys/syscall.h> /* SYS_*, __NR_* */
+TORSION_EXTERN_C long syscall(long, ...);
 #    if defined(SYS_getrandom) && defined(__NR_getrandom) /* 3.17 (2014) */
 #      define getrandom(buf, len, flags) syscall(SYS_getrandom, buf, len, flags)
 #      define HAVE_GETRANDOM
@@ -440,6 +442,7 @@ RtlGenRandom(PVOID RandomBuffer, ULONG RandomBufferLength);
 #  elif defined(__OpenBSD__)
 #    include <sys/param.h>
 #    if defined(OpenBSD) && OpenBSD >= 201411 /* 5.6 (2014) */
+TORSION_EXTERN_C int getentropy(void *, size_t);
 #      define HAVE_GETENTROPY /* resides in <unistd.h> */
 #    endif
 #    if defined(OpenBSD) && OpenBSD >= 200511 /* 3.8 (2005) */

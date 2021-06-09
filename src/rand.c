@@ -34,8 +34,6 @@
  * [2] https://github.com/bitcoin/bitcoin/blob/master/src/random.cpp
  */
 
-#include "entropy/posix.h"
-
 #include <stddef.h>
 #include <stdint.h>
 #include <string.h>
