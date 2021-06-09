@@ -23,6 +23,7 @@ endif()
 include(cmake/AppendCCompilerFlag.cmake)
 include(cmake/CheckCThreadLocalStorage.cmake)
 include(cmake/TargetLinkOptions.cmake)
+include(cmake/WritePkgConfigFile.cmake)
 include(CheckCSourceCompiles)
 include(CheckIncludeFile)
 include(CheckLibraryExists)
@@ -544,23 +545,21 @@ else()
   if(UNIX)
     string(REPLACE ":" "." torsion_version "${TORSION_ABI_VERSION}")
     string(REGEX MATCH "^[0-9]+" torsion_soversion "${TORSION_ABI_VERSION}")
+
     set_target_properties(torsion PROPERTIES VERSION ${torsion_version}
                                              SOVERSION ${torsion_soversion})
     set_target_properties(torsion_static PROPERTIES OUTPUT_NAME torsion)
-  endif()
 
-  if(UNIX)
-    set(prefix ${CMAKE_INSTALL_PREFIX})
-    set(exec_prefix \${prefix})
-    set(libdir \${exec_prefix}/${CMAKE_INSTALL_LIBDIR})
-    set(includedir \${prefix}/${CMAKE_INSTALL_INCLUDEDIR})
-    set(PACKAGE_NAME ${PROJECT_NAME})
-    set(PACKAGE_VERSION ${PROJECT_VERSION})
-    string(REPLACE ";" " " LIBS_PRIVATE "${pkgconf_libs}")
-    configure_file(libtorsion.pc.in libtorsion.pc @ONLY)
-  endif()
+    write_pkgconfig_file(libtorsion.pc.in libtorsion.pc
+      PREFIX ${CMAKE_INSTALL_PREFIX}
+      EXEC_PREFIX \${prefix}
+      LIBDIR \${exec_prefix}/${CMAKE_INSTALL_LIBDIR}
+      INCLUDEDIR \${prefix}/${CMAKE_INSTALL_INCLUDEDIR}
+      PACKAGE_NAME ${PROJECT_NAME}
+      PACKAGE_VERSION ${PROJECT_VERSION}
+      LIBS_PRIVATE ${pkgconf_libs}
+    )
 
-  if(UNIX)
     install(DIRECTORY include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
     install(FILES LICENSE
             DESTINATION ${CMAKE_INSTALL_DATADIR}/licenses/${PROJECT_NAME})
