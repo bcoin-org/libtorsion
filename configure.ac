@@ -32,10 +32,6 @@ dnl
 dnl Sanity Checks
 dnl
 
-AS_IF([test x"$ac_cv_prog_cc_c89" = x"no"], [
-  AC_MSG_ERROR([CC does not support C89])
-])
-
 AC_CHECK_DEFINE([__EMSCRIPTEN__], [
   AS_IF([test x"$EMSCRIPTEN" = x""], [
     AC_MSG_ERROR([./configure must be run with emconfigure])
@@ -137,10 +133,29 @@ AC_ARG_ENABLE(
 )
 
 dnl
+dnl `long long` support
+dnl
+
+has_longlong=no
+
+torsion_save_CFLAGS="$CFLAGS"
+CFLAGS="-std=c89"
+
+AC_CHECK_TYPE([long long], [has_longlong=yes])
+AC_CHECK_TYPE([__int64], [has_longlong=yes])
+
+CFLAGS="$torsion_save_CFLAGS"
+
+dnl
 dnl Flags
 dnl
 
-AX_CHECK_COMPILE_FLAG([-std=c89], [CFLAGS="$CFLAGS -std=c89"])
+AS_IF([test x"$has_longlong" = x"yes"], [
+  AX_CHECK_COMPILE_FLAG([-std=c89], [CFLAGS="$CFLAGS -std=c89"])
+], [
+  AX_CHECK_COMPILE_FLAG([-std=c99], [CFLAGS="$CFLAGS -std=c99"])
+])
+
 AX_CHECK_COMPILE_FLAG([-pedantic], [CFLAGS="$CFLAGS -pedantic"])
 AX_CHECK_COMPILE_FLAG([-Wall], [CFLAGS="$CFLAGS -Wall"])
 AX_CHECK_COMPILE_FLAG([-Wextra], [CFLAGS="$CFLAGS -Wextra"])

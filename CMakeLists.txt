@@ -28,6 +28,7 @@ include(CheckCSourceCompiles)
 include(CheckIncludeFile)
 include(CheckLibraryExists)
 include(CheckSymbolExists)
+include(CheckTypeSize)
 include(CTest)
 include(GNUInstallDirs)
 
@@ -77,6 +78,13 @@ set(torsion_ldflags)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_C_EXTENSIONS OFF)
 set(CMAKE_C_STANDARD 90)
+
+check_type_size("long long" TORSION_LONGLONG)
+check_type_size("__int64" TORSION_INT64)
+
+if(NOT TORSION_LONGLONG AND NOT TORSION_INT64)
+  set(CMAKE_C_STANDARD 99)
+endif()
 
 if(NOT TORSION_WASM)
   set(CMAKE_C_VISIBILITY_PRESET hidden)
