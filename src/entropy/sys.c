@@ -16,50 +16,60 @@
  *   http://man7.org/linux/man-pages/man2/getrandom.2.html
  *   http://man7.org/linux/man-pages/man4/random.4.html
  *   https://man7.org/linux/man-pages/man2/_sysctl.2.html
+ *   https://github.com/bminor/glibc/blob/6c57d32/include/sys/random.h
  *   https://github.com/torvalds/linux/blob/v5.4/include/uapi/linux/sysctl.h
  *
  * OSX/iOS/tvOS/watchOS:
  *   https://www.unix.com/man-page/mojave/2/getentropy/
  *   https://www.unix.com/man-page/mojave/4/random/
+ *   https://github.com/apple/darwin-xnu/blob/d4061fb/bsd/sys/random.h
  *
  * FreeBSD:
  *   https://www.freebsd.org/cgi/man.cgi?getrandom(2)
  *   https://www.freebsd.org/cgi/man.cgi?getentropy(3)
  *   https://www.freebsd.org/cgi/man.cgi?sysctl(3)
+ *   https://www.freebsd.org/cgi/man.cgi?random(4)
+ *   https://github.com/freebsd/freebsd-src/blob/cfad8bd/sys/sys/random.h
+ *   https://github.com/freebsd/freebsd-src/blob/cfad8bd/include/unistd.h#L511
  *   https://github.com/freebsd/freebsd/commit/3ef9d41
  *   https://github.com/freebsd/freebsd/commit/fb176db
- *   https://www.freebsd.org/cgi/man.cgi?random(4)
  *
  * OpenBSD:
  *   https://man.openbsd.org/getentropy.2
+ *   https://man.openbsd.org/sysctl.2
+ *   https://man.openbsd.org/random.4
+ *   https://github.com/openbsd/src/blob/2981a53/include/unistd.h#L524
  *   https://github.com/openbsd/src/blob/2981a53/sys/sys/sysctl.h#L140
  *   https://github.com/openbsd/src/commit/9914119
  *   https://github.com/openbsd/src/commit/fce3886
  *   https://github.com/openbsd/src/commit/4680fe5
- *   https://man.openbsd.org/random.4
  *
  * NetBSD:
  *   https://www.netbsd.org/~riastradh/tmp/20200510/getrandom.html
- *   https://github.com/NetBSD/src/blob/6ec11dd/sys/sys/random.h
- *   https://www.netbsd.org/changes/changes-10.0.html
  *   https://netbsd.gw.com/cgi-bin/man-cgi?sysctl+3+NetBSD-8.0
+ *   https://netbsd.gw.com/cgi-bin/man-cgi?random+4+NetBSD-8.0
+ *   https://www.netbsd.org/changes/changes-10.0.html
+ *   https://github.com/NetBSD/src/blob/6ec11dd/sys/sys/random.h
  *   https://github.com/NetBSD/src/commit/0a9d2ad
  *   https://github.com/NetBSD/src/commit/3f78162
- *   https://netbsd.gw.com/cgi-bin/man-cgi?random+4+NetBSD-8.0
  *
  * DragonFly BSD:
  *   https://leaf.dragonflybsd.org/cgi/web-man?command=getrandom&section=2
  *   https://leaf.dragonflybsd.org/cgi/web-man?command=random&section=4
+ *   https://github.com/DragonFlyBSD/DragonFlyBSD/blob/c97dc9d/sys/sys/random.h
  *
  * Solaris/Illumos:
  *   https://docs.oracle.com/cd/E88353_01/html/E37841/getrandom-2.html
  *   https://docs.oracle.com/cd/E36784_01/html/E36884/random-7d.html
+ *   https://github.com/illumos/illumos-gate/blob/9ecd05b/usr/src/uts/common/sys/random.h
+ *   https://github.com/illumos/illumos-gate/blob/9ecd05b/usr/src/head/unistd.h#L708
  *
  * Cygwin (*):
- *   https://github.com/cygwin/cygwin/blob/8050ef2/winsup/cygwin/include/sys/random.h
- *   https://github.com/cygwin/cygwin/blob/8050ef2/winsup/cygwin/include/cygwin/version.h#L473
  *   https://github.com/cygwin/cygwin/blob/8050ef2/winsup/cygwin/release/2.7.0
  *   https://github.com/cygwin/cygwin/blob/8050ef2/winsup/cygwin/release/2.8.0
+ *   https://github.com/cygwin/cygwin/blob/8050ef2/winsup/cygwin/include/cygwin/version.h#L473
+ *   https://github.com/cygwin/cygwin/blob/8050ef2/winsup/cygwin/include/sys/random.h
+ *   https://github.com/cygwin/cygwin/blob/8050ef2/newlib/libc/include/sys/unistd.h#L107
  *
  * HP-UX (*):
  *   https://nixdoc.net/man-pages/HP-UX/man7/random.7.html
