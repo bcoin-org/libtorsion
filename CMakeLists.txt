@@ -34,17 +34,7 @@ include(GNUInstallDirs)
 # Early Checks
 #
 
-set(TORSION_ROOT 0)
-set(TORSION_MAKE 0)
 set(TORSION_WASM 0)
-
-if(PROJECT_NAME STREQUAL CMAKE_PROJECT_NAME)
-  set(TORSION_ROOT 1)
-endif()
-
-if(CMAKE_GENERATOR STREQUAL "Unix Makefiles")
-  set(TORSION_MAKE 1)
-endif()
 
 check_symbol_exists(__EMSCRIPTEN__ "" TORSION_EMSCRIPTEN)
 check_symbol_exists(__wasi__ "" TORSION_WASI)
@@ -305,11 +295,11 @@ endif()
 
 set(torsion_defines)
 
-list(APPEND torsion_defines TORSION_HAVE_CONFIG)
-
-if(WIN32 AND NOT TORSION_WASM)
+if(WIN32)
   list(APPEND torsion_defines _WIN32_WINNT=0x0600)
 endif()
+
+list(APPEND torsion_defines TORSION_HAVE_CONFIG)
 
 if(TORSION_HAS_ASM)
   list(APPEND torsion_defines TORSION_HAVE_ASM)
@@ -369,7 +359,34 @@ if(TORSION_HAS_ZLIB)
 endif()
 
 #
-# Targets
+# Libraries
+#
+
+set(torsion_libs)
+set(pkgconf_libs)
+set(test_libs)
+
+if(TORSION_HAS_TLS_FALLBACK)
+  list(APPEND torsion_libs Threads::Threads)
+  list(APPEND pkgconf_libs ${CMAKE_THREAD_LIBS_INIT})
+endif()
+
+if(TORSION_HAS_PTHREAD)
+  list(APPEND test_libs Threads::Threads)
+endif()
+
+if(TORSION_HAS_ZLIB)
+  list(APPEND test_libs z)
+endif()
+
+#
+# Includes
+#
+
+set(torsion_includes ${PROJECT_SOURCE_DIR}/include)
+
+#
+# Sources
 #
 
 set(torsion_sources src/aead.c
@@ -395,13 +412,44 @@ set(rng_sources src/entropy/env.c
                 src/entropy/sys.c
                 src/rand.c)
 
+set(test_sources test/test.c test/utils.c)
+set(bench_sources test/bench.c test/hrtime.c test/utils.c)
+set(ctgrind_sources test/ctgrind.c test/utils.c)
+
 if(TORSION_ENABLE_RNG)
   list(APPEND torsion_sources ${rng_sources})
 endif()
 
-set(torsion_includes ${PROJECT_SOURCE_DIR}/include)
+if(TORSION_HAS_PTHREAD OR WIN32)
+  list(APPEND test_sources test/thread.c)
+endif()
 
-if(TORSION_WASM)
+#
+# Targets
+#
+
+if(NOT PROJECT_NAME STREQUAL CMAKE_PROJECT_NAME)
+  # Bulding a subproject. Keep it simple.
+  if(TORSION_WASM)
+    add_library(torsion OBJECT ${torsion_sources})
+    target_compile_definitions(torsion PRIVATE ${torsion_defines})
+    target_compile_options(torsion PRIVATE ${torsion_cflags})
+    target_include_directories(torsion PUBLIC ${torsion_includes})
+  else()
+    if(COMMAND add_node_library)
+      add_node_library(torsion STATIC ${torsion_sources})
+    else()
+      add_library(torsion STATIC ${torsion_sources})
+      set_property(TARGET torsion PROPERTY POSITION_INDEPENDENT_CODE ON)
+    endif()
+
+    target_compile_definitions(torsion PRIVATE ${torsion_defines})
+    target_compile_options(torsion PRIVATE ${torsion_cflags})
+    target_include_directories(torsion PUBLIC ${torsion_includes})
+    target_link_options(torsion INTERFACE ${torsion_ldflags})
+    target_link_libraries(torsion INTERFACE ${torsion_libs})
+  endif()
+elseif(TORSION_WASM)
   if(TORSION_EMSCRIPTEN)
     # CMAKE_CROSSCOMPILING_EMULATOR is mistakenly quoted by emcmake.
     string(REPLACE "\"" "" CMAKE_CROSSCOMPILING_EMULATOR
@@ -456,27 +504,19 @@ if(TORSION_WASM)
   target_link_libraries(torsion PRIVATE torsion_o)
 
   if(BUILD_TESTING)
-    add_executable(torsion_bench test/bench.c test/hrtime.c test/utils.c)
+    add_executable(torsion_bench ${bench_sources})
     target_link_libraries(torsion_bench PRIVATE torsion_o)
 
-    add_executable(torsion_test test/test.c test/utils.c)
+    add_executable(torsion_test ${test_sources})
     target_link_libraries(torsion_test PRIVATE torsion_o)
     add_test(NAME test_wasm COMMAND torsion_test)
 
-    if(TORSION_ROOT AND TORSION_MAKE)
+    if(CMAKE_GENERATOR STREQUAL "Unix Makefiles")
       add_custom_target(bench COMMAND torsion_bench)
       add_custom_target(check COMMAND ${CMAKE_MAKE_PROGRAM} test)
     endif()
   endif()
 else()
-  set(torsion_libs)
-  set(pkgconf_libs)
-
-  if(TORSION_HAS_TLS_FALLBACK)
-    list(APPEND torsion_libs Threads::Threads)
-    list(APPEND pkgconf_libs ${CMAKE_THREAD_LIBS_INIT})
-  endif()
-
   add_library(torsion_o OBJECT ${torsion_sources})
   target_compile_definitions(torsion_o PRIVATE ${torsion_defines} TORSION_BUILD)
   target_compile_options(torsion_o PRIVATE ${torsion_cflags})
@@ -536,21 +576,7 @@ else()
   endif()
 
   if(BUILD_TESTING)
-    set(test_sources test/test.c test/utils.c)
-    set(test_libs)
-
-    if(TORSION_HAS_PTHREAD OR WIN32)
-      list(APPEND test_sources test/thread.c)
-      if(NOT WIN32)
-        list(APPEND test_libs Threads::Threads)
-      endif()
-    endif()
-
-    if(TORSION_HAS_ZLIB)
-      list(APPEND test_libs z)
-    endif()
-
-    add_executable(torsion_bench test/bench.c test/hrtime.c test/utils.c)
+    add_executable(torsion_bench ${bench_sources})
     target_link_libraries(torsion_bench PRIVATE torsion)
 
     add_executable(torsion_test ${test_sources})
@@ -563,7 +589,7 @@ else()
     add_test(NAME test_static COMMAND torsion_test_static)
 
     if(TORSION_HAS_MEMCHECK)
-      add_executable(torsion_ctgrind test/ctgrind.c test/utils.c)
+      add_executable(torsion_ctgrind ${ctgrind_sources})
       target_link_libraries(torsion_ctgrind PRIVATE torsion)
     endif()
 
@@ -583,7 +609,7 @@ else()
                                           $<TARGET_FILE:torsion_test>)
     endif()
 
-    if(TORSION_ROOT AND TORSION_MAKE)
+    if(CMAKE_GENERATOR STREQUAL "Unix Makefiles")
       add_custom_target(bench COMMAND torsion_bench)
       add_custom_target(check COMMAND ${CMAKE_MAKE_PROGRAM} test)
 
