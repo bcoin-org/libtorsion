@@ -114,9 +114,6 @@
  *   https://web.archive.org/web/20200202174514/http://www.rahul.net/dkaufman/index.html
  *   https://en.wikipedia.org/wiki//dev/random#Other_operating_systems
  *
- * Unix:
- *   https://en.wikipedia.org/wiki//dev/random
- *
  * VMS:
  *   https://vmssoftware.com/about/roadmap/
  *   https://github.com/openssl/openssl/pull/8926
@@ -281,10 +278,6 @@
  *   Source: /dev/urandom$
  *   Fallback: none
  *   Support: Requires NOISE.SYS.
- *
- * Unix:
- *   Source: /dev/urandom
- *   Fallback: /dev/random
  *
  * VMS:
  *   Source: SYS$GET_ENTROPY
