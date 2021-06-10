@@ -64,12 +64,12 @@
 #include "entropy.h"
 
 #undef HAVE_MANUAL_ENTROPY
-#undef HAVE_GETTIMEOFDAY
-#undef HAVE_GETRUSAGE
 #undef HAVE_GETIFADDRS
 #undef HAVE_GETAUXVAL
 #undef HAVE_REALTIME
 #undef HAVE_SYSCTL
+#undef HAVE_GETRUSAGE
+#undef HAVE_GETTIMEOFDAY
 #undef HAVE_CLOCK_GETTIME
 #undef HAVE_GETHOSTNAME
 #undef HAVE_GETSID
@@ -144,10 +144,10 @@ extern char **environ;
 #    endif
 #  endif
 #  if defined(_XOPEN_VERSION) && _XOPEN_VERSION >= 500
-#    include <sys/time.h> /* gettimeofday */
 #    include <sys/resource.h> /* getrusage */
-#    define HAVE_GETTIMEOFDAY
+#    include <sys/time.h> /* gettimeofday */
 #    define HAVE_GETRUSAGE
+#    define HAVE_GETTIMEOFDAY
 #  endif
 #  if defined(_POSIX_TIMERS) && (_POSIX_TIMERS + 0) > 0
 #    if !defined(__GLIBC__) || defined(HAVE_REALTIME)
