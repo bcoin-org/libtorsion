@@ -322,6 +322,10 @@
 
 #undef HAVE_BCRYPTGENRANDOM
 #undef HAVE_RTLGENRANDOM
+#undef HAVE_GETRANDOM
+#undef HAVE_SYSCTL_UUID
+#undef HAVE_GETENTROPY
+#undef HAVE_SYSCTL_ARND
 #undef HAVE_SYS_GET_ENTROPY
 #undef HAVE_RANDABYTES
 #undef HAVE_CPRNG_DRAW
@@ -330,14 +334,10 @@
 #undef HAVE_JS_RANDOM_GET
 #undef HAVE_UUID_GENERATE
 #undef HAVE_WASI_RANDOM_GET
-#undef HAVE_GETRANDOM
-#undef HAVE_SYSCTL_UUID
-#undef HAVE_GETENTROPY
-#undef HAVE_SYSCTL_ARND
 #undef HAVE_DEV_RANDOM
 #undef HAVE_GETPID
 #undef DEV_RANDOM_NAME
-#undef ALT_RANDOM_NAME
+#undef DEV_RANDOM_POLL
 
 #if defined(_WIN32)
 #  include <windows.h> /* _WIN32_WINNT */
@@ -355,6 +355,106 @@ RtlGenRandom(PVOID RandomBuffer, ULONG RandomBufferLength);
 #    pragma comment(lib, "advapi32.lib")
 #    define HAVE_RTLGENRANDOM
 #  endif
+#elif defined(__linux__)
+#  include <sys/syscall.h> /* SYS_*, __NR_* */
+/* include <unistd.h> */ /* syscall */
+#  if defined(SYS_getrandom) && defined(__NR_getrandom) /* 3.17 (2014) */
+#    define getrandom(buf, len, flags) syscall(SYS_getrandom, buf, len, flags)
+#    define HAVE_GETRANDOM
+#  endif
+#  if defined(SYS__sysctl) && defined(__NR__sysctl) /* 2.3.16 (1999) */
+#    define HAVE_SYSCTL_UUID
+#  endif
+#  define DEV_RANDOM_NAME "/dev/urandom"
+#  define DEV_RANDOM_POLL
+#elif defined(__APPLE__) && defined(__MACH__)
+#  include <AvailabilityMacros.h>
+#  if MAC_OS_X_VERSION_MAX_ALLOWED >= 101200 /* 10.12 (2016) */
+#    include <sys/random.h> /* getentropy */
+#    ifdef __GNUC__
+#      pragma GCC diagnostic ignored "-Waddress"
+#    endif
+#    define HAVE_GETENTROPY
+#  endif
+#  define DEV_RANDOM_NAME "/dev/random"
+#elif defined(__FreeBSD__)
+#  include <sys/param.h> /* <osreldate.h> prior to 3.0.1 (1998) */
+#  if defined(__FreeBSD_version) && __FreeBSD_version >= 1200000 /* 12.0 (2018) */
+#    include <sys/random.h> /* getrandom */
+#    define HAVE_GETRANDOM
+#  endif
+#  if defined(__FreeBSD_version) && __FreeBSD_version >= 701000 /* 7.1 (2009) */
+#    include <sys/sysctl.h> /* sysctl */
+#    if defined(CTL_KERN) && defined(KERN_ARND)
+#      define HAVE_SYSCTL_ARND
+#    endif
+#  endif
+#  define DEV_RANDOM_NAME "/dev/urandom"
+#elif defined(__OpenBSD__)
+#  include <sys/param.h>
+#  if defined(OpenBSD) && OpenBSD >= 201411 /* 5.6 (2014) */
+/*   include <unistd.h> */ /* getentropy */
+#    define HAVE_GETENTROPY
+#  endif
+#  if defined(OpenBSD) && OpenBSD >= 200511 /* 3.8 (2005) */
+#    include <sys/sysctl.h> /* sysctl */
+#    if defined(CTL_KERN) && defined(KERN_ARND)
+#      define HAVE_SYSCTL_ARND
+#    endif
+#  endif
+#  define DEV_RANDOM_NAME "/dev/urandom"
+#elif defined(__NetBSD__)
+#  include <sys/param.h>
+#  if defined(__NetBSD_Version__) && __NetBSD_Version__ >= 1000000000 /* 10.0 (2021) */
+#    include <sys/random.h> /* getrandom */
+#    define HAVE_GETRANDOM
+#  endif
+#  if defined(__NetBSD_Version__) && __NetBSD_Version__ >= 400000000 /* 4.0 (2007) */
+#    include <sys/sysctl.h> /* sysctl */
+#    if defined(CTL_KERN) && defined(KERN_ARND)
+#      define HAVE_SYSCTL_ARND
+#    endif
+#  endif
+#  define DEV_RANDOM_NAME "/dev/urandom"
+#elif defined(__DragonFly__)
+#  include <sys/param.h>
+#  if defined(__DragonFly_version) && __DragonFly_version >= 500800 /* 5.8 (2020) */
+#    include <sys/random.h> /* getrandom */
+#    define HAVE_GETRANDOM
+#  endif
+#  define DEV_RANDOM_NAME "/dev/random"
+#elif defined(__sun) && defined(__SVR4) /* 11.3 (2015) */
+#  if (defined(__SUNPRO_C) && __SUNPRO_C >= 0x5140) \
+   || (defined(__SUNPRO_CC) && __SUNPRO_CC >= 0x5140) /* 5.14 (2016) */
+#    include <sys/random.h> /* getrandom */
+#    define HAVE_GETRANDOM
+#  endif
+#  define DEV_RANDOM_NAME "/dev/random"
+#elif defined(__CYGWIN__) /* (*) */
+#  include <cygwin/version.h>
+#  if CYGWIN_VERSION_API_MAJOR > 0 || CYGWIN_VERSION_API_MINOR >= 306 /* 2.7.0 (2017) */
+#    include <sys/random.h> /* getrandom, getentropy */
+#    define HAVE_GETRANDOM
+#  endif
+#  define DEV_RANDOM_NAME "/dev/random"
+#elif defined(__hpux) /* (*) */
+#  define DEV_RANDOM_NAME "/dev/random"
+#elif defined(__PASE__) /* IBM i disguised as AIX */
+#  define DEV_RANDOM_NAME "/dev/urandom"
+#elif defined(_AIX)
+#  define DEV_RANDOM_NAME "/dev/random"
+#elif defined(__MVS__) /* (*) */
+#  define DEV_RANDOM_NAME "/dev/random"
+#elif defined(__QNX__)
+#  define DEV_RANDOM_NAME "/dev/random"
+#elif defined(__HAIKU__)
+#  define DEV_RANDOM_NAME "/dev/random"
+#elif defined(__minix) /* (*) */
+#  define DEV_RANDOM_NAME "/dev/random"
+#elif defined(__redox__)
+#  define DEV_RANDOM_NAME "rand:"
+#elif defined(__DJGPP__)
+#  define DEV_RANDOM_NAME "/dev/urandom$"
 #elif defined(__VMS)
 #  if defined(__CRTL_VER) && __CRTL_VER >= 90200000 /* 9.2 (2021) */
 #    define __NEW_STARLET 1
@@ -398,115 +498,15 @@ RtlGenRandom(PVOID RandomBuffer, ULONG RandomBufferLength);
 #elif defined(__wasi__)
 #  include <wasi/api.h> /* __wasi_random_get */
 #  define HAVE_WASI_RANDOM_GET
-#else
+#endif
+
+#ifdef DEV_RANDOM_NAME
 #  include <sys/types.h> /* mode_t, off_t, pid_t */
 #  include <sys/stat.h> /* stat, fstat, S_* */
 #  include <fcntl.h> /* open, fcntl, O_*, FD_* */
-#  include <unistd.h> /* read, close, getpid, syscall */
-#  if defined(__linux__)
+#  include <unistd.h> /* read, close, getpid */
+#  ifdef DEV_RANDOM_POLL
 #    include <poll.h> /* poll */
-#    include <sys/syscall.h> /* SYS_*, __NR_* */
-#    if defined(SYS_getrandom) && defined(__NR_getrandom) /* 3.17 (2014) */
-#      define getrandom(buf, len, flags) syscall(SYS_getrandom, buf, len, flags)
-#      define HAVE_GETRANDOM
-#    endif
-#    if defined(SYS__sysctl) && defined(__NR__sysctl) /* 2.3.16 (1999) */
-#      define HAVE_SYSCTL_UUID
-#    endif
-#    define DEV_RANDOM_NAME "/dev/urandom"
-#  elif defined(__APPLE__)
-#    include <AvailabilityMacros.h>
-#    if MAC_OS_X_VERSION_MAX_ALLOWED >= 101200 /* 10.12 (2016) */
-#      include <sys/random.h> /* getentropy */
-#      define HAVE_GETENTROPY
-#    endif
-#    define DEV_RANDOM_NAME "/dev/random"
-#  elif defined(__FreeBSD__)
-#    include <sys/param.h> /* <osreldate.h> prior to 3.0.1 (1998) */
-#    if defined(__FreeBSD_version) && __FreeBSD_version >= 1200000 /* 12.0 (2018) */
-#      include <sys/random.h> /* getrandom */
-#      define HAVE_GETRANDOM
-#      define HAVE_GETENTROPY /* resides in <unistd.h> */
-#    endif
-#    if defined(__FreeBSD_version) && __FreeBSD_version >= 701000 /* 7.1 (2009) */
-#      include <sys/sysctl.h> /* sysctl */
-#      if defined(CTL_KERN) && defined(KERN_ARND)
-#        define HAVE_SYSCTL_ARND
-#      endif
-#    endif
-#    define DEV_RANDOM_NAME "/dev/urandom"
-#  elif defined(__OpenBSD__)
-#    include <sys/param.h>
-#    if defined(OpenBSD) && OpenBSD >= 201411 /* 5.6 (2014) */
-#      define HAVE_GETENTROPY /* resides in <unistd.h> */
-#    endif
-#    if defined(OpenBSD) && OpenBSD >= 200511 /* 3.8 (2005) */
-#      include <sys/sysctl.h> /* sysctl */
-#      if defined(CTL_KERN) && defined(KERN_ARND)
-#        define HAVE_SYSCTL_ARND
-#      endif
-#    endif
-#    define DEV_RANDOM_NAME "/dev/urandom"
-#  elif defined(__NetBSD__)
-#    include <sys/param.h>
-#    if defined(__NetBSD_Version__) && __NetBSD_Version__ >= 1000000000 /* 10.0 (2021) */
-#      include <sys/random.h> /* getrandom */
-#      define HAVE_GETRANDOM
-#    endif
-#    if defined(__NetBSD_Version__) && __NetBSD_Version__ >= 400000000 /* 4.0 (2007) */
-#      include <sys/sysctl.h> /* sysctl */
-#      if defined(CTL_KERN) && defined(KERN_ARND)
-#        define HAVE_SYSCTL_ARND
-#      endif
-#    endif
-#    define DEV_RANDOM_NAME "/dev/urandom"
-#  elif defined(__DragonFly__)
-#    include <sys/param.h>
-#    if defined(__DragonFly_version) && __DragonFly_version >= 500800 /* 5.8 (2020) */
-#      include <sys/random.h> /* getrandom */
-#      define HAVE_GETRANDOM
-#    endif
-#    define DEV_RANDOM_NAME "/dev/random"
-#  elif defined(__sun) && defined(__SVR4) /* 11.3 (2015) */
-#    if (defined(__SUNPRO_C) && __SUNPRO_C >= 0x5140) \
-     || (defined(__SUNPRO_CC) && __SUNPRO_CC >= 0x5140) /* 5.14 (2016) */
-#      include <sys/random.h> /* getrandom */
-#      define HAVE_GETRANDOM
-#      define HAVE_GETENTROPY /* resides in <unistd.h> */
-#    endif
-#    define DEV_RANDOM_NAME "/dev/random"
-#  elif defined(__CYGWIN__) /* (*) */
-#    include <cygwin/version.h>
-#    if CYGWIN_VERSION_API_MAJOR > 0 || CYGWIN_VERSION_API_MINOR >= 306 /* 2.7.0 (2017) */
-#      include <sys/random.h> /* getrandom, getentropy */
-#      define HAVE_GETRANDOM
-#      define HAVE_GETENTROPY
-#    endif
-#    define DEV_RANDOM_NAME "/dev/random"
-#  elif defined(__hpux) /* (*) */
-#    define DEV_RANDOM_NAME "/dev/random"
-#  elif defined(__PASE__) /* IBM i disguised as AIX */
-#    define DEV_RANDOM_NAME "/dev/urandom"
-#  elif defined(_AIX)
-#    define DEV_RANDOM_NAME "/dev/random"
-#  elif defined(__MVS__) /* (*) */
-#    define DEV_RANDOM_NAME "/dev/random"
-#  elif defined(__QNX__)
-#    define DEV_RANDOM_NAME "/dev/random"
-#  elif defined(__HAIKU__)
-#    define DEV_RANDOM_NAME "/dev/random"
-#  elif defined(__minix) /* (*) */
-#    define DEV_RANDOM_NAME "/dev/random"
-#  elif defined(__redox__)
-#    define DEV_RANDOM_NAME "rand:"
-#  elif defined(__DJGPP__)
-#    define DEV_RANDOM_NAME "/dev/urandom$"
-#  else
-#    define DEV_RANDOM_NAME "/dev/urandom"
-#    define ALT_RANDOM_NAME "/dev/random"
-#  endif
-#  ifdef __GNUC__
-#    pragma GCC diagnostic ignored "-Waddress"
 #  endif
 #  ifndef S_ISNAM
 #    define S_ISNAM(x) 0
@@ -650,6 +650,76 @@ torsion_callrand(void *dst, size_t size) {
   }
 
   return 1;
+#elif defined(HAVE_GETRANDOM)
+  unsigned char *data = (unsigned char *)dst;
+  size_t max = 256;
+  int nread;
+
+  while (size > 0) {
+    if (max > size)
+      max = size;
+
+    do {
+      nread = getrandom(data, max, 0);
+    } while (nread < 0 && (errno == EINTR || errno == EAGAIN));
+
+    if (nread < 0)
+      return 0;
+
+    if ((size_t)nread > max)
+      abort();
+
+    data += nread;
+    size -= nread;
+  }
+
+  return 1;
+#elif defined(HAVE_GETENTROPY)
+  unsigned char *data = (unsigned char *)dst;
+  size_t max = 256;
+
+#ifdef __APPLE__
+  /* Apple uses weak symbols depending on
+     the minimum OS version requested. */
+  if (getentropy == NULL)
+    return 0;
+#endif
+
+  while (size > 0) {
+    if (max > size)
+      max = size;
+
+    if (getentropy(data, max) != 0)
+      return 0;
+
+    data += max;
+    size -= max;
+  }
+
+  return 1;
+#elif defined(HAVE_SYSCTL_ARND)
+  static int name[2] = {CTL_KERN, KERN_ARND};
+  unsigned char *data = (unsigned char *)dst;
+  size_t max = 256;
+  size_t nread;
+
+  while (size > 0) {
+    if (max > size)
+      max = size;
+
+    nread = max;
+
+    if (sysctl(name, 2, data, &nread, NULL, 0) != 0)
+      return 0;
+
+    if (nread > max)
+      abort();
+
+    data += nread;
+    size -= nread;
+  }
+
+  return 1;
 #elif defined(HAVE_SYS_GET_ENTROPY)
   unsigned char *data = (unsigned char *)dst;
   size_t max = 256;
@@ -732,76 +802,6 @@ torsion_callrand(void *dst, size_t size) {
   return 1;
 #elif defined(HAVE_WASI_RANDOM_GET)
   return __wasi_random_get((unsigned char *)dst, size) == 0;
-#elif defined(HAVE_GETRANDOM)
-  unsigned char *data = (unsigned char *)dst;
-  size_t max = 256;
-  int nread;
-
-  while (size > 0) {
-    if (max > size)
-      max = size;
-
-    do {
-      nread = getrandom(data, max, 0);
-    } while (nread < 0 && (errno == EINTR || errno == EAGAIN));
-
-    if (nread < 0)
-      return 0;
-
-    if ((size_t)nread > max)
-      abort();
-
-    data += nread;
-    size -= nread;
-  }
-
-  return 1;
-#elif defined(HAVE_GETENTROPY)
-  unsigned char *data = (unsigned char *)dst;
-  size_t max = 256;
-
-#ifdef __APPLE__
-  /* Apple uses weak symbols depending on
-     the minimum OS version requested. */
-  if (getentropy == NULL)
-    return 0;
-#endif
-
-  while (size > 0) {
-    if (max > size)
-      max = size;
-
-    if (getentropy(data, max) != 0)
-      return 0;
-
-    data += max;
-    size -= max;
-  }
-
-  return 1;
-#elif defined(HAVE_SYSCTL_ARND)
-  static int name[2] = {CTL_KERN, KERN_ARND};
-  unsigned char *data = (unsigned char *)dst;
-  size_t max = 256;
-  size_t nread;
-
-  while (size > 0) {
-    if (max > size)
-      max = size;
-
-    nread = max;
-
-    if (sysctl(name, 2, data, &nread, NULL, 0) != 0)
-      return 0;
-
-    if (nread > max)
-      abort();
-
-    data += nread;
-    size -= nread;
-  }
-
-  return 1;
 #else
   (void)dst;
   (void)size;
@@ -820,7 +820,7 @@ torsion_devrand(void *dst, size_t size, const char *name) {
   struct stat st;
   int fd, nread;
   size_t max;
-#ifdef __linux__
+#ifdef DEV_RANDOM_POLL
   struct pollfd pfd;
   int r;
 
@@ -975,13 +975,8 @@ torsion_sysrand(void *dst, size_t size) {
   if (torsion_callrand(dst, size))
     return 1;
 
-#ifdef DEV_RANDOM_NAME
+#ifdef HAVE_DEV_RANDOM
   if (torsion_devrand(dst, size, DEV_RANDOM_NAME))
-    return 1;
-#endif
-
-#ifdef ALT_RANDOM_NAME
-  if (torsion_devrand(dst, size, ALT_RANDOM_NAME))
     return 1;
 #endif
 
