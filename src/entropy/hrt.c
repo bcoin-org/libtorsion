@@ -173,10 +173,10 @@ torsion_hrtime(void) {
   if (!QueryPerformanceFrequency(&freq))
     return 0;
 
-  if (!QueryPerformanceCounter(&ctr))
+  if (freq.QuadPart == 0)
     return 0;
 
-  if (freq.QuadPart == 0)
+  if (!QueryPerformanceCounter(&ctr))
     return 0;
 
   /* We have no idea of the magnitude of `freq`,
