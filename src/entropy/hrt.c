@@ -93,8 +93,8 @@
 #include "entropy.h"
 
 #undef HAVE_QUERYPERFORMANCECOUNTER
-#undef HAVE_CLOCK_GETTIME
 #undef HAVE_GETHRTIME
+#undef HAVE_CLOCK_GETTIME
 #undef HAVE_REALTIME
 #undef HAVE_GETTIMEOFDAY
 
@@ -105,6 +105,19 @@
 #  if defined(_WIN32_WINNT) && _WIN32_WINNT >= 0x0501 /* Windows XP */
 #    define HAVE_QUERYPERFORMANCECOUNTER
 #  endif
+#elif defined(__APPLE__) && defined(__MACH__)
+#  include <mach/mach.h> /* KERN_SUCCESS */
+#  include <mach/mach_time.h> /* mach_timebase_{info,time} */
+#elif defined(__sun) && defined(__SVR4)
+#  include <sys/time.h> /* gethrtime */
+#  define HAVE_GETHRTIME
+#elif defined(__hpux)
+#  include <time.h> /* gethrtime */
+#  define HAVE_GETHRTIME
+#elif defined(_AIX)
+#  include <sys/time.h> /* read_wall_time */
+#elif defined(__MVS__) && defined(_MI_BUILTIN)
+#  include <builtins.h> /* __stck{,f} */
 #elif defined(__vxworks) || defined(__DCC__)
 #  include <time.h> /* clock_gettime, time */
 #  if defined(CLOCK_REALTIME) || defined(CLOCK_MONOTONIC)
@@ -125,19 +138,6 @@
 #  include <wasi/api.h> /* __wasi_clock_time_get */
 #elif defined(__EMSCRIPTEN__)
 #  include <emscripten.h> /* emscripten_get_now */
-#elif defined(__APPLE__) && defined(__MACH__)
-#  include <mach/mach.h> /* KERN_SUCCESS */
-#  include <mach/mach_time.h> /* mach_timebase_{info,time} */
-#elif defined(__sun) && defined(__SVR4)
-#  include <sys/time.h> /* gethrtime */
-#  define HAVE_GETHRTIME
-#elif defined(__hpux)
-#  include <time.h> /* gethrtime */
-#  define HAVE_GETHRTIME
-#elif defined(_AIX)
-#  include <sys/time.h> /* read_wall_time */
-#elif defined(__MVS__) && defined(_MI_BUILTIN)
-#  include <builtins.h> /* __stck{,f} */
 #else
 #  include <time.h> /* clock_gettime, time */
 #  include <unistd.h> /* _POSIX_TIMERS, _XOPEN_VERSION */
@@ -227,50 +227,6 @@ torsion_hrtime(void) {
   ul.HighPart = ft.dwHighDateTime;
 
   return ((uint64_t)ul.QuadPart - epoch) * 100;
-#elif defined(__VMS)
-  /* VMS is similar to Windows time in that it uses
-   * 100ns units. The only difference is that it
-   * picks a time epoch of November 17th, 1858[1].
-   *
-   * [1] https://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.362.7968&rep=rep1&type=pdf
-   */
-  static const uint64_t epoch = UINT64_C(35067168000000000);
-  uint64_t ts;
-
-#if defined(__CRTL_VER) && __CRTL_VER >= 80400000 /* 8.4 */
-  ret = sys$gettim_prec((void *)&ts);
-
-  if (ret == SS$_LOWPREC)
-    ret = SS$_NORMAL;
-#else
-  ret = sys$gettim((void *)&ts);
-#endif
-
-  if (ret != SS$_NORMAL)
-    return 0;
-
-  return (ts - epoch) * 100;
-#elif defined(__Fuchsia__)
-  return zx_clock_get_monotonic();
-#elif defined(__CloudABI__)
-  uint64_t ts;
-
-  if (cloudabi_sys_clock_time_get(CLOUDABI_CLOCK_MONOTONIC, 1, &ts) != 0)
-    return 0;
-
-  return ts;
-#elif defined(__wasi__)
-  uint64_t ts = 0;
-
-#ifdef TORSION_WASM_BIGINT
-  /* Requires --experimental-wasm-bigint at the moment. */
-  if (__wasi_clock_time_get(__WASI_CLOCKID_MONOTONIC, 1, &ts) != 0)
-    return 0;
-#endif
-
-  return ts;
-#elif defined(__EMSCRIPTEN__)
-  return emscripten_get_now() * 1000000.0;
 #elif defined(__APPLE__) && defined(__MACH__)
   mach_timebase_info_data_t info;
 
@@ -329,6 +285,50 @@ torsion_hrtime(void) {
     ts -= epoch;
 
   return ts;
+#elif defined(__VMS)
+  /* VMS is similar to Windows time in that it uses
+   * 100ns units. The only difference is that it
+   * picks a time epoch of November 17th, 1858[1].
+   *
+   * [1] https://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.362.7968&rep=rep1&type=pdf
+   */
+  static const uint64_t epoch = UINT64_C(35067168000000000);
+  uint64_t ts;
+
+#if defined(__CRTL_VER) && __CRTL_VER >= 80400000 /* 8.4 */
+  ret = sys$gettim_prec((void *)&ts);
+
+  if (ret == SS$_LOWPREC)
+    ret = SS$_NORMAL;
+#else
+  ret = sys$gettim((void *)&ts);
+#endif
+
+  if (ret != SS$_NORMAL)
+    return 0;
+
+  return (ts - epoch) * 100;
+#elif defined(__Fuchsia__)
+  return zx_clock_get_monotonic();
+#elif defined(__CloudABI__)
+  uint64_t ts;
+
+  if (cloudabi_sys_clock_time_get(CLOUDABI_CLOCK_MONOTONIC, 1, &ts) != 0)
+    return 0;
+
+  return ts;
+#elif defined(__wasi__)
+  uint64_t ts = 0;
+
+#ifdef TORSION_WASM_BIGINT
+  /* Requires --experimental-wasm-bigint at the moment. */
+  if (__wasi_clock_time_get(__WASI_CLOCKID_MONOTONIC, 1, &ts) != 0)
+    return 0;
+#endif
+
+  return ts;
+#elif defined(__EMSCRIPTEN__)
+  return emscripten_get_now() * 1000000.0;
 #elif defined(HAVE_CLOCK_GETTIME)
   struct timespec ts;
 
