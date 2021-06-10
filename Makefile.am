@@ -68,7 +68,6 @@ noinst_HEADERS = src/asn1.h                         \
                  src/internal.h                     \
                  src/mpi.h                          \
                  src/subgroups.h                    \
-                 src/tls.h                          \
                  test/data/chacha20_vectors.h       \
                  test/data/chachapoly_vectors.h     \
                  test/data/cipher_aead_vectors.h    \

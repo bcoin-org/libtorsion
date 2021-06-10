@@ -43,7 +43,6 @@
 #include <torsion/util.h>
 #include "entropy/entropy.h"
 #include "internal.h"
-#include "tls.h"
 
 /*
  * Helpers
@@ -67,6 +66,8 @@ typedef struct rng_s {
   uint32_t pool[128];
   size_t pos;
   int rdrand;
+  int started;
+  long pid;
 } rng_t;
 
 static int
@@ -257,18 +258,14 @@ rng_global_unlock(void) {
  * Global Context
  */
 
-static TORSION_TLS struct {
-  rng_t rng;
-  int started;
-  long pid;
-} rng_state;
+static TORSION_TLS rng_t rng_state;
 
 static int
 rng_global_init(void) {
   long pid = torsion_getpid();
 
   if (!rng_state.started || rng_state.pid != pid) {
-    if (!rng_init(&rng_state.rng))
+    if (!rng_init(&rng_state))
       return 0; /* LCOV_EXCL_LINE */
 
     rng_state.started = 1;
@@ -302,7 +299,7 @@ torsion_getrandom(void *dst, size_t size) {
   }
   /* LCOV_EXCL_STOP */
 
-  rng_generate(&rng_state.rng, dst, size);
+  rng_generate(&rng_state, dst, size);
   rng_global_unlock();
 
   return 1;
@@ -320,7 +317,7 @@ torsion_random(uint32_t *num) {
   }
   /* LCOV_EXCL_STOP */
 
-  *num = rng_random(&rng_state.rng);
+  *num = rng_random(&rng_state);
 
   rng_global_unlock();
 
@@ -339,7 +336,7 @@ torsion_uniform(uint32_t *num, uint32_t max) {
   }
   /* LCOV_EXCL_STOP */
 
-  *num = rng_uniform(&rng_state.rng, max);
+  *num = rng_uniform(&rng_state, max);
 
   rng_global_unlock();
 

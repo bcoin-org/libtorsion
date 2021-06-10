@@ -198,9 +198,18 @@ static const unsigned long torsion__endian_check TORSION_UNUSED = 1;
 
 #ifndef TORSION_HAVE_CONFIG
 /* TORSION_HAVE_CONFIG signals that the config
-   will be passed in via the commandline (-D).
-   Otherwise, auto configuration is useful if
-   you're using an awful build system like gyp. */
+ * will be passed in via the commandline (-D).
+ * Otherwise, auto configuration is useful if
+ * you're using an awful build system like gyp.
+ *
+ * Start by clearing everything...
+ */
+#undef TORSION_HAVE_ASM
+#undef TORSION_HAVE_ASM_X86
+#undef TORSION_HAVE_ASM_X64
+#undef TORSION_HAVE_INT128
+#undef TORSION_HAVE_TLS
+#undef TORSION_TLS
 
 /* Detect inline ASM support for x86-64.
  *
@@ -259,7 +268,56 @@ static const unsigned long torsion__endian_check TORSION_UNUSED = 1;
 #  endif
 #endif
 
-/* Allow some overrides (for testing). */
+/* Basically a stripped down version of our old file[1].
+ * It only includes the compilers we for sure know work.
+ *
+ * [1] https://github.com/bcoin-org/libtorsion/blob/2fe6cd3/src/tls.h
+ */
+#if defined(__clang__)
+#  ifdef __has_extension
+#    if __has_extension(c_thread_local)
+#      define TORSION_HAVE_TLS
+#    endif
+#  endif
+#elif defined(__INTEL_COMPILER)
+#  if TORSION_GNUC_PREREQ(3, 3) && __INTEL_COMPILER >= 1500
+#    define TORSION_HAVE_TLS
+#  endif
+#elif TORSION_GNUC_PREREQ(3, 3)
+#  if defined(__ELF__) && (defined(__i386__) || defined(__x86_64__))
+#    define TORSION_HAVE_TLS
+#  elif TORSION_GNUC_PREREQ(4, 3)
+#    define TORSION_HAVE_TLS
+#  endif
+#elif (defined(_MSC_VER) && _MSC_VER >= 1200)        \
+   || (defined(__WATCOMC__) && __WATCOMC__ >= 1200)  \
+   || (defined(__SUNPRO_C) && __SUNPRO_C >= 0x590)   \
+   || (defined(__SUNPRO_CC) && __SUNPRO_CC >= 0x590)
+#  define TORSION_HAVE_TLS
+#elif defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L
+#  ifndef __STDC_NO_THREADS__
+#    define TORSION_TLS _Thread_local
+#    define TORSION_HAVE_TLS
+#  endif
+#elif defined(__cplusplus) && (__cplusplus + 0L) >= 201103L
+#  define TORSION_TLS thread_local
+#  define TORSION_HAVE_TLS
+#endif
+
+/* Pick thread-local keyword. */
+#ifndef TORSION_TLS
+#  if defined(TORSION_HAVE_TLS)
+#    if defined(_WIN32) && !defined(__MINGW32__)
+#      define TORSION_TLS __declspec(thread)
+#    else
+#      define TORSION_TLS __thread
+#    endif
+#  else
+#    define TORSION_TLS
+#  endif
+#endif
+
+/* Allow some overrides. */
 #ifdef TORSION_NO_ASM
 #  undef TORSION_HAVE_ASM
 #  undef TORSION_HAVE_ASM_X86
@@ -268,6 +326,12 @@ static const unsigned long torsion__endian_check TORSION_UNUSED = 1;
 
 #ifdef TORSION_NO_INT128
 #  undef TORSION_HAVE_INT128
+#endif
+
+#ifdef TORSION_NO_TLS
+#  undef TORSION_HAVE_TLS
+#  undef TORSION_TLS
+#  define TORSION_TLS
 #endif
 
 #ifdef TORSION_FORCE_32BIT
