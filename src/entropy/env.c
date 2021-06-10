@@ -86,7 +86,7 @@
 #  define HAVE_MANUAL_ENTROPY
 #elif defined(__VMS)
 /* Unsupported. */
-#elif defined(__vxworks)
+#elif defined(__vxworks) || defined(__DCC__)
 /* Unsupported. */
 #elif defined(__Fuchsia__)
 /* Unsupported. */

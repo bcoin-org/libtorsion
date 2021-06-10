@@ -476,7 +476,7 @@ RtlGenRandom(PVOID RandomBuffer, ULONG RandomBufferLength);
 #    endif
 #    define HAVE_SYS_GET_ENTROPY
 #  endif
-#elif defined(__vxworks)
+#elif defined(__vxworks) || defined(__DCC__)
 #  include <version.h>
 #  if defined(_WRS_VXWORKS_MAJOR) && _WRS_VXWORKS_MAJOR >= 7 /* 7 (2016) */
 #    include <randomNumGen.h> /* randABytes, randSecure */

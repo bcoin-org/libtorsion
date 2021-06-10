@@ -112,7 +112,7 @@
 #  ifdef __DECC
 #    pragma message disable DOLLARID
 #  endif
-#elif defined(__vxworks)
+#elif defined(__vxworks) || defined(__DCC__)
 #  include <time.h> /* clock_gettime, time */
 #  if defined(CLOCK_REALTIME) || defined(CLOCK_MONOTONIC)
 #    define HAVE_CLOCK_GETTIME
