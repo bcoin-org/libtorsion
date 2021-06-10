@@ -64,7 +64,7 @@
  *   https://github.com/illumos/illumos-gate/blob/9ecd05b/usr/src/uts/common/sys/random.h
  *   https://github.com/illumos/illumos-gate/blob/9ecd05b/usr/src/head/unistd.h#L708
  *
- * Cygwin (*):
+ * Cygwin:
  *   https://github.com/cygwin/cygwin/blob/8050ef2/winsup/cygwin/release/2.7.0
  *   https://github.com/cygwin/cygwin/blob/8050ef2/winsup/cygwin/release/2.8.0
  *   https://github.com/cygwin/cygwin/blob/8050ef2/winsup/cygwin/include/cygwin/version.h#L473
@@ -85,7 +85,7 @@
  *   https://www.ibm.com/docs/pt/i/7.1?topic=pi-whats-new-i-71
  *   https://www.ibm.com/support/knowledgecenter/en/ssw_ibm_i_71/rzalf/rzalf.pdf
  *
- * z/OS (*):
+ * z/OS:
  *   https://www.ibm.com/docs/en/zos/2.1.0?topic=files-random-number
  *
  * QNX:
@@ -98,6 +98,10 @@
  * Minix (*):
  *   https://wiki.minix3.org/doku.php?id=developersguide:overviewofminixservers
  *   https://github.com/Stichting-MINIX-Research-Foundation/minix/blob/1aad172/minix/drivers/system/random/main.c
+ *
+ * Tru64 UNIX:
+ *   https://web.archive.org/web/20030927104849/
+ *   http://h30097.www3.hp.com/docs/base_doc/DOCUMENTATION/V51B_HTML/MAN/MAN4/0199____.HTM
  *
  * Redox:
  *   https://github.com/redox-os/randd/blob/2f0ad18/src/main.rs
@@ -199,7 +203,7 @@
  * FreeBSD:
  *   Source: getrandom(2)
  *   Fallback 1: sysctl(2) w/ kern.arandom
- *   Fallback 2: /dev/urandom
+ *   Fallback 2: /dev/urandom (symlink to /dev/random)
  *   Support: getrandom(2) added in FreeBSD 12.0 (2018).
  *            kern.arandom added in FreeBSD 7.0 (2008).
  *            kern.arandom modernized in FreeBSD 7.1 (2009).
@@ -231,9 +235,9 @@
  *   Fallback: /dev/random
  *   Support: getrandom(2) added in Solaris 11.3 (2015) (SunOS 5.11.3).
  *
- * Cygwin (*):
+ * Cygwin:
  *   Source: getrandom(2)
- *   Fallback: /dev/random
+ *   Fallback: /dev/urandom
  *   Support: getrandom(2) added in Cygwin 2.7.0 (2017).
  *            getrandom(2) fixed in Cygwin 2.8.0 (2017).
  *
@@ -249,8 +253,8 @@
  *   Source: /dev/urandom
  *   Fallback: none
  *
- * z/OS (*):
- *   Source: /dev/random
+ * z/OS:
+ *   Source: /dev/urandom
  *   Fallback: none
  *
  * QNX:
@@ -263,6 +267,10 @@
  *
  * Minix (*):
  *   Source: /dev/random
+ *   Fallback: none
+ *
+ * Tru64 UNIX:
+ *   Source: /dev/urandom
  *   Fallback: none
  *
  * Redox:
@@ -430,27 +438,29 @@ RtlGenRandom(PVOID RandomBuffer, ULONG RandomBufferLength);
 #    define HAVE_GETRANDOM
 #  endif
 #  define DEV_RANDOM_NAME "/dev/random"
-#elif defined(__CYGWIN__) /* (*) */
+#elif defined(__CYGWIN__)
 #  include <cygwin/version.h>
 #  if CYGWIN_VERSION_API_MAJOR > 0 || CYGWIN_VERSION_API_MINOR >= 306 /* 2.7.0 (2017) */
 #    include <sys/random.h> /* getrandom, getentropy */
 #    define HAVE_GETRANDOM
 #  endif
-#  define DEV_RANDOM_NAME "/dev/random"
+#  define DEV_RANDOM_NAME "/dev/urandom"
 #elif defined(__hpux) /* (*) */
 #  define DEV_RANDOM_NAME "/dev/random"
 #elif defined(__PASE__) /* IBM i disguised as AIX */
 #  define DEV_RANDOM_NAME "/dev/urandom"
 #elif defined(_AIX)
 #  define DEV_RANDOM_NAME "/dev/random"
-#elif defined(__MVS__) /* (*) */
-#  define DEV_RANDOM_NAME "/dev/random"
+#elif defined(__MVS__)
+#  define DEV_RANDOM_NAME "/dev/urandom"
 #elif defined(__QNX__)
 #  define DEV_RANDOM_NAME "/dev/random"
 #elif defined(__HAIKU__)
 #  define DEV_RANDOM_NAME "/dev/random"
 #elif defined(__minix) /* (*) */
 #  define DEV_RANDOM_NAME "/dev/random"
+#elif defined(__osf__)
+#  define DEV_RANDOM_NAME "/dev/urandom"
 #elif defined(__redox__)
 #  define DEV_RANDOM_NAME "rand:"
 #elif defined(__DJGPP__)
