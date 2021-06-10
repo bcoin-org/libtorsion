@@ -103,6 +103,9 @@
  *   https://web.archive.org/web/20030927104849/
  *   http://h30097.www3.hp.com/docs/base_doc/DOCUMENTATION/V51B_HTML/MAN/MAN4/0199____.HTM
  *
+ * IRIX (*):
+ *   https://www.oreilly.com/library/view/secure-programming-cookbook/0596003943/ch11s03.html
+ *
  * Redox:
  *   https://github.com/redox-os/randd/blob/2f0ad18/src/main.rs
  *   https://github.com/redox-os/relibc/blob/a6fffd3/src/platform/redox/mod.rs#L559
@@ -267,6 +270,10 @@
  *   Fallback: none
  *
  * Tru64 UNIX:
+ *   Source: /dev/urandom
+ *   Fallback: none
+ *
+ * IRIX (*):
  *   Source: /dev/urandom
  *   Fallback: none
  *
@@ -453,6 +460,8 @@ RtlGenRandom(PVOID RandomBuffer, ULONG RandomBufferLength);
 #elif defined(__minix) /* (*) */
 #  define DEV_RANDOM_NAME "/dev/random"
 #elif defined(__osf__)
+#  define DEV_RANDOM_NAME "/dev/urandom"
+#elif defined(__sgi) /* (*) */
 #  define DEV_RANDOM_NAME "/dev/urandom"
 #elif defined(__redox__)
 #  define DEV_RANDOM_NAME "rand:"
