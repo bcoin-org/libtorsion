@@ -103,12 +103,6 @@
 #  include <fcntl.h> /* open, O_* */
 #  include <unistd.h> /* read, close, get{*id,cwd,hostname} */
 #  include <time.h> /* clock_gettime */
-#  if defined(_XOPEN_VERSION) && _XOPEN_VERSION >= 500
-#    include <sys/time.h> /* gettimeofday */
-#    include <sys/resource.h> /* getrusage */
-#    define HAVE_GETTIMEOFDAY
-#    define HAVE_GETRUSAGE
-#  endif
 #  if defined(__GLIBC__) && defined(__GLIBC_PREREQ)
 #    if __GLIBC_PREREQ(2, 3)
 #      include <sys/socket.h> /* sockaddr, AF_INET{,6} */
@@ -148,6 +142,12 @@
 #    ifndef environ
 extern char **environ;
 #    endif
+#  endif
+#  if defined(_XOPEN_VERSION) && _XOPEN_VERSION >= 500
+#    include <sys/time.h> /* gettimeofday */
+#    include <sys/resource.h> /* getrusage */
+#    define HAVE_GETTIMEOFDAY
+#    define HAVE_GETRUSAGE
 #  endif
 #  if defined(_POSIX_TIMERS) && (_POSIX_TIMERS + 0) > 0
 #    if !defined(__GLIBC__) || defined(HAVE_REALTIME)
