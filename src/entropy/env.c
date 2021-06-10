@@ -84,18 +84,18 @@
 #  pragma comment(lib, "kernel32.lib")
 #  pragma comment(lib, "psapi.lib")
 #  define HAVE_MANUAL_ENTROPY
-#elif defined(__VMS)
-/* Unsupported. */
 #elif defined(__vxworks) || defined(__DCC__)
+/* Unsupported. */
+#elif defined(__VMS)
 /* Unsupported. */
 #elif defined(__Fuchsia__)
 /* Unsupported. */
 #elif defined(__CloudABI__)
 /* Could gather static entropy from filesystem in the future. */
-#elif defined(__EMSCRIPTEN__)
-/* No reliable entropy sources available for emscripten. */
 #elif defined(__wasi__)
 /* Could gather static entropy from args/env in the future. */
+#elif defined(__EMSCRIPTEN__)
+/* No reliable entropy sources available for emscripten. */
 #else
 #  include <sys/types.h> /* mode_t, off_t, pid_t */
 #  include <sys/stat.h> /* stat, fstat */

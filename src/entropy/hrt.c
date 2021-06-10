@@ -105,6 +105,11 @@
 #  if defined(_WIN32_WINNT) && _WIN32_WINNT >= 0x0501 /* Windows XP */
 #    define HAVE_QUERYPERFORMANCECOUNTER
 #  endif
+#elif defined(__vxworks) || defined(__DCC__)
+#  include <time.h> /* clock_gettime, time */
+#  if defined(CLOCK_REALTIME) || defined(CLOCK_MONOTONIC)
+#    define HAVE_CLOCK_GETTIME
+#  endif
 #elif defined(__VMS)
 #  define __NEW_STARLET 1
 #  include <ssdef.h> /* SS$_NORMAL */
@@ -112,19 +117,14 @@
 #  ifdef __DECC
 #    pragma message disable DOLLARID
 #  endif
-#elif defined(__vxworks) || defined(__DCC__)
-#  include <time.h> /* clock_gettime, time */
-#  if defined(CLOCK_REALTIME) || defined(CLOCK_MONOTONIC)
-#    define HAVE_CLOCK_GETTIME
-#  endif
 #elif defined(__Fuchsia__)
 #  include <zircon/syscalls.h> /* zx_clock_get_monotonic */
 #elif defined(__CloudABI__)
 #  include <cloudabi_syscalls.h> /* cloudabi_sys_clock_time_get */
-#elif defined(__EMSCRIPTEN__)
-#  include <emscripten.h> /* emscripten_get_now */
 #elif defined(__wasi__)
 #  include <wasi/api.h> /* __wasi_clock_time_get */
+#elif defined(__EMSCRIPTEN__)
+#  include <emscripten.h> /* emscripten_get_now */
 #elif defined(__APPLE__) && defined(__MACH__)
 #  include <mach/mach.h> /* KERN_SUCCESS */
 #  include <mach/mach_time.h> /* mach_timebase_{info,time} */
@@ -259,8 +259,6 @@ torsion_hrtime(void) {
     return 0;
 
   return ts;
-#elif defined(__EMSCRIPTEN__)
-  return emscripten_get_now() * 1000000.0;
 #elif defined(__wasi__)
   uint64_t ts = 0;
 
@@ -271,6 +269,8 @@ torsion_hrtime(void) {
 #endif
 
   return ts;
+#elif defined(__EMSCRIPTEN__)
+  return emscripten_get_now() * 1000000.0;
 #elif defined(__APPLE__) && defined(__MACH__)
   mach_timebase_info_data_t info;
 

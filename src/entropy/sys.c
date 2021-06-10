@@ -117,12 +117,12 @@
  *   https://web.archive.org/web/20200202174514/http://www.rahul.net/dkaufman/index.html
  *   https://en.wikipedia.org/wiki//dev/random#Other_operating_systems
  *
+ * VxWorks:
+ *   https://docs.windriver.com/bundle/vxworks_7_application_core_os_sr0630-enus/page/CORE/randomNumGenLib.html
+ *
  * VMS:
  *   https://vmssoftware.com/about/roadmap/
  *   https://github.com/openssl/openssl/pull/8926
- *
- * VxWorks:
- *   https://docs.windriver.com/bundle/vxworks_7_application_core_os_sr0630-enus/page/CORE/randomNumGenLib.html
  *
  * Fuchsia:
  *   https://fuchsia.dev/fuchsia-src/zircon/syscalls/cprng_draw
@@ -286,15 +286,15 @@
  *   Fallback: none
  *   Support: Requires NOISE.SYS.
  *
- * VMS:
- *   Source: SYS$GET_ENTROPY
- *   Fallback: none
- *   Support: SYS$GET_ENTROPY added in OpenVMS 9.2 (2021).
- *
  * VxWorks:
  *   Source: randABytes (after polling randSecure)
  *   Fallback: none
  *   Support: randABytes added in VxWorks 7 (2016).
+ *
+ * VMS:
+ *   Source: SYS$GET_ENTROPY
+ *   Fallback: none
+ *   Support: SYS$GET_ENTROPY added in OpenVMS 9.2 (2021).
  *
  * Fuchsia:
  *   Source: zx_cprng_draw(2)
@@ -334,14 +334,14 @@
 #undef HAVE_SYSCTL_UUID
 #undef HAVE_GETENTROPY
 #undef HAVE_SYSCTL_ARND
-#undef HAVE_SYS_GET_ENTROPY
 #undef HAVE_RANDABYTES
+#undef HAVE_SYS_GET_ENTROPY
 #undef HAVE_CPRNG_DRAW
 #undef HAVE_SYS_RANDOM_GET
+#undef HAVE_WASI_RANDOM_GET
 #undef HAVE_SYS_RANDOM_H
 #undef HAVE_JS_RANDOM_GET
 #undef HAVE_UUID_GENERATE
-#undef HAVE_WASI_RANDOM_GET
 #undef HAVE_DEV_RANDOM
 #undef HAVE_GETPID
 #undef DEV_RANDOM_NAME
@@ -467,6 +467,13 @@ RtlGenRandom(PVOID RandomBuffer, ULONG RandomBufferLength);
 #  define DEV_RANDOM_NAME "rand:"
 #elif defined(__DJGPP__)
 #  define DEV_RANDOM_NAME "/dev/urandom$"
+#elif defined(__vxworks) || defined(__DCC__)
+#  include <version.h>
+#  if defined(_WRS_VXWORKS_MAJOR) && _WRS_VXWORKS_MAJOR >= 7 /* 7 (2016) */
+#    include <randomNumGen.h> /* randABytes, randSecure */
+#    include <taskLib.h> /* taskDelay */
+#    define HAVE_RANDABYTES
+#  endif
 #elif defined(__VMS)
 #  if defined(__CRTL_VER) && __CRTL_VER >= 90200000 /* 9.2 (2021) */
 #    define __NEW_STARLET 1
@@ -478,19 +485,15 @@ RtlGenRandom(PVOID RandomBuffer, ULONG RandomBufferLength);
 #    endif
 #    define HAVE_SYS_GET_ENTROPY
 #  endif
-#elif defined(__vxworks) || defined(__DCC__)
-#  include <version.h>
-#  if defined(_WRS_VXWORKS_MAJOR) && _WRS_VXWORKS_MAJOR >= 7 /* 7 (2016) */
-#    include <randomNumGen.h> /* randABytes, randSecure */
-#    include <taskLib.h> /* taskDelay */
-#    define HAVE_RANDABYTES
-#  endif
 #elif defined(__Fuchsia__)
 #  include <zircon/syscalls.h> /* zx_cprng_draw */
 #  define HAVE_CPRNG_DRAW
 #elif defined(__CloudABI__)
 #  include <cloudabi_syscalls.h> /* cloudabi_sys_random_get */
 #  define HAVE_SYS_RANDOM_GET
+#elif defined(__wasi__)
+#  include <wasi/api.h> /* __wasi_random_get */
+#  define HAVE_WASI_RANDOM_GET
 #elif defined(__EMSCRIPTEN__)
 #  include <emscripten.h> /* EM_JS */
 #  ifdef __has_include
@@ -507,9 +510,6 @@ RtlGenRandom(PVOID RandomBuffer, ULONG RandomBufferLength);
 #    include <uuid/uuid.h> /* uuid_generate (1.8.6 (2014)) */
 #    define HAVE_UUID_GENERATE
 #  endif
-#elif defined(__wasi__)
-#  include <wasi/api.h> /* __wasi_random_get */
-#  define HAVE_WASI_RANDOM_GET
 #endif
 
 #ifdef DEV_RANDOM_NAME
@@ -732,29 +732,6 @@ torsion_callrand(void *dst, size_t size) {
   }
 
   return 1;
-#elif defined(HAVE_SYS_GET_ENTROPY)
-  unsigned char *data = (unsigned char *)dst;
-  size_t max = 256;
-  int ret;
-
-  while (size > 0) {
-    if (max > size)
-      max = size;
-
-    do {
-      ret = sys$get_entropy(data, max);
-    } while (ret == SS$_RETRY);
-
-    if (ret != SS$_NORMAL) {
-      lib$signal(ret);
-      return 0;
-    }
-
-    data += max;
-    size -= max;
-  }
-
-  return 1;
 #elif defined(HAVE_RANDABYTES)
   unsigned char *data = (unsigned char *)dst;
   size_t max = INT_MAX;
@@ -784,11 +761,36 @@ torsion_callrand(void *dst, size_t size) {
   }
 
   return 1;
+#elif defined(HAVE_SYS_GET_ENTROPY)
+  unsigned char *data = (unsigned char *)dst;
+  size_t max = 256;
+  int ret;
+
+  while (size > 0) {
+    if (max > size)
+      max = size;
+
+    do {
+      ret = sys$get_entropy(data, max);
+    } while (ret == SS$_RETRY);
+
+    if (ret != SS$_NORMAL) {
+      lib$signal(ret);
+      return 0;
+    }
+
+    data += max;
+    size -= max;
+  }
+
+  return 1;
 #elif defined(HAVE_CPRNG_DRAW)
   zx_cprng_draw(dst, size);
   return 1;
 #elif defined(HAVE_SYS_RANDOM_GET)
   return cloudabi_sys_random_get(dst, size) == 0;
+#elif defined(HAVE_WASI_RANDOM_GET)
+  return __wasi_random_get((unsigned char *)dst, size) == 0;
 #elif defined(HAVE_JS_RANDOM_GET)
   return js_random_get((unsigned char *)dst, size) == 0;
 #elif defined(HAVE_UUID_GENERATE)
@@ -812,8 +814,6 @@ torsion_callrand(void *dst, size_t size) {
   }
 
   return 1;
-#elif defined(HAVE_WASI_RANDOM_GET)
-  return __wasi_random_get((unsigned char *)dst, size) == 0;
 #else
   (void)dst;
   (void)size;
