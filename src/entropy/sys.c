@@ -829,9 +829,9 @@ torsion_callrand(void *dst, size_t size) {
 static int
 torsion_devrand(void *dst, size_t size, const char *name) {
   unsigned char *data = (unsigned char *)dst;
+  size_t max = INT_MAX;
   struct stat st;
   int fd, nread;
-  size_t max;
 #ifdef DEV_RANDOM_POLL
   struct pollfd pfd;
   int r;
@@ -879,8 +879,6 @@ torsion_devrand(void *dst, size_t size, const char *name) {
     goto fail;
 
   while (size > 0) {
-    max = INT_MAX;
-
     if (max > size)
       max = size;
 
