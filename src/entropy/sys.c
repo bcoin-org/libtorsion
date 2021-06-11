@@ -399,7 +399,7 @@ RtlGenRandom(PVOID RandomBuffer, ULONG RandomBufferLength);
 #  endif
 #  define DEV_RANDOM_NAME "/dev/urandom"
 #elif defined(__OpenBSD__)
-#  include <sys/param.h>
+#  include <sys/param.h> /* NetBSD prior to 2.0 (1996) */
 #  if defined(OpenBSD) && OpenBSD >= 201411 /* 5.6 (2014) */
 /*   include <unistd.h> */ /* getentropy */
 #    define HAVE_GETENTROPY
@@ -412,7 +412,7 @@ RtlGenRandom(PVOID RandomBuffer, ULONG RandomBufferLength);
 #  endif
 #  define DEV_RANDOM_NAME "/dev/urandom"
 #elif defined(__NetBSD__)
-#  include <sys/param.h>
+#  include <sys/param.h> /* NetBSD prior to 1.3C (1998) */
 #  if defined(__NetBSD_Version__) && __NetBSD_Version__ >= 1000000000 /* 10.0 (2021) */
 #    include <sys/random.h> /* getrandom */
 #    define HAVE_GETRANDOM
