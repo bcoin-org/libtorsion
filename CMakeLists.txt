@@ -16,6 +16,12 @@ if(NOT CMAKE_CONFIGURATION_TYPES AND NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE "Release")
 endif()
 
+if(WASI OR EMSCRIPTEN)
+  set(TORSION_WASM 1)
+else()
+  set(TORSION_WASM 0)
+endif()
+
 #
 # Includes
 #
@@ -27,23 +33,8 @@ include(cmake/WritePkgConfigFile.cmake)
 include(CheckCSourceCompiles)
 include(CheckIncludeFile)
 include(CheckLibraryExists)
-include(CheckSymbolExists)
-include(CheckTypeSize)
 include(CTest)
 include(GNUInstallDirs)
-
-#
-# Early Checks
-#
-
-set(TORSION_WASM 0)
-
-check_symbol_exists(__EMSCRIPTEN__ "" TORSION_EMSCRIPTEN)
-check_symbol_exists(__wasi__ "" TORSION_WASI)
-
-if(TORSION_EMSCRIPTEN OR TORSION_WASI)
-  set(TORSION_WASM 1)
-endif()
 
 #
 # Options
@@ -64,16 +55,13 @@ if(TORSION_WASM)
   set(TORSION_STACK_SIZE "5242880" CACHE STRING "WASM stack size")
 endif()
 
-if(TORSION_EMSCRIPTEN)
+if(EMSCRIPTEN)
   set(TORSION_ENVIRONMENT "node" CACHE STRING "Emscripten environment")
 endif()
 
 #
-# Flags
+# Global Flags
 #
-
-set(torsion_cflags)
-set(torsion_ldflags)
 
 unset(CMAKE_C_STANDARD_REQUIRED)
 unset(CMAKE_C_EXTENSIONS)
@@ -84,36 +72,8 @@ if(NOT TORSION_WASM)
   set(CMAKE_OSX_DEPLOYMENT_TARGET 10.7)
 endif()
 
-if(TORSION_WASI AND CMAKE_C_FLAGS STREQUAL "-v")
+if(WASI AND CMAKE_C_FLAGS STREQUAL "-v")
   set(CMAKE_C_FLAGS "")
-endif()
-
-if(MSVC)
-  append_c_compiler_flag(torsion_cflags /wd4146
-                                        /wd4244
-                                        /wd4267
-                                        /wd4334)
-else()
-  append_c_compiler_flag(torsion_cflags -pedantic
-                                        -Wall
-                                        -Wextra
-                                        -Wcast-align
-                                        -Wno-implicit-fallthrough
-                                        -Wno-overlength-strings
-                                        -Wshadow)
-endif()
-
-if(TORSION_ENABLE_COVERAGE)
-  list(APPEND torsion_cflags -O0 --coverage)
-  list(APPEND torsion_ldflags --coverage)
-endif()
-
-if(TORSION_ENABLE_DEBUG)
-  if(MSVC)
-    append_c_compiler_flag(torsion_cflags /Zi)
-  else()
-    append_c_compiler_flag(torsion_cflags -g)
-  endif()
 endif()
 
 #
@@ -291,6 +251,41 @@ if(BUILD_TESTING AND NOT TORSION_WASM AND NOT WIN32)
 endif()
 
 #
+# Flags
+#
+
+set(torsion_cflags)
+set(torsion_ldflags)
+
+if(MSVC)
+  append_c_compiler_flag(torsion_cflags /wd4146
+                                        /wd4244
+                                        /wd4267
+                                        /wd4334)
+else()
+  append_c_compiler_flag(torsion_cflags -pedantic
+                                        -Wall
+                                        -Wextra
+                                        -Wcast-align
+                                        -Wno-implicit-fallthrough
+                                        -Wno-overlength-strings
+                                        -Wshadow)
+endif()
+
+if(TORSION_ENABLE_COVERAGE)
+  list(APPEND torsion_cflags -O0 --coverage)
+  list(APPEND torsion_ldflags --coverage)
+endif()
+
+if(TORSION_ENABLE_DEBUG)
+  if(MSVC)
+    append_c_compiler_flag(torsion_cflags /Zi)
+  else()
+    append_c_compiler_flag(torsion_cflags -g)
+  endif()
+endif()
+
+#
 # Defines
 #
 
@@ -447,7 +442,7 @@ if(NOT PROJECT_NAME STREQUAL CMAKE_PROJECT_NAME)
     target_link_libraries(torsion INTERFACE ${torsion_libs})
   endif()
 elseif(TORSION_WASM)
-  if(TORSION_EMSCRIPTEN)
+  if(EMSCRIPTEN)
     # CMAKE_CROSSCOMPILING_EMULATOR is mistakenly quoted by emcmake.
     string(REPLACE "\"" "" CMAKE_CROSSCOMPILING_EMULATOR
            "${CMAKE_CROSSCOMPILING_EMULATOR}")
