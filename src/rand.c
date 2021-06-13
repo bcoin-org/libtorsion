@@ -157,7 +157,6 @@ rng_generate(rng_t *rng, void *dst, size_t size) {
 
   /* Mix in some user entropy. */
   rng->key[0] ^= (uint32_t)size;
-  rng->key[1] ^= (uint32_t)((uint64_t)size >> 32);
 
   /* Mix in some hardware entropy. We sacrifice
      only 32 bits here, lest RDRAND is backdoored.
