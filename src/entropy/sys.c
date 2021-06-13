@@ -61,6 +61,8 @@
  * Solaris/Illumos:
  *   https://docs.oracle.com/cd/E88353_01/html/E37841/getrandom-2.html
  *   https://docs.oracle.com/cd/E36784_01/html/E36884/random-7d.html
+ *   https://illumos.org/man/2/getrandom
+ *   https://illumos.org/man/7d/random
  *   https://github.com/illumos/illumos-gate/blob/9ecd05b/usr/src/uts/common/sys/random.h
  *   https://github.com/illumos/illumos-gate/blob/9ecd05b/usr/src/head/unistd.h#L708
  *
@@ -234,6 +236,10 @@
  *   Source: getrandom(2)
  *   Fallback: /dev/random
  *   Support: getrandom(2) added in Solaris 11.3 (2015) (SunOS 5.11.3).
+ *            Solaris 11.3 support added in ODS 12.5, Sun Pro 5.14 (2016).
+ *            <sys/random.h> existed even in Solaris 10 (2005).
+ *            getrandom(2) added in Illumos 0.12 (2015).
+ *            getrandom(2) "made public" in Illumos 0.29 (2018).
  *
  * Cygwin:
  *   Source: getrandom(2)
