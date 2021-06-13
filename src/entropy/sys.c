@@ -230,7 +230,7 @@
  * DragonFly BSD:
  *   Source: getrandom(2)
  *   Fallback: /dev/random
- *   Support: getrandom(2) added in DragonFly BSD 5.8 (2020).
+ *   Support: getrandom(2) added in DragonFly BSD 5.7.1 (2020).
  *
  * Solaris/Illumos:
  *   Source: getrandom(2)
@@ -432,7 +432,7 @@ RtlGenRandom(PVOID RandomBuffer, ULONG RandomBufferLength);
 #  define DEV_RANDOM_NAME "/dev/urandom"
 #elif defined(__DragonFly__)
 #  include <sys/param.h>
-#  if defined(__DragonFly_version) && __DragonFly_version >= 500800 /* 5.8 (2020) */
+#  if defined(__DragonFly_version) && __DragonFly_version >= 500710 /* 5.7.1 (2020) */
 #    include <sys/random.h> /* getrandom */
 #    define HAVE_GETRANDOM
 #  endif
