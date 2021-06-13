@@ -58,10 +58,14 @@
  *   https://leaf.dragonflybsd.org/cgi/web-man?command=random&section=4
  *   https://github.com/DragonFlyBSD/DragonFlyBSD/blob/c97dc9d/sys/sys/random.h
  *
- * Solaris/Illumos:
+ * Solaris:
  *   https://docs.oracle.com/cd/E88353_01/html/E37841/getrandom-2.html
  *   https://docs.oracle.com/cd/E86824_01/html/E54765/getentropy-2.html
  *   https://docs.oracle.com/cd/E36784_01/html/E36884/random-7d.html
+ *   http://lists.pdxlinux.org/pipermail/plug/2002-March/000846.html
+ *   https://web.archive.org/web/20000917040238/http://www.cosy.sbg.ac.at/~andi/
+ *
+ * Illumos:
  *   https://illumos.org/man/2/getrandom
  *   https://illumos.org/man/3C/getentropy
  *   https://illumos.org/man/7d/random
@@ -234,19 +238,25 @@
  *   Fallback: /dev/random
  *   Support: getrandom(2) added in DragonFly BSD 5.7.1 (2020).
  *
- * Solaris/Illumos:
+ * Solaris:
  *   Source: getrandom(2)
- *   Fallback 1: getentropy(2), getentropy(3)
+ *   Fallback 1: getentropy(2)
  *   Fallback 2: /dev/random
- *   Support: <sys/random.h> supported in Solaris 10 (2005).
- *            <libsysevent.h> supported in Solaris 10 (2005).
- *            getrandom(2) added in Solaris 11.3 (2015).
+ *   Support: getrandom(2) added in Solaris 11.3 (2015).
  *            getentropy(2) added in Solaris 11.3 (2015).
  *            Solaris 11.3 support added in Sun Studio 12.5 (5.14, 2016).
- *            getrandom(2) added in Illumos 0.12 (2015).
+ *            /dev/random added in Solaris 8 (patch 112438-01) (2002).
+ *            <sys/random.h> added in Solaris 8 (patch 112438-01) (2002).
+ *            /dev/random supported for Solaris 2.6+ with andirand.
+ *
+ * Illumos:
+ *   Source: getentropy(3)
+ *   Fallback: /dev/random
+ *   Support: getrandom(2) added in Illumos 0.12 (2015).
  *            getentropy(3) added in Illumos 0.12 (2015).
  *            getrandom(2) "made public" in Illumos 0.29 (2018).
- *            ILLUMOS_VENDOR added in Illumos 0.30 (2019).
+ *            getentropy(3) used due to getrandom(2) ABI change.
+ *            No Illumos support after Sun Studio 12.1 (5.10, 2009).
  *
  * Cygwin:
  *   Source: getrandom(2)
@@ -445,17 +455,14 @@ RtlGenRandom(PVOID RandomBuffer, ULONG RandomBufferLength);
 #  endif
 #  define DEV_RANDOM_NAME "/dev/random"
 #elif defined(__sun) && defined(__SVR4)
-#  include <libsysevent.h> /* ILLUMOS_VENDOR */
-#  include <sys/random.h> /* getrandom, getentropy (solaris), GRND_RANDOM */
+#  include <sys/random.h> /* getrandom, getentropy (solaris) */
 /* include <unistd.h> */ /* getentropy (illumos) */
-#  ifdef GRND_RANDOM /* Solaris 11.3 (2015), Illumos 0.12 (2015) */
-#    if defined(ILLUMOS_VENDOR) /* Illumos 0.30 (2019) */
-#      define HAVE_GETRANDOM /* Illumos 0.29 (2018) */
-#    elif (defined(__SUNPRO_C) && __SUNPRO_C >= 0x5140) \
-       || (defined(__SUNPRO_CC) && __SUNPRO_CC >= 0x5140) /* 5.14 (2016) */
-#      define HAVE_GETRANDOM
+#  ifdef GRND_RANDOM
+#    if (defined(__SUNPRO_C) && __SUNPRO_C > 0x5100) \
+     || (defined(__SUNPRO_CC) && __SUNPRO_CC > 0x5100) /* 5.10 (2009) */
+#      define HAVE_GETRANDOM /* Solaris 11.3 (2015) */
 #    else
-#      define HAVE_GETENTROPY
+#      define HAVE_GETENTROPY /* Illumos 0.12 (2015) */
 #    endif
 #  endif
 #  define DEV_RANDOM_NAME "/dev/random"
