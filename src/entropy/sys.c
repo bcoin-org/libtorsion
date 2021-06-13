@@ -235,15 +235,18 @@
  *   Support: getrandom(2) added in DragonFly BSD 5.7.1 (2020).
  *
  * Solaris/Illumos:
- *   Source: getentropy(2), getentropy(3)
- *   Fallback: /dev/random
- *   Support: <sys/random.h> added in Solaris 10 (2005).
+ *   Source: getrandom(2)
+ *   Fallback 1: getentropy(2), getentropy(3)
+ *   Fallback 2: /dev/random
+ *   Support: <sys/random.h> supported in Solaris 10 (2005).
+ *            <libsysevent.h> supported in Solaris 10 (2005).
  *            getrandom(2) added in Solaris 11.3 (2015).
  *            getentropy(2) added in Solaris 11.3 (2015).
+ *            Solaris 11.3 support added in Sun Studio 12.5 (5.14, 2016).
  *            getrandom(2) added in Illumos 0.12 (2015).
  *            getentropy(3) added in Illumos 0.12 (2015).
  *            getrandom(2) "made public" in Illumos 0.29 (2018).
- *            getentropy(3) used to avoid Illumos' getrandom(2) ABI change.
+ *            ILLUMOS_VENDOR added in Illumos 0.30 (2019).
  *
  * Cygwin:
  *   Source: getrandom(2)
@@ -442,10 +445,18 @@ RtlGenRandom(PVOID RandomBuffer, ULONG RandomBufferLength);
 #  endif
 #  define DEV_RANDOM_NAME "/dev/random"
 #elif defined(__sun) && defined(__SVR4)
-#  include <sys/random.h> /* GRND_RANDOM */
+#  include <libsysevent.h> /* ILLUMOS_VENDOR */
+#  include <sys/random.h> /* getrandom, getentropy (solaris), GRND_RANDOM */
 /* include <unistd.h> */ /* getentropy (illumos) */
-#  ifdef GRND_RANDOM /* Solaris 11.3, Illumos 0.12 (2015) */
-#    define HAVE_GETENTROPY
+#  ifdef GRND_RANDOM /* Solaris 11.3 (2015), Illumos 0.12 (2015) */
+#    if defined(ILLUMOS_VENDOR) /* Illumos 0.30 (2019) */
+#      define HAVE_GETRANDOM /* Illumos 0.29 (2018) */
+#    elif (defined(__SUNPRO_C) && __SUNPRO_C >= 0x5140) \
+       || (defined(__SUNPRO_CC) && __SUNPRO_CC >= 0x5140) /* 5.14 (2016) */
+#      define HAVE_GETRANDOM
+#    else
+#      define HAVE_GETENTROPY
+#    endif
 #  endif
 #  define DEV_RANDOM_NAME "/dev/random"
 #elif defined(__CYGWIN__)
