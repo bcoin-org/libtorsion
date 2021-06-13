@@ -95,7 +95,6 @@
  *   http://www.qnx.com/developers/docs/6.5.0/topic/com.qnx.doc.neutrino_utilities/r/random.html
  *
  * Haiku:
- *   No official documentation for /dev/random.
  *   https://github.com/haiku/haiku/blob/8f16317/src/add-ons/kernel/bus_managers/random/driver.cpp
  *
  * Minix:
@@ -133,20 +132,24 @@
  *
  * CloudABI:
  *   https://nuxi.nl/cloudabi/#random_get
+ *   https://github.com/NuxiNL/cloudabi/tree/d283c05#cloudabi_sys_random_get
  *   https://github.com/NuxiNL/cloudabi/blob/d283c05/headers/cloudabi_syscalls.h#L193
  *   https://github.com/NuxiNL/cloudabi/blob/d283c05/headers/cloudabi_types_common.h#L89
  *
  * WASI:
+ *   https://github.com/WebAssembly/WASI/blob/fc3da39/phases/snapshot/docs.md#:~:text=random_get
  *   https://github.com/WebAssembly/WASI/blob/5d10b2c/design/WASI-core.md#random_get
  *   https://github.com/WebAssembly/WASI/blob/2627acd/phases/snapshot/witx/typenames.witx#L34
  *   https://github.com/WebAssembly/WASI/blob/2627acd/phases/snapshot/witx/wasi_snapshot_preview1.witx#L481
+ *   https://github.com/WebAssembly/wasi-libc/blob/2b7e73a/libc-bottom-half/headers/public/wasi/api.h#L2201-L2215
  *   https://github.com/emscripten-core/emscripten/blob/b45948b/system/include/wasi/api.h#L2648
  *
  * Emscripten:
- *   https://emscripten.org/docs/api_reference/emscripten.h.html
+ *   https://emscripten.org/docs/api_reference/emscripten.h.html#c.EM_JS
  *   https://github.com/emscripten-core/emscripten/pull/6220
  *   https://developer.mozilla.org/en-US/docs/Web/API/Crypto/getRandomValues
  *   https://nodejs.org/api/crypto.html#crypto_crypto_randomfillsync_buffer_offset_size
+ *   https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Math/random
  *   https://github.com/emscripten-core/emscripten/blob/7c3ced6/src/library_uuid.js#L31
  *   https://github.com/emscripten-core/emscripten/blob/32e1d73/system/include/uuid/uuid.h
  *   https://github.com/emscripten-core/emscripten/commit/385a660

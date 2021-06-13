@@ -11,17 +11,20 @@
  * OSX/iOS/tvOS/watchOS:
  *   https://developer.apple.com/documentation/kernel/1462446-mach_absolute_time
  *
- * Solaris/Illumos:
+ * Solaris:
  *   https://docs.oracle.com/cd/E86824_01/html/E54766/gethrtime-3c.html
  *
+ * Illumos:
+ *   https://illumos.org/man/3C/gethrtime
+ *
  * HP-UX:
- *   https://docstore.mik.ua/manuals/hp-ux/en/B2355-60130/gethrtime.3C.html
+ *   https://www.unix.com/man-page/hpux/3C/gethrtime/
  *
  * AIX:
  *   https://www.ibm.com/docs/en/aix/7.1?topic=r-read-real-time-read-wall-timetime-base-time-mread-real-time-subroutine
  *
  * z/OS:
- *   https://www.ibm.com/docs/en/zos/2.3.0?topic=functions-general-instructions
+ *   https://www.ibm.com/docs/en/zos/2.1.0?topic=functions-general-instructions
  *
  * Unix:
  *   https://pubs.opengroup.org/onlinepubs/009604599/functions/gettimeofday.html
@@ -39,14 +42,18 @@
  *
  * CloudABI:
  *   https://nuxi.nl/cloudabi/#clock_time_get
+ *   https://github.com/NuxiNL/cloudabi/tree/d283c05#cloudabi_sys_clock_time_get
+ *   https://github.com/NuxiNL/cloudabi/blob/d283c05/headers/cloudabi_syscalls.h#L40
  *
  * WASI:
+ *   https://github.com/WebAssembly/WASI/blob/fc3da39/phases/snapshot/docs.md#:~:text=clock_time_get
  *   https://github.com/WebAssembly/WASI/blob/5d10b2c/design/WASI-core.md#clock_time_get
  *   https://github.com/WebAssembly/WASI/blob/2627acd/phases/snapshot/witx/wasi_snapshot_preview1.witx#L58
+ *   https://github.com/WebAssembly/wasi-libc/blob/2b7e73a/libc-bottom-half/headers/public/wasi/api.h#L1644-L1660
  *   https://github.com/emscripten-core/emscripten/blob/b45948b/system/include/wasi/api.h#L1751
  *
- * Emscripten (wasm, asm.js):
- *   https://emscripten.org/docs/api_reference/emscripten.h.html
+ * Emscripten:
+ *   https://emscripten.org/docs/api_reference/emscripten.h.html#c.emscripten_get_now
  *
  * ANSI C:
  *   http://port70.net/~nsz/c/c89/c89-draft.html#4.12.2.4
