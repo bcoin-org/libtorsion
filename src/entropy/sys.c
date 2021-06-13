@@ -60,11 +60,13 @@
  *
  * Solaris/Illumos:
  *   https://docs.oracle.com/cd/E88353_01/html/E37841/getrandom-2.html
+ *   https://docs.oracle.com/cd/E86824_01/html/E54765/getentropy-2.html
  *   https://docs.oracle.com/cd/E36784_01/html/E36884/random-7d.html
  *   https://illumos.org/man/2/getrandom
+ *   https://illumos.org/man/3C/getentropy
  *   https://illumos.org/man/7d/random
- *   https://github.com/illumos/illumos-gate/blob/9ecd05b/usr/src/uts/common/sys/random.h
- *   https://github.com/illumos/illumos-gate/blob/9ecd05b/usr/src/head/unistd.h#L708
+ *   https://github.com/illumos/illumos-gate/blob/de6af22/usr/src/uts/common/sys/random.h
+ *   https://github.com/illumos/illumos-gate/blob/9d12795/usr/src/head/unistd.h#L714
  *
  * Cygwin:
  *   https://github.com/cygwin/cygwin/blob/8050ef2/winsup/cygwin/release/2.7.0
@@ -233,13 +235,15 @@
  *   Support: getrandom(2) added in DragonFly BSD 5.7.1 (2020).
  *
  * Solaris/Illumos:
- *   Source: getrandom(2)
+ *   Source: getentropy(2), getentropy(3)
  *   Fallback: /dev/random
- *   Support: getrandom(2) added in Solaris 11.3 (2015) (SunOS 5.11.3).
- *            Solaris 11.3 support added in ODS 12.5, Sun Pro 5.14 (2016).
- *            <sys/random.h> existed even in Solaris 10 (2005).
+ *   Support: <sys/random.h> added in Solaris 10 (2005).
+ *            getrandom(2) added in Solaris 11.3 (2015).
+ *            getentropy(2) added in Solaris 11.3 (2015).
  *            getrandom(2) added in Illumos 0.12 (2015).
+ *            getentropy(3) added in Illumos 0.12 (2015).
  *            getrandom(2) "made public" in Illumos 0.29 (2018).
+ *            getentropy(3) used to avoid Illumos' getrandom(2) ABI change.
  *
  * Cygwin:
  *   Source: getrandom(2)
@@ -437,11 +441,11 @@ RtlGenRandom(PVOID RandomBuffer, ULONG RandomBufferLength);
 #    define HAVE_GETRANDOM
 #  endif
 #  define DEV_RANDOM_NAME "/dev/random"
-#elif defined(__sun) && defined(__SVR4) /* 11.3 (2015) */
-#  if (defined(__SUNPRO_C) && __SUNPRO_C >= 0x5140) \
-   || (defined(__SUNPRO_CC) && __SUNPRO_CC >= 0x5140) /* 5.14 (2016) */
-#    include <sys/random.h> /* getrandom */
-#    define HAVE_GETRANDOM
+#elif defined(__sun) && defined(__SVR4)
+#  include <sys/random.h> /* GRND_RANDOM */
+/* include <unistd.h> */ /* getentropy (illumos) */
+#  ifdef GRND_RANDOM /* Solaris 11.3, Illumos 0.12 (2015) */
+#    define HAVE_GETENTROPY
 #  endif
 #  define DEV_RANDOM_NAME "/dev/random"
 #elif defined(__CYGWIN__)
