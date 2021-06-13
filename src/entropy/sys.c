@@ -45,10 +45,9 @@
  *   https://github.com/openbsd/src/commit/4680fe5
  *
  * NetBSD:
- *   https://www.netbsd.org/~riastradh/tmp/20200510/getrandom.html
- *   https://netbsd.gw.com/cgi-bin/man-cgi?sysctl+3+NetBSD-8.0
- *   https://netbsd.gw.com/cgi-bin/man-cgi?random+4+NetBSD-8.0
- *   https://www.netbsd.org/changes/changes-10.0.html
+ *   https://man.netbsd.org/getrandom.2
+ *   https://man.netbsd.org/sysctl.3
+ *   https://man.netbsd.org/random.4
  *   https://github.com/NetBSD/src/blob/6ec11dd/sys/sys/random.h
  *   https://github.com/NetBSD/src/commit/0a9d2ad
  *   https://github.com/NetBSD/src/commit/3f78162
@@ -73,25 +72,21 @@
  *   https://github.com/illumos/illumos-gate/blob/9d12795/usr/src/head/unistd.h#L714
  *
  * Cygwin:
- *   https://github.com/cygwin/cygwin/blob/8050ef2/winsup/cygwin/release/2.7.0
- *   https://github.com/cygwin/cygwin/blob/8050ef2/winsup/cygwin/release/2.8.0
- *   https://github.com/cygwin/cygwin/blob/8050ef2/winsup/cygwin/include/cygwin/version.h#L473
  *   https://github.com/cygwin/cygwin/blob/8050ef2/winsup/cygwin/include/sys/random.h
  *   https://github.com/cygwin/cygwin/blob/8050ef2/newlib/libc/include/sys/unistd.h#L107
+ *   https://github.com/cygwin/cygwin/blob/8050ef2/winsup/cygwin/include/cygwin/version.h#L473
+ *   https://github.com/cygwin/cygwin/blob/8050ef2/winsup/cygwin/release/2.7.0
+ *   https://github.com/cygwin/cygwin/blob/8050ef2/winsup/cygwin/release/2.8.0
  *
  * HP-UX (*):
  *   https://nixdoc.net/man-pages/HP-UX/man7/random.7.html
  *   https://nixdoc.net/man-pages/HP-UX/man7/urandom.7.html
- *   https://docstore.mik.ua/manuals/hp-ux/en/B2355-60130/random.7.html
  *
  * AIX:
- *   https://www.ibm.com/support/knowledgecenter/ssw_aix_71/filesreference/random.html
  *   https://www.ibm.com/docs/en/aix/7.1?topic=files-random-urandom-devices
- *   https://www.ibm.com/docs/en/aix/7.2?topic=files-random-urandom-devices
  *
  * IBM i (with PASE):
  *   https://www.ibm.com/docs/pt/i/7.1?topic=pi-whats-new-i-71
- *   https://www.ibm.com/support/knowledgecenter/en/ssw_ibm_i_71/rzalf/rzalf.pdf
  *
  * z/OS:
  *   https://www.ibm.com/docs/en/zos/2.1.0?topic=files-random-number
@@ -103,7 +98,7 @@
  *   No official documentation for /dev/random.
  *   https://github.com/haiku/haiku/blob/8f16317/src/add-ons/kernel/bus_managers/random/driver.cpp
  *
- * Minix (*):
+ * Minix:
  *   https://wiki.minix3.org/doku.php?id=developersguide:overviewofminixservers
  *   https://github.com/Stichting-MINIX-Research-Foundation/minix/blob/1aad172/minix/drivers/system/random/main.c
  *
@@ -112,9 +107,10 @@
  *   http://h30097.www3.hp.com/docs/base_doc/DOCUMENTATION/V51B_HTML/MAN/MAN4/0199____.HTM
  *
  * IRIX (*):
- *   https://www.oreilly.com/library/view/secure-programming-cookbook/0596003943/ch11s03.html
+ *   https://irix7.com/techpubs/007-3897-019.pdf
  *
  * Redox:
+ *   https://github.com/redox-os/redox/blob/ead01ea/schemes/randd/src/main.rs
  *   https://github.com/redox-os/randd/blob/2f0ad18/src/main.rs
  *   https://github.com/redox-os/relibc/blob/a6fffd3/src/platform/redox/mod.rs#L559
  *   https://github.com/redox-os/relibc/commit/a6fffd3
@@ -146,7 +142,7 @@
  *   https://github.com/WebAssembly/WASI/blob/2627acd/phases/snapshot/witx/wasi_snapshot_preview1.witx#L481
  *   https://github.com/emscripten-core/emscripten/blob/b45948b/system/include/wasi/api.h#L2648
  *
- * Emscripten (wasm, asm.js):
+ * Emscripten:
  *   https://emscripten.org/docs/api_reference/emscripten.h.html
  *   https://github.com/emscripten-core/emscripten/pull/6220
  *   https://developer.mozilla.org/en-US/docs/Web/API/Crypto/getRandomValues
@@ -161,7 +157,7 @@
 /**
  * OS/System Entropy
  *
- * We try to avoid /dev/{u,}random as much as possible. Not
+ * We try to avoid /dev/{,u}random as much as possible. Not
  * only can they behave differenly on different OSes, but they
  * are unreliable in terms of usability (for example, what if
  * we are inside a chroot where /dev has not been setup?).
@@ -194,7 +190,7 @@
  *   Fallback 1: /dev/urandom (after polling /dev/random)
  *   Fallback 2: _sysctl(2) w/ kern.random.uuid
  *   Support: getrandom(2) added in Linux 3.17 (2014).
- *            /dev/urandom added in Linux 1.3.30 (1995).
+ *            /dev/{,u}random added in Linux 1.3.30 (1995).
  *            _sysctl(2) added in Linux 1.3.57 (1995).
  *            _sysctl(2) deprecated in Linux 2.6.24 (2008).
  *            _sysctl(2) removed in Linux 5.5 (2020).
@@ -207,6 +203,7 @@
  *            getentropy(2) added in iOS 10.0 (2016).
  *            getentropy(2) added in tvOS 10.0 (2016).
  *            getentropy(2) added in watchOS 3.0 (2016).
+ *            /dev/{,u}random added in OSX 10.1 (2001).
  *
  * FreeBSD:
  *   Source: getrandom(2)
@@ -215,6 +212,7 @@
  *   Support: getrandom(2) added in FreeBSD 12.0 (2018).
  *            kern.arandom added in FreeBSD 7.0 (2008).
  *            kern.arandom modernized in FreeBSD 7.1 (2009).
+ *            /dev/{,u}random added in FreeBSD 2.1.5 (1995).
  *
  * OpenBSD:
  *   Source: getentropy(2)
@@ -224,6 +222,7 @@
  *            kern.arandom added in OpenBSD 2.6 (1999).
  *            kern.arandom modernized in OpenBSD 3.8 (2005).
  *            kern.arandom removed in OpenBSD 6.1 (2017).
+ *            /dev/{,u}random added in OpenBSD 2.0 (1996).
  *
  * NetBSD:
  *   Source: getrandom(2)
@@ -232,11 +231,13 @@
  *   Support: getrandom(2) added in NetBSD 10.0 (2021).
  *            kern.arandom added in NetBSD 2.0 (2004).
  *            kern.arandom modernized in NetBSD 4.0 (2007).
+ *            /dev/{,u}random added in NetBSD 1.3 (1998).
  *
  * DragonFly BSD:
  *   Source: getrandom(2)
  *   Fallback: /dev/random
  *   Support: getrandom(2) added in DragonFly BSD 5.7.1 (2020).
+ *            /dev/{,u}random supported since inception (2003).
  *
  * Solaris:
  *   Source: getrandom(2)
@@ -245,9 +246,9 @@
  *   Support: getrandom(2) added in Solaris 11.3 (2015).
  *            getentropy(2) added in Solaris 11.3 (2015).
  *            Solaris 11.3 support added in Sun Studio 12.5 (5.14, 2016).
- *            /dev/random added in Solaris 8 (patch 112438-01) (2002).
+ *            /dev/{,u}random added in Solaris 8 (patch 112438-01) (2002).
  *            <sys/random.h> added in Solaris 8 (patch 112438-01) (2002).
- *            /dev/random supported for Solaris 2.6+ with andirand.
+ *            /dev/random supported for Solaris 2.6+ with "andirand" (2000).
  *
  * Illumos:
  *   Source: getentropy(3)
@@ -257,57 +258,71 @@
  *            getrandom(2) "made public" in Illumos 0.29 (2018).
  *            getentropy(3) used due to getrandom(2) ABI change.
  *            No Illumos support after Sun Studio 12.1 (5.10, 2009).
+ *            /dev/{,u}random supported since inception (2010).
+ *            <sys/random.h> supported since inception (2010).
  *
  * Cygwin:
  *   Source: getrandom(2)
  *   Fallback: /dev/urandom
  *   Support: getrandom(2) added in Cygwin 2.7.0 (2017).
  *            getrandom(2) fixed in Cygwin 2.8.0 (2017).
+ *            /dev/{,u}random added in Cygwin 1.1.2 (2000).
  *
  * HP-UX (*):
  *   Source: /dev/random
  *   Fallback: none
+ *   Support: /dev/{,u}random added in HP-UX 11i v1 (KRNG11i) (2002).
  *
  * AIX:
  *   Source: /dev/random
  *   Fallback: none
+ *   Support: /dev/{,u}random added in AIX 5.2 (2002).
  *
  * IBM i (with PASE):
  *   Source: /dev/urandom
  *   Fallback: none
+ *   Support: /dev/urandom added in IBM i 7.1 (2010).
  *
  * z/OS:
  *   Source: /dev/urandom
  *   Fallback: none
+ *   Support: /dev/{,u}random added in z/OS 1.7 (2005).
+ *            Requires ICSF to be started.
  *
  * QNX:
  *   Source: /dev/random
  *   Fallback: none
+ *   Support: unknown
  *
  * Haiku:
  *   Source: /dev/random (identical to /dev/urandom)
  *   Fallback: none
+ *   Support: /dev/{,u}random added in OpenBeOS (2002).
  *
- * Minix (*):
+ * Minix:
  *   Source: /dev/random
  *   Fallback: none
+ *   Support: /dev/random added in Minix 3.3.0 (2014).
  *
  * Tru64 UNIX:
  *   Source: /dev/urandom
  *   Fallback: none
+ *   Support: /dev/{,u}random added in Tru64 UNIX 5.1B (2002).
  *
  * IRIX (*):
  *   Source: /dev/urandom
  *   Fallback: none
+ *   Support: /dev/{,u}random added in IRIX 6.5.19 (2003).
  *
  * Redox:
  *   Source: rand:
  *   Fallback: none
+ *   Support: :rand added in Redox 0.1.0 (ead01ea) (2016).
  *
  * DJGPP:
  *   Source: /dev/urandom$
  *   Fallback: none
- *   Support: Requires NOISE.SYS.
+ *   Support: Requires NOISE.SYS (1995).
  *
  * VxWorks:
  *   Source: randABytes (after polling randSecure)
@@ -320,29 +335,37 @@
  *   Support: SYS$GET_ENTROPY added in OpenVMS 9.2 (2021).
  *
  * Fuchsia:
- *   Source: zx_cprng_draw(2)
+ *   Source: zx_cprng_draw
  *   Fallback: none
+ *   Support: zx_cprng_draw added in ae0f41b (2018).
  *
  * CloudABI:
  *   Source: cloudabi_sys_random_get
  *   Fallback: none
+ *   Support: cloudabi_sys_random_get added in CloudABI 0.1 (2016).
  *
  * WASI:
  *   Source: __wasi_random_get
  *   Fallback: none
+ *   Support: __wasi_random_get added in wasi_snapshot_preview1 (2019).
  *
- * Emscripten (wasm, asm.js):
+ * Emscripten:
  *   Browser:
  *     Source: window.crypto.getRandomValues w/ EM_JS
- *     Fallback: uuid_generate(3)
+ *     Fallback 1: getentropy(2)
+ *     Fallback 2: uuid_generate(3) (broken for web workers)
  *   Node.js
  *     Source: crypto.randomFillSync w/ EM_JS
- *     Fallback: uuid_generate(3)
+ *     Fallback 1: getentropy(2)
+ *     Fallback 2: uuid_generate(3)
+ *   Shell:
+ *     Source: Math.random w/ EM_JS
+ *     Fallback: none
  *   Support: EM_JS added in Emscripten 1.37.36 (2018).
+ *            getentropy(2) added in Emscripten 2.0.5 (2020).
  *            uuid_generate(3) added in Emscripten 1.8.6 (2014).
- *            getentropy(3) added in Emscripten 2.0.5 (2020).
  *
- * [1] https://docs.rs/getrandom/0.1.14/getrandom/
+ * [1] https://docs.rs/getrandom/latest/getrandom/
  */
 
 #include <errno.h>
@@ -485,7 +508,7 @@ RtlGenRandom(PVOID RandomBuffer, ULONG RandomBufferLength);
 #  define DEV_RANDOM_NAME "/dev/random"
 #elif defined(__HAIKU__)
 #  define DEV_RANDOM_NAME "/dev/random"
-#elif defined(__minix) /* (*) */
+#elif defined(__minix)
 #  define DEV_RANDOM_NAME "/dev/random"
 #elif defined(__osf__)
 #  define DEV_RANDOM_NAME "/dev/urandom"
@@ -534,8 +557,8 @@ RtlGenRandom(PVOID RandomBuffer, ULONG RandomBufferLength);
 #  elif defined(HAVE_SYS_RANDOM_H) /* 2.0.5 (2020) */
 #    include <sys/random.h> /* getentropy */
 #    define HAVE_GETENTROPY
-#  else
-#    include <uuid/uuid.h> /* uuid_generate (1.8.6 (2014)) */
+#  else /* 1.8.6 (2014) */
+#    include <uuid/uuid.h> /* uuid_generate */
 #    define HAVE_UUID_GENERATE
 #  endif
 #endif
