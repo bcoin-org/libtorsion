@@ -314,14 +314,14 @@ torsion_hrtime(void) {
 #elif defined(__Fuchsia__)
   return zx_clock_get_monotonic();
 #elif defined(__CloudABI__)
-  uint64_t ts;
+  cloudabi_timestamp_t ts;
 
   if (cloudabi_sys_clock_time_get(CLOUDABI_CLOCK_MONOTONIC, 1, &ts) != 0)
     return 0;
 
   return ts;
 #elif defined(__wasi__)
-  uint64_t ts = 0;
+  __wasi_timestamp_t ts = 0;
 
 #ifdef TORSION_WASM_BIGINT
   /* Requires --experimental-wasm-bigint at the moment. */
