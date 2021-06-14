@@ -259,7 +259,7 @@
  * QNX:
  *   Source: /dev/random
  *   Fallback: none
- *   Support: unknown
+ *   Support: random service must be started.
  *
  * Haiku:
  *   Source: /dev/random (identical to /dev/urandom)
