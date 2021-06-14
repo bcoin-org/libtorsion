@@ -13,49 +13,34 @@
  *   https://docs.microsoft.com/en-us/windows/win32/api/ntsecapi/nf-ntsecapi-rtlgenrandom
  *
  * Linux:
- *   http://man7.org/linux/man-pages/man2/getrandom.2.html
- *   http://man7.org/linux/man-pages/man4/random.4.html
+ *   https://man7.org/linux/man-pages/man2/getrandom.2.html
+ *   https://man7.org/linux/man-pages/man3/getentropy.3.html
+ *   https://man7.org/linux/man-pages/man4/random.4.html
  *   https://man7.org/linux/man-pages/man2/_sysctl.2.html
- *   https://github.com/bminor/glibc/blob/6c57d32/include/sys/random.h
- *   https://github.com/torvalds/linux/blob/v5.4/include/uapi/linux/sysctl.h
  *
- * OSX/iOS/tvOS/watchOS:
+ * Apple:
  *   https://www.unix.com/man-page/mojave/2/getentropy/
  *   https://www.unix.com/man-page/mojave/4/random/
- *   https://github.com/apple/darwin-xnu/blob/d4061fb/bsd/sys/random.h
  *
  * FreeBSD:
  *   https://www.freebsd.org/cgi/man.cgi?getrandom(2)
  *   https://www.freebsd.org/cgi/man.cgi?getentropy(3)
  *   https://www.freebsd.org/cgi/man.cgi?sysctl(3)
  *   https://www.freebsd.org/cgi/man.cgi?random(4)
- *   https://github.com/freebsd/freebsd-src/blob/cfad8bd/sys/sys/random.h
- *   https://github.com/freebsd/freebsd-src/blob/cfad8bd/include/unistd.h#L511
- *   https://github.com/freebsd/freebsd/commit/3ef9d41
- *   https://github.com/freebsd/freebsd/commit/fb176db
  *
  * OpenBSD:
  *   https://man.openbsd.org/getentropy.2
  *   https://man.openbsd.org/sysctl.2
  *   https://man.openbsd.org/random.4
- *   https://github.com/openbsd/src/blob/2981a53/include/unistd.h#L524
- *   https://github.com/openbsd/src/blob/2981a53/sys/sys/sysctl.h#L140
- *   https://github.com/openbsd/src/commit/9914119
- *   https://github.com/openbsd/src/commit/fce3886
- *   https://github.com/openbsd/src/commit/4680fe5
  *
  * NetBSD:
  *   https://man.netbsd.org/getrandom.2
  *   https://man.netbsd.org/sysctl.3
  *   https://man.netbsd.org/random.4
- *   https://github.com/NetBSD/src/blob/6ec11dd/sys/sys/random.h
- *   https://github.com/NetBSD/src/commit/0a9d2ad
- *   https://github.com/NetBSD/src/commit/3f78162
  *
  * DragonFly BSD:
  *   https://leaf.dragonflybsd.org/cgi/web-man?command=getrandom&section=2
  *   https://leaf.dragonflybsd.org/cgi/web-man?command=random&section=4
- *   https://github.com/DragonFlyBSD/DragonFlyBSD/blob/c97dc9d/sys/sys/random.h
  *
  * Solaris:
  *   https://docs.oracle.com/cd/E88353_01/html/E37841/getrandom-2.html
@@ -68,15 +53,10 @@
  *   https://illumos.org/man/2/getrandom
  *   https://illumos.org/man/3C/getentropy
  *   https://illumos.org/man/7d/random
- *   https://github.com/illumos/illumos-gate/blob/de6af22/usr/src/uts/common/sys/random.h
- *   https://github.com/illumos/illumos-gate/blob/9d12795/usr/src/head/unistd.h#L714
  *
  * Cygwin:
  *   https://github.com/cygwin/cygwin/blob/8050ef2/winsup/cygwin/include/sys/random.h
  *   https://github.com/cygwin/cygwin/blob/8050ef2/newlib/libc/include/sys/unistd.h#L107
- *   https://github.com/cygwin/cygwin/blob/8050ef2/winsup/cygwin/include/cygwin/version.h#L473
- *   https://github.com/cygwin/cygwin/blob/8050ef2/winsup/cygwin/release/2.7.0
- *   https://github.com/cygwin/cygwin/blob/8050ef2/winsup/cygwin/release/2.8.0
  *
  * HP-UX (*):
  *   https://nixdoc.net/man-pages/HP-UX/man7/random.7.html
@@ -92,14 +72,13 @@
  *   https://www.ibm.com/docs/en/zos/2.1.0?topic=files-random-number
  *
  * QNX:
- *   http://www.qnx.com/developers/docs/6.5.0/topic/com.qnx.doc.neutrino_utilities/r/random.html
+ *   http://www.qnx.com/developers/docs/6.3.2/neutrino/utilities/r/random.html
  *
  * Haiku:
  *   https://github.com/haiku/haiku/blob/8f16317/src/add-ons/kernel/bus_managers/random/driver.cpp
  *
  * Minix:
  *   https://wiki.minix3.org/doku.php?id=developersguide:overviewofminixservers
- *   https://github.com/Stichting-MINIX-Research-Foundation/minix/blob/1aad172/minix/drivers/system/random/main.c
  *
  * Tru64 UNIX:
  *   https://web.archive.org/web/20030927104849/
@@ -109,16 +88,11 @@
  *   https://irix7.com/techpubs/007-3897-019.pdf
  *
  * Redox:
- *   https://github.com/redox-os/redox/blob/ead01ea/schemes/randd/src/main.rs
- *   https://github.com/redox-os/randd/blob/2f0ad18/src/main.rs
- *   https://github.com/redox-os/relibc/blob/a6fffd3/src/platform/redox/mod.rs#L559
- *   https://github.com/redox-os/relibc/commit/a6fffd3
+ *   https://gitlab.redox-os.org/redox-os/randd
  *
  * DJGPP:
- *   http://wwww.asb.com/usr/wlkngowl/software.htm#noise
  *   https://cypherpunks.venona.com/date/1995/12/msg01101.html
  *   https://web.archive.org/web/20200202174514/http://www.rahul.net/dkaufman/index.html
- *   https://en.wikipedia.org/wiki//dev/random#Other_operating_systems
  *
  * VxWorks:
  *   https://docs.windriver.com/bundle/vxworks_7_application_core_os_sr0630-enus/page/CORE/randomNumGenLib.html
@@ -128,33 +102,23 @@
  *   https://github.com/openssl/openssl/pull/8926
  *
  * Fuchsia:
- *   https://fuchsia.dev/fuchsia-src/zircon/syscalls/cprng_draw
+ *   https://fuchsia.dev/fuchsia-src/reference/syscalls/cprng_draw
  *
  * CloudABI:
- *   https://nuxi.nl/cloudabi/#random_get
  *   https://github.com/NuxiNL/cloudabi/tree/d283c05#cloudabi_sys_random_get
  *   https://github.com/NuxiNL/cloudabi/blob/d283c05/headers/cloudabi_syscalls.h#L193
- *   https://github.com/NuxiNL/cloudabi/blob/d283c05/headers/cloudabi_types_common.h#L89
  *
  * WASI:
  *   https://github.com/WebAssembly/WASI/blob/fc3da39/phases/snapshot/docs.md#:~:text=random_get
- *   https://github.com/WebAssembly/WASI/blob/5d10b2c/design/WASI-core.md#random_get
- *   https://github.com/WebAssembly/WASI/blob/2627acd/phases/snapshot/witx/typenames.witx#L34
- *   https://github.com/WebAssembly/WASI/blob/2627acd/phases/snapshot/witx/wasi_snapshot_preview1.witx#L481
  *   https://github.com/WebAssembly/wasi-libc/blob/2b7e73a/libc-bottom-half/headers/public/wasi/api.h#L2201-L2215
- *   https://github.com/emscripten-core/emscripten/blob/b45948b/system/include/wasi/api.h#L2648
  *
  * Emscripten:
  *   https://emscripten.org/docs/api_reference/emscripten.h.html#c.EM_JS
- *   https://github.com/emscripten-core/emscripten/pull/6220
  *   https://developer.mozilla.org/en-US/docs/Web/API/Crypto/getRandomValues
  *   https://nodejs.org/api/crypto.html#crypto_crypto_randomfillsync_buffer_offset_size
  *   https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Math/random
- *   https://github.com/emscripten-core/emscripten/blob/7c3ced6/src/library_uuid.js#L31
- *   https://github.com/emscripten-core/emscripten/blob/32e1d73/system/include/uuid/uuid.h
- *   https://github.com/emscripten-core/emscripten/commit/385a660
  *   https://github.com/emscripten-core/emscripten/blob/048f028/system/include/compat/sys/random.h
- *   https://github.com/emscripten-core/emscripten/commit/048f028
+ *   https://github.com/emscripten-core/emscripten/blob/32e1d73/system/include/uuid/uuid.h
  */
 
 /**
@@ -188,7 +152,7 @@
  *            BCRYPT_USE_SYSTEM_PREFERRED_RNG added in Windows 7 (2009).
  *            RtlGenRandom added in Windows XP (2001).
  *
- * Linux/Android:
+ * Linux:
  *   Source: getrandom(2)
  *   Fallback 1: /dev/urandom (after polling /dev/random)
  *   Fallback 2: _sysctl(2) w/ kern.random.uuid
@@ -199,7 +163,7 @@
  *            _sysctl(2) removed in Linux 5.5 (2020).
  *            kern.random.uuid added in Linux 2.3.16 (1999).
  *
- * OSX/iOS/tvOS/watchOS:
+ * Apple:
  *   Source: getentropy(2)
  *   Fallback: /dev/random (identical to /dev/urandom)
  *   Support: getentropy(2) added in OSX 10.12 (2016).

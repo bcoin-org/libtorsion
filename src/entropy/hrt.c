@@ -8,7 +8,7 @@
  *   https://docs.microsoft.com/en-us/windows/win32/api/profileapi/nf-profileapi-queryperformancefrequency
  *   https://docs.microsoft.com/en-us/windows/win32/api/sysinfoapi/nf-sysinfoapi-getsystemtimeasfiletime
  *
- * OSX/iOS/tvOS/watchOS:
+ * Apple:
  *   https://developer.apple.com/documentation/kernel/1462446-mach_absolute_time
  *
  * Solaris:
@@ -41,16 +41,12 @@
  *   https://fuchsia.dev/fuchsia-src/reference/syscalls/clock_get_monotonic
  *
  * CloudABI:
- *   https://nuxi.nl/cloudabi/#clock_time_get
  *   https://github.com/NuxiNL/cloudabi/tree/d283c05#cloudabi_sys_clock_time_get
  *   https://github.com/NuxiNL/cloudabi/blob/d283c05/headers/cloudabi_syscalls.h#L40
  *
  * WASI:
  *   https://github.com/WebAssembly/WASI/blob/fc3da39/phases/snapshot/docs.md#:~:text=clock_time_get
- *   https://github.com/WebAssembly/WASI/blob/5d10b2c/design/WASI-core.md#clock_time_get
- *   https://github.com/WebAssembly/WASI/blob/2627acd/phases/snapshot/witx/wasi_snapshot_preview1.witx#L58
  *   https://github.com/WebAssembly/wasi-libc/blob/2b7e73a/libc-bottom-half/headers/public/wasi/api.h#L1644-L1660
- *   https://github.com/emscripten-core/emscripten/blob/b45948b/system/include/wasi/api.h#L1751
  *
  * Emscripten:
  *   https://emscripten.org/docs/api_reference/emscripten.h.html#c.emscripten_get_now
