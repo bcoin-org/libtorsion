@@ -4,9 +4,9 @@
  * https://github.com/bcoin-org/libtorsion
  *
  * Windows:
+ *   https://docs.microsoft.com/en-us/windows/win32/api/sysinfoapi/nf-sysinfoapi-getsystemtimeasfiletime
  *   https://docs.microsoft.com/en-us/windows/win32/api/profileapi/nf-profileapi-queryperformancecounter
  *   https://docs.microsoft.com/en-us/windows/win32/api/profileapi/nf-profileapi-queryperformancefrequency
- *   https://docs.microsoft.com/en-us/windows/win32/api/sysinfoapi/nf-sysinfoapi-getsystemtimeasfiletime
  *
  * Apple:
  *   https://developer.apple.com/documentation/kernel/1462446-mach_absolute_time

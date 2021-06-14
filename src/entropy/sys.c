@@ -4,57 +4,58 @@
  * https://github.com/bcoin-org/libtorsion
  *
  * Resources:
+ *   https://en.wikipedia.org/wiki//dev/random
  *   https://en.wikipedia.org/wiki/Entropy-supplying_system_calls
  *   https://en.wikipedia.org/wiki/CryptGenRandom
- *   https://en.wikipedia.org/wiki//dev/random
  *
  * Windows:
- *   https://docs.microsoft.com/en-us/windows/win32/api/bcrypt/nf-bcrypt-bcryptgenrandom
  *   https://docs.microsoft.com/en-us/windows/win32/api/ntsecapi/nf-ntsecapi-rtlgenrandom
+ *   https://docs.microsoft.com/en-us/windows/win32/api/bcrypt/nf-bcrypt-bcryptgenrandom
  *
  * Linux:
- *   https://man7.org/linux/man-pages/man2/getrandom.2.html
- *   https://man7.org/linux/man-pages/man3/getentropy.3.html
  *   https://man7.org/linux/man-pages/man4/random.4.html
  *   https://man7.org/linux/man-pages/man2/_sysctl.2.html
+ *   https://man7.org/linux/man-pages/man2/getrandom.2.html
+ *   https://man7.org/linux/man-pages/man3/getentropy.3.html
  *
  * Apple:
- *   https://www.unix.com/man-page/mojave/2/getentropy/
  *   https://www.unix.com/man-page/mojave/4/random/
+ *   https://www.unix.com/man-page/mojave/2/getentropy/
  *
  * FreeBSD:
+ *   https://www.freebsd.org/cgi/man.cgi?random(4)
+ *   https://www.freebsd.org/cgi/man.cgi?sysctl(3)
  *   https://www.freebsd.org/cgi/man.cgi?getrandom(2)
  *   https://www.freebsd.org/cgi/man.cgi?getentropy(3)
- *   https://www.freebsd.org/cgi/man.cgi?sysctl(3)
- *   https://www.freebsd.org/cgi/man.cgi?random(4)
  *
  * OpenBSD:
- *   https://man.openbsd.org/getentropy.2
- *   https://man.openbsd.org/sysctl.2
  *   https://man.openbsd.org/random.4
+ *   https://man.openbsd.org/sysctl.2
+ *   https://man.openbsd.org/getentropy.2
  *
  * NetBSD:
- *   https://man.netbsd.org/getrandom.2
- *   https://man.netbsd.org/sysctl.3
  *   https://man.netbsd.org/random.4
+ *   https://man.netbsd.org/sysctl.3
+ *   https://man.netbsd.org/getrandom.2
  *
  * DragonFly BSD:
- *   https://leaf.dragonflybsd.org/cgi/web-man?command=getrandom&section=2
  *   https://leaf.dragonflybsd.org/cgi/web-man?command=random&section=4
+ *   https://leaf.dragonflybsd.org/cgi/web-man?command=getrandom&section=2
  *
  * Solaris:
+ *   https://docs.oracle.com/cd/E36784_01/html/E36884/random-7d.html
  *   https://docs.oracle.com/cd/E88353_01/html/E37841/getrandom-2.html
  *   https://docs.oracle.com/cd/E86824_01/html/E54765/getentropy-2.html
- *   https://docs.oracle.com/cd/E36784_01/html/E36884/random-7d.html
- *   http://lists.pdxlinux.org/pipermail/plug/2002-March/000846.html
  *   https://web.archive.org/web/20000917040238/http://www.cosy.sbg.ac.at/~andi/
+ *   http://lists.pdxlinux.org/pipermail/plug/2002-March/000846.html
  *
  * Illumos:
+ *   https://illumos.org/man/7d/random
  *   https://illumos.org/man/2/getrandom
  *   https://illumos.org/man/3C/getentropy
- *   https://illumos.org/man/7d/random
  *
  * Cygwin:
+ *   https://github.com/cygwin/cygwin/blob/8050ef2/winsup/cygwin/fhandler_random.cc
  *   https://github.com/cygwin/cygwin/blob/8050ef2/winsup/cygwin/include/sys/random.h
  *   https://github.com/cygwin/cygwin/blob/8050ef2/newlib/libc/include/sys/unistd.h#L107
  *
@@ -113,12 +114,12 @@
  *   https://github.com/WebAssembly/wasi-libc/blob/2b7e73a/libc-bottom-half/headers/public/wasi/api.h#L2201-L2215
  *
  * Emscripten:
+ *   https://github.com/emscripten-core/emscripten/blob/32e1d73/system/include/uuid/uuid.h
  *   https://emscripten.org/docs/api_reference/emscripten.h.html#c.EM_JS
  *   https://developer.mozilla.org/en-US/docs/Web/API/Crypto/getRandomValues
  *   https://nodejs.org/api/crypto.html#crypto_crypto_randomfillsync_buffer_offset_size
  *   https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Math/random
  *   https://github.com/emscripten-core/emscripten/blob/048f028/system/include/compat/sys/random.h
- *   https://github.com/emscripten-core/emscripten/blob/32e1d73/system/include/uuid/uuid.h
  */
 
 /**
@@ -126,17 +127,17 @@
  *
  * We try to avoid /dev/{,u}random as much as possible. Not
  * only can they behave differenly on different OSes, but they
- * are unreliable in terms of usability (for example, what if
- * we are inside a chroot where /dev has not been setup?).
+ * are unreliable in terms of usability. In certain cases, we
+ * could be inside a chroot where /dev has not been setup. In
+ * other cases, we could get an EMFILE when opening /dev files.
  *
  * To avoid locking ourselves down to a particular build system,
  * we check for features using only the C preprocessor.
  *
  * In the future, we may consider using dlsym(3) to check
  * features at runtime. This would ensure better ABI compat
- * across builds. If GCC, Clang, or Sun Studio are used, we
- * can utilize `__attribute__((weak))` or `#pragma weak` over
- * dlsym(3).
+ * across builds. In select compilers, we could also consider
+ * using weak symbols.
  *
  * We try to match the behavior of the getrandom rust library[1].
  * The primary difference involves the fact that we do not call
@@ -148,92 +149,92 @@
  * Windows:
  *   Source: BCryptGenRandom
  *   Fallback: RtlGenRandom (SystemFunction036)
- *   Support: BCryptGenRandom added in Windows Vista (2007).
+ *   Support: RtlGenRandom added in Windows XP (2001).
+ *            BCryptGenRandom added in Windows Vista (2007).
  *            BCRYPT_USE_SYSTEM_PREFERRED_RNG added in Windows 7 (2009).
- *            RtlGenRandom added in Windows XP (2001).
  *
  * Linux:
  *   Source: getrandom(2)
  *   Fallback 1: /dev/urandom (after polling /dev/random)
  *   Fallback 2: _sysctl(2) w/ kern.random.uuid
- *   Support: getrandom(2) added in Linux 3.17 (2014).
- *            /dev/{,u}random added in Linux 1.3.30 (1995).
+ *   Support: /dev/{,u}random added in Linux 1.3.30 (1995).
  *            _sysctl(2) added in Linux 1.3.57 (1995).
- *            _sysctl(2) deprecated in Linux 2.6.24 (2008).
- *            _sysctl(2) removed in Linux 5.5 (2020).
  *            kern.random.uuid added in Linux 2.3.16 (1999).
+ *            _sysctl(2) deprecated in Linux 2.6.24 (2008).
+ *            getrandom(2) added in Linux 3.17 (2014).
+ *            _sysctl(2) removed in Linux 5.5 (2020).
  *
  * Apple:
  *   Source: getentropy(2)
  *   Fallback: /dev/random (identical to /dev/urandom)
- *   Support: getentropy(2) added in OSX 10.12 (2016).
+ *   Support: /dev/{,u}random added in OSX 10.1 (2001).
+ *            getentropy(2) added in OSX 10.12 (2016).
  *            getentropy(2) added in iOS 10.0 (2016).
  *            getentropy(2) added in tvOS 10.0 (2016).
  *            getentropy(2) added in watchOS 3.0 (2016).
- *            /dev/{,u}random added in OSX 10.1 (2001).
  *
  * FreeBSD:
  *   Source: getrandom(2)
  *   Fallback 1: sysctl(2) w/ kern.arandom
  *   Fallback 2: /dev/urandom (symlink to /dev/random)
- *   Support: getrandom(2) added in FreeBSD 12.0 (2018).
+ *   Support: /dev/{,u}random added in FreeBSD 2.1.5 (1995).
  *            kern.arandom added in FreeBSD 7.0 (2008).
  *            kern.arandom modernized in FreeBSD 7.1 (2009).
- *            /dev/{,u}random added in FreeBSD 2.1.5 (1995).
+ *            getrandom(2) added in FreeBSD 12.0 (2018).
  *
  * OpenBSD:
  *   Source: getentropy(2)
  *   Fallback 1: sysctl(2) w/ kern.arandom
  *   Fallback 2: /dev/urandom
- *   Support: getentropy(2) added in OpenBSD 5.6 (2014).
+ *   Support: /dev/{,u}random added in OpenBSD 2.0 (1996).
  *            kern.arandom added in OpenBSD 2.6 (1999).
  *            kern.arandom modernized in OpenBSD 3.8 (2005).
+ *            getentropy(2) added in OpenBSD 5.6 (2014).
  *            kern.arandom removed in OpenBSD 6.1 (2017).
- *            /dev/{,u}random added in OpenBSD 2.0 (1996).
  *
  * NetBSD:
  *   Source: getrandom(2)
  *   Fallback 1: sysctl(2) w/ kern.arandom
  *   Fallback 2: /dev/urandom
- *   Support: getrandom(2) added in NetBSD 10.0 (2021).
+ *   Support: /dev/{,u}random added in NetBSD 1.3 (1998).
  *            kern.arandom added in NetBSD 2.0 (2004).
  *            kern.arandom modernized in NetBSD 4.0 (2007).
- *            /dev/{,u}random added in NetBSD 1.3 (1998).
+ *            getrandom(2) added in NetBSD 10.0 (2021).
  *
  * DragonFly BSD:
  *   Source: getrandom(2)
  *   Fallback: /dev/random
- *   Support: getrandom(2) added in DragonFly BSD 5.7.1 (2020).
- *            /dev/{,u}random supported since inception (2003).
+ *   Support: /dev/{,u}random supported since inception (2003).
+ *            getrandom(2) added in DragonFly BSD 5.7.1 (2020).
  *
  * Solaris:
  *   Source: getrandom(2)
  *   Fallback 1: getentropy(2)
  *   Fallback 2: /dev/random
- *   Support: getrandom(2) added in Solaris 11.3 (2015).
- *            getentropy(2) added in Solaris 11.3 (2015).
- *            Solaris 11.3 support added in Sun Studio 12.5 (5.14, 2016).
+ *   Support: /dev/random supported for Solaris 2.6+ with "andirand" (2000).
  *            /dev/{,u}random added in Solaris 8 (patch 112438-01) (2002).
  *            <sys/random.h> added in Solaris 8 (patch 112438-01) (2002).
- *            /dev/random supported for Solaris 2.6+ with "andirand" (2000).
+ *            getrandom(2) added in Solaris 11.3 (2015).
+ *            getentropy(2) added in Solaris 11.3 (2015).
+ *            Solaris 11.3 support added in Sun Studio 12.5 (5.14) (2016).
  *
  * Illumos:
  *   Source: getentropy(3)
  *   Fallback: /dev/random
- *   Support: getrandom(2) added in Illumos 0.12 (2015).
+ *   Support: /dev/{,u}random supported since inception (2010).
+ *            <sys/random.h> supported since inception (2010).
+ *            getrandom(2) added in Illumos 0.12 (2015).
  *            getentropy(3) added in Illumos 0.12 (2015).
  *            getrandom(2) "made public" in Illumos 0.29 (2018).
  *            getentropy(3) used due to getrandom(2) ABI change.
- *            No Illumos support after Sun Studio 12.1 (5.10, 2009).
- *            /dev/{,u}random supported since inception (2010).
- *            <sys/random.h> supported since inception (2010).
+ *            No Illumos support after Sun Studio 12.1 (5.10) (2009).
  *
  * Cygwin:
  *   Source: getrandom(2)
  *   Fallback: /dev/urandom
- *   Support: getrandom(2) added in Cygwin 2.7.0 (2017).
+ *   Support: /dev/{,u}random added in Cygwin 1.1.2 (2000).
+ *            getrandom(2) added in Cygwin 2.7.0 (2017).
  *            getrandom(2) fixed in Cygwin 2.8.0 (2017).
- *            /dev/{,u}random added in Cygwin 1.1.2 (2000).
  *
  * HP-UX (*):
  *   Source: /dev/random
@@ -254,7 +255,7 @@
  *   Source: /dev/urandom
  *   Fallback: none
  *   Support: /dev/{,u}random added in z/OS 1.7 (2005).
- *            Requires ICSF to be started.
+ *            ICSF service must be started.
  *
  * QNX:
  *   Source: /dev/random
@@ -320,7 +321,7 @@
  *   Browser:
  *     Source: window.crypto.getRandomValues w/ EM_JS
  *     Fallback 1: getentropy(2)
- *     Fallback 2: uuid_generate(3) (broken for web workers)
+ *     Fallback 2: uuid_generate(3) (broken for workers)
  *   Node.js
  *     Source: crypto.randomFillSync w/ EM_JS
  *     Fallback 1: getentropy(2)
@@ -328,9 +329,9 @@
  *   Shell:
  *     Source: Math.random w/ EM_JS
  *     Fallback: none
- *   Support: EM_JS added in Emscripten 1.37.36 (2018).
+ *   Support: uuid_generate(3) added in Emscripten 1.8.6 (2014).
+ *            EM_JS added in Emscripten 1.37.36 (2018).
  *            getentropy(2) added in Emscripten 2.0.5 (2020).
- *            uuid_generate(3) added in Emscripten 1.8.6 (2014).
  *
  * [1] https://docs.rs/getrandom/latest/getrandom/
  */
