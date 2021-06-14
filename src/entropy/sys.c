@@ -55,9 +55,9 @@
  *   https://illumos.org/man/3C/getentropy
  *
  * Cygwin:
- *   https://github.com/cygwin/cygwin/blob/8050ef2/winsup/cygwin/fhandler_random.cc
- *   https://github.com/cygwin/cygwin/blob/8050ef2/winsup/cygwin/include/sys/random.h
- *   https://github.com/cygwin/cygwin/blob/8050ef2/newlib/libc/include/sys/unistd.h#L107
+ *   https://cygwin.com/git/?p=newlib-cygwin.git;a=blob;f=winsup/cygwin/fhandler_random.cc;hb=8050ef2
+ *   https://cygwin.com/git/?p=newlib-cygwin.git;a=blob;f=winsup/cygwin/include/sys/random.h;hb=8050ef2
+ *   https://cygwin.com/git/?p=newlib-cygwin.git;a=blob;f=newlib/libc/include/sys/unistd.h;hb=8050ef2#l107
  *
  * Hurd:
  *   https://git.savannah.gnu.org/cgit/hurd/hurd.git/tree/trans/random.c?id=98b3390
@@ -253,7 +253,7 @@
  * BSD/OS:
  *   Source: /dev/random
  *   Fallback: none
- *   Support: /dev/random existed since at least BSD/OS 4.1 (1999).
+ *   Support: /dev/random existed since BSD/OS 4.1 (1999).
  *
  * HP-UX (*):
  *   Source: /dev/random
@@ -279,7 +279,8 @@
  * QNX:
  *   Source: /dev/random
  *   Fallback: none
- *   Support: random service must be started.
+ *   Support: /dev/random existed since QNX 6.2.1 (2003).
+ *            random service must be started.
  *
  * Haiku:
  *   Source: /dev/random (identical to /dev/urandom)
@@ -577,6 +578,7 @@ RtlGenRandom(PVOID RandomBuffer, ULONG RandomBufferLength);
 #  define HAVE_GETPID
 #endif
 
+/* Violates ISO C section 7.1.3. */
 #ifndef EWOULDBLOCK
 #  define EWOULDBLOCK EAGAIN
 #endif
