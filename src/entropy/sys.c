@@ -380,6 +380,7 @@
 #undef HAVE_GETPID
 #undef DEV_RANDOM_NAME
 #undef DEV_RANDOM_POLL
+#undef DEV_RANDOM_SELECT
 #undef DEV_RANDOM_RETRY
 
 #if defined(_WIN32)
@@ -570,6 +571,9 @@ RtlGenRandom(PVOID RandomBuffer, ULONG RandomBufferLength);
 #  include <unistd.h> /* read, close, getpid */
 #  ifdef DEV_RANDOM_POLL
 #    include <poll.h> /* poll */
+#  endif
+#  ifdef DEV_RANDOM_SELECT
+#    include <sys/time.h> /* select */
 #  endif
 #  ifndef S_ISNAM
 #    define S_ISNAM(x) 0
@@ -890,8 +894,7 @@ torsion_devrand(void *dst, size_t size, const char *name) {
   size_t max = INT_MAX;
   struct stat st;
   int fd, nread;
-#ifdef DEV_RANDOM_POLL
-  struct pollfd pfd;
+#if defined(DEV_RANDOM_POLL) || defined(DEV_RANDOM_SELECT)
   int r;
 
   if (strcmp(name, "/dev/urandom") == 0) {
@@ -905,16 +908,41 @@ torsion_devrand(void *dst, size_t size, const char *name) {
     if (fstat(fd, &st) != 0)
       goto fail;
 
-    if (!S_ISCHR(st.st_mode))
+    if (!S_ISCHR(st.st_mode) && !S_ISNAM(st.st_mode))
       goto fail;
 
-    pfd.fd = fd;
-    pfd.events = POLLIN;
-    pfd.revents = 0;
+#if defined(DEV_RANDOM_POLL)
+    {
+      struct pollfd pfd;
 
-    do {
-      r = poll(&pfd, 1, -1);
-    } while (r == -1 && errno == EINTR);
+      pfd.fd = fd;
+      pfd.events = POLLIN;
+      pfd.revents = 0;
+
+      do {
+        r = poll(&pfd, 1, -1);
+      } while (r == -1 && errno == EINTR);
+    }
+#else
+    if (fd < FD_SETSIZE) {
+      fd_set fds;
+
+      FD_ZERO(&fds);
+      FD_SET(fd, &fds);
+
+      do {
+        r = select(fd + 1, &fds, NULL, NULL, NULL);
+      } while (r == -1 && errno == EINTR);
+    } else {
+      unsigned char c;
+
+      do {
+        r = read(fd, &c, 1);
+      } while (r == -1 && (errno == EINTR
+                        || errno == EAGAIN
+                        || errno == EWOULDBLOCK));
+    }
+#endif
 
     if (r != 1)
       goto fail;
