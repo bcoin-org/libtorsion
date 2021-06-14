@@ -59,6 +59,13 @@
  *   https://github.com/cygwin/cygwin/blob/8050ef2/winsup/cygwin/include/sys/random.h
  *   https://github.com/cygwin/cygwin/blob/8050ef2/newlib/libc/include/sys/unistd.h#L107
  *
+ * Hurd:
+ *   https://git.savannah.gnu.org/cgit/hurd/hurd.git/tree/trans/random.c?id=98b3390
+ *   https://sourceware.org/git/?p=glibc.git;a=blob;f=stdlib/sys/random.h;h=0451cf7
+ *
+ * BSD/OS:
+ *   https://svn.apache.org/repos/asf/apr/apr/branches/1.6.x/misc/unix/rand.c
+ *
  * HP-UX (*):
  *   https://nixdoc.net/man-pages/HP-UX/man7/random.7.html
  *   https://nixdoc.net/man-pages/HP-UX/man7/urandom.7.html
@@ -236,6 +243,18 @@
  *            getrandom(2) added in Cygwin 2.7.0 (2017).
  *            getrandom(2) fixed in Cygwin 2.8.0 (2017).
  *
+ * Hurd:
+ *   Source: getrandom(2)
+ *   Fallback: /dev/urandom
+ *   Support: /dev/{,u}random added in Hurd 0.6 (2015).
+ *            /dev/urandom changed to a symlink in Hurd X (2017).
+ *            getrandom(2) added in glibc 2.31 (2019).
+ *
+ * BSD/OS:
+ *   Source: /dev/random
+ *   Fallback: none
+ *   Support: /dev/random existed since at least BSD/OS 4.1 (1999).
+ *
  * HP-UX (*):
  *   Source: /dev/random
  *   Fallback: none
@@ -360,6 +379,7 @@
 #undef HAVE_GETPID
 #undef DEV_RANDOM_NAME
 #undef DEV_RANDOM_POLL
+#undef DEV_RANDOM_RETRY
 
 #if defined(_WIN32)
 #  include <windows.h> /* _WIN32_WINNT */
@@ -464,6 +484,17 @@ RtlGenRandom(PVOID RandomBuffer, ULONG RandomBufferLength);
 #    define HAVE_GETRANDOM
 #  endif
 #  define DEV_RANDOM_NAME "/dev/urandom"
+#elif defined(__gnu_hurd__)
+#  if defined(__GLIBC__) && defined(__GLIBC_PREREQ)
+#    if __GLIBC_PREREQ(2, 31) /* 2.31 (2019) */
+#      include <sys/random.h> /* getrandom */
+#      define HAVE_GETRANDOM
+#    endif
+#  endif
+#  define DEV_RANDOM_NAME "/dev/urandom"
+#elif defined(__bsdi__)
+#  define DEV_RANDOM_NAME "/dev/random"
+#  define DEV_RANDOM_RETRY
 #elif defined(__hpux) /* (*) */
 #  define DEV_RANDOM_NAME "/dev/random"
 #elif defined(__PASE__) /* IBM i disguised as AIX */
@@ -544,6 +575,10 @@ RtlGenRandom(PVOID RandomBuffer, ULONG RandomBufferLength);
 #  endif
 #  define HAVE_DEV_RANDOM
 #  define HAVE_GETPID
+#endif
+
+#ifndef EWOULDBLOCK
+#  define EWOULDBLOCK EAGAIN
 #endif
 
 /*
@@ -692,7 +727,9 @@ torsion_callrand(void *dst, size_t size) {
 
     do {
       nread = getrandom(data, max, 0);
-    } while (nread < 0 && (errno == EINTR || errno == EAGAIN));
+    } while (nread < 0 && (errno == EINTR
+                        || errno == EAGAIN
+                        || errno == EWOULDBLOCK));
 
     if (nread < 0)
       return 0;
@@ -884,6 +921,9 @@ torsion_devrand(void *dst, size_t size, const char *name) {
   }
 #endif
 
+#ifdef DEV_RANDOM_RETRY
+retry:
+#endif
   do {
     fd = torsion_open(name, O_RDONLY);
   } while (fd == -1 && errno == EINTR);
@@ -903,7 +943,16 @@ torsion_devrand(void *dst, size_t size, const char *name) {
 
     do {
       nread = read(fd, data, max);
-    } while (nread < 0 && (errno == EINTR || errno == EAGAIN));
+    } while (nread < 0 && (errno == EINTR
+                        || errno == EAGAIN
+                        || errno == EWOULDBLOCK));
+
+#ifdef DEV_RANDOM_RETRY
+    if (nread == 0) {
+      close(fd);
+      goto retry;
+    }
+#endif
 
     if (nread <= 0)
       break;
