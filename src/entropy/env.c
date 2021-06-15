@@ -107,7 +107,7 @@
 #elif defined(__EMSCRIPTEN__)
 /* No reliable entropy sources available for emscripten. */
 #else
-#  include <sys/types.h> /* mode_t, off_t, pid_t */
+#  include <sys/types.h> /* ssize_t, pid_t */
 #  include <sys/stat.h> /* stat, fstat */
 #  include <sys/utsname.h> /* uname */
 #  include <fcntl.h> /* open, O_* */
@@ -154,8 +154,8 @@ extern char **environ;
 #    endif
 #  endif
 #  if defined(_XOPEN_VERSION) && _XOPEN_VERSION >= 500
-#    include <sys/resource.h> /* getrusage */
 #    include <sys/time.h> /* gettimeofday */
+#    include <sys/resource.h> /* getrusage */
 #    define HAVE_GETRUSAGE
 #    define HAVE_GETTIMEOFDAY
 #  endif
