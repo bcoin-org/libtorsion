@@ -307,9 +307,9 @@
  *   Support: /dev/{,u}random added in OpenBeOS (2002).
  *
  * Minix:
- *   Source: /dev/random
+ *   Source: /dev/urandom
  *   Fallback: none
- *   Support: /dev/random added in Minix 3.3.0 (2014).
+ *   Support: /dev/{,u}random added in Minix 3.3.0 (2014).
  *
  * Tru64 UNIX:
  *   Source: /dev/urandom
@@ -553,7 +553,7 @@ RtlGenRandom(PVOID RandomBuffer, ULONG RandomBufferLength);
 #elif defined(__HAIKU__)
 #  define DEV_RANDOM_NAME "/dev/random"
 #elif defined(__minix)
-#  define DEV_RANDOM_NAME "/dev/random"
+#  define DEV_RANDOM_NAME "/dev/urandom"
 #elif defined(__osf__)
 #  define DEV_RANDOM_NAME "/dev/urandom"
 #elif defined(__sgi) /* (*) */
