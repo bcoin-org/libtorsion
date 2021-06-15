@@ -414,13 +414,12 @@
 #undef HAVE_SYS_RANDOM_H
 #undef HAVE_JS_RANDOM_GET
 #undef HAVE_UUID_GENERATE
-#undef HAVE_DEV_RANDOM
-#undef HAVE_EGD
-#undef HAVE_GETPID
 #undef DEV_RANDOM_NAME
 #undef DEV_RANDOM_POLL
 #undef DEV_RANDOM_SELECT
 #undef DEV_RANDOM_RETRY
+#undef HAVE_EGD
+#undef HAVE_GETPID
 
 #if defined(_WIN32)
 #  include <windows.h> /* _WIN32_WINNT */
@@ -611,35 +610,28 @@ RtlGenRandom(PVOID RandomBuffer, ULONG RandomBufferLength);
 #  endif
 #endif
 
-#ifdef DEV_RANDOM_NAME
+#if defined(DEV_RANDOM_NAME) || defined(HAVE_EGD)
 #  include <sys/types.h> /* ssize_t, pid_t */
 #  include <sys/stat.h> /* stat, fstat, S_* */
 #  include <fcntl.h> /* open, fcntl, O_*, FD_* */
-#  include <unistd.h> /* read, close, getpid */
+#  include <unistd.h> /* read, write, close, getpid */
 #  ifdef DEV_RANDOM_POLL
 #    include <poll.h> /* poll */
 #  endif
 #  ifdef DEV_RANDOM_SELECT
 #    include <sys/time.h> /* select */
 #  endif
+#  ifdef HAVE_EGD
+#    include <sys/socket.h> /* connect, sockaddr */
+#    if defined(__vxworks) || defined(__DCC__)
+#      include <streams/un.h> /* sockaddr_un */
+#    else
+#      include <sys/un.h> /* sockaddr_un */
+#    endif
+#  endif
 #  ifndef S_ISNAM
 #    define S_ISNAM(x) 0
 #  endif
-#  define HAVE_DEV_RANDOM
-#endif
-
-#ifdef HAVE_EGD
-#  include <sys/types.h> /* ssize_t, pid_t */
-#  include <sys/socket.h> /* connect, sockaddr */
-#  include <unistd.h> /* read, write, close, getpid */
-#  if defined(__vxworks) || defined(__DCC__)
-#    include <streams/un.h> /* sockaddr_un */
-#  else
-#    include <sys/un.h> /* sockaddr_un */
-#  endif
-#endif
-
-#if defined(HAVE_DEV_RANDOM) || defined(HAVE_EGD)
 #  define HAVE_GETPID
 #endif
 
@@ -695,7 +687,7 @@ RtlGenRandom(PVOID RandomBuffer, ULONG RandomBufferLength);
  * Helpers
  */
 
-#ifdef HAVE_DEV_RANDOM
+#ifdef DEV_RANDOM_NAME
 static int
 torsion_open(const char *name, int flags) {
   int fd;
@@ -732,7 +724,7 @@ torsion_open(const char *name, int flags) {
 
   return fd;
 }
-#endif /* HAVE_DEV_RANDOM */
+#endif /* DEV_RANDOM_NAME */
 
 /*
  * Emscripten Entropy
@@ -991,7 +983,7 @@ torsion_callrand(void *dst, size_t size) {
  * Device Entropy
  */
 
-#ifdef HAVE_DEV_RANDOM
+#ifdef DEV_RANDOM_NAME
 static int
 torsion_devrand(void *dst, size_t size, const char *name) {
   unsigned char *data = (unsigned char *)dst;
@@ -1103,7 +1095,7 @@ fail:
 
   return size == 0;
 }
-#endif /* HAVE_DEV_RANDOM */
+#endif /* DEV_RANDOM_NAME */
 
 /*
  * Random UUID (Linux)
@@ -1303,7 +1295,7 @@ torsion_sysrand(void *dst, size_t size) {
   if (torsion_callrand(dst, size))
     return 1;
 
-#ifdef HAVE_DEV_RANDOM
+#ifdef DEV_RANDOM_NAME
   if (torsion_devrand(dst, size, DEV_RANDOM_NAME))
     return 1;
 #endif
