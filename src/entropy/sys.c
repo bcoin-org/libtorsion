@@ -622,7 +622,7 @@ RtlGenRandom(PVOID RandomBuffer, ULONG RandomBufferLength);
 #    include <sys/time.h> /* select */
 #  endif
 #  ifdef HAVE_EGD
-#    include <sys/socket.h> /* connect, sockaddr */
+#    include <sys/socket.h> /* connect, shutdown, sockaddr */
 #    if defined(__vxworks) || defined(__DCC__)
 #      include <streams/un.h> /* sockaddr_un */
 #    else
@@ -1265,6 +1265,10 @@ torsion_egdrand(void *dst, size_t size) {
 
   ret = 1;
 fail:
+#ifdef SHUT_RDWR
+  if (found)
+    shutdown(fd, SHUT_RDWR);
+#endif
   close(fd);
   return ret;
 }
