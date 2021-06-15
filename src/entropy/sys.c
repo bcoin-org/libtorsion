@@ -691,9 +691,6 @@ RtlGenRandom(PVOID RandomBuffer, ULONG RandomBufferLength);
 static int
 torsion_open(const char *name, int flags) {
   int fd;
-#ifdef FD_CLOEXEC
-  int r;
-#endif
 
 #ifdef O_CLOEXEC
   fd = open(name, flags | O_CLOEXEC);
@@ -705,26 +702,44 @@ torsion_open(const char *name, int flags) {
   fd = open(name, flags);
 
 #ifdef FD_CLOEXEC
-  if (fd == -1)
-    return fd;
+  if (fd != -1) {
+    int r = fcntl(fd, F_GETFD);
 
-  do {
-    r = fcntl(fd, F_GETFD);
-  } while (r == -1 && errno == X_EINTR);
-
-  if (r == -1)
-    return fd;
-
-  flags = r | FD_CLOEXEC;
-
-  do {
-    r = fcntl(fd, F_SETFD, flags);
-  } while (r == -1 && errno == X_EINTR);
+    if (r != -1)
+      fcntl(fd, F_SETFD, r | FD_CLOEXEC);
+  }
 #endif
 
   return fd;
 }
 #endif /* DEV_RANDOM_NAME */
+
+#ifdef HAVE_EGD
+static int
+torsion_socket(int domain, int type, int protocol) {
+  int fd;
+
+#ifdef SOCK_CLOEXEC
+  fd = socket(domain, type | SOCK_CLOEXEC, protocol);
+
+  if (fd != -1 || errno != X_EINVAL)
+    return fd;
+#endif
+
+  fd = socket(domain, type, protocol);
+
+#ifdef FD_CLOEXEC
+  if (fd != -1) {
+    int r = fcntl(fd, F_GETFD);
+
+    if (r != -1)
+      fcntl(fd, F_SETFD, r | FD_CLOEXEC);
+  }
+#endif
+
+  return fd;
+}
+#endif /* HAVE_EGD */
 
 /*
  * Emscripten Entropy
@@ -1179,7 +1194,7 @@ torsion_egdrand(void *dst, size_t size) {
   int ret = 0;
   int r, fd;
 
-  fd = socket(AF_UNIX, SOCK_STREAM, 0);
+  fd = torsion_socket(AF_UNIX, SOCK_STREAM, 0);
 
   if (fd == -1)
     return 0;
