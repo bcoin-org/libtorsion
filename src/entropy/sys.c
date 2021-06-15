@@ -636,52 +636,75 @@ RtlGenRandom(PVOID RandomBuffer, ULONG RandomBufferLength);
 #endif
 
 /*
- * Error Shims (avoids violating ISO C section 7.1.3)
+ * Error Handling
  */
 
-#define X_EUNDEF (~(errno))
-
-#if defined(EINVAL)
-#  define X_EINVAL EINVAL
-#else
-#  define X_EINVAL X_EUNDEF
+#ifdef DEV_RANDOM_NAME
+static int
+torsion_retry_open(int fd) {
+  if (fd == -1) {
+    switch (errno) {
+#ifdef EINTR
+      case EINTR:
+        return 1;
 #endif
+      default:
+        return 0;
+    }
+  }
+  return 0;
+}
+#endif /* DEV_RANDOM_NAME */
 
-#if defined(EINTR)
-#  define X_EINTR EINTR
-#else
-#  define X_EINTR X_EUNDEF
+#if defined(HAVE_GETRANDOM) || defined(DEV_RANDOM_NAME) || defined(HAVE_EGD)
+static int
+torsion_retry_rdwr(int ret) {
+  if (ret == -1) {
+    switch (errno) {
+#ifdef EINTR
+      case EINTR:
+        return 1;
 #endif
+#ifdef EAGAIN
+      case EAGAIN:
+        return 1;
+#endif
+#if defined(EWOULDBLOCK) && (!defined(EAGAIN) || EWOULDBLOCK != EAGAIN)
+      case EWOULDBLOCK:
+        return 1;
+#endif
+      default:
+        return 0;
+    }
+  }
+  return 0;
+}
+#endif /* HAVE_GETRANDOM || DEV_RANDOM_NAME || HAVE_EGD */
 
-#if defined(EAGAIN)
-#  define X_EAGAIN EAGAIN
-#else
-#  define X_EAGAIN X_EUNDEF
+#ifdef HAVE_EGD
+static int
+torsion_retry_connect(int ret) {
+  if (ret == -1) {
+    switch (errno) {
+#ifdef EINTR
+      case EINTR:
+        return 1;
 #endif
-
-#if defined(EWOULDBLOCK)
-#  define X_EWOULDBLOCK EWOULDBLOCK
-#else
-#  define X_EWOULDBLOCK X_EUNDEF
+#ifdef EINPROGRESS
+      case EINPROGRESS:
+        return 1;
 #endif
-
-#if defined(EINPROGRESS)
-#  define X_EINPROGRESS EINPROGRESS
-#else
-#  define X_EINPROGRESS X_EUNDEF
+#ifdef EALREADY
+      case EALREADY:
+        return 1;
 #endif
-
-#if defined(EALREADY)
-#  define X_EALREADY EALREADY
-#else
-#  define X_EALREADY X_EUNDEF
-#endif
-
-#if defined(EISCONN)
-#  define X_EISCONN EISCONN
-#else
-#  define X_EISCONN X_EUNDEF
-#endif
+      default:
+        return 0;
+    }
+  }
+  return 0;
+}
+#endif /* HAVE_EGD */
 
 /*
  * Helpers
@@ -695,7 +718,7 @@ torsion_open(const char *name, int flags) {
 #ifdef O_CLOEXEC
   fd = open(name, flags | O_CLOEXEC);
 
-  if (fd != -1 || errno != X_EINVAL)
+  if (fd != -1 || errno != EINVAL)
     return fd;
 #endif
 
@@ -722,7 +745,7 @@ torsion_socket(int domain, int type, int protocol) {
 #ifdef SOCK_CLOEXEC
   fd = socket(domain, type | SOCK_CLOEXEC, protocol);
 
-  if (fd != -1 || errno != X_EINVAL)
+  if (fd != -1 || errno != EINVAL)
     return fd;
 #endif
 
@@ -844,9 +867,7 @@ torsion_callrand(void *dst, size_t size) {
 
     do {
       nread = getrandom(data, max, 0);
-    } while (nread < 0 && (errno == X_EINTR
-                        || errno == X_EAGAIN
-                        || errno == X_EWOULDBLOCK));
+    } while (torsion_retry_rdwr(nread));
 
     if (nread < 0)
       return 0;
@@ -1011,9 +1032,9 @@ torsion_devrand(void *dst, size_t size, const char *name) {
   if (strcmp(name, "/dev/urandom") == 0) {
     do {
       fd = torsion_open("/dev/random", O_RDONLY);
-    } while (fd == -1 && errno == X_EINTR);
+    } while (torsion_retry_open(fd));
 
-    if (fd == -1)
+    if (fd < 0)
       return 0;
 
     if (fstat(fd, &st) != 0)
@@ -1032,9 +1053,7 @@ torsion_devrand(void *dst, size_t size, const char *name) {
 
       do {
         r = poll(&pfd, 1, -1);
-      } while (r == -1 && (errno == X_EINTR
-                        || errno == X_EAGAIN
-                        || errno == X_EWOULDBLOCK));
+      } while (torsion_retry_rdwr(r));
     }
 #else
     if (fd < FD_SETSIZE) {
@@ -1045,17 +1064,13 @@ torsion_devrand(void *dst, size_t size, const char *name) {
 
       do {
         r = select(fd + 1, &fds, NULL, NULL, NULL);
-      } while (r == -1 && (errno == X_EINTR
-                        || errno == X_EAGAIN
-                        || errno == X_EWOULDBLOCK));
+      } while (torsion_retry_rdwr(r));
     } else {
       unsigned char c;
 
       do {
         r = read(fd, &c, 1);
-      } while (r == -1 && (errno == X_EINTR
-                        || errno == X_EAGAIN
-                        || errno == X_EWOULDBLOCK));
+      } while (torsion_retry_rdwr(r));
     }
 #endif
 
@@ -1071,9 +1086,9 @@ retry:
 #endif
   do {
     fd = torsion_open(name, O_RDONLY);
-  } while (fd == -1 && errno == X_EINTR);
+  } while (torsion_retry_open(fd));
 
-  if (fd == -1)
+  if (fd < 0)
     return 0;
 
   if (fstat(fd, &st) != 0)
@@ -1088,9 +1103,7 @@ retry:
 
     do {
       nread = read(fd, data, max);
-    } while (nread < 0 && (errno == X_EINTR
-                        || errno == X_EAGAIN
-                        || errno == X_EWOULDBLOCK));
+    } while (torsion_retry_rdwr(nread));
 
 #ifdef DEV_RANDOM_RETRY
     if (nread == 0) {
@@ -1200,7 +1213,7 @@ torsion_egdrand(void *dst, size_t size) {
 
   fd = torsion_socket(AF_UNIX, SOCK_STREAM, 0);
 
-  if (fd == -1)
+  if (fd < 0)
     return 0;
 
   for (i = 0; i < sizeof(paths) / sizeof(paths[0]); i++) {
@@ -1220,11 +1233,14 @@ torsion_egdrand(void *dst, size_t size) {
 
     do {
       r = connect(fd, (struct sockaddr *)&addr, len);
-    } while (r == -1 && (errno == X_EINTR
-                      || errno == X_EINPROGRESS
-                      || errno == X_EALREADY));
+    } while (torsion_retry_connect(r));
 
-    if (r == 0 || errno == X_EISCONN) {
+#ifdef EISCONN
+    if (r == -1 && errno == EISCONN)
+      r = 0;
+#endif
+
+    if (r == 0) {
       found = 1;
       break;
     }
@@ -1242,18 +1258,14 @@ torsion_egdrand(void *dst, size_t size) {
 
     do {
       r = write(fd, msg, 2);
-    } while (r < 0 && (errno == X_EINTR
-                    || errno == X_EAGAIN
-                    || errno == X_EWOULDBLOCK));
+    } while (torsion_retry_rdwr(r));
 
     if (r != 2)
       goto fail;
 
     do {
       r = read(fd, msg, 1);
-    } while (r < 0 && (errno == X_EINTR
-                    || errno == X_EAGAIN
-                    || errno == X_EWOULDBLOCK));
+    } while (torsion_retry_rdwr(r));
 
     if (r != 1)
       goto fail;
@@ -1266,9 +1278,7 @@ torsion_egdrand(void *dst, size_t size) {
     while (left > 0) {
       do {
         r = read(fd, data, left);
-      } while (r < 0 && (errno == X_EINTR
-                      || errno == X_EAGAIN
-                      || errno == X_EWOULDBLOCK));
+      } while (torsion_retry_rdwr(r));
 
       if (r <= 0)
         goto fail;

@@ -110,7 +110,7 @@
 #  include <sys/types.h> /* ssize_t, pid_t */
 #  include <sys/stat.h> /* stat, fstat */
 #  include <sys/utsname.h> /* uname */
-#  include <fcntl.h> /* open, O_* */
+#  include <fcntl.h> /* open, fcntl, O_*, FD_* */
 #  include <unistd.h> /* read, close, get{*id,cwd,hostname} */
 #  include <time.h> /* clock_gettime */
 #  if defined(__GLIBC__) && defined(__GLIBC_PREREQ)
@@ -181,40 +181,35 @@ extern char **environ;
 #endif
 
 /*
- * Error Shims (avoids violating ISO C section 7.1.3)
+ * Helpers
  */
 
-#define X_EUNDEF (~(errno))
+#if defined(HAVE_MANUAL_ENTROPY) && !defined(_WIN32)
+static int
+torsion_open(const char *name, int flags) {
+  int fd;
 
-#if defined(EINVAL)
-#  define X_EINVAL EINVAL
-#else
-#  define X_EINVAL X_EUNDEF
+#ifdef O_CLOEXEC
+  fd = open(name, flags | O_CLOEXEC);
+
+  if (fd != -1 || errno != EINVAL)
+    return fd;
 #endif
 
-#if defined(EINTR)
-#  define X_EINTR EINTR
-#else
-#  define X_EINTR X_EUNDEF
+  fd = open(name, flags);
+
+#ifdef FD_CLOEXEC
+  if (fd != -1) {
+    int r = fcntl(fd, F_GETFD);
+
+    if (r != -1)
+      fcntl(fd, F_SETFD, r | FD_CLOEXEC);
+  }
 #endif
 
-#if defined(EAGAIN)
-#  define X_EAGAIN EAGAIN
-#else
-#  define X_EAGAIN X_EUNDEF
-#endif
-
-#if defined(EWOULDBLOCK)
-#  define X_EWOULDBLOCK EWOULDBLOCK
-#else
-#  define X_EWOULDBLOCK X_EUNDEF
-#endif
-
-#if defined(ENOMEM)
-#  define X_ENOMEM ENOMEM
-#else
-#  define X_ENOMEM X_EUNDEF
-#endif
+  return fd;
+}
+#endif /* HAVE_MANUAL_ENTROPY && !_WIN32 */
 
 /*
  * Environment
@@ -281,18 +276,18 @@ sha512_write_file(sha512_t *hash, const char *file) {
 
   memset(&st, 0, sizeof(st));
 
-  do {
-#if defined(O_CLOEXEC)
-    fd = open(file, O_RDONLY | O_CLOEXEC);
+  for (;;) {
+    fd = torsion_open(file, O_RDONLY);
 
-    if (fd == -1 && errno == X_EINVAL)
-      fd = open(file, O_RDONLY);
-#else
-    fd = open(file, O_RDONLY);
+#ifdef EINTR
+    if (fd == -1 && errno == EINTR)
+      continue;
 #endif
-  } while (fd == -1 && errno == X_EINTR);
 
-  if (fd == -1)
+    break;
+  }
+
+  if (fd < 0)
     return;
 
   if (fstat(fd, &st) != 0)
@@ -303,11 +298,30 @@ sha512_write_file(sha512_t *hash, const char *file) {
   sha512_write(hash, &st, sizeof(st));
 
   do {
-    do {
+    for (;;) {
       nread = read(fd, buf, sizeof(buf));
-    } while (nread < 0 && (errno == X_EINTR
-                        || errno == X_EAGAIN
-                        || errno == X_EWOULDBLOCK));
+
+      if (nread == -1) {
+        switch (errno) {
+#ifdef EINTR
+          case EINTR:
+            continue;
+#endif
+#ifdef EAGAIN
+          case EAGAIN:
+            continue;
+#endif
+#if defined(EWOULDBLOCK) && (!defined(EAGAIN) || EWOULDBLOCK != EAGAIN)
+          case EWOULDBLOCK:
+            continue;
+#endif
+          default:
+            break;
+        }
+      }
+
+      break;
+    }
 
     if (nread <= 0)
       break;
@@ -358,7 +372,7 @@ sha512_write_sysctl(sha512_t *hash, int *name, unsigned int namelen) {
 
   ret = sysctl(name, namelen, buf, &size, NULL, 0);
 
-  if (ret == 0 || (ret == -1 && errno == X_ENOMEM)) {
+  if (ret == 0 || (ret == -1 && errno == ENOMEM)) {
     sha512_write_data(hash, name, namelen * sizeof(int));
 
     if (size > sizeof(buf))
