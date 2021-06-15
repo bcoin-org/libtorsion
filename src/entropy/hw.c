@@ -87,6 +87,16 @@
 #include <string.h>
 #include "entropy.h"
 
+/*
+ * Options
+ */
+
+#undef HAVE_MACHINE /* Define if RISC-V code is in machine mode. */
+
+/*
+ * Backend
+ */
+
 #undef HAVE_ASM_RDTSC
 #undef HAVE_RDTSC
 #undef HAVE_CPUIDEX
@@ -111,7 +121,6 @@
 #undef HAVE_ELF_AUX_INFO
 #undef HAVE_POWER_SET
 #undef HAVE_AUXVAL
-#undef HAVE_MACHINE /* Define if RISC-V code is in machine mode. */
 
 /* Detect intrinsic and ASM support. */
 #if defined(_MSC_VER)

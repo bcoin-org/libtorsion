@@ -52,7 +52,7 @@
  * the Windows registry proved to be unacceptably slow (taking
  * up to ~2 seconds in some cases!). If the person building
  * this library requires significantly more entropy, it can
- * be re-enabled by defining TORSION_USE_PERFDATA.
+ * be re-enabled by defining USE_PERFDATA.
  */
 
 #include <errno.h>
@@ -62,6 +62,16 @@
 #include <string.h>
 #include <torsion/hash.h>
 #include "entropy.h"
+
+/*
+ * Options
+ */
+
+#undef USE_PERFDATA /* Use HKEY_PERFORMANCE_DATA on Windows. */
+
+/*
+ * Backend
+ */
 
 #undef HAVE_MANUAL_ENTROPY
 #undef HAVE_GETIFADDRS
@@ -170,6 +180,46 @@ extern char **environ;
 #  define HAVE_MANUAL_ENTROPY
 #endif
 
+/*
+ * Error Shims (avoids violating ISO C section 7.1.3)
+ */
+
+#define X_EUNDEF (~(errno))
+
+#if defined(EINVAL)
+#  define X_EINVAL EINVAL
+#else
+#  define X_EINVAL X_EUNDEF
+#endif
+
+#if defined(EINTR)
+#  define X_EINTR EINTR
+#else
+#  define X_EINTR X_EUNDEF
+#endif
+
+#if defined(EAGAIN)
+#  define X_EAGAIN EAGAIN
+#else
+#  define X_EAGAIN X_EUNDEF
+#endif
+
+#if defined(EWOULDBLOCK)
+#  define X_EWOULDBLOCK EWOULDBLOCK
+#else
+#  define X_EWOULDBLOCK X_EUNDEF
+#endif
+
+#if defined(ENOMEM)
+#  define X_ENOMEM ENOMEM
+#else
+#  define X_ENOMEM X_EUNDEF
+#endif
+
+/*
+ * Environment
+ */
+
 #ifdef HAVE_MANUAL_ENTROPY
 static void
 sha512_write(sha512_t *hash, const void *data, size_t size) {
@@ -235,12 +285,12 @@ sha512_write_file(sha512_t *hash, const char *file) {
 #if defined(O_CLOEXEC)
     fd = open(file, O_RDONLY | O_CLOEXEC);
 
-    if (fd == -1 && errno == EINVAL)
+    if (fd == -1 && errno == X_EINVAL)
       fd = open(file, O_RDONLY);
 #else
     fd = open(file, O_RDONLY);
 #endif
-  } while (fd == -1 && errno == EINTR);
+  } while (fd == -1 && errno == X_EINTR);
 
   if (fd == -1)
     return;
@@ -255,7 +305,9 @@ sha512_write_file(sha512_t *hash, const char *file) {
   do {
     do {
       nread = read(fd, buf, sizeof(buf));
-    } while (nread < 0 && (errno == EINTR || errno == EAGAIN));
+    } while (nread < 0 && (errno == X_EINTR
+                        || errno == X_EAGAIN
+                        || errno == X_EWOULDBLOCK));
 
     if (nread <= 0)
       break;
@@ -306,7 +358,7 @@ sha512_write_sysctl(sha512_t *hash, int *name, unsigned int namelen) {
 
   ret = sysctl(name, namelen, buf, &size, NULL, 0);
 
-  if (ret == 0 || (ret == -1 && errno == ENOMEM)) {
+  if (ret == 0 || (ret == -1 && errno == X_ENOMEM)) {
     sha512_write_data(hash, name, namelen * sizeof(int));
 
     if (size > sizeof(buf))
@@ -403,8 +455,7 @@ sha512_write_cpuids(sha512_t *hash) {
     sha512_write_cpuid(hash, &ax, &bx, &cx, &dx, leaf, 0);
 }
 
-#ifdef _WIN32
-#ifdef TORSION_USE_PERFDATA
+#if defined(_WIN32) && defined(USE_PERFDATA)
 /* This function is extraordinarily slow.
    We prefer not to use it as we have more
    win32 entropy sources than Bitcoin Core. */
@@ -454,8 +505,7 @@ sha512_write_perfdata(sha512_t *hash, size_t max) {
   if (data != NULL)
     free(data);
 }
-#endif /* TORSION_USE_PERFDATA */
-#endif /* _WIN32 */
+#endif /* _WIN32 && USE_PERFDATA */
 
 static void
 sha512_write_static_env(sha512_t *hash) {
@@ -985,7 +1035,7 @@ sha512_write_dynamic_env(sha512_t *hash) {
     }
   }
 
-#ifdef TORSION_USE_PERFDATA
+#ifdef USE_PERFDATA
   /* Performance data. */
   sha512_write_perfdata(hash, 10000000);
 #endif
@@ -1119,6 +1169,10 @@ sha512_write_dynamic_env(sha512_t *hash) {
   }
 }
 #endif /* HAVE_MANUAL_ENTROPY */
+
+/*
+ * Environment Entropy
+ */
 
 int
 torsion_envrand(unsigned char *seed) {

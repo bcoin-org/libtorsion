@@ -95,13 +95,16 @@
 #include <stdint.h>
 #include "entropy.h"
 
+/*
+ * Backend
+ */
+
 #undef HAVE_QUERYPERFORMANCECOUNTER
 #undef HAVE_GETHRTIME
 #undef HAVE_CLOCK_GETTIME
 #undef HAVE_REALTIME
 #undef HAVE_GETTIMEOFDAY
 
-/* High-resolution time. */
 #if defined(_WIN32)
 #  include <windows.h> /* QueryPerformanceCounter, GetSystemTimeAsFileTime */
 #  pragma comment(lib, "kernel32.lib")

@@ -415,8 +415,8 @@
 #undef HAVE_JS_RANDOM_GET
 #undef HAVE_UUID_GENERATE
 #undef HAVE_DEV_RANDOM
-#undef HAVE_GETPID
 #undef HAVE_EGD
+#undef HAVE_GETPID
 #undef DEV_RANDOM_NAME
 #undef DEV_RANDOM_POLL
 #undef DEV_RANDOM_SELECT
@@ -644,6 +644,54 @@ RtlGenRandom(PVOID RandomBuffer, ULONG RandomBufferLength);
 #endif
 
 /*
+ * Error Shims (avoids violating ISO C section 7.1.3)
+ */
+
+#define X_EUNDEF (~(errno))
+
+#if defined(EINVAL)
+#  define X_EINVAL EINVAL
+#else
+#  define X_EINVAL X_EUNDEF
+#endif
+
+#if defined(EINTR)
+#  define X_EINTR EINTR
+#else
+#  define X_EINTR X_EUNDEF
+#endif
+
+#if defined(EAGAIN)
+#  define X_EAGAIN EAGAIN
+#else
+#  define X_EAGAIN X_EUNDEF
+#endif
+
+#if defined(EWOULDBLOCK)
+#  define X_EWOULDBLOCK EWOULDBLOCK
+#else
+#  define X_EWOULDBLOCK X_EUNDEF
+#endif
+
+#if defined(EINPROGRESS)
+#  define X_EINPROGRESS EINPROGRESS
+#else
+#  define X_EINPROGRESS X_EUNDEF
+#endif
+
+#if defined(EALREADY)
+#  define X_EALREADY EALREADY
+#else
+#  define X_EALREADY X_EUNDEF
+#endif
+
+#if defined(EISCONN)
+#  define X_EISCONN EISCONN
+#else
+#  define X_EISCONN X_EUNDEF
+#endif
+
+/*
  * Helpers
  */
 
@@ -658,7 +706,7 @@ torsion_open(const char *name, int flags) {
 #ifdef O_CLOEXEC
   fd = open(name, flags | O_CLOEXEC);
 
-  if (fd != -1 || errno != EINVAL)
+  if (fd != -1 || errno != X_EINVAL)
     return fd;
 #endif
 
@@ -670,7 +718,7 @@ torsion_open(const char *name, int flags) {
 
   do {
     r = fcntl(fd, F_GETFD);
-  } while (r == -1 && errno == EINTR);
+  } while (r == -1 && errno == X_EINTR);
 
   if (r == -1)
     return fd;
@@ -679,7 +727,7 @@ torsion_open(const char *name, int flags) {
 
   do {
     r = fcntl(fd, F_SETFD, flags);
-  } while (r == -1 && errno == EINTR);
+  } while (r == -1 && errno == X_EINTR);
 #endif
 
   return fd;
@@ -789,9 +837,9 @@ torsion_callrand(void *dst, size_t size) {
 
     do {
       nread = getrandom(data, max, 0);
-    } while (nread < 0 && (errno == EINTR
-                        || errno == EAGAIN
-                        || errno == EWOULDBLOCK));
+    } while (nread < 0 && (errno == X_EINTR
+                        || errno == X_EAGAIN
+                        || errno == X_EWOULDBLOCK));
 
     if (nread < 0)
       return 0;
@@ -956,7 +1004,7 @@ torsion_devrand(void *dst, size_t size, const char *name) {
   if (strcmp(name, "/dev/urandom") == 0) {
     do {
       fd = torsion_open("/dev/random", O_RDONLY);
-    } while (fd == -1 && errno == EINTR);
+    } while (fd == -1 && errno == X_EINTR);
 
     if (fd == -1)
       return 0;
@@ -977,7 +1025,7 @@ torsion_devrand(void *dst, size_t size, const char *name) {
 
       do {
         r = poll(&pfd, 1, -1);
-      } while (r == -1 && errno == EINTR);
+      } while (r == -1 && errno == X_EINTR);
     }
 #else
     if (fd < FD_SETSIZE) {
@@ -988,15 +1036,15 @@ torsion_devrand(void *dst, size_t size, const char *name) {
 
       do {
         r = select(fd + 1, &fds, NULL, NULL, NULL);
-      } while (r == -1 && errno == EINTR);
+      } while (r == -1 && errno == X_EINTR);
     } else {
       unsigned char c;
 
       do {
         r = read(fd, &c, 1);
-      } while (r == -1 && (errno == EINTR
-                        || errno == EAGAIN
-                        || errno == EWOULDBLOCK));
+      } while (r == -1 && (errno == X_EINTR
+                        || errno == X_EAGAIN
+                        || errno == X_EWOULDBLOCK));
     }
 #endif
 
@@ -1012,7 +1060,7 @@ retry:
 #endif
   do {
     fd = torsion_open(name, O_RDONLY);
-  } while (fd == -1 && errno == EINTR);
+  } while (fd == -1 && errno == X_EINTR);
 
   if (fd == -1)
     return 0;
@@ -1029,9 +1077,9 @@ retry:
 
     do {
       nread = read(fd, data, max);
-    } while (nread < 0 && (errno == EINTR
-                        || errno == EAGAIN
-                        || errno == EWOULDBLOCK));
+    } while (nread < 0 && (errno == X_EINTR
+                        || errno == X_EAGAIN
+                        || errno == X_EWOULDBLOCK));
 
 #ifdef DEV_RANDOM_RETRY
     if (nread == 0) {
@@ -1161,11 +1209,11 @@ torsion_egdrand(void *dst, size_t size) {
 
     do {
       r = connect(fd, (struct sockaddr *)&addr, len);
-    } while (r == -1 && (errno == EINTR
-                      || errno == EINPROGRESS
-                      || errno == EALREADY));
+    } while (r == -1 && (errno == X_EINTR
+                      || errno == X_EINPROGRESS
+                      || errno == X_EALREADY));
 
-    if (r == 0 || errno == EISCONN) {
+    if (r == 0 || errno == X_EISCONN) {
       found = 1;
       break;
     }
@@ -1183,18 +1231,18 @@ torsion_egdrand(void *dst, size_t size) {
 
     do {
       r = write(fd, msg, 2);
-    } while (r < 0 && (errno == EINTR
-                    || errno == EAGAIN
-                    || errno == EWOULDBLOCK));
+    } while (r < 0 && (errno == X_EINTR
+                    || errno == X_EAGAIN
+                    || errno == X_EWOULDBLOCK));
 
     if (r != 2)
       goto fail;
 
     do {
       r = read(fd, msg, 1);
-    } while (r < 0 && (errno == EINTR
-                    || errno == EAGAIN
-                    || errno == EWOULDBLOCK));
+    } while (r < 0 && (errno == X_EINTR
+                    || errno == X_EAGAIN
+                    || errno == X_EWOULDBLOCK));
 
     if (r != 1)
       goto fail;
@@ -1207,9 +1255,9 @@ torsion_egdrand(void *dst, size_t size) {
     while (left > 0) {
       do {
         r = read(fd, data, left);
-      } while (r < 0 && (errno == EINTR
-                      || errno == EAGAIN
-                      || errno == EWOULDBLOCK));
+      } while (r < 0 && (errno == X_EINTR
+                      || errno == X_EAGAIN
+                      || errno == X_EWOULDBLOCK));
 
       if (r <= 0)
         goto fail;
@@ -1244,7 +1292,7 @@ torsion_getpid(void) {
 }
 
 /*
- * Entropy
+ * System Entropy
  */
 
 int
