@@ -70,6 +70,10 @@
  *   https://nixdoc.net/man-pages/HP-UX/man7/random.7.html
  *   https://nixdoc.net/man-pages/HP-UX/man7/urandom.7.html
  *
+ * NonStop:
+ *   https://support.hpe.com/hpesc/public/docDisplay?docId=c02128688&docLocale=en_US
+ *   http://prngd.sourceforge.net/
+ *
  * AIX:
  *   https://www.ibm.com/docs/en/aix/7.1?topic=files-random-urandom-devices
  *
@@ -94,6 +98,14 @@
  *
  * IRIX (*):
  *   https://irix7.com/techpubs/007-3897-019.pdf
+ *
+ * Unicos:
+ *   https://manualzz.com/doc/9236155/cray-open-software-release-overview-and-installation-guid...
+ *   http://prngd.sourceforge.net/
+ *
+ * SCO OpenServer 5+ / UnixWare 7 / Open UNIX 8:
+ *   http://osr507doc.sco.com/cgi-bin/man?mansearchword=prngd&mansection=1&lang=en
+ *   http://prngd.sourceforge.net/
  *
  * Redox:
  *   https://gitlab.redox-os.org/redox-os/randd
@@ -260,6 +272,12 @@
  *   Fallback: none
  *   Support: /dev/{,u}random added in HP-UX 11i v1 (KRNG11i) (2002).
  *
+ * NonStop (w/ OSS):
+ *   Source: prngd
+ *   Fallback: none
+ *   Support: Requires Open System Services (1994).
+ *            prngd socket must be available.
+ *
  * AIX:
  *   Source: /dev/random
  *   Fallback: none
@@ -301,6 +319,16 @@
  *   Source: /dev/urandom
  *   Fallback: none
  *   Support: /dev/{,u}random added in IRIX 6.5.19 (2003).
+ *
+ * Unicos:
+ *   Source: prngd
+ *   Fallback: none
+ *   Support: prngd socket must be available.
+ *
+ * SCO OpenServer 5+ / UnixWare 7 / Open UNIX 8:
+ *   Source: prngd
+ *   Fallback: none
+ *   Support: prngd socket must be available.
  *
  * Redox:
  *   Source: rand:
@@ -362,6 +390,16 @@
 #include <string.h>
 #include "entropy.h"
 
+/*
+ * Options
+ */
+
+#undef EGD_TEST /* Define to test EGD backend. */
+
+/*
+ * Backend
+ */
+
 #undef HAVE_BCRYPTGENRANDOM
 #undef HAVE_RTLGENRANDOM
 #undef HAVE_GETRANDOM
@@ -378,6 +416,7 @@
 #undef HAVE_UUID_GENERATE
 #undef HAVE_DEV_RANDOM
 #undef HAVE_GETPID
+#undef HAVE_EGD
 #undef DEV_RANDOM_NAME
 #undef DEV_RANDOM_POLL
 #undef DEV_RANDOM_SELECT
@@ -399,6 +438,8 @@ RtlGenRandom(PVOID RandomBuffer, ULONG RandomBufferLength);
 #    pragma comment(lib, "advapi32.lib")
 #    define HAVE_RTLGENRANDOM
 #  endif
+#elif defined(EGD_TEST)
+#  define HAVE_EGD
 #elif defined(__linux__)
 #  include <sys/syscall.h> /* SYS_*, __NR_* */
 /* include <unistd.h> */ /* syscall */
@@ -499,6 +540,8 @@ RtlGenRandom(PVOID RandomBuffer, ULONG RandomBufferLength);
 #  define DEV_RANDOM_RETRY
 #elif defined(__hpux) /* (*) */
 #  define DEV_RANDOM_NAME "/dev/random"
+#elif defined(__TANDEM)
+#  define HAVE_EGD
 #elif defined(__PASE__) /* IBM i disguised as AIX */
 #  define DEV_RANDOM_NAME "/dev/urandom"
 #elif defined(_AIX)
@@ -515,6 +558,10 @@ RtlGenRandom(PVOID RandomBuffer, ULONG RandomBufferLength);
 #  define DEV_RANDOM_NAME "/dev/urandom"
 #elif defined(__sgi) /* (*) */
 #  define DEV_RANDOM_NAME "/dev/urandom"
+#elif defined(_UNICOS) || defined(_UNICOSMP)
+#  define HAVE_EGD
+#elif defined(_SCO_DS) || defined(__SCO_VERSION__) || defined(__sysv5__)
+#  define HAVE_EGD
 #elif defined(__redox__)
 #  define DEV_RANDOM_NAME "rand:"
 #elif defined(__DJGPP__)
@@ -565,7 +612,7 @@ RtlGenRandom(PVOID RandomBuffer, ULONG RandomBufferLength);
 #endif
 
 #ifdef DEV_RANDOM_NAME
-#  include <sys/types.h> /* mode_t, off_t, pid_t */
+#  include <sys/types.h> /* ssize_t, pid_t */
 #  include <sys/stat.h> /* stat, fstat, S_* */
 #  include <fcntl.h> /* open, fcntl, O_*, FD_* */
 #  include <unistd.h> /* read, close, getpid */
@@ -579,12 +626,21 @@ RtlGenRandom(PVOID RandomBuffer, ULONG RandomBufferLength);
 #    define S_ISNAM(x) 0
 #  endif
 #  define HAVE_DEV_RANDOM
-#  define HAVE_GETPID
 #endif
 
-/* Violates ISO C section 7.1.3. */
-#ifndef EWOULDBLOCK
-#  define EWOULDBLOCK EAGAIN
+#ifdef HAVE_EGD
+#  include <sys/types.h> /* ssize_t, pid_t */
+#  include <sys/socket.h> /* connect, sockaddr */
+#  include <unistd.h> /* read, write, close, getpid */
+#  if defined(__vxworks) || defined(__DCC__)
+#    include <streams/un.h> /* sockaddr_un */
+#  else
+#    include <sys/un.h> /* sockaddr_un */
+#  endif
+#endif
+
+#if defined(HAVE_DEV_RANDOM) || defined(HAVE_EGD)
+#  define HAVE_GETPID
 #endif
 
 /*
@@ -1059,6 +1115,122 @@ torsion_uuidrand(void *dst, size_t size) {
 #endif /* HAVE_SYSCTL_UUID */
 
 /*
+ * EGD Protocol
+ */
+
+#ifdef HAVE_EGD
+static int
+torsion_egdrand(void *dst, size_t size) {
+#if defined(EGD_TEST)
+  static const char *paths[] = { "/tmp/entropy" };
+#else
+  static const char *paths[] = { "/var/run/egd-pool",
+                                 "/dev/egd-pool",
+                                 "/etc/egd-pool",
+                                 "/etc/entropy" };
+#endif
+  unsigned char *data = (unsigned char *)dst;
+  struct sockaddr_un addr;
+  unsigned char msg[2];
+  size_t i, len, left;
+  size_t max = 255;
+  const char *path;
+  int found = 0;
+  int ret = 0;
+  int r, fd;
+
+  fd = socket(AF_UNIX, SOCK_STREAM, 0);
+
+  if (fd == -1)
+    return 0;
+
+  for (i = 0; i < sizeof(paths) / sizeof(paths[0]); i++) {
+    path = paths[i];
+    len = strlen(path);
+
+    if (len + 1 > sizeof(addr.sun_path))
+      continue;
+
+    memset(&addr, 0, sizeof(addr));
+
+    addr.sun_family = AF_UNIX;
+
+    memcpy(addr.sun_path, path, len + 1);
+
+    len += offsetof(struct sockaddr_un, sun_path);
+
+    do {
+      r = connect(fd, (struct sockaddr *)&addr, len);
+    } while (r == -1 && (errno == EINTR
+                      || errno == EINPROGRESS
+                      || errno == EALREADY));
+
+    if (r == 0 || errno == EISCONN) {
+      found = 1;
+      break;
+    }
+  }
+
+  if (!found)
+    goto fail;
+
+  while (size > 0) {
+    if (max > size)
+      max = size;
+
+    msg[0] = 1;
+    msg[1] = max;
+
+    do {
+      r = write(fd, msg, 2);
+    } while (r < 0 && (errno == EINTR
+                    || errno == EAGAIN
+                    || errno == EWOULDBLOCK));
+
+    if (r != 2)
+      goto fail;
+
+    do {
+      r = read(fd, msg, 1);
+    } while (r < 0 && (errno == EINTR
+                    || errno == EAGAIN
+                    || errno == EWOULDBLOCK));
+
+    if (r != 1)
+      goto fail;
+
+    left = msg[0];
+
+    if (left == 0 || left > max)
+      goto fail;
+
+    while (left > 0) {
+      do {
+        r = read(fd, data, left);
+      } while (r < 0 && (errno == EINTR
+                      || errno == EAGAIN
+                      || errno == EWOULDBLOCK));
+
+      if (r <= 0)
+        goto fail;
+
+      if ((size_t)r > left)
+        abort();
+
+      data += r;
+      size -= r;
+      left -= r;
+    }
+  }
+
+  ret = 1;
+fail:
+  close(fd);
+  return ret;
+}
+#endif /* HAVE_EGD */
+
+/*
  * PID (exposed for a fork-aware RNG)
  */
 
@@ -1090,6 +1262,11 @@ torsion_sysrand(void *dst, size_t size) {
 
 #ifdef HAVE_SYSCTL_UUID
   if (torsion_uuidrand(dst, size))
+    return 1;
+#endif
+
+#ifdef HAVE_EGD
+  if (torsion_egdrand(dst, size))
     return 1;
 #endif
 
