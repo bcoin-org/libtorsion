@@ -644,14 +644,10 @@ RtlGenRandom(PVOID RandomBuffer, ULONG RandomBufferLength);
 static int
 torsion_retry_open(int fd) {
   if (fd == -1) {
-    switch (errno) {
 #ifdef EINTR
-      case EINTR:
-        return 1;
+    if (errno == EINTR)
+      return 1;
 #endif
-      default:
-        return 0;
-    }
   }
   return 0;
 }
@@ -661,22 +657,18 @@ torsion_retry_open(int fd) {
 static int
 torsion_retry_rdwr(int ret) {
   if (ret == -1) {
-    switch (errno) {
 #ifdef EINTR
-      case EINTR:
-        return 1;
+    if (errno == EINTR)
+      return 1;
 #endif
 #ifdef EAGAIN
-      case EAGAIN:
-        return 1;
+    if (errno == EAGAIN)
+      return 1;
 #endif
-#if defined(EWOULDBLOCK) && (!defined(EAGAIN) || EWOULDBLOCK != EAGAIN)
-      case EWOULDBLOCK:
-        return 1;
+#ifdef EWOULDBLOCK
+    if (errno == EWOULDBLOCK)
+      return 1;
 #endif
-      default:
-        return 0;
-    }
   }
   return 0;
 }
@@ -686,22 +678,18 @@ torsion_retry_rdwr(int ret) {
 static int
 torsion_retry_connect(int ret) {
   if (ret == -1) {
-    switch (errno) {
 #ifdef EINTR
-      case EINTR:
-        return 1;
+    if (errno == EINTR)
+      return 1;
 #endif
 #ifdef EINPROGRESS
-      case EINPROGRESS:
-        return 1;
+    if (errno == EINPROGRESS)
+      return 1;
 #endif
 #ifdef EALREADY
-      case EALREADY:
-        return 1;
+    if (errno == EALREADY)
+      return 1;
 #endif
-      default:
-        return 0;
-    }
   }
   return 0;
 }

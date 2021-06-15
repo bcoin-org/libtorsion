@@ -302,22 +302,18 @@ sha512_write_file(sha512_t *hash, const char *file) {
       nread = read(fd, buf, sizeof(buf));
 
       if (nread == -1) {
-        switch (errno) {
 #ifdef EINTR
-          case EINTR:
-            continue;
+        if (errno == EINTR)
+          continue;
 #endif
 #ifdef EAGAIN
-          case EAGAIN:
-            continue;
+        if (errno == EAGAIN)
+          continue;
 #endif
-#if defined(EWOULDBLOCK) && (!defined(EAGAIN) || EWOULDBLOCK != EAGAIN)
-          case EWOULDBLOCK:
-            continue;
+#ifdef EWOULDBLOCK
+        if (errno == EWOULDBLOCK)
+          continue;
 #endif
-          default:
-            break;
-        }
       }
 
       break;
