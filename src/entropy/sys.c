@@ -72,6 +72,7 @@
  *
  * NonStop:
  *   https://support.hpe.com/hpesc/public/docDisplay?docId=c02128688&docLocale=en_US
+ *   https://www.ibm.com/docs/en/ibm-mq/8.0?topic=nss-entropy-daemon
  *   http://prngd.sourceforge.net/
  *
  * AIX:
@@ -272,11 +273,11 @@
  *   Fallback: none
  *   Support: /dev/{,u}random added in HP-UX 11i v1 (KRNG11i) (2002).
  *
- * NonStop (w/ OSS):
- *   Source: prngd
+ * NonStop:
+ *   Source: prngd / amqjkdm0
  *   Fallback: none
- *   Support: Requires Open System Services (1994).
- *            prngd socket must be available.
+ *   Support: Requires Open System Services or IBM MQ 5.3 server.
+ *            Entropy socket must be available.
  *
  * AIX:
  *   Source: /dev/random
@@ -1210,6 +1211,26 @@ torsion_egdrand(void *dst, size_t size) {
   int found = 0;
   int ret = 0;
   int r, fd;
+
+#ifdef __TANDEM
+  /* According to OpenSSL, the IBM MQ entropy
+   * daemon requires unix sockets to be in
+   * compatibility mode[1][2]. According to
+   * the OSS documentation[3], compatibility
+   * mode is the default for AF_UNIX Release 1.
+   *
+   * Unsure what regular prngd listens on.
+   *
+   * [1] https://github.com/openssl/openssl/commit/0807370
+   * [2] https://github.com/openssl/openssl/blob/0807370/crypto/rand/rand_egd.c#L57
+   * [3] http://nonstoptools.com/manuals/OSS-SystemCalls.pdf
+   */
+  {
+    char transport[6] = "$ZPLS";
+
+    socket_transport_name_set(AF_UNIX, transport);
+  }
+#endif
 
   fd = torsion_socket(AF_UNIX, SOCK_STREAM, 0);
 
