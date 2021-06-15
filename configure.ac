@@ -133,19 +133,8 @@ AC_ARG_ENABLE(
 )
 
 dnl
-dnl Flags
+dnl Global Flags
 dnl
-
-AX_CHECK_COMPILE_FLAG([-pedantic], [CFLAGS="$CFLAGS -pedantic"])
-AX_CHECK_COMPILE_FLAG([-Wall], [CFLAGS="$CFLAGS -Wall"])
-AX_CHECK_COMPILE_FLAG([-Wextra], [CFLAGS="$CFLAGS -Wextra"])
-AX_CHECK_COMPILE_FLAG([-Wcast-align], [CFLAGS="$CFLAGS -Wcast-align"])
-AX_CHECK_COMPILE_FLAG([-Wno-implicit-fallthrough],
-                      [CFLAGS="$CFLAGS -Wno-implicit-fallthrough"])
-AX_CHECK_COMPILE_FLAG([-Wno-overlength-strings],
-                      [CFLAGS="$CFLAGS -Wno-overlength-strings"])
-AX_CHECK_COMPILE_FLAG([-Wshadow], [CFLAGS="$CFLAGS -Wshadow"])
-AX_CHECK_COMPILE_FLAG([-O3], [CFLAGS="$CFLAGS -O3"])
 
 AS_IF([test x"$WASM" != x"yes"], [
   AX_CHECK_COMPILE_FLAG([-fvisibility=hidden],
@@ -155,14 +144,6 @@ AS_IF([test x"$WASM" != x"yes"], [
 AS_CASE([$target_os], [darwin*], [
   AX_CHECK_COMPILE_FLAG([-mmacosx-version-min=10.7],
                         [CFLAGS="$CFLAGS -mmacosx-version-min=10.7"])
-])
-
-AS_IF([test x"$enable_coverage" = x"yes"], [
-  CFLAGS="$CFLAGS -O0 --coverage"
-])
-
-AS_IF([test x"$enable_debug" = x"yes"], [
-  AX_CHECK_COMPILE_FLAG([-g], [CFLAGS="$CFLAGS -g"])
 ])
 
 dnl
@@ -368,6 +349,29 @@ AS_IF([test x"$enable_tests" = x"yes" -a x"$WASM" != x"yes"], [
       AC_CHECK_LIB(z, compress2, [has_zlib=yes])
     ])
   ])
+])
+
+dnl
+dnl Flags
+dnl
+
+AX_CHECK_COMPILE_FLAG([-pedantic], [CFLAGS="$CFLAGS -pedantic"])
+AX_CHECK_COMPILE_FLAG([-Wall], [CFLAGS="$CFLAGS -Wall"])
+AX_CHECK_COMPILE_FLAG([-Wextra], [CFLAGS="$CFLAGS -Wextra"])
+AX_CHECK_COMPILE_FLAG([-Wcast-align], [CFLAGS="$CFLAGS -Wcast-align"])
+AX_CHECK_COMPILE_FLAG([-Wno-implicit-fallthrough],
+                      [CFLAGS="$CFLAGS -Wno-implicit-fallthrough"])
+AX_CHECK_COMPILE_FLAG([-Wno-overlength-strings],
+                      [CFLAGS="$CFLAGS -Wno-overlength-strings"])
+AX_CHECK_COMPILE_FLAG([-Wshadow], [CFLAGS="$CFLAGS -Wshadow"])
+AX_CHECK_COMPILE_FLAG([-O3], [CFLAGS="$CFLAGS -O3"])
+
+AS_IF([test x"$enable_coverage" = x"yes"], [
+  CFLAGS="$CFLAGS -O0 --coverage"
+])
+
+AS_IF([test x"$enable_debug" = x"yes"], [
+  AX_CHECK_COMPILE_FLAG([-g], [CFLAGS="$CFLAGS -g"])
 ])
 
 dnl
