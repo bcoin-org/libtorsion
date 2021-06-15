@@ -1032,7 +1032,9 @@ torsion_devrand(void *dst, size_t size, const char *name) {
 
       do {
         r = poll(&pfd, 1, -1);
-      } while (r == -1 && errno == X_EINTR);
+      } while (r == -1 && (errno == X_EINTR
+                        || errno == X_EAGAIN
+                        || errno == X_EWOULDBLOCK));
     }
 #else
     if (fd < FD_SETSIZE) {
@@ -1043,7 +1045,9 @@ torsion_devrand(void *dst, size_t size, const char *name) {
 
       do {
         r = select(fd + 1, &fds, NULL, NULL, NULL);
-      } while (r == -1 && errno == X_EINTR);
+      } while (r == -1 && (errno == X_EINTR
+                        || errno == X_EAGAIN
+                        || errno == X_EWOULDBLOCK));
     } else {
       unsigned char c;
 
