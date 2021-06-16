@@ -6,9 +6,21 @@ if(COMMAND check_c_thread_local_storage)
   return()
 endif()
 
+include(CheckCCompilerFlag)
 include(CheckCSourceCompiles)
 
-function(check_c_thread_local_storage name)
+function(check_c_thread_local_storage ident_name flags_name)
+  set(${ident_name} "" PARENT_SCOPE)
+  set(${flags_name} "" PARENT_SCOPE)
+  set(CMAKE_REQUIRED_FLAGS "")
+
+  if(CMAKE_C_COMPILER_ID MATCHES "^XL")
+    check_c_compiler_flag(-qtls CMAKE_HAVE_XL_TLS)
+    if(CMAKE_HAVE_XL_TLS)
+      set(CMAKE_REQUIRED_FLAGS "-qtls")
+    endif()
+  endif()
+
   set(keywords "__declspec(thread)" __thread)
 
   if (DEFINED CMAKE_C_STANDARD AND CMAKE_C_STANDARD LESS "11")
@@ -16,8 +28,6 @@ function(check_c_thread_local_storage name)
   else()
     list(PREPEND keywords _Thread_local)
   endif()
-
-  set(${name} "" PARENT_SCOPE)
 
   foreach(keyword IN LISTS keywords)
     string(TOUPPER "CMAKE_HAVE_C_TLS_${keyword}" varname)
@@ -32,7 +42,8 @@ function(check_c_thread_local_storage name)
     " ${varname})
 
     if(${varname})
-      set(${name} ${keyword} PARENT_SCOPE)
+      set(${ident_name} ${keyword} PARENT_SCOPE)
+      set(${flags_name} "${CMAKE_REQUIRED_FLAGS}" PARENT_SCOPE)
       break()
     endif()
   endforeach()

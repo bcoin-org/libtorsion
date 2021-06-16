@@ -226,9 +226,10 @@ else()
 endif()
 
 if(TORSION_ENABLE_TLS)
-  check_c_thread_local_storage(TORSION_TLS)
+  check_c_thread_local_storage(TORSION_TLS TORSION_TLS_FLAGS)
 else()
   set(TORSION_TLS)
+  set(TORSION_TLS_FLAGS)
 endif()
 
 if(NOT TORSION_TLS)
@@ -290,6 +291,14 @@ if(TORSION_ENABLE_DEBUG)
   else()
     append_c_compiler_flag(torsion_cflags -g)
   endif()
+endif()
+
+if(CMAKE_SYSTEM_NAME STREQUAL "OS390")
+  append_c_compiler_flag(torsion_cflags -qascii -qfloat=IEEE)
+endif()
+
+if(TORSION_TLS_FLAGS)
+  list(APPEND torsion_cflags ${TORSION_TLS_FLAGS})
 endif()
 
 #
@@ -355,6 +364,18 @@ endif()
 
 if(TORSION_HAS_ZLIB)
   list(APPEND torsion_defines TORSION_HAVE_ZLIB)
+endif()
+
+#
+# Feature Test Macros
+#
+
+if(CMAKE_SYSTEM_NAME STREQUAL "SunOS")
+  list(APPEND torsion_defines _TS_ERRNO)
+endif()
+
+if(CMAKE_SYSTEM_NAME STREQUAL "AIX")
+  list(APPEND torsion_defines _THREAD_SAFE_ERRNO)
 endif()
 
 #

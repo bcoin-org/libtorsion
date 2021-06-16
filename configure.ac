@@ -146,6 +146,16 @@ AS_CASE([$target_os], [darwin*], [
                         [CFLAGS="$CFLAGS -mmacosx-version-min=10.7"])
 ])
 
+AC_COMPILE_IFELSE([
+  AC_LANG_PROGRAM([[]], [[
+    #if !defined(__xlC__) && !defined(__ibmxl__)
+    #  error "not an ibm compiler"
+    #endif
+  ]])
+], [
+  AX_CHECK_COMPILE_FLAG([-qtls], [CFLAGS="$CFLAGS -qtls"])
+])
+
 dnl
 dnl Feature Testing
 dnl
@@ -374,6 +384,11 @@ AS_IF([test x"$enable_debug" = x"yes"], [
   AX_CHECK_COMPILE_FLAG([-g], [CFLAGS="$CFLAGS -g"])
 ])
 
+AS_CASE([$target_os], [openedition*], [
+  AX_CHECK_COMPILE_FLAG([-qascii], [CFLAGS="$CFLAGS -qascii"])
+  AX_CHECK_COMPILE_FLAG([-qfloat=IEEE], [CFLAGS="$CFLAGS -qfloat=IEEE"])
+])
+
 dnl
 dnl Defines
 dnl
@@ -433,6 +448,18 @@ AS_IF([test x"$enable_verify" = x"yes"], [
 
 AS_IF([test x"$has_zlib" = x"yes"], [
   AC_DEFINE(TORSION_HAVE_ZLIB)
+])
+
+dnl
+dnl Feature Test Macros
+dnl
+
+AS_CASE([$target_os], [solaris*], [
+  AC_DEFINE(_TS_ERRNO)
+])
+
+AS_CASE([$target_os], [aix*], [
+  AC_DEFINE(_THREAD_SAFE_ERRNO)
 ])
 
 dnl
