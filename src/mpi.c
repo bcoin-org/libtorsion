@@ -44,6 +44,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 
+#include "charset.h"
 #include "internal.h"
 #include "mpi.h"
 
@@ -53,10 +54,6 @@
 
 #if (-1 & 3) != 3
 #  error "Two's complement is required."
-#endif
-
-#if ' ' != 32 || '0' != 48 || 'A' != 65 || 'a' != 97
-#  error "ASCII support is required."
 #endif
 
 /*
@@ -1097,7 +1094,7 @@ mp_isspace(int ch) {
     1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 1, 0
   };
-  return spaces[ch & 0xff];
+  return spaces[torsion_ascii(ch)];
 }
 
 static mp_size_t
@@ -4820,7 +4817,7 @@ mpn_set_str(mp_limb_t *zp, mp_size_t zn, const char *str, int base) {
     if (mp_isspace(ch))
       continue;
 
-    ch = table[ch & 0xff];
+    ch = table[torsion_ascii(ch)];
 
     if (UNLIKELY(ch >= base))
       goto fail;

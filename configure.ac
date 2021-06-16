@@ -384,11 +384,6 @@ AS_IF([test x"$enable_debug" = x"yes"], [
   AX_CHECK_COMPILE_FLAG([-g], [CFLAGS="$CFLAGS -g"])
 ])
 
-AS_CASE([$target_os], [openedition*], [
-  AX_CHECK_COMPILE_FLAG([-qascii], [CFLAGS="$CFLAGS -qascii"])
-  AX_CHECK_COMPILE_FLAG([-qfloat=IEEE], [CFLAGS="$CFLAGS -qfloat=IEEE"])
-])
-
 dnl
 dnl Defines
 dnl

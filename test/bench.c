@@ -49,27 +49,20 @@ static void
 bench_puts64(const char *pre, uint64_t x) {
   /* Implement our own PRIu64. */
   char str[20 + 1];
-  int len = 0;
+  uint64_t z = x;
+  int n = 0;
 
   do {
-    str[len++] = (x % 10) + '0';
+    str[n++] = '0';
+    z /= 10;
+  } while (z != 0);
+
+  str[n] = '\0';
+
+  while (n--) {
+    str[n] += (int)(x % 10);
     x /= 10;
-  } while (x != 0);
-
-  {
-    int i = 0;
-    int j = len - 1;
-    int k = len >> 1;
-    int ch;
-
-    while (k--) {
-      ch = str[i];
-      str[i++] = str[j];
-      str[j--] = ch;
-    }
   }
-
-  str[len] = '\0';
 
   printf("%s%s\n", pre, str);
 }
@@ -79,7 +72,7 @@ bench_end(bench_t *start, uint64_t ops) {
   bench_t nsec = torsion_hrtime() - *start;
   double sec = (double)nsec / 1000000000.0;
 
-  bench_puts64("  Operations: ", ops);
+  bench_puts64("  Operations:  ", ops);
   bench_puts64("  Nanoseconds: ", nsec);
 
   printf("  Seconds:     %f\n", sec);

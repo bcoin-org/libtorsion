@@ -2904,14 +2904,84 @@ test_ristretto_elligator(drbg_t *unused) {
 static void
 test_ristretto_elligator_hash(drbg_t *rng) {
   /* https://ristretto.group/test_vectors/ristretto255.html */
-  static const char *labels[] = {
-    "Ristretto is traditionally a short shot of espresso coffee",
-    "made with the normal amount of ground coffee but extracted with",
-    "about half the amount of water in the same amount of time",
-    "by using a finer grind.",
-    "This produces a concentrated shot of coffee per volume.",
-    "Just pulling a normal shot short will produce a weaker shot",
-    "and is not a Ristretto as some believe."
+  static const struct {
+    unsigned char buf[64];
+    size_t len;
+  } labels[] = {
+    {
+      {
+        /* "Ristretto is traditionally a short shot of espresso coffee" */
+        0x52, 0x69, 0x73, 0x74, 0x72, 0x65, 0x74, 0x74, 0x6f, 0x20, 0x69, 0x73,
+        0x20, 0x74, 0x72, 0x61, 0x64, 0x69, 0x74, 0x69, 0x6f, 0x6e, 0x61, 0x6c,
+        0x6c, 0x79, 0x20, 0x61, 0x20, 0x73, 0x68, 0x6f, 0x72, 0x74, 0x20, 0x73,
+        0x68, 0x6f, 0x74, 0x20, 0x6f, 0x66, 0x20, 0x65, 0x73, 0x70, 0x72, 0x65,
+        0x73, 0x73, 0x6f, 0x20, 0x63, 0x6f, 0x66, 0x66, 0x65, 0x65
+      },
+      58
+    },
+    {
+      {
+        /* "made with the normal amount of ground coffee but extracted with" */
+        0x6d, 0x61, 0x64, 0x65, 0x20, 0x77, 0x69, 0x74, 0x68, 0x20, 0x74, 0x68,
+        0x65, 0x20, 0x6e, 0x6f, 0x72, 0x6d, 0x61, 0x6c, 0x20, 0x61, 0x6d, 0x6f,
+        0x75, 0x6e, 0x74, 0x20, 0x6f, 0x66, 0x20, 0x67, 0x72, 0x6f, 0x75, 0x6e,
+        0x64, 0x20, 0x63, 0x6f, 0x66, 0x66, 0x65, 0x65, 0x20, 0x62, 0x75, 0x74,
+        0x20, 0x65, 0x78, 0x74, 0x72, 0x61, 0x63, 0x74, 0x65, 0x64, 0x20, 0x77,
+        0x69, 0x74, 0x68
+      },
+      63
+    },
+    {
+      {
+        /* "about half the amount of water in the same amount of time" */
+        0x61, 0x62, 0x6f, 0x75, 0x74, 0x20, 0x68, 0x61, 0x6c, 0x66, 0x20, 0x74,
+        0x68, 0x65, 0x20, 0x61, 0x6d, 0x6f, 0x75, 0x6e, 0x74, 0x20, 0x6f, 0x66,
+        0x20, 0x77, 0x61, 0x74, 0x65, 0x72, 0x20, 0x69, 0x6e, 0x20, 0x74, 0x68,
+        0x65, 0x20, 0x73, 0x61, 0x6d, 0x65, 0x20, 0x61, 0x6d, 0x6f, 0x75, 0x6e,
+        0x74, 0x20, 0x6f, 0x66, 0x20, 0x74, 0x69, 0x6d, 0x65
+      },
+      57
+    },
+    {
+      {
+        /* "by using a finer grind." */
+        0x62, 0x79, 0x20, 0x75, 0x73, 0x69, 0x6e, 0x67, 0x20, 0x61, 0x20, 0x66,
+        0x69, 0x6e, 0x65, 0x72, 0x20, 0x67, 0x72, 0x69, 0x6e, 0x64, 0x2e
+      },
+      23
+    },
+    {
+      {
+        /* "This produces a concentrated shot of coffee per volume." */
+        0x54, 0x68, 0x69, 0x73, 0x20, 0x70, 0x72, 0x6f, 0x64, 0x75, 0x63, 0x65,
+        0x73, 0x20, 0x61, 0x20, 0x63, 0x6f, 0x6e, 0x63, 0x65, 0x6e, 0x74, 0x72,
+        0x61, 0x74, 0x65, 0x64, 0x20, 0x73, 0x68, 0x6f, 0x74, 0x20, 0x6f, 0x66,
+        0x20, 0x63, 0x6f, 0x66, 0x66, 0x65, 0x65, 0x20, 0x70, 0x65, 0x72, 0x20,
+        0x76, 0x6f, 0x6c, 0x75, 0x6d, 0x65, 0x2e
+      },
+      55
+    },
+    {
+      {
+        /* "Just pulling a normal shot short will produce a weaker shot" */
+        0x4a, 0x75, 0x73, 0x74, 0x20, 0x70, 0x75, 0x6c, 0x6c, 0x69, 0x6e, 0x67,
+        0x20, 0x61, 0x20, 0x6e, 0x6f, 0x72, 0x6d, 0x61, 0x6c, 0x20, 0x73, 0x68,
+        0x6f, 0x74, 0x20, 0x73, 0x68, 0x6f, 0x72, 0x74, 0x20, 0x77, 0x69, 0x6c,
+        0x6c, 0x20, 0x70, 0x72, 0x6f, 0x64, 0x75, 0x63, 0x65, 0x20, 0x61, 0x20,
+        0x77, 0x65, 0x61, 0x6b, 0x65, 0x72, 0x20, 0x73, 0x68, 0x6f, 0x74
+      },
+      59
+    },
+    {
+      {
+        /* "and is not a Ristretto as some believe." */
+        0x61, 0x6e, 0x64, 0x20, 0x69, 0x73, 0x20, 0x6e, 0x6f, 0x74, 0x20, 0x61,
+        0x20, 0x52, 0x69, 0x73, 0x74, 0x72, 0x65, 0x74, 0x74, 0x6f, 0x20, 0x61,
+        0x73, 0x20, 0x73, 0x6f, 0x6d, 0x65, 0x20, 0x62, 0x65, 0x6c, 0x69, 0x65,
+        0x76, 0x65, 0x2e
+      },
+      39
+    }
   };
 
   static const unsigned char images[][32] = {
@@ -2971,7 +3041,7 @@ test_ristretto_elligator_hash(drbg_t *rng) {
 
   for (i = 0; i < ARRAY_SIZE(images); i++) {
     sha512_init(&hash);
-    sha512_update(&hash, labels[i], strlen(labels[i]));
+    sha512_update(&hash, labels[i].buf, labels[i].len);
     sha512_final(&hash, bytes);
 
     ristretto_pubkey_from_hash(ec, p, bytes);
@@ -3101,25 +3171,27 @@ test_ristretto_derive(drbg_t *rng) {
 static void
 test_encoding_base16(drbg_t *unused) {
   /* https://tools.ietf.org/html/rfc4648#section-10 */
-  static const char *vectors[7][2] = {
-    {"", ""},
-    {"f", "66"},
-    {"fo", "666f"},
-    {"foo", "666f6f"},
-    {"foob", "666f6f62"},
-    {"fooba", "666f6f6261"},
-    {"foobar", "666f6f626172"}
+  static const char *vectors[7] = {
+    "",
+    "66",
+    "666f",
+    "666f6f",
+    "666f6f62",
+    "666f6f6261",
+    "666f6f626172"
   };
 
-  static const char *vectors_le[7][2] = {
-    {"", ""},
-    {"f", "66"},
-    {"fo", "6f66"},
-    {"foo", "6f6f66"},
-    {"foob", "626f6f66"},
-    {"fooba", "61626f6f66"},
-    {"foobar", "7261626f6f66"}
+  static const char *vectors_le[7] = {
+    "",
+    "66",
+    "6f66",
+    "6f6f66",
+    "626f6f66",
+    "61626f6f66",
+    "7261626f6f66"
   };
+
+  static const unsigned char expect[6] = {0x66, 0x6f, 0x6f, 0x62, 0x61, 0x72};
 
   static const char *invalid[6] = {
     "6",
@@ -3138,33 +3210,31 @@ test_encoding_base16(drbg_t *unused) {
   (void)unused;
 
   for (i = 0; i < ARRAY_SIZE(vectors); i++) {
-    const char *str = vectors[i][0];
-    const char *hex = vectors[i][1];
+    const char *hex = vectors[i];
 
     printf("  - Base16 vector #%u\n", i + 1);
 
     ASSERT(base16_test(hex, strlen(hex)));
     ASSERT(base16_decode(buf, &len, hex, strlen(hex)));
-    ASSERT(len == strlen(str));
-    ASSERT(torsion_memcmp_var(buf, str, len) == 0);
+    ASSERT(len == i);
+    ASSERT(torsion_memcmp_var(buf, expect, len) == 0);
 
-    base16_encode(out, &len, (const unsigned char *)str, strlen(str));
+    base16_encode(out, &len, expect, i);
     ASSERT(len == strlen(hex));
     ASSERT(torsion_memcmp_var(out, hex, len) == 0);
   }
 
   for (i = 0; i < ARRAY_SIZE(vectors_le); i++) {
-    const char *str = vectors_le[i][0];
-    const char *hex = vectors_le[i][1];
+    const char *hex = vectors_le[i];
 
     printf("  - Base16-LE vector #%u\n", i + 1);
 
     ASSERT(base16le_test(hex, strlen(hex)));
     ASSERT(base16le_decode(buf, &len, hex, strlen(hex)));
-    ASSERT(len == strlen(str));
-    ASSERT(torsion_memcmp_var(buf, str, len) == 0);
+    ASSERT(len == i);
+    ASSERT(torsion_memcmp_var(buf, expect, len) == 0);
 
-    base16le_encode(out, &len, (const unsigned char *)str, strlen(str));
+    base16le_encode(out, &len, expect, i);
     ASSERT(len == strlen(hex));
     ASSERT(torsion_memcmp_var(out, hex, len) == 0);
   }
@@ -3184,25 +3254,27 @@ test_encoding_base16(drbg_t *unused) {
 static void
 test_encoding_base32(drbg_t *unused) {
   /* https://tools.ietf.org/html/rfc4648#section-10 */
-  static const char *vectors[7][2] = {
-    {"", ""},
-    {"f", "my======"},
-    {"fo", "mzxq===="},
-    {"foo", "mzxw6==="},
-    {"foob", "mzxw6yq="},
-    {"fooba", "mzxw6ytb"},
-    {"foobar", "mzxw6ytboi======"}
+  static const char *vectors[7] = {
+    "",
+    "my======",
+    "mzxq====",
+    "mzxw6===",
+    "mzxw6yq=",
+    "mzxw6ytb",
+    "mzxw6ytboi======"
   };
 
-  static const char *vectors_hex[7][2] = {
-    {"", ""},
-    {"f", "co======"},
-    {"fo", "cpng===="},
-    {"foo", "cpnmu==="},
-    {"foob", "cpnmuog="},
-    {"fooba", "cpnmuoj1"},
-    {"foobar", "cpnmuoj1e8======"}
+  static const char *vectors_hex[7] = {
+    "",
+    "co======",
+    "cpng====",
+    "cpnmu===",
+    "cpnmuog=",
+    "cpnmuoj1",
+    "cpnmuoj1e8======"
   };
+
+  static const unsigned char expect[6] = {0x66, 0x6f, 0x6f, 0x62, 0x61, 0x72};
 
   unsigned char buf[32];
   unsigned int i;
@@ -3212,33 +3284,31 @@ test_encoding_base32(drbg_t *unused) {
   (void)unused;
 
   for (i = 0; i < ARRAY_SIZE(vectors); i++) {
-    const char *str = vectors[i][0];
-    const char *b32 = vectors[i][1];
+    const char *b32 = vectors[i];
 
     printf("  - Base32 vector #%u\n", i + 1);
 
     ASSERT(base32_test(b32, strlen(b32), 1));
     ASSERT(base32_decode(buf, &len, b32, strlen(b32), 1));
-    ASSERT(len == strlen(str));
-    ASSERT(torsion_memcmp_var(buf, str, len) == 0);
+    ASSERT(len == i);
+    ASSERT(torsion_memcmp_var(buf, expect, len) == 0);
 
-    base32_encode(out, &len, (const unsigned char *)str, strlen(str), 1);
+    base32_encode(out, &len, expect, i, 1);
     ASSERT(len == strlen(b32));
     ASSERT(torsion_memcmp_var(out, b32, len) == 0);
   }
 
   for (i = 0; i < ARRAY_SIZE(vectors_hex); i++) {
-    const char *str = vectors_hex[i][0];
-    const char *b32 = vectors_hex[i][1];
+    const char *b32 = vectors_hex[i];
 
     printf("  - Base32-Hex vector #%u\n", i + 1);
 
     ASSERT(base32hex_test(b32, strlen(b32), 1));
     ASSERT(base32hex_decode(buf, &len, b32, strlen(b32), 1));
-    ASSERT(len == strlen(str));
-    ASSERT(torsion_memcmp_var(buf, str, len) == 0);
+    ASSERT(len == i);
+    ASSERT(torsion_memcmp_var(buf, expect, len) == 0);
 
-    base32hex_encode(out, &len, (const unsigned char *)str, strlen(str), 1);
+    base32hex_encode(out, &len, expect, i, 1);
     ASSERT(len == strlen(b32));
     ASSERT(torsion_memcmp_var(out, b32, len) == 0);
   }
@@ -3298,16 +3368,27 @@ test_encoding_base58(drbg_t *unused) {
 static void
 test_encoding_base64(drbg_t *unused) {
   /* https://tools.ietf.org/html/rfc4648#section-10 */
-  static const char *vectors[8][2] = {
-    {"", ""},
-    {"f", "Zg=="},
-    {"fo", "Zm8="},
-    {"foo", "Zm9v"},
-    {"foob", "Zm9vYg=="},
-    {"fooba", "Zm9vYmE="},
-    {"foobar", "Zm9vYmFy"},
-    {"\x53\xe9\x36\x3b\x29\x62\xfc\xaf", "U+k2Oyli/K8="}
+  static const char *vectors[7] = {
+    "",
+    "Zg==",
+    "Zm8=",
+    "Zm9v",
+    "Zm9vYg==",
+    "Zm9vYmE=",
+    "Zm9vYmFy"
   };
+
+  static const char *vectors_url[7] = {
+    "",
+    "Zg",
+    "Zm8",
+    "Zm9v",
+    "Zm9vYg",
+    "Zm9vYmE",
+    "Zm9vYmFy"
+  };
+
+  static const unsigned char expect[6] = {0x66, 0x6f, 0x6f, 0x62, 0x61, 0x72};
 
   static const char *invalid[9] = {
     " Zg==",
@@ -3319,17 +3400,6 @@ test_encoding_base64(drbg_t *unused) {
     "Zm9vYg",
     "Zm9vYmE",
     "U-k2Oyli_K8"
-  };
-
-  static const char *vectors_url[8][2] = {
-    {"", ""},
-    {"f", "Zg"},
-    {"fo", "Zm8"},
-    {"foo", "Zm9v"},
-    {"foob", "Zm9vYg"},
-    {"fooba", "Zm9vYmE"},
-    {"foobar", "Zm9vYmFy"},
-    {"\x53\xe9\x36\x3b\x29\x62\xfc\xaf", "U-k2Oyli_K8"}
   };
 
   static const char *invalid_url[5] = {
@@ -3348,17 +3418,33 @@ test_encoding_base64(drbg_t *unused) {
   (void)unused;
 
   for (i = 0; i < ARRAY_SIZE(vectors); i++) {
-    const char *str = vectors[i][0];
-    const char *b64 = vectors[i][1];
+    const char *b64 = vectors[i];
 
     printf("  - Base64 vector #%u\n", i + 1);
 
     ASSERT(base64_test(b64, strlen(b64)));
     ASSERT(base64_decode(buf, &len, b64, strlen(b64)));
-    ASSERT(len == strlen(str));
-    ASSERT(torsion_memcmp_var(buf, str, len) == 0);
+    ASSERT(len == i);
+    ASSERT(torsion_memcmp_var(buf, expect, len) == 0);
 
-    base64_encode(out, &len, (const unsigned char *)str, strlen(str));
+    base64_encode(out, &len, expect, i);
+    ASSERT(len == strlen(b64));
+    ASSERT(torsion_memcmp_var(out, b64, len) == 0);
+  }
+
+  {
+    static const unsigned char exp[8] = {0x53, 0xe9, 0x36, 0x3b,
+                                         0x29, 0x62, 0xfc, 0xaf};
+    static const char *b64 = "U+k2Oyli/K8=";
+
+    printf("  - Base64 vector #%u\n", i + 1);
+
+    ASSERT(base64_test(b64, strlen(b64)));
+    ASSERT(base64_decode(buf, &len, b64, strlen(b64)));
+    ASSERT(len == ARRAY_SIZE(exp));
+    ASSERT(torsion_memcmp_var(buf, exp, len) == 0);
+
+    base64_encode(out, &len, exp, ARRAY_SIZE(exp));
     ASSERT(len == strlen(b64));
     ASSERT(torsion_memcmp_var(out, b64, len) == 0);
   }
@@ -3373,17 +3459,33 @@ test_encoding_base64(drbg_t *unused) {
   }
 
   for (i = 0; i < ARRAY_SIZE(vectors_url); i++) {
-    const char *str = vectors_url[i][0];
-    const char *b64 = vectors_url[i][1];
+    const char *b64 = vectors_url[i];
 
     printf("  - Base64-URL vector #%u\n", i + 1);
 
     ASSERT(base64url_test(b64, strlen(b64)));
     ASSERT(base64url_decode(buf, &len, b64, strlen(b64)));
-    ASSERT(len == strlen(str));
-    ASSERT(torsion_memcmp_var(buf, str, len) == 0);
+    ASSERT(len == i);
+    ASSERT(torsion_memcmp_var(buf, expect, len) == 0);
 
-    base64url_encode(out, &len, (const unsigned char *)str, strlen(str));
+    base64url_encode(out, &len, expect, i);
+    ASSERT(len == strlen(b64));
+    ASSERT(torsion_memcmp_var(out, b64, len) == 0);
+  }
+
+  {
+    static const unsigned char exp[8] = {0x53, 0xe9, 0x36, 0x3b,
+                                         0x29, 0x62, 0xfc, 0xaf};
+    static const char *b64 = "U-k2Oyli_K8";
+
+    printf("  - Base64 vector #%u\n", i + 1);
+
+    ASSERT(base64url_test(b64, strlen(b64)));
+    ASSERT(base64url_decode(buf, &len, b64, strlen(b64)));
+    ASSERT(len == ARRAY_SIZE(exp));
+    ASSERT(torsion_memcmp_var(buf, exp, len) == 0);
+
+    base64url_encode(out, &len, exp, ARRAY_SIZE(exp));
     ASSERT(len == strlen(b64));
     ASSERT(torsion_memcmp_var(out, b64, len) == 0);
   }
@@ -3938,31 +4040,31 @@ test_kdf_bcrypt(drbg_t *unused) {
     {
       "<.S.2K(Zq'",
       4,
-      "VYAclAMpaXY/oqAo9yUpku",
+      "5da09e9c23ab719681aac0aaff45ab9b",
       "$2a$04$VYAclAMpaXY/oqAo9yUpkuWmoYywaPzyhu56HxXpVltnBIfmO9tgu"
     },
     {
       "5.rApO%5jA",
       5,
-      "kVNDrnYKvbNr5AIcxNzeIu",
+      "9973c5b6968cc5d3edec229eccfd602b",
       "$2a$05$kVNDrnYKvbNr5AIcxNzeIuRcyIF5cZk6UrwHGxENbxP5dVv.WQM/G"
     },
     {
       "oW++kSrQW^",
       6,
-      "QLKkRMH9Am6irtPeSKN5sO",
+      "48d3264ce27f0a8f24b6f46050c3fbb9",
       "$2a$06$QLKkRMH9Am6irtPeSKN5sObJGr3j47cO6Pdf5JZ0AsJXuze0IbsNm"
     },
     {
       "ggJ\\KbTnDG",
       7,
-      "4H896R09bzjhapgCPS/LYu",
+      "e89fbff13dbf77596372b88445404d6b",
       "$2a$07$4H896R09bzjhapgCPS/LYuMzAQluVgR5iu/ALF8L8Aln6lzzYXwbq"
     },
     {
       "49b0:;VkH/",
       8,
-      "hfvO2retKrSrx5f2RXikWe",
+      "8e1c50e2d82f32d52dcfb8784d992662",
       "$2a$08$hfvO2retKrSrx5f2RXikWeFWdtSesPlbj08t/uXxCeZoHRWDz/xFe"
     }
   };
@@ -3976,22 +4078,24 @@ test_kdf_bcrypt(drbg_t *unused) {
     unsigned int rounds = vectors[i].rounds;
     const char *salt = vectors[i].salt;
     const char *record = vectors[i].record;
+    unsigned char salt16[16];
     char out[100];
+
+    hex_parse(salt16, 16, salt);
 
     printf("  - Bcrypt vector #%u (%s)\n", i + 1, record);
 
-    ASSERT(bcrypt_generate_with_salt64(out, (const unsigned char *)pass,
-                                       strlen(pass), salt, rounds, 'a'));
+    ASSERT(bcrypt_hash(out, pass, salt16, rounds, 'a'));
 
     ASSERT(strcmp(out, record) == 0);
 
-    ASSERT(bcrypt_verify((const unsigned char *)pass, strlen(pass), record));
+    ASSERT(bcrypt_check(pass, record));
   }
 }
 
 static void
 test_kdf_bcrypt_pbkdf(drbg_t *unused) {
-  static const unsigned char pass[] = "foo";
+  static const unsigned char pass[] = { 0x66, 0x6f, 0x6f }; /* "foo" */
 
   static const unsigned char salt[] = {
     0xd8, 0xd5, 0x10, 0x52, 0x71, 0x00, 0x3f, 0x18, 0xaf, 0xb7, 0x51, 0x58,
@@ -4009,12 +4113,13 @@ test_kdf_bcrypt_pbkdf(drbg_t *unused) {
 
   (void)unused;
 
-  ASSERT(bcrypt_pbkdf(out, pass, sizeof(pass) - 1, salt, sizeof(salt), 16, 48));
+  ASSERT(bcrypt_pbkdf(out, pass, sizeof(pass), salt, sizeof(salt), 16, 48));
   ASSERT(torsion_memcmp_var(out, expect, 48) == 0);
 }
 
 static void
 test_kdf_eb2k(drbg_t *unused) {
+  unsigned char pass[64];
   unsigned char salt[64];
   unsigned char key[64];
   unsigned char iv[64];
@@ -4025,14 +4130,14 @@ test_kdf_eb2k(drbg_t *unused) {
   (void)unused;
 
   for (i = 0; i < ARRAY_SIZE(eb2k_vectors); i++) {
-    const unsigned char *pass = (const unsigned char *)eb2k_vectors[i].pass;
-    size_t pass_len = strlen(eb2k_vectors[i].pass);
+    size_t pass_len = sizeof(pass);
     size_t salt_len = sizeof(salt);
     size_t key_len = sizeof(key);
     size_t iv_len = sizeof(iv);
 
-    printf("  - EB2K vector #%u (%s)\n", i + 1, pass);
+    printf("  - EB2K vector #%u\n", i + 1);
 
+    hex_decode(pass, &pass_len, eb2k_vectors[i].pass);
     hex_decode(salt, &salt_len, eb2k_vectors[i].salt);
     hex_decode(key, &key_len, eb2k_vectors[i].key);
     hex_decode(iv, &iv_len, eb2k_vectors[i].iv);
@@ -4139,10 +4244,13 @@ test_kdf_pgpdf(drbg_t *unused) {
     0xbc, 0xae, 0xb8, 0xa9, 0xea, 0xad, 0x37, 0xfd
   };
 
-  static const unsigned char pass[] = "foobar";
-  static size_t pass_len = sizeof(pass) - 1;
-  static const unsigned char salt[] = "salty!";
-  static size_t salt_len = sizeof(salt) - 1;
+  /* "foobar" */
+  static const unsigned char pass[] = { 0x66, 0x6f, 0x6f, 0x62, 0x61, 0x72 };
+  static size_t pass_len = sizeof(pass);
+
+  /* "salty!" */
+  static const unsigned char salt[] = { 0x73, 0x61, 0x6c, 0x74, 0x79, 0x21 };
+  static size_t salt_len = sizeof(salt);
   unsigned char out[32];
 
   (void)unused;
@@ -4170,8 +4278,16 @@ test_kdf_scrypt(drbg_t *unused) {
     0x38, 0xd1, 0x89, 0x06
   };
 
-  static const unsigned char pass2[] = "password";
-  static const unsigned char salt2[] = "NaCl";
+  static const unsigned char pass2[] = {
+    /* "password" */
+    0x70, 0x61, 0x73, 0x73, 0x77, 0x6f, 0x72, 0x64
+  };
+
+  static const unsigned char salt2[] = {
+    /* "NaCl" */
+    0x4e, 0x61, 0x43, 0x6c
+  };
+
   static const unsigned char expect2[64] = {
     0xfd, 0xba, 0xbe, 0x1c, 0x9d, 0x34, 0x72, 0x00, 0x78, 0x56, 0xe7, 0x19,
     0x0d, 0x01, 0xe9, 0xfe, 0x7c, 0x6a, 0xd7, 0xcb, 0xc8, 0x23, 0x78, 0x30,
@@ -4181,8 +4297,18 @@ test_kdf_scrypt(drbg_t *unused) {
     0xa2, 0xcc, 0x06, 0x40
   };
 
-  static const unsigned char pass3[] = "pleaseletmein";
-  static const unsigned char salt3[] = "SodiumChloride";
+  static const unsigned char pass3[] = {
+    /* "pleaseletmein" */
+    0x70, 0x6c, 0x65, 0x61, 0x73, 0x65, 0x6c, 0x65, 0x74, 0x6d, 0x65, 0x69,
+    0x6e
+  };
+
+  static const unsigned char salt3[] = {
+    /* "SodiumChloride" */
+    0x53, 0x6f, 0x64, 0x69, 0x75, 0x6d, 0x43, 0x68, 0x6c, 0x6f, 0x72, 0x69,
+    0x64, 0x65
+  };
+
   static const unsigned char expect3[64] = {
     0x70, 0x23, 0xbd, 0xcb, 0x3a, 0xfd, 0x73, 0x48, 0x46, 0x1c, 0x06, 0xcd,
     0x81, 0xfd, 0x38, 0xeb, 0xfd, 0xa8, 0xfb, 0xba, 0x90, 0x4f, 0x8e, 0x3e,
@@ -4199,13 +4325,13 @@ test_kdf_scrypt(drbg_t *unused) {
   ASSERT(scrypt_derive(out, NULL, 0, NULL, 0, 16, 1, 1, 64));
   ASSERT(torsion_memcmp_var(out, expect1, 64) == 0);
 
-  ASSERT(scrypt_derive(out, pass2, sizeof(pass2) - 1,
-                            salt2, sizeof(salt2) - 1, 1024, 8, 16, 64));
+  ASSERT(scrypt_derive(out, pass2, sizeof(pass2),
+                            salt2, sizeof(salt2), 1024, 8, 16, 64));
 
   ASSERT(torsion_memcmp_var(out, expect2, 64) == 0);
 
-  ASSERT(scrypt_derive(out, pass3, sizeof(pass3) - 1,
-                            salt3, sizeof(salt3) - 1, 16384, 8, 1, 64));
+  ASSERT(scrypt_derive(out, pass3, sizeof(pass3),
+                            salt3, sizeof(salt3), 16384, 8, 1, 64));
 
   ASSERT(torsion_memcmp_var(out, expect3, 64) == 0);
 }
@@ -5140,9 +5266,27 @@ test_stream_salsa20(drbg_t *rng) {
 static void
 test_stream_xsalsa20(drbg_t *unused) {
   /* https://github.com/golang/crypto/blob/master/salsa20/salsa20_test.go */
-  static const unsigned char input[] = "Hello world!";
-  static const unsigned char nonce[] = "24-byte nonce for xsalsa";
-  static const unsigned char key[] = "this is 32-byte key for xsalsa20";
+  static const unsigned char input[12] = {
+    /* "Hello world!" */
+    0x48, 0x65, 0x6c, 0x6c, 0x6f, 0x20,
+    0x77, 0x6f, 0x72, 0x6c, 0x64, 0x21
+  };
+
+  static const unsigned char nonce[24] = {
+    /* "24-byte nonce for xsalsa" */
+    0x32, 0x34, 0x2d, 0x62, 0x79, 0x74, 0x65, 0x20,
+    0x6e, 0x6f, 0x6e, 0x63, 0x65, 0x20, 0x66, 0x6f,
+    0x72, 0x20, 0x78, 0x73, 0x61, 0x6c, 0x73, 0x61
+  };
+
+  static const unsigned char key[32] = {
+    /* "this is 32-byte key for xsalsa20" */
+    0x74, 0x68, 0x69, 0x73, 0x20, 0x69, 0x73, 0x20,
+    0x33, 0x32, 0x2d, 0x62, 0x79, 0x74, 0x65, 0x20,
+    0x6b, 0x65, 0x79, 0x20, 0x66, 0x6f, 0x72, 0x20,
+    0x78, 0x73, 0x61, 0x6c, 0x73, 0x61, 0x32, 0x30
+  };
+
   static const unsigned char expect[12] = {
     0x00, 0x2d, 0x45, 0x13, 0x84, 0x3f,
     0xc2, 0x40, 0xc4, 0x01, 0xe5, 0x41

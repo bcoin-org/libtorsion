@@ -293,10 +293,6 @@ if(TORSION_ENABLE_DEBUG)
   endif()
 endif()
 
-if(CMAKE_SYSTEM_NAME STREQUAL "OS390")
-  append_c_compiler_flag(torsion_cflags -qascii -qfloat=IEEE)
-endif()
-
 if(TORSION_TLS_FLAGS)
   list(APPEND torsion_cflags ${TORSION_TLS_FLAGS})
 endif()
