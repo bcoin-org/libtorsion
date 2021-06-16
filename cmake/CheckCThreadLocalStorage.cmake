@@ -9,9 +9,17 @@ endif()
 include(CheckCSourceCompiles)
 
 function(check_c_thread_local_storage name)
+  set(keywords "__declspec(thread)" __thread)
+
+  if (DEFINED CMAKE_C_STANDARD AND CMAKE_C_STANDARD LESS "11")
+    list(APPEND keywords _Thread_local)
+  else()
+    list(PREPEND keywords _Thread_local)
+  endif()
+
   set(${name} "" PARENT_SCOPE)
 
-  foreach(keyword IN ITEMS "__declspec(thread)" __thread _Thread_local)
+  foreach(keyword IN LISTS keywords)
     string(TOUPPER "CMAKE_HAVE_C_TLS_${keyword}" varname)
     string(REGEX REPLACE "[^A-Z0-9]" "_" varname "${varname}")
 
