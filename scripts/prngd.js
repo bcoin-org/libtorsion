@@ -115,8 +115,31 @@ server.on('connection', (socket) => {
   });
 });
 
+let listening = false;
+
 fs.unlink(name, () => {
   server.listen(name, () => {
     log(`listening on ${name}`);
+    listening = true;
   });
 });
+
+const signalHandler = (code) => {
+  return () => {
+    if (listening) {
+      log('shutting down');
+      server.close(() => {
+        log(`removing ${name}`);
+        fs.unlink(name, () => {
+          process.exit(code);
+        });
+      });
+    } else {
+      process.exit(code);
+    }
+  };
+};
+
+process.on('SIGHUP', signalHandler(0x81));
+process.on('SIGINT', signalHandler(0x82));
+process.on('SIGTERM', signalHandler(0x8f));
