@@ -44,7 +44,6 @@
 #include <stdlib.h>
 #include <stdint.h>
 
-#include "charset.h"
 #include "internal.h"
 #include "mpi.h"
 

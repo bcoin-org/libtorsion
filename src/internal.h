@@ -193,6 +193,14 @@ static const unsigned long torsion__endian_check TORSION_UNUSED = 1;
   (*((const unsigned char *)&torsion__endian_check) == 0)
 
 /*
+ * Character Set
+ */
+
+#if ' ' == 32 && '0' == 48 && 'A' == 65 && 'a' == 97
+#  define TORSION_HAVE_ASCII
+#endif
+
+/*
  * Configuration
  */
 
@@ -395,5 +403,19 @@ torsion__assert_fail(const char *file, int line, const char *expr);
 
 TORSION_NORETURN void
 torsion__abort(void);
+
+/*
+ * Character Transcoding
+ */
+
+#if defined(TORSION_HAVE_ASCII)
+#  define torsion_ascii(c) ((c) & 0xff)
+#  define torsion_native(c) (c)
+#else
+extern const int torsion__ascii[256];
+extern const int torsion__native[256];
+#  define torsion_ascii(c) (torsion__ascii[(c) & 0xff])
+#  define torsion_native(c) (torsion__native[(c) & 0xff])
+#endif
 
 #endif /* TORSION_INTERNAL_H */

@@ -28,7 +28,7 @@
 #include <torsion/util.h>
 #include "bf.h"
 #include "bio.h"
-#include "charset.h"
+#include "internal.h"
 
 /*
  * Bcrypt

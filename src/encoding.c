@@ -22,7 +22,6 @@
 #include <stdint.h>
 #include <string.h>
 #include <torsion/encoding.h>
-#include "charset.h"
 #include "internal.h"
 
 /*
