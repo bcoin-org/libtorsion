@@ -48,21 +48,20 @@ bench_start(bench_t *start, const char *name) {
 static void
 bench_puts64(const char *pre, uint64_t x) {
   /* Implement our own PRIu64. */
-  char str[20 + 1];
-  uint64_t z = x;
+  char tmp[20];
+  char str[21];
   int n = 0;
+  int i = 0;
 
   do {
-    str[n++] = '0';
-    z /= 10;
-  } while (z != 0);
-
-  str[n] = '\0';
-
-  while (n--) {
-    str[n] += (int)(x % 10);
+    tmp[n++] = '0' + (int)(x % 10);
     x /= 10;
-  }
+  } while (x != 0);
+
+  while (n--)
+    str[i++] = tmp[n];
+
+  str[i] = '\0';
 
   printf("%s%s\n", pre, str);
 }
