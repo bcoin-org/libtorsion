@@ -607,6 +607,18 @@ else()
       target_link_libraries(torsion_ctgrind PRIVATE torsion)
     endif()
 
+    # Not sure why cmake fails to do this on tinycc.
+    if(CMAKE_C_COMPILER_ID STREQUAL "TinyCC")
+      set(rpath -Wl,-rpath,${PROJECT_SOURCE_DIR})
+
+      target_link_options(torsion_test PRIVATE ${rpath})
+      target_link_options(torsion_bench PRIVATE ${rpath})
+
+      if(TORSION_HAS_MEMCHECK)
+        target_link_options(torsion_ctgrind PRIVATE ${rpath})
+      endif()
+    endif()
+
     find_program(TORSION_VALGRIND valgrind)
 
     if(TORSION_VALGRIND)
