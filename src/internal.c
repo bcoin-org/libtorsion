@@ -39,13 +39,13 @@ torsion__abort(void) {
  * Character Transcoding
  */
 
-#ifndef TORSION_HAVE_ASCII
 /* Abuse compiler expression folding to create
  * a conversion table for the execution character
  * set.
  *
  * Credit goes to gnulib for this idea.
  */
+
 #define XX(xx) (       \
     (xx) == '\0' ?   0 \
   : (xx) == '\a' ?   7 \
@@ -299,5 +299,3 @@ const int torsion__native[256] = {
 };
 
 #undef XX
-
-#endif /* !TORSION_HAVE_ASCII */

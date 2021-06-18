@@ -193,14 +193,6 @@ static const unsigned long torsion__endian_check TORSION_UNUSED = 1;
   (*((const unsigned char *)&torsion__endian_check) == 0)
 
 /*
- * Character Set
- */
-
-#if ' ' == 32 && '0' == 48 && 'A' == 65 && 'a' == 97
-#  define TORSION_HAVE_ASCII
-#endif
-
-/*
  * Configuration
  */
 
@@ -408,14 +400,30 @@ torsion__abort(void);
  * Character Transcoding
  */
 
-#if defined(TORSION_HAVE_ASCII)
-#  define torsion_ascii(c) ((c) & 0xff)
-#  define torsion_native(c) (c)
-#else
 extern const int torsion__ascii[256];
 extern const int torsion__native[256];
-#  define torsion_ascii(c) (torsion__ascii[(c) & 0xff])
-#  define torsion_native(c) (torsion__native[(c) & 0xff])
-#endif
+
+/* We could check the character set in preprocessor, but the
+ * standard has some very strange wording around character
+ * constants in preprocessor. Specifically, the standard says,
+ *
+ *   "Whether the numeric value for these character constants
+ *    matches the value obtained when an identical character
+ *    constant occurs in an expression (other than within a
+ *    #if or #elif directive) is implementation-defined."[1]
+ *
+ * I suppose this can be taken to mean that the preprocessor
+ * may use the source character set instead of the execution
+ * character set. Vague wording like this has often been the
+ * justification for compiler developers to do wacky stuff,
+ * so we instead check the character set at "runtime". Every
+ * compiler should treat this as a constant expression and
+ * optimize it out.
+ *
+ * [1] ANSI/ISO 9899-1990, Page 87, Section 6.8.1 ("Conditional Inclusion")
+ */
+#define torsion_a (' ' == 32 && '0' == 48 && 'A' == 65 && 'a' == 97)
+#define torsion_ascii(c) (torsion_a ? ((c) & 0xff) : torsion__ascii[(c) & 0xff])
+#define torsion_native(c) (torsion_a ? (c) : torsion__native[(c) & 0xff])
 
 #endif /* TORSION_INTERNAL_H */
