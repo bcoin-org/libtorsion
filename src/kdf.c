@@ -260,22 +260,18 @@ bcrypt_decode(char *minor,
 
 static int
 bcrypt_ascii_key(unsigned char *key, size_t *key_len, const char *pass) {
-  size_t pass_len = strlen(pass);
-  size_t i;
+  size_t len = 0;
 
-  if (pass_len > 255)
-    pass_len = 255;
-
-  for (i = 0; i < pass_len; i++) {
-    int ch = torsion_ascii(pass[i]);
+  while (*pass != '\0' && len < 255) {
+    int ch = torsion_ascii(*pass++);
 
     if ((ch < 7 || ch > 13) && (ch < 32 || ch > 126))
       return 0;
 
-    key[i] = ch;
+    key[len++] = ch;
   }
 
-  *key_len = pass_len;
+  *key_len = len;
 
   return 1;
 }
