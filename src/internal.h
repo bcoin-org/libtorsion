@@ -273,48 +273,65 @@ static const unsigned long torsion__endian_check TORSION_UNUSED = 1;
  *
  * [1] https://github.com/bcoin-org/libtorsion/blob/2fe6cd3/src/tls.h
  */
-#if defined(__clang__)
+#if defined(__clang__) || defined(__llvm__)
 #  ifdef __has_extension
 #    if __has_extension(c_thread_local)
-#      define TORSION_HAVE_TLS
+#      if defined(_MSC_VER) || defined(__BORLANDC__)
+#        define TORSION_TLS __declspec(thread)
+#      elif defined(__ANDROID__)
+#        if defined(__clang_major__) && __clang_major__ >= 5
+#          define TORSION_TLS __thread
+#        endif
+#      else
+#        define TORSION_TLS __thread
+#      endif
 #    endif
 #  endif
 #elif defined(__INTEL_COMPILER)
-#  if TORSION_GNUC_PREREQ(3, 3) && __INTEL_COMPILER >= 1500
-#    define TORSION_HAVE_TLS
+#  if defined(_WIN32) && __INTEL_COMPILER >= 1000
+#    define TORSION_TLS __declspec(thread)
+#  elif defined(__linux__) && __INTEL_COMPILER >= 810
+#    if TORSION_GNUC_PREREQ(3, 3)
+#      define TORSION_TLS __thread
+#    endif
+#  elif defined(__APPLE__) && __INTEL_COMPILER >= 1500
+#    define TORSION_TLS __thread
 #  endif
-#elif TORSION_GNUC_PREREQ(3, 3)
-#  if defined(__ELF__) && (defined(__i386__) || defined(__x86_64__))
-#    define TORSION_HAVE_TLS
-#  elif TORSION_GNUC_PREREQ(4, 3)
-#    define TORSION_HAVE_TLS
+#elif defined(__GNUC__) && !defined(__CC_ARM) \
+                        && !defined(__PCC__)  \
+                        && !defined(__NWCC__)
+#  if TORSION_GNUC_PREREQ(4, 3)
+#    define TORSION_TLS __thread
+#  elif TORSION_GNUC_PREREQ(3, 3)
+#    if defined(__ELF__) && (defined(__i386__) || defined(__x86_64__))
+#      define TORSION_TLS __thread
+#    endif
 #  endif
-#elif (defined(_MSC_VER) && _MSC_VER >= 1200)        \
-   || (defined(__WATCOMC__) && __WATCOMC__ >= 1200)  \
-   || (defined(__SUNPRO_C) && __SUNPRO_C >= 0x590)   \
-   || (defined(__SUNPRO_CC) && __SUNPRO_CC >= 0x590)
-#  define TORSION_HAVE_TLS
+#elif (defined(_MSC_VER) && _MSC_VER >= 1200)                    \
+   || (defined(__WATCOMC__) && __WATCOMC__ >= 1200)              \
+   || (defined(__BORLANDC__) && __BORLANDC__ >= 0x610)           \
+   || (defined(__DMC__) && defined(_M_IX86) && __DMC__ >= 0x822)
+#  define TORSION_TLS __declspec(thread)
+#elif (defined(__SUNPRO_C) && __SUNPRO_C >= 0x590)            \
+   || (defined(__SUNPRO_CC) && __SUNPRO_CC >= 0x590)          \
+   || (defined(__HP_cc) && __HP_cc >= 53600)                  \
+   || (defined(__HP_aCC) && __HP_aCC >= 53600)                \
+   || (defined(__ARMCC_VERSION) && __ARMCC_VERSION >= 510000) \
+   || (defined(__PCC__) && __PCC__ >= 1)                      \
+   || (defined(__NWCC__))
+#  define TORSION_TLS __thread
 #elif defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L
 #  ifndef __STDC_NO_THREADS__
 #    define TORSION_TLS _Thread_local
-#    define TORSION_HAVE_TLS
 #  endif
 #elif defined(__cplusplus) && (__cplusplus + 0L) >= 201103L
 #  define TORSION_TLS thread_local
-#  define TORSION_HAVE_TLS
 #endif
 
-/* Pick thread-local keyword. */
-#ifndef TORSION_TLS
-#  if defined(TORSION_HAVE_TLS)
-#    if defined(_WIN32) && !defined(__MINGW32__)
-#      define TORSION_TLS __declspec(thread)
-#    else
-#      define TORSION_TLS __thread
-#    endif
-#  else
-#    define TORSION_TLS
-#  endif
+#if defined(TORSION_TLS)
+#  define TORSION_HAVE_TLS
+#else
+#  define TORSION_TLS
 #endif
 
 /* Allow some overrides. */
