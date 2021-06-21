@@ -102,13 +102,14 @@
 
 #undef STATIC_ASSERT
 
-#if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L
+#if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L \
+                              && !defined(__cplusplus)
 #  undef _Static_assert
-#  define STATIC_ASSERT(expr) _Static_assert(expr, "")
+#  define STATIC_ASSERT(expr) _Static_assert(expr, "check failed")
 #elif defined(__cplusplus) && (__cplusplus + 0L) >= 201703L
 #  define STATIC_ASSERT(expr) static_assert(expr)
 #elif defined(__cplusplus) && (__cplusplus + 0L) >= 201103L
-#  define STATIC_ASSERT(expr) static_assert(expr, "")
+#  define STATIC_ASSERT(expr) static_assert(expr, "check failed")
 #elif TORSION_GNUC_PREREQ(2, 7)
 #  define STATIC_ASSERT_2(x, y) \
      typedef char torsion__assert_ ## y[(x) ? 1 : -1] __attribute__((unused))
@@ -122,7 +123,8 @@
  * Keywords/Attributes
  */
 
-#if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 199901L
+#if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 199901L \
+                              && !defined(__cplusplus)
 #  define TORSION_INLINE inline
 #elif defined(__cplusplus) && (__cplusplus + 0L) >= 199711L
 #  define TORSION_INLINE inline
@@ -137,7 +139,8 @@
 #  define TORSION_INLINE
 #endif
 
-#if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 199901L
+#if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 199901L \
+                              && !defined(__cplusplus)
 #  define TORSION_RESTRICT restrict
 #elif TORSION_GNUC_PREREQ(3, 0)
 #  define TORSION_RESTRICT __restrict__
@@ -149,7 +152,8 @@
 #  define TORSION_RESTRICT
 #endif
 
-#if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L
+#if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L \
+                              && !defined(__cplusplus)
 #  define TORSION_NORETURN _Noreturn
 #elif defined(__cplusplus) && (__cplusplus + 0L) >= 201103L
 #  undef noreturn
@@ -320,7 +324,8 @@ static const unsigned long torsion__endian_check TORSION_UNUSED = 1;
    || (defined(__PCC__) && __PCC__ >= 1)                      \
    || (defined(__NWCC__))
 #  define TORSION_TLS __thread
-#elif defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L
+#elif defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L \
+                                && !defined(__cplusplus)
 #  ifndef __STDC_NO_THREADS__
 #    define TORSION_TLS _Thread_local
 #  endif
