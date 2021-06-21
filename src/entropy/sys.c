@@ -70,7 +70,7 @@
  *   https://nixdoc.net/man-pages/HP-UX/man7/random.7.html
  *   https://nixdoc.net/man-pages/HP-UX/man7/urandom.7.html
  *
- * NonStop:
+ * NonStop (with OSS):
  *   https://support.hpe.com/hpesc/public/docDisplay?docId=c02128688&docLocale=en_US
  *   https://www.ibm.com/docs/en/ibm-mq/8.0?topic=nss-entropy-daemon
  *   http://prngd.sourceforge.net/
@@ -273,11 +273,10 @@
  *   Fallback: none
  *   Support: /dev/{,u}random added in HP-UX 11i v1 (KRNG11i) (2002).
  *
- * NonStop:
- *   Source: prngd / amqjkdm0
+ * NonStop (with OSS):
+ *   Source: prngd / amqjkdm0 (IBM MQ 5.3 server)
  *   Fallback: none
- *   Support: Requires Open System Services or IBM MQ 5.3 server.
- *            Entropy socket must be available.
+ *   Support: prngd or amqjkdm0 socket must be available.
  *
  * AIX:
  *   Source: /dev/random
