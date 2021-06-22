@@ -311,17 +311,17 @@ static const unsigned long torsion__endian_check TORSION_UNUSED = 1;
 #      define TORSION_TLS __thread
 #    endif
 #  endif
-#elif (defined(_MSC_VER) && _MSC_VER >= 1200)                    \
-   || (defined(__WATCOMC__) && __WATCOMC__ >= 1200)              \
-   || (defined(__BORLANDC__) && __BORLANDC__ >= 0x610)           \
-   || (defined(__DMC__) && defined(_M_IX86) && __DMC__ >= 0x822)
+#elif (defined(_MSC_VER) && _MSC_VER >= 1200)          \
+   || (defined(__WATCOMC__) && __WATCOMC__ >= 1200)    \
+   || (defined(__BORLANDC__) && __BORLANDC__ >= 0x610) \
+   || (defined(__DMC__) && __DMC__ >= 0x822)
 #  define TORSION_TLS __declspec(thread)
-#elif (defined(__SUNPRO_C) && __SUNPRO_C >= 0x590)            \
-   || (defined(__SUNPRO_CC) && __SUNPRO_CC >= 0x590)          \
-   || (defined(__HP_cc) && __HP_cc >= 53600)                  \
-   || (defined(__HP_aCC) && __HP_aCC >= 53600)                \
-   || (defined(__ARMCC_VERSION) && __ARMCC_VERSION >= 510000) \
-   || (defined(__PCC__) && __PCC__ >= 1)                      \
+#elif (defined(__SUNPRO_C) && __SUNPRO_C >= 0x590)     \
+   || (defined(__SUNPRO_CC) && __SUNPRO_CC >= 0x590)   \
+   || (defined(__HP_cc) && __HP_cc >= 53600)           \
+   || (defined(__HP_aCC) && __HP_aCC >= 53600)         \
+   || (defined(__CC_ARM) && __ARMCC_VERSION >= 510000) \
+   || (defined(__PCC__) && __PCC__ >= 1)               \
    || (defined(__NWCC__))
 #  define TORSION_TLS __thread
 #elif defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L \
