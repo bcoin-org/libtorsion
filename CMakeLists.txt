@@ -341,10 +341,7 @@ if(TORSION_ENABLE_RNG)
 endif()
 
 if(TORSION_TLS)
-  list(APPEND torsion_defines TORSION_HAVE_TLS)
   list(APPEND torsion_defines TORSION_TLS=${TORSION_TLS})
-else()
-  list(APPEND torsion_defines TORSION_TLS=)
 endif()
 
 if(TORSION_HAS_TLS_FALLBACK)

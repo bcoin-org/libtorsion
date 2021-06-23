@@ -221,7 +221,6 @@ static const unsigned long torsion__endian_check TORSION_UNUSED = 1;
 #undef TORSION_HAVE_ASM_X86
 #undef TORSION_HAVE_ASM_X64
 #undef TORSION_HAVE_INT128
-#undef TORSION_HAVE_TLS
 #undef TORSION_TLS
 
 /* Detect inline ASM support for x86-64.
@@ -341,12 +340,6 @@ static const unsigned long torsion__endian_check TORSION_UNUSED = 1;
 #  define TORSION_TLS thread_local
 #endif
 
-#if defined(TORSION_TLS)
-#  define TORSION_HAVE_TLS
-#else
-#  define TORSION_TLS
-#endif
-
 /* Allow some overrides. */
 #ifdef TORSION_NO_ASM
 #  undef TORSION_HAVE_ASM
@@ -359,9 +352,7 @@ static const unsigned long torsion__endian_check TORSION_UNUSED = 1;
 #endif
 
 #ifdef TORSION_NO_TLS
-#  undef TORSION_HAVE_TLS
 #  undef TORSION_TLS
-#  define TORSION_TLS
 #endif
 
 #ifdef TORSION_FORCE_32BIT

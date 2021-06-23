@@ -228,7 +228,7 @@ rng_uniform(rng_t *rng, uint32_t max) {
  * Global Lock
  */
 
-#if !defined(TORSION_HAVE_TLS) && defined(TORSION_HAVE_PTHREAD)
+#if !defined(TORSION_TLS) && defined(TORSION_HAVE_PTHREAD)
 #  define TORSION_USE_LOCK
 #endif
 
@@ -257,7 +257,11 @@ rng_global_unlock(void) {
  * Global Context
  */
 
+#if defined(TORSION_TLS)
 static TORSION_TLS rng_t rng_state;
+#else
+static rng_t rng_state;
+#endif
 
 static int
 rng_global_init(void) {
@@ -344,7 +348,7 @@ torsion_uniform(uint32_t *num, uint32_t max) {
 
 int
 torsion_threadsafe(void) {
-#if defined(TORSION_HAVE_TLS) || defined(TORSION_HAVE_PTHREAD)
+#if defined(TORSION_TLS) || defined(TORSION_HAVE_PTHREAD)
   return 1;
 #else
   return 0;
