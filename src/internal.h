@@ -118,7 +118,6 @@
 #undef STATIC_ASSERT
 
 #if TORSION_STDC_VERSION >= 201112L
-#  undef _Static_assert
 #  define STATIC_ASSERT(expr) _Static_assert(expr, "check failed")
 #elif TORSION_CPP_VERSION >= 201703L
 #  define STATIC_ASSERT(expr) static_assert(expr)
