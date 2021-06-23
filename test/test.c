@@ -33,10 +33,6 @@
 #include <torsion/stream.h>
 #include <torsion/util.h>
 
-#ifdef TORSION_HAVE_THREADS
-#include "thread.h"
-#endif
-
 #include "utils.h"
 
 #include "data/bip340_vectors.h"
@@ -4584,92 +4580,6 @@ test_rand_uniform(drbg_t *unused) {
   ASSERT(looks_random(data, sizeof(data)));
 }
 
-#ifdef TORSION_HAVE_THREADS
-typedef struct rng_res_s {
-  void *ptr;
-  unsigned char data[32];
-} rng_res_t;
-
-static void *
-thread_random(void *ptr) {
-  rng_res_t *obj = (rng_res_t *)ptr;
-
-  obj->ptr = torsion_randomaddr();
-
-  ASSERT(torsion_getrandom(obj->data, 32));
-
-  return NULL;
-}
-
-static void
-test_rand_thread_safety(drbg_t *unused) {
-  const char *name = NULL;
-  torsion_thread_t *t1, *t2;
-  rng_res_t x0, x1, x2;
-
-  (void)unused;
-
-  memset(&x0, 0, sizeof(x0));
-  memset(&x1, 0, sizeof(x1));
-  memset(&x2, 0, sizeof(x2));
-
-  switch (torsion_threadsafety()) {
-    case TORSION_THREADSAFETY_NONE:
-      printf("  - Skipping RNG test (not thread safe).\n");
-      return;
-    case TORSION_THREADSAFETY_TLS:
-      name = "TLS";
-      break;
-    case TORSION_THREADSAFETY_MUTEX:
-      name = "MUTEX";
-      break;
-    default:
-      ASSERT(0);
-      break;
-  }
-
-  printf("  - Testing thread safety (%s)\n", name);
-
-  t1 = torsion_thread_alloc();
-  t2 = torsion_thread_alloc();
-
-  ASSERT(torsion_thread_create(t1, NULL, thread_random, (void *)&x1) == 0);
-  ASSERT(torsion_thread_create(t2, NULL, thread_random, (void *)&x2) == 0);
-
-  ASSERT(torsion_thread_join(t1, NULL) == 0);
-  ASSERT(torsion_thread_join(t2, NULL) == 0);
-
-  torsion_thread_free(t1);
-  torsion_thread_free(t2);
-
-  thread_random(&x0);
-
-  ASSERT(x0.ptr != NULL);
-  ASSERT(x1.ptr != NULL);
-  ASSERT(x2.ptr != NULL);
-
-  if (torsion_threadsafety() == TORSION_THREADSAFETY_TLS) {
-    ASSERT(x0.ptr != x1.ptr);
-    ASSERT(x0.ptr != x2.ptr);
-
-    ASSERT(x1.ptr != x0.ptr);
-    ASSERT(x1.ptr != x2.ptr);
-
-    ASSERT(x2.ptr != x0.ptr);
-    ASSERT(x2.ptr != x1.ptr);
-  }
-
-  ASSERT(torsion_memcmp_var(x0.data, x1.data, 32) != 0);
-  ASSERT(torsion_memcmp_var(x0.data, x2.data, 32) != 0);
-
-  ASSERT(torsion_memcmp_var(x1.data, x0.data, 32) != 0);
-  ASSERT(torsion_memcmp_var(x1.data, x2.data, 32) != 0);
-
-  ASSERT(torsion_memcmp_var(x2.data, x0.data, 32) != 0);
-  ASSERT(torsion_memcmp_var(x2.data, x1.data, 32) != 0);
-}
-#endif /* TORSION_HAVE_THREADS */
-
 #ifdef TORSION_HAVE_FORK
 static void
 test_rand_fork_safety(drbg_t *unused) {
@@ -5527,9 +5437,6 @@ static const torsion_test_t torsion_tests[] = {
 #endif
   T(rand_random),
   T(rand_uniform),
-#ifdef TORSION_HAVE_THREADS
-  T(rand_thread_safety),
-#endif
 #ifdef TORSION_HAVE_FORK
   T(rand_fork_safety),
 #endif

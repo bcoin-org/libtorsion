@@ -342,22 +342,11 @@ torsion_uniform(uint32_t *num, uint32_t max) {
   return 1;
 }
 
-/*
- * Testing
- */
-
 int
-torsion_threadsafety(void) {
-#if defined(TORSION_HAVE_TLS)
-  return TORSION_THREADSAFETY_TLS;
-#elif defined(TORSION_HAVE_PTHREAD)
-  return TORSION_THREADSAFETY_MUTEX;
+torsion_threadsafe(void) {
+#if defined(TORSION_HAVE_TLS) || defined(TORSION_HAVE_PTHREAD)
+  return 1;
 #else
-  return TORSION_THREADSAFETY_NONE;
+  return 0;
 #endif
-}
-
-void *
-torsion_randomaddr(void) {
-  return (void *)&rng_state;
 }

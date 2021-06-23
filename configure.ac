@@ -437,10 +437,6 @@ AS_IF([test x"$has_int128" = x"yes"], [
   AC_DEFINE(TORSION_HAVE_INT128)
 ])
 
-AS_IF([test x"$has_pthread" = x"yes"], [
-  AC_DEFINE(TORSION_HAVE_THREADS)
-])
-
 AS_IF([test x"$enable_rng" = x"yes"], [
   AC_DEFINE(TORSION_HAVE_RNG)
 ])
@@ -490,7 +486,6 @@ AC_SUBST(WASI)
 
 AM_CONDITIONAL([EMSCRIPTEN], [test x"$EMSCRIPTEN" != x""])
 AM_CONDITIONAL([ENABLE_CTGRIND], [test x"$has_memcheck" = x"yes"])
-AM_CONDITIONAL([ENABLE_PTHREAD], [test x"$has_pthread" = x"yes"])
 AM_CONDITIONAL([ENABLE_RNG], [test x"$enable_rng" = x"yes"])
 AM_CONDITIONAL([ENABLE_TESTS], [test x"$enable_tests" = x"yes"])
 AM_CONDITIONAL([ENABLE_TLS_FALLBACK], [test x"$has_tls_fallback" = x"yes"])

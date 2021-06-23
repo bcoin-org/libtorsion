@@ -340,10 +340,6 @@ if(TORSION_ENABLE_RNG)
   list(APPEND torsion_defines TORSION_HAVE_RNG)
 endif()
 
-if(TORSION_HAS_PTHREAD OR WIN32)
-  list(APPEND torsion_defines TORSION_HAVE_THREADS)
-endif()
-
 if(TORSION_TLS)
   list(APPEND torsion_defines TORSION_HAVE_TLS)
   list(APPEND torsion_defines TORSION_TLS=${TORSION_TLS})
@@ -386,10 +382,6 @@ set(test_libs)
 if(TORSION_HAS_TLS_FALLBACK)
   list(APPEND torsion_libs Threads::Threads)
   list(APPEND pkgconf_libs ${CMAKE_THREAD_LIBS_INIT})
-endif()
-
-if(TORSION_HAS_PTHREAD)
-  list(APPEND test_libs Threads::Threads)
 endif()
 
 if(TORSION_TLS_LIBS)
@@ -440,10 +432,6 @@ set(ctgrind_sources test/ctgrind.c test/utils.c)
 
 if(TORSION_ENABLE_RNG)
   list(APPEND torsion_sources ${rng_sources})
-endif()
-
-if(TORSION_HAS_PTHREAD OR WIN32)
-  list(APPEND test_sources test/thread.c)
 endif()
 
 #

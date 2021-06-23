@@ -93,7 +93,6 @@ noinst_HEADERS = src/asn1.h                         \
                  test/data/bip340_vectors.h         \
                  test/ecc_internal.h                \
                  test/mpi_internal.h                \
-                 test/thread.h                      \
                  test/utils.h
 
 if ENABLE_RNG
@@ -275,12 +274,6 @@ torsion_test_CFLAGS = $(torsion_cflags)
 torsion_test_LDFLAGS = -no-install
 torsion_test_LDADD = libtorsion.la
 TESTS += torsion_test
-
-if ENABLE_PTHREAD
-torsion_test_SOURCES += test/thread.c
-torsion_test_CFLAGS += @PTHREAD_CFLAGS@
-torsion_test_LDADD += @PTHREAD_LIBS@
-endif
 
 if ENABLE_ZLIB
 torsion_test_LDADD += -lz
