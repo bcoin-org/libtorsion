@@ -153,6 +153,7 @@ AC_COMPILE_IFELSE([
     #endif
   ]])
 ], [
+  AX_CHECK_COMPILE_FLAG([-qthreaded], [CFLAGS="$CFLAGS -qthreaded"])
   AX_CHECK_COMPILE_FLAG([-qtls], [CFLAGS="$CFLAGS -qtls"])
 ])
 
@@ -344,11 +345,29 @@ AS_IF([test x"$enable_pthread" = x"yes" -a x"$WASM" != x"yes"], [
 ])
 
 AS_IF([test x"$enable_tls" = x"yes"], [
+  torsion_save_LIBS="$LIBS"
+
+  AS_CASE([$target_os], [aix*], [
+    LIBS="-lpthread $LIBS"
+  ])
+
   AX_TLS([has_tls=yes], [has_tls=no])
+
+  LIBS="$torsion_save_LIBS"
 ])
 
 AS_IF([test x"$has_tls" != x"yes"], [
   has_tls_fallback=$has_pthread
+])
+
+AS_CASE([$target_os], [aix*], [
+  AS_IF([test x"$has_tls" = x"yes"], [
+    has_tls_fallback=yes
+    AS_IF([test x"$has_pthread" != x"yes"], [
+      PTHREAD_CFLAGS=
+      PTHREAD_LIBS=-lpthread
+    ])
+  ])
 ])
 
 AS_IF([test x"$enable_tests" = x"yes" -a x"$WASM" != x"yes"], [

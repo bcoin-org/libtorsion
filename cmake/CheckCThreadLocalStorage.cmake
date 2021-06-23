@@ -9,16 +9,24 @@ endif()
 include(CheckCCompilerFlag)
 include(CheckCSourceCompiles)
 
-function(check_c_thread_local_storage ident_name flags_name)
+function(check_c_thread_local_storage ident_name flags_name libs_name)
   set(${ident_name} "" PARENT_SCOPE)
   set(${flags_name} "" PARENT_SCOPE)
+  set(${libs_name} "" PARENT_SCOPE)
+
   set(CMAKE_REQUIRED_FLAGS "")
+  set(CMAKE_REQUIRED_LIBRARIES "")
 
   if(CMAKE_C_COMPILER_ID MATCHES "^XL")
+    # CMake handles -qthreaded for us.
     check_c_compiler_flag(-qtls CMAKE_HAVE_XL_TLS)
     if(CMAKE_HAVE_XL_TLS)
       set(CMAKE_REQUIRED_FLAGS "-qtls")
     endif()
+  endif()
+
+  if(CMAKE_SYSTEM_NAME STREQUAL "AIX")
+    set(CMAKE_REQUIRED_LIBRARIES "-lpthread")
   endif()
 
   set(keywords "__declspec(thread)" __thread)
@@ -44,6 +52,7 @@ function(check_c_thread_local_storage ident_name flags_name)
     if(${varname})
       set(${ident_name} ${keyword} PARENT_SCOPE)
       set(${flags_name} "${CMAKE_REQUIRED_FLAGS}" PARENT_SCOPE)
+      set(${libs_name} "${CMAKE_REQUIRED_LIBRARIES}" PARENT_SCOPE)
       break()
     endif()
   endforeach()

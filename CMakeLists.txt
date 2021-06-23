@@ -226,10 +226,11 @@ else()
 endif()
 
 if(TORSION_ENABLE_TLS)
-  check_c_thread_local_storage(TORSION_TLS TORSION_TLS_FLAGS)
+  check_c_thread_local_storage(TORSION_TLS TORSION_TLS_FLAGS TORSION_TLS_LIBS)
 else()
   set(TORSION_TLS)
   set(TORSION_TLS_FLAGS)
+  set(TORSION_TLS_LIBS)
 endif()
 
 if(NOT TORSION_TLS)
@@ -389,6 +390,11 @@ endif()
 
 if(TORSION_HAS_PTHREAD)
   list(APPEND test_libs Threads::Threads)
+endif()
+
+if(TORSION_TLS_LIBS)
+  list(APPEND torsion_libs ${TORSION_TLS_LIBS})
+  list(APPEND pkgconf_libs ${TORSION_TLS_LIBS})
 endif()
 
 if(TORSION_HAS_ZLIB)
