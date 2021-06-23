@@ -97,18 +97,32 @@
 #endif
 
 /*
+ * Language Standard
+ */
+
+#if defined(__cplusplus)
+#  define TORSION_STDC_VERSION 0L
+#  define TORSION_CPP_VERSION (__cplusplus + 0L)
+#elif defined(__STDC_VERSION__)
+#  define TORSION_STDC_VERSION __STDC_VERSION__
+#  define TORSION_CPP_VERSION 0L
+#else
+#  define TORSION_STDC_VERSION 0L
+#  define TORSION_CPP_VERSION 0L
+#endif
+
+/*
  * Static Assertions
  */
 
 #undef STATIC_ASSERT
 
-#if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L \
-                              && !defined(__cplusplus)
+#if TORSION_STDC_VERSION >= 201112L
 #  undef _Static_assert
 #  define STATIC_ASSERT(expr) _Static_assert(expr, "check failed")
-#elif defined(__cplusplus) && (__cplusplus + 0L) >= 201703L
+#elif TORSION_CPP_VERSION >= 201703L
 #  define STATIC_ASSERT(expr) static_assert(expr)
-#elif defined(__cplusplus) && (__cplusplus + 0L) >= 201103L
+#elif TORSION_CPP_VERSION >= 201103L
 #  define STATIC_ASSERT(expr) static_assert(expr, "check failed")
 #elif TORSION_GNUC_PREREQ(2, 7)
 #  define STATIC_ASSERT_2(x, y) \
@@ -123,10 +137,12 @@
  * Keywords/Attributes
  */
 
-#if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 199901L \
-                              && !defined(__cplusplus)
+#undef noreturn
+#undef unused
+
+#if TORSION_STDC_VERSION >= 199901L
 #  define TORSION_INLINE inline
-#elif defined(__cplusplus) && (__cplusplus + 0L) >= 199711L
+#elif TORSION_CPP_VERSION >= 199711L
 #  define TORSION_INLINE inline
 #elif TORSION_GNUC_PREREQ(2, 7)
 #  define TORSION_INLINE __inline__
@@ -139,8 +155,7 @@
 #  define TORSION_INLINE
 #endif
 
-#if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 199901L \
-                              && !defined(__cplusplus)
+#if TORSION_STDC_VERSION >= 199901L
 #  define TORSION_RESTRICT restrict
 #elif TORSION_GNUC_PREREQ(3, 0)
 #  define TORSION_RESTRICT __restrict__
@@ -152,27 +167,22 @@
 #  define TORSION_RESTRICT
 #endif
 
-#if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L \
-                              && !defined(__cplusplus)
+#if TORSION_STDC_VERSION >= 201112L
 #  define TORSION_NORETURN _Noreturn
-#elif defined(__cplusplus) && (__cplusplus + 0L) >= 201103L
-#  undef noreturn
+#elif TORSION_CPP_VERSION >= 201103L
 #  define TORSION_NORETURN [[noreturn]]
 #elif TORSION_GNUC_PREREQ(2, 7)
-#  undef noreturn
 #  define TORSION_NORETURN __attribute__((noreturn))
 #elif defined(_MSC_VER) && _MSC_VER >= 1200
-#  undef noreturn
 #  define TORSION_NORETURN __declspec(noreturn)
 #elif (defined(__SUNPRO_C) && __SUNPRO_C >= 0x590) \
    || (defined(__SUNPRO_CC) && __SUNPRO_CC >= 0x590)
-#  undef noreturn
 #  define TORSION_NORETURN __attribute__((noreturn))
 #else
 #  define TORSION_NORETURN
 #endif
 
-#if defined(__cplusplus) && (__cplusplus + 0L) >= 201703L
+#if TORSION_CPP_VERSION >= 201703L
 #  define TORSION_UNUSED [[maybe_unused]]
 #elif TORSION_GNUC_PREREQ(2, 7)
 #  define TORSION_UNUSED __attribute__((unused))
@@ -324,12 +334,11 @@ static const unsigned long torsion__endian_check TORSION_UNUSED = 1;
    || (defined(__PCC__) && __PCC__ >= 1)               \
    || (defined(__NWCC__))
 #  define TORSION_TLS __thread
-#elif defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L \
-                                && !defined(__cplusplus)
+#elif TORSION_STDC_VERSION >= 201112L
 #  ifndef __STDC_NO_THREADS__
 #    define TORSION_TLS _Thread_local
 #  endif
-#elif defined(__cplusplus) && (__cplusplus + 0L) >= 201103L
+#elif TORSION_CPP_VERSION >= 201103L
 #  define TORSION_TLS thread_local
 #endif
 
