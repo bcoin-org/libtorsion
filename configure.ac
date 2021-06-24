@@ -93,14 +93,6 @@ AC_ARG_ENABLE(
 )
 
 AC_ARG_ENABLE(
-  pthread,
-  AS_HELP_STRING([--enable-pthread],
-                 [use pthread as a fallback for TLS [default=yes]]),
-  [enable_pthread=$enableval],
-  [enable_pthread=yes]
-)
-
-AC_ARG_ENABLE(
   rng,
   AS_HELP_STRING([--enable-rng],
                  [enable RNG [default=yes]]),
@@ -165,9 +157,7 @@ has_asm=no
 has_int128=no
 has_fork=no
 has_memcheck=no
-has_pthread=no
 has_tls=no
-has_tls_fallback=no
 has_zlib=no
 
 AS_IF([test x"$enable_asm" = x"yes"], [
@@ -248,39 +238,6 @@ AS_IF([test x"$enable_int128" = x"yes"], [
   AC_MSG_RESULT([$has_int128])
 ])
 
-AS_IF([test x"$enable_pthread" = x"yes" -a x"$WASM" != x"yes"], [
-  torsion_save_CFLAGS="$CFLAGS"
-  torsion_save_LIBS="$LIBS"
-
-  AC_CHECK_DEFINE([__TINYC__], [
-    CFLAGS="$CFLAGS -D_REENTRANT"
-  ])
-
-  AX_PTHREAD([
-    AC_MSG_CHECKING(for pthread mutex support)
-
-    CFLAGS="$CFLAGS $PTHREAD_CFLAGS"
-    LIBS="$PTHREAD_LIBS $LIBS"
-
-    AC_LINK_IFELSE([
-      AC_LANG_PROGRAM([[
-        #include <pthread.h>
-        static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
-      ]], [[
-        pthread_mutex_lock(&mutex);
-        pthread_mutex_unlock(&mutex);
-      ]])
-    ], [
-      has_pthread=yes
-    ])
-
-    AC_MSG_RESULT([$has_pthread])
-  ])
-
-  CFLAGS="$torsion_save_CFLAGS"
-  LIBS="$torsion_save_LIBS"
-])
-
 AS_IF([test x"$enable_tls" = x"yes"], [
   torsion_save_LIBS="$LIBS"
 
@@ -290,21 +247,13 @@ AS_IF([test x"$enable_tls" = x"yes"], [
 
   AX_TLS([has_tls=yes], [has_tls=no])
 
-  LIBS="$torsion_save_LIBS"
-])
-
-AS_IF([test x"$has_tls" != x"yes"], [
-  has_tls_fallback=$has_pthread
-])
-
-AS_CASE([$target_os], [aix*], [
-  AS_IF([test x"$has_tls" = x"yes"], [
-    has_tls_fallback=yes
-    AS_IF([test x"$has_pthread" != x"yes"], [
-      PTHREAD_CFLAGS=
-      PTHREAD_LIBS=-lpthread
+  AS_CASE([$target_os], [aix*], [
+    AS_IF([test x"$has_tls" = x"yes"], [
+      TLS_LIBS=-lpthread
     ])
   ])
+
+  LIBS="$torsion_save_LIBS"
 ])
 
 AS_IF([test x"$enable_tests" = x"yes" -a x"$WASM" != x"yes"], [
@@ -374,10 +323,6 @@ AS_IF([test x"$has_tls" = x"yes"], [
   AC_DEFINE_UNQUOTED(TORSION_TLS, [$ac_cv_tls])
 ])
 
-AS_IF([test x"$has_tls_fallback" = x"yes"], [
-  AC_DEFINE(TORSION_HAVE_PTHREAD)
-])
-
 AS_IF([test x"$enable_verify" = x"yes"], [
   AC_DEFINE(TORSION_VERIFY)
 ])
@@ -403,18 +348,14 @@ dnl Configuration
 dnl
 
 AC_SUBST(ABI_VERSION, [TORSION_ABI_VERSION])
-
-AS_IF([test x"$has_tls_fallback" = x"yes"], [
-  AC_SUBST(LIBS_PRIVATE, ["$PTHREAD_LIBS $PTHREAD_CFLAGS"])
-])
-
+AC_SUBST(LIBS_PRIVATE, ["$TLS_LIBS"])
+AC_SUBST(TLS_LIBS)
 AC_SUBST(WASI)
 
 AM_CONDITIONAL([EMSCRIPTEN], [test x"$EMSCRIPTEN" != x""])
 AM_CONDITIONAL([ENABLE_CTGRIND], [test x"$has_memcheck" = x"yes"])
 AM_CONDITIONAL([ENABLE_RNG], [test x"$enable_rng" = x"yes"])
 AM_CONDITIONAL([ENABLE_TESTS], [test x"$enable_tests" = x"yes"])
-AM_CONDITIONAL([ENABLE_TLS_FALLBACK], [test x"$has_tls_fallback" = x"yes"])
 AM_CONDITIONAL([ENABLE_ZLIB], [test x"$has_zlib" = x"yes"])
 AM_CONDITIONAL([NATIVE], [test x"$WASM" != x"yes"])
 AM_CONDITIONAL([WASI], [test x"$WASI" != x""])
@@ -436,11 +377,9 @@ AC_MSG_NOTICE([Build Options:
   fork         = $has_fork
   int128       = $has_int128
   memcheck     = $has_memcheck
-  pthread      = $has_pthread
   rng          = $enable_rng
   tests        = $enable_tests
   tls          = $has_tls
-  tls fallback = $has_tls_fallback
   verify       = $enable_verify
   wasi         = $WASI
   zlib         = $has_zlib

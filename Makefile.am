@@ -250,12 +250,7 @@ lib_LTLIBRARIES += libtorsion.la
 libtorsion_la_SOURCES = $(torsion_sources)
 libtorsion_la_CFLAGS = $(torsion_cflags) -DTORSION_BUILD
 libtorsion_la_LDFLAGS = -no-undefined -version-info @ABI_VERSION@
-libtorsion_la_LIBADD =
-
-if ENABLE_TLS_FALLBACK
-libtorsion_la_CFLAGS += @PTHREAD_CFLAGS@
-libtorsion_la_LIBADD += @PTHREAD_LIBS@
-endif
+libtorsion_la_LIBADD = @TLS_LIBS@
 
 dist_doc_DATA = README.md
 dist_license_DATA = LICENSE

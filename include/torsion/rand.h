@@ -31,9 +31,6 @@ torsion_random(uint32_t *num);
 TORSION_EXTERN int
 torsion_uniform(uint32_t *num, uint32_t max);
 
-TORSION_EXTERN int
-torsion_threadsafe(void);
-
 #ifdef __cplusplus
 }
 #endif

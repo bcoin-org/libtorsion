@@ -22,9 +22,6 @@
  * context. This avoids us having to link to
  * pthread and deal with other OS compat issues.
  *
- * If TLS is not supported, we try to fall back
- * to pthread.
- *
  * The RNG below is not used anywhere internally,
  * and as such, libtorsion can build without it (in
  * the case that more portability is desired).
@@ -225,35 +222,6 @@ rng_uniform(rng_t *rng, uint32_t max) {
 }
 
 /*
- * Global Lock
- */
-
-#if !defined(TORSION_TLS) && defined(TORSION_HAVE_PTHREAD)
-#  define TORSION_USE_LOCK
-#endif
-
-#ifdef TORSION_USE_LOCK
-#  include <pthread.h>
-static pthread_mutex_t rng_lock = PTHREAD_MUTEX_INITIALIZER;
-#endif
-
-static void
-rng_global_lock(void) {
-#ifdef TORSION_USE_LOCK
-  if (pthread_mutex_lock(&rng_lock) != 0)
-    torsion_abort(); /* LCOV_EXCL_LINE */
-#endif
-}
-
-static void
-rng_global_unlock(void) {
-#ifdef TORSION_USE_LOCK
-  if (pthread_mutex_unlock(&rng_lock) != 0)
-    torsion_abort(); /* LCOV_EXCL_LINE */
-#endif
-}
-
-/*
  * Global Context
  */
 
@@ -289,68 +257,44 @@ torsion_getentropy(void *dst, size_t size) {
 
 int
 torsion_getrandom(void *dst, size_t size) {
-  rng_global_lock();
-
   /* LCOV_EXCL_START */
   if (!rng_global_init()) {
     if (size > 0)
       memset(dst, 0, size);
-
-    rng_global_unlock();
 
     return 0;
   }
   /* LCOV_EXCL_STOP */
 
   rng_generate(&rng_state, dst, size);
-  rng_global_unlock();
 
   return 1;
 }
 
 int
 torsion_random(uint32_t *num) {
-  rng_global_lock();
-
   /* LCOV_EXCL_START */
   if (!rng_global_init()) {
     *num = 0;
-    rng_global_unlock();
     return 0;
   }
   /* LCOV_EXCL_STOP */
 
   *num = rng_random(&rng_state);
 
-  rng_global_unlock();
-
   return 1;
 }
 
 int
 torsion_uniform(uint32_t *num, uint32_t max) {
-  rng_global_lock();
-
   /* LCOV_EXCL_START */
   if (!rng_global_init()) {
     *num = 0;
-    rng_global_unlock();
     return 0;
   }
   /* LCOV_EXCL_STOP */
 
   *num = rng_uniform(&rng_state, max);
 
-  rng_global_unlock();
-
   return 1;
-}
-
-int
-torsion_threadsafe(void) {
-#if defined(TORSION_TLS) || defined(TORSION_HAVE_PTHREAD)
-  return 1;
-#else
-  return 0;
-#endif
 }
