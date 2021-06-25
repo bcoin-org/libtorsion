@@ -226,11 +226,9 @@ else()
 endif()
 
 if(TORSION_ENABLE_TLS)
-  check_c_thread_local_storage(TORSION_TLS TORSION_TLS_FLAGS TORSION_TLS_LIBS)
+  check_c_thread_local_storage(TORSION_TLS)
 else()
   set(TORSION_TLS)
-  set(TORSION_TLS_FLAGS)
-  set(TORSION_TLS_LIBS)
 endif()
 
 if(NOT TORSION_TLS)
@@ -292,10 +290,6 @@ if(TORSION_ENABLE_DEBUG)
   else()
     append_c_compiler_flag(torsion_cflags -g)
   endif()
-endif()
-
-if(TORSION_TLS_FLAGS)
-  list(APPEND torsion_cflags ${TORSION_TLS_FLAGS})
 endif()
 
 #
@@ -378,12 +372,16 @@ set(test_libs)
 
 if(TORSION_HAS_TLS_FALLBACK)
   list(APPEND torsion_libs Threads::Threads)
-  list(APPEND pkgconf_libs ${CMAKE_THREAD_LIBS_INIT})
+  if(CMAKE_THREAD_LIBS_INIT)
+    list(APPEND pkgconf_libs ${CMAKE_THREAD_LIBS_INIT})
+  endif()
 endif()
 
-if(TORSION_TLS_LIBS)
-  list(APPEND torsion_libs ${TORSION_TLS_LIBS})
-  list(APPEND pkgconf_libs ${TORSION_TLS_LIBS})
+if(TORSION_TLS)
+  list(APPEND torsion_libs Threads::TLS)
+  if(CMAKE_TLS_LIBS_INIT)
+    list(APPEND pkgconf_libs ${CMAKE_TLS_LIBS_INIT})
+  endif()
 endif()
 
 if(TORSION_HAS_ZLIB)
@@ -615,8 +613,8 @@ else()
     if(TORSION_VALGRIND)
       if(TORSION_HAS_MEMCHECK AND NOT TORSION_ENABLE_DEBUG)
         add_test(NAME test_ctgrind COMMAND ${TORSION_VALGRIND}
-                                            --leak-check=full
-                                            --error-exitcode=1
+                                           --leak-check=full
+                                           --error-exitcode=1
                                            $<TARGET_FILE:torsion_ctgrind>)
       endif()
 

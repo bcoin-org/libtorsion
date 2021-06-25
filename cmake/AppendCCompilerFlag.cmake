@@ -9,7 +9,7 @@ endif()
 include(CheckCCompilerFlag)
 
 function(append_c_compiler_flag list)
-  foreach(flag IN LISTS ARGN)
+  foreach(flag ${ARGN})
     string(TOUPPER "CMAKE_HAVE_C_FLAG${flag}" name)
     string(REGEX REPLACE "[^A-Z0-9]" "_" name "${name}")
 
