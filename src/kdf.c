@@ -589,10 +589,7 @@ eb2k_derive(unsigned char *key,
   if (salt_len != 0 && salt_len != 8)
     return 0;
 
-  if (key_len + iv_len < iv_len)
-    return 0;
-
-  while (key_len + iv_len > 0) {
+  while ((key_len | iv_len) > 0) {
     hash_init(&hash, type);
     hash_update(&hash, prev, prev_len);
     hash_update(&hash, passwd, passwd_len);
@@ -884,22 +881,19 @@ pgpdf_derive_iterated(unsigned char *out,
   static const unsigned char zero = 0;
   size_t hash_size = hash_output_size(type);
   unsigned char buf[HASH_MAX_OUTPUT_SIZE];
-  size_t i, j, w, combined, todo;
+  size_t i, j, total, left;
   hash_t hash;
 
   if (!hash_has_backend(type))
     return 0;
 
-  combined = salt_len + pass_len;
+  total = salt_len + pass_len;
 
-  if (combined < salt_len)
+  if (total < salt_len)
     return 0;
 
-  if (count < combined)
-    count = combined;
-
-  if (count + combined < count)
-    return 0;
+  if (count < total)
+    count = total;
 
   i = 0;
 
@@ -909,26 +903,22 @@ pgpdf_derive_iterated(unsigned char *out,
     for (j = 0; j < i; j++)
       hash_update(&hash, &zero, 1);
 
-    w = 0;
+    left = count;
 
-    while (w < count) {
-      if (w + combined > count) {
-        todo = count - w;
-
-        if (todo < salt_len) {
-          hash_update(&hash, salt, todo);
-        } else {
-          hash_update(&hash, salt, salt_len);
-          hash_update(&hash, pass, todo - salt_len);
-        }
-
-        break;
-      }
-
+    while (left >= total) {
       hash_update(&hash, salt, salt_len);
       hash_update(&hash, pass, pass_len);
 
-      w += combined;
+      left -= total;
+    }
+
+    if (left > 0) {
+      if (left > salt_len) {
+        hash_update(&hash, salt, salt_len);
+        hash_update(&hash, pass, left - salt_len);
+      } else {
+        hash_update(&hash, salt, left);
+      }
     }
 
     hash_final(&hash, buf, hash_size);
