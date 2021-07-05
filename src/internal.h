@@ -21,7 +21,7 @@
  * GNUC Compat
  */
 
-#if defined(__GNUC__) && defined(__GNUC_MINOR__)
+#if defined(__GNUC__) && defined(__GNUC_MINOR__) && !defined(__TINYC__)
 #  define TORSION_GNUC_PREREQ(maj, min) \
     ((__GNUC__ << 16) + __GNUC_MINOR__ >= ((maj) << 16) + (min))
 #else
@@ -309,9 +309,10 @@ static const unsigned long torsion__endian_check TORSION_UNUSED = 1;
 #  elif defined(__APPLE__) && __INTEL_COMPILER >= 1500
 #    define TORSION_TLS __thread
 #  endif
-#elif defined(__GNUC__) && !defined(__CC_ARM) \
-                        && !defined(__PCC__)  \
-                        && !defined(__NWCC__)
+#elif defined(__GNUC__) && !defined(__CC_ARM)  \
+                        && !defined(__PCC__)   \
+                        && !defined(__NWCC__)  \
+                        && !defined(__TINYC__)
 #  if TORSION_GNUC_PREREQ(4, 3)
 #    define TORSION_TLS __thread
 #  elif TORSION_GNUC_PREREQ(3, 3)
@@ -324,8 +325,8 @@ static const unsigned long torsion__endian_check TORSION_UNUSED = 1;
    || (defined(__BORLANDC__) && __BORLANDC__ >= 0x610) \
    || (defined(__DMC__) && __DMC__ >= 0x822)
 #  define TORSION_TLS __declspec(thread)
-#elif (defined(__SUNPRO_C) && __SUNPRO_C >= 0x590)     \
-   || (defined(__SUNPRO_CC) && __SUNPRO_CC >= 0x590)   \
+#elif (defined(__SUNPRO_C) && __SUNPRO_C >= 0x560)     \
+   || (defined(__SUNPRO_CC) && __SUNPRO_CC >= 0x560)   \
    || (defined(__HP_cc) && __HP_cc >= 53600)           \
    || (defined(__HP_aCC) && __HP_aCC >= 53600)         \
    || (defined(__CC_ARM) && __ARMCC_VERSION >= 510000) \
