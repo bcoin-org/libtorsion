@@ -34,6 +34,7 @@
  *
  * POWER9/POWER10 (mftb, darn):
  *   https://openpowerfoundation.org/?resource_lib=power-isa-version-3-0
+ *   https://stackoverflow.com/questions/5425506
  *
  * RISC-V (mentropy, pollentropy, rdcycle):
  *   https://github.com/riscv/riscv-isa-manual/releases
@@ -158,7 +159,9 @@
 #    include <intrin.h> /* _ReadStatusReg */
 #    define HAVE_MRS
 #  endif
-#elif (defined(__GNUC__) && __GNUC__ >= 4) || defined(__IBM_GCC_ASM)
+#elif (defined(__GNUC__) && __GNUC__ >= 4) \
+   || (defined(__IBM_GCC_ASM))             \
+   || (defined(__TINYC__))
 #  if defined(__amd64__) || defined(__x86_64__)
 #    define HAVE_ASM_INTEL
 #    define HAVE_ASM_X64
@@ -446,16 +449,16 @@ torsion_cpuid(uint32_t *a,
 #elif defined(HAVE_MRS)
 #  define torsion_pause __yield
 #elif defined(HAVE_ASM_X86)
-#  define torsion_pause() __asm__ __volatile__ (".byte 0xf3, 0x90\n")
+#  define torsion_pause() __asm__ __volatile__ ("rep\n" "nop\n" ::: "memory")
 #elif defined(HAVE_ASM_X64)
-#  define torsion_pause() __asm__ __volatile__ ("pause\n")
+#  define torsion_pause() __asm__ __volatile__ ("pause\n" ::: "memory")
 #elif defined(HAVE_ASM_ARM64)
-#  define torsion_pause() __asm__ __volatile__ ("yield\n")
+#  define torsion_pause() __asm__ __volatile__ ("yield\n" ::: "memory")
 #elif defined(HAVE_ASM_PPC)
-/* https://stackoverflow.com/questions/5425506 */
-#  define torsion_pause() __asm__ __volatile__ ("or 27, 27, 27\n" ::: "cc")
+#  define torsion_pause() __asm__ __volatile__ ("or 27, 27, 27\n" ::: "cc", \
+                                                                      "memory")
 #elif defined(HAVE_ASM_RISCV)
-#  define torsion_pause() __asm__ __volatile__ ("wfi\n")
+#  define torsion_pause() __asm__ __volatile__ ("wfi\n" ::: "memory")
 #else
 #  define torsion_pause() do { } while (0)
 #endif
