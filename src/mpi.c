@@ -146,11 +146,17 @@ TORSION_BARRIER(mp_limb_t, mp_limb)
 #  define MP_GCC_ASM_X64
 #endif
 
-#if defined(__clang__) && defined(__clang_major__)
+#if defined(__clang__) && defined(MP_HAVE_WIDE)
 /* Clang 5.0 and above produce efficient
    carry code with wider types and shifts. */
-#  if __clang_major__ >= 5 && defined(MP_HAVE_WIDE)
-#    define MP_HAVE_CLANG
+#  if defined(__apple_build_version__)
+#    if __apple_build_version__ >= 9020039
+#      define MP_HAVE_CLANG
+#    endif
+#  elif defined(__clang_major__)
+#    if __clang_major__ >= 5
+#      define MP_HAVE_CLANG
+#    endif
 #  endif
 #endif
 
