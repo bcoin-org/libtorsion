@@ -43,7 +43,7 @@ function(check_c_thread_local_storage name)
   if (DEFINED CMAKE_C_STANDARD AND CMAKE_C_STANDARD LESS 11)
     list(APPEND keywords _Thread_local)
   else()
-    list(PREPEND keywords _Thread_local)
+    list(INSERT keywords 0 _Thread_local)
   endif()
 
   foreach(keyword ${keywords})
