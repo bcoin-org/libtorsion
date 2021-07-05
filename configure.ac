@@ -175,11 +175,7 @@ has_zlib=no
 AS_IF([test x"$enable_asm" = x"yes"], [
   AC_MSG_CHECKING(for inline asm support)
   AC_COMPILE_IFELSE([
-    AC_LANG_PROGRAM([[
-      #if !defined(__GNUC__) && !defined(__clang__)
-      #  error "not a gnu-compatible compiler"
-      #endif
-    ]], [[
+    AC_LANG_PROGRAM([[]], [[
       unsigned char ptr[32];
       int x = 0;
       __asm__ ("" : "+r" (x));
@@ -195,13 +191,7 @@ AS_IF([test x"$enable_asm" = x"yes"], [
   AC_MSG_CHECKING(for x86 inline asm support)
   AC_COMPILE_IFELSE([
     AC_LANG_PROGRAM([[
-      #if !defined(__GNUC__) && !defined(__clang__)
-      #  error "not a gnu-compatible compiler"
-      #endif
-      #if defined(__amd64__) || defined(__x86_64__)
-      #  error "not an x86 platform"
-      #endif
-      #ifndef __i386__
+      #if !defined(__i386__) || defined(__amd64__) || defined(__x86_64__)
       #  error "not an x86 platform"
       #endif
     ]], [[
@@ -233,9 +223,6 @@ AS_IF([test x"$enable_asm" = x"yes"], [
   AC_MSG_CHECKING(for x86_64 inline asm support)
   AC_COMPILE_IFELSE([
     AC_LANG_PROGRAM([[
-      #if !defined(__GNUC__) && !defined(__clang__)
-      #  error "not a gnu-compatible compiler"
-      #endif
       #if !defined(__amd64__) && !defined(__x86_64__)
       #  error "not an x64 platform"
       #endif

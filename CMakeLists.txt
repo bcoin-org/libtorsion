@@ -89,9 +89,6 @@ endif()
 
 if(TORSION_ENABLE_ASM)
   check_c_source_compiles([=[
-    #if !defined(__GNUC__) && !defined(__clang__)
-    #  error "not a gnu-compatible compiler"
-    #endif
     int main(void) {
       unsigned char ptr[32];
       int x = 0;
@@ -106,13 +103,7 @@ endif()
 
 if(TORSION_ENABLE_ASM)
   check_c_source_compiles([=[
-    #if !defined(__GNUC__) && !defined(__clang__)
-    #  error "not a gnu-compatible compiler"
-    #endif
-    #if defined(__amd64__) || defined(__x86_64__)
-    #  error "not an x86 platform"
-    #endif
-    #ifndef __i386__
+    #if !defined(__i386__) || defined(__amd64__) || defined(__x86_64__)
     #  error "not an x86 platform"
     #endif
     int main(void) {
@@ -142,9 +133,6 @@ endif()
 
 if(TORSION_ENABLE_ASM)
   check_c_source_compiles([=[
-    #if !defined(__GNUC__) && !defined(__clang__)
-    #  error "not a gnu-compatible compiler"
-    #endif
     #if !defined(__amd64__) && !defined(__x86_64__)
     #  error "not an x64 platform"
     #endif
