@@ -101,14 +101,39 @@ TORSION_BARRIER(mp_limb_t, mp_limb)
 #define MP_MAX(x, y) ((x) > (y) ? (x) : (y))
 #define MP_ABS(x) ((x) < 0 ? -(x) : (x))
 
-#if defined(__GNUC__) || mp_has_builtin(__builtin_alloca)
-/* Available since at least gcc 1.41 (1992). */
-/* Available since clang 3.0.0 (2011). */
+#if defined(__TINYC__)
+/* include <stddef.h> */
+#  define mp_alloca alloca
+#elif defined(__NWCC__)
+/* Ignore. alloca is hacked in as malloc/free. */
+#elif defined(__GNUC__) || mp_has_builtin(__builtin_alloca)
 #  define mp_alloca __builtin_alloca
+#elif defined(__sun) && defined(__SVR4)
+#  include <alloca.h>
+#  define mp_alloca alloca
+#elif defined(__MVS__)
+/* include <stdlib.h> */
+#  define mp_alloca alloca
+#elif defined(__xlC__)
+#  define mp_alloca __alloca
 #elif defined(_MSC_VER)
-/* May have existed as early as 1998. */
 #  include <malloc.h>
 #  define mp_alloca _alloca
+#elif defined(__BORLANDC__)
+#  include <malloc.h>
+#  define mp_alloca alloca
+#elif defined(__WATCOMC__)
+#  if defined(__LINUX__)
+#    include <alloca.h>
+#  else
+#    include <malloc.h>
+#  endif
+#  define mp_alloca alloca
+#elif defined(__DMC__)
+/* include <stdlib.h> */
+#  define mp_alloca _alloca
+#elif defined(__DECC) && defined(__VMS)
+#  define mp_alloca __ALLOCA
 #endif
 
 #if defined(mp_alloca)
