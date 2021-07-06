@@ -139,7 +139,7 @@ TORSION_BARRIER(mp_limb_t, mp_limb)
 #  define MP_HAVE_ASM_X64
 #endif
 
-#if defined(MP_HAVE_ASM_X64) && !defined(__clang__)
+#if defined(MP_HAVE_ASM_X64) && !defined(__clang__) && !defined(__TINYC__)
 /* For some reason clang sucks at inlining ASM, but
    is extremely good at generating 128 bit carry code.
    GCC is the exact opposite! */

@@ -227,18 +227,24 @@ static const unsigned long torsion__endian_check TORSION_UNUSED = 1;
  *
  * GCC inline assembly has been documented as
  * far back as 2.95[1]. It appears in the GCC
- * codebase as early as 2.0. However, early
- * implementations may not have the features
- * we require, so to be practical, we require
- * GNUC version 4.0.
+ * codebase as early as 2.0.
  *
  * [1] https://gcc.gnu.org/onlinedocs/gcc-2.95.3/gcc_4.html#SEC93
  */
-#if TORSION_GNUC_PREREQ(4, 0)
+#if (defined(__GNUC__) && __GNUC__ >= 2)                   \
+ || (defined(__INTEL_COMPILER) && __INTEL_COMPILER >= 810) \
+ || (defined(__SUNPRO_C) && __SUNPRO_C >= 0x5100)          \
+ || (defined(__SUNPRO_CC) && __SUNPRO_CC >= 0x5100)        \
+ || (defined(__PCC__) && __PCC__ >= 1)                     \
+ || (defined(__IBM_GCC_ASM))                               \
+ || (defined(__clang__))                                   \
+ || (defined(__TINYC__))                                   \
+ || (defined(__NWCC__))
 #  define TORSION_HAVE_ASM
-#  if defined(__amd64__) || defined(__x86_64__)
+#  if defined(__amd64__) || defined(__amd64) \
+   || defined(__x86_64__) || defined(__x86_64)
 #    define TORSION_HAVE_ASM_X64
-#  elif defined(__i386__)
+#  elif defined(__i386__) || defined(__i386) || defined(i386)
 #    define TORSION_HAVE_ASM_X86
 #  endif
 #endif
@@ -286,17 +292,22 @@ static const unsigned long torsion__endian_check TORSION_UNUSED = 1;
  * [1] https://github.com/bcoin-org/libtorsion/blob/2fe6cd3/src/tls.h
  */
 #if defined(__clang__) || defined(__llvm__)
-#  ifdef __has_extension
-#    if __has_extension(c_thread_local)
+#  ifdef __has_feature
+#    if __has_feature(c_thread_local)
+#      define TORSION_TLS _Thread_local
+#    elif __has_feature(cxx_thread_local)
+#      define TORSION_TLS thread_local
+#    elif __has_feature(tls)
 #      if defined(_MSC_VER) || defined(__BORLANDC__)
 #        define TORSION_TLS __declspec(thread)
-#      elif defined(__ANDROID__)
-#        if defined(__clang_major__) && __clang_major__ >= 5
-#          define TORSION_TLS __thread
-#        endif
 #      else
 #        define TORSION_TLS __thread
 #      endif
+#    endif
+#  endif
+#  if defined(__ANDROID__)
+#    if !defined(__clang_major__) || __clang_major__ < 5
+#      undef TORSION_TLS
 #    endif
 #  endif
 #elif defined(__INTEL_COMPILER)

@@ -103,7 +103,13 @@ endif()
 
 if(TORSION_ENABLE_ASM)
   check_c_source_compiles([=[
-    #if !defined(__i386__) || defined(__amd64__) || defined(__x86_64__)
+    #if defined(__amd64__) || defined(__amd64)
+    #  error "unexpected symbol"
+    #endif
+    #if defined(__x86_64__) || defined(__x86_64)
+    #  error "unexpected symbol"
+    #endif
+    #if !defined(__i386__) && !defined(__i386) && !defined(i386)
     #  error "not an x86 platform"
     #endif
     int main(void) {
@@ -133,8 +139,10 @@ endif()
 
 if(TORSION_ENABLE_ASM)
   check_c_source_compiles([=[
-    #if !defined(__amd64__) && !defined(__x86_64__)
-    #  error "not an x64 platform"
+    #if !defined(__amd64__) && !defined(__amd64)
+    #  if !defined(__x86_64__) && !defined(__x86_64)
+    #    error "not an x64 platform"
+    #  endif
     #endif
     int main(void) {
       unsigned long long z = 953;

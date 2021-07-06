@@ -159,13 +159,20 @@
 #    include <intrin.h> /* _ReadStatusReg */
 #    define HAVE_MRS
 #  endif
-#elif (defined(__GNUC__) && __GNUC__ >= 4) \
-   || (defined(__IBM_GCC_ASM))             \
-   || (defined(__TINYC__))
-#  if defined(__amd64__) || defined(__x86_64__)
+#elif (defined(__GNUC__) && __GNUC__ >= 2)                   \
+   || (defined(__INTEL_COMPILER) && __INTEL_COMPILER >= 810) \
+   || (defined(__SUNPRO_C) && __SUNPRO_C >= 0x5100)          \
+   || (defined(__SUNPRO_CC) && __SUNPRO_CC >= 0x5100)        \
+   || (defined(__PCC__) && __PCC__ >= 1)                     \
+   || (defined(__IBM_GCC_ASM))                               \
+   || (defined(__clang__))                                   \
+   || (defined(__TINYC__))                                   \
+   || (defined(__NWCC__))
+#  if defined(__amd64__) || defined(__amd64) \
+   || defined(__x86_64__) || defined(__x86_64)
 #    define HAVE_ASM_INTEL
 #    define HAVE_ASM_X64
-#  elif defined(__i386__)
+#  elif defined(__i386__) || defined(__i386) || defined(i386)
 #    define HAVE_ASM_INTEL
 #    define HAVE_ASM_X86
 #  elif defined(__aarch64__)
@@ -186,9 +193,6 @@
 #      define HAVE_ASM_RISCV64
 #      define riscv_word_t uint64_t
 #    endif
-#  endif
-#  ifndef __GNUC__
-#    define __volatile__ volatile
 #  endif
 #endif
 
@@ -226,8 +230,10 @@
 #    endif
 #  elif defined(HAVE_ASM_PPC) && defined(_AIX53) && !defined(__PASE__)
 #    include <sys/systemcfg.h> /* __power_set */
-#    ifndef __power_set
-#      define __power_set(x) (_system_configuration.implementation & (x))
+#    if defined(__power_set)
+#      define torsion_power_set __power_set
+#    else
+#      define torsion_power_set(x) (_system_configuration.implementation & (x))
 #    endif
 #    define HAVE_POWER_SET
 #  endif
@@ -514,7 +520,7 @@ torsion_has_rdrand(void) {
   return (torsion_auxval(AT_HWCAP2) >> 21) & 1;
 #elif defined(HAVE_ASM_PPC) && defined(HAVE_POWER_SET)
   /* Check for POWER9 or greater. */
-  return __power_set(0xffffffffU << 17) != 0;
+  return torsion_power_set(0xffffffffU << 17) != 0;
 #else
   return 0;
 #endif

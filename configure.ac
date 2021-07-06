@@ -191,7 +191,13 @@ AS_IF([test x"$enable_asm" = x"yes"], [
   AC_MSG_CHECKING(for x86 inline asm support)
   AC_COMPILE_IFELSE([
     AC_LANG_PROGRAM([[
-      #if !defined(__i386__) || defined(__amd64__) || defined(__x86_64__)
+      #if defined(__amd64__) || defined(__amd64)
+      #  error "unexpected symbol"
+      #endif
+      #if defined(__x86_64__) || defined(__x86_64)
+      #  error "unexpected symbol"
+      #endif
+      #if !defined(__i386__) && !defined(__i386) && !defined(i386)
       #  error "not an x86 platform"
       #endif
     ]], [[
@@ -223,8 +229,10 @@ AS_IF([test x"$enable_asm" = x"yes"], [
   AC_MSG_CHECKING(for x86_64 inline asm support)
   AC_COMPILE_IFELSE([
     AC_LANG_PROGRAM([[
-      #if !defined(__amd64__) && !defined(__x86_64__)
-      #  error "not an x64 platform"
+      #if !defined(__amd64__) && !defined(__amd64)
+      #  if !defined(__x86_64__) && !defined(__x86_64)
+      #    error "not an x64 platform"
+      #  endif
       #endif
     ]], [[
       unsigned long long z = 953;
