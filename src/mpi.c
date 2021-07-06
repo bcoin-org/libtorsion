@@ -48,14 +48,6 @@
 #include "mpi.h"
 
 /*
- * Sanity Checks
- */
-
-#if (-1 & 3) != 3
-#  error "Two's complement is required."
-#endif
-
-/*
  * Options
  */
 
@@ -64,7 +56,7 @@
 #undef MP_USE_DIV_3BY2
 
 /*
- * Types
+ * Wide Type
  */
 
 #if MP_LIMB_BITS == 64
@@ -80,33 +72,40 @@ typedef uint64_t mp_wide_t;
 TORSION_BARRIER(mp_limb_t, mp_limb)
 
 /*
- * Compat
+ * Compiler Compat
  */
 
-#if TORSION_GNUC_PREREQ(3, 4)
-#  define MP_GNUC_3_4
+/* Ignore the GCC impersonators. */
+#if defined(__GNUC__) && !defined(__clang__)        \
+                      && !defined(__llvm__)         \
+                      && !defined(__INTEL_COMPILER) \
+                      && !defined(__CC_ARM)         \
+                      && !defined(__PCC__)          \
+                      && !defined(__TINYC__)        \
+                      && !defined(__NWCC__)
+#  define MP_HAVE_GCC
 #endif
 
-#if defined(__has_builtin)
-#  define mp_has_builtin __has_builtin
-#else
-#  define mp_has_builtin(x) 0
+/* Ignore the MSVC impersonators. */
+#if defined(_MSC_VER) && !defined(__GNUC__)         \
+                      && !defined(__clang__)        \
+                      && !defined(__llvm__)         \
+                      && !defined(__MINGW32__)      \
+                      && !defined(__INTEL_COMPILER) \
+                      && !defined(__ICL)
+#  define MP_HAVE_MSVC
 #endif
 
 /*
- * Macros
+ * Alloca Compat
  */
-
-#define MP_MIN(x, y) ((x) < (y) ? (x) : (y))
-#define MP_MAX(x, y) ((x) > (y) ? (x) : (y))
-#define MP_ABS(x) ((x) < 0 ? -(x) : (x))
 
 #if defined(__TINYC__)
 /* include <stddef.h> */
 #  define mp_alloca alloca
 #elif defined(__NWCC__)
 /* Ignore. alloca is hacked in as malloc/free. */
-#elif defined(__GNUC__) || mp_has_builtin(__builtin_alloca)
+#elif defined(__GNUC__) || TORSION_HAS_BUILTIN(__builtin_alloca)
 #  define mp_alloca __builtin_alloca
 #elif defined(__sun) && defined(__SVR4)
 #  include <alloca.h>
@@ -136,6 +135,67 @@ TORSION_BARRIER(mp_limb_t, mp_limb)
 #  define mp_alloca __ALLOCA
 #endif
 
+/*
+ * Assembly Compat
+ */
+
+#if defined(TORSION_HAVE_ASM_X86) && MP_LIMB_BITS == 32
+#  define MP_HAVE_ASM_X86
+#endif
+
+#if defined(TORSION_HAVE_ASM_X64) && MP_LIMB_BITS == 64
+#  define MP_HAVE_ASM_X64
+#endif
+
+#if defined(MP_HAVE_MSVC) && _MSC_VER >= 1400 /* VS 2005 */
+/* Determine whether we can use MSVC inline ASM. */
+#  if MP_LIMB_BITS == 64 && (defined(_M_AMD64) || defined(_M_X64))
+#    pragma code_seg(".text")
+#    define MP_MSVC_CODE __declspec(allocate(".text") align(16))
+#    define MP_MSVC_ASM_X64
+#  elif MP_LIMB_BITS == 32 && defined(_M_IX86)
+#    define MP_MSVC_CDECL __cdecl
+#    define MP_MSVC_ASM_X86
+#  endif
+#endif
+
+#ifndef MP_MSVC_CDECL
+#  define MP_MSVC_CDECL
+#endif
+
+/*
+ * Backend Selection
+ */
+
+#if defined(MP_HAVE_ASM_X64) && defined(MP_HAVE_GCC)
+/* For some reason clang sucks at inlining ASM, but
+   is extremely good at generating 128 bit carry code.
+   GCC is the exact opposite! */
+#  define MP_FAST_ASM_X64
+#endif
+
+#if defined(MP_HAVE_WIDE) && defined(__clang__)
+/* Clang 5.0 and above produce efficient
+   carry code with wider types and shifts. */
+#  if defined(__apple_build_version__)
+#    if __apple_build_version__ >= 9020039
+#      define MP_FAST_WIDE
+#    endif
+#  elif defined(__clang_major__)
+#    if __clang_major__ >= 5
+#      define MP_FAST_WIDE
+#    endif
+#  endif
+#endif
+
+/*
+ * Macros
+ */
+
+#define MP_MIN(x, y) ((x) < (y) ? (x) : (y))
+#define MP_MAX(x, y) ((x) > (y) ? (x) : (y))
+#define MP_ABS(x) ((x) < 0 ? -(x) : (x))
+
 #if defined(mp_alloca)
 /* Max stack allocation size for alloca: */
 /* 1024 bytes (two 4096 bit RSA moduli). */
@@ -156,104 +216,38 @@ TORSION_BARRIER(mp_limb_t, mp_limb)
 #  define mp_free_vls(p, n) mp_free_str(p)
 #endif
 
-#if defined(TORSION_HAVE_ASM_X86) && MP_LIMB_BITS == 32
-#  define MP_HAVE_ASM_X86
-#endif
-
-#if defined(TORSION_HAVE_ASM_X64) && MP_LIMB_BITS == 64
-#  define MP_HAVE_ASM_X64
-#endif
-
-/* Ignore the GCC impersonators. */
-#if defined(__GNUC__) && !defined(__clang__)        \
-                      && !defined(__llvm__)         \
-                      && !defined(__INTEL_COMPILER) \
-                      && !defined(__CC_ARM)         \
-                      && !defined(__PCC__)          \
-                      && !defined(__TINYC__)        \
-                      && !defined(__NWCC__)
-#  define MP_HAVE_GCC
-#endif
-
-#if defined(MP_HAVE_ASM_X64) && defined(MP_HAVE_GCC)
-/* For some reason clang sucks at inlining ASM, but
-   is extremely good at generating 128 bit carry code.
-   GCC is the exact opposite! */
-#  define MP_GCC_ASM_X64
-#endif
-
-#if defined(__clang__) && defined(MP_HAVE_WIDE)
-/* Clang 5.0 and above produce efficient
-   carry code with wider types and shifts. */
-#  if defined(__apple_build_version__)
-#    if __apple_build_version__ >= 9020039
-#      define MP_HAVE_CLANG
-#    endif
-#  elif defined(__clang_major__)
-#    if __clang_major__ >= 5
-#      define MP_HAVE_CLANG
-#    endif
-#  endif
-#endif
-
-#if defined(_MSC_VER) && _MSC_VER >= 1400 /* VS 2005 */
-/* Intrinsics were added in VS 2005. */
-#  define MP_HAVE_INTRIN
-/* For ignoring the lookalikes when necessary. */
-#  if !defined(__clang__) && !defined(__MINGW32__)  \
-   && !defined(__INTEL_COMPILER) && !defined(__ICL)
-#    define MP_HAVE_MSVC
-#  endif
-#endif
-
-#ifdef MP_HAVE_MSVC
-/* Determine whether we can use MSVC inline ASM. */
-#  if MP_LIMB_BITS == 64 && (defined(_M_AMD64) || defined(_M_X64))
-#    pragma code_seg(".text")
-#    define MP_MSVC_CODE __declspec(allocate(".text") align(16))
-#    define MP_MSVC_ASM_X64
-#  elif MP_LIMB_BITS == 32 && defined(_M_IX86)
-#    define MP_MSVC_CDECL __cdecl
-#    define MP_MSVC_ASM_X86
-#  endif
-#endif
-
-#ifndef MP_MSVC_CDECL
-#  define MP_MSVC_CDECL
-#endif
-
 /*
  * Builtins
  */
 
 #if MP_LIMB_MAX == UINT_MAX
-#  if defined(MP_GNUC_3_4) || mp_has_builtin(__builtin_popcount)
+#  if TORSION_GNUC_PREREQ(3, 4) || TORSION_HAS_BUILTIN(__builtin_popcount)
 #    define mp_builtin_popcount __builtin_popcount
 #  endif
-#  if defined(MP_GNUC_3_4) || mp_has_builtin(__builtin_clz)
+#  if TORSION_GNUC_PREREQ(3, 4) || TORSION_HAS_BUILTIN(__builtin_clz)
 #    define mp_builtin_clz __builtin_clz
 #  endif
-#  if defined(MP_GNUC_3_4) || mp_has_builtin(__builtin_ctz)
+#  if TORSION_GNUC_PREREQ(3, 4) || TORSION_HAS_BUILTIN(__builtin_ctz)
 #    define mp_builtin_ctz __builtin_ctz
 #  endif
 #elif MP_LIMB_MAX == ULONG_MAX
-#  if defined(MP_GNUC_3_4) || mp_has_builtin(__builtin_popcountl)
+#  if TORSION_GNUC_PREREQ(3, 4) || TORSION_HAS_BUILTIN(__builtin_popcountl)
 #    define mp_builtin_popcount __builtin_popcountl
 #  endif
-#  if defined(MP_GNUC_3_4) || mp_has_builtin(__builtin_clzl)
+#  if TORSION_GNUC_PREREQ(3, 4) || TORSION_HAS_BUILTIN(__builtin_clzl)
 #    define mp_builtin_clz __builtin_clzl
 #  endif
-#  if defined(MP_GNUC_3_4) || mp_has_builtin(__builtin_ctzl)
+#  if TORSION_GNUC_PREREQ(3, 4) || TORSION_HAS_BUILTIN(__builtin_ctzl)
 #    define mp_builtin_ctz __builtin_ctzl
 #  endif
 #elif defined(ULLONG_MAX) && MP_LIMB_MAX == ULLONG_MAX
-#  if defined(MP_GNUC_3_4) || mp_has_builtin(__builtin_popcountll)
+#  if TORSION_GNUC_PREREQ(3, 4) || TORSION_HAS_BUILTIN(__builtin_popcountll)
 #    define mp_builtin_popcount __builtin_popcountll
 #  endif
-#  if defined(MP_GNUC_3_4) || mp_has_builtin(__builtin_clzll)
+#  if TORSION_GNUC_PREREQ(3, 4) || TORSION_HAS_BUILTIN(__builtin_clzll)
 #    define mp_builtin_clz __builtin_clzll
 #  endif
-#  if defined(MP_GNUC_3_4) || mp_has_builtin(__builtin_ctzll)
+#  if TORSION_GNUC_PREREQ(3, 4) || TORSION_HAS_BUILTIN(__builtin_ctzll)
 #    define mp_builtin_ctz __builtin_ctzll
 #  endif
 #endif
@@ -268,7 +262,7 @@ TORSION_BARRIER(mp_limb_t, mp_limb)
  * Intrinsics
  */
 
-#ifdef MP_HAVE_INTRIN
+#if defined(MP_HAVE_MSVC) && _MSC_VER >= 1400 /* VS 2005 */
 #  include <intrin.h>
 #  if MP_LIMB_MAX == ULONG_MAX
 #    pragma intrinsic(_BitScanReverse)
@@ -309,7 +303,7 @@ TORSION_BARRIER(mp_limb_t, mp_limb)
  * Arithmetic Macros
  */
 
-#if defined(MP_GCC_ASM_X64)
+#if defined(MP_FAST_ASM_X64)
 
 /* [z, c] = x + y */
 #define mp_add(z, c, x, y) \
@@ -548,7 +542,7 @@ TORSION_BARRIER(mp_limb_t, mp_limb)
       "r8"                    \
   )
 
-#elif defined(MP_HAVE_CLANG) /* !MP_GCC_ASM_X64 */
+#elif defined(MP_FAST_WIDE) /* !MP_FAST_ASM_X64 */
 
 /* [z, c] = x + y */
 #define mp_add(z, c, x, y) do {        \
@@ -620,7 +614,7 @@ TORSION_BARRIER(mp_limb_t, mp_limb)
   (z) = _w;                             \
 } while (0)
 
-#else /* !MP_HAVE_CLANG */
+#else /* !MP_FAST_WIDE */
 
 /* [z, c] = x + y */
 #define mp_add(z, c, x, y) do { \
@@ -814,7 +808,7 @@ TORSION_BARRIER(mp_limb_t, mp_limb)
   (z) = _z;                    \
 } while (0)
 
-#endif /* !MP_HAVE_CLANG */
+#endif /* !MP_FAST_WIDE */
 
 /*
  * MPN Macros
