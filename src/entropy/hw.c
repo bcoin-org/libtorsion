@@ -36,7 +36,7 @@
  *   https://openpowerfoundation.org/?resource_lib=power-isa-version-3-0
  *   https://stackoverflow.com/questions/5425506
  *
- * RISC-V (mentropy, pollentropy, rdcycle):
+ * RISC-V (sentropy, pollentropy, rdcycle):
  *   https://github.com/riscv/riscv-isa-manual/releases
  *   https://github.com/riscv/riscv-crypto/releases
  */
@@ -73,14 +73,17 @@
  * have `torsion_{rdrand,rdseed}` output the proper values.
  *
  * The very bleeding edge of RISC-V specifies `pollentropy`,
- * a pseudo-instruction which reads from a special `mentropy`
+ * a pseudo-instruction which reads from a special `sentropy`
  * register, similar to ARM. We have preliminary support for
- * this. `mentropy` can only be read in machine mode as of
- * right now, but this may change in the future (hopefully).
+ * this. `sentropy` can only be read in machine mode (and
+ * optionally supervisor mode) as of right now, but this may
+ * change in the future[1] (hopefully).
  *
  * For other hardware, torsion_rdrand and torsion_rdseed are
  * no-ops returning zero. torsion_has_rd{rand,seed} MUST be
  * checked before calling torsion_rd{rand,seed}.
+ *
+ * [1] https://github.com/riscv/riscv-crypto/issues/90
  */
 
 #include <stddef.h>
@@ -676,7 +679,7 @@ torsion_rdseed_step(step_word_t *z) {
   riscv_word_t w;
 
   __asm__ __volatile__ (
-    "csrrs %0, 0xf15, x0\n" /* MENTROPY */
+    "csrrs %0, 0xdbf, x0\n" /* SENTROPY */
     : "=r" (w)
   );
 
