@@ -90,6 +90,7 @@
 #include <stdint.h>
 #include <string.h>
 #include "entropy.h"
+#include "../internal.h"
 
 /*
  * Options
@@ -127,7 +128,7 @@
 #undef HAVE_AUXVAL
 
 /* Detect intrinsic and ASM support. */
-#if defined(_MSC_VER)
+#if defined(TORSION_MSVC)
 #  if defined(_M_IX86) || defined(_M_AMD64) || defined(_M_X64)
 #    if _MSC_VER >= 1400 /* VS 2005 */
 #      include <intrin.h> /* __cpuidex, __rdtsc */
@@ -162,15 +163,7 @@
 #    include <intrin.h> /* _ReadStatusReg */
 #    define HAVE_MRS
 #  endif
-#elif (defined(__GNUC__) && __GNUC__ >= 2)                   \
-   || (defined(__INTEL_COMPILER) && __INTEL_COMPILER >= 810) \
-   || (defined(__SUNPRO_C) && __SUNPRO_C >= 0x5100)          \
-   || (defined(__SUNPRO_CC) && __SUNPRO_CC >= 0x5100)        \
-   || (defined(__PCC__) && __PCC__ >= 1)                     \
-   || (defined(__IBM_GCC_ASM))                               \
-   || (defined(__clang__))                                   \
-   || (defined(__TINYC__))                                   \
-   || (defined(__NWCC__))
+#elif defined(TORSION_HAVE_ASM)
 #  if defined(__amd64__) || defined(__amd64) \
    || defined(__x86_64__) || defined(__x86_64)
 #    define HAVE_ASM_INTEL

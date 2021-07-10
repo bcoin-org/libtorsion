@@ -40,7 +40,7 @@ include(GNUInstallDirs)
 # Options
 #
 
-option(TORSION_ENABLE_ASM "Use inline x86-64 assembly if available" ON)
+option(TORSION_ENABLE_ASM "Use inline assembly if available" ON)
 option(TORSION_ENABLE_COVERAGE "Enable coverage" OFF)
 option(TORSION_ENABLE_DEBUG "Enable debug build" OFF)
 option(TORSION_ENABLE_INT128 "Use __int128 if available" ON)
@@ -89,91 +89,36 @@ endif()
 
 if(TORSION_ENABLE_ASM)
   check_c_source_compiles([=[
+#   if defined(__native_client__) || defined(__IBMC__) || defined(__IBMCPP__)
+#     error "inline asm not supported"
+#   endif
     int main(void) {
-      unsigned char ptr[32];
-      int x = 0;
-      __asm__ ("" : "+r" (x));
-      __asm__ __volatile__ ("" :: "r" (ptr) : "memory");
-      return x;
+      unsigned long z = 953;
+      unsigned long x = 109;
+      unsigned long y = 577;
+      unsigned long c;
+      __asm__ __volatile__ (
+        ""
+        : "+r" (z), "=&r" (c)
+#   if defined(__TINYC__)
+        : "rm" (x), "rm" (y)
+#   else
+        : "%rm" (x), "rm" (y)
+#   endif
+        : "cc", "memory"
+      );
+      return z & 0x7f;
     }
   ]=] TORSION_HAS_ASM)
 else()
   set(TORSION_HAS_ASM)
 endif()
 
-if(TORSION_ENABLE_ASM)
-  check_c_source_compiles([=[
-    #if defined(__amd64__) || defined(__amd64)
-    #  error "unexpected symbol"
-    #endif
-    #if defined(__x86_64__) || defined(__x86_64)
-    #  error "unexpected symbol"
-    #endif
-    #if !defined(__i386__) && !defined(__i386) && !defined(i386)
-    #  error "not an x86 platform"
-    #endif
-    int main(void) {
-      unsigned int z = 953;
-      unsigned int c = 709;
-      unsigned int x = 109;
-      unsigned int y = 577;
-      __asm__ __volatile__ (
-        "movl %k2, %%eax\\n"
-        "mull %k3\\n"
-        "addl %k4, %%eax\\n"
-        "adcl $0, %%edx\\n"
-        "subl %%eax, %k0\\n"
-        "adcl $0, %%edx\\n"
-        : "+r" (z), "=&d" (c)
-        : "%rm" (x), "rm" (y),
-          "rm" (c)
-        : "cc", "memory",
-          "eax"
-      );
-      return 0;
-    }
-  ]=] TORSION_HAS_ASM_X86)
-else()
-  set(TORSION_HAS_ASM_X86)
-endif()
-
-if(TORSION_ENABLE_ASM)
-  check_c_source_compiles([=[
-    #if !defined(__amd64__) && !defined(__amd64)
-    #  if !defined(__x86_64__) && !defined(__x86_64)
-    #    error "not an x64 platform"
-    #  endif
-    #endif
-    int main(void) {
-      unsigned long long z = 953;
-      unsigned long long c = 709;
-      unsigned long long x = 109;
-      unsigned long long y = 577;
-      __asm__ __volatile__ (
-        "movq %q2, %%rax\\n"
-        "mulq %q3\\n"
-        "addq %q4, %%rax\\n"
-        "adcq $0, %%rdx\\n"
-        "subq %%rax, %q0\\n"
-        "adcq $0, %%rdx\\n"
-        : "+r" (z), "=&d" (c)
-        : "%rm" (x), "rm" (y),
-          "rm" (c)
-        : "cc", "memory",
-          "rax"
-      );
-      return 0;
-    }
-  ]=] TORSION_HAS_ASM_X64)
-else()
-  set(TORSION_HAS_ASM_X64)
-endif()
-
 if(BUILD_TESTING AND NOT TORSION_WASM)
   check_c_source_compiles([=[
-    #include <sys/types.h>
-    #include <sys/wait.h>
-    #include <unistd.h>
+#   include <sys/types.h>
+#   include <sys/wait.h>
+#   include <unistd.h>
     int main(void) {
       unsigned char data[32];
       int pfds[2];
@@ -187,7 +132,7 @@ if(BUILD_TESTING AND NOT TORSION_WASM)
       waitpid(pid, &status, 0);
       WIFEXITED(status);
       WEXITSTATUS(status);
-      return 0;
+      return status;
     }
   ]=] TORSION_HAS_FORK)
 else()
@@ -196,15 +141,16 @@ endif()
 
 if(TORSION_ENABLE_INT128)
   check_c_source_compiles([=[
-    typedef char check_64bit_t[sizeof(void *) >= 8 ? 1 : -1];
     typedef signed __int128 xint128_t;
     typedef unsigned __int128 xuint128_t;
-    int main(void) {
-      xuint128_t r = 1;
-      r <<= 64;
-      r *= 113;
-      r >>= 65;
-      return r & 1;
+    typedef char check_voidptr_t[sizeof(void *) >= 8 ? 1 : -1];
+    typedef char check_int128_t[sizeof(xint128_t) == 16 ? 1 : -1];
+    typedef char check_uint128_t[sizeof(xuint128_t) == 16 ? 1 : -1];
+    int main(int argc, char **argv) {
+      xint128_t c = argv[0][0];
+      xuint128_t r = argc + c;
+      while (argc--) r *= r;
+      return r >> 121;
     }
   ]=] TORSION_HAS_INT128)
 else()
@@ -298,14 +244,6 @@ list(APPEND torsion_defines TORSION_HAVE_CONFIG)
 
 if(TORSION_HAS_ASM)
   list(APPEND torsion_defines TORSION_HAVE_ASM)
-endif()
-
-if(TORSION_HAS_ASM_X86)
-  list(APPEND torsion_defines TORSION_HAVE_ASM_X86)
-endif()
-
-if(TORSION_HAS_ASM_X64)
-  list(APPEND torsion_defines TORSION_HAVE_ASM_X64)
 endif()
 
 if(TORSION_ENABLE_COVERAGE)

@@ -8,13 +8,44 @@
 #define TORSION_INTERNAL_H
 
 /*
- * Clang Compat
+ * Language Standard
  */
 
-#if defined(__has_builtin)
-#  define TORSION_HAS_BUILTIN __has_builtin
+#if defined(__cplusplus)
+#  define TORSION_STDC_VERSION 0L
+#  define TORSION_CPP_VERSION (__cplusplus + 0L)
+#elif defined(__STDC_VERSION__)
+#  define TORSION_STDC_VERSION __STDC_VERSION__
+#  define TORSION_CPP_VERSION 0L
 #else
-#  define TORSION_HAS_BUILTIN(x) 0
+#  define TORSION_STDC_VERSION 0L
+#  define TORSION_CPP_VERSION 0L
+#endif
+
+/*
+ * Compiler Compat
+ */
+
+/* Ignore the GCC impersonators. */
+#if defined(__GNUC__) && !defined(__clang__)        \
+                      && !defined(__llvm__)         \
+                      && !defined(__INTEL_COMPILER) \
+                      && !defined(__ICC)            \
+                      && !defined(__CC_ARM)         \
+                      && !defined(__TINYC__)        \
+                      && !defined(__PCC__)          \
+                      && !defined(__NWCC__)
+#  define TORSION_GNUC __GNUC__
+#endif
+
+/* Ignore the MSVC impersonators. */
+#if defined(_MSC_VER) && !defined(__GNUC__)         \
+                      && !defined(__MINGW32__)      \
+                      && !defined(__clang__)        \
+                      && !defined(__llvm__)         \
+                      && !defined(__INTEL_COMPILER) \
+                      && !defined(__ICL)
+#  define TORSION_MSVC _MSC_VER
 #endif
 
 /*
@@ -26,6 +57,16 @@
     ((__GNUC__ << 16) + __GNUC_MINOR__ >= ((maj) << 16) + (min))
 #else
 #  define TORSION_GNUC_PREREQ(maj, min) 0
+#endif
+
+/*
+ * Clang Compat
+ */
+
+#if defined(__has_builtin)
+#  define TORSION_HAS_BUILTIN __has_builtin
+#else
+#  define TORSION_HAS_BUILTIN(x) 0
 #endif
 
 /*
@@ -97,21 +138,6 @@
 #endif
 
 /*
- * Language Standard
- */
-
-#if defined(__cplusplus)
-#  define TORSION_STDC_VERSION 0L
-#  define TORSION_CPP_VERSION (__cplusplus + 0L)
-#elif defined(__STDC_VERSION__)
-#  define TORSION_STDC_VERSION __STDC_VERSION__
-#  define TORSION_CPP_VERSION 0L
-#else
-#  define TORSION_STDC_VERSION 0L
-#  define TORSION_CPP_VERSION 0L
-#endif
-
-/*
  * Static Assertions
  */
 
@@ -123,7 +149,7 @@
 #  define STATIC_ASSERT(expr) static_assert(expr)
 #elif TORSION_CPP_VERSION >= 201103L
 #  define STATIC_ASSERT(expr) static_assert(expr, "check failed")
-#elif TORSION_GNUC_PREREQ(2, 7)
+#elif TORSION_GNUC_PREREQ(2, 7) || defined(__TINYC__)
 #  define STATIC_ASSERT_2(x, y) \
      typedef char torsion__assert_ ## y[(x) ? 1 : -1] __attribute__((unused))
 #  define STATIC_ASSERT_1(x, y) STATIC_ASSERT_2(x, y)
@@ -183,7 +209,7 @@
 
 #if TORSION_CPP_VERSION >= 201703L
 #  define TORSION_UNUSED [[maybe_unused]]
-#elif TORSION_GNUC_PREREQ(2, 7)
+#elif TORSION_GNUC_PREREQ(2, 7) || defined(__TINYC__)
 #  define TORSION_UNUSED __attribute__((unused))
 #else
 #  define TORSION_UNUSED
@@ -218,67 +244,41 @@ static const unsigned long torsion__endian_check TORSION_UNUSED = 1;
  * Start by clearing everything...
  */
 #undef TORSION_HAVE_ASM
-#undef TORSION_HAVE_ASM_X86
-#undef TORSION_HAVE_ASM_X64
 #undef TORSION_HAVE_INT128
 #undef TORSION_TLS
 
-/* Detect inline ASM support for x86-64.
+/* Detect inline ASM support.
  *
- * GCC inline assembly has been documented as
- * far back as 2.95[1]. It appears in the GCC
- * codebase as early as 2.0.
+ * The following compilers support GNU-style ASM:
  *
- * [1] https://gcc.gnu.org/onlinedocs/gcc-2.95.3/gcc_4.html#SEC93
+ *   - GNU C Compiler 2.0 (gcc)
+ *   - Clang (clang)
+ *   - Intel C Compiler (icc)
+ *   - Sun Studio 12.0
+ *   - IBM XL C (xlc)
+ *   - Tiny C Compiler (tcc)
+ *   - Portable C Compiler (pcc)
+ *   - Nils Weller's C Compiler (nwcc)
+ *
+ * gcc, clang, icc, pcc, and nwcc all define
+ * GNUC under the right circumstances. tcc
+ * defines GNUC on various BSDs, but not Linux.
+ *
+ * We do not check for legacy XL C (the AIX and
+ * z/OS assemblers are weird).
  */
-#if (defined(__GNUC__) && __GNUC__ >= 2)                   \
- || (defined(__INTEL_COMPILER) && __INTEL_COMPILER >= 810) \
- || (defined(__SUNPRO_C) && __SUNPRO_C >= 0x5100)          \
- || (defined(__SUNPRO_CC) && __SUNPRO_CC >= 0x5100)        \
- || (defined(__PCC__) && __PCC__ >= 1)                     \
- || (defined(__IBM_GCC_ASM))                               \
- || (defined(__clang__))                                   \
- || (defined(__TINYC__))                                   \
- || (defined(__NWCC__))
-#  define TORSION_HAVE_ASM
-#  if defined(__amd64__) || defined(__amd64) \
-   || defined(__x86_64__) || defined(__x86_64)
-#    define TORSION_HAVE_ASM_X64
-#  elif defined(__i386__) || defined(__i386) || defined(i386)
-#    define TORSION_HAVE_ASM_X86
+#if (defined(__GNUC__) && __GNUC__ >= 2)           \
+ || (defined(__clang__))                           \
+ || (defined(__INTEL_COMPILER))                    \
+ || (defined(__SUNPRO_C) && __SUNPRO_C >= 0x590)   \
+ || (defined(__SUNPRO_CC) && __SUNPRO_CC >= 0x590) \
+ || (defined(__TINYC__))
+#  ifndef __native_client__
+#    define TORSION_HAVE_ASM
 #  endif
 #endif
 
-/* Detect __int128 support.
- *
- * Support (verified on godbolt):
- *
- *   x86-64:
- *     gcc 4.6.4 (gnuc 4.6.4)
- *     clang 3.1 (gnuc 4.2.1) (__SIZEOF_INT128__ defined in 3.3.0)
- *     icc <=13.0.1 (gnuc 4.7.0) (__SIZEOF_INT128__ defined in 16.0.3)
- *
- *   arm64:
- *     gcc <=5.4.0 (gnuc 5.4.9)
- *     clang <=9.0 (gnuc 4.2.1)
- *
- *   mips64:
- *     gcc <=5.4.0 (gnuc 5.4.9)
- *
- *   power64:
- *     gcc <=6.3.0 (gnuc 6.3.0)
- *     clang <=12.0.0 (gnuc 4.2.1)
- *     at <=12.0.0 (gnuc 8.2.1)
- *
- *   riscv64:
- *     gcc <=8.2.0 (gnuc 8.2.0)
- *     clang <=12.0.0 (gnuc 4.2.1)
- *
- *   wasm32/wasm64:
- *     clang <=7.0 (gnuc 4.2.1)
- *
- * See: https://stackoverflow.com/a/54815033
- */
+/* Detect __int128 support. */
 #if defined(__GNUC__) && defined(__SIZEOF_INT128__)  \
                       && defined(__SIZEOF_POINTER__)
 #  if __SIZEOF_POINTER__ >= 8
@@ -321,9 +321,9 @@ static const unsigned long torsion__endian_check TORSION_UNUSED = 1;
 #    define TORSION_TLS __thread
 #  endif
 #elif defined(__GNUC__) && !defined(__CC_ARM)  \
+                        && !defined(__TINYC__) \
                         && !defined(__PCC__)   \
-                        && !defined(__NWCC__)  \
-                        && !defined(__TINYC__)
+                        && !defined(__NWCC__)
 #  if TORSION_GNUC_PREREQ(4, 3)
 #    define TORSION_TLS __thread
 #  elif TORSION_GNUC_PREREQ(3, 3)
@@ -355,8 +355,6 @@ static const unsigned long torsion__endian_check TORSION_UNUSED = 1;
 /* Allow some overrides. */
 #ifdef TORSION_NO_ASM
 #  undef TORSION_HAVE_ASM
-#  undef TORSION_HAVE_ASM_X86
-#  undef TORSION_HAVE_ASM_X64
 #endif
 
 #ifdef TORSION_NO_INT128
@@ -365,11 +363,6 @@ static const unsigned long torsion__endian_check TORSION_UNUSED = 1;
 
 #ifdef TORSION_NO_TLS
 #  undef TORSION_TLS
-#endif
-
-#ifdef TORSION_FORCE_32BIT
-#  undef TORSION_HAVE_ASM_X64
-#  undef TORSION_HAVE_INT128
 #endif
 
 #endif /* !TORSION_HAVE_CONFIG */

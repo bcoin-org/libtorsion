@@ -63,7 +63,7 @@ dnl
 AC_ARG_ENABLE(
   asm,
   AS_HELP_STRING([--enable-asm],
-                 [use inline x86-64 assembly if available [default=yes]]),
+                 [use inline assembly if available [default=yes]]),
   [enable_asm=$enableval],
   [enable_asm=yes]
 )
@@ -148,9 +148,9 @@ AS_CASE([$target_os], [darwin*], [
 
 AC_COMPILE_IFELSE([
   AC_LANG_PROGRAM([[]], [[
-    #if !defined(__xlC__) && !defined(__ibmxl__)
-    #  error "not an ibm compiler"
-    #endif
+#   if !defined(__xlC__) && !defined(__ibmxl__)
+#     error "not an ibm compiler"
+#   endif
   ]])
 ], [
   AX_CHECK_COMPILE_FLAG([-qthreaded], [CFLAGS="$CFLAGS -qthreaded"])
@@ -162,8 +162,6 @@ dnl Feature Testing
 dnl
 
 has_asm=no
-has_asm_x86=no
-has_asm_x64=no
 has_int128=no
 has_fork=no
 has_memcheck=no
@@ -175,11 +173,25 @@ has_zlib=no
 AS_IF([test x"$enable_asm" = x"yes"], [
   AC_MSG_CHECKING(for inline asm support)
   AC_COMPILE_IFELSE([
-    AC_LANG_PROGRAM([[]], [[
-      unsigned char ptr[32];
-      int x = 0;
-      __asm__ ("" : "+r" (x));
-      __asm__ __volatile__ ("" :: "r" (ptr) : "memory");
+    AC_LANG_PROGRAM([[
+#     if defined(__native_client__) || defined(__IBMC__) || defined(__IBMCPP__)
+#       error "inline asm not supported"
+#     endif
+    ]], [[
+      unsigned long z = 953;
+      unsigned long x = 109;
+      unsigned long y = 577;
+      unsigned long c;
+      __asm__ __volatile__ (
+        ""
+        : "+r" (z), "=&r" (c)
+#     if defined(__TINYC__)
+        : "rm" (x), "rm" (y)
+#     else
+        : "%rm" (x), "rm" (y)
+#     endif
+        : "cc", "memory"
+      );
     ]])
   ], [
     has_asm=yes
@@ -187,85 +199,13 @@ AS_IF([test x"$enable_asm" = x"yes"], [
   AC_MSG_RESULT([$has_asm])
 ])
 
-AS_IF([test x"$enable_asm" = x"yes"], [
-  AC_MSG_CHECKING(for x86 inline asm support)
-  AC_COMPILE_IFELSE([
-    AC_LANG_PROGRAM([[
-      #if defined(__amd64__) || defined(__amd64)
-      #  error "unexpected symbol"
-      #endif
-      #if defined(__x86_64__) || defined(__x86_64)
-      #  error "unexpected symbol"
-      #endif
-      #if !defined(__i386__) && !defined(__i386) && !defined(i386)
-      #  error "not an x86 platform"
-      #endif
-    ]], [[
-      unsigned int z = 953;
-      unsigned int c = 709;
-      unsigned int x = 109;
-      unsigned int y = 577;
-      __asm__ __volatile__ (
-        "movl %k2, %%eax\n"
-        "mull %k3\n"
-        "addl %k4, %%eax\n"
-        "adcl \@S|@0, %%edx\n"
-        "subl %%eax, %k0\n"
-        "adcl \@S|@0, %%edx\n"
-        : "+r" (z), "=&d" (c)
-        : "%rm" (x), "rm" (y),
-          "rm" (c)
-        : "cc", "memory",
-          "eax"
-      );
-    ]])
-  ], [
-    has_asm_x86=yes
-  ])
-  AC_MSG_RESULT([$has_asm_x86])
-])
-
-AS_IF([test x"$enable_asm" = x"yes"], [
-  AC_MSG_CHECKING(for x86_64 inline asm support)
-  AC_COMPILE_IFELSE([
-    AC_LANG_PROGRAM([[
-      #if !defined(__amd64__) && !defined(__amd64)
-      #  if !defined(__x86_64__) && !defined(__x86_64)
-      #    error "not an x64 platform"
-      #  endif
-      #endif
-    ]], [[
-      unsigned long long z = 953;
-      unsigned long long c = 709;
-      unsigned long long x = 109;
-      unsigned long long y = 577;
-      __asm__ __volatile__ (
-        "movq %q2, %%rax\n"
-        "mulq %q3\n"
-        "addq %q4, %%rax\n"
-        "adcq \@S|@0, %%rdx\n"
-        "subq %%rax, %q0\n"
-        "adcq \@S|@0, %%rdx\n"
-        : "+r" (z), "=&d" (c)
-        : "%rm" (x), "rm" (y),
-          "rm" (c)
-        : "cc", "memory",
-          "rax"
-      );
-    ]])
-  ], [
-    has_asm_x64=yes
-  ])
-  AC_MSG_RESULT([$has_asm_x64])
-])
-
 AS_IF([test x"$enable_tests" = x"yes" -a x"$WASM" != x"yes"], [
   AC_MSG_CHECKING(for fork support)
   AC_COMPILE_IFELSE([
     AC_LANG_PROGRAM([[
-      #include <sys/types.h>
-      #include <sys/wait.h>
-      #include <unistd.h>
+#     include <sys/types.h>
+#     include <sys/wait.h>
+#     include <unistd.h>
     ]], [[
       unsigned char data[32];
       int pfds[2];
@@ -290,9 +230,11 @@ AS_IF([test x"$enable_int128" = x"yes"], [
   AC_MSG_CHECKING(for int128 support)
   AC_COMPILE_IFELSE([
     AC_LANG_PROGRAM([[
-      typedef char check_64bit_t[sizeof(void *) >= 8 ? 1 : -1];
       typedef signed __int128 xint128_t;
       typedef unsigned __int128 xuint128_t;
+      typedef char check_voidptr_t[sizeof(void *) >= 8 ? 1 : -1];
+      typedef char check_int128_t[sizeof(xint128_t) == 16 ? 1 : -1];
+      typedef char check_uint128_t[sizeof(xuint128_t) == 16 ? 1 : -1];
     ]], [[
       xuint128_t r = 1;
       r <<= 64;
@@ -408,14 +350,6 @@ AS_IF([test x"$has_asm" = x"yes"], [
   AC_DEFINE(TORSION_HAVE_ASM)
 ])
 
-AS_IF([test x"$has_asm_x86" = x"yes"], [
-  AC_DEFINE(TORSION_HAVE_ASM_X86)
-])
-
-AS_IF([test x"$has_asm_x64" = x"yes"], [
-  AC_DEFINE(TORSION_HAVE_ASM_X64)
-])
-
 AS_IF([test x"$enable_coverage" = x"yes"], [
   AC_DEFINE(TORSION_COVERAGE)
 ])
@@ -496,8 +430,6 @@ AC_OUTPUT
 AC_MSG_NOTICE([Build Options:
 
   asm          = $has_asm
-  asm_x86      = $has_asm_x86
-  asm_x64      = $has_asm_x64
   coverage     = $enable_coverage
   debug        = $enable_debug
   emscripten   = $EMSCRIPTEN

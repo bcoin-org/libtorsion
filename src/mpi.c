@@ -72,31 +72,6 @@ typedef uint64_t mp_wide_t;
 TORSION_BARRIER(mp_limb_t, mp_limb)
 
 /*
- * Compiler Compat
- */
-
-/* Ignore the GCC impersonators. */
-#if defined(__GNUC__) && !defined(__clang__)        \
-                      && !defined(__llvm__)         \
-                      && !defined(__INTEL_COMPILER) \
-                      && !defined(__CC_ARM)         \
-                      && !defined(__PCC__)          \
-                      && !defined(__TINYC__)        \
-                      && !defined(__NWCC__)
-#  define MP_HAVE_GCC
-#endif
-
-/* Ignore the MSVC impersonators. */
-#if defined(_MSC_VER) && !defined(__GNUC__)         \
-                      && !defined(__clang__)        \
-                      && !defined(__llvm__)         \
-                      && !defined(__MINGW32__)      \
-                      && !defined(__INTEL_COMPILER) \
-                      && !defined(__ICL)
-#  define MP_HAVE_MSVC
-#endif
-
-/*
  * Alloca Compat
  */
 
@@ -139,15 +114,20 @@ TORSION_BARRIER(mp_limb_t, mp_limb)
  * Assembly Compat
  */
 
-#if defined(TORSION_HAVE_ASM_X86) && MP_LIMB_BITS == 32
-#  define MP_HAVE_ASM_X86
+#if defined(TORSION_HAVE_ASM)
+#  if defined(__amd64__) || defined(__amd64) \
+   || defined(__x86_64__) || defined(__x86_64)
+#    if MP_LIMB_BITS == 64
+#      define MP_HAVE_ASM_X64
+#    endif
+#  elif defined(__i386__) || defined(__i386) || defined(i386)
+#    if MP_LIMB_BITS == 32
+#      define MP_HAVE_ASM_X86
+#    endif
+#  endif
 #endif
 
-#if defined(TORSION_HAVE_ASM_X64) && MP_LIMB_BITS == 64
-#  define MP_HAVE_ASM_X64
-#endif
-
-#if defined(MP_HAVE_MSVC) && _MSC_VER >= 1400 /* VS 2005 */
+#if defined(TORSION_MSVC) && _MSC_VER >= 1400 /* VS 2005 */
 /* Determine whether we can use MSVC inline ASM. */
 #  if MP_LIMB_BITS == 64 && (defined(_M_AMD64) || defined(_M_X64))
 #    pragma code_seg(".text")
@@ -167,7 +147,7 @@ TORSION_BARRIER(mp_limb_t, mp_limb)
  * Backend Selection
  */
 
-#if defined(MP_HAVE_ASM_X64) && defined(MP_HAVE_GCC)
+#if defined(MP_HAVE_ASM_X64) && defined(TORSION_GNUC)
 /* For some reason clang sucks at inlining ASM, but
    is extremely good at generating 128 bit carry code.
    GCC is the exact opposite! */
@@ -262,7 +242,7 @@ TORSION_BARRIER(mp_limb_t, mp_limb)
  * Intrinsics
  */
 
-#if defined(MP_HAVE_MSVC) && _MSC_VER >= 1400 /* VS 2005 */
+#if defined(TORSION_MSVC) && _MSC_VER >= 1400 /* VS 2005 */
 #  include <intrin.h>
 #  if MP_LIMB_MAX == ULONG_MAX
 #    pragma intrinsic(_BitScanReverse)
@@ -287,7 +267,7 @@ TORSION_BARRIER(mp_limb_t, mp_limb)
 #  endif
 #endif
 
-#if defined(MP_HAVE_MSVC) && _MSC_VER >= 1920 /* VS 2019 RTM */
+#if defined(TORSION_MSVC) && _MSC_VER >= 1920 /* VS 2019 RTM */
 #  include <immintrin.h>
 #  if MP_LIMB_BITS == 32 && MP_LIMB_MAX == UINT_MAX && defined(_M_IX86)
 #    pragma intrinsic(_udiv64)
