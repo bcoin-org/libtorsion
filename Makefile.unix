@@ -6,19 +6,15 @@
 #
 #  Static:
 #
-#    $ make -f Makefile.unix libtorsion.a
+#    $ make -f Makefile.unix
 #
-#  Shared:
+#  Shared (Linux):
 #
 #    $ make -f Makefile.unix FPIC=-fPIC libtorsion.so
 #
 #  Shared (Darwin):
 #
 #    $ make -f Makefile.unix SHARED_SUFFIX=.dylib FPIC=-fPIC libtorsion.dylib
-#
-#  Static (AIX+XL):
-#
-#    $ make -f Makefile.unix libtorsion.a
 #
 #  Shared (AIX+XL):
 #
@@ -383,7 +379,7 @@ INSTDIR = $(DESTDIR)$(PREFIX)
 
 $(STATIC_NAME): $(LIB_OBJECTS)
 	$(AR) $(ARFLAGS) $@ $(LIB_OBJECTS)
-	@test x'$(RANLIB)' != x && $(RANLIB) $@ || true
+	@x='$(RANLIB)'; $${x:-ranlib} $@ 2> /dev/null || true
 
 $(SHARED_NAME): $(LIB_OBJECTS)
 	$(CC) -o $@ $(SHARED) $(FPIC) $(LDFLAGS) $(LIB_OBJECTS) $(LIBS)
@@ -398,7 +394,8 @@ $(CTGRIND_NAME): $(CTGRIND_OBJECTS) $(STATIC_NAME)
 	$(CC) -o $@ $(LDFLAGS) $(CTGRIND_OBJECTS) $(STATIC_NAME) $(LIBS)
 
 libtorsion.pc: libtorsion.pc.in
-	sed $(CONFIG) < $@.in > $@
+	@echo 'sed < $@.in > $@'
+	@sed $(CONFIG) < $@.in > $@
 
 bench: $(BENCH_NAME)
 	@./$(BENCH_NAME)
