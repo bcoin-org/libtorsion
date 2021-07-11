@@ -10,15 +10,15 @@
 #
 #  Shared:
 #
-#    $ make -f Makefile.posix libtorsion.so
+#    $ make -f Makefile.posix FPIC=-fPIC libtorsion.so
 #
 #  Shared (Darwin):
 #
-#    $ make -f Makefile.posix SHARED_SUFFIX=.dylib libtorsion.dylib
+#    $ make -f Makefile.posix SHARED_SUFFIX=.dylib FPIC=-fPIC libtorsion.dylib
 #
 #  Static (AIX+XL):
 #
-#    $ make -f Makefile.posix FPIC= libtorsion.a
+#    $ make -f Makefile.posix libtorsion.a
 #
 #  Shared (AIX+XL):
 #
@@ -34,7 +34,7 @@ LIB_PREFIX = lib
 STATIC_SUFFIX = .a
 SHARED_SUFFIX = .so
 EXE_SUFFIX =
-FPIC = -fPIC
+FPIC =
 SHARED = -shared
 
 DESTDIR =
@@ -59,52 +59,52 @@ CTGRIND_NAME = torsion_ctgrind$(EXE_SUFFIX)
 # Library
 #
 
-LIB_OBJECTS = src/aead.o        \
-              src/asn1.o        \
-              src/cipher.o      \
-              src/ecc.o         \
-              src/encoding.o    \
-              src/entropy/env.o \
-              src/entropy/hrt.o \
-              src/entropy/hw.o  \
-              src/entropy/sys.o \
-              src/drbg.o        \
-              src/dsa.o         \
-              src/hash.o        \
-              src/ies.o         \
-              src/internal.o    \
-              src/kdf.o         \
-              src/mac.o         \
-              src/mpi.o         \
-              src/rand.o        \
-              src/rsa.o         \
-              src/stream.o      \
-              src/util.o
+LIB_OBJECTS = aead.o     \
+              asn1.o     \
+              cipher.o   \
+              ecc.o      \
+              encoding.o \
+              env.o      \
+              hrt.o      \
+              hw.o       \
+              sys.o      \
+              drbg.o     \
+              dsa.o      \
+              hash.o     \
+              ies.o      \
+              internal.o \
+              kdf.o      \
+              mac.o      \
+              mpi.o      \
+              rand.o     \
+              rsa.o      \
+              stream.o   \
+              util.o
 
-LIB_CFLAGS = -I./include          \
-             -DTORSION_BUILD      \
-             -DTORSION_HAVE_RNG   \
-             $(CPPFLAGS)          \
-             $(FPIC)              \
+LIB_CFLAGS = -I./include        \
+             -DTORSION_BUILD    \
+             -DTORSION_HAVE_RNG \
+             $(CPPFLAGS)        \
+             $(FPIC)            \
              $(CFLAGS)
 
 #
 # Benchmarks
 #
 
-BENCH_OBJECTS = test/bench.o test/hrtime.o test/utils.o
+BENCH_OBJECTS = bench.o hrtime.o utils.o
 
 #
 # Tests
 #
 
-TEST_OBJECTS = test/test.o test/utils.o
+TEST_OBJECTS = test.o utils.o
 
 #
 # CTGrind
 #
 
-CTGRIND_OBJECTS = test/ctgrind.o test/utils.o
+CTGRIND_OBJECTS = ctgrind.o utils.o
 
 #
 # Cleanup
@@ -133,324 +133,239 @@ OUTPUT = $(LIB_OBJECTS)     \
 all: $(STATIC_NAME) libtorsion.pc $(BENCH_NAME) $(TEST_NAME)
 
 #
-# Public Headers
-#
-
-include/torsion/aead.h: include/torsion/common.h \
-                        include/torsion/mac.h    \
-                        include/torsion/stream.h
-	@touch $@
-
-include/torsion/cipher.h: include/torsion/common.h
-	@touch $@
-
-include/torsion/common.h: ;
-
-include/torsion/drbg.h: include/torsion/common.h \
-                        include/torsion/cipher.h \
-                        include/torsion/hash.h
-	@touch $@
-
-include/torsion/dsa.h: include/torsion/common.h
-	@touch $@
-
-include/torsion/ecc.h: include/torsion/common.h
-	@touch $@
-
-include/torsion/encoding.h: include/torsion/common.h
-	@touch $@
-
-include/torsion/hash.h: include/torsion/common.h
-	@touch $@
-
-include/torsion/ies.h: include/torsion/common.h
-	@touch $@
-
-include/torsion/kdf.h: include/torsion/common.h \
-                       include/torsion/hash.h
-	@touch $@
-
-include/torsion/mac.h: include/torsion/common.h
-	@touch $@
-
-include/torsion/rand.h: include/torsion/common.h
-	@touch $@
-
-include/torsion/rsa.h: include/torsion/common.h \
-                       include/torsion/hash.h
-	@touch $@
-
-include/torsion/stream.h: include/torsion/common.h
-	@touch $@
-
-include/torsion/util.h: include/torsion/common.h
-	@touch $@
-
-#
-# Private Headers
-#
-
-src/asn1.h: src/mpi.h
-	@touch $@
-
-src/bf.h: include/torsion/cipher.h
-	@touch $@
-
-src/bio.h: src/internal.h
-	@touch $@
-
-src/entropy/entropy.h: ;
-
-src/fields/p192.h: src/fields/p192_32.h src/fields/p192_64.h
-	@touch $@
-
-src/fields/p224.h: src/fields/p224_32.h src/fields/p224_64.h
-	@touch $@
-
-src/fields/p256.h: src/fields/p256_32.h src/fields/p256_64.h
-	@touch $@
-
-src/fields/p384.h: src/fields/p384_32.h src/fields/p384_64.h
-	@touch $@
-
-src/fields/p521.h: src/fields/p521_32.h src/fields/p521_64.h
-	@touch $@
-
-src/fields/secp256k1.h: src/fields/secp256k1_32.h src/fields/secp256k1_64.h
-	@touch $@
-
-src/fields/p25519.h: src/fields/p25519_32.h src/fields/p25519_64.h
-	@touch $@
-
-src/fields/p448.h: src/fields/p448_32.h src/fields/p448_64.h
-	@touch $@
-
-src/fields/p251.h: src/fields/p251_32.h src/fields/p251_64.h
-	@touch $@
-
-src/fields/scalar.h: ;
-
-src/internal.h: ;
-
-src/mpi.h: include/torsion/common.h
-	@touch $@
-
-src/subgroups.h: ;
-
-#
-# Test Headers
-#
-
-test/ecc_internal.h: ;
-
-test/mpi_internal.h: test/data/jacobi_vectors.h    \
-                     test/data/kronecker_vectors.h \
-                     test/data/mpz_vectors.h       \
-                     test/data/prime_vectors.h
-	@touch $@
-
-test/utils.h: ;
-
-#
 # Library Objects
 #
 
-src/aead.o: src/aead.c include/torsion/aead.h   \
-                       include/torsion/mac.h    \
-                       include/torsion/stream.h \
+aead.o: src/aead.c include/torsion/aead.h   \
+                   include/torsion/common.h \
+                   include/torsion/mac.h    \
+                   include/torsion/stream.h \
+                   include/torsion/util.h   \
+                   src/bio.h                \
+                   src/internal.h
+	$(CC) -c $(LIB_CFLAGS) src/aead.c
+
+asn1.o: src/asn1.c include/torsion/common.h \
+                   src/asn1.h               \
+                   src/internal.h           \
+                   src/mpi.h
+	$(CC) -c $(LIB_CFLAGS) src/asn1.c
+
+cipher.o: src/cipher.c include/torsion/cipher.h \
+                       include/torsion/common.h \
                        include/torsion/util.h   \
+                       src/bf.h                 \
                        src/bio.h                \
                        src/internal.h
-	$(CC) -o $@ -c $(LIB_CFLAGS) src/aead.c
+	$(CC) -c $(LIB_CFLAGS) src/cipher.c
 
-src/asn1.o: src/asn1.c src/asn1.h     \
-                       src/internal.h \
-                       src/mpi.h
-	$(CC) -o $@ -c $(LIB_CFLAGS) src/asn1.c
+ecc.o: src/ecc.c include/torsion/cipher.h  \
+                 include/torsion/common.h  \
+                 include/torsion/drbg.h    \
+                 include/torsion/ecc.h     \
+                 include/torsion/hash.h    \
+                 include/torsion/util.h    \
+                 src/asn1.h                \
+                 src/fields/p192_64.h      \
+                 src/fields/p192.h         \
+                 src/fields/p224_64.h      \
+                 src/fields/p224.h         \
+                 src/fields/p251_64.h      \
+                 src/fields/p251.h         \
+                 src/fields/p25519_64.h    \
+                 src/fields/p25519.h       \
+                 src/fields/p256_64.h      \
+                 src/fields/p256.h         \
+                 src/fields/p384_64.h      \
+                 src/fields/p384.h         \
+                 src/fields/p448_64.h      \
+                 src/fields/p448.h         \
+                 src/fields/p521_64.h      \
+                 src/fields/p521.h         \
+                 src/fields/scalar.h       \
+                 src/fields/secp256k1_64.h \
+                 src/fields/secp256k1.h    \
+                 src/internal.h            \
+                 src/mpi.h                 \
+                 src/subgroups.h
+	$(CC) -c $(LIB_CFLAGS) src/ecc.c
 
-src/cipher.o: src/cipher.c include/torsion/cipher.h \
-                           include/torsion/util.h   \
-                           src/bf.h                 \
-                           src/bio.h
-	$(CC) -o $@ -c $(LIB_CFLAGS) src/cipher.c
-
-src/drbg.o: src/drbg.c include/torsion/cipher.h \
-                       include/torsion/drbg.h   \
-                       include/torsion/hash.h   \
-                       src/bio.h                \
-                       src/internal.h
-	$(CC) -o $@ -c $(LIB_CFLAGS) src/drbg.c
-
-src/dsa.o: src/dsa.c include/torsion/drbg.h \
-                     include/torsion/dsa.h  \
-                     include/torsion/hash.h \
-                     include/torsion/util.h \
-                     src/asn1.h             \
-                     src/internal.h         \
-                     src/mpi.h
-	$(CC) -o $@ -c $(LIB_CFLAGS) src/dsa.c
-
-src/ecc.o: src/ecc.c include/torsion/drbg.h \
-                     include/torsion/ecc.h  \
-                     include/torsion/hash.h \
-                     include/torsion/util.h \
-                     src/asn1.h             \
-                     src/internal.h         \
-                     src/mpi.h              \
-                     src/fields/scalar.h    \
-                     src/fields/p192.h      \
-                     src/fields/p224.h      \
-                     src/fields/p256.h      \
-                     src/fields/p384.h      \
-                     src/fields/p521.h      \
-                     src/fields/secp256k1.h \
-                     src/fields/p25519.h    \
-                     src/fields/p448.h      \
-                     src/fields/p251.h      \
-                     src/subgroups.h        \
-                     test/ecc_internal.h
-	$(CC) -o $@ -c $(LIB_CFLAGS) src/ecc.c
-
-src/encoding.o: src/encoding.c include/torsion/encoding.h \
-                               src/internal.h
-	$(CC) -o $@ -c $(LIB_CFLAGS) src/encoding.c
-
-src/entropy/env.o: src/entropy/env.c include/torsion/hash.h \
-                                     src/entropy/entropy.h
-	$(CC) -o $@ -c $(LIB_CFLAGS) src/entropy/env.c
-
-src/entropy/hrt.o: src/entropy/hrt.c src/entropy/entropy.h
-	$(CC) -o $@ -c $(LIB_CFLAGS) src/entropy/hrt.c
-
-src/entropy/hw.o: src/entropy/hw.c src/entropy/entropy.h \
-                                   src/internal.h
-	$(CC) -o $@ -c $(LIB_CFLAGS) src/entropy/hw.c
-
-src/entropy/sys.o: src/entropy/sys.c src/entropy/entropy.h
-	$(CC) -o $@ -c $(LIB_CFLAGS) src/entropy/sys.c
-
-src/hash.o: src/hash.c include/torsion/hash.h \
-                       include/torsion/util.h \
-                       src/bio.h              \
-                       src/internal.h
-	$(CC) -o $@ -c $(LIB_CFLAGS) src/hash.c
-
-src/ies.o: src/ies.c include/torsion/ies.h    \
-                     include/torsion/mac.h    \
-                     include/torsion/stream.h \
-                     include/torsion/util.h
-	$(CC) -o $@ -c $(LIB_CFLAGS) src/ies.c
-
-src/internal.o: src/internal.c src/internal.h
-	$(CC) -o $@ -c $(LIB_CFLAGS) src/internal.c
-
-src/kdf.o: src/kdf.c include/torsion/cipher.h \
-                     include/torsion/hash.h   \
-                     include/torsion/kdf.h    \
-                     include/torsion/util.h   \
-                     src/bf.h                 \
-                     src/bio.h                \
-                     src/internal.h
-	$(CC) -o $@ -c $(LIB_CFLAGS) src/kdf.c
-
-src/mac.o: src/mac.c include/torsion/mac.h \
-                     src/bio.h             \
-                     src/internal.h
-	$(CC) -o $@ -c $(LIB_CFLAGS) src/mac.c
-
-src/mpi.o: src/mpi.c src/internal.h      \
-                     src/mpi.h           \
-                     test/mpi_internal.h
-	$(CC) -o $@ -c $(LIB_CFLAGS) src/mpi.c
-
-src/rand.o: src/rand.c include/torsion/hash.h   \
-                       include/torsion/rand.h   \
-                       include/torsion/stream.h \
-                       include/torsion/util.h   \
-                       src/entropy/entropy.h    \
-                       src/internal.h
-	$(CC) -o $@ -c $(LIB_CFLAGS) src/rand.c
-
-src/rsa.o: src/rsa.c include/torsion/drbg.h \
-                     include/torsion/hash.h \
-                     include/torsion/rsa.h  \
-                     include/torsion/util.h \
-                     src/asn1.h             \
-                     src/bio.h              \
-                     src/internal.h         \
-                     src/mpi.h
-	$(CC) -o $@ -c $(LIB_CFLAGS) src/rsa.c
-
-src/stream.o: src/stream.c include/torsion/stream.h \
-                           include/torsion/util.h   \
-                           src/bio.h                \
+encoding.o: src/encoding.c include/torsion/common.h   \
+                           include/torsion/encoding.h \
                            src/internal.h
-	$(CC) -o $@ -c $(LIB_CFLAGS) src/stream.c
+	$(CC) -c $(LIB_CFLAGS) src/encoding.c
 
-src/util.o: src/util.c include/torsion/util.h \
-                       src/bio.h              \
+env.o: src/entropy/env.c include/torsion/common.h \
+                         include/torsion/hash.h   \
+                         src/entropy/entropy.h
+	$(CC) -c $(LIB_CFLAGS) src/entropy/env.c
+
+hrt.o: src/entropy/hrt.c src/entropy/entropy.h
+	$(CC) -c $(LIB_CFLAGS) src/entropy/hrt.c
+
+hw.o: src/entropy/hw.c src/entropy/entropy.h \
                        src/internal.h
-	$(CC) -o $@ -c $(LIB_CFLAGS) src/util.c
+	$(CC) -c $(LIB_CFLAGS) src/entropy/hw.c
+
+sys.o: src/entropy/sys.c src/entropy/entropy.h
+	$(CC) -c $(LIB_CFLAGS) src/entropy/sys.c
+
+drbg.o: src/drbg.c include/torsion/cipher.h \
+                   include/torsion/common.h \
+                   include/torsion/drbg.h   \
+                   include/torsion/hash.h   \
+                   src/bio.h                \
+                   src/internal.h
+	$(CC) -c $(LIB_CFLAGS) src/drbg.c
+
+dsa.o: src/dsa.c include/torsion/cipher.h \
+                 include/torsion/common.h \
+                 include/torsion/drbg.h   \
+                 include/torsion/dsa.h    \
+                 include/torsion/hash.h   \
+                 include/torsion/util.h   \
+                 src/asn1.h               \
+                 src/internal.h           \
+                 src/mpi.h
+	$(CC) -c $(LIB_CFLAGS) src/dsa.c
+
+hash.o: src/hash.c include/torsion/common.h \
+                   include/torsion/hash.h   \
+                   include/torsion/util.h   \
+                   src/bio.h                \
+                   src/internal.h
+	$(CC) -c $(LIB_CFLAGS) src/hash.c
+
+ies.o: src/ies.c include/torsion/common.h \
+                 include/torsion/ies.h    \
+                 include/torsion/mac.h    \
+                 include/torsion/stream.h \
+                 include/torsion/util.h
+	$(CC) -c $(LIB_CFLAGS) src/ies.c
+
+internal.o: src/internal.c src/internal.h
+	$(CC) -c $(LIB_CFLAGS) src/internal.c
+
+kdf.o: src/kdf.c include/torsion/cipher.h \
+                 include/torsion/common.h \
+                 include/torsion/hash.h   \
+                 include/torsion/kdf.h    \
+                 include/torsion/util.h   \
+                 src/bf.h                 \
+                 src/bio.h                \
+                 src/internal.h
+	$(CC) -c $(LIB_CFLAGS) src/kdf.c
+
+mac.o: src/mac.c include/torsion/common.h \
+                 include/torsion/mac.h    \
+                 src/bio.h                \
+                 src/internal.h
+	$(CC) -c $(LIB_CFLAGS) src/mac.c
+
+mpi.o: src/mpi.c include/torsion/common.h \
+                 src/internal.h           \
+                 src/mpi.h
+	$(CC) -c $(LIB_CFLAGS) src/mpi.c
+
+rand.o: src/rand.c include/torsion/common.h \
+                   include/torsion/hash.h   \
+                   include/torsion/rand.h   \
+                   include/torsion/stream.h \
+                   include/torsion/util.h   \
+                   src/entropy/entropy.h    \
+                   src/internal.h
+	$(CC) -c $(LIB_CFLAGS) src/rand.c
+
+rsa.o: src/rsa.c include/torsion/cipher.h \
+                 include/torsion/common.h \
+                 include/torsion/drbg.h   \
+                 include/torsion/hash.h   \
+                 include/torsion/rsa.h    \
+                 include/torsion/util.h   \
+                 src/asn1.h               \
+                 src/bio.h                \
+                 src/internal.h           \
+                 src/mpi.h
+	$(CC) -c $(LIB_CFLAGS) src/rsa.c
+
+stream.o: src/stream.c include/torsion/common.h \
+                       include/torsion/stream.h \
+                       include/torsion/util.h   \
+                       src/bio.h                \
+                       src/internal.h
+	$(CC) -c $(LIB_CFLAGS) src/stream.c
+
+util.o: src/util.c include/torsion/common.h \
+                   include/torsion/util.h   \
+                   src/bio.h                \
+                   src/internal.h
+	$(CC) -c $(LIB_CFLAGS) src/util.c
 
 #
 # Test Objects
 #
 
-test/bench.o: test/bench.c include/torsion/drbg.h \
-                           include/torsion/ecc.h  \
-                           include/torsion/hash.h  \
-                           include/torsion/rsa.h  \
-                           include/torsion/stream.h  \
-                           include/torsion/util.h  \
-                           test/utils.h
-	$(CC) -o $@ -c $(LIB_CFLAGS) test/bench.c
+bench.o: test/bench.c include/torsion/cipher.h \
+                      include/torsion/common.h \
+                      include/torsion/drbg.h   \
+                      include/torsion/ecc.h    \
+                      include/torsion/hash.h   \
+                      include/torsion/rsa.h    \
+                      include/torsion/stream.h \
+                      include/torsion/util.h   \
+                      test/utils.h
+	$(CC) -c $(LIB_CFLAGS) test/bench.c
 
-test/ctgrind.o: test/ctgrind.c include/torsion/ecc.h  \
-                               include/torsion/util.h \
-                               test/utils.h
-	$(CC) -o $@ -c $(LIB_CFLAGS) test/ctgrind.c
+ctgrind.o: test/ctgrind.c include/torsion/common.h \
+                          include/torsion/ecc.h    \
+                          include/torsion/util.h   \
+                          test/utils.h
+	$(CC) -c $(LIB_CFLAGS) test/ctgrind.c
 
-test/hrtime.o: test/hrtime.c src/entropy/hrt.c
-	$(CC) -o $@ -c $(LIB_CFLAGS) test/hrtime.c
+hrtime.o: test/hrtime.c src/entropy/entropy.h \
+                        src/entropy/hrt.c
+	$(CC) -c $(LIB_CFLAGS) test/hrtime.c
 
-test/test.o: test/test.c include/torsion/aead.h          \
-                         include/torsion/drbg.h          \
-                         include/torsion/dsa.h           \
-                         include/torsion/ecc.h           \
-                         include/torsion/encoding.h      \
-                         include/torsion/hash.h          \
-                         include/torsion/ies.h           \
-                         include/torsion/kdf.h           \
-                         include/torsion/mac.h           \
-                         include/torsion/rand.h          \
-                         include/torsion/rsa.h           \
-                         include/torsion/stream.h        \
-                         include/torsion/util.h          \
-                         test/utils.h                    \
-                         test/data/bip340_vectors.h      \
-                         test/data/bipschnorr_vectors.h  \
-                         test/data/chacha20_vectors.h    \
-                         test/data/chachapoly_vectors.h  \
-                         test/data/cipher_aead_vectors.h \
-                         test/data/cipher_mode_vectors.h \
-                         test/data/cipher_vectors.h      \
-                         test/data/ctr_drbg_vectors.h    \
-                         test/data/dsa_vectors.h         \
-                         test/data/eb2k_vectors.h        \
-                         test/data/ecdsa_vectors.h       \
-                         test/data/eddsa_vectors.h       \
-                         test/data/hash_drbg_vectors.h   \
-                         test/data/hash_vectors.h        \
-                         test/data/hkdf_vectors.h        \
-                         test/data/hmac_drbg_vectors.h   \
-                         test/data/hmac_vectors.h        \
-                         test/data/pbkdf2_vectors.h      \
-                         test/data/poly1305_vectors.h    \
-                         test/data/rsa_vectors.h
-	$(CC) -o $@ -c $(LIB_CFLAGS) test/test.c
+test.o: test/test.c include/torsion/aead.h          \
+                    include/torsion/cipher.h        \
+                    include/torsion/common.h        \
+                    include/torsion/drbg.h          \
+                    include/torsion/dsa.h           \
+                    include/torsion/ecc.h           \
+                    include/torsion/encoding.h      \
+                    include/torsion/hash.h          \
+                    include/torsion/ies.h           \
+                    include/torsion/kdf.h           \
+                    include/torsion/mac.h           \
+                    include/torsion/rand.h          \
+                    include/torsion/rsa.h           \
+                    include/torsion/stream.h        \
+                    include/torsion/util.h          \
+                    test/data/bip340_vectors.h      \
+                    test/data/bipschnorr_vectors.h  \
+                    test/data/chacha20_vectors.h    \
+                    test/data/chachapoly_vectors.h  \
+                    test/data/cipher_aead_vectors.h \
+                    test/data/cipher_mode_vectors.h \
+                    test/data/cipher_vectors.h      \
+                    test/data/ctr_drbg_vectors.h    \
+                    test/data/dsa_vectors.h         \
+                    test/data/eb2k_vectors.h        \
+                    test/data/ecdsa_vectors.h       \
+                    test/data/eddsa_vectors.h       \
+                    test/data/hash_drbg_vectors.h   \
+                    test/data/hash_vectors.h        \
+                    test/data/hkdf_vectors.h        \
+                    test/data/hmac_drbg_vectors.h   \
+                    test/data/hmac_vectors.h        \
+                    test/data/pbkdf2_vectors.h      \
+                    test/data/poly1305_vectors.h    \
+                    test/data/rsa_vectors.h         \
+                    test/utils.h
+	$(CC) -c $(LIB_CFLAGS) test/test.c
 
-test/utils.o: test/utils.c test/utils.h
-	$(CC) -o $@ -c $(LIB_CFLAGS) test/utils.c
+utils.o: test/utils.c test/utils.h
+	$(CC) -c $(LIB_CFLAGS) test/utils.c
 
 #
 # Native

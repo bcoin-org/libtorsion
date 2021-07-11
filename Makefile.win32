@@ -1,0 +1,355 @@
+# Makefile.win32 - win32 makefile for libtorsion (nmake.exe)
+# Copyright (c) 2020, Christopher Jeffrey (MIT License).
+# https://github.com/bcoin-org/libtorsion
+
+#
+# Options
+#
+
+CC = cl.exe
+LD = link.exe
+AR = lib.exe
+ARFLAGS =
+
+#
+# Binary Names
+#
+
+STATIC_NAME = torsion_static.lib
+SHARED_NAME = torsion.lib
+DLL_NAME = torsion.dll
+BENCH_NAME = torsion_bench.exe
+TEST_NAME = torsion_test.exe
+
+#
+# Library
+#
+
+LIB_OBJECTS = aead.obj     \
+              asn1.obj     \
+              cipher.obj   \
+              ecc.obj      \
+              encoding.obj \
+              env.obj      \
+              hrt.obj      \
+              hw.obj       \
+              sys.obj      \
+              drbg.obj     \
+              dsa.obj      \
+              hash.obj     \
+              ies.obj      \
+              internal.obj \
+              kdf.obj      \
+              mac.obj      \
+              mpi.obj      \
+              rand.obj     \
+              rsa.obj      \
+              stream.obj   \
+              util.obj
+
+LIB_CFLAGS = /nologo            \
+             /I./include        \
+             /W3                \
+             /wd4146            \
+             /wd4244            \
+             /wd4267            \
+             /wd4334            \
+             /MD /O2 /Ob2       \
+             /DNDEBUG           \
+             /DWIN32            \
+             /D_WINDOWS         \
+             /DTORSION_BUILD    \
+             /DTORSION_HAVE_RNG \
+             $(CPPFLAGS)        \
+             $(CFLAGS)
+
+LIB_ARFLAGS = /NOLOGO $(ARFLAGS)
+LIB_LDFLAGS = /NOLOGO /INCREMENTAL:NO $(LDFLAGS)
+LIB_EXEFLAGS = $(LIB_LDFLAGS) /SUBSYSTEM:CONSOLE
+LIB_LIBS = kernel32.lib user32.lib advapi32.lib $(LIBS)
+
+#
+# Benchmarks
+#
+
+BENCH_OBJECTS = bench.obj hrtime.obj utils.obj
+
+#
+# Tests
+#
+
+TEST_OBJECTS = test.obj utils.obj
+
+#
+# Cleanup
+#
+
+OUTPUT = $(LIB_OBJECTS)   \
+         $(BENCH_OBJECTS) \
+         $(TEST_OBJECTS)  \
+         $(STATIC_NAME)   \
+         $(SHARED_NAME)   \
+         $(DLL_NAME)      \
+         $(BENCH_NAME)    \
+         $(TEST_NAME)
+
+#
+# Rules
+#
+
+all: $(STATIC_NAME) $(SHARED_NAME) $(BENCH_NAME) $(TEST_NAME)
+
+#
+# Library Objects
+#
+
+aead.obj: src/aead.c include/torsion/aead.h   \
+                     include/torsion/common.h \
+                     include/torsion/mac.h    \
+                     include/torsion/stream.h \
+                     include/torsion/util.h   \
+                     src/bio.h                \
+                     src/internal.h
+	$(CC) /c $(LIB_CFLAGS) src/aead.c
+
+asn1.obj: src/asn1.c include/torsion/common.h \
+                     src/asn1.h               \
+                     src/internal.h           \
+                     src/mpi.h
+	$(CC) /c $(LIB_CFLAGS) src/asn1.c
+
+cipher.obj: src/cipher.c include/torsion/cipher.h \
+                         include/torsion/common.h \
+                         include/torsion/util.h   \
+                         src/bf.h                 \
+                         src/bio.h                \
+                         src/internal.h
+	$(CC) /c $(LIB_CFLAGS) src/cipher.c
+
+ecc.obj: src/ecc.c include/torsion/cipher.h  \
+                   include/torsion/common.h  \
+                   include/torsion/drbg.h    \
+                   include/torsion/ecc.h     \
+                   include/torsion/hash.h    \
+                   include/torsion/util.h    \
+                   src/asn1.h                \
+                   src/fields/p192_64.h      \
+                   src/fields/p192.h         \
+                   src/fields/p224_64.h      \
+                   src/fields/p224.h         \
+                   src/fields/p251_64.h      \
+                   src/fields/p251.h         \
+                   src/fields/p25519_64.h    \
+                   src/fields/p25519.h       \
+                   src/fields/p256_64.h      \
+                   src/fields/p256.h         \
+                   src/fields/p384_64.h      \
+                   src/fields/p384.h         \
+                   src/fields/p448_64.h      \
+                   src/fields/p448.h         \
+                   src/fields/p521_64.h      \
+                   src/fields/p521.h         \
+                   src/fields/scalar.h       \
+                   src/fields/secp256k1_64.h \
+                   src/fields/secp256k1.h    \
+                   src/internal.h            \
+                   src/mpi.h                 \
+                   src/subgroups.h
+	$(CC) /c $(LIB_CFLAGS) src/ecc.c
+
+encoding.obj: src/encoding.c include/torsion/common.h   \
+                             include/torsion/encoding.h \
+                             src/internal.h
+	$(CC) /c $(LIB_CFLAGS) src/encoding.c
+
+env.obj: src/entropy/env.c include/torsion/common.h \
+                           include/torsion/hash.h   \
+                           src/entropy/entropy.h
+	$(CC) /c $(LIB_CFLAGS) src/entropy/env.c
+
+hrt.obj: src/entropy/hrt.c src/entropy/entropy.h
+	$(CC) /c $(LIB_CFLAGS) src/entropy/hrt.c
+
+hw.obj: src/entropy/hw.c src/entropy/entropy.h \
+                         src/internal.h
+	$(CC) /c $(LIB_CFLAGS) src/entropy/hw.c
+
+sys.obj: src/entropy/sys.c src/entropy/entropy.h
+	$(CC) /c $(LIB_CFLAGS) src/entropy/sys.c
+
+drbg.obj: src/drbg.c include/torsion/cipher.h \
+                     include/torsion/common.h \
+                     include/torsion/drbg.h   \
+                     include/torsion/hash.h   \
+                     src/bio.h                \
+                     src/internal.h
+	$(CC) /c $(LIB_CFLAGS) src/drbg.c
+
+dsa.obj: src/dsa.c include/torsion/cipher.h \
+                   include/torsion/common.h \
+                   include/torsion/drbg.h   \
+                   include/torsion/dsa.h    \
+                   include/torsion/hash.h   \
+                   include/torsion/util.h   \
+                   src/asn1.h               \
+                   src/internal.h           \
+                   src/mpi.h
+	$(CC) /c $(LIB_CFLAGS) src/dsa.c
+
+hash.obj: src/hash.c include/torsion/common.h \
+                     include/torsion/hash.h   \
+                     include/torsion/util.h   \
+                     src/bio.h                \
+                     src/internal.h
+	$(CC) /c $(LIB_CFLAGS) src/hash.c
+
+ies.obj: src/ies.c include/torsion/common.h \
+                   include/torsion/ies.h    \
+                   include/torsion/mac.h    \
+                   include/torsion/stream.h \
+                   include/torsion/util.h
+	$(CC) /c $(LIB_CFLAGS) src/ies.c
+
+internal.obj: src/internal.c src/internal.h
+	$(CC) /c $(LIB_CFLAGS) src/internal.c
+
+kdf.obj: src/kdf.c include/torsion/cipher.h \
+                   include/torsion/common.h \
+                   include/torsion/hash.h   \
+                   include/torsion/kdf.h    \
+                   include/torsion/util.h   \
+                   src/bf.h                 \
+                   src/bio.h                \
+                   src/internal.h
+	$(CC) /c $(LIB_CFLAGS) src/kdf.c
+
+mac.obj: src/mac.c include/torsion/common.h \
+                   include/torsion/mac.h    \
+                   src/bio.h                \
+                   src/internal.h
+	$(CC) /c $(LIB_CFLAGS) src/mac.c
+
+mpi.obj: src/mpi.c include/torsion/common.h \
+                   src/internal.h           \
+                   src/mpi.h
+	$(CC) /c $(LIB_CFLAGS) src/mpi.c
+
+rand.obj: src/rand.c include/torsion/common.h \
+                     include/torsion/hash.h   \
+                     include/torsion/rand.h   \
+                     include/torsion/stream.h \
+                     include/torsion/util.h   \
+                     src/entropy/entropy.h    \
+                     src/internal.h
+	$(CC) /c $(LIB_CFLAGS) src/rand.c
+
+rsa.obj: src/rsa.c include/torsion/cipher.h \
+                   include/torsion/common.h \
+                   include/torsion/drbg.h   \
+                   include/torsion/hash.h   \
+                   include/torsion/rsa.h    \
+                   include/torsion/util.h   \
+                   src/asn1.h               \
+                   src/bio.h                \
+                   src/internal.h           \
+                   src/mpi.h
+	$(CC) /c $(LIB_CFLAGS) src/rsa.c
+
+stream.obj: src/stream.c include/torsion/common.h \
+                         include/torsion/stream.h \
+                         include/torsion/util.h   \
+                         src/bio.h                \
+                         src/internal.h
+	$(CC) /c $(LIB_CFLAGS) src/stream.c
+
+util.obj: src/util.c include/torsion/common.h \
+                     include/torsion/util.h   \
+                     src/bio.h                \
+                     src/internal.h
+	$(CC) /c $(LIB_CFLAGS) src/util.c
+
+#
+# Test Objects
+#
+
+bench.obj: test/bench.c include/torsion/cipher.h \
+                        include/torsion/common.h \
+                        include/torsion/drbg.h   \
+                        include/torsion/ecc.h    \
+                        include/torsion/hash.h   \
+                        include/torsion/rsa.h    \
+                        include/torsion/stream.h \
+                        include/torsion/util.h   \
+                        test/utils.h
+	$(CC) /c $(LIB_CFLAGS) test/bench.c
+
+hrtime.obj: test/hrtime.c src/entropy/entropy.h \
+                          src/entropy/hrt.c
+	$(CC) /c $(LIB_CFLAGS) test/hrtime.c
+
+test.obj: test/test.c include/torsion/aead.h          \
+                      include/torsion/cipher.h        \
+                      include/torsion/common.h        \
+                      include/torsion/drbg.h          \
+                      include/torsion/dsa.h           \
+                      include/torsion/ecc.h           \
+                      include/torsion/encoding.h      \
+                      include/torsion/hash.h          \
+                      include/torsion/ies.h           \
+                      include/torsion/kdf.h           \
+                      include/torsion/mac.h           \
+                      include/torsion/rand.h          \
+                      include/torsion/rsa.h           \
+                      include/torsion/stream.h        \
+                      include/torsion/util.h          \
+                      test/data/bip340_vectors.h      \
+                      test/data/bipschnorr_vectors.h  \
+                      test/data/chacha20_vectors.h    \
+                      test/data/chachapoly_vectors.h  \
+                      test/data/cipher_aead_vectors.h \
+                      test/data/cipher_mode_vectors.h \
+                      test/data/cipher_vectors.h      \
+                      test/data/ctr_drbg_vectors.h    \
+                      test/data/dsa_vectors.h         \
+                      test/data/eb2k_vectors.h        \
+                      test/data/ecdsa_vectors.h       \
+                      test/data/eddsa_vectors.h       \
+                      test/data/hash_drbg_vectors.h   \
+                      test/data/hash_vectors.h        \
+                      test/data/hkdf_vectors.h        \
+                      test/data/hmac_drbg_vectors.h   \
+                      test/data/hmac_vectors.h        \
+                      test/data/pbkdf2_vectors.h      \
+                      test/data/poly1305_vectors.h    \
+                      test/data/rsa_vectors.h         \
+                      test/utils.h
+	$(CC) /c $(LIB_CFLAGS) test/test.c
+
+utils.obj: test/utils.c test/utils.h
+	$(CC) /c $(LIB_CFLAGS) test/utils.c
+
+#
+# Native
+#
+
+$(STATIC_NAME): $(LIB_OBJECTS)
+	$(AR) /OUT:$@ $(LIB_ARFLAGS) $(LIB_OBJECTS) $(LIBS)
+
+$(DLL_NAME): $(LIB_OBJECTS)
+	$(LD) /DLL /OUT:$@ $(LIB_LDFLAGS) $(LIB_OBJECTS) $(LIB_LIBS)
+
+$(SHARED_NAME): $(DLL_NAME)
+
+$(BENCH_NAME): $(BENCH_OBJECTS) $(STATIC_NAME)
+	$(LD) /OUT:$@ $(LIB_EXEFLAGS) $(BENCH_OBJECTS) $(STATIC_NAME) $(LIB_LIBS)
+
+$(TEST_NAME): $(TEST_OBJECTS) $(STATIC_NAME)
+	$(LD) /OUT:$@ $(LIB_EXEFLAGS) $(TEST_OBJECTS) $(STATIC_NAME) $(LIB_LIBS)
+
+bench: $(BENCH_NAME)
+	@./$(BENCH_NAME)
+
+test: $(TEST_NAME)
+	@./$(TEST_NAME)
+
+check: test
