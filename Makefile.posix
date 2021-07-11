@@ -485,7 +485,7 @@ libtorsion.pc: libtorsion.pc.in
 bench: $(BENCH_NAME)
 	@./$(BENCH_NAME)
 
-check test: $(TEST_NAME)
+test: $(TEST_NAME)
 	@./$(TEST_NAME)
 
 ctgrind: $(CTGRIND_NAME)
@@ -493,6 +493,8 @@ ctgrind: $(CTGRIND_NAME)
 
 valgrind: $(TEST_NAME)
 	@valgrind --leak-check=full --error-exitcode=1 ./$(TEST_NAME)
+
+check: test
 
 clean:
 	rm -f $(OUTPUT)
@@ -551,8 +553,10 @@ torsion_test.wasm: $(TEST_OBJECTS) $(LIB_OBJECTS)
 bench_wasm: torsion_bench.wasm
 	@./scripts/wasi-run torsion_bench.wasm
 
-check_wasm test_wasm: torsion_test.wasm
+test_wasm: torsion_test.wasm
 	@./scripts/wasi-run torsion_test.wasm
+
+check_wasm: test_wasm
 
 #
 # Emscripten
@@ -585,5 +589,7 @@ torsion_test.js: $(TEST_OBJECTS) $(LIB_OBJECTS)
 bench_js: torsion_bench.js
 	@node torsion_bench.js
 
-check_js test_js: torsion_test.js
+test_js: torsion_test.js
 	@node torsion_test.js
+
+check_js: test_js
