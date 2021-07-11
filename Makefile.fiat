@@ -6,7 +6,6 @@ FIAT = $(HOME)/fiat-crypto
 SAT = $(FIAT)/src/ExtractionOCaml/saturated_solinas
 UNSAT = $(FIAT)/src/ExtractionOCaml/unsaturated_solinas
 MONT = $(FIAT)/src/ExtractionOCaml/word_by_word_montgomery
-SED = sed
 
 OUTPUT = src/fields/p192_32.h      \
          src/fields/p192_64.h      \
@@ -96,12 +95,12 @@ U_FUNCS_251 = add             \
               to_bytes        \
               from_bytes
 
-AFTER = $(SED) -e 's;$(FIAT);;g'                                  \
-               -e 's/unsigned __int128/torsion_uint128_t/g'       \
-               -e 's/signed __int128/torsion_int128_t/g'          \
-               -e 's/x2 & arg3/fe_word_barrier(x2) \& arg3/g'     \
-               -e 's/(~x2) & arg2/fe_word_barrier(~x2) \& arg2/g' \
-               -e '$$ d' < $@ > $@.tmp;                           \
+AFTER = sed -e 's;$(FIAT);;g'                                  \
+            -e 's/unsigned __int128/torsion_uint128_t/g'       \
+            -e 's/signed __int128/torsion_int128_t/g'          \
+            -e 's/x2 & arg3/fe_word_barrier(x2) \& arg3/g'     \
+            -e 's/(~x2) & arg2/fe_word_barrier(~x2) \& arg2/g' \
+            -e '$$ d' < $@ > $@.tmp;                           \
         mv -f $@.tmp $@;
 
 all: $(OUTPUT)
@@ -191,6 +190,4 @@ src/fields/.fiat-head: $(UNSAT) $(MONT)
 	(cd $(FIAT) && git rev-parse HEAD) > $@
 
 clean:
-	$(RM) $(OUTPUT) $(OUTPUT:.h=.h.tmp)
-
-.PHONY: all clean
+	rm -f $(OUTPUT) $(OUTPUT:.h=.h.tmp)

@@ -141,10 +141,10 @@ test_sources = test/test.c test/utils.c
 #
 
 if EMSCRIPTEN
-INITIAL_MEMORY ?= 16777216
-MAX_MEMORY ?= 2147483648
-STACK_SIZE ?= 5242880
-ENVIRONMENT ?= node
+INITIAL_MEMORY = 16777216
+MAX_MEMORY = 2147483648
+STACK_SIZE = 5242880
+ENVIRONMENT = node
 LOG_COMPILER = node
 
 torsion_ldflags = -s SINGLE_FILE=1                    \
@@ -177,10 +177,10 @@ torsion_test_js_LDFLAGS = $(torsion_ldflags)
 TESTS += torsion_test.js
 
 bench: torsion_bench.js
-	@node $^
+	@node torsion_bench.js
 
 test: torsion_test.js
-	@node $^
+	@node torsion_test.js
 endif ENABLE_TESTS
 endif EMSCRIPTEN
 
@@ -189,9 +189,9 @@ endif EMSCRIPTEN
 #
 
 if WASI
-INITIAL_MEMORY ?= 16777216
-MAX_MEMORY ?= 2147483648
-STACK_SIZE ?= 5242880
+INITIAL_MEMORY = 16777216
+MAX_MEMORY = 2147483648
+STACK_SIZE = 5242880
 LOG_COMPILER = $(top_srcdir)/scripts/wasi-run
 WASI_SYSROOT = $(WASI)/share/wasi-sysroot
 
@@ -234,10 +234,10 @@ torsion_test_wasm_LDFLAGS = $(torsion_ldflags)
 TESTS += torsion_test.wasm
 
 bench: torsion_bench.wasm
-	@./scripts/wasi-run $^
+	@./scripts/wasi-run torsion_bench.wasm
 
 test: torsion_test.wasm
-	@./scripts/wasi-run $^
+	@./scripts/wasi-run torsion_test.wasm
 endif ENABLE_TESTS
 endif WASI
 
@@ -290,21 +290,21 @@ torsion_ctgrind_LDADD = libtorsion.la
 endif
 
 bench: torsion_bench
-	@./$^
+	@./torsion_bench
 
 test: torsion_test
-	@./$^
+	@./torsion_test
 
 test_static: torsion_test_static
-	@./$^
+	@./torsion_test_static
 
 if ENABLE_CTGRIND
 ctgrind: torsion_ctgrind
-	@./libtool --mode=execute valgrind --leak-check=full --error-exitcode=1 ./$^
+	@./libtool --mode=execute valgrind --leak-check=full --error-exitcode=1 ./torsion_ctgrind
 endif
 
 valgrind: torsion_test
-	@./libtool --mode=execute valgrind --leak-check=full --error-exitcode=1 ./$^
+	@./libtool --mode=execute valgrind --leak-check=full --error-exitcode=1 ./torsion_test
 
 endif ENABLE_TESTS
 endif NATIVE
