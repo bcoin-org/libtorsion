@@ -832,6 +832,7 @@ sha512_write_static_env(sha512_t *hash) {
   sha512_write_file(hash, "/proc/cmdline");
   sha512_write_file(hash, "/proc/cpuinfo");
   sha512_write_file(hash, "/proc/version");
+  sha512_write_file(hash, "/proc/self/cmdline");
 #endif /* __linux__ */
   sha512_write_file(hash, "/etc/passwd");
   sha512_write_file(hash, "/etc/group");
