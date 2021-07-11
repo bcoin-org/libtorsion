@@ -11,14 +11,13 @@ include(CheckCSourceCompiles)
 
 function(check_c_thread_local_storage name)
   set(${name} "" PARENT_SCOPE)
-  set(CMAKE_TLS_LIBS_INIT "" PARENT_SCOPE)
 
   set(CMAKE_REQUIRED_FLAGS "")
   set(CMAKE_REQUIRED_LIBRARIES "")
 
   # XL requires a special flag. Don't ask me why.
   # Note that CMake handles -qthreaded for us.
-  if(CMAKE_C_COMPILER_ID MATCHES "^XL")
+  if(CMAKE_C_COMPILER_ID MATCHES "^XL$|^VisualAge$|^zOS$")
     check_c_compiler_flag(-qtls CMAKE_HAVE_XL_TLS)
     if(CMAKE_HAVE_XL_TLS)
       set(CMAKE_REQUIRED_FLAGS "-qtls")
@@ -60,10 +59,6 @@ function(check_c_thread_local_storage name)
 
     if(${varname})
       set(${name} ${keyword} PARENT_SCOPE)
-
-      if(CMAKE_REQUIRED_LIBRARIES)
-        set(CMAKE_TLS_LIBS_INIT "${CMAKE_REQUIRED_LIBRARIES}" PARENT_SCOPE)
-      endif()
 
       if(NOT TARGET Threads::TLS)
         add_library(Threads::TLS INTERFACE IMPORTED)

@@ -129,8 +129,16 @@ dnl Global Flags
 dnl
 
 AS_IF([test x"$WASM" != x"yes"], [
-  AX_CHECK_COMPILE_FLAG([-fvisibility=hidden],
-                        [CFLAGS="$CFLAGS -fvisibility=hidden"])
+  AC_COMPILE_IFELSE([
+    AC_LANG_PROGRAM([[]], [[
+#     if !defined(__GNUC__) || __GNUC__ < 4
+#       error "not a gnu-compatible compiler"
+#     endif
+    ]])
+  ], [
+    AX_CHECK_COMPILE_FLAG([-fvisibility=hidden],
+                          [CFLAGS="$CFLAGS -fvisibility=hidden"])
+  ])
 ])
 
 AS_CASE([$target_os], [darwin*], [
@@ -140,7 +148,7 @@ AS_CASE([$target_os], [darwin*], [
 
 AC_COMPILE_IFELSE([
   AC_LANG_PROGRAM([[]], [[
-#   if !defined(__xlC__) && !defined(__ibmxl__)
+#   if !defined(__IBMC__) && !defined(__IBMCPP__)
 #     error "not an ibm compiler"
 #   endif
   ]])
@@ -159,6 +167,7 @@ has_fork=no
 has_memcheck=no
 has_tls=no
 has_zlib=no
+TLS_LIBS=
 
 AS_IF([test x"$enable_asm" = x"yes"], [
   AC_MSG_CHECKING(for inline asm support)

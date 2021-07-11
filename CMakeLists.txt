@@ -285,9 +285,8 @@ set(test_libs)
 
 if(TORSION_TLS)
   list(APPEND torsion_libs Threads::TLS)
-  if(CMAKE_TLS_LIBS_INIT)
-    list(APPEND pkgconf_libs ${CMAKE_TLS_LIBS_INIT})
-  endif()
+  get_property(pkgconf_libs TARGET Threads::TLS
+                            PROPERTY INTERFACE_LINK_LIBRARIES)
 endif()
 
 if(TORSION_HAS_ZLIB)
