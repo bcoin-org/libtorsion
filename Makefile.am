@@ -8,10 +8,6 @@
 
 ACLOCAL_AMFLAGS = -I m4
 
-noinst_PROGRAMS =
-lib_LTLIBRARIES =
-TESTS =
-
 licensedir = $(datadir)/licenses/$(PACKAGE_NAME)
 pkgconfigdir = $(libdir)/pkgconfig
 
@@ -30,6 +26,7 @@ include_HEADERS = include/torsion/aead.h     \
                   include/torsion/ies.h      \
                   include/torsion/kdf.h      \
                   include/torsion/mac.h      \
+                  include/torsion/rand.h     \
                   include/torsion/rsa.h      \
                   include/torsion/stream.h   \
                   include/torsion/util.h
@@ -37,6 +34,7 @@ include_HEADERS = include/torsion/aead.h     \
 noinst_HEADERS = src/asn1.h                      \
                  src/bf.h                        \
                  src/bio.h                       \
+                 src/entropy/entropy.h           \
                  src/fields/p192_32.h            \
                  src/fields/p192_64.h            \
                  src/fields/p192.h               \
@@ -95,14 +93,17 @@ noinst_HEADERS = src/asn1.h                      \
                  test/mpi_internal.h             \
                  test/utils.h
 
-if ENABLE_RNG
-include_HEADERS += include/torsion/rand.h
-noinst_HEADERS += src/entropy/entropy.h
-endif
-
 #
 # Sources & Flags
 #
+
+if ENABLE_RNG
+rng_sources = src/entropy/env.c \
+              src/entropy/hrt.c \
+              src/entropy/hw.c  \
+              src/entropy/sys.c \
+              src/rand.c
+endif
 
 torsion_sources = src/aead.c     \
                   src/asn1.c     \
@@ -119,17 +120,8 @@ torsion_sources = src/aead.c     \
                   src/mpi.c      \
                   src/rsa.c      \
                   src/stream.c   \
-                  src/util.c
-
-rng_sources = src/entropy/env.c \
-              src/entropy/hrt.c \
-              src/entropy/hw.c  \
-              src/entropy/sys.c \
-              src/rand.c
-
-if ENABLE_RNG
-torsion_sources += $(rng_sources)
-endif
+                  src/util.c     \
+                  $(rng_sources)
 
 torsion_cflags = -I$(top_srcdir)/include
 
@@ -157,24 +149,23 @@ torsion_ldflags = -s SINGLE_FILE=1                    \
                   -s TOTAL_STACK=$(STACK_SIZE)        \
                   -s ENVIRONMENT=$(ENVIRONMENT)
 
-noinst_PROGRAMS += torsion.js
+torsion_js_NAME = torsion.js
 torsion_js_SOURCES = $(torsion_sources)
 torsion_js_CFLAGS = $(torsion_cflags) -DTORSION_BUILD
 torsion_js_LDFLAGS = $(torsion_ldflags) -s EXPORTED_FUNCTIONS=@etc/exports.json
 
 if ENABLE_TESTS
-noinst_PROGRAMS += torsion_bench.js
+torsion_bench_js_NAME = torsion_bench.js
 torsion_bench_js_SOURCES = $(bench_sources)
 torsion_bench_js_CFLAGS = $(torsion_cflags)
 torsion_bench_js_LDADD = $(torsion_js_OBJECTS)
 torsion_bench_js_LDFLAGS = $(torsion_ldflags)
 
-noinst_PROGRAMS += torsion_test.js
+torsion_test_js_NAME = torsion_test.js
 torsion_test_js_SOURCES = $(test_sources)
 torsion_test_js_CFLAGS = $(torsion_cflags)
 torsion_test_js_LDADD = $(torsion_js_OBJECTS)
 torsion_test_js_LDFLAGS = $(torsion_ldflags)
-TESTS += torsion_test.js
 
 bench: torsion_bench.js
 	@node torsion_bench.js
@@ -182,6 +173,13 @@ bench: torsion_bench.js
 test: torsion_test.js
 	@node torsion_test.js
 endif ENABLE_TESTS
+
+noinst_PROGRAMS = $(torsion_js_NAME)       \
+                  $(torsion_bench_js_NAME) \
+                  $(torsion_test_js_NAME)
+
+TESTS = $(torsion_test_js_NAME)
+
 endif EMSCRIPTEN
 
 #
@@ -208,7 +206,7 @@ torsion_ldflags = -Wl,--allow-undefined                  \
 #
 # See: https://github.com/llvm/llvm-project/commit/d496437
 #      https://reviews.llvm.org/D62922
-noinst_PROGRAMS += torsion.wasm
+torsion_wasm_NAME = torsion.wasm
 torsion_wasm_SOURCES = $(torsion_sources)
 torsion_wasm_CFLAGS = $(torsion_cflags) -DTORSION_BUILD
 torsion_wasm_LDADD = $(WASI_SYSROOT)/lib/$(host_cpu)-wasi/crt1-reactor.o
@@ -220,18 +218,17 @@ torsion_wasm_LDFLAGS = $(torsion_ldflags)      \
                        -Wl,--export=free
 
 if ENABLE_TESTS
-noinst_PROGRAMS += torsion_bench.wasm
+torsion_bench_wasm_NAME = torsion_bench.wasm
 torsion_bench_wasm_SOURCES = $(bench_sources)
 torsion_bench_wasm_CFLAGS = $(torsion_cflags)
 torsion_bench_wasm_LDADD = $(torsion_wasm_OBJECTS)
 torsion_bench_wasm_LDFLAGS = $(torsion_ldflags)
 
-noinst_PROGRAMS += torsion_test.wasm
+torsion_test_wasm_NAME = torsion_test.wasm
 torsion_test_wasm_SOURCES = $(test_sources)
 torsion_test_wasm_CFLAGS = $(torsion_cflags)
 torsion_test_wasm_LDADD = $(torsion_wasm_OBJECTS)
 torsion_test_wasm_LDFLAGS = $(torsion_ldflags)
-TESTS += torsion_test.wasm
 
 bench: torsion_bench.wasm
 	@./scripts/wasi-run torsion_bench.wasm
@@ -239,6 +236,13 @@ bench: torsion_bench.wasm
 test: torsion_test.wasm
 	@./scripts/wasi-run torsion_test.wasm
 endif ENABLE_TESTS
+
+noinst_PROGRAMS = $(torsion_wasm_NAME)       \
+                  $(torsion_bench_wasm_NAME) \
+                  $(torsion_test_wasm_NAME)
+
+TESTS = $(torsion_test_wasm_NAME)
+
 endif WASI
 
 #
@@ -246,43 +250,36 @@ endif WASI
 #
 
 if NATIVE
-lib_LTLIBRARIES += libtorsion.la
+libtorsion_la_NAME = libtorsion.la
 libtorsion_la_SOURCES = $(torsion_sources)
 libtorsion_la_CFLAGS = $(torsion_cflags) -DTORSION_BUILD
 libtorsion_la_LDFLAGS = -no-undefined -version-info @ABI_VERSION@
 libtorsion_la_LIBADD = @TLS_LIBS@
 
-dist_doc_DATA = README.md
-dist_license_DATA = LICENSE
-pkgconfig_DATA = libtorsion.pc
-
 if ENABLE_TESTS
-noinst_PROGRAMS += torsion_bench
+torsion_bench_NAME = torsion_bench
 torsion_bench_SOURCES = $(bench_sources)
 torsion_bench_CFLAGS = $(torsion_cflags)
 torsion_bench_LDFLAGS = -no-install
 torsion_bench_LDADD = libtorsion.la
 
-noinst_PROGRAMS += torsion_test
+torsion_test_NAME = torsion_test
 torsion_test_SOURCES = $(test_sources)
 torsion_test_CFLAGS = $(torsion_cflags)
 torsion_test_LDFLAGS = -no-install
-torsion_test_LDADD = libtorsion.la
-TESTS += torsion_test
-
 if ENABLE_ZLIB
-torsion_test_LDADD += -lz
+torsion_test_ZLIB = -lz
 endif
+torsion_test_LDADD = libtorsion.la $(torsion_test_ZLIB)
 
-noinst_PROGRAMS += torsion_test_static
+torsion_test_static_NAME = torsion_test_static
 torsion_test_static_SOURCES = $(torsion_test_SOURCES)
 torsion_test_static_CFLAGS = $(torsion_test_CFLAGS)
 torsion_test_static_LDFLAGS = -static
 torsion_test_static_LDADD = $(torsion_test_LDADD)
-TESTS += torsion_test_static
 
 if ENABLE_CTGRIND
-noinst_PROGRAMS += torsion_ctgrind
+torsion_ctgrind_NAME = torsion_ctgrind
 torsion_ctgrind_SOURCES = test/ctgrind.c test/utils.c
 torsion_ctgrind_CFLAGS = $(torsion_cflags)
 torsion_ctgrind_LDFLAGS = -no-install
@@ -305,6 +302,19 @@ endif
 
 valgrind: torsion_test
 	@./libtool --mode=execute valgrind --leak-check=full --error-exitcode=1 ./torsion_test
-
 endif ENABLE_TESTS
+
+lib_LTLIBRARIES = $(libtorsion_la_NAME)
+
+noinst_PROGRAMS = $(torsion_bench_NAME)       \
+                  $(torsion_test_NAME)        \
+                  $(torsion_test_static_NAME) \
+                  $(torsion_ctgrind_NAME)
+
+TESTS = $(torsion_test_NAME) $(torsion_test_static_NAME)
+
+dist_doc_DATA = README.md
+dist_license_DATA = LICENSE
+pkgconfig_DATA = libtorsion.pc
+
 endif NATIVE
