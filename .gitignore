@@ -1,14 +1,17 @@
 *.a
 *.cmake
 *.dir
+*.dll
 *.dylib
 *.filters
 *.gcda
 *.gcno
 *.la
+*.lib
 *.lo
 *.o
 *.out
+*.sl
 *.sln
 *.so
 *.so.*
@@ -35,6 +38,7 @@ config.log
 config.status
 configure
 libtool
+libtorsion
 libtorsion.pc
 libtorsion-*.asc
 libtorsion-*.tar.gz
@@ -45,6 +49,7 @@ m4/ltoptions.m4
 m4/ltsugar.m4
 m4/ltversion.m4
 sha256sums.txt
+torsion
 torsion_bench
 torsion_ctgrind
 torsion_test
@@ -54,4 +59,5 @@ torsion_test.js
 torsion.js
 vgcore.*
 wasm32-wasi/
+wasm64-wasi/
 x64/
