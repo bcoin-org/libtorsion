@@ -4,6 +4,23 @@
  * https://github.com/bcoin-org/libtorsion
  */
 
+#ifndef TORSION_HAVE_CONFIG
+#  undef TORSION_HAVE_FORK
+#  if !defined(_WIN32)         \
+   && !defined(__vxworks)      \
+   && !defined(__DCC__)        \
+   && !defined(__VMS)          \
+   && !defined(__Fuchsia__)    \
+   && !defined(__CloudABI__)   \
+   && !defined(__wasi__)       \
+   && !defined(__EMSCRIPTEN__)
+#    define TORSION_HAVE_FORK
+#  endif
+#  ifdef TORSION_NO_FORK
+#    undef TORSION_HAVE_FORK
+#  endif
+#endif
+
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdio.h>
