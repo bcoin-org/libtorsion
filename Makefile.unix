@@ -1,4 +1,4 @@
-# Makefile.posix - posix makefile for libtorsion
+# Makefile.unix - unix makefile for libtorsion
 # Copyright (c) 2020, Christopher Jeffrey (MIT License).
 # https://github.com/bcoin-org/libtorsion
 
@@ -6,23 +6,23 @@
 #
 #  Static:
 #
-#    $ make -f Makefile.posix libtorsion.a
+#    $ make -f Makefile.unix libtorsion.a
 #
 #  Shared:
 #
-#    $ make -f Makefile.posix FPIC=-fPIC libtorsion.so
+#    $ make -f Makefile.unix FPIC=-fPIC libtorsion.so
 #
 #  Shared (Darwin):
 #
-#    $ make -f Makefile.posix SHARED_SUFFIX=.dylib FPIC=-fPIC libtorsion.dylib
+#    $ make -f Makefile.unix SHARED_SUFFIX=.dylib FPIC=-fPIC libtorsion.dylib
 #
 #  Static (AIX+XL):
 #
-#    $ make -f Makefile.posix libtorsion.a
+#    $ make -f Makefile.unix libtorsion.a
 #
 #  Shared (AIX+XL):
 #
-#    $ make -f Makefile.posix FPIC=-qpic SHARED=-qmkshrobj libtorsion.so
+#    $ make -f Makefile.unix FPIC=-qpic SHARED=-qmkshrobj libtorsion.so
 
 PKG_VERSION = 0.0.0
 
