@@ -173,6 +173,9 @@ include/torsion/kdf.h: include/torsion/common.h \
 include/torsion/mac.h: include/torsion/common.h
 	@touch $@
 
+include/torsion/rand.h: include/torsion/common.h
+	@touch $@
+
 include/torsion/rsa.h: include/torsion/common.h \
                        include/torsion/hash.h
 	@touch $@
@@ -271,6 +274,22 @@ src/cipher.o: src/cipher.c include/torsion/cipher.h \
                            src/bio.h
 	$(CC) -o $@ -c $(LIB_CFLAGS) src/cipher.c
 
+src/drbg.o: src/drbg.c include/torsion/cipher.h \
+                       include/torsion/drbg.h   \
+                       include/torsion/hash.h   \
+                       src/bio.h                \
+                       src/internal.h
+	$(CC) -o $@ -c $(LIB_CFLAGS) src/drbg.c
+
+src/dsa.o: src/dsa.c include/torsion/drbg.h \
+                     include/torsion/dsa.h  \
+                     include/torsion/hash.h \
+                     include/torsion/util.h \
+                     src/asn1.h             \
+                     src/internal.h         \
+                     src/mpi.h
+	$(CC) -o $@ -c $(LIB_CFLAGS) src/dsa.c
+
 src/ecc.o: src/ecc.c include/torsion/drbg.h \
                      include/torsion/ecc.h  \
                      include/torsion/hash.h \
@@ -309,22 +328,6 @@ src/entropy/hw.o: src/entropy/hw.c src/entropy/entropy.h \
 
 src/entropy/sys.o: src/entropy/sys.c src/entropy/entropy.h
 	$(CC) -o $@ -c $(LIB_CFLAGS) src/entropy/sys.c
-
-src/drbg.o: src/drbg.c include/torsion/cipher.h \
-                       include/torsion/drbg.h   \
-                       include/torsion/hash.h   \
-                       src/bio.h                \
-                       src/internal.h
-	$(CC) -o $@ -c $(LIB_CFLAGS) src/drbg.c
-
-src/dsa.o: src/dsa.c include/torsion/drbg.h \
-                     include/torsion/dsa.h  \
-                     include/torsion/hash.h \
-                     include/torsion/util.h \
-                     src/asn1.h             \
-                     src/internal.h         \
-                     src/mpi.h
-	$(CC) -o $@ -c $(LIB_CFLAGS) src/dsa.c
 
 src/hash.o: src/hash.c include/torsion/hash.h \
                        include/torsion/util.h \
