@@ -54,10 +54,9 @@ LIB_CFLAGS = /nologo            \
              /wd4244            \
              /wd4267            \
              /wd4334            \
-             /MD /O2 /Ob2       \
-             /DNDEBUG           \
-             /DWIN32            \
-             /D_WINDOWS         \
+             /MD                \
+             /O2                \
+             /Ob2               \
              /DTORSION_BUILD    \
              /DTORSION_HAVE_RNG \
              $(CPPFLAGS)        \
@@ -336,7 +335,7 @@ $(STATIC_NAME): $(LIB_OBJECTS)
 	$(AR) /OUT:$@ $(LIB_ARFLAGS) $(LIB_OBJECTS) $(LIBS)
 
 $(DLL_NAME): $(LIB_OBJECTS)
-	$(LD) /DLL /OUT:$@ $(LIB_LDFLAGS) $(LIB_OBJECTS) $(LIB_LIBS)
+	$(LD) /OUT:$@ /DLL $(LIB_LDFLAGS) $(LIB_OBJECTS) $(LIB_LIBS)
 
 $(SHARED_NAME): $(DLL_NAME)
 
@@ -347,9 +346,12 @@ $(TEST_NAME): $(TEST_OBJECTS) $(STATIC_NAME)
 	$(LD) /OUT:$@ $(LIB_EXEFLAGS) $(TEST_OBJECTS) $(STATIC_NAME) $(LIB_LIBS)
 
 bench: $(BENCH_NAME)
-	@./$(BENCH_NAME)
+	@.\$(BENCH_NAME)
 
 test: $(TEST_NAME)
-	@./$(TEST_NAME)
+	@.\$(TEST_NAME)
 
 check: test
+
+clean:
+	del $(OUTPUT)
