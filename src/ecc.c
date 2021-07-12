@@ -10288,7 +10288,7 @@ static const edwards_def_t *edwards_curves[3] = {
 
 wei_t *
 wei_curve_create(wei_curve_id_t type) {
-  wei_t *ec = NULL;
+  wei_t *ec;
 
   if (type < 0 || (size_t)type >= ARRAY_SIZE(wei_curves))
     return NULL;
@@ -10302,11 +10302,9 @@ wei_curve_create(wei_curve_id_t type) {
 
 void
 wei_curve_destroy(wei_t *ec) {
-  if (ec != NULL) {
-    sc_cleanse(&ec->sc, ec->blind);
-    jge_cleanse(ec, &ec->unblind);
-    free(ec);
-  }
+  sc_cleanse(&ec->sc, ec->blind);
+  jge_cleanse(ec, &ec->unblind);
+  free(ec);
 }
 
 void
@@ -10363,15 +10361,13 @@ void
 wei_scratch_destroy(const wei_t *ec, wei__scratch_t *scratch) {
   (void)ec;
 
-  if (scratch != NULL) {
-    free(scratch->wnd);
-    free(scratch->wnds);
-    free(scratch->naf);
-    free(scratch->nafs);
-    free(scratch->points);
-    free(scratch->coeffs);
-    free(scratch);
-  }
+  free(scratch->wnd);
+  free(scratch->wnds);
+  free(scratch->naf);
+  free(scratch->nafs);
+  free(scratch->points);
+  free(scratch->coeffs);
+  free(scratch);
 }
 
 /*
@@ -10380,7 +10376,7 @@ wei_scratch_destroy(const wei_t *ec, wei__scratch_t *scratch) {
 
 mont_t *
 mont_curve_create(mont_curve_id_t type) {
-  mont_t *ec = NULL;
+  mont_t *ec;
 
   if (type < 0 || (size_t)type >= ARRAY_SIZE(mont_curves))
     return NULL;
@@ -10394,8 +10390,7 @@ mont_curve_create(mont_curve_id_t type) {
 
 void
 mont_curve_destroy(mont_t *ec) {
-  if (ec != NULL)
-    free(ec);
+  free(ec);
 }
 
 size_t
@@ -10424,7 +10419,7 @@ mont_curve_field_bits(const mont_t *ec) {
 
 edwards_t *
 edwards_curve_create(edwards_curve_id_t type) {
-  edwards_t *ec = NULL;
+  edwards_t *ec;
 
   if (type < 0 || (size_t)type >= ARRAY_SIZE(edwards_curves))
     return NULL;
@@ -10438,11 +10433,9 @@ edwards_curve_create(edwards_curve_id_t type) {
 
 void
 edwards_curve_destroy(edwards_t *ec) {
-  if (ec != NULL) {
-    sc_cleanse(&ec->sc, ec->blind);
-    xge_cleanse(ec, &ec->unblind);
-    free(ec);
-  }
+  sc_cleanse(&ec->sc, ec->blind);
+  xge_cleanse(ec, &ec->unblind);
+  free(ec);
 }
 
 void
@@ -10499,15 +10492,13 @@ void
 edwards_scratch_destroy(const edwards_t *ec, edwards__scratch_t *scratch) {
   (void)ec;
 
-  if (scratch != NULL) {
-    free(scratch->wnd);
-    free(scratch->wnds);
-    free(scratch->naf);
-    free(scratch->nafs);
-    free(scratch->points);
-    free(scratch->coeffs);
-    free(scratch);
-  }
+  free(scratch->wnd);
+  free(scratch->wnds);
+  free(scratch->naf);
+  free(scratch->nafs);
+  free(scratch->points);
+  free(scratch->coeffs);
+  free(scratch);
 }
 
 /*
