@@ -191,30 +191,20 @@ INITIAL_MEMORY = 16777216
 MAX_MEMORY = 2147483648
 STACK_SIZE = 5242880
 LOG_COMPILER = $(top_srcdir)/scripts/wasi-run
-WASI_SYSROOT = $(WASI)/share/wasi-sysroot
 
 torsion_ldflags = -Wl,--allow-undefined                  \
                   -Wl,--initial-memory=$(INITIAL_MEMORY) \
                   -Wl,--max-memory=$(MAX_MEMORY)         \
-                  -Wl,-z -Wl,stack-size=$(STACK_SIZE)    \
+                  -Wl,-z,stack-size=$(STACK_SIZE)        \
                   -Wl,--stack-first
 
-# Note: We have to manually choose crt1-reactor.o
-# until reactor support is widely available via:
-#
-#   -mexec-model=reactor
-#
-# See: https://github.com/llvm/llvm-project/commit/d496437
-#      https://reviews.llvm.org/D62922
 torsion_wasm_NAME = torsion.wasm
 torsion_wasm_SOURCES = $(torsion_sources)
 torsion_wasm_CFLAGS = $(torsion_cflags) -DTORSION_BUILD
-torsion_wasm_LDADD = $(WASI_SYSROOT)/lib/$(host_cpu)-wasi/crt1-reactor.o
-torsion_wasm_LDFLAGS = $(torsion_ldflags)      \
-                       -nostartfiles           \
-                       -Wl,--entry=_initialize \
-                       -Wl,--export-dynamic    \
-                       -Wl,--export=malloc     \
+torsion_wasm_LDFLAGS = $(torsion_ldflags)   \
+                       -mexec-model=reactor \
+                       -Wl,--export-dynamic \
+                       -Wl,--export=malloc  \
                        -Wl,--export=free
 
 if ENABLE_TESTS

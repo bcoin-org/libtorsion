@@ -375,7 +375,6 @@ elseif(TORSION_WASM)
                         "SHELL:-s TOTAL_STACK=${TORSION_STACK_SIZE}"
                         "SHELL:-s ENVIRONMENT=${TORSION_ENVIRONMENT}")
 
-    set(torsion_sources_lib "")
     set(torsion_ldflags_lib "SHELL:-s EXPORTED_FUNCTIONS=@etc/exports.json")
   else()
     set(CMAKE_EXECUTABLE_SUFFIX ".wasm")
@@ -383,20 +382,10 @@ elseif(TORSION_WASM)
     set(torsion_ldflags -Wl,--allow-undefined
                         -Wl,--initial-memory=${TORSION_INITIAL_MEMORY}
                         -Wl,--max-memory=${TORSION_MAX_MEMORY}
-                        -Wl,-z -Wl,stack-size=${TORSION_STACK_SIZE}
+                        -Wl,-z,stack-size=${TORSION_STACK_SIZE}
                         -Wl,--stack-first)
 
-    # Note: We have to manually choose crt1-reactor.o
-    # until reactor support is widely available via:
-    #
-    #   -mexec-model=reactor
-    #
-    # See: https://github.com/llvm/llvm-project/commit/d496437
-    #      https://reviews.llvm.org/D62922
-    set(torsion_syslib ${CMAKE_SYSROOT}/lib/${CMAKE_C_COMPILER_TARGET})
-    set(torsion_sources_lib ${torsion_syslib}/crt1-reactor.o)
-    set(torsion_ldflags_lib -nostartfiles
-                            -Wl,--entry=_initialize
+    set(torsion_ldflags_lib -mexec-model=reactor
                             -Wl,--export-dynamic
                             -Wl,--export=malloc
                             -Wl,--export=free)
@@ -409,7 +398,7 @@ elseif(TORSION_WASM)
   target_include_directories(torsion_o PUBLIC ${torsion_includes})
   target_link_options(torsion_o INTERFACE ${torsion_ldflags})
 
-  add_executable(torsion ${torsion_sources_lib})
+  add_executable(torsion "")
   target_link_options(torsion PRIVATE ${torsion_ldflags_lib})
   target_link_libraries(torsion PRIVATE torsion_o)
 

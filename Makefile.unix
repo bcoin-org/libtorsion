@@ -437,24 +437,14 @@ WASI_LDFLAGS = -Wl,--allow-undefined                  \
                -Wl,-z,stack-size=$(STACK_SIZE)        \
                -Wl,--stack-first
 
-# Note: We have to manually choose crt1-reactor.o
-# until reactor support is widely available via:
-#
-#   -mexec-model=reactor
-#
-# See: https://github.com/llvm/llvm-project/commit/d496437
-#      https://reviews.llvm.org/D62922
-WASI_CRT = $(WASI)/share/wasi-sysroot/lib/wasm32-wasi/crt1-reactor.o
-
-WASI_LIBFLAGS = $(WASI_LDFLAGS)         \
-                -nostartfiles           \
-                -Wl,--entry=_initialize \
-                -Wl,--export-dynamic    \
-                -Wl,--export=malloc     \
+WASI_LIBFLAGS = $(WASI_LDFLAGS)      \
+                -mexec-model=reactor \
+                -Wl,--export-dynamic \
+                -Wl,--export=malloc  \
                 -Wl,--export=free
 
-torsion.wasm: $(LIB_OBJECTS) $(WASI_CRT)
-	$(CC) -o $@ $(WASI_LIBFLAGS) $(LDFLAGS) $(LIB_OBJECTS) $(WASI_CRT) $(LIBS)
+torsion.wasm: $(LIB_OBJECTS)
+	$(CC) -o $@ $(WASI_LIBFLAGS) $(LDFLAGS) $(LIB_OBJECTS) $(LIBS)
 	@chmod 0644 $@
 
 torsion_bench.wasm: $(BENCH_OBJECTS) $(LIB_OBJECTS)

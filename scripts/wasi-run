@@ -19,8 +19,14 @@ else
   exit 1
 fi
 
-exec "$NODEJS" --no-warnings                         \
-               --experimental-wasm-bigint            \
-               --experimental-wasi-unstable-preview1 \
-               "$DIR/wasi.js"                        \
-               "$@"
+FLAGS='--no-warnings'
+
+if "$NODEJS" --experimental-wasm-bigint -e 1 > /dev/null 2>& 1; then
+  FLAGS="$FLAGS --experimental-wasm-bigint"
+fi
+
+if "$NODEJS" --experimental-wasi-unstable-preview1 -e 1 > /dev/null 2>& 1; then
+  FLAGS="$FLAGS --experimental-wasi-unstable-preview1"
+fi
+
+exec "$NODEJS" $FLAGS "$DIR/wasi.js" "$@"
