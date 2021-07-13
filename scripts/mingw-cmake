@@ -1,6 +1,6 @@
 #!/bin/sh
 
-# mingw32-cmake - mingw32 wrapper for cmake
+# mingw-cmake - mingw wrapper for cmake
 # Copyright (c) 2020, Christopher Jeffrey (MIT License).
 # https://github.com/bcoin-org/libtorsion
 
@@ -13,6 +13,6 @@ CMAKE="$1"
 
 shift
 
-exec "$CMAKE" -G 'Unix Makefiles'                                         \
-              -DCMAKE_TOOLCHAIN_FILE="$DIR/cmake/Toolchain/mingw32.cmake" \
+exec "$CMAKE" -G 'Unix Makefiles'                                       \
+              -DCMAKE_TOOLCHAIN_FILE="$DIR/cmake/Toolchain/MinGW.cmake" \
               "$@"

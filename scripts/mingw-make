@@ -1,10 +1,10 @@
 #!/bin/sh
 
-# mingw32-make - mingw32 wrapper for makefiles
+# mingw-make - mingw wrapper for makefiles
 # Copyright (c) 2020, Christopher Jeffrey (MIT License).
 # https://github.com/bcoin-org/libtorsion
 
-ARCH=${MINGW32_ARCH:-x86_64}
+ARCH=${MINGW_ARCH:-x86_64}
 
 export AR="$ARCH-w64-mingw32-ar"
 export AS="$ARCH-w64-mingw32-as"
