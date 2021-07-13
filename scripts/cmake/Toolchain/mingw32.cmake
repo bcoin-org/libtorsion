@@ -3,7 +3,7 @@
 # https://github.com/bcoin-org/libtorsion
 
 set(CMAKE_SYSTEM_NAME Windows)
-set(CMAKE_CROSSCOMPILING_EMULATOR wine64)
+set(CMAKE_CROSSCOMPILING_EMULATOR wine)
 
 set(MINGW32_ARCH "x86_64" CACHE STRING "mingw32 arch")
 

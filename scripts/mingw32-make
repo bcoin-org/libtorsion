@@ -5,22 +5,6 @@
 # https://github.com/bcoin-org/libtorsion
 
 ARCH=${MINGW32_ARCH:-x86_64}
-WIN32_LIBS='-lkernel32 -luser32 -ladvapi32 -liphlpapi -lpsapi -lbcrypt'
-SHARED_FLAGS='-Wl,--out-implib,libtorsion.dll.a -Wl,--output-def,libtorsion.def'
-MAKE="$1"
-
-shift
-
-while echo x"$1" | grep -q '^x-'; do
-  if test x"$1" = x'-f'; then
-    MAKE="$MAKE $1 $2"
-    shift
-    shift
-  else
-    MAKE="$MAKE $1"
-    shift
-  fi
-done
 
 export AR="$ARCH-w64-mingw32-ar"
 export AS="$ARCH-w64-mingw32-as"
@@ -38,14 +22,10 @@ export STRINGS="$ARCH-w64-mingw32-strings"
 export STRIP="$ARCH-w64-mingw32-strip"
 export WINDRES="$ARCH-w64-mingw32-windres"
 export ARFLAGS='cr'
-export LIBS="$WIN32_LIBS $LIBS"
 
 if ! "$CC" --version > /dev/null 2>& 1; then
   echo "$CC is not available!" >& 2
   exit 1
 fi
 
-exec $MAKE SHARED_SUFFIX=.dll             \
-           EXE_SUFFIX=.exe                \
-           SHARED="-shared $SHARED_FLAGS" \
-           "$@"
+exec "$@"

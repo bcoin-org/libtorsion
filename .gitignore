@@ -4,6 +4,7 @@
 *.dir
 *.dll
 *.dylib
+*.exe
 *.exp
 *.filters
 *.gcda

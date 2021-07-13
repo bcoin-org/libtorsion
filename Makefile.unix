@@ -115,6 +115,11 @@ OUTPUT = $(LIB_OBJECTS)     \
          $(BENCH_NAME)      \
          $(TEST_NAME)       \
          $(CTGRIND_NAME)    \
+         libtorsion.def     \
+         libtorsion.dll     \
+         libtorsion.dll.a   \
+         torsion_bench.exe  \
+         torsion_test.exe   \
          torsion.wasm       \
          torsion_bench.wasm \
          torsion_test.wasm  \
@@ -126,7 +131,7 @@ OUTPUT = $(LIB_OBJECTS)     \
 # Rules
 #
 
-all: $(STATIC_NAME) libtorsion.pc $(BENCH_NAME) $(TEST_NAME)
+all: native
 
 #
 # Library Objects
@@ -376,6 +381,8 @@ CONFIG = -e 's;@CMAKE_INSTALL_PREFIX@;$(PREFIX);g'   \
 
 INSTDIR = $(DESTDIR)$(PREFIX)
 
+native: $(STATIC_NAME) libtorsion.pc $(BENCH_NAME) $(TEST_NAME)
+
 $(STATIC_NAME): $(LIB_OBJECTS)
 	$(AR) $(ARFLAGS) $@ $(LIB_OBJECTS)
 	@x='$(RANLIB)'; $${x:-ranlib} $@ 2> /dev/null || true
@@ -427,6 +434,30 @@ install: $(STATIC_NAME) $(SHARED_NAME) libtorsion.pc
 	cp -f README.md $(INSTDIR)/share/doc/libtorsion/
 
 #
+# MinGW
+#
+
+MINGW_LIBS = -lkernel32 -luser32 -ladvapi32 -liphlpapi -lpsapi -lbcrypt $(LIBS)
+MINGW_SHARED = -shared -Wl,--out-implib,$@.a -Wl,--output-def,libtorsion.def
+
+mingw: $(STATIC_NAME) libtorsion.dll torsion_bench.exe torsion_test.exe
+
+libtorsion.dll: $(LIB_OBJECTS)
+	$(CC) -o $@ $(MINGW_SHARED) $(LDFLAGS) $(LIB_OBJECTS) $(MINGW_LIBS)
+
+torsion_bench.exe: $(BENCH_OBJECTS) $(STATIC_NAME)
+	$(CC) -o $@ $(LDFLAGS) $(BENCH_OBJECTS) $(STATIC_NAME) $(MINGW_LIBS)
+
+torsion_test.exe: $(TEST_OBJECTS) $(STATIC_NAME)
+	$(CC) -o $@ $(LDFLAGS) $(TEST_OBJECTS) $(STATIC_NAME) $(MINGW_LIBS)
+
+bench_mingw: torsion_bench.exe
+	@wine ./torsion_bench.exe
+
+test_mingw: torsion_test.exe
+	@wine ./torsion_test.exe
+
+#
 # WASI
 #
 
@@ -442,7 +473,7 @@ WASI_LIBFLAGS = $(WASI_LDFLAGS)      \
                 -Wl,--export=malloc  \
                 -Wl,--export=free
 
-all_wasm: torsion.wasm torsion_bench.wasm torsion_test.wasm
+wasm: torsion.wasm torsion_bench.wasm torsion_test.wasm
 
 torsion.wasm: $(LIB_OBJECTS)
 	$(CC) -o $@ $(WASI_LIBFLAGS) $(LDFLAGS) $(LIB_OBJECTS) $(LIBS)
@@ -480,7 +511,7 @@ EM_LDFLAGS = -s SINGLE_FILE=1                    \
 
 EM_LIBFLAGS = $(EM_LDFLAGS) -s EXPORTED_FUNCTIONS=@etc/exports.json
 
-all_js: torsion.js torsion_bench.js torsion_test.js
+js: torsion.js torsion_bench.js torsion_test.js
 
 torsion.js: $(LIB_OBJECTS)
 	$(CC) -o $@ $(EM_LIBFLAGS) $(LDFLAGS) $(LIB_OBJECTS) $(LIBS)
