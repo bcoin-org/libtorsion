@@ -19,8 +19,19 @@ MAKE="$1"
 
 shift
 
-exec "$MAKE" CC=$WASI/bin/clang            \
-             AR=$WASI/bin/llvm-ar          \
-             RANLIB=$WASI/bin/llvm-ranlib  \
-             ARFLAGS=cr                    \
-             "$@"
+while echo x"$1" | grep -q '^x-'; do
+  if test x"$1" = x'-f'; then
+    MAKE="$MAKE $1 $2"
+    shift
+    shift
+  else
+    MAKE="$MAKE $1"
+    shift
+  fi
+done
+
+exec $MAKE CC=$WASI/bin/clang            \
+           AR=$WASI/bin/llvm-ar          \
+           RANLIB=$WASI/bin/llvm-ranlib  \
+           ARFLAGS=cr                    \
+           "$@"
