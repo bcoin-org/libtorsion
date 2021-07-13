@@ -1,8 +1,10 @@
 *.a
 *.cmake
+*.def
 *.dir
 *.dll
 *.dylib
+*.exp
 *.filters
 *.gcda
 *.gcno
@@ -19,6 +21,7 @@
 *.wasm
 *.wasm.js
 *.wat
+*.x
 *~
 CMakeCache.txt
 CMakeFiles/

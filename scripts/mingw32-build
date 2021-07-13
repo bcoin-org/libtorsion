@@ -16,4 +16,7 @@ exec make -f Makefile.unix CC=$ARCH-w64-mingw32-cc         \
                            EXE_SUFFIX=.exe                 \
                            SHARED="-shared $SHARED_FLAGS"  \
                            LIBS="$WIN32_LIBS $LIBS"        \
-                           all libtorsion.dll
+                           libtorsion.a                    \
+                           libtorsion.dll                  \
+                           torsion_test.exe                \
+                           torsion_bench.exe
