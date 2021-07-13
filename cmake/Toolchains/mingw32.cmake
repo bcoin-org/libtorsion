@@ -1,4 +1,4 @@
-# w64-mingw32.cmake - mingw32 toolchain for cmake
+# mingw32.cmake - mingw32 toolchain for cmake
 # Copyright (c) 2020, Christopher Jeffrey (MIT License).
 # https://github.com/chjj
 
