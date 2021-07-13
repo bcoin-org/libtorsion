@@ -16,8 +16,8 @@ ARFLAGS =
 #
 
 STATIC_NAME = torsion_static.lib
-SHARED_NAME = torsion.lib
-DLL_NAME = torsion.dll
+SHARED_NAME = torsion.dll
+IMPLIB_NAME = torsion.lib
 BENCH_NAME = torsion_bench.exe
 TEST_NAME = torsion_test.exe
 
@@ -88,7 +88,7 @@ OUTPUT = $(LIB_OBJECTS)   \
          $(TEST_OBJECTS)  \
          $(STATIC_NAME)   \
          $(SHARED_NAME)   \
-         $(DLL_NAME)      \
+         $(IMPLIB_NAME)   \
          $(BENCH_NAME)    \
          $(TEST_NAME)
 
@@ -334,10 +334,8 @@ utils.obj: test/utils.c test/utils.h
 $(STATIC_NAME): $(LIB_OBJECTS)
 	$(AR) /OUT:$@ $(LIB_ARFLAGS) $(LIB_OBJECTS) $(LIBS)
 
-$(DLL_NAME): $(LIB_OBJECTS)
+$(SHARED_NAME): $(LIB_OBJECTS)
 	$(LD) /OUT:$@ /DLL $(LIB_LDFLAGS) $(LIB_OBJECTS) $(LIB_LIBS)
-
-$(SHARED_NAME): $(DLL_NAME)
 
 $(BENCH_NAME): $(BENCH_OBJECTS) $(STATIC_NAME)
 	$(LD) /OUT:$@ $(LIB_EXEFLAGS) $(BENCH_OBJECTS) $(STATIC_NAME) $(LIB_LIBS)

@@ -443,6 +443,8 @@ WASI_LIBFLAGS = $(WASI_LDFLAGS)      \
                 -Wl,--export=malloc  \
                 -Wl,--export=free
 
+all_wasm: torsion.wasm torsion_bench.wasm torsion_test.wasm
+
 torsion.wasm: $(LIB_OBJECTS)
 	$(CC) -o $@ $(WASI_LIBFLAGS) $(LDFLAGS) $(LIB_OBJECTS) $(LIBS)
 	@chmod 0644 $@
@@ -478,6 +480,8 @@ EM_LDFLAGS = -s SINGLE_FILE=1                    \
              -s ENVIRONMENT=$(ENVIRONMENT)
 
 EM_LIBFLAGS = $(EM_LDFLAGS) -s EXPORTED_FUNCTIONS=@etc/exports.json
+
+all_js: torsion.js torsion_bench.js torsion_test.js
 
 torsion.js: $(LIB_OBJECTS)
 	$(CC) -o $@ $(EM_LIBFLAGS) $(LDFLAGS) $(LIB_OBJECTS) $(LIBS)
