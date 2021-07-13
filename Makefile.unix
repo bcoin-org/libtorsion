@@ -367,13 +367,12 @@ utils.o: test/utils.c test/utils.h
 # Native
 #
 
-CONFIG = -e 's;@prefix@;$(PREFIX);g'               \
-         -e 's;@exec_prefix@;$${prefix};g'         \
-         -e 's;@libdir@;$${exec_prefix}/lib;g'     \
-         -e 's;@includedir@;$${prefix}/include;g'  \
-         -e 's;@PACKAGE_NAME@;libtorsion;g'        \
-         -e 's;@PACKAGE_VERSION@;$(PKG_VERSION);g' \
-         -e 's;@LIBS_PRIVATE@;$(LIBS);g'
+CONFIG = -e 's;@CMAKE_INSTALL_PREFIX@;$(PREFIX);g'   \
+         -e 's;@CMAKE_INSTALL_LIBDIR@;lib;g'         \
+         -e 's;@CMAKE_INSTALL_INCLUDEDIR@;include;g' \
+         -e 's;@PROJECT_NAME@;libtorsion;g'          \
+         -e 's;@PROJECT_VERSION@;$(PKG_VERSION);g'   \
+         -e 's;@pkgconf_libs@;$(LIBS);g'
 
 INSTDIR = $(DESTDIR)$(PREFIX)
 

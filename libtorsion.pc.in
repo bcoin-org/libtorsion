@@ -1,13 +1,13 @@
-prefix=@prefix@
-exec_prefix=@exec_prefix@
-libdir=@libdir@
-includedir=@includedir@
+prefix=@CMAKE_INSTALL_PREFIX@
+exec_prefix=${prefix}
+libdir=${exec_prefix}/@CMAKE_INSTALL_LIBDIR@
+includedir=${prefix}/@CMAKE_INSTALL_INCLUDEDIR@
 
-Name: @PACKAGE_NAME@
-Version: @PACKAGE_VERSION@
+Name: @PROJECT_NAME@
+Version: @PROJECT_VERSION@
 Description: C crypto library.
 URL: https://github.com/bcoin-org/libtorsion
 
 Libs: -L${libdir} -ltorsion
-Libs.private: @LIBS_PRIVATE@
+Libs.private: @pkgconf_libs@
 Cflags: -I${includedir}

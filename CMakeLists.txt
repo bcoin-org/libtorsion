@@ -44,7 +44,6 @@ endif()
 include(cmake/AppendCCompilerFlag.cmake)
 include(cmake/CheckCThreadLocalStorage.cmake)
 include(cmake/TargetLinkOptions.cmake)
-include(cmake/WritePkgConfigFile.cmake)
 include(CheckCSourceCompiles)
 include(CheckIncludeFile)
 include(CheckLibraryExists)
@@ -483,15 +482,7 @@ else()
                                              SOVERSION ${torsion_soversion})
     set_target_properties(torsion_static PROPERTIES OUTPUT_NAME torsion)
 
-    write_pkgconfig_file(libtorsion.pc.in libtorsion.pc
-      PREFIX ${CMAKE_INSTALL_PREFIX}
-      EXEC_PREFIX \${prefix}
-      LIBDIR \${exec_prefix}/${CMAKE_INSTALL_LIBDIR}
-      INCLUDEDIR \${prefix}/${CMAKE_INSTALL_INCLUDEDIR}
-      PACKAGE_NAME ${PROJECT_NAME}
-      PACKAGE_VERSION ${PROJECT_VERSION}
-      LIBS_PRIVATE ${pkgconf_libs}
-    )
+    configure_file(libtorsion.pc.in libtorsion.pc @ONLY)
 
     install(DIRECTORY include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
     install(FILES LICENSE
