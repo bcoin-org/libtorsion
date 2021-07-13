@@ -157,6 +157,11 @@ AC_COMPILE_IFELSE([
   AX_CHECK_COMPILE_FLAG([-qtls], [CFLAGS="$CFLAGS -qtls"])
 ])
 
+AS_CASE([$target_os], [mingw*], [
+  CFLAGS="$CFLAGS -Wno-unknown-pragmas"
+  LIBS="-liphlpapi -lpsapi -lbcrypt $LIBS"
+])
+
 dnl
 dnl Feature Testing
 dnl
@@ -365,6 +370,7 @@ AM_CONDITIONAL([ENABLE_CTGRIND], [test x"$has_memcheck" = x"yes"])
 AM_CONDITIONAL([ENABLE_RNG], [test x"$enable_rng" = x"yes"])
 AM_CONDITIONAL([ENABLE_TESTS], [test x"$enable_tests" = x"yes"])
 AM_CONDITIONAL([ENABLE_ZLIB], [test x"$has_zlib" = x"yes"])
+AM_CONDITIONAL([MINGW], [AS_CASE([$target_os],[mingw*], [true], [false])])
 AM_CONDITIONAL([NATIVE], [test x"$WASM" != x"yes"])
 AM_CONDITIONAL([WASI], [test x"$WASI" != x""])
 

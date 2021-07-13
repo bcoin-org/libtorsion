@@ -12,6 +12,13 @@ include(CheckCSourceCompiles)
 function(check_c_thread_local_storage name)
   set(${name} "" PARENT_SCOPE)
 
+  # mingw causes a runtime error with __thread
+  # and __declspec(thread) is simply ignored.
+  # https://sourceforge.net/p/mingw-w64/bugs/327/
+  if(MINGW)
+    return()
+  endif()
+
   set(CMAKE_REQUIRED_FLAGS "")
   set(CMAKE_REQUIRED_LIBRARIES "")
 
@@ -37,7 +44,7 @@ function(check_c_thread_local_storage name)
   # not widely known, but there is evidence
   # that Compaq C for Tru64 UNIX supported it
   # at one point.
-  set(keywords "__declspec(thread)" __thread "__declspec(__thread)")
+  set(keywords __thread "__declspec(thread)" "__declspec(__thread)")
 
   if (DEFINED CMAKE_C_STANDARD AND CMAKE_C_STANDARD LESS 11)
     list(APPEND keywords _Thread_local)

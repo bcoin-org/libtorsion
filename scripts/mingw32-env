@@ -1,0 +1,27 @@
+#!/bin/sh
+
+# ming32-env - mingw32 environment for configure/make
+# Copyright (c) 2020, Christopher Jeffrey (MIT License).
+# https://github.com/bcoin-org/libtorsion
+#
+# Partially based on:
+#   https://github.com/jedisct1/libsodium/blob/master/dist-build/msys2-win64.sh
+
+ARCH=${MINGW_ARCH:-x86_64}
+
+MINGW_TARGET="$ARCH-w64-mingw32"
+
+export PREFIX="`pwd`/$MINGW_TARGET"
+export AR="$ARCH-w64-mingw32-ar"
+export AS="$ARCH-w64-mingw32-as"
+export CXX="$ARCH-w64-mingw32-c++"
+export CC="$ARCH-w64-mingw32-cc"
+export CPP="$ARCH-w64-mingw32-cpp"
+export DLLTOOL="$ARCH-w64-mingw32-dlltool"
+export DLLWRAP="$ARCH-w64-mingw32-dllwrap"
+export LD="$ARCH-w64-mingw32-ld"
+export NM="$ARCH-w64-mingw32-nm"
+export OBJCOPY="$ARCH-w64-mingw32-objcopy"
+export OBJDUMP="$ARCH-w64-mingw32-objdump"
+export RANLIB="$ARCH-w64-mingw32-ranlib"
+export STRIP="$ARCH-w64-mingw32-strip"

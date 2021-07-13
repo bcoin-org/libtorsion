@@ -35,7 +35,7 @@ export RANLIB='llvm-ranlib'
 export STRIP='llvm-strip'
 export OBJDUMP='llvm-objdump'
 export CFLAGS="$WASI_FLAGS $CFLAGS"
-export CXXFLAGS="$WASI_FLAGS -std=c++11 $CXXFLAGS"
+export CXXFLAGS="$WASI_FLAGS $CXXFLAGS"
 export ASFLAGS="$WASI_FLAGS $ASFLAGS"
 export LDFLAGS="$LDFLAGS"
 export ARFLAGS='cr'

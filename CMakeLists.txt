@@ -23,6 +23,21 @@ else()
 endif()
 
 #
+# Toolchain/Platform Fixes
+#
+
+if(EMSCRIPTEN)
+  # CMAKE_CROSSCOMPILING_EMULATOR is mistakenly quoted by emcmake.
+  string(REPLACE "\"" "" CMAKE_CROSSCOMPILING_EMULATOR
+         "${CMAKE_CROSSCOMPILING_EMULATOR}")
+endif()
+
+if(WASI)
+  # No idea why this isn't set.
+  set(CMAKE_EXECUTABLE_SUFFIX ".wasm")
+endif()
+
+#
 # Includes
 #
 
@@ -217,6 +232,11 @@ if(TORSION_ENABLE_DEBUG)
   endif()
 endif()
 
+if(MINGW)
+  # No support for #pragma comment(lib).
+  list(APPEND torsion_cflags -Wno-unknown-pragmas)
+endif()
+
 #
 # Defines
 #
@@ -293,6 +313,11 @@ if(TORSION_HAS_ZLIB)
   list(APPEND test_libs z)
 endif()
 
+if(MINGW)
+  # No support for #pragma comment(lib).
+  list(APPEND torsion_libs -liphlpapi -lpsapi -lbcrypt)
+endif()
+
 #
 # Includes
 #
@@ -361,10 +386,6 @@ if(NOT PROJECT_NAME STREQUAL CMAKE_PROJECT_NAME)
   endif()
 elseif(TORSION_WASM)
   if(EMSCRIPTEN)
-    # CMAKE_CROSSCOMPILING_EMULATOR is mistakenly quoted by emcmake.
-    string(REPLACE "\"" "" CMAKE_CROSSCOMPILING_EMULATOR
-           "${CMAKE_CROSSCOMPILING_EMULATOR}")
-
     set(torsion_ldflags "SHELL:-s SINGLE_FILE=1"
                         "SHELL:-s ASSERTIONS=0"
                         "SHELL:-s NODEJS_CATCH_EXIT=0"
@@ -377,8 +398,6 @@ elseif(TORSION_WASM)
 
     set(torsion_ldflags_lib "SHELL:-s EXPORTED_FUNCTIONS=@etc/exports.json")
   else()
-    set(CMAKE_EXECUTABLE_SUFFIX ".wasm")
-
     set(torsion_ldflags -Wl,--allow-undefined
                         -Wl,--initial-memory=${TORSION_INITIAL_MEMORY}
                         -Wl,--max-memory=${TORSION_MAX_MEMORY}
@@ -435,6 +454,26 @@ else()
   target_include_directories(torsion_static INTERFACE ${torsion_includes})
   target_link_options(torsion_static INTERFACE ${torsion_ldflags})
   target_link_libraries(torsion_static INTERFACE ${torsion_libs})
+
+  if(MINGW AND CMAKE_DLLTOOL)
+    # Useful for creating more-compatible import libraries on windows:
+    #
+    #   lib.exe /OUT:[name].lib /DEF:[name].def /NAME:[name].dll /MACHINE:X64
+    #
+    # Or:
+    #
+    #   llvm-dlltool -l [name].lib -d [name].def -D [name].dll -m i386:x86-64
+    #
+    # More-compatible static libraries can already be created with:
+    #
+    #   llvm-lib /out:[name].lib [name].a
+    add_custom_command(OUTPUT libtorsion.def
+                       COMMAND ${CMAKE_DLLTOOL}
+                               -z libtorsion.def
+                               $<TARGET_FILE:torsion_static>
+                       DEPENDS torsion_static)
+    add_custom_target(libtorsion_def ALL DEPENDS libtorsion.def)
+  endif()
 
   if(UNIX)
     string(REPLACE ":" "." torsion_version "${TORSION_ABI_VERSION}")

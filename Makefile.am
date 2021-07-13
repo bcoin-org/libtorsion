@@ -294,6 +294,22 @@ valgrind: torsion_test
 	@./libtool --mode=execute valgrind --leak-check=full --error-exitcode=1 ./torsion_test
 endif ENABLE_TESTS
 
+if MINGW
+# Useful for creating more-compatible import libraries on windows:
+#
+#   lib.exe /OUT:[name].lib /DEF:[name].def /NAME:[name].dll /MACHINE:X64
+#
+# Or:
+#
+#   llvm-dlltool -l [name].lib -d [name].def -D [name].dll -m i386:x86-64
+#
+# More-compatible static libraries can already be created with:
+#
+#   llvm-lib /out:[name].lib [name].a
+libtorsion.def: libtorsion.a
+	$(DLLTOOL) -z $@ libtorsion.a
+endif
+
 lib_LTLIBRARIES = $(libtorsion_la_NAME)
 
 noinst_PROGRAMS = $(torsion_bench_NAME)       \

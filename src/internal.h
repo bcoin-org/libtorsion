@@ -305,7 +305,7 @@ static const unsigned long torsion__endian_check TORSION_UNUSED = 1;
 #      endif
 #    endif
 #  endif
-#  if defined(__ANDROID__)
+#  ifdef __ANDROID__
 #    if !defined(__clang_major__) || __clang_major__ < 5
 #      undef TORSION_TLS
 #    endif
@@ -330,6 +330,9 @@ static const unsigned long torsion__endian_check TORSION_UNUSED = 1;
 #    if defined(__ELF__) && (defined(__i386__) || defined(__x86_64__))
 #      define TORSION_TLS __thread
 #    endif
+#  endif
+#  ifdef __MINGW32__
+#    undef TORSION_TLS
 #  endif
 #elif (defined(_MSC_VER) && _MSC_VER >= 1200)          \
    || (defined(__WATCOMC__) && __WATCOMC__ >= 1200)    \
