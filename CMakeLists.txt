@@ -2,15 +2,12 @@
 # Copyright (c) 2020, Christopher Jeffrey (MIT License).
 # https://github.com/bcoin-org/libtorsion
 
-set(TORSION_PKG_VERSION 0.0.0)
-set(TORSION_ABI_VERSION 0:0:0)
-
 #
 # Initialization
 #
 
 cmake_minimum_required(VERSION 3.4)
-project(libtorsion VERSION ${TORSION_PKG_VERSION} LANGUAGES C)
+project(libtorsion VERSION 0.0.0 LANGUAGES C)
 
 if(NOT CMAKE_CONFIGURATION_TYPES AND NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE "Release")
@@ -475,11 +472,7 @@ else()
   endif()
 
   if(UNIX)
-    string(REPLACE ":" "." torsion_version "${TORSION_ABI_VERSION}")
-    string(REGEX MATCH "^[0-9]+" torsion_soversion "${TORSION_ABI_VERSION}")
-
-    set_target_properties(torsion PROPERTIES VERSION ${torsion_version}
-                                             SOVERSION ${torsion_soversion})
+    set_target_properties(torsion PROPERTIES VERSION 0.0.0 SOVERSION 0)
     set_target_properties(torsion_static PROPERTIES OUTPUT_NAME torsion)
 
     configure_file(libtorsion.pc.in libtorsion.pc @ONLY)
