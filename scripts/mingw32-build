@@ -5,21 +5,15 @@
 # https://github.com/bcoin-org/libtorsion
 
 ARCH=${1:-x86_64}
-
-w1='-Wall -Wextra -Wcast-align -Wno-implicit-fallthrough'
-w2='-Wno-overlength-strings -Wno-unknown-pragmas -Wshadow'
-
-export CFLAGS="-pedantic $w1 $w2 $CFLAGS"
-export LIBS="-lkernel32 -luser32 -ladvapi32 -liphlpapi -lpsapi -lbcrypt $LIBS"
-
+WIN32_LIBS='-lkernel32 -luser32 -ladvapi32 -liphlpapi -lpsapi -lbcrypt'
 SHARED_FLAGS='-Wl,--out-implib,libtorsion.dll.a -Wl,--output-def,libtorsion.def'
 
-make -f Makefile.unix CC=$ARCH-w64-mingw32-cc         \
-                      AR=$ARCH-w64-mingw32-ar         \
-                      RANLIB=$ARCH-w64-mingw32-ranlib \
-                      ARFLAGS=cr                      \
-                      SHARED_SUFFIX=.dll              \
-                      EXE_SUFFIX=.exe                 \
-                      SHARED="-shared $SHARED_FLAGS"  \
-                      all                             \
-                      libtorsion.dll
+exec make -f Makefile.unix CC=$ARCH-w64-mingw32-cc         \
+                           AR=$ARCH-w64-mingw32-ar         \
+                           RANLIB=$ARCH-w64-mingw32-ranlib \
+                           ARFLAGS=cr                      \
+                           SHARED_SUFFIX=.dll              \
+                           EXE_SUFFIX=.exe                 \
+                           SHARED="-shared $SHARED_FLAGS"  \
+                           LIBS="$WIN32_LIBS $LIBS"        \
+                           all libtorsion.dll
