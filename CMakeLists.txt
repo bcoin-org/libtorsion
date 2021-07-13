@@ -449,7 +449,7 @@ else()
   target_link_options(torsion_static INTERFACE ${torsion_ldflags})
   target_link_libraries(torsion_static INTERFACE ${torsion_libs})
 
-  if(MINGW AND CMAKE_DLLTOOL)
+  if(MINGW)
     # Useful for creating more-compatible import libraries on windows:
     #
     #   lib.exe /OUT:[name].lib /DEF:[name].def /NAME:[name].dll /MACHINE:X64
@@ -461,12 +461,7 @@ else()
     # More-compatible static libraries can already be created with:
     #
     #   llvm-lib /out:[name].lib [name].a
-    add_custom_command(OUTPUT libtorsion.def
-                       COMMAND ${CMAKE_DLLTOOL}
-                               -z libtorsion.def
-                               $<TARGET_FILE:torsion_static>
-                       DEPENDS torsion_static)
-    add_custom_target(libtorsion_def ALL DEPENDS libtorsion.def)
+    target_link_options(torsion PRIVATE -Wl,--output-def,libtorsion.def)
   endif()
 
   if(UNIX)
