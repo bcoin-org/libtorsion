@@ -12,9 +12,10 @@ include(CheckCSourceCompiles)
 function(check_c_thread_local_storage name)
   set(${name} "" PARENT_SCOPE)
 
-  # mingw causes a runtime error with __thread
-  # and __declspec(thread) is simply ignored.
-  # https://sourceforge.net/p/mingw-w64/bugs/327/
+  # GCC autolinks to libwinpthread.dll when TLS
+  # is used. This means our library will not be
+  # redistributable on Windows unless we ship
+  # libwinpthread.dll as well.
   if(MINGW)
     return()
   endif()

@@ -89,10 +89,6 @@ if(APPLE)
   set(CMAKE_OSX_DEPLOYMENT_TARGET 10.7)
 endif()
 
-if(WASI AND CMAKE_C_FLAGS STREQUAL "-v")
-  set(CMAKE_C_FLAGS "")
-endif()
-
 #
 # Feature Testing
 #
@@ -231,6 +227,8 @@ endif()
 if(MINGW)
   # No support for #pragma comment(lib).
   list(APPEND torsion_cflags -Wno-unknown-pragmas)
+  # Ensure we are redistributable on windows.
+  list(APPEND torsion_ldflags -static-libgcc)
 endif()
 
 #

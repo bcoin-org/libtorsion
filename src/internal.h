@@ -332,7 +332,7 @@ static const unsigned long torsion__endian_check TORSION_UNUSED = 1;
 #    endif
 #  endif
 #  ifdef __MINGW32__
-#    undef TORSION_TLS
+#    undef TORSION_TLS /* Avoid linking to libwinpthread.dll. */
 #  endif
 #elif (defined(_MSC_VER) && _MSC_VER >= 1200)          \
    || (defined(__WATCOMC__) && __WATCOMC__ >= 1200)    \
