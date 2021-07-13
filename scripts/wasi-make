@@ -15,23 +15,23 @@ else
   exit 1
 fi
 
-MAKE="$1"
+export AR="$WASI/bin/llvm-ar"
+export AS="$WASI/bin/clang"
+export CC="$WASI/bin/clang"
+export CPP="$WASI/bin/clang-cpp"
+export CXX="$WASI/bin/clang++"
+export LD="$WASI/bin/wasm-ld"
+export NM="$WASI/bin/llvm-nm"
+export OBJCOPY="$WASI/bin/llvm-objcopy"
+export OBJDUMP="$WASI/bin/llvm-objdump"
+export RANLIB="$WASI/bin/llvm-ranlib"
+export STRINGS="$WASI/bin/llvm-strings"
+export STRIP="$WASI/bin/llvm-strip"
+export ARFLAGS='cr'
 
-shift
+if ! "$CC" --version > /dev/null 2>& 1; then
+  echo "$CC is not available!" >& 2
+  exit 1
+fi
 
-while echo x"$1" | grep -q '^x-'; do
-  if test x"$1" = x'-f'; then
-    MAKE="$MAKE $1 $2"
-    shift
-    shift
-  else
-    MAKE="$MAKE $1"
-    shift
-  fi
-done
-
-exec $MAKE CC=$WASI/bin/clang            \
-           AR=$WASI/bin/llvm-ar          \
-           RANLIB=$WASI/bin/llvm-ranlib  \
-           ARFLAGS=cr                    \
-           "$@"
+exec "$@"
