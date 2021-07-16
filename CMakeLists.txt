@@ -53,10 +53,10 @@ include(GNUInstallDirs)
 
 option(TORSION_ENABLE_ASM "Use inline assembly if available" ON)
 option(TORSION_ENABLE_COVERAGE "Enable coverage" OFF)
-option(TORSION_ENABLE_DEBUG "Enable debug build" OFF)
+option(TORSION_ENABLE_DEBUG "Enable debug build (forces -g or /Zi)" OFF)
 option(TORSION_ENABLE_INT128 "Use __int128 if available" ON)
 option(TORSION_ENABLE_RNG "Enable RNG" ON)
-option(TORSION_ENABLE_TLS "Enable thread-local storage" ON)
+option(TORSION_ENABLE_TLS "Use thread-local storage if available" ON)
 option(TORSION_ENABLE_VERIFY "Enable scalar bounds checks" OFF)
 
 if(TORSION_WASM)
@@ -163,10 +163,17 @@ else()
   set(TORSION_HAS_INT128)
 endif()
 
-if(TORSION_ENABLE_TLS)
-  check_c_thread_local_storage(TORSION_TLS)
+if(TORSION_ENABLE_TLS AND NOT MINGW)
+  # A note about MinGW and TLS:
+  #
+  # GCC autolinks to libwinpthread.dll when TLS
+  # is used. This means our library will not be
+  # redistributable on Windows unless we ship
+  # libwinpthread.dll as well.
+  check_c_thread_local_storage(TORSION_TLS_KEYWORD TORSION_TLS_FLAG)
 else()
-  set(TORSION_TLS)
+  set(TORSION_TLS_KEYWORD)
+  set(TORSION_TLS_FLAG)
 endif()
 
 set(TORSION_HAS_MEMCHECK 0)
@@ -224,6 +231,10 @@ if(TORSION_ENABLE_DEBUG)
   endif()
 endif()
 
+if(TORSION_TLS_FLAG)
+  list(APPEND torsion_cflags ${TORSION_TLS_FLAG})
+endif()
+
 if(MINGW)
   # No support for #pragma comment(lib).
   list(APPEND torsion_cflags -Wno-unknown-pragmas)
@@ -265,8 +276,8 @@ if(TORSION_ENABLE_RNG)
   list(APPEND torsion_defines TORSION_HAVE_RNG)
 endif()
 
-if(TORSION_TLS)
-  list(APPEND torsion_defines TORSION_TLS=${TORSION_TLS})
+if(TORSION_TLS_KEYWORD)
+  list(APPEND torsion_defines TORSION_TLS=${TORSION_TLS_KEYWORD})
 endif()
 
 if(TORSION_ENABLE_VERIFY)
@@ -294,22 +305,15 @@ endif()
 #
 
 set(torsion_libs)
-set(pkgconf_libs)
 set(test_libs)
-
-if(TORSION_TLS)
-  list(APPEND torsion_libs Threads::TLS)
-  get_property(pkgconf_libs TARGET Threads::TLS
-                            PROPERTY INTERFACE_LINK_LIBRARIES)
-endif()
-
-if(TORSION_HAS_ZLIB)
-  list(APPEND test_libs z)
-endif()
 
 if(MINGW)
   # No support for #pragma comment(lib).
   list(APPEND torsion_libs -liphlpapi -lpsapi -lbcrypt)
+endif()
+
+if(TORSION_HAS_ZLIB)
+  list(APPEND test_libs z)
 endif()
 
 #
