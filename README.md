@@ -107,6 +107,7 @@ The CMake build is fairly straightforward, offering the following options:
 - `TORSION_ENABLE_COVERAGE=OFF` - Enable coverage
 - `TORSION_ENABLE_DEBUG=ON` - Enable debug build (forces -g or /Zi)
 - `TORSION_ENABLE_INT128=ON` - Use `__int128` if available
+- `TORSION_ENABLE_PTHREAD=ON` - Use pthread if present in libc.
 - `TORSION_ENABLE_RNG=ON` - Enable RNG
 - `TORSION_ENABLE_TLS=ON` - Use thread-local storage if available
 - `TORSION_ENABLE_VERIFY=OFF` - Enable scalar bounds checks
@@ -173,6 +174,7 @@ $ make -f Makefile.unix FPIC=-KPIC        \
                         SHARED=-G         \
                         CFLAGS='-xO3 -mt' \
                         LDFLAGS=-mt       \
+                        LIBS=-lpthread    \
                         all               \
                         libtorsion.so
 ```
@@ -312,6 +314,7 @@ Any of the following _may_ be passed as defines to the preprocessor:
 - `TORSION_HAVE_CONFIG` - Disables preprocessor-based autoconfiguration¹.
 - `TORSION_HAVE_ASM` - GNU-flavored inline assembly is available².
 - `TORSION_HAVE_INT128` - The `__int128` type is available².
+- `TORSION_HAVE_PTHREAD` - The pthread API is available².
 - `TORSION_TLS=[tls-keyword]` - Thread-local storage is available².
 - `TORSION_COVERAGE` - Coverage is enabled via `gcov`. Disable assertions.
 - `TORSION_DEBUG` - Enable assertions.

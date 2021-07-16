@@ -244,6 +244,7 @@ static const unsigned long torsion__endian_check TORSION_UNUSED = 1;
 #undef TORSION_HAVE_ASM
 #undef TORSION_HAVE_INT128
 #undef TORSION_TLS
+#undef TORSION_HAVE_PTHREAD
 
 /* Detect inline ASM support.
  *
@@ -329,21 +330,20 @@ static const unsigned long torsion__endian_check TORSION_UNUSED = 1;
 #      define TORSION_TLS __thread
 #    endif
 #  endif
-#  ifdef __MINGW32__
-#    undef TORSION_TLS /* Avoid linking to libwinpthread.dll. */
-#  endif
 #elif (defined(_MSC_VER) && _MSC_VER >= 1200)          \
    || (defined(__WATCOMC__) && __WATCOMC__ >= 1200)    \
    || (defined(__BORLANDC__) && __BORLANDC__ >= 0x610) \
    || (defined(__DMC__) && __DMC__ >= 0x822)
 #  define TORSION_TLS __declspec(thread)
-#elif (defined(__SUNPRO_C) && __SUNPRO_C >= 0x560)   \
-   || (defined(__SUNPRO_CC) && __SUNPRO_CC >= 0x560) \
-   || (defined(__PCC__) && __PCC__ >= 1)             \
+#elif (defined(__SUNPRO_C) && __SUNPRO_C >= 0x560)     \
+   || (defined(__SUNPRO_CC) && __SUNPRO_CC >= 0x560)   \
+   || (defined(__HP_cc) && __HP_cc >= 53600)           \
+   || (defined(__HP_aCC) && __HP_aCC >= 53600)         \
+   || (defined(__CC_ARM) && __ARMCC_VERSION >= 510000) \
+   || (defined(__PCC__) && __PCC__ >= 1)               \
    || (defined(__NWCC__))
 #  define TORSION_TLS __thread
 #elif defined(__xlC__) && defined(_AIX)
-/* Ensure the invocation was xlc_r -qtls -DHAVE_QTLS. */
 #  if defined(_THREAD_SAFE) && defined(HAVE_QTLS)
 #    define TORSION_TLS __thread
 #  endif
@@ -353,6 +353,71 @@ static const unsigned long torsion__endian_check TORSION_UNUSED = 1;
 #  endif
 #elif TORSION_CPP_VERSION >= 201103L
 #  define TORSION_TLS thread_local
+#endif
+
+/* Detect builtin pthread support. */
+#if defined(__linux__)
+#  include <limits.h>
+#  if defined(__GLIBC__)
+#    ifdef __GLIBC_PREREQ
+#      if __GLIBC_PREREQ(2, 4)
+#        define TORSION_HAVE_PTHREAD
+#      endif
+#    endif
+#  elif defined(__BIONIC__)
+#    define TORSION_HAVE_PTHREAD
+#  elif !defined(__UCLIBC__) && !defined(__dietlibc__) && !defined(__NEWLIB__)
+#    define TORSION_HAVE_PTHREAD /* musl */
+#  endif
+#elif defined(__APPLE__) && defined(__MACH__)
+#  include <AvailabilityMacros.h>
+#  if MAC_OS_X_VERSION_MAX_ALLOWED >= 1040
+#    define TORSION_HAVE_PTHREAD
+#  endif
+#elif defined(__FreeBSD__)
+#  include <sys/param.h>
+#  if defined(__FreeBSD_version) && __FreeBSD_version >= 700055
+#    define TORSION_HAVE_PTHREAD
+#  endif
+#elif defined(__OpenBSD__)
+#  include <sys/param.h>
+#  if defined(OpenBSD) && OpenBSD >= 201805
+#    define TORSION_HAVE_PTHREAD
+#  endif
+#elif defined(__NetBSD__)
+#  include <sys/param.h>
+#  if defined(__NetBSD_Version__) && __NetBSD_Version__ >= 299001200
+#    define TORSION_HAVE_PTHREAD
+#  endif
+#elif defined(__DragonFly__)
+#  include <sys/param.h>
+#  if defined(__DragonFly_version) && __DragonFly_version >= 200400
+#    define TORSION_HAVE_PTHREAD
+#  endif
+#elif defined(__sun) && defined(__SVR4)
+#  define TORSION_HAVE_PTHREAD
+#elif defined(__CYGWIN__)
+#  include <cygwin/version.h>
+#  if CYGWIN_VERSION_API_MAJOR > 0 || CYGWIN_VERSION_API_MINOR >= 38
+#    define TORSION_HAVE_PTHREAD
+#  endif
+#elif defined(__gnu_hurd__)
+#  include <limits.h>
+#  if defined(__GLIBC__) && defined(__GLIBC_PREREQ)
+#    if __GLIBC_PREREQ(2, 28)
+#      define TORSION_HAVE_PTHREAD
+#    endif
+#  endif
+#elif defined(_AIX)
+#  if defined(__xlC__) && defined(_THREAD_SAFE)
+#    define TORSION_HAVE_PTHREAD
+#  endif
+#elif defined(__MVS__)
+#  if defined(_ALL_SOURCE) || defined(_OPEN_THREADS) || defined(_UNIX03_THREADS)
+#    define TORSION_HAVE_PTHREAD
+#  endif
+#elif defined(__QNXNTO__) || defined(__HAIKU__)
+#  define TORSION_HAVE_PTHREAD
 #endif
 
 /* Allow some overrides. */
@@ -366,6 +431,10 @@ static const unsigned long torsion__endian_check TORSION_UNUSED = 1;
 
 #ifdef TORSION_NO_TLS
 #  undef TORSION_TLS
+#endif
+
+#ifdef TORSION_NO_PTHREAD
+#  undef TORSION_HAVE_PTHREAD
 #endif
 
 #endif /* !TORSION_HAVE_CONFIG */

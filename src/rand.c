@@ -222,6 +222,92 @@ rng_uniform(rng_t *rng, uint32_t max) {
 }
 
 /*
+ * Global Lock
+ */
+
+#if defined(_WIN32) && defined(__MINGW32__)
+/* GCC autolinks to libwinpthread.dll when TLS
+ * is used. This means our library will not be
+ * redistributable on Windows unless we ship
+ * libwinpthread.dll as well.
+ *
+ * To avoid this, we utilize the win32 API
+ * directly and use a global lock instead.
+ */
+
+#undef TORSION_TLS
+
+#include <windows.h>
+
+static CRITICAL_SECTION rng_lock;
+
+static void
+rng_global_lock(void) {
+  static int initialized = 0;
+  static HANDLE event = NULL;
+  HANDLE created, existing;
+
+  if (initialized == 0) {
+    created = CreateEvent(NULL, 1, 0, NULL);
+
+    if (created == NULL)
+      torsion_abort(); /* LCOV_EXCL_LINE */
+
+    existing = InterlockedCompareExchangePointer(&event, created, NULL);
+
+    if (existing == NULL) {
+      InitializeCriticalSection(&rng_lock);
+
+      if (!SetEvent(created))
+        torsion_abort(); /* LCOV_EXCL_LINE */
+
+      initialized = 1;
+    } else {
+      CloseHandle(created);
+
+      if (WaitForSingleObject(existing, INFINITE) != WAIT_OBJECT_0)
+        torsion_abort(); /* LCOV_EXCL_LINE */
+    }
+  }
+
+  EnterCriticalSection(&rng_lock);
+}
+
+static void
+rng_global_unlock(void) {
+  LeaveCriticalSection(&rng_lock);
+}
+
+#else /* !__MINGW32__ */
+
+#if !defined(TORSION_TLS) && defined(TORSION_HAVE_PTHREAD)
+#  define TORSION_USE_PTHREAD
+#endif
+
+#ifdef TORSION_USE_PTHREAD
+#  include <pthread.h>
+static pthread_mutex_t rng_lock = PTHREAD_MUTEX_INITIALIZER;
+#endif
+
+static void
+rng_global_lock(void) {
+#ifdef TORSION_USE_PTHREAD
+  if (pthread_mutex_lock(&rng_lock) != 0)
+    torsion_abort(); /* LCOV_EXCL_LINE */
+#endif
+}
+
+static void
+rng_global_unlock(void) {
+#ifdef TORSION_USE_PTHREAD
+  if (pthread_mutex_unlock(&rng_lock) != 0)
+    torsion_abort(); /* LCOV_EXCL_LINE */
+#endif
+}
+
+#endif /* !__MINGW32__ */
+
+/*
  * Global Context
  */
 
@@ -257,44 +343,59 @@ torsion_getentropy(void *dst, size_t size) {
 
 int
 torsion_getrandom(void *dst, size_t size) {
+  rng_global_lock();
+
   /* LCOV_EXCL_START */
   if (!rng_global_init()) {
     if (size > 0)
       memset(dst, 0, size);
+
+    rng_global_unlock();
 
     return 0;
   }
   /* LCOV_EXCL_STOP */
 
   rng_generate(&rng_state, dst, size);
+  rng_global_unlock();
 
   return 1;
 }
 
 int
 torsion_random(uint32_t *num) {
+  rng_global_lock();
+
   /* LCOV_EXCL_START */
   if (!rng_global_init()) {
     *num = 0;
+    rng_global_unlock();
     return 0;
   }
   /* LCOV_EXCL_STOP */
 
   *num = rng_random(&rng_state);
 
+  rng_global_unlock();
+
   return 1;
 }
 
 int
 torsion_uniform(uint32_t *num, uint32_t max) {
+  rng_global_lock();
+
   /* LCOV_EXCL_START */
   if (!rng_global_init()) {
     *num = 0;
+    rng_global_unlock();
     return 0;
   }
   /* LCOV_EXCL_STOP */
 
   *num = rng_uniform(&rng_state, max);
+
+  rng_global_unlock();
 
   return 1;
 }

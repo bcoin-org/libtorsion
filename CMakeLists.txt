@@ -55,6 +55,7 @@ option(TORSION_ENABLE_ASM "Use inline assembly if available" ON)
 option(TORSION_ENABLE_COVERAGE "Enable coverage" OFF)
 option(TORSION_ENABLE_DEBUG "Enable debug build (forces -g or /Zi)" OFF)
 option(TORSION_ENABLE_INT128 "Use __int128 if available" ON)
+option(TORSION_ENABLE_PTHREAD "Use pthread if present in libc" ON)
 option(TORSION_ENABLE_RNG "Enable RNG" ON)
 option(TORSION_ENABLE_TLS "Use thread-local storage if available" ON)
 option(TORSION_ENABLE_VERIFY "Enable scalar bounds checks" OFF)
@@ -163,13 +164,24 @@ else()
   set(TORSION_HAS_INT128)
 endif()
 
-if(TORSION_ENABLE_TLS AND NOT MINGW)
-  # A note about MinGW and TLS:
-  #
-  # GCC autolinks to libwinpthread.dll when TLS
-  # is used. This means our library will not be
-  # redistributable on Windows unless we ship
-  # libwinpthread.dll as well.
+if(TORSION_ENABLE_PTHREAD AND NOT TORSION_WASM)
+  check_c_source_compiles([=[
+#   ifdef __MVS__
+#     define _ALL_SOURCE
+#   endif
+#   include <pthread.h>
+    static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
+    int main(void) {
+      (void)pthread_mutex_lock(&lock);
+      (void)pthread_mutex_unlock(&lock);
+      return 0;
+    }
+  ]=] TORSION_HAS_PTHREAD)
+else()
+  set(TORSION_HAS_PTHREAD)
+endif()
+
+if(TORSION_ENABLE_TLS)
   check_c_thread_local_storage(TORSION_TLS_KEYWORD TORSION_TLS_FLAG)
 else()
   set(TORSION_TLS_KEYWORD)
@@ -272,6 +284,10 @@ if(TORSION_HAS_INT128)
   list(APPEND torsion_defines TORSION_HAVE_INT128)
 endif()
 
+if(TORSION_HAS_PTHREAD)
+  list(APPEND torsion_defines TORSION_HAVE_PTHREAD)
+endif()
+
 if(TORSION_ENABLE_RNG)
   list(APPEND torsion_defines TORSION_HAVE_RNG)
 endif()
@@ -298,6 +314,10 @@ endif()
 
 if(CMAKE_SYSTEM_NAME STREQUAL "AIX")
   list(APPEND torsion_defines _THREAD_SAFE_ERRNO)
+endif()
+
+if(CMAKE_SYSTEM_NAME STREQUAL "OS390")
+  list(APPEND torsion_defines _ALL_SOURCE)
 endif()
 
 #
@@ -429,7 +449,6 @@ elseif(TORSION_WASM)
 
     if(CMAKE_GENERATOR STREQUAL "Unix Makefiles")
       add_custom_target(bench COMMAND torsion_bench)
-      add_custom_target(check COMMAND ${CMAKE_MAKE_PROGRAM} test)
     endif()
   endif()
 else()
@@ -540,7 +559,6 @@ else()
 
     if(CMAKE_GENERATOR STREQUAL "Unix Makefiles")
       add_custom_target(bench COMMAND torsion_bench)
-      add_custom_target(check COMMAND ${CMAKE_MAKE_PROGRAM} test)
 
       if(TORSION_VALGRIND)
         if(TORSION_HAS_MEMCHECK AND NOT TORSION_ENABLE_DEBUG)

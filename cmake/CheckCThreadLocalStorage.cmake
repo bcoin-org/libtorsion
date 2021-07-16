@@ -8,6 +8,7 @@ endif()
 
 include(CheckCCompilerFlag)
 include(CheckCSourceCompiles)
+include(CheckCSourceRuns)
 
 function(check_c_thread_local_storage name flag)
   set(${name} "" PARENT_SCOPE)
@@ -42,13 +43,13 @@ function(check_c_thread_local_storage name flag)
     string(TOUPPER "CMAKE_HAVE_C_TLS_${keyword}" varname)
     string(REGEX REPLACE "[^A-Z0-9]" "_" varname "${varname}")
 
-    check_c_source_compiles("
-      static ${keyword} int value;
-      int main(void) {
-        value = 1;
-        return value;
-      }
-    " ${varname})
+    set(code "static ${keyword} int x; int main(void) { x = 1; return !x; }")
+
+    if(CMAKE_CROSSCOMPILING)
+      check_c_source_compiles("${code}" ${varname})
+    else()
+      check_c_source_runs("${code}" ${varname})
+    endif()
 
     if(${varname})
       set(${name} ${keyword} PARENT_SCOPE)

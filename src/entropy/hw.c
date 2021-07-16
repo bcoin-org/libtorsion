@@ -173,10 +173,10 @@
 #    define HAVE_ASM_X86
 #  elif defined(__aarch64__)
 #    define HAVE_ASM_ARM64
-#  elif defined(__powerpc64__) || defined(_ARCH_PPC64) || defined(__PPC64__)
+#  elif defined(__powerpc64__) || (defined(__PPC__) && defined(__64BIT__))
 #    define HAVE_ASM_PPC
 #    define HAVE_ASM_PPC64
-#  elif defined(__powerpc__) || defined(_ARCH_PPC) || defined(__PPC__)
+#  elif defined(__powerpc__) || defined(__PPC__)
 #    define HAVE_ASM_PPC
 #    define HAVE_ASM_PPC32
 #  elif defined(__riscv) && defined(__riscv_xlen) && defined(HAVE_MACHINE)
