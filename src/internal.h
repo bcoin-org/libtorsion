@@ -39,9 +39,7 @@
 #endif
 
 /* Ignore the MSVC impersonators. */
-#if defined(_MSC_VER) && !defined(__GNUC__)         \
-                      && !defined(__MINGW32__)      \
-                      && !defined(__clang__)        \
+#if defined(_MSC_VER) && !defined(__clang__)        \
                       && !defined(__llvm__)         \
                       && !defined(__INTEL_COMPILER) \
                       && !defined(__ICL)
@@ -339,14 +337,16 @@ static const unsigned long torsion__endian_check TORSION_UNUSED = 1;
    || (defined(__BORLANDC__) && __BORLANDC__ >= 0x610) \
    || (defined(__DMC__) && __DMC__ >= 0x822)
 #  define TORSION_TLS __declspec(thread)
-#elif (defined(__SUNPRO_C) && __SUNPRO_C >= 0x560)     \
-   || (defined(__SUNPRO_CC) && __SUNPRO_CC >= 0x560)   \
-   || (defined(__HP_cc) && __HP_cc >= 53600)           \
-   || (defined(__HP_aCC) && __HP_aCC >= 53600)         \
-   || (defined(__CC_ARM) && __ARMCC_VERSION >= 510000) \
-   || (defined(__PCC__) && __PCC__ >= 1)               \
+#elif (defined(__SUNPRO_C) && __SUNPRO_C >= 0x560)   \
+   || (defined(__SUNPRO_CC) && __SUNPRO_CC >= 0x560) \
+   || (defined(__PCC__) && __PCC__ >= 1)             \
    || (defined(__NWCC__))
 #  define TORSION_TLS __thread
+#elif defined(__xlC__) && defined(_AIX)
+/* Ensure the invocation was xlc_r -qtls -DHAVE_QTLS. */
+#  if defined(_THREAD_SAFE) && defined(HAVE_QTLS)
+#    define TORSION_TLS __thread
+#  endif
 #elif TORSION_STDC_VERSION >= 201112L
 #  ifndef __STDC_NO_THREADS__
 #    define TORSION_TLS _Thread_local
