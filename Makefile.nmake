@@ -346,10 +346,10 @@ $(TEST_NAME): $(TEST_OBJECTS) $(STATIC_NAME)
 bench: $(BENCH_NAME)
 	@.\$(BENCH_NAME)
 
-test: $(TEST_NAME)
+check: $(TEST_NAME)
 	@.\$(TEST_NAME)
 
-check: test
+test: check
 
 clean:
 	del $(OUTPUT)
