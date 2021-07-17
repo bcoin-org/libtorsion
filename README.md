@@ -115,7 +115,7 @@ The CMake build is fairly straightforward, offering the following options:
 To build:
 
 ``` sh
-$ cmake .
+$ cmake . -DCMAKE_BUILD_TYPE=Release
 $ make
 ```
 
@@ -189,18 +189,32 @@ whereas the shared import library is named `torsion.lib`.
 
 See the unix cmake build documentation above for a list of available options.
 
+MSVC:
+
 ``` sh
 $ cmake .
 $ cmake --build . --config Release
 ```
 
+Clang (better performance):
+
+``` sh
+$ cmake . -G 'NMake Makefiles' -DCMAKE_C_COMPILER=clang-cl \
+                               -DCMAKE_BUILD_TYPE=Release
+$ nmake
+```
+
 #### NMake
 
-The NMake build assumes MSVC (cl.exe), but may also work with Windows Clang
+The NMake build assumes MSVC (cl.exe), but also works with Windows Clang
 (clang-cl).
 
 ``` sh
 $ nmake /F Makefile.nmake
+```
+
+``` sh
+$ nmake /F Makefile.nmake CC=clang-cl
 ```
 
 ### MinGW
@@ -211,7 +225,7 @@ those averse to Windows or who do not have a Windows machine to build on).
 #### CMake
 
 ``` sh
-$ ./scripts/mingw-cmake cmake .
+$ ./scripts/mingw-cmake cmake . -DCMAKE_BUILD_TYPE=Release
 $ make
 ```
 
@@ -232,11 +246,19 @@ The output of the MinGW builds will produce the usual suspects, i.e. `.a` and
 `lib` prefix. To "windows-ify" these, you _could_ simply rename the files:
 
 ``` sh
-$ mv libtorsion.a torsion_static.lib
+$ mv libtorsion_static.a torsion_static.lib
 $ mv libtorsion.dll.a torsion.lib
 ```
 
-However, for better compatibility with Windows, it is recommended to use
+But for more windowsy-ness, we can remove the `lib` prefix from the DLL too:
+
+``` sh
+$ mv libtorsion.a torsion_static.lib
+$ x86_64-w64-mingw32-dlltool -l torsion.lib -d libtorsion.def -D torsion.dll
+$ mv libtorsion.dll torsion.dll
+```
+
+However, for the _best_ compatibility with Windows, it is recommended to use
 `llvm-lib` and `llvm-dlltool` to re-create the archives:
 
 ``` sh
@@ -258,7 +280,7 @@ $ COPY libtorsion.dll torsion.dll
 #### CMake
 
 ``` sh
-$ ./scripts/wasi-cmake cmake .
+$ ./scripts/wasi-cmake cmake . -DCMAKE_BUILD_TYPE=Release
 $ make
 ```
 
@@ -273,7 +295,7 @@ $ ./scripts/wasi-make make -f Makefile.unix CFLAGS=-O3 wasm
 #### CMake
 
 ``` sh
-$ emcmake cmake .
+$ emcmake cmake . -DCMAKE_BUILD_TYPE=Release
 $ make
 ```
 
