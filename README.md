@@ -235,46 +235,6 @@ $ make
 $ ./scripts/mingw-make make -f Makefile.unix CFLAGS=-O3 mingw
 ```
 
-#### Distributing MinGW binaries on Windows
-
-Binaries produced by a MinGW build can simply be copied to a Windows machine
-and run. This is accomplished with static linking of libgcc and by avoiding
-linking to `libwinpthread.dll` altogether.
-
-The output of the MinGW builds will produce the usual suspects, i.e. `.a` and
-`.dll.a` files instead of `.lib` files. The libraries will also have the unix
-`lib` prefix. To "windows-ify" these, you _could_ simply rename the files:
-
-``` sh
-$ mv libtorsion_static.a torsion_static.lib
-$ mv libtorsion.dll.a torsion.lib
-```
-
-But for more windowsy-ness, we can remove the `lib` prefix from the DLL too:
-
-``` sh
-$ mv libtorsion.a torsion_static.lib
-$ x86_64-w64-mingw32-dlltool -l torsion.lib -d libtorsion.def -D torsion.dll
-$ mv libtorsion.dll torsion.dll
-```
-
-However, for the _best_ compatibility with Windows, it is recommended to use
-`llvm-lib` and `llvm-dlltool` to re-create the archives:
-
-``` sh
-$ llvm-lib /out:torsion_static.lib libtorsion.a
-$ llvm-dlltool -l torsion.lib -d libtorsion.def -D torsion.dll -m i386:x86-64
-$ cp libtorsion.dll torsion.dll
-```
-
-The equivalent Windows commands are:
-
-``` sh
-$ LIB /OUT:torsion_static.lib *.o *.obj
-$ LIB /OUT:torsion.lib /DEF:libtorsion.def /NAME:torsion.dll /MACHINE:X64
-$ COPY libtorsion.dll torsion.dll
-```
-
 ### WASI
 
 #### CMake

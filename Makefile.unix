@@ -438,19 +438,23 @@ install: $(STATIC_NAME) $(SHARED_NAME) libtorsion.pc
 #
 
 MINGW_LDFLAGS = -static-libgcc $(LDFLAGS)
-MINGW_LIBS = -lkernel32 -luser32 -ladvapi32 -liphlpapi -lpsapi -lbcrypt $(LIBS)
-MINGW_SHARED = -shared -Wl,--out-implib,$@.a -Wl,--output-def,libtorsion.def
+MINGW_LIBS = -lkernel32 -ladvapi32 -liphlpapi -lpsapi -lbcrypt $(LIBS)
+MINGW_SHARED = -shared -Wl,--out-implib,torsion.lib
 
-mingw: $(STATIC_NAME) libtorsion.dll torsion_bench.exe torsion_test.exe
+mingw: torsion_static.lib torsion.dll torsion_bench.exe torsion_test.exe
 
-libtorsion.dll: $(LIB_OBJECTS)
+torsion_static.lib: $(LIB_OBJECTS)
+	$(AR) $(ARFLAGS) $@ $(LIB_OBJECTS)
+	$(RANLIB) $@
+
+torsion.dll: $(LIB_OBJECTS)
 	$(CC) -o $@ $(MINGW_SHARED) $(MINGW_LDFLAGS) $(LIB_OBJECTS) $(MINGW_LIBS)
 
-torsion_bench.exe: $(BENCH_OBJECTS) $(STATIC_NAME)
-	$(CC) -o $@ $(MINGW_LDFLAGS) $(BENCH_OBJECTS) $(STATIC_NAME) $(MINGW_LIBS)
+torsion_bench.exe: $(BENCH_OBJECTS) torsion.dll
+	$(CC) -o $@ $(MINGW_LDFLAGS) $(BENCH_OBJECTS) torsion.lib $(MINGW_LIBS)
 
-torsion_test.exe: $(TEST_OBJECTS) $(STATIC_NAME)
-	$(CC) -o $@ $(MINGW_LDFLAGS) $(TEST_OBJECTS) $(STATIC_NAME) $(MINGW_LIBS)
+torsion_test.exe: $(TEST_OBJECTS) torsion.dll
+	$(CC) -o $@ $(MINGW_LDFLAGS) $(TEST_OBJECTS) torsion.lib $(MINGW_LIBS)
 
 bench_mingw: torsion_bench.exe
 	@wine ./torsion_bench.exe

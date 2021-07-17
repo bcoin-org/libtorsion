@@ -485,18 +485,14 @@ else()
   target_link_libraries(torsion_static INTERFACE ${torsion_libs})
 
   if(MINGW)
-    # Useful for creating more-compatible import libraries on windows:
-    #
-    #   lib.exe /OUT:[name].lib /DEF:[name].def /NAME:[name].dll /MACHINE:X64
-    #
-    # Or:
-    #
-    #   llvm-dlltool -l [name].lib -d [name].def -D [name].dll -m i386:x86-64
-    #
-    # More-compatible static libraries can already be created with:
-    #
-    #   llvm-lib /out:[name].lib [name].a
-    target_link_options(torsion PRIVATE -Wl,--output-def,libtorsion.def)
+    target_link_options(torsion PRIVATE -Wl,--output-def,torsion.def)
+
+    set_target_properties(torsion PROPERTIES PREFIX ""
+                                             SUFFIX ".dll"
+                                             IMPORT_PREFIX ""
+                                             IMPORT_SUFFIX ".lib")
+
+    set_target_properties(torsion_static PROPERTIES PREFIX "" SUFFIX ".lib")
   endif()
 
   if(UNIX)
@@ -542,6 +538,11 @@ else()
       add_executable(torsion_ctgrind ${ctgrind_sources})
       target_link_options(torsion_ctgrind PRIVATE ${torsion_exeflags})
       target_link_libraries(torsion_ctgrind PRIVATE torsion)
+    endif()
+
+    if(MINGW)
+      set_target_properties(torsion_test_static PROPERTIES IMPORT_PREFIX ""
+                                                           IMPORT_SUFFIX ".lib")
     endif()
 
     find_program(TORSION_VALGRIND valgrind)
