@@ -442,11 +442,11 @@ RtlGenRandom(PVOID RandomBuffer, ULONG RandomBufferLength);
 #elif defined(__linux__)
 #  include <sys/syscall.h> /* SYS_*, __NR_* */
 /* include <unistd.h> */ /* syscall */
-#  if defined(SYS_getrandom) && defined(__NR_getrandom) /* 3.17 (2014) */
-#    define getrandom(buf, len, flags) syscall(SYS_getrandom, buf, len, flags)
+#  ifdef __NR_getrandom /* 3.17 (2014) */
+#    define getrandom(buf, len, flags) syscall(__NR_getrandom, buf, len, flags)
 #    define HAVE_GETRANDOM
 #  endif
-#  if defined(SYS__sysctl) && defined(__NR__sysctl) /* 2.3.16 (1999) */
+#  ifdef __NR__sysctl /* 2.3.16 (1999) */
 #    define HAVE_SYSCTL_UUID
 #  endif
 #  define DEV_RANDOM_NAME "/dev/urandom"
@@ -1152,7 +1152,7 @@ torsion_uuidrand(void *dst, size_t size) {
     args.oldval = uuid;
     args.oldlenp = &nread;
 
-    if (syscall(SYS__sysctl, &args) == -1)
+    if (syscall(__NR__sysctl, &args) == -1)
       return 0;
 
     if (nread != sizeof(uuid))
