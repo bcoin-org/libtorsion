@@ -35,7 +35,7 @@
                       && !defined(__TINYC__)        \
                       && !defined(__PCC__)          \
                       && !defined(__NWCC__)
-#  define TORSION_GNUC __GNUC__
+#  define TORSION_GNUC
 #endif
 
 /* Ignore the MSVC impersonators. */
@@ -43,7 +43,7 @@
                       && !defined(__llvm__)         \
                       && !defined(__INTEL_COMPILER) \
                       && !defined(__ICL)
-#  define TORSION_MSVC _MSC_VER
+#  define TORSION_MSVC
 #endif
 
 /*
@@ -147,7 +147,7 @@
 #  define STATIC_ASSERT(expr) static_assert(expr)
 #elif TORSION_CPP_VERSION >= 201103L
 #  define STATIC_ASSERT(expr) static_assert(expr, "check failed")
-#elif TORSION_GNUC_PREREQ(2, 7) || defined(__TINYC__)
+#elif TORSION_GNUC_PREREQ(2, 7) || defined(__clang__) || defined(__TINYC__)
 #  define STATIC_ASSERT_2(x, y) \
      typedef char torsion__assert_ ## y[(x) ? 1 : -1] __attribute__((unused))
 #  define STATIC_ASSERT_1(x, y) STATIC_ASSERT_2(x, y)
@@ -207,7 +207,7 @@
 
 #if TORSION_CPP_VERSION >= 201703L
 #  define TORSION_UNUSED [[maybe_unused]]
-#elif TORSION_GNUC_PREREQ(2, 7) || defined(__TINYC__)
+#elif TORSION_GNUC_PREREQ(2, 7) || defined(__clang__) || defined(__TINYC__)
 #  define TORSION_UNUSED __attribute__((unused))
 #else
 #  define TORSION_UNUSED
@@ -253,35 +253,42 @@ static const unsigned long torsion__endian_check TORSION_UNUSED = 1;
  *   - GNU C Compiler 2.0 (gcc)
  *   - Clang (clang)
  *   - Intel C Compiler (icc)
+ *   - ARM C Compiler (armcc)
  *   - Sun Studio 12.0
  *   - IBM XL C (xlc)
  *   - Tiny C Compiler (tcc)
  *   - Portable C Compiler (pcc)
  *   - Nils Weller's C Compiler (nwcc)
  *
- * gcc, clang, icc, pcc, and nwcc all define
- * GNUC under the right circumstances. tcc
+ * gcc, clang, icc, armcc, pcc, and nwcc define
+ * __GNUC__ under the right circumstances. tcc
  * defines GNUC on various BSDs, but not Linux.
  *
  * We do not check for legacy XL C (the AIX and
  * z/OS assemblers are weird).
+ *
+ * Furthermore, we avoid old versions of armcc
+ * as they have an incompatible assembler.
  */
-#if (defined(__GNUC__) && __GNUC__ >= 2)           \
- || (defined(__clang__))                           \
- || (defined(__INTEL_COMPILER))                    \
- || (defined(__SUNPRO_C) && __SUNPRO_C >= 0x590)   \
- || (defined(__SUNPRO_CC) && __SUNPRO_CC >= 0x590) \
- || (defined(__TINYC__))
-#  ifndef __native_client__
-#    define TORSION_HAVE_ASM
-#  endif
+#if defined(__native_client__)
+/* Unsupported under PNaCl. Restricted under NaCl. */
+#elif defined(__CC_ARM) && !defined(__clang__)
+/* Incompatible assembler syntax. */
+#elif (defined(__GNUC__) && __GNUC__ >= 2)           \
+   || (defined(__clang__))                           \
+   || (defined(__INTEL_COMPILER))                    \
+   || (defined(__SUNPRO_C) && __SUNPRO_C >= 0x590)   \
+   || (defined(__SUNPRO_CC) && __SUNPRO_CC >= 0x590) \
+   || (defined(__TINYC__))
+#  define TORSION_HAVE_ASM
 #endif
 
 /* Detect __int128 support. */
-#if defined(__GNUC__) && defined(__SIZEOF_INT128__)  \
-                      && defined(__SIZEOF_POINTER__)
-#  if __SIZEOF_POINTER__ >= 8
-#    define TORSION_HAVE_INT128
+#if defined(__GNUC__) || defined(__clang__) || defined(__INTEL_COMPILER)
+#  if defined(__SIZEOF_INT128__) && defined(__SIZEOF_POINTER__)
+#    if __SIZEOF_POINTER__ >= 8
+#      define TORSION_HAVE_INT128
+#    endif
 #  endif
 #endif
 
@@ -292,12 +299,8 @@ static const unsigned long torsion__endian_check TORSION_UNUSED = 1;
  */
 #if defined(__clang__) || defined(__llvm__)
 #  ifdef __has_feature
-#    if __has_feature(c_thread_local)
-#      define TORSION_TLS _Thread_local
-#    elif __has_feature(cxx_thread_local)
-#      define TORSION_TLS thread_local
-#    elif __has_feature(tls)
-#      if defined(_MSC_VER) || defined(__BORLANDC__)
+#    if __has_feature(tls)
+#      if defined(_WIN32)
 #        define TORSION_TLS __declspec(thread)
 #      else
 #        define TORSION_TLS __thread
@@ -333,7 +336,7 @@ static const unsigned long torsion__endian_check TORSION_UNUSED = 1;
 #elif (defined(_MSC_VER) && _MSC_VER >= 1200)          \
    || (defined(__WATCOMC__) && __WATCOMC__ >= 1200)    \
    || (defined(__BORLANDC__) && __BORLANDC__ >= 0x610) \
-   || (defined(__DMC__) && __DMC__ >= 0x822)
+   || (defined(__DMC__))
 #  define TORSION_TLS __declspec(thread)
 #elif (defined(__SUNPRO_C) && __SUNPRO_C >= 0x560)     \
    || (defined(__SUNPRO_CC) && __SUNPRO_CC >= 0x560)   \
