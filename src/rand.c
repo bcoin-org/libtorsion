@@ -225,8 +225,8 @@ rng_uniform(rng_t *rng, uint32_t max) {
  * Global Lock
  */
 
-#if defined(_WIN32) && defined(__MINGW32__)
-/* GCC autolinks to libwinpthread.dll when TLS
+#if defined(__MINGW32__)
+/* MinGW autolinks to libwinpthread when TLS
  * is used. This means our library will not be
  * redistributable on Windows unless we ship
  * libwinpthread.dll as well.
