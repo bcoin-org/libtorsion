@@ -23,15 +23,15 @@ endif()
 # Toolchain/Platform Fixes
 #
 
+if(WASI)
+  # No idea why this isn't set.
+  set(CMAKE_EXECUTABLE_SUFFIX ".wasm")
+endif()
+
 if(EMSCRIPTEN)
   # CMAKE_CROSSCOMPILING_EMULATOR is mistakenly quoted by emcmake.
   string(REPLACE "\"" "" CMAKE_CROSSCOMPILING_EMULATOR
          "${CMAKE_CROSSCOMPILING_EMULATOR}")
-endif()
-
-if(WASI)
-  # No idea why this isn't set.
-  set(CMAKE_EXECUTABLE_SUFFIX ".wasm")
 endif()
 
 #
@@ -96,8 +96,14 @@ endif()
 
 if(TORSION_ENABLE_ASM)
   check_c_source_compiles([=[
-#   if defined(__native_client__) || defined(__IBMC__) || defined(__IBMCPP__)
-#     error "inline asm not supported"
+#   ifdef __native_client__
+#     error "unsupported"
+#   endif
+#   if defined(__IBMC__) || defined(__IBMCPP__)
+#     error "incompatible syntax"
+#   endif
+#   if defined(__CC_ARM) && !defined(__clang__)
+#     error "incompatible syntax"
 #   endif
     int main(void) {
       unsigned long z = 953;
@@ -214,6 +220,7 @@ endif()
 
 set(torsion_cflags)
 set(torsion_ldflags)
+set(torsion_exeflags)
 
 if(MSVC)
   append_c_compiler_flag(torsion_cflags /wd4146
@@ -252,6 +259,11 @@ if(MINGW)
   list(APPEND torsion_cflags -Wno-unknown-pragmas)
   # Ensure we are redistributable on windows.
   list(APPEND torsion_ldflags -static-libgcc)
+endif()
+
+# Not sure why cmake fails to do this on tinycc.
+if(CMAKE_C_COMPILER_ID STREQUAL "TinyCC")
+  list(APPEND torsion_exeflags -Wl,-rpath,${PROJECT_SOURCE_DIR})
 endif()
 
 #
@@ -403,7 +415,18 @@ if(NOT PROJECT_NAME STREQUAL CMAKE_PROJECT_NAME)
     target_link_libraries(torsion INTERFACE ${torsion_libs})
   endif()
 elseif(TORSION_WASM)
-  if(EMSCRIPTEN)
+  if(WASI)
+    set(torsion_ldflags -Wl,--allow-undefined
+                        -Wl,--initial-memory=${TORSION_INITIAL_MEMORY}
+                        -Wl,--max-memory=${TORSION_MAX_MEMORY}
+                        -Wl,-z,stack-size=${TORSION_STACK_SIZE}
+                        -Wl,--stack-first)
+
+    set(torsion_exeflags -mexec-model=reactor
+                         -Wl,--export-dynamic
+                         -Wl,--export=malloc
+                         -Wl,--export=free)
+  else()
     set(torsion_ldflags "SHELL:-s SINGLE_FILE=1"
                         "SHELL:-s ASSERTIONS=0"
                         "SHELL:-s NODEJS_CATCH_EXIT=0"
@@ -414,18 +437,7 @@ elseif(TORSION_WASM)
                         "SHELL:-s TOTAL_STACK=${TORSION_STACK_SIZE}"
                         "SHELL:-s ENVIRONMENT=${TORSION_ENVIRONMENT}")
 
-    set(torsion_ldflags_lib "SHELL:-s EXPORTED_FUNCTIONS=@etc/exports.json")
-  else()
-    set(torsion_ldflags -Wl,--allow-undefined
-                        -Wl,--initial-memory=${TORSION_INITIAL_MEMORY}
-                        -Wl,--max-memory=${TORSION_MAX_MEMORY}
-                        -Wl,-z,stack-size=${TORSION_STACK_SIZE}
-                        -Wl,--stack-first)
-
-    set(torsion_ldflags_lib -mexec-model=reactor
-                            -Wl,--export-dynamic
-                            -Wl,--export=malloc
-                            -Wl,--export=free)
+    set(torsion_exeflags "SHELL:-s EXPORTED_FUNCTIONS=@etc/exports.json")
   endif()
 
   add_library(torsion_o OBJECT ${torsion_sources})
@@ -436,7 +448,7 @@ elseif(TORSION_WASM)
   target_link_options(torsion_o INTERFACE ${torsion_ldflags})
 
   add_executable(torsion "")
-  target_link_options(torsion PRIVATE ${torsion_ldflags_lib})
+  target_link_options(torsion PRIVATE ${torsion_exeflags})
   target_link_libraries(torsion PRIVATE torsion_o)
 
   if(BUILD_TESTING)
@@ -516,29 +528,20 @@ else()
     target_link_libraries(torsion_bench PRIVATE torsion)
 
     add_executable(torsion_test ${test_sources})
+    target_link_options(torsion_test PRIVATE ${torsion_exeflags})
     target_link_libraries(torsion_test PRIVATE torsion ${test_libs})
     add_test(NAME test_shared COMMAND torsion_test)
 
     add_executable(torsion_test_static ${test_sources})
+    target_link_options(torsion_test_static PRIVATE ${torsion_exeflags})
     target_link_libraries(torsion_test_static PRIVATE torsion_static
                                                       ${test_libs})
     add_test(NAME test_static COMMAND torsion_test_static)
 
     if(TORSION_HAS_MEMCHECK)
       add_executable(torsion_ctgrind ${ctgrind_sources})
+      target_link_options(torsion_ctgrind PRIVATE ${torsion_exeflags})
       target_link_libraries(torsion_ctgrind PRIVATE torsion)
-    endif()
-
-    # Not sure why cmake fails to do this on tinycc.
-    if(CMAKE_C_COMPILER_ID STREQUAL "TinyCC")
-      set(rpath -Wl,-rpath,${PROJECT_SOURCE_DIR})
-
-      target_link_options(torsion_test PRIVATE ${rpath})
-      target_link_options(torsion_bench PRIVATE ${rpath})
-
-      if(TORSION_HAS_MEMCHECK)
-        target_link_options(torsion_ctgrind PRIVATE ${rpath})
-      endif()
     endif()
 
     find_program(TORSION_VALGRIND valgrind)
@@ -594,6 +597,7 @@ message(STATUS "Build Options:
    CMAKE_C_FLAGS:        ${CMAKE_C_FLAGS_${torsion_build_type}} ${CMAKE_C_FLAGS}
    torsion_cflags:       ${torsion_cflags}
    torsion_ldflags:      ${torsion_ldflags}
+   torsion_exeflags:     ${torsion_exeflags}
    torsion_defines:      ${torsion_defines}
    torsion_libs:         ${torsion_libs}
 ")
