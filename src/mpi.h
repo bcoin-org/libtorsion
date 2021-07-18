@@ -284,7 +284,7 @@
 
 #if defined(UINTPTR_MAX) && defined(UINT64_MAX)
 /* Check size of uintptr_t if available. */
-#  if UINTPTR_MAX == UINT64_MAX
+#  if UINTPTR_MAX >> 31 >> 31 >> 1 == 1
 #    define MP_HAVE_64BIT
 #  endif
 #endif
