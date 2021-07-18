@@ -4558,7 +4558,7 @@ wei_jmul_multi_normal_var(const wei_t *ec,
                           jge_t *r,
                           const sc_t k0,
                           const wge_t *points,
-                          const sc_t *coeffs,
+                          sc_t *coeffs,
                           size_t len,
                           wei__scratch_t *scratch) {
   /* Multiple point multiplication, also known
@@ -4645,7 +4645,7 @@ wei_jmul_multi_endo_var(const wei_t *ec,
                         jge_t *r,
                         const sc_t k0,
                         const wge_t *points,
-                        const sc_t *coeffs,
+                        sc_t *coeffs,
                         size_t len,
                         wei__scratch_t *scratch) {
   /* Multiple point multiplication, also known
@@ -4724,7 +4724,7 @@ wei_jmul_multi_var(const wei_t *ec,
                    jge_t *r,
                    const sc_t k0,
                    const wge_t *points,
-                   const sc_t *coeffs,
+                   sc_t *coeffs,
                    size_t len,
                    wei__scratch_t *scratch) {
   if (ec->endo)
@@ -4738,7 +4738,7 @@ wei_mul_multi_var(const wei_t *ec,
                   wge_t *r,
                   const sc_t k0,
                   const wge_t *points,
-                  const sc_t *coeffs,
+                  sc_t *coeffs,
                   size_t len,
                   wei__scratch_t *scratch) {
   jge_t j;
@@ -7476,7 +7476,7 @@ edwards_mul_multi_var(const edwards_t *ec,
                       xge_t *r,
                       const sc_t k0,
                       const xge_t *points,
-                      const sc_t *coeffs,
+                      sc_t *coeffs,
                       size_t len,
                       edwards__scratch_t *scratch) {
   /* Multiple point multiplication, also known
@@ -11829,7 +11829,7 @@ bipschnorr_verify_batch(const wei_t *ec,
     if (j == scratch->size - (scratch->size & 1)) {
       sc_neg(sc, sum, sum);
 
-      wei_jmul_multi_var(ec, &r, sum, points, (const sc_t *)coeffs, j, scratch);
+      wei_jmul_multi_var(ec, &r, sum, points, coeffs, j, scratch);
 
       if (!jge_is_zero(ec, &r))
         return 0;
@@ -11843,7 +11843,7 @@ bipschnorr_verify_batch(const wei_t *ec,
   if (j > 0) {
     sc_neg(sc, sum, sum);
 
-    wei_jmul_multi_var(ec, &r, sum, points, (const sc_t *)coeffs, j, scratch);
+    wei_jmul_multi_var(ec, &r, sum, points, coeffs, j, scratch);
 
     if (!jge_is_zero(ec, &r))
       return 0;
@@ -12704,7 +12704,7 @@ bip340_verify_batch(const wei_t *ec,
     if (j == scratch->size - (scratch->size & 1)) {
       sc_neg(sc, sum, sum);
 
-      wei_jmul_multi_var(ec, &r, sum, points, (const sc_t *)coeffs, j, scratch);
+      wei_jmul_multi_var(ec, &r, sum, points, coeffs, j, scratch);
 
       if (!jge_is_zero(ec, &r))
         return 0;
@@ -12718,7 +12718,7 @@ bip340_verify_batch(const wei_t *ec,
   if (j > 0) {
     sc_neg(sc, sum, sum);
 
-    wei_jmul_multi_var(ec, &r, sum, points, (const sc_t *)coeffs, j, scratch);
+    wei_jmul_multi_var(ec, &r, sum, points, coeffs, j, scratch);
 
     if (!jge_is_zero(ec, &r))
       return 0;
@@ -14090,8 +14090,7 @@ eddsa_verify_batch(const edwards_t *ec,
       sc_mul_word(sc, sum, sum, ec->h);
       sc_neg(sc, sum, sum);
 
-      edwards_mul_multi_var(ec, &R, sum, points,
-                            (const sc_t *)coeffs, j, scratch);
+      edwards_mul_multi_var(ec, &R, sum, points, coeffs, j, scratch);
 
       if (!xge_is_zero(ec, &R))
         return 0;
@@ -14106,8 +14105,7 @@ eddsa_verify_batch(const edwards_t *ec,
     sc_mul_word(sc, sum, sum, ec->h);
     sc_neg(sc, sum, sum);
 
-    edwards_mul_multi_var(ec, &R, sum, points,
-                          (const sc_t *)coeffs, j, scratch);
+    edwards_mul_multi_var(ec, &R, sum, points, coeffs, j, scratch);
 
     if (!xge_is_zero(ec, &R))
       return 0;
