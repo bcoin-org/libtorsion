@@ -89,10 +89,12 @@
 #  include <iphlpapi.h> /* GetAdaptersAddresses */
 #  include <psapi.h> /* GetProcessMemoryInfo */
 #  include <windows.h>
-#  pragma comment(lib, "advapi32.lib") /* GetUserNameA, RegQueryValueExA */
-#  pragma comment(lib, "iphlpapi.lib")
-#  pragma comment(lib, "kernel32.lib")
-#  pragma comment(lib, "psapi.lib")
+#  ifndef __MINGW32__
+#    pragma comment(lib, "kernel32.lib")
+#    pragma comment(lib, "advapi32.lib") /* GetUserNameA, RegQueryValueExA */
+#    pragma comment(lib, "iphlpapi.lib")
+#    pragma comment(lib, "psapi.lib")
+#  endif
 #  define HAVE_MANUAL_ENTROPY
 #elif defined(__vxworks) || defined(__DCC__)
 /* Unsupported. */
@@ -174,7 +176,7 @@ extern char **environ;
 #      define HAVE_GETSID
 #    endif
 #  endif
-#  ifdef __GNUC__
+#  if defined(__APPLE__) && defined(__GNUC__)
 #    pragma GCC diagnostic ignored "-Waddress"
 #  endif
 #  define HAVE_MANUAL_ENTROPY
@@ -1065,7 +1067,10 @@ sha512_write_dynamic_env(sha512_t *hash) {
 
 #ifdef HAVE_CLOCK_GETTIME
   /* Various clocks. */
-  if (clock_gettime != NULL) {
+#ifdef __APPLE__
+  if (clock_gettime != NULL)
+#endif
+  {
     struct timespec ts;
 
     memset(&ts, 0, sizeof(ts));

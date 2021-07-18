@@ -255,8 +255,6 @@ if(TORSION_TLS_FLAG)
 endif()
 
 if(MINGW)
-  # No support for #pragma comment(lib).
-  list(APPEND torsion_cflags -Wno-unknown-pragmas)
   # Ensure we are redistributable on windows.
   list(APPEND torsion_ldflags -static-libgcc)
 endif()
@@ -341,7 +339,7 @@ set(test_libs)
 
 if(MINGW)
   # No support for #pragma comment(lib).
-  list(APPEND torsion_libs -liphlpapi -lpsapi -lbcrypt)
+  list(APPEND torsion_libs iphlpapi psapi bcrypt)
 endif()
 
 if(TORSION_HAS_ZLIB)

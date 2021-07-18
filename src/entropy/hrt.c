@@ -107,7 +107,9 @@
 
 #if defined(_WIN32)
 #  include <windows.h> /* QueryPerformanceCounter, GetSystemTimeAsFileTime */
-#  pragma comment(lib, "kernel32.lib")
+#  ifndef __MINGW32__
+#    pragma comment(lib, "kernel32.lib")
+#  endif
 #  if defined(_WIN32_WINNT) && _WIN32_WINNT >= 0x0501 /* Windows XP */
 #    define HAVE_QUERYPERFORMANCECOUNTER
 #  endif

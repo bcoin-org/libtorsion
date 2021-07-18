@@ -423,9 +423,12 @@
 
 #if defined(_WIN32)
 #  include <windows.h> /* _WIN32_WINNT */
-#  if defined(_WIN32_WINNT) && _WIN32_WINNT >= 0x0601 /* Windows 7 (2009) */
+#  if (defined(_WIN32_WINNT) && _WIN32_WINNT >= 0x0601) /* Windows 7 (2009) */ \
+   && (defined(_MSC_VER) && _MSC_VER >= 1600) /* VS 2010 */
 #    include <bcrypt.h> /* BCryptGenRandom */
-#    pragma comment(lib, "bcrypt.lib")
+#    ifndef __MINGW32__
+#      pragma comment(lib, "bcrypt.lib")
+#    endif
 #    define HAVE_BCRYPTGENRANDOM
 #  elif defined(_WIN32_WINNT) && _WIN32_WINNT >= 0x0501 /* Windows XP (2001) */
 #    define RtlGenRandom SystemFunction036
@@ -434,7 +437,9 @@ extern "C"
 #    endif
 BOOLEAN NTAPI
 RtlGenRandom(PVOID RandomBuffer, ULONG RandomBufferLength);
-#    pragma comment(lib, "advapi32.lib")
+#    ifndef __MINGW32__
+#      pragma comment(lib, "advapi32.lib")
+#    endif
 #    define HAVE_RTLGENRANDOM
 #  endif
 #elif defined(EGD_TEST)
