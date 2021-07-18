@@ -72,7 +72,7 @@ mpn_random_nz(mp_limb_t *zp, mp_size_t zn, mp_rng_f *rng, void *arg) {
 }
 
 static void
-mpz_random_nz(mpz_t z, mp_bits_t bits, mp_rng_f *rng, void *arg) {
+mpz_random_nz(mpz_ptr z, mp_bits_t bits, mp_rng_f *rng, void *arg) {
   CHECK(bits != 0);
 
   do {
@@ -255,7 +255,7 @@ mpn_cmp3(const mp_limb_t *xp, mp_size_t xn,
 }
 
 static void
-mpz_mul_simple(mpz_t z, const mpz_t x, const mpz_t y) {
+mpz_mul_simple(mpz_ptr z, mpz_srcptr x, mpz_srcptr y) {
   mp_size_t xn, yn, zn;
   mp_limb_t *tp;
 
@@ -456,7 +456,7 @@ mp_div_3by2_simple(mp_limb_t *q, mp_limb_t *r1, mp_limb_t *r0,
 }
 
 static void
-mpz_gcd_simple(mpz_t g, const mpz_t x, const mpz_t y) {
+mpz_gcd_simple(mpz_ptr g, mpz_srcptr x, mpz_srcptr y) {
   mpz_t u, v, t;
 
   mpz_init(u);
@@ -480,7 +480,7 @@ mpz_gcd_simple(mpz_t g, const mpz_t x, const mpz_t y) {
 }
 
 static void
-mpz_lcm_simple(mpz_t z, const mpz_t x, const mpz_t y) {
+mpz_lcm_simple(mpz_ptr z, mpz_srcptr x, mpz_srcptr y) {
   mpz_t g, l;
 
   if (mpz_sgn(x) == 0 || mpz_sgn(y) == 0) {
@@ -501,7 +501,7 @@ mpz_lcm_simple(mpz_t z, const mpz_t x, const mpz_t y) {
 }
 
 static void
-mpz_pow5(mpz_t z, const mpz_t x) {
+mpz_pow5(mpz_ptr z, mpz_srcptr x) {
   mpz_t t;
 
   mpz_init(t);
@@ -516,7 +516,7 @@ mpz_pow5(mpz_t z, const mpz_t x) {
 }
 
 static void
-mpz_pow_simple_ui(mpz_t z, const mpz_t x, mp_limb_t y) {
+mpz_pow_simple_ui(mpz_ptr z, mpz_srcptr x, mp_limb_t y) {
   mpz_t r, u;
 
   mpz_init(r);
@@ -541,7 +541,7 @@ mpz_pow_simple_ui(mpz_t z, const mpz_t x, mp_limb_t y) {
 }
 
 static void
-mpz_powm_simple(mpz_t z, const mpz_t x, const mpz_t y, const mpz_t m) {
+mpz_powm_simple(mpz_ptr z, mpz_srcptr x, mpz_srcptr y, mpz_srcptr m) {
   mp_bits_t i, bits;
   mpz_t r, u, v, t;
 
@@ -580,7 +580,7 @@ mpz_powm_simple(mpz_t z, const mpz_t x, const mpz_t y, const mpz_t m) {
 }
 
 static void
-mpz_powm_simple_ui(mpz_t z, const mpz_t x, mp_limb_t y, const mpz_t m) {
+mpz_powm_simple_ui(mpz_ptr z, mpz_srcptr x, mp_limb_t y, mpz_srcptr m) {
   mpz_t r, u, t;
 
   mpz_init(r);
@@ -661,7 +661,7 @@ mpn_gcd_simple(mp_limb_t *zp, const mp_limb_t *xp, mp_size_t xn,
 }
 
 TORSION_UNUSED static int
-mpz_cmp_str(const mpz_t x, const char *str) {
+mpz_cmp_str(mpz_srcptr x, const char *str) {
   mpz_t y;
   int cmp;
 
@@ -843,7 +843,7 @@ mpn_p192_exp(mp_limb_t *zp) {
 }
 
 static void
-mpz_p192_mod(mpz_t z) {
+mpz_p192_mod(mpz_ptr z) {
   mpz_grow(z, MP_P192_LIMBS);
 
   mpn_p192_mod(z->limbs);
@@ -852,7 +852,7 @@ mpz_p192_mod(mpz_t z) {
 }
 
 static void
-mpz_p192_exp(mpz_t z) {
+mpz_p192_exp(mpz_ptr z) {
   mpz_grow(z, MP_P192_LIMBS);
 
   mpn_p192_exp(z->limbs);
