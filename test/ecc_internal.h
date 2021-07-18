@@ -1356,7 +1356,7 @@ test_wei_multi_mul(wei_curve_id_t type,
   sc_set(sc, coeffs[0], k1);
   sc_set(sc, coeffs[1], k2);
 
-  wei_mul_multi_var(ec, &q, k0, points, (const sc_t *)coeffs, 2, scratch);
+  wei_mul_multi_var(ec, &q, k0, points, coeffs, 2, scratch);
 
   ASSERT(wge_equal(ec, &q, &r));
   ASSERT(wge_equal_raw(ec, &q, expect, 1));
@@ -2983,7 +2983,7 @@ test_edwards_multi_mul(edwards_curve_id_t type,
   sc_set(sc, coeffs[0], k1);
   sc_set(sc, coeffs[1], k2);
 
-  edwards_mul_multi_var(ec, &q, k0, points, (const sc_t *)coeffs, 2, scratch);
+  edwards_mul_multi_var(ec, &q, k0, points, coeffs, 2, scratch);
 
   ASSERT(xge_equal(ec, &q, &r));
   ASSERT(xge_equal_raw(ec, &q, expect));
