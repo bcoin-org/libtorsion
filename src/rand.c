@@ -42,23 +42,11 @@
 #include "internal.h"
 
 /*
- * Helpers
- */
-
-static void
-sha512_update_tsc(sha512_t *hash) {
-  uint64_t tsc = torsion_rdtsc();
-
-  sha512_update(hash, &tsc, sizeof(tsc));
-}
-
-/*
  * RNG
  */
 
 typedef struct rng_s {
   uint32_t key[8];
-  uint64_t zero;
   uint64_t nonce;
   uint32_t pool[128];
   size_t pos;
@@ -69,53 +57,36 @@ typedef struct rng_s {
 
 static int
 rng_init(rng_t *rng) {
+  unsigned char *key = (unsigned char *)rng->key;
   unsigned char seed[64];
-  sha512_t hash;
+  sha256_t hash;
 
   memset(rng, 0, sizeof(*rng));
 
-  sha512_init(&hash);
-  sha512_update_tsc(&hash);
+  sha256_init(&hash);
 
   /* OS entropy (64 bytes). */
   if (!torsion_sysrand(seed, 64))
     return 0; /* LCOV_EXCL_LINE */
 
-  sha512_update(&hash, seed, 64);
-  sha512_update_tsc(&hash);
+  sha256_update(&hash, seed, 64);
 
-  /* Hardware entropy (32 bytes). */
-  if (torsion_hwrand(seed, 32)) {
-    sha512_update(&hash, seed, 32);
-    sha512_update_tsc(&hash);
-  }
+  /* Hardware entropy (64 bytes). */
+  if (torsion_hwrand(seed, 64))
+    sha256_update(&hash, seed, 64);
 
   /* Manual entropy (64 bytes). */
-  if (torsion_envrand(seed)) {
-    sha512_update(&hash, seed, 64);
-    sha512_update_tsc(&hash);
-  }
+  if (torsion_envrand(seed))
+    sha256_update(&hash, seed, 64);
 
   /* At this point, only one of the above
      entropy sources needs to be strong in
      order for our RNG to work. It's extremely
      unlikely that all three would somehow
      be compromised. */
-  sha512_final(&hash, seed);
+  sha256_final(&hash, key);
 
-  /* We use XChaCha20 to reduce the first
-     48 bytes down to 32. This allows us to
-     use the entire 64 byte hash as entropy. */
-  chacha20_derive(seed, seed, 32, seed + 32);
-
-  /* Read our initial ChaCha20 state. `zero`
-     becomes our random "zero value" for the
-     initial counter. */
-  memcpy(rng->key, seed, 32);
-  memcpy(&rng->zero, seed + 48, 8);
-  memcpy(&rng->nonce, seed + 56, 8);
-
-  /* Cache the rdrand check. */
+  rng->nonce = torsion_rdtsc();
   rng->rdrand = torsion_has_rdrand();
 
   torsion_memzero(seed, sizeof(seed));
@@ -130,7 +101,7 @@ rng_crypt(const rng_t *rng, void *data, size_t size) {
 
   chacha20_init(&ctx, (const unsigned char *)rng->key, 32,
                       (const unsigned char *)&rng->nonce, 8,
-                      rng->zero);
+                      0);
 
   chacha20_crypt(&ctx, (unsigned char *)data,
                        (const unsigned char *)data,
