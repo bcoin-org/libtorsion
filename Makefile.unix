@@ -60,8 +60,6 @@ LIB_OBJECTS = aead.o     \
               cipher.o   \
               ecc.o      \
               encoding.o \
-              env.o      \
-              hrt.o      \
               hw.o       \
               sys.o      \
               drbg.o     \
@@ -196,14 +194,6 @@ encoding.o: src/encoding.c include/torsion/common.h   \
                            src/internal.h
 	$(CC) -c $(LIB_CFLAGS) src/encoding.c
 
-env.o: src/entropy/env.c include/torsion/common.h \
-                         include/torsion/hash.h   \
-                         src/entropy/entropy.h
-	$(CC) -c $(LIB_CFLAGS) src/entropy/env.c
-
-hrt.o: src/entropy/hrt.c src/entropy/entropy.h
-	$(CC) -c $(LIB_CFLAGS) src/entropy/hrt.c
-
 hw.o: src/entropy/hw.c src/entropy/entropy.h \
                        src/internal.h
 	$(CC) -c $(LIB_CFLAGS) src/entropy/hw.c
@@ -323,8 +313,7 @@ ctgrind.o: test/ctgrind.c include/torsion/common.h \
                           test/utils.h
 	$(CC) -c $(LIB_CFLAGS) test/ctgrind.c
 
-hrtime.o: test/hrtime.c src/entropy/entropy.h \
-                        src/entropy/hrt.c
+hrtime.o: test/hrtime.c test/utils.h
 	$(CC) -c $(LIB_CFLAGS) test/hrtime.c
 
 test.o: test/test.c include/torsion/aead.h          \
@@ -438,7 +427,7 @@ install: $(STATIC_NAME) $(SHARED_NAME) libtorsion.pc
 #
 
 MINGW_LDFLAGS = -static-libgcc $(LDFLAGS)
-MINGW_LIBS = -lkernel32 -ladvapi32 -liphlpapi -lpsapi -lbcrypt $(LIBS)
+MINGW_LIBS = -lkernel32 -ladvapi32 $(LIBS)
 MINGW_SHARED = -shared -Wl,--out-implib,torsion.lib
 
 mingw: torsion_static.lib torsion.dll torsion_bench.exe torsion_test.exe

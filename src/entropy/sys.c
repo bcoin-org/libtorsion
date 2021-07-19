@@ -420,15 +420,15 @@
 #undef DEV_RANDOM_RETRY
 #undef HAVE_EGD
 #undef HAVE_GETPID
+#undef HAVE_UNKNOWN
 
 #if defined(_WIN32)
 #  include <windows.h> /* _WIN32_WINNT */
 #  if (defined(_WIN32_WINNT) && _WIN32_WINNT >= 0x0601) /* Windows 7 (2009) */ \
-   && (defined(_MSC_VER) && _MSC_VER >= 1600) /* VS 2010 */
+   && (defined(_MSC_VER) && _MSC_VER >= 1600) /* VS 2010 */                    \
+   && !defined(__MINGW32__)
 #    include <bcrypt.h> /* BCryptGenRandom */
-#    ifndef __MINGW32__
-#      pragma comment(lib, "bcrypt.lib")
-#    endif
+#    pragma comment(lib, "bcrypt.lib")
 #    define HAVE_BCRYPTGENRANDOM
 #  elif defined(_WIN32_WINNT) && _WIN32_WINNT >= 0x0501 /* Windows XP (2001) */
 #    define RtlGenRandom SystemFunction036
@@ -576,6 +576,8 @@ RtlGenRandom(PVOID RandomBuffer, ULONG RandomBufferLength);
 #    include <randomNumGen.h> /* randABytes, randSecure */
 #    include <taskLib.h> /* taskDelay */
 #    define HAVE_RANDABYTES
+#  else
+#    define HAVE_UNKNOWN
 #  endif
 #elif defined(__VMS)
 #  if defined(__CRTL_VER) && __CRTL_VER >= 90200000 /* 9.2 (2021) */
@@ -613,6 +615,8 @@ RtlGenRandom(PVOID RandomBuffer, ULONG RandomBufferLength);
 #    include <uuid/uuid.h> /* uuid_generate */
 #    define HAVE_UUID_GENERATE
 #  endif
+#else
+#  define HAVE_UNKNOWN
 #endif
 
 #if defined(DEV_RANDOM_NAME) || defined(HAVE_EGD)
@@ -1326,6 +1330,19 @@ torsion_getpid(void) {
   return (long)getpid();
 #else
   return 0;
+#endif
+}
+
+/*
+ * Unknown Platform
+ */
+
+int
+torsion_has_sysrand(void) {
+#if defined(HAVE_UNKNOWN)
+  return 0;
+#else
+  return 1;
 #endif
 }
 

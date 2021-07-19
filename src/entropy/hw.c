@@ -4,12 +4,10 @@
  * https://github.com/bcoin-org/libtorsion
  *
  * Resources:
- *   https://en.wikipedia.org/wiki/Time_Stamp_Counter
  *   https://en.wikipedia.org/wiki/CPUID
  *   https://en.wikipedia.org/wiki/RDRAND
  *
  * Windows (x86, x64):
- *   https://docs.microsoft.com/en-us/cpp/intrinsics/rdtsc
  *   https://docs.microsoft.com/en-us/cpp/intrinsics/cpuid-cpuidex
  *   https://software.intel.com/sites/landingpage/IntrinsicsGuide/#text=_rdrand32_step
  *   https://software.intel.com/sites/landingpage/IntrinsicsGuide/#text=_rdrand64_step
@@ -20,14 +18,12 @@
  *   https://docs.microsoft.com/en-us/cpp/intrinsics/arm64-intrinsics
  *
  * x86{,-64} (rdtsc, rdrand, rdseed):
- *   https://www.felixcloutier.com/x86/rdtsc
  *   https://www.felixcloutier.com/x86/cpuid
  *   https://www.felixcloutier.com/x86/rdrand
  *   https://www.felixcloutier.com/x86/rdseed
  *
  * ARMv8.5-A (cntvct, rndr, rndrrs):
  *   https://developer.arm.com/documentation/dui0068/b/ARM-Instruction-Reference/Miscellaneous-ARM-instructions/MRS
- *   https://developer.arm.com/documentation/ddi0595/2021-03/AArch64-Registers/CNTVCT-EL0--Counter-timer-Virtual-Count-register
  *   https://developer.arm.com/documentation/ddi0595/2021-03/AArch64-Registers/ID-AA64ISAR0-EL1--AArch64-Instruction-Set-Attribute-Register-0
  *   https://developer.arm.com/documentation/ddi0595/2021-03/AArch64-Registers/RNDR--Random-Number
  *   https://developer.arm.com/documentation/ddi0595/2021-03/AArch64-Registers/RNDRRS--Reseeded-Random-Number
@@ -44,21 +40,7 @@
 /**
  * Hardware Entropy
  *
- * One simple source of hardware entropy is the current cycle
- * count. This is accomplished via RDTSC on x86 CPUs. We only
- * use RDTSC if there is an instrinsic for it (win32) or if
- * the compiler supports inline ASM (gcc/clang).
- *
- * For ARM, PPC and RISC-V, we use PMCCNTR, MFTB, and RDCYCLE
- * respectively.
- *
- * For other hardware, we fallback to whatever system clocks
- * are available. See `hrt.c` for a list of functions.
- *
- * The CPUID instruction can serve as good source of "static"
- * entropy for seeding (see env.c).
- *
- * x86{,-64} also offers hardware entropy in the form of RDRAND
+ * x86{,-64} offers hardware entropy in the form of RDRAND
  * and RDSEED. There are concerns that these instructions may
  * be backdoored in some way. This is not an issue as we only
  * use hardware entropy to supplement our full entropy pool.
@@ -102,8 +84,6 @@
  * Backend
  */
 
-#undef HAVE_ASM_RDTSC
-#undef HAVE_RDTSC
 #undef HAVE_CPUIDEX
 #undef HAVE_RDRAND
 #undef HAVE_RDRAND32
@@ -111,7 +91,6 @@
 #undef HAVE_RDSEED
 #undef HAVE_RDSEED32
 #undef HAVE_RDSEED64
-#undef HAVE_MRS
 #undef HAVE_ASM_INTEL
 #undef HAVE_ASM_X86
 #undef HAVE_ASM_X64
@@ -130,12 +109,8 @@
 /* Detect intrinsic and ASM support. */
 #if defined(TORSION_MSVC)
 #  if defined(_M_IX86) || defined(_M_AMD64) || defined(_M_X64)
-#    if _MSC_VER >= 1400 /* VS 2005 */
-#      include <intrin.h> /* __cpuidex, __rdtsc */
-#      pragma intrinsic(__rdtsc)
-#      define HAVE_RDTSC
-#    endif
 #    if _MSC_VER >= 1600 /* VS 2010 */
+#      include <intrin.h> /* __cpuidex */
 #      pragma intrinsic(__cpuidex)
 #      define HAVE_CPUIDEX
 #    endif
@@ -156,12 +131,6 @@
 #        define HAVE_RDSEED32
 #      endif
 #    endif
-#    if !defined(HAVE_RDTSC) && defined(_M_IX86)
-#      define HAVE_ASM_RDTSC /* fallback to _asm */
-#    endif
-#  elif defined(_M_ARM64)
-#    include <intrin.h> /* _ReadStatusReg */
-#    define HAVE_MRS
 #  endif
 #elif defined(TORSION_HAVE_ASM)
 #  if defined(__amd64__) || defined(__amd64) \
@@ -194,8 +163,6 @@
 
 /* Determine step word width. */
 #if defined(HAVE_RDRAND64)  \
- || defined(HAVE_RDSEED64)  \
- || defined(HAVE_MRS)       \
  || defined(HAVE_ASM_X64)   \
  || defined(HAVE_ASM_ARM64) \
  || defined(HAVE_ASM_PPC64)
@@ -250,7 +217,7 @@
 #if defined(HAVE_GETAUXVAL)
 #  define torsion_auxval getauxval
 #elif defined(HAVE_ELF_AUX_INFO)
-__attribute__((unused)) static unsigned long
+TORSION_UNUSED static unsigned long
 torsion_auxval(unsigned long type) {
   unsigned long val;
 
@@ -262,104 +229,10 @@ torsion_auxval(unsigned long type) {
 #endif
 
 /*
- * Timestamp Counter
- */
-
-uint64_t
-torsion_rdtsc(void) {
-#if defined(HAVE_ASM_RDTSC)
-  _asm rdtsc
-#elif defined(HAVE_RDTSC)
-  return __rdtsc();
-#elif defined(HAVE_MRS)
-  return _ReadStatusReg(0x5f02); /* CNTVCT_EL0 */
-#elif defined(HAVE_ASM_X86)
-  uint64_t ts;
-
-  __asm__ __volatile__ (
-    "rdtsc\n"
-    : "=A" (ts)
-  );
-
-  return ts;
-#elif defined(HAVE_ASM_X64)
-  uint64_t lo, hi;
-
-  __asm__ __volatile__ (
-    "rdtsc\n"
-    : "=a" (lo),
-      "=d" (hi)
-  );
-
-  return (hi << 32) | lo;
-#elif defined(HAVE_ASM_ARM64)
-  uint64_t ts;
-
-  __asm__ __volatile__ (
-    "mrs %0, s3_3_c14_c0_2\n" /* CNTVCT_EL0 */
-    : "=r" (ts)
-  );
-
-  return ts;
-#elif defined(HAVE_ASM_PPC32)
-  uint32_t hi, lo, c;
-
-  do {
-    __asm__ __volatile__ (
-      "mftbu %0\n" /* mfspr %0, 269 */
-      "mftb  %1\n" /* mfspr %1, 268 */
-      "mftbu %2\n" /* mfspr %2, 269 */
-      : "=r" (hi),
-        "=r" (lo),
-        "=r" (c)
-    );
-  } while (hi != c);
-
-  return ((uint64_t)hi << 32) | lo;
-#elif defined(HAVE_ASM_PPC64)
-  uint64_t ts;
-
-  __asm__ __volatile__ (
-    "mfspr %0, 268\n" /* mftb %0 */
-    : "=r" (ts)
-  );
-
-  return ts;
-#elif defined(HAVE_ASM_RISCV32)
-  uint32_t hi, lo, c;
-
-  do {
-    __asm__ __volatile__ (
-      "rdcycleh %0\n"
-      "rdcycle  %1\n"
-      "rdcycleh %2\n"
-      : "=r" (hi),
-        "=r" (lo),
-        "=r" (c)
-    );
-  } while (hi != c);
-
-  return ((uint64_t)hi << 32) | lo;
-#elif defined(HAVE_ASM_RISCV64)
-  uint64_t ts;
-
-  __asm__ __volatile__ (
-    "rdcycle %0\n"
-    : "=r" (ts)
-  );
-
-  return ts;
-#else
-  /* Fall back to high-resolution time. */
-  return torsion_hrtime();
-#endif
-}
-
-/*
  * CPUID
  */
 
-int
+TORSION_UNUSED static int
 torsion_has_cpuid(void) {
 #if defined(HAVE_CPUIDEX)
   return 1;
@@ -390,7 +263,7 @@ torsion_has_cpuid(void) {
 #endif
 }
 
-void
+TORSION_UNUSED static void
 torsion_cpuid(uint32_t *a,
               uint32_t *b,
               uint32_t *c,
@@ -448,8 +321,6 @@ torsion_cpuid(uint32_t *a,
 #  define torsion_pause() _asm { rep nop }
 #elif defined(HAVE_RDSEED64)
 #  define torsion_pause _mm_pause
-#elif defined(HAVE_MRS)
-#  define torsion_pause __yield
 #elif defined(HAVE_ASM_X86)
 #  define torsion_pause() __asm__ __volatile__ ("rep\n" "nop\n" ::: "memory")
 #elif defined(HAVE_ASM_X64)

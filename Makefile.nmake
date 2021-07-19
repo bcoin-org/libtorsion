@@ -30,8 +30,6 @@ LIB_OBJECTS = aead.obj     \
               cipher.obj   \
               ecc.obj      \
               encoding.obj \
-              env.obj      \
-              hrt.obj      \
               hw.obj       \
               sys.obj      \
               drbg.obj     \
@@ -65,7 +63,7 @@ LIB_CFLAGS = /nologo            \
 LIB_ARFLAGS = /NOLOGO $(ARFLAGS)
 LIB_LDFLAGS = /NOLOGO /INCREMENTAL:NO $(LDFLAGS)
 LIB_EXEFLAGS = $(LIB_LDFLAGS) /SUBSYSTEM:CONSOLE
-LIB_LIBS = kernel32.lib advapi32.lib iphlpapi.lib psapi.lib bcrypt.lib $(LIBS)
+LIB_LIBS = kernel32.lib advapi32.lib $(LIBS)
 
 #
 # Benchmarks
@@ -160,14 +158,6 @@ encoding.obj: src/encoding.c include/torsion/common.h   \
                              include/torsion/encoding.h \
                              src/internal.h
 	$(CC) /c $(LIB_CFLAGS) src/encoding.c
-
-env.obj: src/entropy/env.c include/torsion/common.h \
-                           include/torsion/hash.h   \
-                           src/entropy/entropy.h
-	$(CC) /c $(LIB_CFLAGS) src/entropy/env.c
-
-hrt.obj: src/entropy/hrt.c src/entropy/entropy.h
-	$(CC) /c $(LIB_CFLAGS) src/entropy/hrt.c
 
 hw.obj: src/entropy/hw.c src/entropy/entropy.h \
                          src/internal.h
@@ -282,8 +272,7 @@ bench.obj: test/bench.c include/torsion/cipher.h \
                         test/utils.h
 	$(CC) /c $(LIB_CFLAGS) test/bench.c
 
-hrtime.obj: test/hrtime.c src/entropy/entropy.h \
-                          src/entropy/hrt.c
+hrtime.obj: test/hrtime.c test/utils.h
 	$(CC) /c $(LIB_CFLAGS) test/hrtime.c
 
 test.obj: test/test.c include/torsion/aead.h          \

@@ -13,12 +13,6 @@ if(NOT CMAKE_CONFIGURATION_TYPES AND NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE "Release")
 endif()
 
-if(WASI OR EMSCRIPTEN)
-  set(TORSION_WASM 1)
-else()
-  set(TORSION_WASM 0)
-endif()
-
 #
 # Toolchain/Platform Fixes
 #
@@ -60,7 +54,7 @@ option(TORSION_ENABLE_RNG "Enable RNG" ON)
 option(TORSION_ENABLE_TLS "Use thread-local storage if available" ON)
 option(TORSION_ENABLE_VERIFY "Enable scalar bounds checks" OFF)
 
-if(TORSION_WASM)
+if(WASI OR EMSCRIPTEN)
   set(TORSION_INITIAL_MEMORY "16777216" CACHE STRING "WASM initial memory")
   set(TORSION_MAX_MEMORY "2147483648" CACHE STRING "WASM maximum memory")
   set(TORSION_STACK_SIZE "5242880" CACHE STRING "WASM stack size")
@@ -82,7 +76,7 @@ if(NOT PROJECT_NAME STREQUAL CMAKE_PROJECT_NAME)
   unset(CMAKE_OSX_DEPLOYMENT_TARGET)
 endif()
 
-if(NOT TORSION_WASM)
+if(NOT WASI AND NOT EMSCRIPTEN)
   set(CMAKE_C_VISIBILITY_PRESET hidden)
 endif()
 
@@ -127,7 +121,21 @@ else()
   set(TORSION_HAS_ASM)
 endif()
 
-if(BUILD_TESTING AND NOT TORSION_WASM)
+if(BUILD_TESTING AND NOT APPLE)
+  check_c_source_compiles([=[
+#   include <time.h>
+    int main(void) {
+      struct timespec ts;
+      (void)clock_gettime(CLOCK_REALTIME, &ts);
+      (void)clock_gettime(CLOCK_MONOTONIC, &ts);
+      return ts.tv_sec & ts.tv_nsec & 0x7f;
+    }
+  ]=] TORSION_HAS_CLOCK_GETTIME)
+else()
+  set(TORSION_HAS_CLOCK_GETTIME)
+endif()
+
+if(BUILD_TESTING AND NOT EMSCRIPTEN)
   check_c_source_compiles([=[
 #   include <sys/types.h>
 #   include <sys/wait.h>
@@ -152,6 +160,20 @@ else()
   set(TORSION_HAS_FORK)
 endif()
 
+if(BUILD_TESTING)
+  check_c_source_compiles([=[
+#   include <stddef.h>
+#   include <sys/time.h>
+    int main(void) {
+      struct timeval tv;
+      (void)gettimeofday(&tv, NULL);
+      return tv.tv_sec & tv.tv_usec & 0x7f;
+    }
+  ]=] TORSION_HAS_GETTIMEOFDAY)
+else()
+  set(TORSION_HAS_GETTIMEOFDAY)
+endif()
+
 if(TORSION_ENABLE_INT128)
   check_c_source_compiles([=[
     typedef signed __int128 xint128_t;
@@ -170,7 +192,7 @@ else()
   set(TORSION_HAS_INT128)
 endif()
 
-if(TORSION_ENABLE_PTHREAD AND NOT TORSION_WASM)
+if(TORSION_ENABLE_PTHREAD AND NOT EMSCRIPTEN)
   check_c_source_compiles([=[
 #   ifdef __MVS__
 #     define _ALL_SOURCE
@@ -187,6 +209,18 @@ else()
   set(TORSION_HAS_PTHREAD)
 endif()
 
+if(BUILD_TESTING)
+  check_c_source_compiles([=[
+#   include <stddef.h>
+#   include <time.h>
+    int main(void) {
+      return time(NULL) & 0x7f;
+    }
+  ]=] TORSION_HAS_TIME)
+else()
+  set(TORSION_HAS_TIME)
+endif()
+
 if(TORSION_ENABLE_TLS)
   check_c_thread_local_storage(TORSION_TLS_KEYWORD TORSION_TLS_FLAG)
 else()
@@ -197,7 +231,7 @@ endif()
 set(TORSION_HAS_MEMCHECK 0)
 set(TORSION_HAS_ZLIB 0)
 
-if(BUILD_TESTING AND NOT TORSION_WASM AND NOT WIN32)
+if(BUILD_TESTING)
   check_include_file(valgrind/memcheck.h TORSION_HAS_MEMCHECK_H)
 
   if(TORSION_HAS_MEMCHECK_H)
@@ -276,6 +310,10 @@ if(TORSION_HAS_ASM)
   list(APPEND torsion_defines TORSION_HAVE_ASM)
 endif()
 
+if(TORSION_HAS_CLOCK_GETTIME)
+  list(APPEND torsion_defines TORSION_HAVE_CLOCK_GETTIME)
+endif()
+
 if(TORSION_ENABLE_COVERAGE)
   list(APPEND torsion_defines TORSION_COVERAGE)
 endif()
@@ -290,6 +328,10 @@ if(TORSION_HAS_FORK)
   list(APPEND torsion_defines TORSION_HAVE_FORK)
 endif()
 
+if(TORSION_HAS_GETTIMEOFDAY)
+  list(APPEND torsion_defines TORSION_HAVE_GETTIMEOFDAY)
+endif()
+
 if(TORSION_HAS_INT128)
   list(APPEND torsion_defines TORSION_HAVE_INT128)
 endif()
@@ -300,6 +342,10 @@ endif()
 
 if(TORSION_ENABLE_RNG)
   list(APPEND torsion_defines TORSION_HAVE_RNG)
+endif()
+
+if(TORSION_HAS_TIME)
+  list(APPEND torsion_defines TORSION_HAVE_TIME)
 endif()
 
 if(TORSION_TLS_KEYWORD)
@@ -337,11 +383,6 @@ endif()
 set(torsion_libs)
 set(test_libs)
 
-if(MINGW)
-  # No support for #pragma comment(lib).
-  list(APPEND torsion_libs iphlpapi psapi bcrypt)
-endif()
-
 if(TORSION_HAS_ZLIB)
   list(APPEND test_libs z)
 endif()
@@ -373,9 +414,7 @@ set(torsion_sources src/aead.c
                     src/stream.c
                     src/util.c)
 
-set(rng_sources src/entropy/env.c
-                src/entropy/hrt.c
-                src/entropy/hw.c
+set(rng_sources src/entropy/hw.c
                 src/entropy/sys.c
                 src/rand.c)
 
@@ -393,7 +432,7 @@ endif()
 
 if(NOT PROJECT_NAME STREQUAL CMAKE_PROJECT_NAME)
   # Bulding a subproject. Keep it simple.
-  if(TORSION_WASM)
+  if(WASI OR EMSCRIPTEN)
     add_library(torsion OBJECT ${torsion_sources})
     target_compile_definitions(torsion PRIVATE ${torsion_defines})
     target_compile_options(torsion PRIVATE ${torsion_cflags})
@@ -412,7 +451,7 @@ if(NOT PROJECT_NAME STREQUAL CMAKE_PROJECT_NAME)
     target_link_options(torsion INTERFACE ${torsion_ldflags})
     target_link_libraries(torsion INTERFACE ${torsion_libs})
   endif()
-elseif(TORSION_WASM)
+elseif(WASI OR EMSCRIPTEN)
   if(WASI)
     set(torsion_ldflags -Wl,--allow-undefined
                         -Wl,--initial-memory=${TORSION_INITIAL_MEMORY}

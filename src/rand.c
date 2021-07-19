@@ -65,28 +65,25 @@ rng_init(rng_t *rng) {
 
   sha256_init(&hash);
 
-  /* OS entropy (64 bytes). */
-  if (!torsion_sysrand(seed, 64))
-    return 0; /* LCOV_EXCL_LINE */
+  /* LCOV_EXCL_START */
+  if (!torsion_has_sysrand()) {
+    if (!torsion_hwrand(seed, 64))
+      return 0;
 
-  sha256_update(&hash, seed, 64);
+    sha256_update(&hash, seed, 64);
+  } else {
+    if (!torsion_sysrand(seed, 64))
+      return 0;
 
-  /* Hardware entropy (64 bytes). */
-  if (torsion_hwrand(seed, 64))
     sha256_update(&hash, seed, 64);
 
-  /* Manual entropy (64 bytes). */
-  if (torsion_envrand(seed))
-    sha256_update(&hash, seed, 64);
+    if (torsion_hwrand(seed, 64))
+      sha256_update(&hash, seed, 64);
+  }
+  /* LCOV_EXCL_STOP */
 
-  /* At this point, only one of the above
-     entropy sources needs to be strong in
-     order for our RNG to work. It's extremely
-     unlikely that all three would somehow
-     be compromised. */
   sha256_final(&hash, key);
 
-  rng->nonce = torsion_rdtsc();
   rng->rdrand = torsion_has_rdrand();
 
   torsion_memzero(seed, sizeof(seed));
@@ -309,6 +306,8 @@ rng_global_init(void) {
 
 int
 torsion_getentropy(void *dst, size_t size) {
+  if (!torsion_has_sysrand())
+    return torsion_hwrand(dst, size);
   return torsion_sysrand(dst, size);
 }
 

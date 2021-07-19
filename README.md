@@ -301,8 +301,11 @@ Any of the following _may_ be passed as defines to the preprocessor:
 - `TORSION_COVERAGE` - Coverage is enabled via `gcov`. Disable assertions.
 - `TORSION_DEBUG` - Enable assertions.
 - `TORSION_VERIFY` - Enable extra debugging checks.
+- `TORSION_HAVE_CLOCK_GETTIME` - `clock_gettime(3)` is available²³.
 - `TORSION_HAVE_FORK` - `fork(2)` and `waitpid(2)` are available²³.
+- `TORSION_HAVE_GETTIMEOFDAY` - `gettimeofday(3)` is available²³.
 - `TORSION_HAVE_RNG` - libtorsion was compiled with RNG support³.
+- `TORSION_HAVE_TIME` - `time(2)` is available²³.
 - `TORSION_HAVE_ZLIB` - `<zlib.h>` is available and we are linked with `-lz`³.
 
 Footnotes:
