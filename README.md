@@ -152,10 +152,18 @@ $ make -f Makefile.unix CFLAGS='+Z +O3'
 ```
 
 Linking a shared library is up to you at that point. The makefile will generate
-an "object library" to make things easy. For example:
+"object libraries" to make things easy. For example:
 
 ``` sh
 $ gcc -o libtorsion.so -shared -fPIC @libtorsion.obj
+$ gcc -o torsion_test @torsion_test.obj libtorsion.so
+```
+
+On Darwin:
+
+``` sh
+$ gcc -o libtorsion.dylib -dynamiclib @libtorsion.obj
+$ gcc -o torsion_test @torsion_test.obj libtorsion.dylib
 ```
 
 ### Windows

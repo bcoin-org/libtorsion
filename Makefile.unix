@@ -13,21 +13,12 @@ VERSION = $(MAJOR).$(MINOR).$(PATCH)
 
 DESTDIR =
 PREFIX = /usr/local
+INSTDIR = $(DESTDIR)$(PREFIX)
 
 INITIAL_MEMORY = 16777216
 MAX_MEMORY = 2147483648
 STACK_SIZE = 5242880
 ENVIRONMENT = node
-
-#
-# Binary Names
-#
-
-OBJECT_NAME = libtorsion.obj
-STATIC_NAME = libtorsion.a
-BENCH_NAME = torsion_bench
-TEST_NAME = torsion_test
-CTGRIND_NAME = torsion_ctgrind
 
 #
 # Library
@@ -81,30 +72,33 @@ CTGRIND_OBJECTS = ctgrind.o utils.o
 # Cleanup
 #
 
-OUTPUT = $(LIB_OBJECTS)     \
-         $(BENCH_OBJECTS)   \
-         $(TEST_OBJECTS)    \
-         $(CTGRIND_OBJECTS) \
-         $(OBJECT_NAME)     \
-         $(STATIC_NAME)     \
-         $(BENCH_NAME)      \
-         $(TEST_NAME)       \
-         $(CTGRIND_NAME)    \
-         libtorsion.lib     \
-         torsion.def        \
-         torsion.dll        \
-         torsion.lib        \
-         torsion_bench.exe  \
-         torsion_test.exe   \
-         torsion.wasm       \
-         torsion_bench.wasm \
-         torsion_test.wasm  \
-         torsion.js         \
-         torsion_bench.js   \
+OUTPUT = $(LIB_OBJECTS)      \
+         $(BENCH_OBJECTS)    \
+         $(TEST_OBJECTS)     \
+         $(CTGRIND_OBJECTS)  \
+         libtorsion.obj      \
+         torsion_bench.obj   \
+         torsion_test.obj    \
+         torsion_ctgrind.obj \
+         libtorsion.a        \
+         torsion_bench       \
+         torsion_test        \
+         torsion_ctgrind     \
+         libtorsion.lib      \
+         torsion.def         \
+         torsion.dll         \
+         torsion.lib         \
+         torsion_bench.exe   \
+         torsion_test.exe    \
+         torsion.wasm        \
+         torsion_bench.wasm  \
+         torsion_test.wasm   \
+         torsion.js          \
+         torsion_bench.js    \
          torsion_test.js
 
 #
-# Rules
+# Default Rule
 #
 
 all: native
@@ -346,53 +340,60 @@ CONFIG = -e 's;@CMAKE_INSTALL_PREFIX@;$(PREFIX);g'   \
          -e 's;@PROJECT_VERSION@;$(VERSION);g'       \
          -e 's;@PKGCONF_LIBS@;$(LIBS);g'
 
-INSTDIR = $(DESTDIR)$(PREFIX)
-
-native: $(OBJECT_NAME) $(STATIC_NAME) libtorsion.pc $(BENCH_NAME) $(TEST_NAME)
-
-$(OBJECT_NAME): $(LIB_OBJECTS)
-	echo '$(LIB_OBJECTS)' > $@
-
-$(STATIC_NAME): $(OBJECT_NAME)
-	$(AR) $(ARFLAGS) $@ $(LIB_OBJECTS) > /dev/null
-	@x='$(RANLIB)'; $${x:-ranlib} $@ 2> /dev/null || true
-
-$(BENCH_NAME): $(BENCH_OBJECTS) $(STATIC_NAME)
-	$(CC) -o $@ $(LDFLAGS) $(BENCH_OBJECTS) $(STATIC_NAME) $(LIBS)
-
-$(TEST_NAME): $(TEST_OBJECTS) $(STATIC_NAME)
-	$(CC) -o $@ $(LDFLAGS) $(TEST_OBJECTS) $(STATIC_NAME) $(LIBS)
-
-$(CTGRIND_NAME): $(CTGRIND_OBJECTS) $(STATIC_NAME)
-	$(CC) -o $@ $(LDFLAGS) $(CTGRIND_OBJECTS) $(STATIC_NAME) $(LIBS)
+native: libtorsion.pc libtorsion.a torsion_bench torsion_test
 
 libtorsion.pc: libtorsion.pc.in
 	@echo 'sed < $@.in > $@'
 	@sed $(CONFIG) < $@.in > $@
 
-bench: $(BENCH_NAME)
-	@./$(BENCH_NAME)
+libtorsion.obj: $(LIB_OBJECTS)
+	echo '$(LIB_OBJECTS)' > $@
 
-check: $(TEST_NAME)
-	@./$(TEST_NAME)
+torsion_bench.obj: $(BENCH_OBJECTS)
+	echo '$(BENCH_OBJECTS)' > $@
+
+torsion_test.obj: $(TEST_OBJECTS)
+	echo '$(TEST_OBJECTS)' > $@
+
+torsion_ctgrind.obj: $(CTGRIND_OBJECTS)
+	echo '$(CTGRIND_OBJECTS)' > $@
+
+libtorsion.a: libtorsion.obj
+	$(AR) $(ARFLAGS) $@ $(LIB_OBJECTS) > /dev/null
+	@x='$(RANLIB)'; $${x:-ranlib} $@ 2> /dev/null || true
+
+torsion_bench: libtorsion.a torsion_bench.obj
+	$(CC) -o $@ $(LDFLAGS) $(BENCH_OBJECTS) libtorsion.a $(LIBS)
+
+torsion_test: libtorsion.a torsion_test.obj
+	$(CC) -o $@ $(LDFLAGS) $(TEST_OBJECTS) libtorsion.a $(LIBS)
+
+torsion_ctgrind: libtorsion.a torsion_ctgrind.obj
+	$(CC) -o $@ $(LDFLAGS) $(CTGRIND_OBJECTS) libtorsion.a $(LIBS)
+
+bench: torsion_bench
+	@./torsion_bench
+
+check: torsion_test
+	@./torsion_test
 
 test: check
 
-ctgrind: $(CTGRIND_NAME)
-	@valgrind --leak-check=full --error-exitcode=1 ./$(CTGRIND_NAME)
+ctgrind: torsion_ctgrind
+	@valgrind --leak-check=full --error-exitcode=1 ./torsion_ctgrind
 
-valgrind: $(TEST_NAME)
-	@valgrind --leak-check=full --error-exitcode=1 ./$(TEST_NAME)
+valgrind: torsion_test
+	@valgrind --leak-check=full --error-exitcode=1 ./torsion_test
 
 clean:
 	rm -f $(OUTPUT)
 
-install: $(STATIC_NAME) libtorsion.pc
+install: libtorsion.a libtorsion.pc
 	mkdir -p $(INSTDIR)/lib/pkgconfig
 	mkdir -p $(INSTDIR)/include/torsion
 	mkdir -p $(INSTDIR)/share/doc/libtorsion
 	mkdir -p $(INSTDIR)/share/licenses/libtorsion
-	cp -f $(STATIC_NAME) $(INSTDIR)/lib/
+	cp -f libtorsion.a $(INSTDIR)/lib/
 	cp -f libtorsion.pc $(INSTDIR)/lib/pkgconfig/
 	rm -f $(INSTDIR)/include/torsion/*.h
 	cp -f include/torsion/*.h $(INSTDIR)/include/torsion/
@@ -419,17 +420,17 @@ libtorsion.lib: $(LIB_OBJECTS)
 torsion.dll: $(LIB_OBJECTS)
 	$(CC) -o $@ $(MINGW_SHARED) $(MINGW_LDFLAGS) $(LIB_OBJECTS) $(MINGW_LIBS)
 
-torsion_bench.exe: $(BENCH_OBJECTS) torsion.dll
+torsion_bench.exe: torsion.dll $(BENCH_OBJECTS)
 	$(CC) -o $@ $(MINGW_LDFLAGS) $(BENCH_OBJECTS) torsion.lib $(MINGW_LIBS)
 
-torsion_test.exe: $(TEST_OBJECTS) torsion.dll
+torsion_test.exe: torsion.dll $(TEST_OBJECTS)
 	$(CC) -o $@ $(MINGW_LDFLAGS) $(TEST_OBJECTS) torsion.lib $(MINGW_LIBS)
 
 bench_mingw: torsion_bench.exe
-	@wine ./torsion_bench.exe
+	@wine torsion_bench.exe
 
 test_mingw: torsion_test.exe
-	@wine ./torsion_test.exe
+	@wine torsion_test.exe
 
 #
 # WASI
@@ -453,11 +454,11 @@ torsion.wasm: $(LIB_OBJECTS)
 	$(CC) -o $@ $(WASI_LIBFLAGS) $(LDFLAGS) $(LIB_OBJECTS) $(LIBS)
 	@chmod 0644 $@
 
-torsion_bench.wasm: $(BENCH_OBJECTS) $(LIB_OBJECTS)
+torsion_bench.wasm: $(LIB_OBJECTS) $(BENCH_OBJECTS)
 	$(CC) -o $@ $(WASI_LDFLAGS) $(LDFLAGS) $(BENCH_OBJECTS) $(LIB_OBJECTS) $(LIBS)
 	@chmod 0644 $@
 
-torsion_test.wasm: $(TEST_OBJECTS) $(LIB_OBJECTS)
+torsion_test.wasm: $(LIB_OBJECTS) $(TEST_OBJECTS)
 	$(CC) -o $@ $(WASI_LDFLAGS) $(LDFLAGS) $(TEST_OBJECTS) $(LIB_OBJECTS) $(LIBS)
 	@chmod 0644 $@
 
@@ -489,11 +490,11 @@ torsion.js: $(LIB_OBJECTS)
 	$(CC) -o $@ $(EM_LIBFLAGS) $(LDFLAGS) $(LIB_OBJECTS) $(LIBS)
 	@chmod 0644 $@
 
-torsion_bench.js: $(BENCH_OBJECTS) $(LIB_OBJECTS)
+torsion_bench.js: $(LIB_OBJECTS) $(BENCH_OBJECTS)
 	$(CC) -o $@ $(EM_LDFLAGS) $(LDFLAGS) $(BENCH_OBJECTS) $(LIB_OBJECTS) $(LIBS)
 	@chmod 0644 $@
 
-torsion_test.js: $(TEST_OBJECTS) $(LIB_OBJECTS)
+torsion_test.js: $(LIB_OBJECTS) $(TEST_OBJECTS)
 	$(CC) -o $@ $(EM_LDFLAGS) $(LDFLAGS) $(TEST_OBJECTS) $(LIB_OBJECTS) $(LIBS)
 	@chmod 0644 $@
 

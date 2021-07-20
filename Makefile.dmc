@@ -1,6 +1,8 @@
-# Makefile.dmc - win32 makefile for libtorsion (nmake.exe)
+# Makefile.dmc - digitalmars makefile for libtorsion
 # Copyright (c) 2020, Christopher Jeffrey (MIT License).
 # https://github.com/bcoin-org/libtorsion
+
+VERSION = 0.0
 
 #
 # Options
@@ -10,16 +12,6 @@ CC = "$(DMC)\dmc.exe"
 LD = "$(DMC)\link.exe"
 AR = "$(DMC)\lib.exe"
 ARFLAGS =
-
-#
-# Binary Names
-#
-
-STATIC_NAME = libtorsion.lib
-SHARED_NAME = torsion.dll
-IMPLIB_NAME = torsion.lib
-BENCH_NAME = torsion_bench.exe
-TEST_NAME = torsion_test.exe
 
 #
 # Library
@@ -46,15 +38,18 @@ OBJ1 = aead.obj+asn1.obj+cipher.obj+ecc.obj+encoding.obj
 OBJ2 = drbg.obj+dsa.obj+hash.obj+ies.obj+internal.obj
 OBJ3 = kdf.obj+mac.obj+mpi.obj+rsa.obj+stream.obj+util.obj
 
-LIB_CFLAGS = -I.\include        \
-             -I"$(DMC)\include" \
-             -Jm                \
-             -w                 \
-             -mn                \
-             -DTORSION_BUILD    \
-             $(CPPFLAGS)        \
+LIB_CFLAGS = -I.\include     \
+             -w              \
+             -mn             \
+             -o              \
+             -Jm             \
+             -DTORSION_BUILD \
+             $(CPPFLAGS)     \
              $(CFLAGS)
 
+LIB_LDFLAGS = /NOLOGO
+LIB_LIBFLAGS = $(LIB_LDFLAGS) /IMPLIB:torsion.lib /VERSION:$(VERSION) $(LDFLAGS)
+LIB_EXEFLAGS = $(LIB_LDFLAGS) /SUBSYSTEM:CONSOLE $(LDFLAGS)
 LIB_LINK = $(OBJ1)+$(OBJ2)+$(OBJ3)
 LIB_LIBS = kernel32.lib$(LIBS)
 
@@ -76,20 +71,20 @@ TEST_LINK = test.obj+utils.obj
 # Cleanup
 #
 
-OUTPUT = $(LIB_OBJECTS)   \
-         $(BENCH_OBJECTS) \
-         $(TEST_OBJECTS)  \
-         $(STATIC_NAME)   \
-         $(SHARED_NAME)   \
-         $(IMPLIB_NAME)   \
-         $(BENCH_NAME)    \
-         $(TEST_NAME)
+OUTPUT = $(LIB_OBJECTS)    \
+         $(BENCH_OBJECTS)  \
+         $(TEST_OBJECTS)   \
+         libtorsion.lib    \
+         torsion.dll       \
+         torsion.lib       \
+         torsion_bench.exe \
+         torsion_test.exe
 
 #
-# Rules
+# Default Rule
 #
 
-all: $(STATIC_NAME) $(SHARED_NAME) $(BENCH_NAME) $(TEST_NAME)
+all: libtorsion.lib torsion.dll torsion_bench.exe torsion_test.exe
 
 #
 # Library Objects
@@ -296,26 +291,26 @@ utils.obj: test/utils.c test/utils.h
 	$(CC) -c $(LIB_CFLAGS) test/utils.c
 
 #
-# Native
+# Rules
 #
 
-$(STATIC_NAME): $(LIB_OBJECTS)
+libtorsion.lib: $(LIB_OBJECTS)
 	$(AR) -c $(ARFLAGS) $@ $(LIB_OBJECTS)
 
-$(SHARED_NAME): $(LIB_OBJECTS)
-	$(LD) /IMPLIB:$(IMPLIB_NAME) $(LDFLAGS) "$(LIB_LINK)",$@,,"$(LIB_LIBS)"
+torsion.dll: $(LIB_OBJECTS)
+	$(LD) $(LIB_LIBFLAGS) "$(LIB_LINK)",$@,,"$(LIB_LIBS)"
 
-$(BENCH_NAME): $(BENCH_OBJECTS) $(SHARED_NAME)
-	$(LD) $(LDFLAGS) "$(BENCH_LINK)",$@,,$(IMPLIB_NAME)
+torsion_bench.exe: torsion.dll $(BENCH_OBJECTS)
+	$(LD) $(LIB_EXEFLAGS) "$(BENCH_LINK)",$@,,torsion.lib
 
-$(TEST_NAME): $(TEST_OBJECTS) $(SHARED_NAME)
-	$(LD) $(LDFLAGS) "$(TEST_LINK)",$@,,$(IMPLIB_NAME)
+torsion_test.exe: torsion.dll $(TEST_OBJECTS)
+	$(LD) $(LIB_EXEFLAGS) "$(TEST_LINK)",$@,,torsion.lib
 
-bench: $(BENCH_NAME)
-	@.\$(BENCH_NAME)
+bench: torsion_bench.exe
+	@.\torsion_bench.exe
 
-check: $(TEST_NAME)
-	@.\$(TEST_NAME)
+check: torsion_test.exe
+	@.\torsion_test.exe
 
 test: check
 
