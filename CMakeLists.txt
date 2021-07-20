@@ -296,8 +296,8 @@ if(MINGW)
   list(APPEND torsion_ldflags -static-libgcc)
 endif()
 
-# Not sure why cmake fails to do this on tinycc.
 if(CMAKE_C_COMPILER_ID STREQUAL "TinyCC")
+  # Not sure why cmake fails to do this for tcc.
   list(APPEND torsion_exeflags -Wl,-rpath,${PROJECT_SOURCE_DIR})
 endif()
 

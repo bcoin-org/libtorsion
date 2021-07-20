@@ -47,8 +47,6 @@ format_rule src/asn1.c
 format_rule src/cipher.c
 format_rule src/ecc.c
 format_rule src/encoding.c
-format_rule src/entropy/env.c
-format_rule src/entropy/hrt.c
 format_rule src/entropy/hw.c
 format_rule src/entropy/sys.c
 format_rule src/drbg.c
