@@ -2,12 +2,15 @@
 # Copyright (c) 2020, Christopher Jeffrey (MIT License).
 # https://github.com/bcoin-org/libtorsion
 
+set(TORSION_VERSION 0.0.0)
+set(TORSION_SOVERSION 0)
+
 #
 # Initialization
 #
 
 cmake_minimum_required(VERSION 3.4)
-project(libtorsion VERSION 0.0.0 LANGUAGES C)
+project(libtorsion VERSION ${TORSION_VERSION} LANGUAGES C)
 
 if(NOT CMAKE_CONFIGURATION_TYPES AND NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE "Release")
@@ -477,23 +480,23 @@ elseif(WASI OR EMSCRIPTEN)
     set(torsion_exeflags "SHELL:-s EXPORTED_FUNCTIONS=@etc/exports.json")
   endif()
 
-  add_library(torsion_o OBJECT ${torsion_sources})
-  target_compile_definitions(torsion_o PUBLIC ${torsion_defines}
-                                       PRIVATE TORSION_BUILD)
-  target_compile_options(torsion_o PUBLIC ${torsion_cflags})
-  target_include_directories(torsion_o PUBLIC ${torsion_includes})
-  target_link_options(torsion_o INTERFACE ${torsion_ldflags})
+  add_library(torsion_object OBJECT ${torsion_sources})
+  target_compile_definitions(torsion_object PUBLIC ${torsion_defines}
+                                            PRIVATE TORSION_BUILD)
+  target_compile_options(torsion_object PUBLIC ${torsion_cflags})
+  target_include_directories(torsion_object PUBLIC ${torsion_includes})
+  target_link_options(torsion_object INTERFACE ${torsion_ldflags})
 
   add_executable(torsion "")
   target_link_options(torsion PRIVATE ${torsion_exeflags})
-  target_link_libraries(torsion PRIVATE torsion_o)
+  target_link_libraries(torsion PRIVATE torsion_object)
 
   if(BUILD_TESTING)
     add_executable(torsion_bench ${bench_sources})
-    target_link_libraries(torsion_bench PRIVATE torsion_o)
+    target_link_libraries(torsion_bench PRIVATE torsion_object)
 
     add_executable(torsion_test ${test_sources})
-    target_link_libraries(torsion_test PRIVATE torsion_o)
+    target_link_libraries(torsion_test PRIVATE torsion_object)
     add_test(NAME test_wasm COMMAND torsion_test)
 
     if(CMAKE_GENERATOR STREQUAL "Unix Makefiles")
@@ -501,40 +504,33 @@ elseif(WASI OR EMSCRIPTEN)
     endif()
   endif()
 else()
-  add_library(torsion_o OBJECT ${torsion_sources})
-  target_compile_definitions(torsion_o PRIVATE ${torsion_defines} TORSION_BUILD)
-  target_compile_options(torsion_o PRIVATE ${torsion_cflags})
-  target_include_directories(torsion_o PRIVATE ${torsion_includes})
-  set_property(TARGET torsion_o PROPERTY POSITION_INDEPENDENT_CODE ON)
+  add_library(torsion_object OBJECT ${torsion_sources})
+  target_compile_definitions(torsion_object PRIVATE ${torsion_defines}
+                                                    TORSION_BUILD)
+  target_compile_options(torsion_object PRIVATE ${torsion_cflags})
+  target_include_directories(torsion_object PRIVATE ${torsion_includes})
+  set_property(TARGET torsion_object PROPERTY POSITION_INDEPENDENT_CODE ON)
 
-  add_library(torsion SHARED $<TARGET_OBJECTS:torsion_o>)
-  target_compile_definitions(torsion INTERFACE ${torsion_defines})
-  target_compile_options(torsion INTERFACE ${torsion_cflags})
-  target_include_directories(torsion INTERFACE ${torsion_includes})
-  target_link_options(torsion PUBLIC ${torsion_ldflags})
-  target_link_libraries(torsion PRIVATE ${torsion_libs})
-
-  add_library(torsion_static STATIC $<TARGET_OBJECTS:torsion_o>)
+  add_library(torsion_static STATIC $<TARGET_OBJECTS:torsion_object>)
   target_compile_definitions(torsion_static INTERFACE ${torsion_defines})
   target_compile_options(torsion_static INTERFACE ${torsion_cflags})
   target_include_directories(torsion_static INTERFACE ${torsion_includes})
   target_link_options(torsion_static INTERFACE ${torsion_ldflags})
   target_link_libraries(torsion_static INTERFACE ${torsion_libs})
 
-  if(MINGW)
-    target_link_options(torsion PRIVATE -Wl,--output-def,torsion.def)
+  add_library(torsion_shared SHARED $<TARGET_OBJECTS:torsion_object>)
+  target_compile_definitions(torsion_shared INTERFACE ${torsion_defines})
+  target_compile_options(torsion_shared INTERFACE ${torsion_cflags})
+  target_include_directories(torsion_shared INTERFACE ${torsion_includes})
+  target_link_options(torsion_shared PUBLIC ${torsion_ldflags})
+  target_link_libraries(torsion_shared PRIVATE ${torsion_libs})
 
-    set_target_properties(torsion PROPERTIES PREFIX ""
-                                             SUFFIX ".dll"
-                                             IMPORT_PREFIX ""
-                                             IMPORT_SUFFIX ".lib")
-
-    set_target_properties(torsion_static PROPERTIES PREFIX "" SUFFIX ".lib")
-  endif()
+  set_target_properties(torsion_shared PROPERTIES VERSION ${TORSION_VERSION}
+                                                  SOVERSION ${TORSION_SOVERSION}
+                                                  OUTPUT_NAME torsion)
 
   if(UNIX)
-    set_target_properties(torsion PROPERTIES VERSION 0.0.0 SOVERSION 0)
-    set_target_properties(torsion_static PROPERTIES OUTPUT_NAME torsion)
+    set_property(TARGET torsion_static PROPERTY OUTPUT_NAME torsion)
 
     configure_file(libtorsion.pc.in libtorsion.pc @ONLY)
 
@@ -544,25 +540,37 @@ else()
     install(FILES README.md DESTINATION ${CMAKE_INSTALL_DOCDIR})
     install(FILES ${PROJECT_BINARY_DIR}/libtorsion.pc
             DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig)
-    install(TARGETS torsion LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
-    install(TARGETS torsion_static ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
+    install(TARGETS torsion_static torsion_shared
+            ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+            LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
+  endif()
+
+  if(MINGW)
+    set_target_properties(torsion_static PROPERTIES PREFIX "" SUFFIX ".lib")
+    set_target_properties(torsion_shared PROPERTIES PREFIX ""
+                                                    SUFFIX ".dll"
+                                                    IMPORT_PREFIX ""
+                                                    IMPORT_SUFFIX ".lib")
+    target_link_options(torsion_shared PRIVATE -Wl,--output-def,torsion.def)
   endif()
 
   if(WIN32)
+    set_property(TARGET torsion_static PROPERTY OUTPUT_NAME libtorsion)
+
     install(DIRECTORY include/ DESTINATION include)
     install(FILES LICENSE README.md DESTINATION .)
-    install(TARGETS torsion torsion_static
-            RUNTIME DESTINATION lib/$<CONFIG>
-            ARCHIVE DESTINATION lib/$<CONFIG>)
+    install(TARGETS torsion_static torsion_shared
+            ARCHIVE DESTINATION lib/$<CONFIG>
+            RUNTIME DESTINATION lib/$<CONFIG>)
   endif()
 
   if(BUILD_TESTING)
     add_executable(torsion_bench ${bench_sources})
-    target_link_libraries(torsion_bench PRIVATE torsion)
+    target_link_libraries(torsion_bench PRIVATE torsion_shared)
 
     add_executable(torsion_test ${test_sources})
     target_link_options(torsion_test PRIVATE ${torsion_exeflags})
-    target_link_libraries(torsion_test PRIVATE torsion ${test_libs})
+    target_link_libraries(torsion_test PRIVATE torsion_shared ${test_libs})
     add_test(NAME test_shared COMMAND torsion_test)
 
     add_executable(torsion_test_static ${test_sources})
@@ -574,7 +582,7 @@ else()
     if(TORSION_HAS_MEMCHECK)
       add_executable(torsion_ctgrind ${ctgrind_sources})
       target_link_options(torsion_ctgrind PRIVATE ${torsion_exeflags})
-      target_link_libraries(torsion_ctgrind PRIVATE torsion)
+      target_link_libraries(torsion_ctgrind PRIVATE torsion_shared)
     endif()
 
     if(MINGW)

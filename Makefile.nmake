@@ -2,6 +2,8 @@
 # Copyright (c) 2020, Christopher Jeffrey (MIT License).
 # https://github.com/bcoin-org/libtorsion
 
+VERSION = 0.0
+
 #
 # Options
 #
@@ -15,7 +17,7 @@ ARFLAGS =
 # Binary Names
 #
 
-STATIC_NAME = torsion_static.lib
+STATIC_NAME = libtorsion.lib
 SHARED_NAME = torsion.dll
 IMPLIB_NAME = torsion.lib
 BENCH_NAME = torsion_bench.exe
@@ -46,7 +48,7 @@ LIB_OBJECTS = aead.obj     \
               util.obj
 
 LIB_CFLAGS = /nologo            \
-             /I./include        \
+             /I.\include        \
              /W3                \
              /wd4146            \
              /wd4244            \
@@ -61,8 +63,8 @@ LIB_CFLAGS = /nologo            \
              $(CFLAGS)
 
 LIB_ARFLAGS = /NOLOGO $(ARFLAGS)
-LIB_LDFLAGS = /NOLOGO /INCREMENTAL:NO $(LDFLAGS)
-LIB_EXEFLAGS = $(LIB_LDFLAGS) /SUBSYSTEM:CONSOLE
+LIB_LDFLAGS = /NOLOGO /INCREMENTAL:NO /VERSION:$(VERSION) $(LDFLAGS)
+LIB_EXEFLAGS = /NOLOGO /INCREMENTAL:NO /SUBSYSTEM:CONSOLE $(LDFLAGS)
 LIB_LIBS = kernel32.lib advapi32.lib $(LIBS)
 
 #

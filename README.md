@@ -122,68 +122,48 @@ $ make
 #### Make
 
 Our Makefile strives for perfect POSIX conformance. This means flags like
-`-shared` and `-fPIC` aren't assumed as shared libraries and position
-independent code aren't specified by POSIX and non-GNU/BSD systems may do
-things differently. Likewise, warnings and optimization flags are not assumed
-as POSIX only specifies `-O`.
+`-fPIC` aren't assumed as position independent code isn't specified by POSIX.
 
-By default, the `all` target only builds a static archive. To build a shared
-library, some extra work is required...
+Likewise, warnings and optimization flags are not assumed as POSIX only
+specifies `-O`.
 
-Example for Linux and BSDs:
+Example for Linux/\*BSD/Darwin:
 
 ``` sh
-$ make -f Makefile.unix FPIC=-fPIC CFLAGS=-O3 all libtorsion.so
-```
-
-Example for Darwin:
-
-``` sh
-$ make -f Makefile.unix SHARED_SUFFIX=.dylib \
-                        FPIC=-fPIC           \
-                        CFLAGS=-O3           \
-                        all                  \
-                        libtorsion.dylib
+$ make -f Makefile.unix CFLAGS='-fPIC -O3'
 ```
 
 Example for AIX:
 
 ``` sh
-$ make -f Makefile.unix CC=xlc_r                                \
-                        FPIC=-qpic                              \
-                        SHARED=-qmkshrobj                       \
-                        CFLAGS='-qoptimize=3 -qtls -DHAVE_QTLS' \
-                        all                                     \
-                        libtorsion.so
+$ make -f Makefile.unix CC=xlc_r CFLAGS='-qpic -qoptimize=3 -qtls -DHAVE_QTLS'
 ```
 
-Example for Solaris 10+:
+Example for Solaris:
 
 ``` sh
-$ make -f Makefile.unix FPIC=-KPIC                 \
-                        SHARED=-G                  \
-                        CFLAGS='-xO3 -D_REENTRANT' \
-                        all                        \
-                        libtorsion.so
+$ make -f Makefile.unix CFLAGS='-KPIC -xO3 -D_REENTRANT'
 ```
 
-Example for Solaris <10:
+Example for HP-UX:
 
 ``` sh
-$ make -f Makefile.unix FPIC=-KPIC        \
-                        SHARED=-G         \
-                        CFLAGS='-xO3 -mt' \
-                        LDFLAGS=-mt       \
-                        LIBS=-lpthread    \
-                        all               \
-                        libtorsion.so
+$ make -f Makefile.unix CFLAGS='+Z +O3'
+```
+
+Linking a shared library is up to you at that point. The makefile will generate
+an "object library" to make things easy. For example:
+
+``` sh
+$ gcc -o libtorsion.so -shared -fPIC @libtorsion.obj
 ```
 
 ### Windows
 
 Builds on windows will produce both a static and shared library. To deal with
-the naming collision, the static import library is called `torsion_static.lib`
-whereas the shared import library is named `torsion.lib`.
+the naming collision, the static import library is called `libtorsion.lib`
+whereas the shared import library is named `torsion.lib` (this follows
+Microsoft's new naming convention).
 
 #### CMake
 

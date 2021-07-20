@@ -9,5 +9,5 @@ Description: C crypto library.
 URL: https://github.com/bcoin-org/libtorsion
 
 Libs: -L${libdir} -ltorsion
-Libs.private: @pkgconf_libs@
+Libs.private: @PKGCONF_LIBS@
 Cflags: -I${includedir}
