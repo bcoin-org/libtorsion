@@ -101,7 +101,7 @@ POSIX-conforming Makefile on unix-like OSes and an NMake file for Windows.
 
 #### CMake
 
-The CMake build is fairly straightforward, offering the following options:
+The CMake build is fairly straightforward and offers the following options:
 
 - `TORSION_ENABLE_ASM=ON` - Use inline assembly if available
 - `TORSION_ENABLE_COVERAGE=OFF` - Enable coverage
@@ -109,6 +109,7 @@ The CMake build is fairly straightforward, offering the following options:
 - `TORSION_ENABLE_INT128=ON` - Use `__int128` if available
 - `TORSION_ENABLE_PTHREAD=ON` - Use pthread if present in libc.
 - `TORSION_ENABLE_RNG=ON` - Enable RNG
+- `TORSION_ENABLE_SHARED=ON` - Build shared library
 - `TORSION_ENABLE_TLS=ON` - Use thread-local storage if available
 - `TORSION_ENABLE_VERIFY=OFF` - Enable scalar bounds checks
 
