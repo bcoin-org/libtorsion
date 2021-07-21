@@ -447,11 +447,11 @@ RtlGenRandom(PVOID RandomBuffer, ULONG RandomBufferLength);
 #elif defined(__linux__)
 #  include <sys/syscall.h> /* SYS_*, __NR_* */
 /* include <unistd.h> */ /* syscall */
-#  ifdef __NR_getrandom /* 3.17 (2014) */
+#  if !defined(__dietlibc__) && defined(__NR_getrandom) /* 3.17 (2014) */
 #    define getrandom(buf, len, flags) syscall(__NR_getrandom, buf, len, flags)
 #    define HAVE_GETRANDOM
 #  endif
-#  ifdef __NR__sysctl /* 2.3.16 (1999) */
+#  if !defined(__dietlibc__) && defined(__NR__sysctl) /* 2.3.16 (1999) */
 #    define HAVE_SYSCTL_UUID
 #  endif
 #  define DEV_RANDOM_NAME "/dev/urandom"
