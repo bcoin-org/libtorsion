@@ -8673,7 +8673,7 @@ mpz_nextprime(mpz_ptr z, mpz_srcptr x, mp_rng_f *rng, void *arg) {
 }
 
 int
-mpz_findprime(mpz_ptr z, mpz_srcptr x, mp_limb_t max, mp_rng_f *rng, void *arg) {
+mpz_findprime(mpz_ptr z, mpz_srcptr x, mp_limb_t m, mp_rng_f *rng, void *arg) {
   mp_limb_t i;
 
   mpz_set(z, x);
@@ -8681,15 +8681,15 @@ mpz_findprime(mpz_ptr z, mpz_srcptr x, mp_limb_t max, mp_rng_f *rng, void *arg) 
   if (mpz_even_p(z)) {
     mpz_add_ui(z, z, 1);
 
-    if (max == 0)
+    if (m == 0)
       return 0;
 
-    max -= 1;
+    m -= 1;
   }
 
-  max = (max / 2) + 1;
+  m = (m / 2) + 1;
 
-  for (i = 0; i < max; i++) {
+  for (i = 0; i < m; i++) {
     if (mpz_probab_prime_p(z, 20, rng, arg))
       return 1;
 

@@ -1470,7 +1470,7 @@ void
 mpz_nextprime(mpz_ptr z, mpz_srcptr x, mp_rng_f *rng, void *arg);
 
 int
-mpz_findprime(mpz_ptr z, mpz_srcptr x, mp_limb_t max, mp_rng_f *rng, void *arg);
+mpz_findprime(mpz_ptr z, mpz_srcptr x, mp_limb_t m, mp_rng_f *rng, void *arg);
 
 /*
  * Helpers
