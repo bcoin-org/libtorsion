@@ -47,6 +47,7 @@
  *   https://docs.oracle.com/cd/E88353_01/html/E37841/getrandom-2.html
  *   https://docs.oracle.com/cd/E86824_01/html/E54765/getentropy-2.html
  *   https://web.archive.org/web/20000917040238/http://www.cosy.sbg.ac.at/~andi/
+ *   https://lists.gnupg.org/pipermail/gnupg-devel/2000-May/016446.html
  *   http://lists.pdxlinux.org/pipermail/plug/2002-March/000846.html
  *
  * Illumos:
@@ -66,7 +67,7 @@
  * BSD/OS:
  *   https://svn.apache.org/repos/asf/apr/apr/branches/1.6.x/misc/unix/rand.c
  *
- * HP-UX (*):
+ * HP-UX:
  *   https://nixdoc.net/man-pages/HP-UX/man7/random.7.html
  *   https://nixdoc.net/man-pages/HP-UX/man7/urandom.7.html
  *
@@ -97,7 +98,7 @@
  *   https://web.archive.org/web/20030927104849/
  *   http://h30097.www3.hp.com/docs/base_doc/DOCUMENTATION/V51B_HTML/MAN/MAN4/0199____.HTM
  *
- * IRIX (*):
+ * IRIX:
  *   https://irix7.com/techpubs/007-3897-019.pdf
  *
  * Unicos:
@@ -186,7 +187,7 @@
  *
  * Apple:
  *   Source: getentropy(2)
- *   Fallback: /dev/random (identical to /dev/urandom)
+ *   Fallback: /dev/urandom (identical to /dev/random)
  *   Support: /dev/{,u}random added in OSX 10.1 (2001).
  *            getentropy(2) added in OSX 10.12 (2016).
  *            getentropy(2) added in iOS 10.0 (2016).
@@ -223,15 +224,16 @@
  *
  * DragonFly BSD:
  *   Source: getrandom(2)
- *   Fallback: /dev/random
+ *   Fallback: /dev/urandom
  *   Support: /dev/{,u}random supported since inception (2003).
  *            getrandom(2) added in DragonFly BSD 5.7.1 (2020).
  *
  * Solaris:
  *   Source: getrandom(2)
  *   Fallback 1: getentropy(2)
- *   Fallback 2: /dev/random
- *   Support: /dev/random supported for Solaris 2.6+ with "andirand" (2000).
+ *   Fallback 2: /dev/urandom
+ *   Support: /dev/random supported for Solaris 2.6 & 7 with SUNWski (~2000).
+ *            /dev/{,u}random supported for Solaris 2.6+ with "andirand" (2000).
  *            /dev/{,u}random added in Solaris 8 (patch 112438-01) (2002).
  *            <sys/random.h> added in Solaris 8 (patch 112438-01) (2002).
  *            getrandom(2) added in Solaris 11.3 (2015).
@@ -240,7 +242,7 @@
  *
  * Illumos:
  *   Source: getentropy(3)
- *   Fallback: /dev/random
+ *   Fallback: /dev/urandom
  *   Support: /dev/{,u}random supported since inception (2010).
  *            <sys/random.h> supported since inception (2010).
  *            getrandom(2) added in Illumos 0.12 (2015).
@@ -268,8 +270,8 @@
  *   Fallback: none
  *   Support: /dev/random existed since BSD/OS 4.1 (1999).
  *
- * HP-UX (*):
- *   Source: /dev/random
+ * HP-UX:
+ *   Source: /dev/urandom
  *   Fallback: none
  *   Support: /dev/{,u}random added in HP-UX 11i v1 (KRNG11i) (2002).
  *
@@ -301,7 +303,7 @@
  *            random service must be started.
  *
  * Haiku:
- *   Source: /dev/random (identical to /dev/urandom)
+ *   Source: /dev/urandom (identical to /dev/random)
  *   Fallback: none
  *   Support: /dev/{,u}random added in OpenBeOS (2002).
  *
@@ -315,7 +317,7 @@
  *   Fallback: none
  *   Support: /dev/{,u}random added in Tru64 UNIX 5.1B (2002).
  *
- * IRIX (*):
+ * IRIX:
  *   Source: /dev/urandom
  *   Fallback: none
  *   Support: /dev/{,u}random added in IRIX 6.5.19 (2003).
@@ -465,7 +467,7 @@ RtlGenRandom(PVOID RandomBuffer, ULONG RandomBufferLength);
 #    endif
 #    define HAVE_GETENTROPY
 #  endif
-#  define DEV_RANDOM_NAME "/dev/random"
+#  define DEV_RANDOM_NAME "/dev/urandom"
 #elif defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
 #  include <sys/param.h> /* <osreldate.h> prior to 3.0.1 (1998) */
 #  if defined(__FreeBSD_version) && __FreeBSD_version >= 1200000 /* 12.0 (2018) */
@@ -511,7 +513,7 @@ RtlGenRandom(PVOID RandomBuffer, ULONG RandomBufferLength);
 #    include <sys/random.h> /* getrandom */
 #    define HAVE_GETRANDOM
 #  endif
-#  define DEV_RANDOM_NAME "/dev/random"
+#  define DEV_RANDOM_NAME "/dev/urandom"
 #elif defined(__sun) && defined(__SVR4)
 #  include <sys/random.h> /* getrandom, getentropy (solaris) */
 /* include <unistd.h> */ /* getentropy (illumos) */
@@ -523,7 +525,7 @@ RtlGenRandom(PVOID RandomBuffer, ULONG RandomBufferLength);
 #      define HAVE_GETENTROPY /* Illumos 0.12 (2015) */
 #    endif
 #  endif
-#  define DEV_RANDOM_NAME "/dev/random"
+#  define DEV_RANDOM_NAME "/dev/urandom"
 #elif defined(__CYGWIN__)
 #  include <cygwin/version.h>
 #  if CYGWIN_VERSION_API_MAJOR > 0 || CYGWIN_VERSION_API_MINOR >= 306 /* 2.7.0 (2017) */
@@ -542,8 +544,8 @@ RtlGenRandom(PVOID RandomBuffer, ULONG RandomBufferLength);
 #elif defined(__bsdi__)
 #  define DEV_RANDOM_NAME "/dev/random"
 #  define DEV_RANDOM_RETRY
-#elif defined(__hpux) /* (*) */
-#  define DEV_RANDOM_NAME "/dev/random"
+#elif defined(__hpux)
+#  define DEV_RANDOM_NAME "/dev/urandom"
 #elif defined(__TANDEM)
 #  define HAVE_EGD
 #elif defined(__PASE__) /* IBM i disguised as AIX */
@@ -555,12 +557,12 @@ RtlGenRandom(PVOID RandomBuffer, ULONG RandomBufferLength);
 #elif defined(__QNX__)
 #  define DEV_RANDOM_NAME "/dev/random"
 #elif defined(__HAIKU__)
-#  define DEV_RANDOM_NAME "/dev/random"
+#  define DEV_RANDOM_NAME "/dev/urandom"
 #elif defined(__minix)
 #  define DEV_RANDOM_NAME "/dev/urandom"
 #elif defined(__osf__)
 #  define DEV_RANDOM_NAME "/dev/urandom"
-#elif defined(__sgi) /* (*) */
+#elif defined(__sgi)
 #  define DEV_RANDOM_NAME "/dev/urandom"
 #elif defined(_UNICOS) || defined(_UNICOSMP)
 #  define HAVE_EGD
