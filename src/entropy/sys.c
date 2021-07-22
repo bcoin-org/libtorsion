@@ -1354,28 +1354,34 @@ torsion_has_sysrand(void) {
 
 int
 torsion_sysrand(void *dst, size_t size) {
+  int oldno = errno;
+  int ret = 1;
+
   if (size == 0)
-    return 1;
+    goto done;
 
   if (torsion_callrand(dst, size))
-    return 1;
+    goto done;
 
 #ifdef DEV_RANDOM_NAME
   if (torsion_devrand(dst, size, DEV_RANDOM_NAME))
-    return 1;
+    goto done;
 #endif
 
 #ifdef HAVE_SYSCTL_UUID
   if (torsion_uuidrand(dst, size))
-    return 1;
+    goto done;
 #endif
 
 #ifdef HAVE_EGD
   if (torsion_egdrand(dst, size))
-    return 1;
+    goto done;
 #endif
 
   memset(dst, 0, size);
 
-  return 0;
+  ret = 0;
+done:
+  errno = oldno;
+  return ret;
 }

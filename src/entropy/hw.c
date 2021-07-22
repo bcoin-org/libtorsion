@@ -180,6 +180,7 @@
 #if defined(HAVE_ASM_ARM64) || defined(HAVE_ASM_PPC)
 #  if defined(__GLIBC__) && defined(__GLIBC_PREREQ)
 #    if __GLIBC_PREREQ(2, 16)
+#      include <errno.h> /* errno */
 #      include <sys/auxv.h> /* getauxval */
 #      define HAVE_GETAUXVAL
 #      define HAVE_AUXVAL
@@ -187,6 +188,7 @@
 #  elif defined(__FreeBSD__)
 #    include <sys/param.h>
 #    if defined(__FreeBSD_version) && __FreeBSD_version >= 1200000 /* 12.0 */
+#      include <errno.h> /* errno */
 #      include <sys/auxv.h> /* elf_aux_info */
 #      define HAVE_ELF_AUX_INFO
 #      define HAVE_AUXVAL
@@ -214,25 +216,39 @@
  * Auxiliary Value
  */
 
-#if defined(HAVE_GETAUXVAL)
-#  define torsion_auxval getauxval
-#elif defined(HAVE_ELF_AUX_INFO)
-TORSION_UNUSED static unsigned long
+static unsigned long
 torsion_auxval(unsigned long type) {
+#if defined(HAVE_GETAUXVAL)
+  int oldno = errno;
   unsigned long val;
 
-  if (elf_aux_info(type, &val, sizeof(val)) != 0)
-    return 0;
+  val = getauxval(type);
+  errno = oldno;
 
   return val;
-}
+#elif defined(HAVE_ELF_AUX_INFO)
+  int oldno = errno;
+  unsigned long val;
+
+  if (elf_aux_info(type, &val, sizeof(val)) != 0) {
+    errno = oldno;
+    return 0;
+  }
+
+  errno = oldno;
+
+  return val;
+#else
+  (void)type;
+  return 0;
 #endif
+}
 
 /*
  * CPUID
  */
 
-TORSION_UNUSED static int
+static int
 torsion_has_cpuid(void) {
 #if defined(HAVE_CPUIDEX)
   return 1;
@@ -263,7 +279,7 @@ torsion_has_cpuid(void) {
 #endif
 }
 
-TORSION_UNUSED static void
+static void
 torsion_cpuid(uint32_t *a,
               uint32_t *b,
               uint32_t *c,
@@ -685,6 +701,10 @@ torsion_hwrand(void *dst, size_t size) {
   int has_rdseed = torsion_has_rdseed();
   step_word_t x;
   int i;
+
+  (void)torsion_auxval;
+  (void)torsion_has_cpuid;
+  (void)torsion_cpuid;
 
   if (!has_rdrand && !has_rdseed)
     goto fail;
