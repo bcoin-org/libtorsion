@@ -90,7 +90,7 @@ TORSION_BARRIER(mp_limb_t, mp_limb)
 #  define mp_alloca alloca
 #elif defined(__xlC__)
 #  define mp_alloca __alloca
-#elif defined(_MSC_VER)
+#elif defined(_MSC_VER) && defined(_WIN32)
 #  include <malloc.h>
 #  define mp_alloca _alloca
 #elif defined(__BORLANDC__)

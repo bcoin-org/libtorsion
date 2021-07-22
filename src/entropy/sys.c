@@ -141,6 +141,17 @@
  *   https://nodejs.org/api/crypto.html#crypto_crypto_randomfillsync_buffer_offset_size
  *   https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Math/random
  *   https://github.com/emscripten-core/emscripten/blob/048f028/system/include/compat/sys/random.h
+ *
+ * UEFI:
+ *   https://uefi.org/specifications
+ *   https://uefi.org/sites/default/files/resources/UEFI_Spec_2_9_2021_03_18.pdf
+ *   https://github.com/tianocore/edk2
+ *   https://github.com/tianocore/edk2-libc
+ *
+ * Intel SGX:
+ *   https://download.01.org/intel-sgx/
+ *   https://download.01.org/intel-sgx/linux-2.6/docs/Intel_SGX_Developer_Reference_Linux_2.6_Open_Source.pdf
+ *   https://github.com/intel/linux-sgx
  */
 
 /**
@@ -383,6 +394,18 @@
  *            EM_JS added in Emscripten 1.37.36 (2018).
  *            getentropy(2) added in Emscripten 2.0.5 (2020).
  *
+ * UEFI:
+ *   Source: EFI_RNG_PROTOCOL.GetRNG
+ *   Fallback: RDRAND / RDSEED
+ *   Support: EFI_RNG_PROTOCOL specified in UEFI 2.4 (2013).
+ *            EFI_RNG_PROTOCOL added in tianocore/edk2#3aa8dc6 (2013).
+ *
+ * Intel SGX:
+ *   Source: sgx_read_rand
+ *   Fallback: none
+ *   Support: sgx_read_rand specified in SGX <=1.5 (2016).
+ *            sgx_read_rand added in intel/linux-sgx#9441de4 (2016).
+ *
  * [1] https://docs.rs/getrandom/latest/getrandom/
  */
 
@@ -416,6 +439,8 @@
 #undef HAVE_SYS_RANDOM_H
 #undef HAVE_JS_RANDOM_GET
 #undef HAVE_UUID_GENERATE
+#undef HAVE_EFI_RNG_PROTOCOL
+#undef HAVE_SGX_READ_RAND
 #undef DEV_RANDOM_NAME
 #undef DEV_RANDOM_POLL
 #undef DEV_RANDOM_SELECT
@@ -424,7 +449,15 @@
 #undef HAVE_GETPID
 #undef HAVE_UNKNOWN
 
-#if defined(_WIN32)
+#if defined(_EFI_CDEFS_H) /* UEFI */
+#  include <Uefi.h> /* EFI_STATUS, EFI_ERROR */
+#  include <Library/UefiBootServicesTableLib.h> /* gBS */
+#  include <Protocol/Rng.h> /* EFI_RNG_PROTOCOL, gEfiRngProtocolGuid */
+#  define HAVE_EFI_RNG_PROTOCOL
+#elif defined(_TLIBC_CDECL_) /* Intel SGX */
+#  include <sgx_trts.h> /* SGX_SUCCESS, sgx_read_rand */
+#  define HAVE_SGX_READ_RAND
+#elif defined(_WIN32)
 #  include <windows.h> /* _WIN32_WINNT */
 #  if (defined(_WIN32_WINNT) && _WIN32_WINNT >= 0x0601) /* Windows 7 (2009) */ \
    && (defined(_MSC_VER) && _MSC_VER >= 1600) /* VS 2010 */                    \
@@ -1007,6 +1040,20 @@ torsion_callrand(void *dst, size_t size) {
   }
 
   return 1;
+#elif defined(HAVE_EFI_RNG_PROTOCOL)
+  EFI_RNG_PROTOCOL *rng = NULL;
+  EFI_STATUS status;
+
+  status = gBS->LocateProtocol(&gEfiRngProtocolGuid, NULL, (VOID **)&rng);
+
+  if (EFI_ERROR(status) || rng == NULL)
+    return torsion_hwrand(dst, size);
+
+  status = rng->GetRNG(rng, NULL, (UINTN)size, (UINT8 *)dst);
+
+  return !EFI_ERROR(status);
+#elif defined(HAVE_SGX_READ_RAND)
+  return sgx_read_rand((unsigned char *)dst, size) == SGX_SUCCESS;
 #else
   (void)dst;
   (void)size;

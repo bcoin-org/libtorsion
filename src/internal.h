@@ -246,6 +246,9 @@ static const unsigned long torsion__endian_check TORSION_UNUSED = 1;
 #undef TORSION_TLS
 #undef TORSION_HAVE_PTHREAD
 
+/* Ensure we get some cdefs. */
+#include <limits.h>
+
 /* Detect inline ASM support.
  *
  * The following compilers support GNU-style ASM:
@@ -297,7 +300,11 @@ static const unsigned long torsion__endian_check TORSION_UNUSED = 1;
  *
  * [1] https://github.com/bcoin-org/libtorsion/blob/2fe6cd3/src/tls.h
  */
-#if defined(__clang__) || defined(__llvm__)
+#if defined(_EFI_CDEFS_H)
+/* No threads in UEFI. */
+#elif defined(_TLIBC_CDECL_)
+#  define TORSION_TLS __thread
+#elif defined(__clang__) || defined(__llvm__)
 #  ifdef __has_feature
 #    if __has_feature(tls)
 #      if defined(_WIN32)
@@ -359,8 +366,13 @@ static const unsigned long torsion__endian_check TORSION_UNUSED = 1;
 #endif
 
 /* Detect builtin pthread support. */
-#if defined(__linux__)
-#  include <limits.h>
+#if defined(_EFI_CDEFS_H)
+/* No threads in UEFI. */
+#elif defined(_TLIBC_CDECL_)
+/* Requires -lsgx_pthread. We could use the
+   sgx_thread API which is guaranteed to be
+   available, but we don't need it. */
+#elif defined(__linux__)
 #  if defined(__GLIBC__)
 #    ifdef __GLIBC_PREREQ
 #      if __GLIBC_PREREQ(2, 4)
@@ -405,7 +417,6 @@ static const unsigned long torsion__endian_check TORSION_UNUSED = 1;
 #    define TORSION_HAVE_PTHREAD
 #  endif
 #elif defined(__gnu_hurd__)
-#  include <limits.h>
 #  if defined(__GLIBC__) && defined(__GLIBC_PREREQ)
 #    if __GLIBC_PREREQ(2, 28)
 #      define TORSION_HAVE_PTHREAD

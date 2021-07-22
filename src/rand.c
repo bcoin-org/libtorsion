@@ -193,7 +193,7 @@ rng_uniform(rng_t *rng, uint32_t max) {
  * Global Lock
  */
 
-#if defined(__MINGW32__)
+#if defined(__MINGW32__) && defined(_WIN32)
 /* MinGW autolinks to libwinpthread when TLS
  * is used. This means our library will not be
  * redistributable on Windows unless we ship
