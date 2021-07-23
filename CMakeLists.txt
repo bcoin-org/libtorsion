@@ -41,6 +41,8 @@ include(cmake/TargetLinkOptions.cmake)
 include(CheckCSourceCompiles)
 include(CheckIncludeFile)
 include(CheckLibraryExists)
+include(CheckSymbolExists)
+include(CheckTypeSize)
 include(CTest)
 include(GNUInstallDirs)
 
@@ -86,6 +88,30 @@ endif()
 
 if(APPLE)
   set(CMAKE_OSX_DEPLOYMENT_TARGET 10.7)
+endif()
+
+#
+# Compiler Fixes
+#
+
+# Modern glibc breaks pcc (stdlib.h in particular).
+check_symbol_exists(__PCC__ "" TORSION_HAVE_PCC)
+check_symbol_exists(__GLIBC__ "limits.h" TORSION_HAVE_GLIBC)
+
+if(TORSION_HAVE_PCC AND TORSION_HAVE_GLIBC)
+  check_type_size(__float128 TORSION_SIZEOF_FLOAT128)
+
+  if (NOT TORSION_SIZEOF_FLOAT128)
+    string(APPEND CMAKE_C_FLAGS " -D__float128=\"long double\"")
+    string(APPEND CMAKE_C_FLAGS " -D__TC__=__SC__")
+  endif()
+endif()
+
+# OpenWatcom-Linux can't create shared libraries.
+if(CMAKE_C_COMPILER_ID STREQUAL "OpenWatcom")
+  if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    set(TORSION_ENABLE_SHARED OFF)
+  endif()
 endif()
 
 #
@@ -265,6 +291,9 @@ if(MSVC)
                                         /wd4244
                                         /wd4267
                                         /wd4334)
+elseif(CMAKE_C_COMPILER_ID STREQUAL "OpenWatcom")
+  append_c_compiler_flag(torsion_cflags -wcd=201
+                                        -wcd=202)
 else()
   append_c_compiler_flag(torsion_cflags -pedantic
                                         -Wall
