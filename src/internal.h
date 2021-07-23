@@ -340,11 +340,14 @@ static const unsigned long torsion__endian_check TORSION_UNUSED = 1;
 #      define TORSION_TLS __thread
 #    endif
 #  endif
-#elif (defined(_MSC_VER) && _MSC_VER >= 1200)          \
-   || (defined(__WATCOMC__) && __WATCOMC__ >= 1200)    \
-   || (defined(__BORLANDC__) && __BORLANDC__ >= 0x610) \
+#elif (defined(_MSC_VER) && _MSC_VER >= 1100)          \
+   || (defined(__WATCOMC__) && __WATCOMC__ >= 1100)    \
+   || (defined(__BORLANDC__) && __BORLANDC__ >= 0x520) \
+   || (defined(__SC__) && __SC__ >= 0x750)             \
    || (defined(__DMC__))
-#  define TORSION_TLS __declspec(thread)
+#  if defined(WIN32) || defined(_WIN32) || defined(__NT__)
+#    define TORSION_TLS __declspec(thread)
+#  endif
 #elif (defined(__SUNPRO_C) && __SUNPRO_C >= 0x560)     \
    || (defined(__SUNPRO_CC) && __SUNPRO_CC >= 0x560)   \
    || (defined(__HP_cc) && __HP_cc >= 53600)           \
@@ -384,6 +387,8 @@ static const unsigned long torsion__endian_check TORSION_UNUSED = 1;
 #  elif !defined(__UCLIBC__) && !defined(__dietlibc__) && !defined(__NEWLIB__)
 #    define TORSION_HAVE_PTHREAD /* musl */
 #  endif
+#elif defined(__WATCOMC__) && defined(__LINUX__)
+#  define TORSION_HAVE_PTHREAD
 #elif defined(__APPLE__) && defined(__MACH__)
 #  include <AvailabilityMacros.h>
 #  if MAC_OS_X_VERSION_MAX_ALLOWED >= 1040

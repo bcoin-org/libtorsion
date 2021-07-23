@@ -465,7 +465,7 @@
 #    include <bcrypt.h> /* BCryptGenRandom */
 #    pragma comment(lib, "bcrypt.lib")
 #    define HAVE_BCRYPTGENRANDOM
-#  elif defined(_WIN32_WINNT) && _WIN32_WINNT >= 0x0501 /* Windows XP (2001) */
+#  else /* Windows XP (2001) */
 #    define RtlGenRandom SystemFunction036
 #    ifdef __cplusplus
 extern "C"
@@ -491,6 +491,9 @@ RtlGenRandom(PVOID RandomBuffer, ULONG RandomBufferLength);
 #  endif
 #  define DEV_RANDOM_NAME "/dev/urandom"
 #  define DEV_RANDOM_POLL
+#elif defined(__WATCOMC__) && defined(__LINUX__)
+#  define DEV_RANDOM_NAME "/dev/urandom"
+#  define DEV_RANDOM_SELECT
 #elif defined(__APPLE__) && defined(__MACH__)
 #  include <AvailabilityMacros.h>
 #  if MAC_OS_X_VERSION_MAX_ALLOWED >= 101200 /* 10.12 (2016) */
