@@ -99,7 +99,7 @@ TORSION_BARRIER(mp_limb_t, mp_limb)
 #elif defined(__WATCOMC__)
 #  include <malloc.h>
 #  define mp_alloca alloca
-#elif defined(__DMC__) || defined(__SC__)
+#elif defined(__DMC__) || (defined(__SC__) && defined(__ZTC__))
 /* include <stdlib.h> */
 #  define mp_alloca _alloca
 #elif defined(__DECC) && defined(__VMS)
