@@ -121,22 +121,27 @@ endif()
 
 if(TORSION_ENABLE_ASM)
   check_c_source_compiles([=[
-#   ifdef __native_client__
-#     error "unsupported"
-#   endif
-#   if defined(__IBMC__) || defined(__IBMCPP__)
-#     error "incompatible syntax"
-#   endif
-#   if defined(__CC_ARM) && !defined(__clang__)
-#     error "incompatible syntax"
-#   endif
     int main(void) {
       unsigned long z = 953;
       unsigned long x = 109;
       unsigned long y = 577;
       unsigned long c;
       __asm__ __volatile__ (
+#   if defined(__amd64__) || defined(__amd64)
+        "movq $0, %q1\\n"
+#   elif defined(__x86_64__) || defined(__x86_64)
+        "movq $0, %q1\\n"
+#   elif defined(__i386__) || defined(__i386) || defined(i386)
+        "movl $0, %k1\\n"
+#   elif defined(__arm__) || defined(__aarch64__)
+        "mov %1, #0\\n"
+#   elif defined(__powerpc__) || defined(__powerpc64__) || defined(__PPC__)
+        "li %1, 0\\n"
+#   elif defined(__riscv)
+        "lui %1, 0\\n"
+#   else
         ""
+#   endif
         : "+r" (z), "=&r" (c)
 #   if defined(__TINYC__)
         : "rm" (x), "rm" (y)
@@ -292,17 +297,19 @@ if(MSVC)
                                         /wd4244
                                         /wd4267
                                         /wd4334)
-elseif(CMAKE_C_COMPILER_ID STREQUAL "OpenWatcom")
+elseif(CMAKE_C_COMPILER_ID MATCHES "Watcom$")
   append_c_compiler_flag(torsion_cflags -wcd=201
                                         -wcd=202)
 else()
   append_c_compiler_flag(torsion_cflags -pedantic
                                         -Wall
                                         -Wextra
-                                        -Wcast-align
+                                        -Wcast-align=strict
+                                        -Wcast-qual
                                         -Wno-implicit-fallthrough
                                         -Wno-overlength-strings
-                                        -Wshadow)
+                                        -Wshadow
+                                        -Wundef)
 endif()
 
 if(TORSION_ENABLE_COVERAGE)
@@ -313,6 +320,10 @@ endif()
 if(TORSION_ENABLE_DEBUG)
   if(MSVC)
     append_c_compiler_flag(torsion_cflags /Zi)
+  elseif(BORLAND)
+    append_c_compiler_flag(torsion_cflags -v)
+  elseif(CMAKE_C_COMPILER_ID MATCHES "Watcom$")
+    append_c_compiler_flag(torsion_cflags -d2)
   else()
     append_c_compiler_flag(torsion_cflags -g)
   endif()
