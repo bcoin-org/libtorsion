@@ -8459,7 +8459,7 @@ bench_mpn_invert(mp_start_f *start, mp_end_f *end, mp_rng_f *rng, void *arg) {
  */
 
 void
-test_mpi_internal(mp_rng_f *rng, void *arg) {
+mp_run_tests(mp_rng_f *rng, void *arg) {
   printf("Testing internal MPI functions...\n");
 
   /* MP */
@@ -8615,6 +8615,6 @@ test_mpi_internal(mp_rng_f *rng, void *arg) {
  */
 
 void
-bench_mpi_internal(mp_start_f *start, mp_end_f *end, mp_rng_f *rng, void *arg) {
+mp_run_bench(mp_start_f *start, mp_end_f *end, mp_rng_f *rng, void *arg) {
   bench_mpn_invert(start, end, rng, arg);
 }

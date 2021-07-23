@@ -9017,13 +9017,13 @@ mpz_urandomm(mpz_ptr z, mpz_srcptr x, mp_rng_f *rng, void *arg) {
 #  include "../test/mpi_internal.h"
 #else
 void
-test_mpi_internal(mp_rng_f *rng, void *arg) {
+mp_run_tests(mp_rng_f *rng, void *arg) {
   (void)rng;
   (void)arg;
 }
 
 void
-bench_mpi_internal(mp_start_f *start, mp_end_f *end, mp_rng_f *rng, void *arg) {
+mp_run_bench(mp_start_f *start, mp_end_f *end, mp_rng_f *rng, void *arg) {
   (void)start;
   (void)end;
   (void)rng;

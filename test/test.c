@@ -955,6 +955,11 @@ test_dsa_keygen(drbg_t *rng) {
  */
 
 static void
+test_ecc_internal(drbg_t *drbg) {
+  ecc_run_tests(drbg);
+}
+
+static void
 test_ecdsa_vectors(drbg_t *unused) {
   unsigned char priv[ECDSA_MAX_PRIV_SIZE];
   unsigned char pub[ECDSA_MAX_PUB_SIZE];
@@ -4431,11 +4436,11 @@ test_mac_siphash(drbg_t *unused) {
 typedef void mp_rng_f(void *out, size_t size, void *arg);
 
 void
-torsion__test_mpi_internal(mp_rng_f *rng, void *arg);
+torsion__mp_run_tests(mp_rng_f *rng, void *arg);
 
 static void
 test_mpi_internal(drbg_t *rng) {
-  torsion__test_mpi_internal(drbg_rng, rng);
+  torsion__mp_run_tests(drbg_rng, rng);
 }
 
 /*

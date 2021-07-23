@@ -3861,7 +3861,7 @@ test_ristretto_batch_encode(drbg_t *unused) {
  */
 
 void
-test_ecc_internal(drbg_t *rng) {
+ecc_run_tests(drbg_t *rng) {
   printf("Testing internal ECC functions...\n");
 
   /* Scalar */

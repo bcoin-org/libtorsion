@@ -326,14 +326,14 @@ bench_eddsa_derive(drbg_t *rng) {
 }
 
 void
-torsion__bench_mpi_internal(void (*start)(bench_t *, const char *),
-                            void (*end)(bench_t *, uint64_t),
-                            void (*rng)(void *, size_t, void *),
-                            void *arg);
+torsion__mp_run_bench(void (*start)(bench_t *, const char *),
+                      void (*end)(bench_t *, uint64_t),
+                      void (*rng)(void *, size_t, void *),
+                      void *arg);
 
 static void
 bench_mpi_internal(drbg_t *rng) {
-  torsion__bench_mpi_internal(bench_start, bench_end, drbg_rng, rng);
+  torsion__mp_run_bench(bench_start, bench_end, drbg_rng, rng);
 }
 
 static void

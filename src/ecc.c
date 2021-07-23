@@ -14569,7 +14569,7 @@ ristretto_derive(const edwards_t *ec,
 #  include "../test/ecc_internal.h"
 #else
 void
-test_ecc_internal(drbg_t *rng) {
+ecc_run_tests(drbg_t *rng) {
   (void)rng;
 }
 #endif

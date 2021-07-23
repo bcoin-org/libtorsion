@@ -275,8 +275,8 @@
 #define mpz_print torsion__mpz_print
 #define mpz_urandomb torsion__mpz_urandomb
 #define mpz_urandomm torsion__mpz_urandomm
-#define test_mpi_internal torsion__test_mpi_internal
-#define bench_mpi_internal torsion__bench_mpi_internal
+#define mp_run_tests torsion__mp_run_tests
+#define mp_run_bench torsion__mp_run_bench
 
 /*
  * Types
@@ -1581,13 +1581,13 @@ mpz_urandomm(mpz_ptr z, mpz_srcptr x, mp_rng_f *rng, void *arg);
  */
 
 TORSION_EXTERN void
-test_mpi_internal(mp_rng_f *rng, void *arg);
+mp_run_tests(mp_rng_f *rng, void *arg);
 
 /*
  * Benchmarks
  */
 
 TORSION_EXTERN void
-bench_mpi_internal(mp_start_f *start, mp_end_f *end, mp_rng_f *rng, void *arg);
+mp_run_bench(mp_start_f *start, mp_end_f *end, mp_rng_f *rng, void *arg);
 
 #endif /* TORSION_MPI_H */
