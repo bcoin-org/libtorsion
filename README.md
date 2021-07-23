@@ -110,6 +110,7 @@ The CMake build is fairly straightforward and offers the following options:
 - `TORSION_ENABLE_PTHREAD=ON` - Use pthread if present in libc.
 - `TORSION_ENABLE_RNG=ON` - Enable RNG
 - `TORSION_ENABLE_SHARED=ON` - Build shared library
+- `TORSION_ENABLE_TESTS=ON` - Build tests
 - `TORSION_ENABLE_TLS=ON` - Use thread-local storage if available
 - `TORSION_ENABLE_VERIFY=OFF` - Enable scalar bounds checks
 

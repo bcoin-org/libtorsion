@@ -57,6 +57,7 @@ option(TORSION_ENABLE_INT128 "Use __int128 if available" ON)
 option(TORSION_ENABLE_PTHREAD "Use pthread if present in libc" ON)
 option(TORSION_ENABLE_RNG "Enable RNG" ON)
 option(TORSION_ENABLE_SHARED "Build shared library" ON)
+option(TORSION_ENABLE_TESTS "Build tests" ON)
 option(TORSION_ENABLE_TLS "Use thread-local storage if available" ON)
 option(TORSION_ENABLE_VERIFY "Enable scalar bounds checks" OFF)
 
@@ -151,7 +152,7 @@ else()
   set(TORSION_HAS_ASM)
 endif()
 
-if(BUILD_TESTING AND NOT APPLE)
+if(TORSION_ENABLE_TESTS AND NOT APPLE)
   check_c_source_compiles([=[
 #   include <time.h>
     int main(void) {
@@ -165,7 +166,7 @@ else()
   set(TORSION_HAS_CLOCK_GETTIME)
 endif()
 
-if(BUILD_TESTING AND NOT EMSCRIPTEN)
+if(TORSION_ENABLE_TESTS AND NOT EMSCRIPTEN)
   check_c_source_compiles([=[
 #   include <sys/types.h>
 #   include <sys/wait.h>
@@ -190,7 +191,7 @@ else()
   set(TORSION_HAS_FORK)
 endif()
 
-if(BUILD_TESTING)
+if(TORSION_ENABLE_TESTS)
   check_c_source_compiles([=[
 #   include <stddef.h>
 #   include <sys/time.h>
@@ -239,7 +240,7 @@ else()
   set(TORSION_HAS_PTHREAD)
 endif()
 
-if(BUILD_TESTING)
+if(TORSION_ENABLE_TESTS)
   check_c_source_compiles([=[
 #   include <stddef.h>
 #   include <time.h>
@@ -261,7 +262,7 @@ endif()
 set(TORSION_HAS_MEMCHECK 0)
 set(TORSION_HAS_ZLIB 0)
 
-if(BUILD_TESTING)
+if(TORSION_ENABLE_TESTS)
   check_include_file(valgrind/memcheck.h TORSION_HAS_MEMCHECK_H)
 
   if(TORSION_HAS_MEMCHECK_H)
@@ -521,7 +522,7 @@ elseif(WASI OR EMSCRIPTEN)
   target_link_options(torsion PRIVATE ${torsion_exeflags})
   target_link_libraries(torsion PRIVATE torsion_object)
 
-  if(BUILD_TESTING)
+  if(TORSION_ENABLE_TESTS)
     add_executable(torsion_bench ${bench_sources})
     target_link_libraries(torsion_bench PRIVATE torsion_object)
 
@@ -608,7 +609,7 @@ else()
             RUNTIME DESTINATION lib/$<CONFIG>)
   endif()
 
-  if(BUILD_TESTING)
+  if(TORSION_ENABLE_TESTS)
     add_executable(torsion_bench ${bench_sources})
     target_link_libraries(torsion_bench PRIVATE ${torsion_target})
 
