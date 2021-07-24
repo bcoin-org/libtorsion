@@ -214,7 +214,7 @@
 #  define TORSION_UNUSED
 #endif
 
-#if defined(__GNUC__)
+#if defined(__GNUC__) && __GNUC__ >= 2
 #  define TORSION_EXTENSION __extension__
 #else
 #  define TORSION_EXTENSION
@@ -345,15 +345,18 @@ static const unsigned long torsion__endian_check TORSION_UNUSED = 1;
    || (defined(__BORLANDC__) && __BORLANDC__ >= 0x520) \
    || (defined(__ZTC__) && __ZTC__ >= 0x750)           \
    || (defined(__DMC__))
-#  if defined(WIN32) || defined(_WIN32) || defined(__NT__)
+#  if !defined(__WATCOMC__) || !defined(__LINUX__)
 #    define TORSION_TLS __declspec(thread)
 #  endif
-#elif (defined(__SUNPRO_C) && __SUNPRO_C >= 0x560)     \
-   || (defined(__SUNPRO_CC) && __SUNPRO_CC >= 0x560)   \
-   || (defined(__HP_cc) && __HP_cc >= 53600)           \
-   || (defined(__HP_aCC) && __HP_aCC >= 53600)         \
-   || (defined(__CC_ARM) && __ARMCC_VERSION >= 510000) \
-   || (defined(__PCC__) && __PCC__ >= 1)               \
+#elif defined(__ARMCC_VERSION) && !defined(__CC_NORCROFT)
+#  if __ARMCC_VERSION >= 410000
+#    define TORSION_TLS __thread
+#  endif
+#elif (defined(__SUNPRO_C) && __SUNPRO_C >= 0x560)   \
+   || (defined(__SUNPRO_CC) && __SUNPRO_CC >= 0x560) \
+   || (defined(__HP_cc) && __HP_cc >= 53600)         \
+   || (defined(__HP_aCC) && __HP_aCC >= 53600)       \
+   || (defined(__PCC__) && __PCC__ >= 1)             \
    || (defined(__NWCC__))
 #  define TORSION_TLS __thread
 #elif defined(__xlC__) && defined(_AIX)
