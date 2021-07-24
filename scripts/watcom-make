@@ -7,11 +7,16 @@
 export WATCOM=${WATCOM:-/opt/watcom}
 export PATH="$WATCOM/binl:$PATH"
 export INCLUDE="$WATCOM/lh"
-export CC=owcc
 export AR=wlib
+export AS=wasm
+export CC=owcc
+export CXX=owcc
+export LD=wlink
+export OBJDUMP=dmpobj
 export RANLIB=touch
-export CFLAGS_EXTRA='-Wno-n201 -Wno-n202'
-export ARFLAGS=-n
+export STRIP=wstrip
+export WCC386='-wcd=201 -wcd=202'
+export ARFLAGS='-n'
 
 if ! type "$CC" > /dev/null 2>& 1; then
   echo "$CC is not available!" >& 2

@@ -48,8 +48,7 @@ LIB_CFLAGS = -I./include        \
              -DTORSION_BUILD    \
              -DTORSION_HAVE_RNG \
              $(CPPFLAGS)        \
-             $(CFLAGS)          \
-             $(CFLAGS_EXTRA)
+             $(CFLAGS)
 
 #
 # Benchmarks
