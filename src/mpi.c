@@ -5135,14 +5135,14 @@ mpz_set(mpz_ptr z, mpz_srcptr x) {
 
 void
 mpz_roset(mpz_ptr z, mpz_srcptr x) {
-  z->limbs = mp_deconst(x->limbs);
+  z->limbs = (mp_limb_t *)x->limbs;
   z->alloc = 0;
   z->size = x->size;
 }
 
 static void
 mpz_roset_n(mpz_ptr z, const mp_limb_t *xp, mp_size_t xs) {
-  z->limbs = mp_deconst(xp);
+  z->limbs = (mp_limb_t *)xp;
   z->alloc = 0;
   z->size = xs;
 }
@@ -5151,7 +5151,7 @@ mpz_srcptr
 mpz_roinit_n(mpz_ptr z, const mp_limb_t *xp, mp_size_t xs) {
   mp_size_t zn = mpn_strip(xp, MP_ABS(xs));
 
-  z->limbs = mp_deconst(xp);
+  z->limbs = (mp_limb_t *)xp;
   z->alloc = 0;
   z->size = xs < 0 ? -zn : zn;
 

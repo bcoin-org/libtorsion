@@ -391,13 +391,7 @@ typedef void mp_end_f(uint64_t *start, uint64_t ops);
  * Macros
  */
 
-#if defined(UINTPTR_MAX)
-#  define mp_deconst(xp) ((mp_limb_t *)(uintptr_t)(const void *)(xp))
-#else
-#  define mp_deconst(xp) ((mp_limb_t *)(xp))
-#endif
-
-#define MPZ_ROINIT_N(xp, xs) {{mp_deconst(xp), 0, (xs)}}
+#define MPZ_ROINIT_N(xp, xs) {{(xp), 0, (xs)}}
 
 /*
  * Globals

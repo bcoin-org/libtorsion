@@ -3915,7 +3915,7 @@ test_mpn_randomm(mp_rng_f *rng, void *arg) {
 
 static void
 test_mpz_init(mp_rng_f *rng, void *arg) {
-  static const mp_limb_t yp[1] = {1};
+  static mp_limb_t yp[1] = {1};
   static const mpz_t y = MPZ_ROINIT_N(yp, 1);
   mpz_t x;
 
@@ -7696,7 +7696,7 @@ test_mpz_helpers(void) {
   static const mp_limb_t trailp[4] = {4, 3, 2, 0};
   static const mp_limb_t oddp[4] = {3, 3, 2, 1};
   static const mp_limb_t evenp[4] = {4, 3, 2, 1};
-  static const mp_limb_t tzp[4] = {0, 3, 2, 1};
+  static mp_limb_t tzp[4] = {0, 3, 2, 1};
   static const mpz_t tz = MPZ_ROINIT_N(tzp, 4);
   mpz_t trail, odd, even;
   mp_limb_t *xp;

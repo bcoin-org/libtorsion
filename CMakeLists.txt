@@ -305,7 +305,6 @@ else()
                                         -Wall
                                         -Wextra
                                         -Wcast-align=strict
-                                        -Wcast-qual
                                         -Wno-implicit-fallthrough
                                         -Wno-overlength-strings
                                         -Wshadow
