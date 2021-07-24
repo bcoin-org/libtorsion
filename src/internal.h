@@ -50,7 +50,8 @@
  * GNUC Compat
  */
 
-#if defined(__GNUC__) && defined(__GNUC_MINOR__) && !defined(__TINYC__)
+#if defined(__GNUC__) && defined(__GNUC_MINOR__) && !defined(__TINYC__) \
+                                                 && !defined(__NWCC__)
 #  define TORSION_GNUC_PREREQ(maj, min) \
     ((__GNUC__ << 16) + __GNUC_MINOR__ >= ((maj) << 16) + (min))
 #else
@@ -61,7 +62,7 @@
  * Clang Compat
  */
 
-#if defined(__has_builtin)
+#if defined(__has_builtin) && !defined(__NWCC__)
 #  define TORSION_HAS_BUILTIN __has_builtin
 #else
 #  define TORSION_HAS_BUILTIN(x) 0
@@ -269,14 +270,13 @@ static const unsigned long torsion__endian_check TORSION_UNUSED = 1;
  *
  * We do not check for legacy XL C (the AIX and
  * z/OS assemblers are weird).
- *
- * Furthermore, we avoid old versions of armcc
- * as they have an incompatible assembler.
  */
 #if defined(__native_client__)
 /* Unsupported under PNaCl. Restricted under NaCl. */
 #elif defined(__CC_ARM) && !defined(__clang__)
 /* Incompatible assembler syntax. */
+#elif defined(__NWCC__)
+/* No support for %q/%k prefix on operands. */
 #elif (defined(__GNUC__) && __GNUC__ >= 2)           \
    || (defined(__clang__))                           \
    || (defined(__INTEL_COMPILER))                    \
@@ -289,7 +289,7 @@ static const unsigned long torsion__endian_check TORSION_UNUSED = 1;
 /* Detect __int128 support. */
 #if defined(__GNUC__) || defined(__clang__) || defined(__INTEL_COMPILER)
 #  if defined(__SIZEOF_INT128__) && defined(__SIZEOF_POINTER__)
-#    if __SIZEOF_POINTER__ >= 8
+#    if __SIZEOF_POINTER__ >= 8 && !defined(__NWCC__)
 #      define TORSION_HAVE_INT128
 #    endif
 #  endif

@@ -6,6 +6,10 @@
 
 #include "utils.h"
 
+#ifdef __NWCC__
+#  undef TORSION_HAVE_FORK
+#endif
+
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -990,7 +994,7 @@ test_ecdsa_vectors(drbg_t *unused) {
 
   (void)unused;
 
-  for (i = 0; i < ARRAY_SIZE(curves); i++)
+  for (i = 0; i < ARRAY_SIZE(wei_curves); i++)
     curves[i] = wei_curve_create((wei_curve_id_t)i);
 
   for (i = 0; i < ARRAY_SIZE(ecdsa_vectors); i++) {
@@ -1178,7 +1182,7 @@ test_ecdsa_vectors(drbg_t *unused) {
     ASSERT(ecdsa_verify(ec, msg, msg_len, sig, pub, pub_size));
   }
 
-  for (i = 0; i < ARRAY_SIZE(curves); i++)
+  for (i = 0; i < ARRAY_SIZE(wei_curves); i++)
     wei_curve_destroy(curves[i]);
 }
 
@@ -1832,7 +1836,7 @@ test_eddsa_vectors(drbg_t *unused) {
 
   (void)unused;
 
-  for (i = 0; i < ARRAY_SIZE(curves); i++) {
+  for (i = 0; i < ARRAY_SIZE(edwards_curves); i++) {
     curves[i] = edwards_curve_create((edwards_curve_id_t)i);
     scratches[i] = edwards_scratch_create(curves[i], 10);
   }
@@ -2029,7 +2033,7 @@ test_eddsa_vectors(drbg_t *unused) {
     ASSERT(eddsa_verify_single(ec, msg, msg_len, sigmul, pubmul, ph, NULL, 0));
   }
 
-  for (i = 0; i < ARRAY_SIZE(curves); i++) {
+  for (i = 0; i < ARRAY_SIZE(edwards_curves); i++) {
     edwards_scratch_destroy(curves[i], scratches[i]);
     edwards_curve_destroy(curves[i]);
   }
