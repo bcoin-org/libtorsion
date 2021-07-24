@@ -216,7 +216,7 @@
  * Auxiliary Value
  */
 
-static unsigned long
+TORSION_UNUSED static unsigned long
 torsion_auxval(unsigned long type) {
 #if defined(HAVE_GETAUXVAL)
   int oldno = errno;
@@ -248,7 +248,7 @@ torsion_auxval(unsigned long type) {
  * CPUID
  */
 
-static int
+TORSION_UNUSED static int
 torsion_has_cpuid(void) {
 #if defined(HAVE_CPUIDEX)
   return 1;
@@ -279,7 +279,7 @@ torsion_has_cpuid(void) {
 #endif
 }
 
-static void
+TORSION_UNUSED static void
 torsion_cpuid(uint32_t *a,
               uint32_t *b,
               uint32_t *c,
@@ -701,10 +701,6 @@ torsion_hwrand(void *dst, size_t size) {
   int has_rdseed = torsion_has_rdseed();
   step_word_t x;
   int i;
-
-  (void)torsion_auxval;
-  (void)torsion_has_cpuid;
-  (void)torsion_cpuid;
 
   if (!has_rdrand && !has_rdseed)
     goto fail;
