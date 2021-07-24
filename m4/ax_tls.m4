@@ -1,6 +1,6 @@
-# ===========================================================================
-#          https://www.gnu.org/software/autoconf-archive/ax_tls.html
-# ===========================================================================
+# ax_tls.m4 - thread-local storage test for autoconf
+# Copyright (c) 2021, Christopher Jeffrey (MIT License).
+# https://github.com/bcoin-org/libtorsion
 #
 # SYNOPSIS
 #
@@ -8,64 +8,131 @@
 #
 # DESCRIPTION
 #
-#   Provides a test for the compiler support of thread local storage (TLS)
-#   extensions. Defines TLS if it is found. Currently knows about C++11,
-#   GCC/ICC, and MSVC. I think SunPro uses the same as GCC, and Borland
-#   apparently supports either.
-#
-# LICENSE
-#
-#   Copyright (c) 2008 Alan Woodland <ajw05@aber.ac.uk>
-#   Copyright (c) 2010 Diego Elio Petteno` <flameeyes@gmail.com>
-#
-#   This program is free software: you can redistribute it and/or modify it
-#   under the terms of the GNU General Public License as published by the
-#   Free Software Foundation, either version 3 of the License, or (at your
-#   option) any later version.
-#
-#   This program is distributed in the hope that it will be useful, but
-#   WITHOUT ANY WARRANTY; without even the implied warranty of
-#   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General
-#   Public License for more details.
-#
-#   You should have received a copy of the GNU General Public License along
-#   with this program. If not, see <https://www.gnu.org/licenses/>.
-#
-#   As a special exception, the respective Autoconf Macro's copyright owner
-#   gives unlimited permission to copy, distribute and modify the configure
-#   scripts that are the output of Autoconf when processing the Macro. You
-#   need not follow the terms of the GNU General Public License when using
-#   or distributing such scripts, even though portions of the text of the
-#   Macro appear in them. The GNU General Public License (GPL) does govern
-#   all other use of the material that constitutes the Autoconf Macro.
-#
-#   This special exception to the GPL applies to versions of the Autoconf
-#   Macro released by the Autoconf Archive. When you make and distribute a
-#   modified version of the Autoconf Macro, you may extend this special
-#   exception to the GPL to apply to your modified version as well.
+#   TODO
 
-#serial 15
+AC_DEFUN([AX_TLS_RUN_IFELSE], [
+  AS_IF([test x"$cross_compiling" != x"no"],
+        [AC_LINK_IFELSE([$1], [m4_ifnblank([$2],[$2],[[:]])],
+                              [m4_ifnblank([$3],[$3],[[:]])])],
+        [AC_RUN_IFELSE([$1], [m4_ifnblank([$2],[$2],[[:]])],
+                             [m4_ifnblank([$3],[$3],[[:]])])])
+])
+
+AC_DEFUN([AX_TLS_CHECK_CFLAG], [
+  ax_tlscf_has_flag=no
+  ax_tlscf_save_CFLAGS="$CFLAGS"
+  CFLAGS="$CFLAGS $1"
+  AC_COMPILE_IFELSE([AC_LANG_PROGRAM()], [ax_tlscf_has_flag=yes])
+  CFLAGS="$ax_tlscf_save_CFLAGS"
+  AS_IF([test x"$ax_tlscf_has_flag" = x"yes"],
+        [m4_ifnblank([$2],[$2],[[:]])],
+        [m4_ifnblank([$3],[$3],[[:]])])
+])
 
 AC_DEFUN([AX_TLS], [
-  AC_MSG_CHECKING([for thread local storage (TLS) class])
-  AC_CACHE_VAL([ac_cv_tls],
-   [for ax_tls_keyword in thread_local _Thread_local __thread '__declspec(thread)' none; do
-       AS_CASE([$ax_tls_keyword],
-          [none], [ac_cv_tls=none ; break],
-          [AC_COMPILE_IFELSE([AC_LANG_PROGRAM(
-              [#include <stdlib.h>],
-              [static  $ax_tls_keyword  int bar;]
-            )],
-            [ac_cv_tls=$ax_tls_keyword ; break],
-            [ac_cv_tls=none]
-          )]
-        )
-    done ]
-  )
-  AC_MSG_RESULT([$ac_cv_tls])
+  AC_MSG_CHECKING([for thread-local storage support])
 
-  AS_IF([test "$ac_cv_tls" != "none"],
-    [AC_DEFINE_UNQUOTED([TLS],[$ac_cv_tls],[If the compiler supports a TLS storage class, define it to that here])
-     m4_ifnblank([$1],[$1],[[:]])],
-    [m4_ifnblank([$2],[$2],[[:]])])
+  ax_tls_check=no
+
+  AC_CACHE_VAL([ax_cv_tls_keyword], [ax_tls_check=yes])
+  AC_CACHE_VAL([ax_cv_tls_cflags], [ax_tls_check=yes])
+
+  AS_IF([test x"$ax_tls_check" = x"yes"], [
+    ax_tls_save_CFLAGS="$CFLAGS"
+    ax_cv_tls_keyword=none
+    ax_cv_tls_cflags=none
+    ax_tls_cflag=
+
+    # Try to deoptimize.
+    AX_TLS_CHECK_CFLAG([-O0], [CFLAGS="$CFLAGS -O0"])
+
+    # XL requires a special flag. Don't ask me why.
+    AC_COMPILE_IFELSE([
+      AC_LANG_PROGRAM([], [[
+#       if !defined(__xlC__) && !defined(__ibmxl__)
+#         error "not an ibm compiler"
+#       endif
+      ]])
+    ], [
+      AX_TLS_CHECK_CFLAG([-qtls], [
+        ax_tls_cflag="-qtls"
+        CFLAGS="$CFLAGS -qtls"
+      ])
+    ])
+
+    # Various TLS keywords. We prepend or append
+    # _Thread_local depending on the C standard.
+    # The last keyword, __declspec(__thread), is
+    # not widely known, but there is evidence
+    # that Compaq C for Tru64 UNIX supported it
+    # at one point.
+    ax_tls_keywords="__thread __declspec(thread) __declspec(__thread)"
+
+    AC_COMPILE_IFELSE([
+      AC_LANG_PROGRAM([], [[
+#       ifndef __cplusplus
+#         error "not c++"
+#       endif
+      ]])
+    ], [
+      AC_COMPILE_IFELSE([
+        AC_LANG_PROGRAM([], [[
+#         if !defined(__cplusplus) || (__cplusplus + 0L) < 201103L
+#           error "not c++11"
+#         endif
+        ]])
+      ], [
+        ax_tls_keywords="thread_local $ax_tls_keywords"
+      ], [
+        ax_tls_keywords="$ax_tls_keywords thread_local"
+      ])
+    ], [
+      AC_COMPILE_IFELSE([
+        AC_LANG_PROGRAM([], [[
+#         if !defined(__STDC_VERSION__) || (__STDC_VERSION__ + 0L) < 201112L
+#           error "not c11"
+#         endif
+        ]])
+      ], [
+        ax_tls_keywords="_Thread_local $ax_tls_keywords"
+      ], [
+        ax_tls_keywords="$ax_tls_keywords _Thread_local"
+      ])
+    ])
+
+    for ax_tls_keyword in $ax_tls_keywords; do
+      AX_TLS_RUN_IFELSE([
+        AC_LANG_SOURCE([[
+          static $ax_tls_keyword int x;
+          int main(void) {
+            x = 1;
+            return !x;
+          }
+        ]])
+      ], [
+        ax_cv_tls_keyword="$ax_tls_keyword"
+        ax_cv_tls_cflags="$ax_tls_cflag"
+        break
+      ])
+    done
+
+    CFLAGS="$ax_tls_save_CFLAGS"
+  ])
+
+  AS_IF([test x"$ax_cv_tls_keyword" != x"none"], [
+    TLS_KEYWORD="$ax_cv_tls_keyword"
+    TLS_CFLAGS="$ax_cv_tls_cflags"
+  ], [
+    TLS_KEYWORD=""
+    TLS_CFLAGS=""
+  ])
+
+  AC_SUBST([TLS_KEYWORD])
+  AC_SUBST([TLS_CFLAGS])
+
+  AC_MSG_RESULT([$ax_cv_tls_keyword])
+
+  AS_IF([test x"$ax_cv_tls_keyword" != x"none"],
+        [m4_ifnblank([$1],[$1],[[:]])],
+        [m4_ifnblank([$2],[$2],[[:]])])
 ])

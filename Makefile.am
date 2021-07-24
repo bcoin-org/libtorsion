@@ -11,6 +11,10 @@ ACLOCAL_AMFLAGS = -I m4
 licensedir = $(datadir)/licenses/$(PACKAGE_NAME)
 pkgconfigdir = $(libdir)/pkgconfig
 
+VALGRIND = ./libtool --mode=execute valgrind \
+                     --leak-check=full       \
+                     --error-exitcode=1
+
 #
 # Headers
 #
@@ -98,9 +102,7 @@ noinst_HEADERS = src/asn1.h                      \
 #
 
 if ENABLE_RNG
-rng_sources = src/entropy/env.c \
-              src/entropy/hrt.c \
-              src/entropy/hw.c  \
+rng_sources = src/entropy/hw.c  \
               src/entropy/sys.c \
               src/rand.c
 endif
@@ -127,6 +129,164 @@ torsion_cflags = -I$(top_srcdir)/include
 
 bench_sources = test/bench.c test/hrtime.c test/utils.c
 test_sources = test/test.c test/utils.c
+
+#
+# Native
+#
+
+if NATIVE
+if MINGW
+torsion_ldflags = -avoid-version -Wl,--output-def,.libs/libtorsion.def
+else
+torsion_ldflags = -version-info @ABI_VERSION@
+endif
+
+libtorsion_la_NAME = libtorsion.la
+libtorsion_la_SOURCES = $(torsion_sources)
+libtorsion_la_CFLAGS = $(torsion_cflags) -DTORSION_BUILD
+libtorsion_la_LDFLAGS = -no-undefined $(torsion_ldflags)
+
+if ENABLE_TESTS
+torsion_bench_NAME = torsion_bench
+torsion_bench_SOURCES = $(bench_sources)
+torsion_bench_CFLAGS = $(torsion_cflags)
+torsion_bench_LDADD = libtorsion.la
+
+torsion_test_NAME = torsion_test
+torsion_test_SOURCES = $(test_sources)
+torsion_test_CFLAGS = $(torsion_cflags)
+if ENABLE_ZLIB
+torsion_test_ZLIB = -lz
+endif
+torsion_test_LDADD = libtorsion.la $(torsion_test_ZLIB)
+
+torsion_test_static_NAME = torsion_test_static
+torsion_test_static_SOURCES = $(torsion_test_SOURCES)
+torsion_test_static_CFLAGS = $(torsion_test_CFLAGS)
+torsion_test_static_LDFLAGS = -static
+torsion_test_static_LDADD = $(torsion_test_LDADD)
+
+if ENABLE_CTGRIND
+torsion_ctgrind_NAME = torsion_ctgrind
+torsion_ctgrind_SOURCES = test/ctgrind.c test/utils.c
+torsion_ctgrind_CFLAGS = $(torsion_cflags)
+torsion_ctgrind_LDADD = libtorsion.la
+endif
+endif ENABLE_TESTS
+
+if MINGW
+LOG_COMPILER = wine
+
+libtorsion.lib: libtorsion.la
+	$(AM_V_CCLD)
+	@cp -f .libs/libtorsion.a $@
+
+torsion.def: libtorsion.la
+	$(AM_V_CCLD)
+	@cp -f .libs/libtorsion.def $@
+
+torsion.dll: libtorsion.la
+	$(AM_V_CCLD)
+	@cp -f .libs/libtorsion.dll $@
+
+torsion.lib: torsion.def torsion.dll
+	$(AM_V_CCLD)
+	@$(DLLTOOL) -l $@ -d torsion.def -D torsion.dll
+
+if ENABLE_TESTS
+bench: torsion_bench.exe
+	@wine torsion_bench.exe
+endif
+
+all-local: libtorsion.lib torsion.lib
+
+clean-local:
+	-rm -f libtorsion.lib
+	-rm -f torsion.def
+	-rm -f torsion.dll
+	-rm -f torsion.lib
+
+else !MINGW
+
+if ENABLE_TESTS
+bench: torsion_bench
+	@./torsion_bench
+
+if ENABLE_CTGRIND
+ctgrind: torsion_ctgrind
+	@$(VALGRIND) ./torsion_ctgrind
+endif
+
+valgrind: torsion_test
+	@$(VALGRIND) ./torsion_test
+endif ENABLE_TESTS
+
+endif !MINGW
+
+lib_LTLIBRARIES = $(libtorsion_la_NAME)
+
+noinst_PROGRAMS = $(torsion_bench_NAME)       \
+                  $(torsion_test_NAME)        \
+                  $(torsion_test_static_NAME) \
+                  $(torsion_ctgrind_NAME)
+
+TESTS = $(torsion_test_NAME) $(torsion_test_static_NAME)
+
+dist_doc_DATA = README.md
+dist_license_DATA = LICENSE
+pkgconfig_DATA = libtorsion.pc
+
+endif NATIVE
+
+#
+# WASI
+#
+
+if WASI
+INITIAL_MEMORY = 16777216
+MAX_MEMORY = 2147483648
+STACK_SIZE = 5242880
+LOG_COMPILER = $(top_srcdir)/scripts/wasi-run
+
+torsion_ldflags = -Wl,--allow-undefined                  \
+                  -Wl,--initial-memory=$(INITIAL_MEMORY) \
+                  -Wl,--max-memory=$(MAX_MEMORY)         \
+                  -Wl,-z,stack-size=$(STACK_SIZE)        \
+                  -Wl,--stack-first
+
+torsion_wasm_NAME = torsion.wasm
+torsion_wasm_SOURCES = $(torsion_sources)
+torsion_wasm_CFLAGS = $(torsion_cflags) -DTORSION_BUILD
+torsion_wasm_LDFLAGS = $(torsion_ldflags)   \
+                       -mexec-model=reactor \
+                       -Wl,--export-dynamic \
+                       -Wl,--export=malloc  \
+                       -Wl,--export=free
+
+if ENABLE_TESTS
+torsion_bench_wasm_NAME = torsion_bench.wasm
+torsion_bench_wasm_SOURCES = $(bench_sources)
+torsion_bench_wasm_CFLAGS = $(torsion_cflags)
+torsion_bench_wasm_LDADD = $(torsion_wasm_OBJECTS)
+torsion_bench_wasm_LDFLAGS = $(torsion_ldflags)
+
+torsion_test_wasm_NAME = torsion_test.wasm
+torsion_test_wasm_SOURCES = $(test_sources)
+torsion_test_wasm_CFLAGS = $(torsion_cflags)
+torsion_test_wasm_LDADD = $(torsion_wasm_OBJECTS)
+torsion_test_wasm_LDFLAGS = $(torsion_ldflags)
+
+bench: torsion_bench.wasm
+	@./scripts/wasi-run torsion_bench.wasm
+endif ENABLE_TESTS
+
+noinst_PROGRAMS = $(torsion_wasm_NAME)       \
+                  $(torsion_bench_wasm_NAME) \
+                  $(torsion_test_wasm_NAME)
+
+TESTS = $(torsion_test_wasm_NAME)
+
+endif WASI
 
 #
 # Emscripten
@@ -169,9 +329,6 @@ torsion_test_js_LDFLAGS = $(torsion_ldflags)
 
 bench: torsion_bench.js
 	@node torsion_bench.js
-
-test: torsion_test.js
-	@node torsion_test.js
 endif ENABLE_TESTS
 
 noinst_PROGRAMS = $(torsion_js_NAME)       \
@@ -181,146 +338,3 @@ noinst_PROGRAMS = $(torsion_js_NAME)       \
 TESTS = $(torsion_test_js_NAME)
 
 endif EMSCRIPTEN
-
-#
-# WASI
-#
-
-if WASI
-INITIAL_MEMORY = 16777216
-MAX_MEMORY = 2147483648
-STACK_SIZE = 5242880
-LOG_COMPILER = $(top_srcdir)/scripts/wasi-run
-
-torsion_ldflags = -Wl,--allow-undefined                  \
-                  -Wl,--initial-memory=$(INITIAL_MEMORY) \
-                  -Wl,--max-memory=$(MAX_MEMORY)         \
-                  -Wl,-z,stack-size=$(STACK_SIZE)        \
-                  -Wl,--stack-first
-
-torsion_wasm_NAME = torsion.wasm
-torsion_wasm_SOURCES = $(torsion_sources)
-torsion_wasm_CFLAGS = $(torsion_cflags) -DTORSION_BUILD
-torsion_wasm_LDFLAGS = $(torsion_ldflags)   \
-                       -mexec-model=reactor \
-                       -Wl,--export-dynamic \
-                       -Wl,--export=malloc  \
-                       -Wl,--export=free
-
-if ENABLE_TESTS
-torsion_bench_wasm_NAME = torsion_bench.wasm
-torsion_bench_wasm_SOURCES = $(bench_sources)
-torsion_bench_wasm_CFLAGS = $(torsion_cflags)
-torsion_bench_wasm_LDADD = $(torsion_wasm_OBJECTS)
-torsion_bench_wasm_LDFLAGS = $(torsion_ldflags)
-
-torsion_test_wasm_NAME = torsion_test.wasm
-torsion_test_wasm_SOURCES = $(test_sources)
-torsion_test_wasm_CFLAGS = $(torsion_cflags)
-torsion_test_wasm_LDADD = $(torsion_wasm_OBJECTS)
-torsion_test_wasm_LDFLAGS = $(torsion_ldflags)
-
-bench: torsion_bench.wasm
-	@./scripts/wasi-run torsion_bench.wasm
-
-test: torsion_test.wasm
-	@./scripts/wasi-run torsion_test.wasm
-endif ENABLE_TESTS
-
-noinst_PROGRAMS = $(torsion_wasm_NAME)       \
-                  $(torsion_bench_wasm_NAME) \
-                  $(torsion_test_wasm_NAME)
-
-TESTS = $(torsion_test_wasm_NAME)
-
-endif WASI
-
-#
-# Native
-#
-
-if NATIVE
-libtorsion_la_NAME = libtorsion.la
-libtorsion_la_SOURCES = $(torsion_sources)
-libtorsion_la_CFLAGS = $(torsion_cflags) -DTORSION_BUILD
-libtorsion_la_LDFLAGS = -no-undefined -version-info @ABI_VERSION@
-libtorsion_la_LIBADD = @TLS_LIBS@
-
-if ENABLE_TESTS
-torsion_bench_NAME = torsion_bench
-torsion_bench_SOURCES = $(bench_sources)
-torsion_bench_CFLAGS = $(torsion_cflags)
-torsion_bench_LDFLAGS = -no-install
-torsion_bench_LDADD = libtorsion.la
-
-torsion_test_NAME = torsion_test
-torsion_test_SOURCES = $(test_sources)
-torsion_test_CFLAGS = $(torsion_cflags)
-torsion_test_LDFLAGS = -no-install
-if ENABLE_ZLIB
-torsion_test_ZLIB = -lz
-endif
-torsion_test_LDADD = libtorsion.la $(torsion_test_ZLIB)
-
-torsion_test_static_NAME = torsion_test_static
-torsion_test_static_SOURCES = $(torsion_test_SOURCES)
-torsion_test_static_CFLAGS = $(torsion_test_CFLAGS)
-torsion_test_static_LDFLAGS = -static
-torsion_test_static_LDADD = $(torsion_test_LDADD)
-
-if ENABLE_CTGRIND
-torsion_ctgrind_NAME = torsion_ctgrind
-torsion_ctgrind_SOURCES = test/ctgrind.c test/utils.c
-torsion_ctgrind_CFLAGS = $(torsion_cflags)
-torsion_ctgrind_LDFLAGS = -no-install
-torsion_ctgrind_LDADD = libtorsion.la
-endif
-
-bench: torsion_bench
-	@./torsion_bench
-
-test: torsion_test
-	@./torsion_test
-
-test_static: torsion_test_static
-	@./torsion_test_static
-
-if ENABLE_CTGRIND
-ctgrind: torsion_ctgrind
-	@./libtool --mode=execute valgrind --leak-check=full --error-exitcode=1 ./torsion_ctgrind
-endif
-
-valgrind: torsion_test
-	@./libtool --mode=execute valgrind --leak-check=full --error-exitcode=1 ./torsion_test
-endif ENABLE_TESTS
-
-if MINGW
-# Useful for creating more-compatible import libraries on windows:
-#
-#   lib.exe /OUT:[name].lib /DEF:[name].def /NAME:[name].dll /MACHINE:X64
-#
-# Or:
-#
-#   llvm-dlltool -l [name].lib -d [name].def -D [name].dll -m i386:x86-64
-#
-# More-compatible static libraries can already be created with:
-#
-#   llvm-lib /out:[name].lib [name].a
-libtorsion.def: libtorsion.a
-	$(DLLTOOL) -z $@ libtorsion.a
-endif
-
-lib_LTLIBRARIES = $(libtorsion_la_NAME)
-
-noinst_PROGRAMS = $(torsion_bench_NAME)       \
-                  $(torsion_test_NAME)        \
-                  $(torsion_test_static_NAME) \
-                  $(torsion_ctgrind_NAME)
-
-TESTS = $(torsion_test_NAME) $(torsion_test_static_NAME)
-
-dist_doc_DATA = README.md
-dist_license_DATA = LICENSE
-pkgconfig_DATA = libtorsion.pc
-
-endif NATIVE

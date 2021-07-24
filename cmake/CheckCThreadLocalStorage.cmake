@@ -14,14 +14,23 @@ function(check_c_thread_local_storage name flag)
   set(${name} "" PARENT_SCOPE)
   set(${flag} "" PARENT_SCOPE)
 
-  set(CMAKE_REQUIRED_FLAGS "")
+  set(rflags)
+  set(cflags)
+
+  # Try to deoptimize.
+  check_c_compiler_flag(-O0 CMAKE_TLS_HAVE_O0)
+
+  if(CMAKE_TLS_HAVE_O0)
+    list(APPEND rflags -O0)
+  endif()
 
   # XL requires a special flag. Don't ask me why.
   # Note that CMake handles -qthreaded for us.
   if(CMAKE_C_COMPILER_ID MATCHES "^XL")
-    check_c_compiler_flag(-qtls CMAKE_HAVE_XL_TLS)
-    if(CMAKE_HAVE_XL_TLS)
-      set(CMAKE_REQUIRED_FLAGS "-qtls")
+    check_c_compiler_flag(-qtls CMAKE_TLS_HAVE_XL)
+    if(CMAKE_TLS_HAVE_XL)
+      list(APPEND rflags -qtls)
+      list(APPEND cflags -qtls)
     endif()
   endif()
 
@@ -39,6 +48,9 @@ function(check_c_thread_local_storage name flag)
     list(INSERT keywords 0 _Thread_local)
   endif()
 
+  # Setup flags for check_c_source_{compiles,runs}.
+  string(REPLACE ";" " " CMAKE_REQUIRED_FLAGS "${rflags}")
+
   foreach(keyword ${keywords})
     string(TOUPPER "CMAKE_HAVE_C_TLS_${keyword}" varname)
     string(REGEX REPLACE "[^A-Z0-9]" "_" varname "${varname}")
@@ -53,9 +65,7 @@ function(check_c_thread_local_storage name flag)
 
     if(${varname})
       set(${name} ${keyword} PARENT_SCOPE)
-      if(CMAKE_REQUIRED_FLAGS)
-        set(${flag} ${CMAKE_REQUIRED_FLAGS} PARENT_SCOPE)
-      endif()
+      set(${flag} "${cflags}" PARENT_SCOPE)
       break()
     endif()
   endforeach()

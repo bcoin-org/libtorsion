@@ -41,6 +41,7 @@ build-aux/
 config.log
 config.status
 configure
+i686-w64-mingw32/
 libtool
 libtorsion
 libtorsion.pc
@@ -65,3 +66,4 @@ vgcore.*
 wasm32-wasi/
 wasm64-wasi/
 x64/
+x86_64-w64-mingw32/

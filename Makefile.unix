@@ -2,10 +2,8 @@
 # Copyright (c) 2020, Christopher Jeffrey (MIT License).
 # https://github.com/bcoin-org/libtorsion
 
-MAJOR = 0
-MINOR = 0
-PATCH = 0
-VERSION = $(MAJOR).$(MINOR).$(PATCH)
+PKG_VERSION = 0.0.0
+ABI_VERSION = 0:0:0
 
 #
 # Options
@@ -19,6 +17,16 @@ INITIAL_MEMORY = 16777216
 MAX_MEMORY = 2147483648
 STACK_SIZE = 5242880
 ENVIRONMENT = node
+
+#
+# Helpers
+#
+
+GLIBTOOL = $$(type glibtool > /dev/null 2>& 1 && echo glibtool || echo libtool)
+
+LIBTOOL = $(GLIBTOOL) --tag=CC --mode=link $(CC)   \
+                      -shared -rpath $(PREFIX)/lib \
+                      -version-info $(ABI_VERSION)
 
 #
 # Library
@@ -337,14 +345,14 @@ CONFIG = -e 's;@CMAKE_INSTALL_PREFIX@;$(PREFIX);g'   \
          -e 's;@CMAKE_INSTALL_LIBDIR@;lib;g'         \
          -e 's;@CMAKE_INSTALL_INCLUDEDIR@;include;g' \
          -e 's;@PROJECT_NAME@;libtorsion;g'          \
-         -e 's;@PROJECT_VERSION@;$(VERSION);g'       \
+         -e 's;@PROJECT_VERSION@;$(PKG_VERSION);g'   \
          -e 's;@PKGCONF_LIBS@;$(LIBS);g'
 
 native: libtorsion.pc libtorsion.a torsion_bench torsion_test
 
-libtorsion.pc: libtorsion.pc.in
-	@echo 'sed < $@.in > $@'
-	@sed $(CONFIG) < $@.in > $@
+libtorsion.pc: libtorsion-cmake.pc.in
+	@echo 'sed < libtorsion.pc.in > $@'
+	@sed $(CONFIG) < libtorsion-cmake.pc.in > $@
 
 libtorsion.obj: $(LIB_OBJECTS)
 	echo '$(LIB_OBJECTS)' > $@
@@ -361,6 +369,13 @@ torsion_ctgrind.obj: $(CTGRIND_OBJECTS)
 libtorsion.a: libtorsion.obj
 	$(AR) $(ARFLAGS) $@ $(LIB_OBJECTS) > /dev/null
 	@x='$(RANLIB)'; $${x:-ranlib} $@ 2> /dev/null || true
+
+libtorsion.la: libtorsion.obj
+	@echo 'ld -o $@ $(LIB_OBJECTS)'
+	@$(LIBTOOL) -o $@ $(LIB_OBJECTS) > /dev/null
+	@unlink .libs/$@
+	@mv -f .libs/* ./
+	@rmdir .libs
 
 torsion_bench: libtorsion.a torsion_bench.obj
 	$(CC) -o $@ $(LDFLAGS) $(BENCH_OBJECTS) libtorsion.a $(LIBS)
@@ -406,10 +421,8 @@ install: libtorsion.a libtorsion.pc
 
 MINGW_LDFLAGS = -static-libgcc $(LDFLAGS)
 MINGW_LIBS = -lkernel32 -ladvapi32 $(LIBS)
-MINGW_SHARED = -shared -Wl,--out-implib,torsion.lib       \
-                       -Wl,--output-def,torsion.def       \
-                       -Wl,--major-image-version,$(MAJOR) \
-                       -Wl,--minor-image-version,$(MINOR)
+MINGW_SHARED = -shared -Wl,--out-implib,torsion.lib \
+                       -Wl,--output-def,torsion.def
 
 mingw: libtorsion.lib torsion.dll torsion_bench.exe torsion_test.exe
 

@@ -2,19 +2,15 @@
 # Copyright (c) 2020, Christopher Jeffrey (MIT License).
 # https://github.com/bcoin-org/libtorsion
 
-set(TORSION_VERSION 0.0.0)
-set(TORSION_SOVERSION 0)
+set(TORSION_PKG_VERSION 0.0.0)
+set(TORSION_ABI_VERSION 0.0.0)
 
 #
 # Initialization
 #
 
 cmake_minimum_required(VERSION 3.4)
-project(libtorsion VERSION ${TORSION_VERSION} LANGUAGES C)
-
-if(NOT CMAKE_CONFIGURATION_TYPES AND NOT CMAKE_BUILD_TYPE)
-  set(CMAKE_BUILD_TYPE "Release")
-endif()
+project(libtorsion VERSION ${TORSION_PKG_VERSION} LANGUAGES C)
 
 #
 # Toolchain/Platform Fixes
@@ -95,7 +91,24 @@ endif()
 # Compiler Fixes
 #
 
-# Modern glibc breaks pcc (stdlib.h in particular).
+# Encourage the user to build with xlc_r.
+if(CMAKE_C_COMPILER_ID STREQUAL "XL")
+  check_c_source_compiles([=[
+#   if defined(__xlC__) && defined(_AIX) && !defined(_THREAD_SAFE)
+#     error "not thread safe"
+#   endif
+    int main(void) {
+      return 0;
+    }
+  ]=] TORSION_HAVE_XL_R)
+
+  if(NOT TORSION_HAVE_XL_R)
+    message(WARNING "Please use a thread-safe compiler invocation.\n"
+                    "For example, `cmake . -DCMAKE_C_COMPILER=xlc_r`.")
+  endif()
+endif()
+
+# Modern glibc (stdlib.h in particular) breaks pcc.
 check_symbol_exists(__PCC__ "" TORSION_HAVE_PCC)
 check_symbol_exists(__GLIBC__ "limits.h" TORSION_HAVE_GLIBC)
 
@@ -103,7 +116,7 @@ if(TORSION_HAVE_PCC AND TORSION_HAVE_GLIBC)
   check_type_size(__float128 TORSION_SIZEOF_FLOAT128)
 
   if (NOT TORSION_SIZEOF_FLOAT128)
-    string(APPEND CMAKE_C_FLAGS " -D__float128=\"long double\"")
+    string(APPEND CMAKE_C_FLAGS " -D__float128='long double'")
     string(APPEND CMAKE_C_FLAGS " -D__TC__=__SC__")
   endif()
 endif()
@@ -304,7 +317,7 @@ else()
   append_c_compiler_flag(torsion_cflags -pedantic
                                         -Wall
                                         -Wextra
-                                        -Wcast-align=strict
+                                        -Wcast-align
                                         -Wno-implicit-fallthrough
                                         -Wno-overlength-strings
                                         -Wshadow
@@ -575,16 +588,20 @@ else()
     target_link_options(torsion_shared PUBLIC ${torsion_ldflags})
     target_link_libraries(torsion_shared PRIVATE ${torsion_libs})
 
-    set_target_properties(torsion_shared PROPERTIES
-                                         OUTPUT_NAME torsion
-                                         VERSION ${TORSION_VERSION}
-                                         SOVERSION ${TORSION_SOVERSION})
+    if(NOT MINGW)
+      string(REGEX MATCH "[0-9]+" TORSION_SO_VERSION "${TORSION_ABI_VERSION}")
+
+      set_target_properties(torsion_shared PROPERTIES
+                                           OUTPUT_NAME torsion
+                                           VERSION ${TORSION_ABI_VERSION}
+                                           SOVERSION ${TORSION_SO_VERSION})
+    endif()
   endif()
 
   if(UNIX)
     set_property(TARGET torsion_static PROPERTY OUTPUT_NAME torsion)
 
-    configure_file(libtorsion.pc.in libtorsion.pc @ONLY)
+    configure_file(libtorsion-cmake.pc.in libtorsion.pc @ONLY)
 
     install(DIRECTORY include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
     install(FILES LICENSE
