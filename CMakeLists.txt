@@ -349,6 +349,11 @@ if(CMAKE_C_COMPILER_ID STREQUAL "TinyCC")
   list(APPEND torsion_exeflags -Wl,-rpath,${PROJECT_SOURCE_DIR})
 endif()
 
+if(CMAKE_C_COMPILER_ID STREQUAL "zOS")
+  list(APPEND torsion_cflags -Wc,DLL -Wc,exportall -Wc,xplink)
+  list(APPEND torsion_ldflags -Wl,xplink)
+endif()
+
 #
 # Defines
 #

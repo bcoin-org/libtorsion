@@ -410,6 +410,11 @@ AS_CASE([$host_os], [mingw*], [
   LDFLAGS="$LDFLAGS -static-libgcc"
 ])
 
+AS_CASE([$host_os], [openedition*], [
+  CFLAGS="$CFLAGS -Wc,DLL -Wc,exportall -Wc,xplink"
+  LDFLAGS="$LDFLAGS -Wl,xplink"
+])
+
 #
 # Defines
 #
