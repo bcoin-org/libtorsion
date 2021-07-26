@@ -93,15 +93,8 @@ endif()
 #
 
 # Encourage the user to build with xlc_r.
-if(CMAKE_C_COMPILER_ID STREQUAL "XL")
-  check_c_source_compiles([=[
-#   if defined(__xlC__) && defined(_AIX) && !defined(_THREAD_SAFE)
-#     error "not thread safe"
-#   endif
-    int main(void) {
-      return 0;
-    }
-  ]=] TORSION_HAVE_XL_R)
+if(CMAKE_C_COMPILER_ID STREQUAL "XL" AND CMAKE_SYSTEM_NAME STREQUAL "AIX")
+  check_symbol_exists(_THREAD_SAFE "" TORSION_HAVE_XL_R)
 
   if(NOT TORSION_HAVE_XL_R)
     message(WARNING "Please use a thread-safe compiler invocation.\n"
