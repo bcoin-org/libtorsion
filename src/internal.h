@@ -387,8 +387,15 @@ static const unsigned long torsion__endian_check TORSION_UNUSED = 1;
 #    endif
 #  elif defined(__BIONIC__)
 #    define TORSION_HAVE_PTHREAD
-#  elif !defined(__UCLIBC__) && !defined(__dietlibc__) && !defined(__NEWLIB__)
-#    define TORSION_HAVE_PTHREAD /* musl */
+#  elif defined(__UCLIBC__)
+/*   No support. */
+#  elif defined(__dietlibc__)
+/*   No support. */
+#  else
+#    include <stddef.h>
+#    ifdef __DEFINED_size_t /* musl */
+#      define TORSION_HAVE_PTHREAD
+#    endif
 #  endif
 #elif defined(__WATCOMC__) && defined(__LINUX__)
 #  define TORSION_HAVE_PTHREAD
