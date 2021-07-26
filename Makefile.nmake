@@ -334,4 +334,4 @@ check: torsion_test.exe
 test: check
 
 clean:
-	del $(OUTPUT)
+	-del $(OUTPUT)

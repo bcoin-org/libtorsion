@@ -190,4 +190,4 @@ src/fields/.fiat-head: $(UNSAT) $(MONT)
 	(cd $(FIAT) && git rev-parse HEAD) > $@
 
 clean:
-	rm -f $(OUTPUT) $(OUTPUT:.h=.h.tmp)
+	-rm -f $(OUTPUT) $(OUTPUT:.h=.h.tmp)

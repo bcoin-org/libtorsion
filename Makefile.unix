@@ -372,7 +372,7 @@ libtorsion.a: libtorsion.obj
 
 libtorsion.la: libtorsion.obj
 	@echo 'ld -o $@ $(LIB_OBJECTS)'
-	@$(LIBTOOL) -o $@ $(LIB_OBJECTS) > /dev/null
+	@$(LIBTOOL) -o $@ $(LDFLAGS) $(LIB_OBJECTS) $(LIBS) > /dev/null
 	@unlink .libs/$@
 	@mv -f .libs/* ./
 	@rmdir .libs
@@ -401,7 +401,7 @@ valgrind: torsion_test
 	@valgrind --leak-check=full --error-exitcode=1 ./torsion_test
 
 clean:
-	rm -f $(OUTPUT)
+	-rm -f $(OUTPUT)
 
 install: libtorsion.a libtorsion.pc
 	mkdir -p $(INSTDIR)/lib/pkgconfig
