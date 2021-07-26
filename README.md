@@ -168,6 +168,12 @@ $ gcc -o libtorsion.dylib -dynamiclib @libtorsion.obj
 $ gcc -o torsion_test @torsion_test.obj libtorsion.dylib
 ```
 
+Or, if you have libtool installed, you can let it do the heavy lifting:
+
+``` sh
+$ make -f Makefile.unix all libtorsion.la CFLAGS=-fPIC
+```
+
 ### Windows
 
 Builds on windows will produce both a static and shared library. To deal with
