@@ -3,7 +3,7 @@
 # https://github.com/bcoin-org/libtorsion
 
 set(TORSION_PKG_VERSION 0.0.0)
-set(TORSION_ABI_VERSION 0.0.0)
+set(TORSION_ABI_VERSION 0:0:0)
 
 #
 # Initialization
@@ -33,6 +33,7 @@ endif()
 
 include(cmake/AppendCCompilerFlag.cmake)
 include(cmake/CheckCThreadLocalStorage.cmake)
+include(cmake/LibtoolEmulator.cmake)
 include(cmake/TargetLinkOptions.cmake)
 include(CheckCSourceCompiles)
 include(CheckIncludeFile)
@@ -588,13 +589,10 @@ else()
     target_link_options(torsion_shared PUBLIC ${torsion_ldflags})
     target_link_libraries(torsion_shared PRIVATE ${torsion_libs})
 
-    if(NOT MINGW)
-      string(REGEX MATCH "[0-9]+" TORSION_SO_VERSION "${TORSION_ABI_VERSION}")
+    set_property(TARGET torsion_shared PROPERTY OUTPUT_NAME torsion)
 
-      set_target_properties(torsion_shared PROPERTIES
-                                           OUTPUT_NAME torsion
-                                           VERSION ${TORSION_ABI_VERSION}
-                                           SOVERSION ${TORSION_SO_VERSION})
+    if(NOT MINGW)
+      set_target_version_info(torsion_shared ${TORSION_ABI_VERSION})
     endif()
   endif()
 
