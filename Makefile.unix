@@ -84,11 +84,17 @@ OUTPUT = $(LIB_OBJECTS)      \
          $(BENCH_OBJECTS)    \
          $(TEST_OBJECTS)     \
          $(CTGRIND_OBJECTS)  \
+         libtorsion.pc       \
          libtorsion.obj      \
          torsion_bench.obj   \
          torsion_test.obj    \
          torsion_ctgrind.obj \
          libtorsion.a        \
+         libtorsion.la       \
+         libtorsion.lai      \
+         libtorsion.so*      \
+         libtorsion.sl*      \
+         libtorsion*.dylib   \
          torsion_bench       \
          torsion_test        \
          torsion_ctgrind     \
@@ -402,6 +408,7 @@ valgrind: torsion_test
 
 clean:
 	-rm -f $(OUTPUT)
+	-rm -rf .libs
 
 install: libtorsion.a libtorsion.pc
 	mkdir -p $(INSTDIR)/lib/pkgconfig

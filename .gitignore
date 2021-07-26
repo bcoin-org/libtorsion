@@ -10,9 +10,11 @@
 *.gcda
 *.gcno
 *.la
+*.lai
 *.lib
 *.lo
 *.o
+*.obj
 *.out
 *.sl
 *.sln
