@@ -51,6 +51,7 @@ option(TORSION_ENABLE_ASM "Use inline assembly if available" ON)
 option(TORSION_ENABLE_COVERAGE "Enable coverage" OFF)
 option(TORSION_ENABLE_DEBUG "Enable debug build (forces -g or /Zi)" OFF)
 option(TORSION_ENABLE_INT128 "Use __int128 if available" ON)
+option(TORSION_ENABLE_PIC "Enable PIC" ON)
 option(TORSION_ENABLE_PTHREAD "Use pthread if present in libc" ON)
 option(TORSION_ENABLE_RNG "Enable RNG" ON)
 option(TORSION_ENABLE_SHARED "Build shared library" ON)
@@ -94,12 +95,18 @@ endif()
 
 # Encourage the user to build with xlc_r.
 if(CMAKE_C_COMPILER_ID STREQUAL "XL" AND CMAKE_SYSTEM_NAME STREQUAL "AIX")
-  check_symbol_exists(_THREAD_SAFE "" TORSION_HAVE_XL_R)
+  check_symbol_exists(_THREAD_SAFE "" TORSION_HAVE_XLC_R)
 
-  if(NOT TORSION_HAVE_XL_R)
+  if(NOT TORSION_HAVE_XLC_R)
     message(WARNING "Please use a thread-safe compiler invocation.\n"
                     "For example, `cmake . -DCMAKE_C_COMPILER=xlc_r`.")
   endif()
+endif()
+
+# Not sure why cmake fails to do this for tcc.
+if(CMAKE_C_COMPILER_ID STREQUAL "TinyCC" AND NOT CMAKE_SKIP_RPATH)
+  set(CMAKE_EXE_LINKER_FLAGS
+      "${CMAKE_EXE_LINKER_FLAGS} -Wl,-rpath,'${PROJECT_SOURCE_DIR}'")
 endif()
 
 # Modern glibc (stdlib.h in particular) breaks pcc.
@@ -110,9 +117,17 @@ if(TORSION_HAVE_PCC AND TORSION_HAVE_GLIBC)
   check_type_size(__float128 TORSION_SIZEOF_FLOAT128)
 
   if (NOT TORSION_SIZEOF_FLOAT128)
-    string(APPEND CMAKE_C_FLAGS " -D__float128='long double'")
-    string(APPEND CMAKE_C_FLAGS " -D__TC__=__SC__")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D__float128='long double'")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D__TC__=__SC__")
   endif()
+endif()
+
+# NWCC has issues with -fPIC and shared libraries.
+check_symbol_exists(__NWCC__ "" TORSION_HAVE_NWCC)
+
+if(TORSION_HAVE_NWCC)
+  set(TORSION_ENABLE_PIC OFF)
+  set(TORSION_ENABLE_SHARED OFF)
 endif()
 
 # OpenWatcom-Linux can't create shared libraries.
@@ -344,11 +359,6 @@ if(MINGW)
   list(APPEND torsion_ldflags -static-libgcc)
 endif()
 
-if(CMAKE_C_COMPILER_ID STREQUAL "TinyCC")
-  # Not sure why cmake fails to do this for tcc.
-  list(APPEND torsion_exeflags -Wl,-rpath,${PROJECT_SOURCE_DIR})
-endif()
-
 if(CMAKE_C_COMPILER_ID STREQUAL "zOS")
   list(APPEND torsion_cflags -Wc,DLL -Wc,exportall -Wc,xplink)
   list(APPEND torsion_ldflags -Wl,xplink)
@@ -498,7 +508,8 @@ if(NOT PROJECT_NAME STREQUAL CMAKE_PROJECT_NAME)
       add_node_library(torsion STATIC ${torsion_sources})
     else()
       add_library(torsion STATIC ${torsion_sources})
-      set_property(TARGET torsion PROPERTY POSITION_INDEPENDENT_CODE ON)
+      set_property(TARGET torsion PROPERTY POSITION_INDEPENDENT_CODE
+                                           ${TORSION_ENABLE_PIC})
     endif()
 
     target_compile_definitions(torsion PRIVATE ${torsion_defines})
@@ -570,7 +581,8 @@ else()
                                                     TORSION_BUILD)
   target_compile_options(torsion_object PRIVATE ${torsion_cflags})
   target_include_directories(torsion_object PRIVATE ${torsion_includes})
-  set_property(TARGET torsion_object PROPERTY POSITION_INDEPENDENT_CODE ON)
+  set_property(TARGET torsion_object PROPERTY POSITION_INDEPENDENT_CODE
+                                              ${TORSION_ENABLE_PIC})
 
   add_library(torsion_static STATIC $<TARGET_OBJECTS:torsion_object>)
   target_compile_definitions(torsion_static INTERFACE ${torsion_defines})
@@ -588,10 +600,7 @@ else()
     target_link_libraries(torsion_shared PRIVATE ${torsion_libs})
 
     set_property(TARGET torsion_shared PROPERTY OUTPUT_NAME torsion)
-
-    if(NOT MINGW)
-      set_target_version_info(torsion_shared ${TORSION_ABI_VERSION})
-    endif()
+    set_target_version_info(torsion_shared ${TORSION_ABI_VERSION})
   endif()
 
   if(UNIX)

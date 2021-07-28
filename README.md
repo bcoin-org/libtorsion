@@ -107,7 +107,8 @@ The CMake build is fairly straightforward and offers the following options:
 - `TORSION_ENABLE_COVERAGE=OFF` - Enable coverage
 - `TORSION_ENABLE_DEBUG=ON` - Enable debug build (forces -g or /Zi)
 - `TORSION_ENABLE_INT128=ON` - Use `__int128` if available
-- `TORSION_ENABLE_PTHREAD=ON` - Use pthread if present in libc.
+- `TORSION_ENABLE_PIC=ON` - Enable PIC
+- `TORSION_ENABLE_PTHREAD=ON` - Use pthread if present in libc
 - `TORSION_ENABLE_RNG=ON` - Enable RNG
 - `TORSION_ENABLE_SHARED=ON` - Build shared library
 - `TORSION_ENABLE_TESTS=ON` - Build tests
