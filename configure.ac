@@ -181,6 +181,19 @@ AC_CHECK_DEFINE([__PCC__], [
   ])
 ])
 
+# NWCC has issues with -fPIC and shared libraries.
+AC_CHECK_DEFINE([__NWCC__], [
+  pic_mode=no
+  enable_shared=no
+])
+
+# OpenWatcom-Linux can't create shared libraries.
+AC_CHECK_DEFINE([__WATCOMC__], [
+  AC_CHECK_DEFINE([__LINUX__], [
+    enable_shared=no
+  ])
+])
+
 #
 # Feature Testing
 #
