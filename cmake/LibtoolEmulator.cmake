@@ -2,6 +2,49 @@
 # Copyright (c) 2021, Christopher Jeffrey (MIT License).
 # https://github.com/chjj
 
+# Explanation:
+#
+# CMake handles shared library versioning information in
+# a very generic way. This is in contrast to libtool which
+# handles versioning according to the conventions of the
+# platform and its linker. It also has a specific scheme
+# of [current]:[revision]:[age] which developers have come
+# to love and hate.
+#
+# The CMake way and libtool way are basically incompatible
+# with each other. A project which uses -version-info on
+# libtool cannot easily switch over to CMake as their build
+# system and maintain proper ABI compatibility. This is a
+# notorious problem that I have not yet seen a solution for.
+#
+# This module reimplements the libtool behavior for CMake.
+# This allows existing autotools projects to move over to
+# CMake and have everything "just work". This file will
+# need to be maintained forever to account for new OSes
+# added to libtool.
+#
+# This module exposes three functions to emulate libtool
+# behavior, with an API of:
+#
+# - set_target_version_info(target info)
+#   Libtool equivalent: -version-info [info]
+#   Example: set_target_version_info(mylib 3:2:1)
+#
+# - set_target_version_number(target number)
+#   Libtool equivalent: -version-number [number]
+#   Example: set_target_version_number(mylib 3:2:1)
+#
+# - set_target_release(target version)
+#   Libtool equivalent: -release [version]
+#   Example: set_target_release(mylib 2.7)
+#
+# Note that the final call is hacked in and modifies the
+# target's OUTPUT_NAME.
+#
+# Resources:
+#   https://www.gnu.org/software/libtool/manual/html_node/Versioning.html
+#   https://autotools.io/libtool/version.html
+
 if(DEFINED __LIBTOOL_EMU)
   return()
 endif()
@@ -12,6 +55,14 @@ if(CMAKE_C_COMPILER_LOADED)
   include(CheckSymbolExists)
 elseif(CMAKE_CXX_COMPILER_LOADED)
   include(CheckCXXSymbolExists)
+endif()
+
+#
+# Options
+#
+
+if(NOT DEFINED LIBTOOL_FORCE_WIN32_SUFFIX)
+  set(LIBTOOL_FORCE_WIN32_SUFFIX 0)
 endif()
 
 #
@@ -56,26 +107,38 @@ function(_libtool_has_elf result)
   endif()
 endfunction()
 
-function(_libtool_macho_versions target compat_version current_version)
-  if(CMAKE_VERSION VERSION_LESS "3.17")
-    set(ldflags -Wl,-compatibility_version,${compat_version}
-                -Wl,-current_version,${current_version})
-
-    if(COMMAND target_link_options)
-      target_link_options(${target} PRIVATE ${ldflags})
-    else()
-      target_link_libraries(${target} PRIVATE ${ldflags})
-    endif()
+function(_libtool_link_options)
+  if(COMMAND target_link_options)
+    target_link_options(${ARGV})
   else()
+    target_link_libraries(${ARGV})
+  endif()
+endfunction()
+
+function(_libtool_macho_versions target compat_version current_version)
+  if(CMAKE_VERSION VERSION_LESS 3.17)
+    # Not sure if this will actually override CMake.
+    _libtool_link_options(${target} PRIVATE
+                          -Wl,-compatibility_version,${compat_version}
+                          -Wl,-current_version,${current_version})
+  else()
+    # Added for this exact reason:
+    # https://gitlab.kitware.com/cmake/cmake/-/issues/17652
     set_target_properties(${target} PROPERTIES
                           MACHO_COMPATIBILITY_VERSION ${compat_version}
                           MACHO_CURRENT_VERSION ${current_version})
   endif()
 endfunction()
 
+function(_libtool_version_string target verstring)
+  if(CMAKE_C_COMPILER_ID MATCHES "^GNU$|^Clang$")
+    _libtool_link_options(${target} PRIVATE -Wl,-set_version,${verstring})
+  else()
+    _libtool_link_options(${target} PRIVATE -set_version ${verstring})
+  endif()
+endfunction()
+
 function(_libtool_version target scheme info isnum)
-  # https://github.com/autotools-mirror/libtool/blob/544fc0e/build-aux/ltmain.in#L6898
-  # https://github.com/autotools-mirror/libtool/blob/544fc0e/build-aux/ltmain.in#L6973
   if (NOT info MATCHES "^[0-9]+(:[0-9]+(:[0-9]+)?)?$")
     message(FATAL_ERROR "'${info}' is not valid version information.")
   endif()
@@ -96,6 +159,7 @@ function(_libtool_version target scheme info isnum)
 
   set(irix_inc 1)
 
+  # https://github.com/autotools-mirror/libtool/blob/544fc0e/build-aux/ltmain.in#L6898
   if(isnum)
     set(major ${current})
     set(minor ${revision})
@@ -123,16 +187,16 @@ function(_libtool_version target scheme info isnum)
     message(FATAL_ERROR "'${info}' is not valid version information.")
   endif()
 
+  # https://github.com/autotools-mirror/libtool/blob/544fc0e/build-aux/ltmain.in#L6973
   set(major)
   set(version)
-  set(compat_version)
-  set(current_version)
 
   if(scheme STREQUAL "darwin")
     math(EXPR major "${current} - ${age}")
     set(version "${major}.${age}.${revision}")
     math(EXPR compat_version "${current} + 1")
     set(current_version "${compat_version}.${revision}")
+    _libtool_macho_versions(${target} ${compat_version} ${current_version})
   elseif(scheme STREQUAL "freebsd-aout")
     set(major ${current})
     set(version "${current}.${revision}")
@@ -142,12 +206,40 @@ function(_libtool_version target scheme info isnum)
   elseif(scheme MATCHES "irix|nonstopux")
     math(EXPR major "${current} - ${age} + ${irix_inc}")
     set(version "${major}.${revision}")
+    set(prefix ${scheme})
+
+    if(prefix STREQUAL "irix")
+      set(prefix "sgi")
+    endif()
+
+    set(verstring "${prefix}${major}.${revision}")
+    set(loop ${revision})
+
+    while(loop GREATER 0)
+      math(EXPR iface "${revision} - ${loop}")
+      math(EXPR loop "${loop} - 1")
+      set(verstring "${prefix}${major}.${iface}:${verstring}")
+    endwhile()
+
+    _libtool_version_string(${target} ${verstring})
   elseif(scheme STREQUAL "linux")
     math(EXPR major "${current} - ${age}")
     set(version "${major}.${age}.${revision}")
   elseif(scheme STREQUAL "osf")
     math(EXPR major "${current} - ${age}")
     set(version "${current}.${age}.${revision}")
+    set(verstring ${version})
+    set(loop ${age})
+
+    while (loop GREATER 0)
+      math(EXPR iface "${current} - ${loop}")
+      math(EXPR loop "${loop} - 1")
+      set(verstring "${verstring}:${iface}.0")
+    endwhile()
+
+    set(verstring "${verstring}:${current}.0")
+
+    _libtool_version_string(${target} ${verstring})
   elseif(scheme STREQUAL "qnx")
     set(major ${current})
     set(version ${current})
@@ -167,12 +259,37 @@ function(_libtool_version target scheme info isnum)
   if(scheme STREQUAL "darwin")
     set_target_properties(${target} PROPERTIES VERSION ${major}
                                                SOVERSION ${major})
-    _libtool_macho_versions(${target} ${compat_version} ${current_version})
-  elseif(scheme STREQUAL "windows" AND MINGW)
-    # Libtool does _not_ set any version information. Also, CMake
-    # notably does not add the release suffix to mingw libraries.
-    get_property(name TARGET ${target} PROPERTY OUTPUT_NAME)
-    set_property(TARGET ${target} PROPERTY OUTPUT_NAME "${name}-${version}")
+  elseif(scheme STREQUAL "windows")
+    # CMake
+    #   Cygwin = version suffix + version info
+    #   Msys = version suffix + version info
+    #   MinGW = version info
+    #   Windows = version info
+    #   OS/2 = none
+    #
+    # Libtool
+    #   All of the above = version suffix
+    #
+    # The below call will add: -Wl,--major-image-version,${version}
+    #                          -Wl,--minor-image-version,0
+    #
+    # Or (on Win32):           /VERSION:${version}.0
+    #
+    # There's no good way to avoid this unfortunately.
+    #
+    # See also: CMAKE_GNULD_IMAGE_VERSION
+    set_target_properties(${target} PROPERTIES VERSION ${version}
+                                               SOVERSION ${major})
+
+    # CMake does not add the suffix to mingw or native
+    # win32 libraries. We can force it to do this with
+    # an ugly hack, but keep it behind a flag for now.
+    #
+    # See also: CMAKE_SHARED_LIBRARY_NAME_WITH_VERSION
+    if(LIBTOOL_FORCE_WIN32_SUFFIX AND NOT CYGWIN AND NOT MSYS)
+      get_property(name TARGET ${target} PROPERTY OUTPUT_NAME)
+      set_property(TARGET ${target} PROPERTY OUTPUT_NAME "${name}-${version}")
+    endif()
   elseif(scheme MATCHES "-aout$")
     set_target_properties(${target} PROPERTIES VERSION ${version}
                                                SOVERSION ${version})
@@ -202,14 +319,26 @@ endfunction()
 # Tru64 UNIX     OSF1               Tru64 (??)
 # unknown        [falsey value]     UnknownOS
 function(_libtool_set_version target info isnum)
-  # https://github.com/autotools-mirror/libtool/blob/544fc0e/m4/libtool.m4#L2407
-  # https://github.com/autotools-mirror/autoconf/blob/378351d/build-aux/config.guess#L179
+  # CMake only officially supports a few platforms, but who knows:
+  # we might be on a port, or someone might be cross-compiling with
+  # a custom toolchain file, etc.
+  #
+  # Statements with `??` is where I'm unsure of the uname string.
+  #
+  # Libtool's `sysv4*` case is particularly hard to check, as it is
+  # supposed to cover _any_ off-shoot of sysv4 (config.guess sets
+  # this for a bunch of different platforms).
+  #
+  # Resources:
+  #   https://github.com/autotools-mirror/libtool/blob/544fc0e/m4/libtool.m4#L2407
+  #   https://github.com/autotools-mirror/autoconf/blob/378351d/build-aux/config.guess#L179
   if(CMAKE_SYSTEM_NAME STREQUAL "AIX")
     _libtool_version(${target} linux ${info} ${isnum})
-  elseif(CMAKE_SYSTEM_NAME MATCHES "[Aa]miga[Oo][Ss]"
-      OR CMAKE_SYSTEM_PROCESSOR MATCHES "^Amiga")
-    # Don't know what type this is. Use linux for now.
-    _libtool_version(${target} linux ${info} ${isnum})
+  elseif(CMAKE_SYSTEM_NAME MATCHES "^[Aa]miga[Oo][Ss]$")
+    if(CMAKE_SYSTEM_PROCESSOR STREQUAL "powerpc")
+      # Don't know what type this is. Use linux for now.
+      _libtool_version(${target} linux ${info} ${isnum})
+    endif()
   elseif(CMAKE_SYSTEM_NAME STREQUAL "Android" OR ANDROID)
     # Android doesn't support versioning.
   elseif(CMAKE_SYSTEM_NAME STREQUAL "BeOS" OR BEOS)
@@ -218,18 +347,26 @@ function(_libtool_set_version target info isnum)
     _libtool_version(${target} sunos-aout ${info} ${isnum})
   elseif(CMAKE_SYSTEM_NAME STREQUAL "BSDOS")
     _libtool_version(${target} linux ${info} ${isnum})
+  elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "^CRAY") # Unicos
+    # None.
+  elseif(CMAKE_SYSTEM_NAME STREQUAL "CloudABI")
+    # None.
   elseif(CMAKE_SYSTEM_NAME MATCHES "^CYGWIN" OR CYGWIN)
     _libtool_version(${target} windows ${info} ${isnum})
   elseif(CMAKE_SYSTEM_NAME STREQUAL "Darwin" OR APPLE OR IOS)
     _libtool_version(${target} darwin ${info} ${isnum})
   elseif(CMAKE_SYSTEM_NAME STREQUAL "dgux")
     _libtool_version(${target} linux ${info} ${isnum})
+  elseif(CMAKE_SYSTEM_NAME MATCHES "DOS$" OR DOS)
+    # None.
   elseif(CMAKE_SYSTEM_NAME STREQUAL "DragonFly")
     _libtool_version(${target} freebsd-elf ${info} ${isnum})
   elseif(CMAKE_SYSTEM_NAME STREQUAL "DYNIX/ptx")
     _libtool_version(${target} linux ${info} ${isnum}) # sysv4
   elseif(CMAKE_SYSTEM_NAME STREQUAL "ekkoBSD") # OpenBSD
     _libtool_version(${target} sunos-aout ${info} ${isnum})
+  elseif(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
+    # None.
   elseif(CMAKE_SYSTEM_NAME STREQUAL "FreeBSD")
     if(CMAKE_SYSTEM_VERSION MATCHES "^[23]")
       _libtool_version(${target} freebsd-aout ${info} ${isnum})
@@ -261,6 +398,8 @@ function(_libtool_set_version target info isnum)
     _libtool_version(${target} freebsd-elf ${info} ${isnum})
   elseif(CMAKE_SYSTEM_NAME MATCHES "^MINGW" OR MINGW)
     _libtool_version(${target} windows ${info} ${isnum})
+  elseif(CMAKE_SYSTEM_NAME STREQUAL "Minix")
+    # Unknown (possibly sunos-elf a la netbsd).
   elseif(CMAKE_SYSTEM_NAME STREQUAL "MirBSD") # OpenBSD
     _libtool_version(${target} sunos-aout ${info} ${isnum})
   elseif(CMAKE_SYSTEM_NAME STREQUAL "MP-RAS") # ??
@@ -282,6 +421,10 @@ function(_libtool_set_version target info isnum)
     _libtool_version(${target} sunos-aout ${info} ${isnum})
   elseif(CMAKE_SYSTEM_NAME MATCHES "^OS/?2$" OR OS2)
     _libtool_version(${target} windows ${info} ${isnum})
+  elseif(CMAKE_SYSTEM_NAME MATCHES "^OS/?390$")
+    # Unknown.
+  elseif(CMAKE_SYSTEM_NAME STREQUAL "OS400")
+    # This is probably PASE. Maybe use `linux` like AIX?
   elseif(CMAKE_SYSTEM_NAME MATCHES "^OSF1$|^Tru64$")
     _libtool_version(${target} osf ${info} ${isnum})
   elseif(CMAKE_SYSTEM_NAME MATCHES "^PW") # PW32
@@ -292,14 +435,18 @@ function(_libtool_set_version target info isnum)
     # No dynamic linker.
   elseif(CMAKE_SYSTEM_NAME STREQUAL "Redox")
     # Unknown.
-  elseif(CMAKE_SYSTEM_NAME STREQUAL "ReliantUNIX")
+  elseif(CMAKE_SYSTEM_NAME MATCHES "^ReliantUNIX")
     _libtool_version(${target} linux ${info} ${isnum}) # sysv4
   elseif(CMAKE_SYSTEM_NAME STREQUAL "Rhapsody")
     _libtool_version(${target} darwin ${info} ${isnum})
+  elseif(CMAKE_SYSTEM_NAME MATCHES "^riscos$|^RISCOS$")
+    # None.
   elseif(CMAKE_SYSTEM_NAME MATCHES "^SCO_SV$|^UnixWare$")
     _libtool_version(${target} sco ${info} ${isnum})
-  elseif(CMAKE_SYSTEM_NAME STREQUAL "SINIX")
+  elseif(CMAKE_SYSTEM_NAME MATCHES "^SINIX")
     _libtool_version(${target} linux ${info} ${isnum}) # sysv4
+  elseif(CMAKE_SYSTEM_NAME STREQUAL "SolidBSD") # FreeBSD
+    _libtool_version(${target} freebsd-elf ${info} ${isnum})
   elseif(CMAKE_SYSTEM_NAME STREQUAL "SunOS")
     if(CMAKE_SYSTEM_VERSION MATCHES "^[0-4]")
       _libtool_version(${target} sunos-aout ${info} ${isnum})
@@ -310,17 +457,34 @@ function(_libtool_set_version target info isnum)
     # Unknown.
   elseif(CMAKE_SYSTEM_NAME STREQUAL "TPF")
     # Cross-compile only. Assume linux.
-    _libtool_version(${target} linux ${info})
-  elseif(CMAKE_SYSTEM_NAME MATCHES "^UNIX_S(ystem_)?V$"
-     AND CMAKE_SYSTEM_VERSION MATCHES "^4")
-    _libtool_version(${target} linux ${info} ${isnum}) # sysv4
+    _libtool_version(${target} linux ${info} ${isnum})
+  elseif(CMAKE_SYSTEM_NAME MATCHES "^ULTRIX")
+    # None.
+  elseif(CMAKE_SYSTEM_NAME MATCHES "^UNICOS")
+    # None.
+  elseif(CMAKE_SYSTEM_NAME MATCHES "^UNIX_S(ystem_)?V$")
+    if(CMAKE_SYSTEM_VERSION MATCHES "^4")
+      _libtool_version(${target} linux ${info} ${isnum}) # sysv4
+    endif()
   elseif(CMAKE_SYSTEM_NAME STREQUAL "UTS4") ## ??
-    _libtool_version(${target} linux ${info})
-  elseif(CMAKE_SYSTEM_NAME MATCHES "^Windows"
-      OR WIN32 OR WINCE OR WINDOWS_PHONE OR WINDOWS_STORE)
+    _libtool_version(${target} linux ${info} ${isnum})
+  elseif(CMAKE_SYSTEM_NAME MATCHES "VMS$")
+    # None.
+  elseif(CMAKE_SYSTEM_NAME STREQUAL "VOS")
+    _libtool_version(${target} linux ${info} ${isnum}) # sysv4?
+  elseif(CMAKE_SYSTEM_NAME STREQUAL "VxWorks")
+    # Unknown.
+  elseif(CMAKE_SYSTEM_NAME STREQUAL "WASI")
+    # None.
+  elseif(CMAKE_SYSTEM_NAME MATCHES "^Windows" OR WIN32
+                                              OR WINCE
+                                              OR WINDOWS_PHONE
+                                              OR WINDOWS_STORE)
     _libtool_version(${target} windows ${info} ${isnum})
+  elseif(CMAKE_SYSTEM_NAME STREQUAL "XENIX")
+    # None.
   elseif(CMAKE_SYSTEM_NAME STREQUAL "Zircon" OR FUCHSIA)
-    # Probably linux given that fuchsia is gnu-like.
+    # Probably linux (fuchsia toolchain is gnu-like).
     _libtool_version(${target} linux ${info} ${isnum})
   else()
     # No dynamic linker.
