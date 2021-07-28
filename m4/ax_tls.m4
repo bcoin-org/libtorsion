@@ -12,10 +12,11 @@
 
 AC_DEFUN([AX_TLS_RUN_IFELSE], [
   AS_IF([test x"$cross_compiling" != x"no"],
-        [AC_LINK_IFELSE([$1], [m4_ifnblank([$2],[$2],[[:]])],
-                              [m4_ifnblank([$3],[$3],[[:]])])],
-        [AC_RUN_IFELSE([$1], [m4_ifnblank([$2],[$2],[[:]])],
-                             [m4_ifnblank([$3],[$3],[[:]])])])
+        [AC_LINK_IFELSE([$1], [m4_default([$2],[[:]])],
+                              [m4_default([$3],[[:]])])],
+        [AC_RUN_IFELSE([$1], [m4_default([$2],[[:]])],
+                             [m4_default([$3],[[:]])],
+                             [:])])
 ])
 
 AC_DEFUN([AX_TLS_CHECK_CFLAG], [
@@ -25,8 +26,8 @@ AC_DEFUN([AX_TLS_CHECK_CFLAG], [
   AC_COMPILE_IFELSE([AC_LANG_PROGRAM()], [ax_tlscf_has_flag=yes])
   CFLAGS="$ax_tlscf_save_CFLAGS"
   AS_IF([test x"$ax_tlscf_has_flag" = x"yes"],
-        [m4_ifnblank([$2],[$2],[[:]])],
-        [m4_ifnblank([$3],[$3],[[:]])])
+        [m4_default([$2],[[:]])],
+        [m4_default([$3],[[:]])])
 ])
 
 AC_DEFUN([AX_TLS], [
@@ -133,6 +134,6 @@ AC_DEFUN([AX_TLS], [
   AC_MSG_RESULT([$ax_cv_tls_keyword])
 
   AS_IF([test x"$ax_cv_tls_keyword" != x"none"],
-        [m4_ifnblank([$1],[$1],[[:]])],
-        [m4_ifnblank([$2],[$2],[[:]])])
+        [m4_default([$1],[[:]])],
+        [m4_default([$2],[[:]])])
 ])
