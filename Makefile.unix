@@ -24,9 +24,9 @@ ENVIRONMENT = node
 
 GLIBTOOL = $$(type glibtool > /dev/null 2>& 1 && echo glibtool || echo libtool)
 
-LIBTOOL = $(GLIBTOOL) --tag=CC --mode=link $(CC)   \
-                      -shared -rpath $(PREFIX)/lib \
-                      -version-info $(ABI_VERSION)
+LIBTOOL = $(GLIBTOOL) --tag=CC --mode=link   \
+          $(CC) -shared -rpath $(PREFIX)/lib \
+                -version-info $(ABI_VERSION)
 
 #
 # Library

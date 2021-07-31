@@ -8,12 +8,16 @@
 
 ACLOCAL_AMFLAGS = -I m4
 
+includedir = $(prefix)/include/torsion
 licensedir = $(datadir)/licenses/$(PACKAGE_NAME)
 pkgconfigdir = $(libdir)/pkgconfig
 
-VALGRIND = ./libtool --mode=execute valgrind \
-                     --leak-check=full       \
-                     --error-exitcode=1
+#
+# Helpers
+#
+
+VALGRIND = ./libtool --mode=execute valgrind --leak-check=full  \
+                                             --error-exitcode=1
 
 #
 # Headers

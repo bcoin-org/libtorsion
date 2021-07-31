@@ -19,9 +19,8 @@ AC_CANONICAL_HOST
 AC_LANG_ASSERT(C)
 AC_PROG_CC
 
-AM_INIT_AUTOMAKE([1.11 foreign subdir-objects no-dist])
+AM_INIT_AUTOMAKE([1.11 foreign subdir-objects tar-v7])
 AM_PROG_CC_C_O
-m4_ifdef([AM_PROG_AR], [AM_PROG_AR])
 AM_SILENT_RULES([yes])
 
 LT_PREREQ([2.2.8])
@@ -192,6 +191,11 @@ AC_CHECK_DEFINE([__WATCOMC__], [
   AC_CHECK_DEFINE([__LINUX__], [
     enable_shared=no
   ])
+])
+
+# dietlibc is for static linking only.
+AC_CHECK_DEFINE([__dietlibc__], [
+  enable_shared=no
 ])
 
 #

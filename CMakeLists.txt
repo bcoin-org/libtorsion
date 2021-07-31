@@ -137,6 +137,13 @@ if(CMAKE_C_COMPILER_ID STREQUAL "OpenWatcom")
   endif()
 endif()
 
+# dietlibc is for static linking only.
+check_symbol_exists(__dietlibc__ "" TORSION_HAVE_DIETLIBC)
+
+if(TORSION_HAVE_DIETLIBC)
+  set(TORSION_ENABLE_SHARED OFF)
+endif()
+
 #
 # Feature Testing
 #
