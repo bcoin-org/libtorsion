@@ -16,7 +16,7 @@ AC_CONFIG_AUX_DIR([build-aux])
 AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_SRCDIR([include/torsion/ecc.h])
 AC_CANONICAL_HOST
-AC_LANG_ASSERT(C)
+AC_LANG_ASSERT([C])
 AC_PROG_CC
 
 AM_INIT_AUTOMAKE([1.11 foreign subdir-objects tar-v7])
@@ -37,7 +37,7 @@ AC_CHECK_DEFINE([__wasi__], [
 ], [
   AS_IF([test x"$WASI" != x""], [
     AC_MSG_WARN([WASI env var set but environment is not wasi])
-    AS_UNSET(WASI)
+    AS_UNSET([WASI])
   ])
 ])
 
@@ -48,7 +48,7 @@ AC_CHECK_DEFINE([__EMSCRIPTEN__], [
 ], [
   AS_IF([test x"$EMSCRIPTEN" != x""], [
     AC_MSG_WARN([EMSCRIPTEN env var set but environment is not emscripten])
-    AS_UNSET(EMSCRIPTEN)
+    AS_UNSET([EMSCRIPTEN])
   ])
 ])
 
@@ -174,8 +174,8 @@ AC_COMPILE_IFELSE([
 AC_CHECK_DEFINE([__PCC__], [
   AX_CHECK_DEFINE([limits.h], [__GLIBC__], [
     AC_CHECK_TYPE([__float128], [], [
-      AC_DEFINE_UNQUOTED(__float128, [long double])
-      AC_DEFINE_UNQUOTED(__TC__, [__SC__])
+      AC_DEFINE_UNQUOTED([__float128], [long double])
+      AC_DEFINE_UNQUOTED([__TC__], [__SC__])
     ])
   ])
 ])
@@ -390,7 +390,7 @@ AS_IF([test x"$enable_tests" = x"yes"], [
 
   AS_IF([test x"$enable_rng" = x"yes"], [
     AC_CHECK_HEADER([zlib.h], [
-      AC_CHECK_LIB(z, compress2, [has_zlib=yes])
+      AC_CHECK_LIB([z], [compress2], [has_zlib=yes])
     ])
   ])
 ])
@@ -440,58 +440,58 @@ AS_CASE([$host_os], [openedition*], [
 # Defines
 #
 
-AC_DEFINE(TORSION_HAVE_CONFIG)
+AC_DEFINE([TORSION_HAVE_CONFIG])
 
 AS_IF([test x"$has_asm" = x"yes"], [
-  AC_DEFINE(TORSION_HAVE_ASM)
+  AC_DEFINE([TORSION_HAVE_ASM])
 ])
 
 AS_IF([test x"$has_clock_gettime" = x"yes"], [
-  AC_DEFINE(TORSION_HAVE_CLOCK_GETTIME)
+  AC_DEFINE([TORSION_HAVE_CLOCK_GETTIME])
 ])
 
 AS_IF([test x"$enable_coverage" = x"yes"], [
-  AC_DEFINE(TORSION_COVERAGE)
+  AC_DEFINE([TORSION_COVERAGE])
 ])
 
 AS_IF([test x"$enable_debug" = x"yes"], [
-  AC_DEFINE(TORSION_DEBUG)
+  AC_DEFINE([TORSION_DEBUG])
 ])
 
 AS_IF([test x"$has_fork" = x"yes"], [
-  AC_DEFINE(TORSION_HAVE_FORK)
+  AC_DEFINE([TORSION_HAVE_FORK])
 ])
 
 AS_IF([test x"$has_gettimeofday" = x"yes"], [
-  AC_DEFINE(TORSION_HAVE_GETTIMEOFDAY)
+  AC_DEFINE([TORSION_HAVE_GETTIMEOFDAY])
 ])
 
 AS_IF([test x"$has_int128" = x"yes"], [
-  AC_DEFINE(TORSION_HAVE_INT128)
+  AC_DEFINE([TORSION_HAVE_INT128])
 ])
 
 AS_IF([test x"$has_pthread" = x"yes"], [
-  AC_DEFINE(TORSION_HAVE_PTHREAD)
+  AC_DEFINE([TORSION_HAVE_PTHREAD])
 ])
 
 AS_IF([test x"$enable_rng" = x"yes"], [
-  AC_DEFINE(TORSION_HAVE_RNG)
+  AC_DEFINE([TORSION_HAVE_RNG])
 ])
 
 AS_IF([test x"$has_time" = x"yes"], [
-  AC_DEFINE(TORSION_HAVE_TIME)
+  AC_DEFINE([TORSION_HAVE_TIME])
 ])
 
 AS_IF([test x"$has_tls" = x"yes"], [
-  AC_DEFINE_UNQUOTED(TORSION_TLS, [$TLS_KEYWORD])
+  AC_DEFINE_UNQUOTED([TORSION_TLS], [$TLS_KEYWORD])
 ])
 
 AS_IF([test x"$enable_verify" = x"yes"], [
-  AC_DEFINE(TORSION_VERIFY)
+  AC_DEFINE([TORSION_VERIFY])
 ])
 
 AS_IF([test x"$has_zlib" = x"yes"], [
-  AC_DEFINE(TORSION_HAVE_ZLIB)
+  AC_DEFINE([TORSION_HAVE_ZLIB])
 ])
 
 #
@@ -499,22 +499,22 @@ AS_IF([test x"$has_zlib" = x"yes"], [
 #
 
 AS_CASE([$host_os], [solaris*], [
-  AC_DEFINE(_TS_ERRNO)
+  AC_DEFINE([_TS_ERRNO])
 ])
 
 AS_CASE([$host_os], [aix*], [
-  AC_DEFINE(_THREAD_SAFE_ERRNO)
+  AC_DEFINE([_THREAD_SAFE_ERRNO])
 ])
 
 AS_CASE([$host_os], [openedition*], [
-  AC_DEFINE(_ALL_SOURCE)
+  AC_DEFINE([_ALL_SOURCE])
 ])
 
 #
 # Configuration
 #
 
-AC_SUBST(ABI_VERSION, [TORSION_ABI_VERSION])
+AC_SUBST([ABI_VERSION], [TORSION_ABI_VERSION])
 
 AM_CONDITIONAL([EMSCRIPTEN], [test x"$EMSCRIPTEN" != x""])
 AM_CONDITIONAL([ENABLE_CTGRIND], [test x"$has_memcheck" = x"yes"])
