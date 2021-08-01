@@ -14,14 +14,31 @@ function(check_c_thread_local_storage name flag)
   set(${name} "" PARENT_SCOPE)
   set(${flag} "" PARENT_SCOPE)
 
+  set(oflag)
   set(rflags)
   set(cflags)
 
   # Try to deoptimize.
-  check_c_compiler_flag(-O0 CMAKE_TLS_HAVE_O0)
+  if(MSVC)
+    set(oflag /Od)
+  elseif(BORLAND)
+    set(oflag -Od)
+  elseif(CMAKE_C_COMPILER_ID MATCHES "Watcom$")
+    set(oflag -od)
+  elseif(CMAKE_C_COMPILER_ID STREQUAL "XL")
+    set(oflag -qoptimize=0)
+  elseif(CMAKE_C_COMPILER_ID STREQUAL "SunPro")
+    set(oflag -xO1)
+  elseif(CMAKE_C_COMPILER_ID STREQUAL "HP")
+    set(oflag +O0)
+  else()
+    set(oflag -O0)
+  endif()
+
+  check_c_compiler_flag(${oflag} CMAKE_TLS_HAVE_O0)
 
   if(CMAKE_TLS_HAVE_O0)
-    list(APPEND rflags -O0)
+    list(APPEND rflags ${oflag})
   endif()
 
   # XL requires a special flag. Don't ask me why.

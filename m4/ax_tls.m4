@@ -10,6 +10,28 @@
 #
 #   TODO
 
+AC_DEFUN([AX_TLS_CHECK_COMPILE_FLAG], [
+  ax_tls_has_flag=no
+  ax_tls_backup_CFLAGS="$CFLAGS"
+  CFLAGS="$CFLAGS $1"
+  AC_COMPILE_IFELSE([AC_LANG_PROGRAM()], [ax_tls_has_flag=yes])
+  CFLAGS="$ax_tls_backup_CFLAGS"
+  AS_IF([test x"$ax_tls_has_flag" = x"yes"],
+        [m4_default([$2],[[:]])],
+        [m4_default([$3],[[:]])])
+])
+
+AC_DEFUN([AX_TLS_CHECK_DEFINE], [
+  AC_COMPILE_IFELSE([
+    AC_LANG_PROGRAM([], [[
+#     ifndef $1
+#       error "not defined"
+#     endif
+    ]])
+  ], [m4_default([$2],[[:]])],
+     [m4_default([$3],[[:]])])
+])
+
 AC_DEFUN([AX_TLS_RUN_IFELSE], [
   AS_IF([test x"$cross_compiling" != x"no"],
         [AC_LINK_IFELSE([$1], [m4_default([$2],[[:]])],
@@ -17,17 +39,6 @@ AC_DEFUN([AX_TLS_RUN_IFELSE], [
         [AC_RUN_IFELSE([$1], [m4_default([$2],[[:]])],
                              [m4_default([$3],[[:]])],
                              [:])])
-])
-
-AC_DEFUN([AX_TLS_CHECK_CFLAG], [
-  ax_tlscf_has_flag=no
-  ax_tlscf_save_CFLAGS="$CFLAGS"
-  CFLAGS="$CFLAGS $1"
-  AC_COMPILE_IFELSE([AC_LANG_PROGRAM()], [ax_tlscf_has_flag=yes])
-  CFLAGS="$ax_tlscf_save_CFLAGS"
-  AS_IF([test x"$ax_tlscf_has_flag" = x"yes"],
-        [m4_default([$2],[[:]])],
-        [m4_default([$3],[[:]])])
 ])
 
 AC_DEFUN([AX_TLS], [
@@ -42,10 +53,16 @@ AC_DEFUN([AX_TLS], [
     ax_tls_save_CFLAGS="$CFLAGS"
     ax_cv_tls_keyword=none
     ax_cv_tls_cflags=none
+    ax_tls_oflag="-O0"
     ax_tls_cflag=
 
     # Try to deoptimize.
-    AX_TLS_CHECK_CFLAG([-O0], [CFLAGS="$CFLAGS -O0"])
+    AX_TLS_CHECK_DEFINE([__xlC__], [ax_tls_oflag="-qoptimize=0"])
+    AX_TLS_CHECK_DEFINE([__SUNPRO_C], [ax_tls_oflag="-xO1"])
+    AX_TLS_CHECK_DEFINE([__SUNPRO_CC], [ax_tls_oflag="-xO1"])
+    AX_TLS_CHECK_DEFINE([__HP_cc], [ax_tls_oflag="+O0"])
+    AX_TLS_CHECK_DEFINE([__HP_aCC], [ax_tls_oflag="+O0"])
+    AX_TLS_CHECK_COMPILE_FLAG([$ax_tls_oflag], [CFLAGS="$CFLAGS $ax_tls_oflag"])
 
     # XL requires a special flag. Don't ask me why.
     AC_COMPILE_IFELSE([
@@ -55,7 +72,7 @@ AC_DEFUN([AX_TLS], [
 #       endif
       ]])
     ], [
-      AX_TLS_CHECK_CFLAG([-qtls], [
+      AX_TLS_CHECK_COMPILE_FLAG([-qtls], [
         ax_tls_cflag="-qtls"
         CFLAGS="$CFLAGS -qtls"
       ])
