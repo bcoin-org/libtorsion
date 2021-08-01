@@ -3517,10 +3517,10 @@ test_encoding_bech32(drbg_t *unused) {
       "00201863143c14c5166804bd19203356da136c985678cd4d27a1b8c6329604903262"
     },
     {
-      "bc1pw508d6qejxtdg4y5r3zarvary0c5xw7kw508d6"
-      "qejxtdg4y5r3zarvary0c5xw7k7grplx",
-      "5128751e76e8199196d454941c45d1b3a323f1433b"
-      "d6751e76e8199196d454941c45d1b3a323f1433bd6"
+      ("bc1pw508d6qejxtdg4y5r3zarvary0c5xw7kw508d6"
+       "qejxtdg4y5r3zarvary0c5xw7k7grplx"),
+      ("5128751e76e8199196d454941c45d1b3a323f1433b"
+       "d6751e76e8199196d454941c45d1b3a323f1433bd6")
     },
     {
       "BC1SW50QA3JX3S",
@@ -3540,8 +3540,8 @@ test_encoding_bech32(drbg_t *unused) {
   static const char *expect[6] = {
     "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4",
     "tb1qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3q0sl5k7",
-    "bc1pw508d6qejxtdg4y5r3zarvary0c5xw7kw508d6"
-    "qejxtdg4y5r3zarvary0c5xw7k7grplx",
+    ("bc1pw508d6qejxtdg4y5r3zarvary0c5xw7kw508d6"
+     "qejxtdg4y5r3zarvary0c5xw7k7grplx"),
     "bc1sw50qa3jx3s",
     "bc1zw508d6qejxtdg4y5r3zarvaryvg6kdaj",
     "tb1qqqqqp399et2xygdj5xreqhjjvcmzhxw4aywxecjdzew6hylgvsesrxh6hy"
@@ -3549,15 +3549,15 @@ test_encoding_bech32(drbg_t *unused) {
 
   static const char *invalid[6] = {
     "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t5",
-    "bc10w508d6qejxtdg4y5r3zarvary0c5xw7kw508d6"
-    "qejxtdg4y5r3zarvary0c5xw7kw5rljs90",
-    "bca0w508d6qejxtdg4y5r3zarvary0c5xw7kw508d6"
-    "qejxtdg4y5r3zarvary0c5xw7kw5rljs90234567789035",
+    ("bc10w508d6qejxtdg4y5r3zarvary0c5xw7kw508d6"
+     "qejxtdg4y5r3zarvary0c5xw7kw5rljs90"),
+    ("bca0w508d6qejxtdg4y5r3zarvary0c5xw7kw508d6"
+     "qejxtdg4y5r3zarvary0c5xw7kw5rljs90234567789035"),
     "tb1qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3q0sL5k7",
-    "wtfbbqhelpnoshitwe2z5nuhllhu6z8pptu8m36clz"
-    "ge37dnfsdquht73wsx4cmwcwql322x3gmmwq2gjuxp6eaaus",
-    "bcfbbqhelpnoshitwe2z7anje5j3wvz8hw3rxadzcp"
-    "pgghm0aec23ttfstphjegfx08hwk5uhmusa7j28yrk8cx4qj"
+    ("wtfbbqhelpnoshitwe2z5nuhllhu6z8pptu8m36clz"
+     "ge37dnfsdquht73wsx4cmwcwql322x3gmmwq2gjuxp6eaaus"),
+    ("bcfbbqhelpnoshitwe2z7anje5j3wvz8hw3rxadzcp"
+     "pgghm0aec23ttfstphjegfx08hwk5uhmusa7j28yrk8cx4qj")
   };
 
   const uint32_t checksum = 1;
