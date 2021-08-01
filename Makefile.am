@@ -202,7 +202,11 @@ bench: torsion_bench.exe
 	@wine torsion_bench.exe
 endif
 
+if ENABLE_SHARED
 all-local: libtorsion.lib torsion.lib
+else
+all-local: libtorsion.lib
+endif
 
 clean-local:
 	-rm -f libtorsion.lib
