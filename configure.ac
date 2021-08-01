@@ -399,10 +399,14 @@ AS_IF([test x"$enable_tests" = x"yes"], [
 # Flags
 #
 
+AX_CHECK_COMPILE_FLAG([-Werror=unknown-warning-option],
+                      [CFLAGS="$CFLAGS -Werror=unknown-warning-option"])
 AX_CHECK_COMPILE_FLAG([-pedantic], [CFLAGS="$CFLAGS -pedantic"])
 AX_CHECK_COMPILE_FLAG([-Wall], [CFLAGS="$CFLAGS -Wall"])
 AX_CHECK_COMPILE_FLAG([-Wextra], [CFLAGS="$CFLAGS -Wextra"])
 AX_CHECK_COMPILE_FLAG([-Wcast-align], [CFLAGS="$CFLAGS -Wcast-align"])
+AX_CHECK_COMPILE_FLAG([-Wcast-align=strict],
+                      [CFLAGS="$CFLAGS -Wcast-align=strict"])
 AX_CHECK_COMPILE_FLAG([-Wno-implicit-fallthrough],
                       [CFLAGS="$CFLAGS -Wno-implicit-fallthrough"])
 AX_CHECK_COMPILE_FLAG([-Wno-overlength-strings],
