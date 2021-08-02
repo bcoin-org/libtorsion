@@ -186,6 +186,12 @@ AC_CHECK_DEFINE([__NWCC__], [
   enable_shared=no
 ])
 
+# Hack to get OpenWatcom's owcc working.
+AC_CHECK_DEFINE([__WATCOMC__], [
+  fgrep -v '#define PACKAGE_STRING' confdefs.h > confdefs.h.tmp
+  mv -f confdefs.h.tmp confdefs.h
+])
+
 # OpenWatcom-Linux can't create shared libraries.
 AC_CHECK_DEFINE([__WATCOMC__], [
   AC_CHECK_DEFINE([__LINUX__], [
@@ -413,6 +419,11 @@ AX_CHECK_COMPILE_FLAG([-Wno-overlength-strings],
                       [CFLAGS="$CFLAGS -Wno-overlength-strings"])
 AX_CHECK_COMPILE_FLAG([-Wshadow], [CFLAGS="$CFLAGS -Wshadow"])
 AX_CHECK_COMPILE_FLAG([-Wundef], [CFLAGS="$CFLAGS -Wundef"])
+
+AC_CHECK_DEFINE([__WATCOMC__], [
+  AX_CHECK_COMPILE_FLAG([-Wno-n201], [CFLAGS="$CFLAGS -Wno-n201"])
+  AX_CHECK_COMPILE_FLAG([-Wno-n202], [CFLAGS="$CFLAGS -Wno-n202"])
+])
 
 AS_IF([test x"$enable_coverage" = x"yes"], [
   CFLAGS="$CFLAGS -O0 --coverage"
