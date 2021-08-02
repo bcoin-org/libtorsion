@@ -378,6 +378,14 @@ static const unsigned long torsion__endian_check TORSION_UNUSED = 1;
 /* Requires -lsgx_pthread. We could use the
    sgx_thread API which is guaranteed to be
    available, but we don't need it. */
+#elif defined(BUILDING_NODE_EXTENSION) && (defined(__APPLE__)   \
+                                        || defined(__linux__)   \
+                                        || defined(__FreeBSD__) \
+                                        || defined(__OpenBSD__) \
+                                        || defined(__sun)       \
+                                        || defined(_AIX))
+/* node-gyp always links to pthread. */
+#  define TORSION_HAVE_PTHREAD
 #elif defined(__linux__)
 #  if defined(__GLIBC__)
 #    ifdef __GLIBC_PREREQ
