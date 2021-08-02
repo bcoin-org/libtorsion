@@ -389,6 +389,8 @@ static const unsigned long torsion__endian_check TORSION_UNUSED = 1;
 #    define TORSION_HAVE_PTHREAD
 #  elif defined(__UCLIBC__)
 /*   No support. */
+#  elif defined(__NEWLIB__)
+/*   No support. */
 #  elif defined(__dietlibc__)
 /*   No support. */
 #  else
