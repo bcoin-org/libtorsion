@@ -326,9 +326,13 @@ if(MSVC)
                                         /wd4244
                                         /wd4267
                                         /wd4334)
+elseif(BORLAND)
+# Todo.
 elseif(CMAKE_C_COMPILER_ID MATCHES "Watcom$")
   append_c_compiler_flag(torsion_cflags -wcd=201
                                         -wcd=202)
+elseif(CMAKE_C_COMPILER_ID STREQUAL "DigitalMars")
+# None.
 else()
   append_c_compiler_flag(torsion_cflags -pedantic
                                         -Wall
@@ -353,6 +357,8 @@ if(TORSION_ENABLE_DEBUG)
     append_c_compiler_flag(torsion_cflags -v)
   elseif(CMAKE_C_COMPILER_ID MATCHES "Watcom$")
     append_c_compiler_flag(torsion_cflags -d2)
+  elseif(CMAKE_C_COMPILER_ID STREQUAL "DigitalMars")
+    append_c_compiler_flag(torsion_cflags -g)
   else()
     append_c_compiler_flag(torsion_cflags -g)
   endif()
