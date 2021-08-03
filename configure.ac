@@ -413,11 +413,18 @@ AX_CHECK_COMPILE_FLAG([-Wextra], [CFLAGS="$CFLAGS -Wextra"])
 AX_CHECK_COMPILE_FLAG([-Wcast-align], [CFLAGS="$CFLAGS -Wcast-align"])
 AX_CHECK_COMPILE_FLAG([-Wcast-align=strict],
                       [CFLAGS="$CFLAGS -Wcast-align=strict"])
+AX_CHECK_COMPILE_FLAG([-Wconditional-uninitialized],
+                      [CFLAGS="$CFLAGS -Wconditional-uninitialized"])
+AX_CHECK_COMPILE_FLAG([-Wmissing-prototypes],
+                      [CFLAGS="$CFLAGS -Wmissing-prototypes"])
 AX_CHECK_COMPILE_FLAG([-Wno-implicit-fallthrough],
                       [CFLAGS="$CFLAGS -Wno-implicit-fallthrough"])
+AX_CHECK_COMPILE_FLAG([-Wno-long-long], [CFLAGS="$CFLAGS -Wno-long-long"])
 AX_CHECK_COMPILE_FLAG([-Wno-overlength-strings],
                       [CFLAGS="$CFLAGS -Wno-overlength-strings"])
 AX_CHECK_COMPILE_FLAG([-Wshadow], [CFLAGS="$CFLAGS -Wshadow"])
+AX_CHECK_COMPILE_FLAG([-Wstrict-prototypes],
+                      [CFLAGS="$CFLAGS -Wstrict-prototypes"])
 AX_CHECK_COMPILE_FLAG([-Wundef], [CFLAGS="$CFLAGS -Wundef"])
 
 AC_CHECK_DEFINE([__WATCOMC__], [

@@ -756,8 +756,10 @@ pbkdf2_derive(unsigned char *out,
 
   blocks = (len + hash_size - 1) / hash_size;
 
+#if SIZE_MAX > UINT32_MAX
   if (blocks > UINT32_MAX)
     return 0;
+#endif
 
   if (len == 0)
     return 1;
@@ -978,8 +980,10 @@ scrypt_derive(unsigned char *out,
   if (N == 0 || R == 0 || P == 0)
     return 0;
 
-  if (len + 31 < len || (len + 31) / 32 > UINT32_MAX)
+#if SIZE_MAX > UINT32_MAX
+  if (len > ((UINT64_C(1) << 32) - 1) * 32)
     return 0;
+#endif
 
   if ((uint64_t)R * (uint64_t)P >= (UINT64_C(1) << 30))
     return 0;

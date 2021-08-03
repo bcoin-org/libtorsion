@@ -5235,7 +5235,7 @@ wei_point_to_hash(const wei_t *ec,
   unsigned int flag = (subgroup & 15) << 4;
   unsigned char *u1 = bytes;
   unsigned char *u2 = bytes + fe->size;
-  unsigned int hint;
+  unsigned int hint = 0;
   wge_t p1, p2;
   drbg_t rng;
 
@@ -6360,7 +6360,7 @@ mont_point_to_hash(const mont_t *ec,
   unsigned int flag = (subgroup & 15) << 4;
   unsigned char *u1 = bytes;
   unsigned char *u2 = bytes + fe->size;
-  unsigned int hint;
+  unsigned int hint = 0;
   mge_t p1, p2;
   drbg_t rng;
 
@@ -7817,7 +7817,7 @@ edwards_point_to_hash(const edwards_t *ec,
   unsigned int flag = (subgroup & 15) << 4;
   unsigned char *u1 = bytes;
   unsigned char *u2 = bytes + fe->size;
-  unsigned int hint;
+  unsigned int hint = 0;
   xge_t p1, p2;
   drbg_t rng;
 
@@ -8108,7 +8108,7 @@ ristretto_point_to_hash(const edwards_t *ec,
   const prime_field_t *fe = &ec->fe;
   unsigned char *u1 = bytes;
   unsigned char *u2 = bytes + fe->size;
-  unsigned int hint;
+  unsigned int hint = 0;
   rge_t p1, p2;
   drbg_t rng;
 

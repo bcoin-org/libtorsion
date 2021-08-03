@@ -731,8 +731,10 @@ base58_decode(uint8_t *dst, size_t *dstlen,
   uint8_t *b256;
   uint8_t val;
 
+#if SIZE_MAX > UINT32_MAX
   if (srclen > 0xffffffff)
     return 0;
+#endif
 
   for (i = 0; i < srclen; i++) {
     if (src[i] != '1')

@@ -322,15 +322,15 @@ set(torsion_ldflags)
 set(torsion_exeflags)
 
 if(MSVC)
-  append_c_compiler_flag(torsion_cflags /wd4146
-                                        /wd4244
-                                        /wd4267
-                                        /wd4334)
+  append_c_compiler_flag(torsion_cflags /wd4146  # negation of unsigned integer
+                                        /wd4244  # implicit integer demotion
+                                        /wd4267  # implicit size_t demotion
+                                        /wd4334) # implicit 32->64 bit shift
 elseif(BORLAND)
 # Todo.
 elseif(CMAKE_C_COMPILER_ID MATCHES "Watcom$")
-  append_c_compiler_flag(torsion_cflags -wcd=201
-                                        -wcd=202)
+  append_c_compiler_flag(torsion_cflags -wcd=201  # unreachable code
+                                        -wcd=202) # unused symbol
 elseif(CMAKE_C_COMPILER_ID STREQUAL "DigitalMars")
 # None.
 else()
@@ -339,9 +339,13 @@ else()
                                         -Wextra
                                         -Wcast-align
                                         -Wcast-align=strict
+                                        -Wconditional-uninitialized
+                                        -Wmissing-prototypes
                                         -Wno-implicit-fallthrough
+                                        -Wno-long-long
                                         -Wno-overlength-strings
                                         -Wshadow
+                                        -Wstrict-prototypes
                                         -Wundef)
 endif()
 

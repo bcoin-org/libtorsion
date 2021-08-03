@@ -4001,7 +4001,8 @@ test_ies_secretbox_random(drbg_t *rng) {
   unsigned char msg[128];
   unsigned char key[32];
   unsigned char nonce[24];
-  size_t i, len, last;
+  size_t last = 0;
+  size_t i, len;
 
   drbg_generate(rng, key, 32);
   drbg_generate(rng, nonce, 24);

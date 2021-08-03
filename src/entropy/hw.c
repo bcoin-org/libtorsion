@@ -578,7 +578,7 @@ torsion_rdseed_step(step_word_t *z) {
 
 static step_word_t
 torsion_rdrand(void) {
-  step_word_t z;
+  step_word_t z = 0;
   int i;
 
   for (i = 0; i < 10; i++) {
@@ -591,7 +591,7 @@ torsion_rdrand(void) {
 
 static step_word_t
 torsion_rdseed(void) {
-  step_word_t z;
+  step_word_t z = 0;
 
   for (;;) {
     if (torsion_rdseed_step(&z))
