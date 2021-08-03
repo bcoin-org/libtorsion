@@ -247,6 +247,18 @@ pkgconfig_DATA = libtorsion.pc
 endif NATIVE
 
 #
+# Static
+#
+
+if !NATIVE
+libtorsion_a_NAME = libtorsion.a
+libtorsion_a_SOURCES = $(torsion_sources)
+libtorsion_a_CFLAGS = $(torsion_cflags) -DTORSION_BUILD
+
+lib_LIBRARIES = $(libtorsion_a_NAME)
+endif !NATIVE
+
+#
 # WASI
 #
 
@@ -263,8 +275,8 @@ torsion_ldflags = -Wl,--allow-undefined                  \
                   -Wl,--stack-first
 
 torsion_wasm_NAME = torsion.wasm
-torsion_wasm_SOURCES = $(torsion_sources)
-torsion_wasm_CFLAGS = $(torsion_cflags) -DTORSION_BUILD
+torsion_wasm_SOURCES =
+torsion_wasm_LDADD = $(libtorsion_a_OBJECTS)
 torsion_wasm_LDFLAGS = $(torsion_ldflags)   \
                        -mexec-model=reactor \
                        -Wl,--export-dynamic \
@@ -275,13 +287,13 @@ if ENABLE_TESTS
 torsion_bench_wasm_NAME = torsion_bench.wasm
 torsion_bench_wasm_SOURCES = $(bench_sources)
 torsion_bench_wasm_CFLAGS = $(torsion_cflags)
-torsion_bench_wasm_LDADD = $(torsion_wasm_OBJECTS)
+torsion_bench_wasm_LDADD = $(libtorsion_a_OBJECTS)
 torsion_bench_wasm_LDFLAGS = $(torsion_ldflags)
 
 torsion_test_wasm_NAME = torsion_test.wasm
 torsion_test_wasm_SOURCES = $(test_sources)
 torsion_test_wasm_CFLAGS = $(torsion_cflags)
-torsion_test_wasm_LDADD = $(torsion_wasm_OBJECTS)
+torsion_test_wasm_LDADD = $(libtorsion_a_OBJECTS)
 torsion_test_wasm_LDFLAGS = $(torsion_ldflags)
 
 bench: torsion_bench.wasm
@@ -318,21 +330,21 @@ torsion_ldflags = -s SINGLE_FILE=1                    \
                   -s ENVIRONMENT=$(ENVIRONMENT)
 
 torsion_js_NAME = torsion.js
-torsion_js_SOURCES = $(torsion_sources)
-torsion_js_CFLAGS = $(torsion_cflags) -DTORSION_BUILD
+torsion_js_SOURCES =
+torsion_js_LDADD = $(libtorsion_a_OBJECTS)
 torsion_js_LDFLAGS = $(torsion_ldflags) -s EXPORTED_FUNCTIONS=@etc/exports.json
 
 if ENABLE_TESTS
 torsion_bench_js_NAME = torsion_bench.js
 torsion_bench_js_SOURCES = $(bench_sources)
 torsion_bench_js_CFLAGS = $(torsion_cflags)
-torsion_bench_js_LDADD = $(torsion_js_OBJECTS)
+torsion_bench_js_LDADD = $(libtorsion_a_OBJECTS)
 torsion_bench_js_LDFLAGS = $(torsion_ldflags)
 
 torsion_test_js_NAME = torsion_test.js
 torsion_test_js_SOURCES = $(test_sources)
 torsion_test_js_CFLAGS = $(torsion_cflags)
-torsion_test_js_LDADD = $(torsion_js_OBJECTS)
+torsion_test_js_LDADD = $(libtorsion_a_OBJECTS)
 torsion_test_js_LDFLAGS = $(torsion_ldflags)
 
 bench: torsion_bench.js
