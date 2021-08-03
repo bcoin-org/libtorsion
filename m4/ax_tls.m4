@@ -25,7 +25,7 @@ AC_DEFUN([AX_TLS_CHECK_DEFINE], [
   AC_COMPILE_IFELSE([
     AC_LANG_PROGRAM([], [[
 #     ifndef $1
-#       error "not defined"
+        choke me
 #     endif
     ]])
   ], [m4_default([$2],[[:]])],
@@ -68,7 +68,7 @@ AC_DEFUN([AX_TLS], [
     AC_COMPILE_IFELSE([
       AC_LANG_PROGRAM([], [[
 #       if !defined(__xlC__) && !defined(__ibmxl__)
-#         error "not an ibm compiler"
+          choke me
 #       endif
       ]])
     ], [
@@ -89,14 +89,14 @@ AC_DEFUN([AX_TLS], [
     AC_COMPILE_IFELSE([
       AC_LANG_PROGRAM([], [[
 #       ifndef __cplusplus
-#         error "not c++"
+          choke me
 #       endif
       ]])
     ], [
       AC_COMPILE_IFELSE([
         AC_LANG_PROGRAM([], [[
 #         if !defined(__cplusplus) || (__cplusplus + 0L) < 201103L
-#           error "not c++11"
+            choke me
 #         endif
         ]])
       ], [
@@ -108,7 +108,7 @@ AC_DEFUN([AX_TLS], [
       AC_COMPILE_IFELSE([
         AC_LANG_PROGRAM([], [[
 #         if !defined(__STDC_VERSION__) || (__STDC_VERSION__ + 0L) < 201112L
-#           error "not c11"
+            choke me
 #         endif
         ]])
       ], [

@@ -137,7 +137,7 @@ AS_IF([test x"$WASI $EMSCRIPTEN" = x" "], [
   AC_COMPILE_IFELSE([
     AC_LANG_PROGRAM([], [[
 #     if !defined(__GNUC__) || __GNUC__ < 4
-#       error "not a gnu-compatible compiler"
+        choke me
 #     endif
     ]])
   ], [
@@ -163,7 +163,7 @@ AS_CASE([$host_os], [mingw*], [
 AC_COMPILE_IFELSE([
   AC_LANG_PROGRAM([], [[
 #   if defined(__xlC__) && defined(_AIX) && !defined(_THREAD_SAFE)
-#     error "not thread safe"
+      choke me
 #   endif
   ]])
 ], [], [
