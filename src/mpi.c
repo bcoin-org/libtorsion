@@ -45,8 +45,9 @@
 #include <stdlib.h>
 #include <stdint.h>
 
+#include <torsion/mpi.h>
+
 #include "internal.h"
-#include "mpi.h"
 
 /*
  * Options

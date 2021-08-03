@@ -46,6 +46,7 @@ include_HEADERS = include/torsion/aead.h     \
                   include/torsion/ies.h      \
                   include/torsion/kdf.h      \
                   include/torsion/mac.h      \
+                  include/torsion/mpi.h      \
                   include/torsion/rand.h     \
                   include/torsion/rsa.h      \
                   include/torsion/stream.h   \
@@ -84,7 +85,6 @@ noinst_HEADERS = src/asn1.h                      \
                  src/fields/secp256k1_64.h       \
                  src/fields/secp256k1.h          \
                  src/internal.h                  \
-                 src/mpi.h                       \
                  src/subgroups.h                 \
                  test/data/chacha20_vectors.h    \
                  test/data/chachapoly_vectors.h  \

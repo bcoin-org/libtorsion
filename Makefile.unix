@@ -145,9 +145,9 @@ aead.o: src/aead.c include/torsion/aead.h   \
 	$(CC) -c $(LIB_CFLAGS) src/aead.c
 
 asn1.o: src/asn1.c include/torsion/common.h \
+                   include/torsion/mpi.h    \
                    src/asn1.h               \
-                   src/internal.h           \
-                   src/mpi.h
+                   src/internal.h
 	$(CC) -c $(LIB_CFLAGS) src/asn1.c
 
 cipher.o: src/cipher.c include/torsion/cipher.h \
@@ -163,6 +163,7 @@ ecc.o: src/ecc.c include/torsion/cipher.h  \
                  include/torsion/drbg.h    \
                  include/torsion/ecc.h     \
                  include/torsion/hash.h    \
+                 include/torsion/mpi.h     \
                  include/torsion/util.h    \
                  src/asn1.h                \
                  src/fields/p192_64.h      \
@@ -185,7 +186,6 @@ ecc.o: src/ecc.c include/torsion/cipher.h  \
                  src/fields/secp256k1_64.h \
                  src/fields/secp256k1.h    \
                  src/internal.h            \
-                 src/mpi.h                 \
                  src/subgroups.h
 	$(CC) -c $(LIB_CFLAGS) src/ecc.c
 
@@ -214,10 +214,10 @@ dsa.o: src/dsa.c include/torsion/cipher.h \
                  include/torsion/drbg.h   \
                  include/torsion/dsa.h    \
                  include/torsion/hash.h   \
+                 include/torsion/mpi.h    \
                  include/torsion/util.h   \
                  src/asn1.h               \
-                 src/internal.h           \
-                 src/mpi.h
+                 src/internal.h
 	$(CC) -c $(LIB_CFLAGS) src/dsa.c
 
 hash.o: src/hash.c include/torsion/common.h \
@@ -254,8 +254,8 @@ mac.o: src/mac.c include/torsion/common.h \
 	$(CC) -c $(LIB_CFLAGS) src/mac.c
 
 mpi.o: src/mpi.c include/torsion/common.h \
-                 src/internal.h           \
-                 src/mpi.h
+                 include/torsion/mpi.h    \
+                 src/internal.h
 	$(CC) -c $(LIB_CFLAGS) src/mpi.c
 
 rand.o: src/rand.c include/torsion/common.h \
@@ -271,12 +271,12 @@ rsa.o: src/rsa.c include/torsion/cipher.h \
                  include/torsion/common.h \
                  include/torsion/drbg.h   \
                  include/torsion/hash.h   \
+                 include/torsion/mpi.h    \
                  include/torsion/rsa.h    \
                  include/torsion/util.h   \
                  src/asn1.h               \
                  src/bio.h                \
-                 src/internal.h           \
-                 src/mpi.h
+                 src/internal.h
 	$(CC) -c $(LIB_CFLAGS) src/rsa.c
 
 stream.o: src/stream.c include/torsion/common.h \

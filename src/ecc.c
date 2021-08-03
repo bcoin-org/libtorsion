@@ -156,11 +156,11 @@
 #include <torsion/drbg.h>
 #include <torsion/ecc.h>
 #include <torsion/hash.h>
+#include <torsion/mpi.h>
 #include <torsion/util.h>
 
 #include "asn1.h"
 #include "internal.h"
-#include "mpi.h"
 
 #if defined(TORSION_HAVE_INT128)
 typedef uint64_t fe_word_t;
