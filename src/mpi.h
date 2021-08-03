@@ -117,12 +117,15 @@
 #define mpn_randomm torsion__mpn_randomm
 #define mpz_init torsion__mpz_init
 #define mpz_init2 torsion__mpz_init2
+#define mpz_inits torsion__mpz_inits
 #define mpz_init_set torsion__mpz_init_set
 #define mpz_init_set_ui torsion__mpz_init_set_ui
 #define mpz_init_set_si torsion__mpz_init_set_si
 #define mpz_init_set_str torsion__mpz_init_set_str
 #define mpz_clear torsion__mpz_clear
+#define mpz_clears torsion__mpz_clears
 #define mpz_cleanse torsion__mpz_cleanse
+#define mpz_cleanses torsion__mpz_cleanses
 #define mpz_set torsion__mpz_set
 #define mpz_roset torsion__mpz_roset
 #define mpz_roinit_n torsion__mpz_roinit_n
@@ -959,6 +962,9 @@ void
 mpz_init2(mpz_ptr z, mp_bits_t bits);
 
 void
+mpz_inits(mpz_ptr z, ...);
+
+void
 mpz_init_set(mpz_ptr z, mpz_srcptr x);
 
 void
@@ -978,7 +984,13 @@ void
 mpz_clear(mpz_ptr z);
 
 void
+mpz_clears(mpz_ptr z, ...);
+
+void
 mpz_cleanse(mpz_ptr z);
+
+void
+mpz_cleanses(mpz_ptr z, ...);
 
 /*
  * Assignment

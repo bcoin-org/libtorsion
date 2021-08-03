@@ -3959,6 +3959,12 @@ test_mpz_init(mp_rng_f *rng, void *arg) {
   ASSERT(x->alloc == 10);
 
   mpz_clear(x);
+
+  mpz_inits(x, NULL);
+  mpz_clears(x, NULL);
+
+  mpz_inits(x, NULL);
+  mpz_cleanses(x, NULL);
 }
 
 static void

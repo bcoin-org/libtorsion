@@ -41,6 +41,7 @@
  */
 
 #include <limits.h>
+#include <stdarg.h>
 #include <stdlib.h>
 #include <stdint.h>
 
@@ -5040,6 +5041,21 @@ mpz_init2(mpz_ptr z, mp_bits_t bits) {
 }
 
 void
+mpz_inits(mpz_ptr z, ...) {
+  va_list ap;
+
+  va_start(ap, z);
+
+  while (z != NULL) {
+    mpz_init(z);
+
+    z = va_arg(ap, mpz_ptr);
+  }
+
+  va_end(ap);
+}
+
+void
 mpz_init_set(mpz_ptr z, mpz_srcptr x) {
   mpz_init_n(z, MP_ABS(x->size));
   mpz_set(z, x);
@@ -5080,6 +5096,21 @@ mpz_clear(mpz_ptr z) {
 } while (0)
 
 void
+mpz_clears(mpz_ptr z, ...) {
+  va_list ap;
+
+  va_start(ap, z);
+
+  while (z != NULL) {
+    mpz_clear(z);
+
+    z = va_arg(ap, mpz_ptr);
+  }
+
+  va_end(ap);
+}
+
+void
 mpz_cleanse(mpz_ptr z) {
   ASSERT(z->alloc > 0);
 
@@ -5092,6 +5123,21 @@ mpz_cleanse(mpz_ptr z) {
   mpn_cleanse((z)->limbs, (z)->alloc); \
   mp_free_vla((z)->limbs, (z)->alloc); \
 } while (0)
+
+void
+mpz_cleanses(mpz_ptr z, ...) {
+  va_list ap;
+
+  va_start(ap, z);
+
+  while (z != NULL) {
+    mpz_cleanse(z);
+
+    z = va_arg(ap, mpz_ptr);
+  }
+
+  va_end(ap);
+}
 
 /*
  * Internal
