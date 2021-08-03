@@ -17,3 +17,9 @@ fi
 aclocal --force -I m4
 autoconf --force
 automake --add-missing --copy --force-missing
+
+# Hack to get dietlibc working with autotools.
+sed -e 's/| uclibc\*)/| uclibc* | dietlibc*)/' \
+  < build-aux/config.sub > build-aux/config.sub.tmp
+mv -f build-aux/config.sub.tmp build-aux/config.sub
+chmod 0755 build-aux/config.sub
