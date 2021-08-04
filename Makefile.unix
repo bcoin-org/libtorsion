@@ -484,10 +484,10 @@ torsion_bench.exe: torsion.dll $(BENCH_OBJECTS)
 torsion_test.exe: torsion.dll $(TEST_OBJECTS)
 	$(CC) -o $@ $(MINGW_LDFLAGS) $(TEST_OBJECTS) torsion.lib $(MINGW_LIBS)
 
-bench_mingw: torsion_bench.exe
+bench-mingw: torsion_bench.exe
 	@wine torsion_bench.exe
 
-test_mingw: torsion_test.exe
+test-mingw: torsion_test.exe
 	@wine torsion_test.exe
 
 #
@@ -520,10 +520,10 @@ torsion_test.wasm: $(LIB_OBJECTS) $(TEST_OBJECTS)
 	$(CC) -o $@ $(WASI_LDFLAGS) $(LDFLAGS) $(TEST_OBJECTS) $(LIB_OBJECTS) $(LIBS)
 	@chmod 0644 $@
 
-bench_wasm: torsion_bench.wasm
+bench-wasm: torsion_bench.wasm
 	@./scripts/wasi-run torsion_bench.wasm
 
-test_wasm: torsion_test.wasm
+test-wasm: torsion_test.wasm
 	@./scripts/wasi-run torsion_test.wasm
 
 #
@@ -556,8 +556,8 @@ torsion_test.js: $(LIB_OBJECTS) $(TEST_OBJECTS)
 	$(CC) -o $@ $(EM_LDFLAGS) $(LDFLAGS) $(TEST_OBJECTS) $(LIB_OBJECTS) $(LIBS)
 	@chmod 0644 $@
 
-bench_js: torsion_bench.js
+bench-js: torsion_bench.js
 	@node torsion_bench.js
 
-test_js: torsion_test.js
+test-js: torsion_test.js
 	@node torsion_test.js
