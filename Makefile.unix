@@ -9,9 +9,10 @@ ABI_VERSION = 0:0:0
 # Options
 #
 
+PIC =
 DESTDIR =
 PREFIX = /usr/local
-INSTDIR = $(DESTDIR)$(PREFIX)
+INSTDIR = '$(DESTDIR)$(PREFIX)'
 
 INITIAL_MEMORY = 16777216
 MAX_MEMORY = 2147483648
@@ -22,11 +23,13 @@ ENVIRONMENT = node
 # Helpers
 #
 
-GLIBTOOL = $$(type glibtool > /dev/null 2>& 1 && echo glibtool || echo libtool)
+RECURSE = $(MAKE) -f Makefile.unix $(MAKEFLAGS)
 
-LIBTOOL = $(GLIBTOOL) --tag=CC --mode=link   \
-          $(CC) -shared -rpath $(PREFIX)/lib \
-                -version-info $(ABI_VERSION)
+LIBTOOL = `type glibtool > /dev/null 2>& 1 && echo glibtool || echo libtool`
+
+LDTOOL = $(LIBTOOL) --tag=CC --mode=link    \
+         $(CC) -shared -rpath $(PREFIX)/lib \
+               -version-info $(ABI_VERSION)
 
 #
 # Library
@@ -55,7 +58,7 @@ LIB_OBJECTS = aead.o     \
 LIB_CFLAGS = -I./include        \
              -DTORSION_BUILD    \
              -DTORSION_HAVE_RNG \
-             $(CPPFLAGS)        \
+             $(PIC)             \
              $(CFLAGS)
 
 #
@@ -116,6 +119,17 @@ OUTPUT = $(LIB_OBJECTS)      \
 #
 
 all: native
+
+libtool:
+	@set -e;                                                        \
+	lt=$(LIBTOOL);                                                  \
+	if $$lt --version | fgrep 'GNU libtool' > /dev/null 2>& 1; then \
+	  eval "`$$lt --config`";                                       \
+	  $(RECURSE) PIC="$$pic_flag" all libtorsion.la;                \
+	else                                                            \
+	  echo 'libtool not found!' >& 2;                               \
+	  exit 1;                                                       \
+	fi
 
 #
 # Library Objects
@@ -378,7 +392,7 @@ libtorsion.a: libtorsion.obj
 
 libtorsion.la: libtorsion.obj
 	@echo 'ld -o $@ $(LIB_OBJECTS)'
-	@$(LIBTOOL) -o $@ $(LDFLAGS) $(LIB_OBJECTS) $(LIBS) > /dev/null
+	@$(LDTOOL) -o $@ $(LDFLAGS) $(LIB_OBJECTS) $(LIBS) > /dev/null
 	@unlink .libs/$@
 	@mv -f .libs/* ./
 	@rmdir .libs
@@ -410,7 +424,7 @@ clean:
 	-rm -f $(OUTPUT)
 	-rm -rf .libs
 
-install: libtorsion.a libtorsion.pc
+install: libtorsion.a libtorsion.pc install-la
 	mkdir -p $(INSTDIR)/lib/pkgconfig
 	mkdir -p $(INSTDIR)/include/torsion
 	mkdir -p $(INSTDIR)/share/doc/libtorsion
@@ -421,6 +435,30 @@ install: libtorsion.a libtorsion.pc
 	cp -f include/torsion/*.h $(INSTDIR)/include/torsion/
 	cp -f LICENSE $(INSTDIR)/share/licenses/libtorsion/
 	cp -f README.md $(INSTDIR)/share/doc/libtorsion/
+
+install-la:
+	@set -e;                                 \
+	if test -f libtorsion.la; then           \
+	  . ./libtorsion.la;                     \
+	  name=none;                             \
+	  for lib in $$library_names; do         \
+	    if test ! -h $$lib -a -f $$lib; then \
+	      name=$$lib;                        \
+	      break;                             \
+	    fi;                                  \
+	  done;                                  \
+	  test $$name != none;                   \
+	  mkdir -p $(INSTDIR)/lib;               \
+	  cp -f $$name $(INSTDIR)/lib/;          \
+	  wd="`pwd`";                            \
+	  cd $(INSTDIR)/lib;                     \
+	  for lib in $$library_names; do         \
+	    if test -h "$$wd/$$lib"; then        \
+	      test -h $$lib && unlink $$lib;     \
+	      ln -s $$name $$lib;                \
+	    fi;                                  \
+	  done;                                  \
+	fi
 
 #
 # MinGW

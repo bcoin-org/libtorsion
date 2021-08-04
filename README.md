@@ -172,7 +172,7 @@ $ gcc -o torsion_test @torsion_test.obj libtorsion.dylib
 Or, if you have libtool installed, you can let it do the heavy lifting:
 
 ``` sh
-$ make -f Makefile.unix all libtorsion.la CFLAGS=-fPIC
+$ make -f Makefile.unix libtool
 ```
 
 ### Windows

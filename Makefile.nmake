@@ -49,7 +49,6 @@ LIB_CFLAGS = /nologo            \
              /Ob2               \
              /DTORSION_BUILD    \
              /DTORSION_HAVE_RNG \
-             $(CPPFLAGS)        \
              $(CFLAGS)
 
 LIB_ARFLAGS = /NOLOGO $(ARFLAGS)
