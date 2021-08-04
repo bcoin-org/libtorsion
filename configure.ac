@@ -568,13 +568,17 @@ AC_MSG_NOTICE([Build Options:
   rng           = $enable_rng
   tests         = $enable_tests
   time          = $has_time
-  tls           = $has_tls
+  tls           = $has_tls ($TLS_KEYWORD)
   verify        = $enable_verify
   wasi          = $WASI
   zlib          = $has_zlib
 
+  PREFIX        = $prefix
+  HOST          = $host
   CC            = $CC
   CPPFLAGS      = $CPPFLAGS
   CFLAGS        = $CFLAGS
   LDFLAGS       = $LDFLAGS
+  DEFS          = $DEFS
+  LIBS          = $LIBS
 ])

@@ -724,18 +724,40 @@ endif()
 # Output
 #
 
-string(TOUPPER "${CMAKE_BUILD_TYPE}" torsion_build_type)
+foreach(name C_FLAGS SHARED_LINKER_FLAGS EXE_LINKER_FLAGS)
+  set(flags "")
+
+  if(DEFINED CMAKE_BUILD_TYPE AND CMAKE_BUILD_TYPE)
+    string(TOUPPER "${CMAKE_BUILD_TYPE}" build_type)
+    if(DEFINED CMAKE_${name}_${build_type} AND CMAKE_${name}_${build_type})
+      set(flags "${CMAKE_${name}_${build_type}}")
+    endif()
+  endif()
+
+  if(DEFINED CMAKE_${name} AND CMAKE_${name})
+    if(flags)
+      set(flags "${flags} ${CMAKE_${name}}")
+    else()
+      set(flags "${CMAKE_${name}}")
+    endif()
+  endif()
+
+  set(TORSION_${name} "${flags}")
+endforeach()
 
 message(STATUS "Build Options:
 
-   CMAKE_BUILD_TYPE:     ${CMAKE_BUILD_TYPE}
-   CMAKE_INSTALL_PREFIX: ${CMAKE_INSTALL_PREFIX}
-   CMAKE_SYSTEM_NAME:    ${CMAKE_SYSTEM_NAME}
-   CMAKE_C_COMPILER:     ${CMAKE_C_COMPILER}
-   CMAKE_C_FLAGS:        ${CMAKE_C_FLAGS_${torsion_build_type}} ${CMAKE_C_FLAGS}
-   torsion_cflags:       ${torsion_cflags}
-   torsion_ldflags:      ${torsion_ldflags}
-   torsion_exeflags:     ${torsion_exeflags}
-   torsion_defines:      ${torsion_defines}
-   torsion_libs:         ${torsion_libs}
+   BUILD_TYPE:       ${CMAKE_BUILD_TYPE}
+   INSTALL_PREFIX:   ${CMAKE_INSTALL_PREFIX}
+   SYSTEM:           ${CMAKE_SYSTEM} (${CMAKE_SYSTEM_PROCESSOR})
+   C_COMPILER:       ${CMAKE_C_COMPILER} (${CMAKE_C_COMPILER_ID})
+   C_FLAGS:          ${TORSION_C_FLAGS}
+   SHARED_FLAGS:     ${TORSION_SHARED_LINKER_FLAGS}
+   EXE_FLAGS:        ${TORSION_EXE_LINKER_FLAGS}
+   torsion_cflags:   ${torsion_cflags}
+   torsion_ldflags:  ${torsion_ldflags}
+   torsion_exeflags: ${torsion_exeflags}
+   torsion_defines:  ${torsion_defines}
+   torsion_libs:     ${torsion_libs}
+   test_libs:        ${test_libs}
 ")
