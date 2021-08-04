@@ -12,6 +12,17 @@ includedir = $(prefix)/include/torsion
 licensedir = $(datadir)/licenses/$(PACKAGE_NAME)
 pkgconfigdir = $(libdir)/pkgconfig
 
+EXTRA_DIST = cmake/                 \
+             etc/                   \
+             scripts/               \
+             autogen.sh             \
+             CMakeLists.txt         \
+             libtorsion-cmake.pc.in \
+             Makefile.dmc           \
+             Makefile.fiat          \
+             Makefile.nmake         \
+             Makefile.unix
+
 #
 # Helpers
 #
@@ -185,6 +196,7 @@ libtorsion.lib: libtorsion.la
 	$(AM_V_CCLD)
 	@cp -f .libs/libtorsion.a $@
 
+if ENABLE_SHARED
 torsion.def: libtorsion.la
 	$(AM_V_CCLD)
 	@cp -f .libs/libtorsion.def $@
@@ -196,6 +208,7 @@ torsion.dll: libtorsion.la
 torsion.lib: torsion.def torsion.dll
 	$(AM_V_CCLD)
 	@$(DLLTOOL) -l $@ -d torsion.def -D torsion.dll
+endif
 
 if ENABLE_TESTS
 bench: torsion_bench.exe
@@ -204,15 +217,11 @@ endif
 
 if ENABLE_SHARED
 all-local: libtorsion.lib torsion.lib
+CLEANFILES = libtorsion.lib torsion.def torsion.dll torsion.lib
 else
 all-local: libtorsion.lib
+CLEANFILES = libtorsion.lib
 endif
-
-clean-local:
-	-rm -f libtorsion.lib
-	-rm -f torsion.def
-	-rm -f torsion.dll
-	-rm -f torsion.lib
 
 else !MINGW
 
