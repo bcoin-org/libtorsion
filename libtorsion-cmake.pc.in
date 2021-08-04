@@ -8,6 +8,6 @@ Version: @PROJECT_VERSION@
 Description: C crypto library.
 URL: https://github.com/bcoin-org/libtorsion
 
+Cflags: -I${includedir}
 Libs: -L${libdir} -ltorsion
 Libs.private: @PKGCONF_LIBS@
-Cflags: -I${includedir}
