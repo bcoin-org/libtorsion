@@ -51,6 +51,7 @@ option(TORSION_ENABLE_ASM "Use inline assembly if available" ON)
 option(TORSION_ENABLE_COVERAGE "Enable coverage" OFF)
 option(TORSION_ENABLE_DEBUG "Enable debug build (forces -g or /Zi)" OFF)
 option(TORSION_ENABLE_INT128 "Use __int128 if available" ON)
+option(TORSION_ENABLE_MPI "Export MPI functions" ON)
 option(TORSION_ENABLE_PIC "Enable PIC" ON)
 option(TORSION_ENABLE_PTHREAD "Use pthread if present in libc" ON)
 option(TORSION_ENABLE_RNG "Enable RNG" ON)
@@ -418,6 +419,10 @@ endif()
 
 if(TORSION_HAS_INT128)
   list(APPEND torsion_defines TORSION_HAVE_INT128)
+endif()
+
+if(TORSION_ENABLE_MPI)
+  list(APPEND torsion_defines TORSION_HAVE_MPI)
 endif()
 
 if(TORSION_HAS_PTHREAD)

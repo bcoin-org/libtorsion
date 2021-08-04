@@ -48,6 +48,7 @@ LIB_CFLAGS = /nologo            \
              /O2                \
              /Ob2               \
              /DTORSION_BUILD    \
+             /DTORSION_HAVE_MPI \
              /DTORSION_HAVE_RNG \
              $(CFLAGS)
 
@@ -258,6 +259,7 @@ bench.obj: test/bench.c include/torsion/cipher.h \
                         include/torsion/drbg.h   \
                         include/torsion/ecc.h    \
                         include/torsion/hash.h   \
+                        include/torsion/mpi.h    \
                         include/torsion/rsa.h    \
                         include/torsion/stream.h \
                         include/torsion/util.h   \
@@ -278,6 +280,7 @@ test.obj: test/test.c include/torsion/aead.h          \
                       include/torsion/ies.h           \
                       include/torsion/kdf.h           \
                       include/torsion/mac.h           \
+                      include/torsion/mpi.h           \
                       include/torsion/rand.h          \
                       include/torsion/rsa.h           \
                       include/torsion/stream.h        \

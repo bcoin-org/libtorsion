@@ -107,6 +107,7 @@ The CMake build is fairly straightforward and offers the following options:
 - `TORSION_ENABLE_COVERAGE=OFF` - Enable coverage
 - `TORSION_ENABLE_DEBUG=ON` - Enable debug build (forces -g or /Zi)
 - `TORSION_ENABLE_INT128=ON` - Use `__int128` if available
+- `TORSION_ENABLE_MPI=ON` Export MPI functions
 - `TORSION_ENABLE_PIC=ON` - Enable PIC
 - `TORSION_ENABLE_PTHREAD=ON` - Use pthread if present in libc
 - `TORSION_ENABLE_RNG=ON` - Enable RNG
@@ -301,6 +302,7 @@ Any of the following _may_ be passed as defines to the preprocessor:
 - `TORSION_HAVE_CLOCK_GETTIME` - `clock_gettime(3)` is available²³.
 - `TORSION_HAVE_FORK` - `fork(2)` and `waitpid(2)` are available²³.
 - `TORSION_HAVE_GETTIMEOFDAY` - `gettimeofday(3)` is available²³.
+- `TORSION_HAVE_MPI` - Export MPI functions.
 - `TORSION_HAVE_RNG` - libtorsion was compiled with RNG support³.
 - `TORSION_HAVE_TIME` - `time(2)` is available²³.
 - `TORSION_HAVE_ZLIB` - `<zlib.h>` is available and we are linked with `-lz`³.

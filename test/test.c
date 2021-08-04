@@ -32,6 +32,7 @@
 #include <torsion/ies.h>
 #include <torsion/kdf.h>
 #include <torsion/mac.h>
+#include <torsion/mpi.h>
 #include <torsion/rand.h>
 #include <torsion/rsa.h>
 #include <torsion/stream.h>
@@ -4436,14 +4437,9 @@ test_mac_siphash(drbg_t *unused) {
  * MPI
  */
 
-typedef void mp_rng_f(void *out, size_t size, void *arg);
-
-void
-torsion__mp_run_tests(mp_rng_f *rng, void *arg);
-
 static void
 test_mpi_internal(drbg_t *rng) {
-  torsion__mp_run_tests(drbg_rng, rng);
+  mp_run_tests(drbg_rng, rng);
 }
 
 /*

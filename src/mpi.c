@@ -853,6 +853,13 @@ typedef struct mp_divisor_s {
 } mp_divisor_t;
 
 /*
+ * Prototypes
+ */
+
+static void
+mpz_roset_n(mpz_ptr z, const mp_limb_t *xp, mp_size_t xs);
+
+/*
  * Allocation
  */
 
@@ -3087,6 +3094,61 @@ mpn_divexact(mp_limb_t *qp, const mp_limb_t *np, mp_size_t nn,
 }
 
 /*
+ * Roots
+ */
+
+mp_size_t
+mpn_sqrtrem(mp_limb_t *zp, mp_limb_t *rp, const mp_limb_t *xp, mp_size_t xn) {
+  mp_size_t sn, rn, zn;
+  mpz_t x, s, r;
+
+  if (zp == xp)
+    torsion_abort(); /* LCOV_EXCL_LINE */
+
+  if (xn == 0 || xp[xn - 1] == 0)
+    torsion_abort(); /* LCOV_EXCL_LINE */
+
+  mpz_roset_n(x, xp, xn);
+
+  mpz_init(s);
+  mpz_init(r);
+
+  mpz_sqrtrem(s, r, x);
+
+  sn = MP_ABS(s->size);
+  rn = MP_ABS(r->size);
+  zn = (xn + 1) / 2;
+
+  CHECK(sn <= zn);
+  CHECK(rn <= xn);
+
+  mpn_copyi(zp, s->limbs, sn);
+  mpn_zero(zp + sn, zn - sn);
+
+  if (rp != NULL) {
+    mpn_copyi(rp, r->limbs, rn);
+    mpn_zero(rp + rn, xn - rn);
+  }
+
+  mpz_clear(s);
+  mpz_clear(r);
+
+  return rn;
+}
+
+int
+mpn_perfect_square_p(const mp_limb_t *xp, mp_size_t xn) {
+  mpz_t x;
+
+  if (xn == 0 || xp[xn - 1] == 0)
+    torsion_abort(); /* LCOV_EXCL_LINE */
+
+  mpz_roset_n(x, xp, xn);
+
+  return mpz_perfect_square_p(x);
+}
+
+/*
  * AND
  */
 
@@ -3772,6 +3834,52 @@ mpn_gcd_1(const mp_limb_t *xp, mp_size_t xn, mp_limb_t y, mp_limb_t *scratch) {
   }
 
   return v << s;
+}
+
+mp_size_t
+mpn_gcdext(mp_limb_t *gp,
+           mp_limb_t *sp, mp_size_t *sn,
+           const mp_limb_t *xp, mp_size_t xn,
+           const mp_limb_t *yp, mp_size_t yn) {
+  mpz_t x, y, g, b;
+  mp_size_t gn, bn;
+
+  if (xn == 0)
+    torsion_abort(); /* LCOV_EXCL_LINE */
+
+  if (yn == 0 || yp[yn - 1] == 0)
+    torsion_abort(); /* LCOV_EXCL_LINE */
+
+  if (xn < yn)
+    torsion_abort(); /* LCOV_EXCL_LINE */
+
+  mpz_roset_n(x, xp, mpn_strip(xp, xn));
+  mpz_roset_n(y, yp, yn);
+
+  mpz_init(g);
+  mpz_init(b);
+
+  mpz_gcdext(g, b, NULL, x, y);
+  mpz_rem(b, b, y);
+
+  gn = MP_ABS(g->size);
+  bn = MP_ABS(b->size);
+
+  CHECK(gn <= yn);
+  CHECK(bn <= yn + 1);
+
+  mpn_copyi(gp, g->limbs, gn);
+  mpn_zero(gp + gn, yn - gn);
+
+  mpn_copyi(sp, b->limbs, bn);
+  mpn_zero(sp + bn, yn + 1 - bn);
+
+  *sn = b->size;
+
+  mpz_clear(g);
+  mpz_clear(b);
+
+  return gn;
 }
 
 int
@@ -9065,14 +9173,6 @@ mpz_urandomm(mpz_ptr z, mpz_srcptr x, mp_rng_f *rng, void *arg) {
 #else
 void
 mp_run_tests(mp_rng_f *rng, void *arg) {
-  (void)rng;
-  (void)arg;
-}
-
-void
-mp_run_bench(mp_start_f *start, mp_end_f *end, mp_rng_f *rng, void *arg) {
-  (void)start;
-  (void)end;
   (void)rng;
   (void)arg;
 }

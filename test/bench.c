@@ -12,6 +12,7 @@
 #include <torsion/drbg.h>
 #include <torsion/ecc.h>
 #include <torsion/hash.h>
+#include <torsion/mpi.h>
 #include <torsion/rsa.h>
 #include <torsion/stream.h>
 #include <torsion/util.h>
@@ -325,16 +326,36 @@ bench_eddsa_derive(drbg_t *rng) {
   edwards_curve_destroy(ec);
 }
 
-void
-torsion__mp_run_bench(void (*start)(bench_t *, const char *),
-                      void (*end)(bench_t *, uint64_t),
-                      void (*rng)(void *, size_t, void *),
-                      void *arg);
-
+#ifdef TORSION_HAVE_MPI
+#define MP_K256_LIMBS ((256 + MP_LIMB_BITS - 1) / MP_LIMB_BITS)
 static void
-bench_mpi_internal(drbg_t *rng) {
-  torsion__mp_run_bench(bench_start, bench_end, drbg_rng, rng);
+bench_mpn_invert(drbg_t *rng) {
+  mp_limb_t scratch[MPN_INVERT_ITCH(MP_K256_LIMBS)];
+  mp_limb_t xp[MP_K256_LIMBS * 2];
+  mp_limb_t zp[MP_K256_LIMBS];
+  mp_limb_t mp[MP_K256_LIMBS];
+  mp_size_t mn = MP_K256_LIMBS;
+  bench_t tv;
+  int i;
+
+  /* m = 2^256 - 2^32 - 977 */
+  ASSERT(mpn_set_str(mp, mn, "ffffffffffffffffffffffffffffffff"
+                             "fffffffffffffffffffffffefffffc2f", 16));
+
+  do {
+    mpn_random(xp, mn * 2, drbg_rng, rng);
+    mpn_mod(xp, xp, mn * 2, mp, mn);
+  } while (mpn_zero_p(xp, mn));
+
+  bench_start(&tv, "mpn_invert");
+
+  for (i = 0; i < 100000; i++)
+    ASSERT(mpn_invert_n(zp, xp, mp, mn, scratch) == 1);
+
+  bench_end(&tv, i);
 }
+#undef MP_K256_LIMBS
+#endif /* TORSION_HAVE_MPI */
 
 static void
 bench_rsa_generate(drbg_t *rng) {
@@ -739,7 +760,9 @@ static const struct {
   B(eddsa_sign),
   B(eddsa_verify),
   B(eddsa_derive),
-  B(mpi_internal),
+#ifdef TORSION_HAVE_MPI
+  B(mpn_invert),
+#endif
   B(rsa_generate),
   B(rsa_sign),
   B(rsa_verify),

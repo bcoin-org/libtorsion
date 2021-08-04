@@ -90,6 +90,14 @@ AC_ARG_ENABLE(
 )
 
 AC_ARG_ENABLE(
+  mpi,
+  AS_HELP_STRING([--enable-mpi],
+                 [export mpi functions [default=yes]]),
+  [enable_mpi=$enableval],
+  [enable_mpi=yes]
+)
+
+AC_ARG_ENABLE(
   pthread,
   AS_HELP_STRING([--enable-pthread],
                  [use pthread if present in libc [default=yes]]),
@@ -489,6 +497,10 @@ AS_IF([test x"$has_int128" = x"yes"], [
   AC_DEFINE([TORSION_HAVE_INT128])
 ])
 
+AS_IF([test x"$enable_mpi" = x"yes"], [
+  AC_DEFINE([TORSION_HAVE_MPI])
+])
+
 AS_IF([test x"$has_pthread" = x"yes"], [
   AC_DEFINE([TORSION_HAVE_PTHREAD])
 ])
@@ -564,6 +576,7 @@ AC_MSG_NOTICE([Build Options:
   gettimeofday  = $has_gettimeofday
   int128        = $has_int128
   memcheck      = $has_memcheck
+  mpi           = $enable_mpi
   pthread       = $has_pthread
   rng           = $enable_rng
   tests         = $enable_tests
