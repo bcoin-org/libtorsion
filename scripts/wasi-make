@@ -10,6 +10,10 @@ elif test -d /opt/wasi-sdk; then
   WASI=/opt/wasi-sdk
 elif test -d /opt/local/wasi-sdk; then
   WASI=/opt/local/wasi-sdk
+elif test -d /usr/lib/wasi-sdk; then
+  WASI=/usr/lib/wasi-sdk
+elif test -d /usr/local/lib/wasi-sdk; then
+  WASI=/usr/local/lib/wasi-sdk
 else
   echo 'WASI SDK not found!' >& 2
   exit 1

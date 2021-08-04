@@ -35,7 +35,9 @@ test -x "$CONFIGURE"
 
 shift
 
-mkdir -p "$PREFIX"
+if ! test -d $PREFIX; then
+  mkdir "$PREFIX"
+fi
 
 exec "$CONFIGURE" --prefix="$PREFIX"                    \
                   --exec-prefix="$PREFIX"               \

@@ -8,15 +8,15 @@ set -e
 
 DIR=`dirname "$0"`
 
-if test -n "$NODEJS"; then
-  true
-elif type nodejs > /dev/null 2>& 1; then
-  NODEJS=nodejs
-elif type node > /dev/null 2>& 1; then
-  NODEJS=node
-else
-  echo 'Node.js not found!' >& 2
-  exit 1
+if test -z "$NODEJS"; then
+  if type nodejs > /dev/null 2>& 1; then
+    NODEJS=nodejs
+  elif type node > /dev/null 2>& 1; then
+    NODEJS=node
+  else
+    echo 'Node.js not found!' >& 2
+    exit 1
+  fi
 fi
 
 FLAGS='--no-warnings'

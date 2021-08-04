@@ -15,6 +15,10 @@ elif test -d /opt/wasi-sdk; then
   WASI=/opt/wasi-sdk
 elif test -d /opt/local/wasi-sdk; then
   WASI=/opt/local/wasi-sdk
+elif test -d /usr/lib/wasi-sdk; then
+  WASI=/usr/lib/wasi-sdk
+elif test -d /usr/local/lib/wasi-sdk; then
+  WASI=/usr/local/lib/wasi-sdk
 else
   echo 'WASI SDK not found!' >& 2
   exit 1
@@ -42,7 +46,9 @@ test -x "$CONFIGURE"
 
 shift
 
-mkdir -p "$PREFIX"
+if ! test -d $PREFIX; then
+  mkdir "$PREFIX"
+fi
 
 BUILDDIR=.
 
@@ -51,9 +57,9 @@ if test -d ./build-aux; then
 fi
 
 if test -f $BUILDDIR/config.sub; then
-  if ! grep -F -q 'wasi' $BUILDDIR/config.sub; then
-    cp -f "$WASI/share/misc/config.guess" $BUILDDIR/config.guess
-    cp -f "$WASI/share/misc/config.sub" $BUILDDIR/config.sub
+  if ! fgrep 'wasi' $BUILDDIR/config.sub > /dev/null 2>& 1; then
+    cp "$WASI/share/misc/config.guess" $BUILDDIR/config.guess
+    cp "$WASI/share/misc/config.sub" $BUILDDIR/config.sub
   fi
 fi
 
