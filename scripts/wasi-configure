@@ -9,7 +9,7 @@
 
 set -e
 
-if test -n "$WASI"; then
+if test x"$WASI" != x; then
   WASI=`cd "$WASI" && pwd`
 elif test -d /opt/wasi-sdk; then
   WASI=/opt/wasi-sdk

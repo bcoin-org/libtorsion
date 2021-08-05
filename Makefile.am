@@ -16,6 +16,7 @@ EXTRA_DIST = cmake/                 \
              etc/                   \
              scripts/               \
              autogen.sh             \
+             CHANGELOG.md           \
              CMakeLists.txt         \
              libtorsion-cmake.pc.in \
              Makefile.dmc           \

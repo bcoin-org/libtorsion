@@ -20,7 +20,7 @@ AC_LANG_ASSERT([C])
 AX_CHECK_CPP([__PCC__], [cross_compiling=yes])
 AC_PROG_CC
 
-AM_INIT_AUTOMAKE([1.11 foreign subdir-objects tar-v7])
+AM_INIT_AUTOMAKE([1.11 foreign subdir-objects tar-v7 dist-zip])
 AM_PROG_CC_C_O
 AM_SILENT_RULES([yes])
 
