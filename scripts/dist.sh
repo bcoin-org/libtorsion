@@ -206,7 +206,7 @@ dist_sha256() {
 
   if test x"$global_force" != x'yes'; then
     if test -f sha256sums.txt; then
-      if cat sha256sums.txt | fgrep "$1" > /dev/null 2>& 1; then
+      if fgrep "$1" sha256sums.txt > /dev/null 2>& 1; then
         dist_echo "  SKIP sha256sums.txt" >& 2
         return 0
       fi

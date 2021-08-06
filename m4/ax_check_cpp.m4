@@ -20,8 +20,8 @@ AC_DEFUN([AX_CHECK_CPP], [
 
   AC_CACHE_VAL([ax_cv_check_cpp_cc_e], [
     ax_cv_check_cpp_cc_e=no
-    AS_IF([echo foobar1337 | $ax_cv_check_cpp_cc -E - 2> /dev/null | grep foobar1337 > /dev/null 2>& 1], [
-      AS_IF([! echo __LINE__ | $ax_cv_check_cpp_cc -E - 2> /dev/null | grep __LINE__ > /dev/null 2>& 1], [
+    AS_IF([echo foobar1337 | $ax_cv_check_cpp_cc -E - 2> /dev/null | fgrep foobar1337 > /dev/null 2>& 1], [
+      AS_IF([! echo __LINE__ | $ax_cv_check_cpp_cc -E - 2> /dev/null | fgrep __LINE__ > /dev/null 2>& 1], [
         ax_cv_check_cpp_cc_e=yes
       ])
     ])
@@ -30,7 +30,7 @@ AC_DEFUN([AX_CHECK_CPP], [
   ax_check_cpp_has=no
 
   AS_IF([test x"$ax_cv_check_cpp_cc_e" = x"yes"], [
-    AS_IF([! echo $1 | $ax_cv_check_cpp_cc -E - 2> /dev/null | grep $1 > /dev/null 2>& 1], [
+    AS_IF([! echo $1 | $ax_cv_check_cpp_cc -E - 2> /dev/null | fgrep $1 > /dev/null 2>& 1], [
       ax_check_cpp_has=yes
     ])
   ])
