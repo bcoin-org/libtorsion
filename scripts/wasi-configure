@@ -42,11 +42,9 @@ export ARFLAGS='cr'
 
 CONFIGURE="$1"
 
-test -x "$CONFIGURE"
-
 shift
 
-if ! test -d $PREFIX; then
+if ! test -d "$PREFIX"; then
   mkdir "$PREFIX"
 fi
 

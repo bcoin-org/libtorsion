@@ -12,8 +12,6 @@ export CXX=owcc
 
 CONFIGURE="$1"
 
-test -x "$CONFIGURE"
-
 shift
 
 exec "$CONFIGURE" --disable-shared "$@"
