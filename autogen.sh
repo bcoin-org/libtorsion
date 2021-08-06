@@ -4,19 +4,36 @@
 # Copyright (c) 2020, Christopher Jeffrey (MIT License).
 # https://github.com/bcoin-org/libtorsion
 
-set -ex
+# A poor man's `autoreconf -if -Wall`.
+set -e
 
-cd `dirname "$0"`
-
-if type glibtoolize > /dev/null 2>& 1; then
-  glibtoolize --copy --force
-else
-  libtoolize --copy --force
+if ! test -f configure.ac; then
+  echo 'configure.ac not found.' >& 2
+  exit 1
 fi
 
-aclocal --force -I m4
-autoconf --force
-automake --add-missing --copy --force-missing
+ACLOCAL=${ACLOCAL:-aclocal}
+AUTOCONF=${AUTOCONF:-autoconf}
+AUTOMAKE=${AUTOMAKE:-automake}
+
+if type glibtoolize > /dev/null 2>& 1; then
+  LIBTOOLIZE=${LIBTOOLIZE:-glibtoolize}
+else
+  LIBTOOLIZE=${LIBTOOLIZE:-libtoolize}
+fi
+
+export WARNINGS=all
+
+"$ACLOCAL" --force -I m4
+
+if ! test -d build-aux; then
+  mkdir build-aux
+fi
+
+"$LIBTOOLIZE" --copy --force
+"$ACLOCAL" --force -I m4
+"$AUTOCONF" --force
+"$AUTOMAKE" --add-missing --copy --force-missing
 
 # Hack to get dietlibc working with autotools.
 sed -e 's/| uclibc\*)$/| uclibc* | dietlibc*)/' \
