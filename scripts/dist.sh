@@ -297,7 +297,7 @@ read_changelog() {
 
   gunzip -c "${log_name}.tar.gz" > "${log_name}.tar"
 
-  log_file=`tar tf "${log_name}.tar" | fgrep "/$log_file" || true`
+  log_file=`tar tf "${log_name}.tar" | fgrep "/$log_file" | sed 1q || true`
 
   if test x"$log_file" = x; then
     rm -f "${log_name}.tar"
