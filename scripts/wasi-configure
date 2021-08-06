@@ -55,7 +55,7 @@ if test -d ./build-aux; then
 fi
 
 if test -f $BUILDDIR/config.sub; then
-  if ! fgrep 'wasi' $BUILDDIR/config.sub > /dev/null 2>& 1; then
+  if ! grep 'wasi' $BUILDDIR/config.sub > /dev/null; then
     cp "$WASI/share/misc/config.guess" $BUILDDIR/config.guess
     cp "$WASI/share/misc/config.sub" $BUILDDIR/config.sub
   fi

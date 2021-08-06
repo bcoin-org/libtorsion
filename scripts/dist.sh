@@ -297,7 +297,7 @@ read_changelog() {
 
   gunzip -c "${log_name}.tar.gz" > "${log_name}.tar"
 
-  log_file=`tar tf "${log_name}.tar" | fgrep "/$log_file" | sed 1q || true`
+  log_file=`tar tf "${log_name}.tar" | grep '/CHANGELOG\.md$' | sed 1q || true`
 
   if test x"$log_file" = x; then
     rm -f "${log_name}.tar"
@@ -323,7 +323,7 @@ read_changelog() {
         log_state=2
       ;;
       2)
-        if echo x"$log_line" | grep '^x## v[0-9]' > /dev/null 2>& 1; then
+        if echo x"$log_line" | grep '^x## v[0-9]' > /dev/null; then
           break
         fi
         echo x"$log_line" | sed -e 's/^x//'

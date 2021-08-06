@@ -122,14 +122,14 @@ OUTPUT = $(LIB_OBJECTS)      \
 all: native
 
 libtool:
-	@set -e;                                                                     \
-	lt=$(LIBTOOL);                                                               \
-	if $$lt --version 2> /dev/null | fgrep 'GNU libtool' > /dev/null 2>& 1; then \
-	  eval "`$$lt --config`";                                                    \
-	  $(RECURSE) PIC="$$pic_flag" all libtorsion.la;                             \
-	else                                                                         \
-	  echo 'libtool not found!' >& 2;                                            \
-	  exit 1;                                                                    \
+	@set -e;                                                              \
+	lt=$(LIBTOOL);                                                        \
+	if $$lt --version 2> /dev/null | grep 'GNU libtool' > /dev/null; then \
+	  eval "`$$lt --config`";                                             \
+	  $(RECURSE) PIC="$$pic_flag" all libtorsion.la;                      \
+	else                                                                  \
+	  echo 'libtool not found!' >& 2;                                     \
+	  exit 1;                                                             \
 	fi
 
 #

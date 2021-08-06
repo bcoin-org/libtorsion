@@ -197,7 +197,7 @@ AC_CHECK_DEFINE([__NWCC__], [
 
 # Hack to get OpenWatcom's owcc working.
 AC_CHECK_DEFINE([__WATCOMC__], [
-  fgrep -v '#define PACKAGE_STRING' confdefs.h > confdefs.h.tmp
+  grep -v '#define PACKAGE_STRING' confdefs.h > confdefs.h.tmp
   mv -f confdefs.h.tmp confdefs.h
 ])
 
