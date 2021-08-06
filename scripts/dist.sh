@@ -624,7 +624,12 @@ main() {
     publish)
       if test x"$main_token" = x; then
         dist_echo 'GitHub Token: ' | tr -d '\n'
-        IFS= read -r main_token
+        if test x"$BASH_VERSION$ZSH_VERSION" != x; then
+          IFS= read -rs main_token
+          dist_echo ''
+        else
+          IFS= read -r main_token
+        fi
       fi
 
       if test x"$main_token" = x; then
