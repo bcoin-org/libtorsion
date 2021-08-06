@@ -288,7 +288,15 @@ else()
 endif()
 
 if(TORSION_ENABLE_TLS)
-  check_c_thread_local_storage(TORSION_TLS_KEYWORD TORSION_TLS_FLAG)
+  check_c_thread_local_storage(TORSION_TLS_KEYWORD
+                               TORSION_TLS_FLAG
+                               TORSION_TLS_EMULATED)
+
+  # Prefer pthread stubs over emulated TLS.
+  if(TORSION_TLS_EMULATED AND TORSION_HAS_PTHREAD)
+    set(TORSION_TLS_KEYWORD "")
+    set(TORSION_TLS_FLAG "")
+  endif()
 else()
   set(TORSION_TLS_KEYWORD)
   set(TORSION_TLS_FLAG)

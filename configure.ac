@@ -219,6 +219,7 @@ AC_CHECK_DEFINE([__dietlibc__], [
 
 has_asm=no
 has_clock_gettime=no
+has_emutls=no
 has_fork=no
 has_gettimeofday=no
 has_int128=no
@@ -398,6 +399,7 @@ AS_IF([test x"$enable_tests" = x"yes"], [
 
 AS_IF([test x"$enable_tls" = x"yes"], [
   AX_TLS([has_tls=yes], [has_tls=no])
+  AS_IF([test x"$ax_cv_tls_emulated$has_pthread" = x"yesyes"], [has_tls=no])
 ])
 
 AS_IF([test x"$enable_tests" = x"yes"], [
@@ -450,7 +452,7 @@ AS_IF([test x"$enable_debug" = x"yes"], [
 ])
 
 AS_IF([test x"$has_tls" = x"yes"], [
-  CFLAGS="$CFLAGS $TLS_CFLAGS"
+  CFLAGS="$CFLAGS $ax_cv_tls_cflags"
 ])
 
 AS_CASE([$host_os], [mingw*], [
@@ -514,7 +516,7 @@ AS_IF([test x"$has_time" = x"yes"], [
 ])
 
 AS_IF([test x"$has_tls" = x"yes"], [
-  AC_DEFINE_UNQUOTED([TORSION_TLS], [$TLS_KEYWORD])
+  AC_DEFINE_UNQUOTED([TORSION_TLS], [$ax_cv_tls_keyword])
 ])
 
 AS_IF([test x"$enable_verify" = x"yes"], [
@@ -581,7 +583,7 @@ AC_MSG_NOTICE([Build Options:
   rng           = $enable_rng
   tests         = $enable_tests
   time          = $has_time
-  tls           = $has_tls ($TLS_KEYWORD)
+  tls           = $has_tls
   verify        = $enable_verify
   wasi          = $WASI
   zlib          = $has_zlib

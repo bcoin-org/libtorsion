@@ -8,128 +8,88 @@
 #
 # DESCRIPTION
 #
-#   TODO
-
-AC_DEFUN([AX_TLS_CHECK_COMPILE_FLAG], [
-  ax_tls_has_flag=no
-  ax_tls_backup_CFLAGS="$CFLAGS"
-  CFLAGS="$CFLAGS $1"
-  AC_COMPILE_IFELSE([AC_LANG_PROGRAM()], [ax_tls_has_flag=yes])
-  CFLAGS="$ax_tls_backup_CFLAGS"
-  AS_IF([test x"$ax_tls_has_flag" = x"yes"],
-        [m4_default([$2],[[:]])],
-        [m4_default([$3],[[:]])])
-])
-
-AC_DEFUN([AX_TLS_CHECK_DEFINE], [
-  AC_COMPILE_IFELSE([
-    AC_LANG_PROGRAM([], [[
-#     ifndef $1
-        choke me
-#     endif
-    ]])
-  ], [m4_default([$2],[[:]])],
-     [m4_default([$3],[[:]])])
-])
-
-AC_DEFUN([AX_TLS_RUN_IFELSE], [
-  AS_IF([test x"$cross_compiling" != x"no"],
-        [AC_LINK_IFELSE([$1], [m4_default([$2],[[:]])],
-                              [m4_default([$3],[[:]])])],
-        [AC_RUN_IFELSE([$1], [m4_default([$2],[[:]])],
-                             [m4_default([$3],[[:]])],
-                             [:])])
-])
+#   Check for thread-local storage support and keyword.
+#
+#   Also checks for necessary flags and whether TLS is
+#   emulated by the compiler / support libraries.
 
 AC_DEFUN([AX_TLS], [
-  AC_MSG_CHECKING([for thread-local storage support])
-
-  ax_tls_check=no
-
-  AC_CACHE_VAL([ax_cv_tls_keyword], [ax_tls_check=yes])
-  AC_CACHE_VAL([ax_cv_tls_cflags], [ax_tls_check=yes])
-
-  AS_IF([test x"$ax_tls_check" = x"yes"], [
-    ax_tls_save_CFLAGS="$CFLAGS"
-    ax_cv_tls_keyword=none
-    ax_cv_tls_cflags=none
-    ax_tls_oflag="-O0"
-    ax_tls_cflag=
-
-    # Try to deoptimize.
-    AX_TLS_CHECK_DEFINE([__xlC__], [ax_tls_oflag="-qoptimize=0"])
-    AX_TLS_CHECK_DEFINE([__SUNPRO_C], [ax_tls_oflag="-xO1"])
-    AX_TLS_CHECK_DEFINE([__SUNPRO_CC], [ax_tls_oflag="-xO1"])
-    AX_TLS_CHECK_DEFINE([__HP_cc], [ax_tls_oflag="+O0"])
-    AX_TLS_CHECK_DEFINE([__HP_aCC], [ax_tls_oflag="+O0"])
-    AX_TLS_CHECK_COMPILE_FLAG([$ax_tls_oflag], [CFLAGS="$CFLAGS $ax_tls_oflag"])
+  AC_CACHE_CHECK([for thread-local storage flags], [ax_cv_tls_cflags], [
+    ax_cv_tls_cflags=""
 
     # XL requires a special flag. Don't ask me why.
     AC_COMPILE_IFELSE([
-      AC_LANG_PROGRAM([], [[
+      AC_LANG_PROGRAM([[]], [[
 #       if !defined(__xlC__) && !defined(__ibmxl__)
           choke me
 #       endif
       ]])
     ], [
-      AX_TLS_CHECK_COMPILE_FLAG([-qtls], [
-        ax_tls_cflag="-qtls"
-        CFLAGS="$CFLAGS -qtls"
-      ])
+      ax_tls_save_CFLAGS="$CFLAGS"
+      CFLAGS="$CFLAGS -qtls"
+      AC_COMPILE_IFELSE([AC_LANG_PROGRAM()],
+                        [ax_cv_tls_cflags="-qtls"])
+      CFLAGS="$ax_tls_save_CFLAGS"
     ])
+  ])
 
-    # Various TLS keywords. We prepend or append
-    # _Thread_local depending on the C standard.
-    # The last keyword, __declspec(__thread), is
-    # not widely known, but there is evidence
-    # that Compaq C for Tru64 UNIX supported it
-    # at one point.
+  AC_CACHE_CHECK([for thread-local storage keyword], [ax_cv_tls_keyword], [
+    ax_cv_tls_keyword=none
+
+    # Append XL -qtls flag if present.
+    ax_tls_save_CFLAGS="$CFLAGS"
+    CFLAGS="$CFLAGS $ax_cv_tls_cflags"
+
+    # Various TLS keywords.
+    #
+    # The last keyword is not widely known, but there is evidence
+    # that Compaq C for Tru64 UNIX supported it at one point.
     ax_tls_keywords="__thread __declspec(thread) __declspec(__thread)"
 
+    # Prepend or append _Thread_local according to the C standard.
     AC_COMPILE_IFELSE([
-      AC_LANG_PROGRAM([], [[
+      AC_LANG_PROGRAM([[]], [[
 #       ifndef __cplusplus
           choke me
 #       endif
       ]])
     ], [
       AC_COMPILE_IFELSE([
-        AC_LANG_PROGRAM([], [[
+        AC_LANG_PROGRAM([[]], [[
 #         if !defined(__cplusplus) || (__cplusplus + 0L) < 201103L
             choke me
 #         endif
         ]])
-      ], [
-        ax_tls_keywords="thread_local $ax_tls_keywords"
-      ], [
-        ax_tls_keywords="$ax_tls_keywords thread_local"
-      ])
+      ], [ax_tls_keywords="thread_local $ax_tls_keywords"],
+         [ax_tls_keywords="$ax_tls_keywords thread_local"])
     ], [
       AC_COMPILE_IFELSE([
-        AC_LANG_PROGRAM([], [[
+        AC_LANG_PROGRAM([[]], [[
 #         if !defined(__STDC_VERSION__) || (__STDC_VERSION__ + 0L) < 201112L
             choke me
 #         endif
         ]])
-      ], [
-        ax_tls_keywords="_Thread_local $ax_tls_keywords"
-      ], [
-        ax_tls_keywords="$ax_tls_keywords _Thread_local"
-      ])
+      ], [ax_tls_keywords="_Thread_local $ax_tls_keywords"],
+         [ax_tls_keywords="$ax_tls_keywords _Thread_local"])
     ])
 
+    # We try to run the executable when not cross compiling. There
+    # are far too many instances of TLS code successfully building
+    # but not running.
     for ax_tls_keyword in $ax_tls_keywords; do
-      AX_TLS_RUN_IFELSE([
-        AC_LANG_SOURCE([[
-          static $ax_tls_keyword int x;
-          int main(void) {
-            x = 1;
-            return !x;
-          }
-        ]])
-      ], [
+      ax_tls_found=no
+
+      # The thread-local variable must have external linkage otherwise
+      # the optimizer may remove the TLS code. GCC and Clang refuse to
+      # optimize the below code (even with -O3 enabled).
+      ax_tls_c="$ax_tls_keyword int x; int main(void) { x = 1; return !x; }"
+
+      AC_RUN_IFELSE([AC_LANG_SOURCE([[$ax_tls_c]])], [ax_tls_found=yes], [], [
+        AC_LINK_IFELSE([AC_LANG_SOURCE([[$ax_tls_c]])], [ax_tls_found=yes])
+      ])
+
+      AS_IF([test x"$ax_tls_found" = x"yes"], [
         ax_cv_tls_keyword="$ax_tls_keyword"
-        ax_cv_tls_cflags="$ax_tls_cflag"
         break
       ])
     done
@@ -137,20 +97,42 @@ AC_DEFUN([AX_TLS], [
     CFLAGS="$ax_tls_save_CFLAGS"
   ])
 
-  AS_IF([test x"$ax_cv_tls_keyword" != x"none"], [
-    TLS_KEYWORD="$ax_cv_tls_keyword"
-    TLS_CFLAGS="$ax_cv_tls_cflags"
-  ], [
-    TLS_KEYWORD=""
-    TLS_CFLAGS=""
+  AC_CACHE_CHECK([for thread-local storage emulation], [ax_cv_tls_emulated], [
+    ax_cv_tls_emulated=no
+
+    # See above for code rationale.
+    echo "$ax_cv_tls_keyword int x;" > conftest.c
+    echo "int main(void) { x = 1; return !x; }" >> conftest.c
+
+    AS_IF([${CC-cc} -S -o conftest.s conftest.c $ax_cv_tls_cflags > /dev/null 2>& 1], [
+      # There is evidence that some non-GNU platforms also do TLS
+      # emulation. It's possible this includes 32-bit AIX, but I
+      # cannot confirm this.
+      #
+      # TODO: Find other platforms with emulated TLS and figure
+      #       out how to detect it.
+      AS_IF([grep __emutls_get_address conftest.s > /dev/null 2>& 1],
+            [ax_cv_tls_emulated=yes])
+    ])
+
+    rm -f conftest.c
+    rm -f conftest.s
   ])
 
-  AC_SUBST([TLS_KEYWORD])
-  AC_SUBST([TLS_CFLAGS])
+  # Define symbols a la the more widely used ax_tls.m4.
+  AS_IF([test x"$ax_cv_tls_keyword" != x"none"], [
+    AC_DEFINE_UNQUOTED([TLS], [$ax_cv_tls_keyword], [Define TLS keyword])
 
-  AC_MSG_RESULT([$ax_cv_tls_keyword])
+    AS_IF([test x"$ax_cv_tls_emulated" = x"yes"], [
+      AC_DEFINE([TLS_EMULATED], [1], [Define if TLS is emulated])
+    ])
 
-  AS_IF([test x"$ax_cv_tls_keyword" != x"none"],
-        [m4_default([$1],[[:]])],
-        [m4_default([$2],[[:]])])
+    AC_SUBST([TLS_CFLAGS], ["$ax_cv_tls_cflags"])
+
+    $1
+  ], [
+    AC_SUBST([TLS_CFLAGS], [""])
+
+    $2
+  ])
 ])
