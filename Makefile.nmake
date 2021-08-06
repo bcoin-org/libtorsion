@@ -151,8 +151,8 @@ encoding.obj: src/encoding.c include/torsion/common.h   \
                              src/internal.h
 	$(CC) /c $(LIB_CFLAGS) src/encoding.c
 
-hw.obj: src/entropy/hw.c src/entropy/entropy.h \
-                         src/internal.h
+hw.obj: src/entropy/hw.c src/entropy/entropy.h     \
+                         src/entropy/../internal.h
 	$(CC) /c $(LIB_CFLAGS) src/entropy/hw.c
 
 sys.obj: src/entropy/sys.c src/entropy/entropy.h

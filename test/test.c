@@ -32,9 +32,7 @@
 #include <torsion/ies.h>
 #include <torsion/kdf.h>
 #include <torsion/mac.h>
-#ifdef TORSION_HAVE_RNG
 #include <torsion/rand.h>
-#endif
 #include <torsion/rsa.h>
 #include <torsion/stream.h>
 #include <torsion/util.h>

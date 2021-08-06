@@ -194,8 +194,8 @@ encoding.o: src/encoding.c include/torsion/common.h   \
                            src/internal.h
 	$(CC) -c $(LIB_CFLAGS) src/encoding.c
 
-hw.o: src/entropy/hw.c src/entropy/entropy.h \
-                       src/internal.h
+hw.o: src/entropy/hw.c src/entropy/entropy.h     \
+                       src/entropy/../internal.h
 	$(CC) -c $(LIB_CFLAGS) src/entropy/hw.c
 
 sys.o: src/entropy/sys.c src/entropy/entropy.h
