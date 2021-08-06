@@ -182,7 +182,7 @@ dist_sign() {
 
   rm -f "$sign_asc"
 
-  if type gpg > /dev/null 2>& 1; then
+  if gpg --version > /dev/null 2>& 1; then
     # `ps ax` was the idiom on unix v7. Here's to
     # hoping the OS has respect for the old school.
     case "`ps ax`" in
@@ -215,10 +215,10 @@ dist_sha256() {
 
   rm -f sha256sums.txt
 
-  if type sha256sum > /dev/null 2>& 1; then
+  if echo x | sha256sum > /dev/null 2>& 1; then
     sha256sum "$@" > sha256sums.txt
     dist_echo "  HASH sha256sums.txt" >& 2
-  elif type sha256 > /dev/null 2>& 1; then
+  elif echo x | sha256 > /dev/null 2>& 1; then
     sha256 "$@" > sha256sums.txt
     dist_echo "  HASH sha256sums.txt" >& 2
   else
@@ -462,14 +462,18 @@ main() {
       ;;
       --publish|-p)
         main_action=publish
-        main_deps="$main_deps gpg gpg-agent curl jq gunzip"
+        main_deps="$main_deps gpg gpg-agent curl jq"
 
-        if type sha256sum > /dev/null 2>& 1; then
-          main_deps="$main_deps sha256sum"
-        elif type sha256 > /dev/null 2>& 1; then
-          main_deps="$main_deps sha256"
+        if echo x | sha256sum > /dev/null 2>& 1; then
+          : # GNU / BusyBox
+        elif echo x | sha256 > /dev/null 2>& 1; then
+          : # BSD
         else
-          main_deps="$main_deps sha256sum"
+          dist_error "sha256sum must be installed in order to publish."
+        fi
+
+        if ! echo x | gzip -c | gunzip -c > /dev/null 2>& 1; then
+          dist_error "gzip must be installed in order to publish."
         fi
       ;;
       --log|-l)
@@ -484,7 +488,7 @@ main() {
       ;;
       --autotools|-k)
         main_auto=yes
-        main_deps="$main_deps autoconf automake make"
+        main_deps="$main_deps autoconf"
       ;;
       --dry|-d)
         main_dry=yes
@@ -589,7 +593,7 @@ main() {
   fi
 
   for main_dep in $main_deps; do
-    if ! type $main_dep > /dev/null 2>& 1; then
+    if ! $main_dep --version > /dev/null 2>& 1; then
       dist_error "$main_dep must be installed in order to $main_action."
       return 1
     fi

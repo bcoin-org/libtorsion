@@ -16,7 +16,7 @@ ACLOCAL=${ACLOCAL:-aclocal}
 AUTOCONF=${AUTOCONF:-autoconf}
 AUTOMAKE=${AUTOMAKE:-automake}
 
-if type glibtoolize > /dev/null 2>& 1; then
+if glibtoolize --version > /dev/null 2>& 1; then
   LIBTOOLIZE=${LIBTOOLIZE:-glibtoolize}
 else
   LIBTOOLIZE=${LIBTOOLIZE:-libtoolize}

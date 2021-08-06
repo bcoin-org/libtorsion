@@ -9,9 +9,9 @@ set -e
 DIR=`dirname "$0"`
 
 if test x"$NODEJS" = x; then
-  if type nodejs > /dev/null 2>& 1; then
+  if nodejs --version > /dev/null 2>& 1; then
     NODEJS=nodejs
-  elif type node > /dev/null 2>& 1; then
+  elif node --version > /dev/null 2>& 1; then
     NODEJS=node
   else
     echo 'Node.js not found!' >& 2
