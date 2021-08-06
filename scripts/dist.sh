@@ -97,7 +97,7 @@ dist_archive() {
 
     if test -f ./autogen.sh; then
       dist_autogen='./autogen.sh'
-    elif type -f ./configure.ac; then
+    elif test -f ./configure.ac; then
       dist_autogen='autoreconf -if'
     else
       dist_error 'Cannot find autogen.sh or configure.ac.'
