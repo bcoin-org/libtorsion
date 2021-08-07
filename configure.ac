@@ -17,7 +17,7 @@ AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_SRCDIR([include/torsion/ecc.h])
 AC_CANONICAL_HOST
 AC_LANG_ASSERT([C])
-AX_CHECK_CPP([__PCC__], [cross_compiling=yes])
+AX_CHECK_CC_E([__PCC__], [cross_compiling=yes])
 AC_PROG_CC
 
 AM_INIT_AUTOMAKE([1.11 foreign subdir-objects tar-v7 dist-zip])
