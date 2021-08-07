@@ -25,7 +25,7 @@ ENVIRONMENT = node
 
 RECURSE = $(MAKE) -f Makefile.unix $(MAKEFLAGS)
 
-LIBTOOL = `type glibtool > /dev/null 2>& 1 && echo glibtool || echo libtool`
+LIBTOOL = `glibtool --version > /dev/null 2>&1 && echo glibtool || echo libtool`
 
 LDTOOL = $(LIBTOOL) --tag=CC --mode=link    \
          $(CC) -shared -rpath $(PREFIX)/lib \
