@@ -141,7 +141,7 @@ AC_ARG_ENABLE(
 # Global Flags
 #
 
-AS_IF([test x"$WASI $EMSCRIPTEN" = x" "], [
+AS_IF([test x"$WASI$EMSCRIPTEN" = x""], [
   AC_COMPILE_IFELSE([
     AC_LANG_PROGRAM([[]], [[
 #     if !defined(__GNUC__) || __GNUC__ < 4
@@ -460,11 +460,6 @@ AS_CASE([$host_os], [mingw*], [
   LDFLAGS="$LDFLAGS -static-libgcc"
 ])
 
-AS_CASE([$host_os], [openedition*], [
-  CFLAGS="$CFLAGS -Wc,DLL -Wc,exportall -Wc,xplink"
-  LDFLAGS="$LDFLAGS -Wl,xplink"
-])
-
 #
 # Defines
 #
@@ -556,7 +551,7 @@ AM_CONDITIONAL([ENABLE_SHARED], [test x"$enable_shared" = x"yes"])
 AM_CONDITIONAL([ENABLE_TESTS], [test x"$enable_tests" = x"yes"])
 AM_CONDITIONAL([ENABLE_ZLIB], [test x"$has_zlib" = x"yes"])
 AM_CONDITIONAL([MINGW], [AS_CASE([$host_os], [mingw*], [true], [false])])
-AM_CONDITIONAL([NATIVE], [test x"$WASI $EMSCRIPTEN" = x" "])
+AM_CONDITIONAL([NATIVE], [test x"$WASI$EMSCRIPTEN" = x""])
 AM_CONDITIONAL([WASI], [test x"$WASI" != x""])
 
 AC_CONFIG_FILES([Makefile libtorsion.pc])

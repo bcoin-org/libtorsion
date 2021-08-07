@@ -386,11 +386,6 @@ if(MINGW)
   list(APPEND torsion_ldflags -static-libgcc)
 endif()
 
-if(CMAKE_C_COMPILER_ID STREQUAL "zOS")
-  list(APPEND torsion_cflags -Wc,DLL -Wc,exportall -Wc,xplink)
-  list(APPEND torsion_ldflags -Wl,xplink)
-endif()
-
 #
 # Defines
 #
