@@ -228,7 +228,6 @@ main() {
       echo '    -v, --version         output version number'
       echo '    -h, --help            output usage information'
       echo ''
-      return 0
     ;;
     *)
       echo "Unknown action '$main_action'." >& 2
