@@ -53,7 +53,7 @@ dist_error() {
 
 dist_archive() {
   dist_tag="$1"
-  dist_ver=`echo "$dist_tag" | tr -d 'v'`
+  dist_ver=`echo "$dist_tag" | sed -e 's/^v//'`
   dist_name="${global_name}-${dist_ver}"
 
   dist_echo "Archiving $dist_tag (${dist_name}):" >& 2
@@ -192,12 +192,10 @@ dist_sign() {
       ;;
       *)
         dist_warn 'gpg-agent not running. Skipped signing.'
-        return 0
       ;;
     esac
   else
     dist_warn 'gpg not installed. Skipped signing.'
-    return 0
   fi
 }
 
@@ -237,11 +235,13 @@ github_post() {
 
   dist_echo "  POST $post_url" >& 2
 
+  # Our mock Github API server.
   if test x"$global_dry" = x'yes'; then
     post_domain=`echo "$post_url" | cut -d'/' -f3`
     post_owner=`echo "$post_url" | cut -d'/' -f5`
     post_repo=`echo "$post_url" | cut -d'/' -f6`
 
+    # https://docs.github.com/en/rest/reference/repos#create-a-release
     if test x"$post_domain" = x'api.github.com'; then
       tr -d ' \r\n' <<EOF
         {
@@ -255,6 +255,7 @@ EOF
       return 0
     fi
 
+    # https://docs.github.com/en/rest/reference/repos#upload-a-release-asset
     if test x"$post_domain" = x'uploads.github.com'; then
       post_tag="$main_tag"
       post_name=`echo "$post_url" | cut -d'=' -f2 | cut -d'&' -f1`
@@ -285,9 +286,8 @@ EOF
 
 read_changelog() {
   log_tag="$1"
-  log_ver=`echo "$log_tag" | tr -d 'v'`
+  log_ver=`echo "$log_tag" | sed -e 's/^v//'`
   log_name="${global_name}-${log_ver}"
-  log_file='CHANGELOG.md'
   log_state=0
 
   if ! test -f "${log_name}.tar.gz"; then
@@ -297,13 +297,13 @@ read_changelog() {
 
   gunzip -c "${log_name}.tar.gz" > "${log_name}.tar"
 
-  log_file=`tar tf "${log_name}.tar" | grep '/CHANGELOG\.md$' | sed 1q || true`
-
-  if test x"$log_file" = x; then
+  if ! tar tf "${log_name}.tar" | grep '^[^/]*/CHANGELOG\.md$' > /dev/null; then
     rm -f "${log_name}.tar"
     dist_error 'Cannot find CHANGELOG.md.'
     return 1
   fi
+
+  log_file=`tar tf "${log_name}.tar" | grep '^[^/]*/CHANGELOG\.md$'`
 
   tar xf "${log_name}.tar" "${log_file}"
 
@@ -399,7 +399,7 @@ github_upload() {
 
 archive_repo() {
   ar_tag="$1"
-  ar_ver=`echo "$ar_tag" | tr -d 'v'`
+  ar_ver=`echo "$ar_tag" | sed -e 's/^v//'`
   ar_name="${global_name}-${ar_ver}"
 
   dist_archive "$ar_tag"
@@ -410,7 +410,7 @@ archive_repo() {
 
 publish_repo() {
   pub_tag="$1"
-  pub_ver=`echo "$pub_tag" | tr -d 'v'`
+  pub_ver=`echo "$pub_tag" | sed -e 's/^v//'`
   pub_name="${global_name}-${pub_ver}"
 
   dist_archive "$pub_tag"
@@ -418,14 +418,14 @@ publish_repo() {
   dist_sign "${pub_name}.zip"
   dist_sha256 "${pub_name}.tar.gz" "${pub_name}.zip"
 
-  if ! test -f "${pub_name}.tar.gz.asc" -a "${pub_name}.zip.asc"; then
+  if ! test -f "${pub_name}.tar.gz.asc" -a -f "${pub_name}.zip.asc"; then
     dist_error 'Files must be signed for publishing.'
     return 1
   fi
 
   pub_url=`github_release "$pub_tag"`
 
-  if test x"$pub_url" = x; then
+  if test x"$pub_url" = x'null'; then
     dist_error 'Github did not return an upload URL.'
     return 1
   fi
@@ -472,7 +472,7 @@ main() {
           dist_error "sha256sum must be installed in order to publish."
         fi
 
-        if ! echo x | gzip -c | gunzip -c > /dev/null 2>& 1; then
+        if ! echo x | gzip -c 2> /dev/null | gunzip -c > /dev/null 2>& 1; then
           dist_error "gzip must be installed in order to publish."
         fi
       ;;
@@ -522,31 +522,31 @@ main() {
   done
 
   if test $main_action = help; then
-    dist_echo '  Usage: dist.sh [options] <tag>' >& 2
-    dist_echo '' >& 2
-    dist_echo '  Commands:' >& 2
-    dist_echo '' >& 2
-    dist_echo '    <tag>                 a git tag, commit, or branch name' >& 2
-    dist_echo '' >& 2
-    dist_echo '  Options:' >& 2
-    dist_echo '' >& 2
-    dist_echo '    -a, --archive         create archive (default)' >& 2
-    dist_echo '    -p, --publish         create and publish archive' >& 2
-    dist_echo '    -l, --log             read changelog from archive' >& 2
-    dist_echo '    -c, --clean           clean working directory' >& 2
-    dist_echo '    -t, --token <string>  set github api key' >& 2
-    dist_echo '    -k, --autotools       use autotools dist' >& 2
-    dist_echo '    -d, --dry             dry run for upload' >& 2
-    dist_echo '    -f, --force           force dist rebuild' >& 2
-    dist_echo '    -q, --quiet           silence output' >& 2
-    dist_echo '    -v, --version         output version number' >& 2
-    dist_echo '    -h, --help            output usage information' >& 2
-    dist_echo '' >& 2
-    dist_echo '  Environment Variables:' >& 2
-    dist_echo '' >& 2
-    dist_echo '    GITHUB_TOKEN          github api key' >& 2
-    dist_echo '' >& 2
-    return 1
+    dist_echo '  Usage: dist.sh [options] <tag>'
+    dist_echo ''
+    dist_echo '  Commands:'
+    dist_echo ''
+    dist_echo '    <tag>                 a git tag, commit, or branch name'
+    dist_echo ''
+    dist_echo '  Options:'
+    dist_echo ''
+    dist_echo '    -a, --archive         create archive (default)'
+    dist_echo '    -p, --publish         create and publish archive'
+    dist_echo '    -l, --log             read changelog from archive'
+    dist_echo '    -c, --clean           clean working directory'
+    dist_echo '    -t, --token <string>  set github api key'
+    dist_echo '    -k, --autotools       use autotools dist'
+    dist_echo '    -d, --dry             dry run for upload'
+    dist_echo '    -f, --force           force dist rebuild'
+    dist_echo '    -q, --quiet           silence output'
+    dist_echo '    -v, --version         output version number'
+    dist_echo '    -h, --help            output usage information'
+    dist_echo ''
+    dist_echo '  Environment Variables:'
+    dist_echo ''
+    dist_echo '    GITHUB_TOKEN          github api key'
+    dist_echo ''
+    return 0
   fi
 
   if test $main_action = version; then

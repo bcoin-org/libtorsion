@@ -216,19 +216,19 @@ main() {
       echo 'deps.sh 0.0.0'
     ;;
     help)
-      echo '  Usage: deps.sh [options]' >& 2
-      echo '' >& 2
-      echo '  Options:' >& 2
-      echo '' >& 2
-      echo '    -u, --unix            use unix arguments' >& 2
-      echo '    -m, --msvc            use msvc arguments' >& 2
-      echo '    -d, --dmc             use dmc arguments' >& 2
-      echo '    -p, --print           print makefile rules' >& 2
-      echo '    -i, --replace <file>  modify file in place' >& 2
-      echo '    -v, --version         output version number' >& 2
-      echo '    -h, --help            output usage information' >& 2
-      echo '' >& 2
-      return 1
+      echo '  Usage: deps.sh [options]'
+      echo ''
+      echo '  Options:'
+      echo ''
+      echo '    -u, --unix            use unix arguments'
+      echo '    -m, --msvc            use msvc arguments'
+      echo '    -d, --dmc             use dmc arguments'
+      echo '    -p, --print           print makefile rules'
+      echo '    -i, --replace <file>  modify file in place'
+      echo '    -v, --version         output version number'
+      echo '    -h, --help            output usage information'
+      echo ''
+      return 0
     ;;
     *)
       echo "Unknown action '$main_action'." >& 2
