@@ -143,7 +143,7 @@ AC_ARG_ENABLE(
 
 AS_IF([test x"$WASI $EMSCRIPTEN" = x" "], [
   AC_COMPILE_IFELSE([
-    AC_LANG_PROGRAM([], [[
+    AC_LANG_PROGRAM([[]], [[
 #     if !defined(__GNUC__) || __GNUC__ < 4
         choke me
 #     endif
@@ -169,7 +169,7 @@ AS_CASE([$host_os], [mingw*], [
 
 # Encourage the user to build with xlc_r.
 AC_COMPILE_IFELSE([
-  AC_LANG_PROGRAM([], [[
+  AC_LANG_PROGRAM([[]], [[
 #   if defined(__xlC__) && defined(_AIX) && !defined(_THREAD_SAFE)
       choke me
 #   endif
