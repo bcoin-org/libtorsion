@@ -206,7 +206,9 @@
 #  define TORSION_NORETURN
 #endif
 
-#if TORSION_CPP_VERSION >= 201703L
+#if TORSION_STDC_VERSION > 201710L
+#  define TORSION_UNUSED [[maybe_unused]]
+#elif TORSION_CPP_VERSION >= 201703L
 #  define TORSION_UNUSED [[maybe_unused]]
 #elif TORSION_GNUC_PREREQ(2, 7) || defined(__clang__) || defined(__TINYC__)
 #  define TORSION_UNUSED __attribute__((unused))
