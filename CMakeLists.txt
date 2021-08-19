@@ -260,9 +260,6 @@ endif()
 
 if(TORSION_ENABLE_PTHREAD AND NOT EMSCRIPTEN)
   check_c_source_compiles([=[
-#   ifdef __MVS__
-#     define _ALL_SOURCE
-#   endif
 #   include <pthread.h>
     static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
     int main(void) {
@@ -340,8 +337,6 @@ elseif(BORLAND)
 elseif(CMAKE_C_COMPILER_ID MATCHES "Watcom$")
   append_c_compiler_flag(torsion_cflags -wcd=201  # unreachable code
                                         -wcd=202) # unused symbol
-elseif(CMAKE_C_COMPILER_ID STREQUAL "DigitalMars")
-# None.
 else()
   append_c_compiler_flag(torsion_cflags -pedantic
                                         -Wall
@@ -370,8 +365,6 @@ if(TORSION_ENABLE_DEBUG)
     append_c_compiler_flag(torsion_cflags -v)
   elseif(CMAKE_C_COMPILER_ID MATCHES "Watcom$")
     append_c_compiler_flag(torsion_cflags -d2)
-  elseif(CMAKE_C_COMPILER_ID STREQUAL "DigitalMars")
-    append_c_compiler_flag(torsion_cflags -g)
   else()
     append_c_compiler_flag(torsion_cflags -g)
   endif()
@@ -462,10 +455,6 @@ endif()
 
 if(CMAKE_SYSTEM_NAME STREQUAL "AIX")
   list(APPEND torsion_defines _THREAD_SAFE_ERRNO)
-endif()
-
-if(CMAKE_SYSTEM_NAME STREQUAL "OS390")
-  list(APPEND torsion_defines _ALL_SOURCE)
 endif()
 
 #

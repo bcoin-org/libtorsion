@@ -364,9 +364,6 @@ AS_IF([test x"$enable_pthread" = x"yes" -a x"$EMSCRIPTEN" = x""], [
   AC_MSG_CHECKING(for pthread support)
   AC_LINK_IFELSE([
     AC_LANG_SOURCE([[
-#     ifdef __MVS__
-#       define _ALL_SOURCE
-#     endif
 #     include <pthread.h>
       static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
       int main(void) {
@@ -532,10 +529,6 @@ AS_CASE([$host_os], [solaris*], [
 
 AS_CASE([$host_os], [aix*], [
   AC_DEFINE([_THREAD_SAFE_ERRNO])
-])
-
-AS_CASE([$host_os], [openedition*], [
-  AC_DEFINE([_ALL_SOURCE])
 ])
 
 #
