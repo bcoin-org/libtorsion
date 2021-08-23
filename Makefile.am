@@ -12,6 +12,10 @@ includedir = $(prefix)/include/torsion
 licensedir = $(datadir)/licenses/$(PACKAGE_NAME)
 pkgconfigdir = $(libdir)/pkgconfig
 
+dist_doc_DATA = README.md
+dist_license_DATA = LICENSE
+pkgconfig_DATA = libtorsion.pc
+
 EXTRA_DIST = cmake/                 \
              etc/                   \
              scripts/               \
@@ -252,10 +256,6 @@ noinst_PROGRAMS = $(torsion_bench_NAME)       \
 
 TESTS = $(torsion_test_NAME) $(torsion_test_static_NAME)
 
-dist_doc_DATA = README.md
-dist_license_DATA = LICENSE
-pkgconfig_DATA = libtorsion.pc
-
 endif NATIVE
 
 #
@@ -312,8 +312,9 @@ bench: torsion_bench.wasm
 	@./scripts/wasi-run torsion_bench.wasm
 endif ENABLE_TESTS
 
-noinst_PROGRAMS = $(torsion_wasm_NAME)       \
-                  $(torsion_bench_wasm_NAME) \
+bin_PROGRAMS = $(torsion_wasm_NAME)
+
+noinst_PROGRAMS = $(torsion_bench_wasm_NAME) \
                   $(torsion_test_wasm_NAME)
 
 TESTS = $(torsion_test_wasm_NAME)
@@ -363,8 +364,9 @@ bench: torsion_bench.js
 	@node torsion_bench.js
 endif ENABLE_TESTS
 
-noinst_PROGRAMS = $(torsion_js_NAME)       \
-                  $(torsion_bench_js_NAME) \
+bin_PROGRAMS = $(torsion_js_NAME)
+
+noinst_PROGRAMS = $(torsion_bench_js_NAME) \
                   $(torsion_test_js_NAME)
 
 TESTS = $(torsion_test_js_NAME)
