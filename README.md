@@ -93,13 +93,7 @@ $ cc -o example -I/path/to/libtorsion/include example.c /path/to/libtorsion.a
 
 ## Building
 
-libtorsion supports a CMake build (recommended) and a fallback build for
-systems which do not have CMake available. The "fallback build" consists of a
-POSIX-conforming Makefile on unix-like OSes and an NMake file for Windows.
-
-### Unix
-
-#### CMake
+libtorsion supports a CMake build (recommended) and an autotools build.
 
 The CMake build is fairly straightforward and offers the following options:
 
@@ -116,64 +110,13 @@ The CMake build is fairly straightforward and offers the following options:
 - `TORSION_ENABLE_TLS=ON` - Use thread-local storage if available
 - `TORSION_ENABLE_VERIFY=OFF` - Enable scalar bounds checks
 
+### Unix
+
 To build:
 
 ``` sh
 $ cmake . -DCMAKE_BUILD_TYPE=Release
 $ make
-```
-
-#### Make
-
-Our Makefile strives for perfect POSIX conformance. This means flags like
-`-fPIC` aren't assumed as position independent code isn't specified by POSIX.
-
-Likewise, warnings and optimization flags are not assumed as POSIX only
-specifies `-O`.
-
-Example for Linux/\*BSD/Darwin:
-
-``` sh
-$ make -f Makefile.unix CFLAGS='-fPIC -O3'
-```
-
-Example for AIX:
-
-``` sh
-$ make -f Makefile.unix CC=xlc_r CFLAGS='-qpic -qoptimize=3 -qtls -DHAVE_QTLS'
-```
-
-Example for Solaris:
-
-``` sh
-$ make -f Makefile.unix CFLAGS='-KPIC -xO3 -D_REENTRANT'
-```
-
-Example for HP-UX:
-
-``` sh
-$ make -f Makefile.unix CFLAGS='+Z +O3'
-```
-
-Linking a shared library is up to you at that point. The makefile will generate
-"object libraries" to make things easy. For example:
-
-``` sh
-$ gcc -o libtorsion.so -shared -fPIC @libtorsion.obj
-$ gcc -o torsion_test @torsion_test.obj libtorsion.so
-```
-
-On Darwin:
-
-``` sh
-$ gcc -o libtorsion.dylib -dynamiclib @libtorsion.obj
-$ gcc -o torsion_test @torsion_test.obj libtorsion.dylib
-```
-
-Or, if you have libtool installed, you can let it do the heavy lifting:
-
-``` sh
-$ make -f Makefile.unix libtool
 ```
 
 ### Windows
@@ -182,10 +125,6 @@ Builds on windows will produce both a static and shared library. To deal with
 the naming collision, the static import library is called `libtorsion.lib`
 whereas the shared import library is named `torsion.lib` (this follows
 Microsoft's new naming convention).
-
-#### CMake
-
-See the unix cmake build documentation above for a list of available options.
 
 MSVC:
 
@@ -202,72 +141,37 @@ $ cmake . -G 'NMake Makefiles' -DCMAKE_C_COMPILER=clang-cl \
 $ nmake
 ```
 
-#### NMake
-
-The NMake build assumes MSVC (cl.exe), but also works with Windows Clang
-(clang-cl).
-
-``` sh
-$ nmake /F Makefile.nmake
-```
-
-``` sh
-$ nmake /F Makefile.nmake CC=clang-cl
-```
-
 ### MinGW
 
 Another way to build for Windows is by cross-compiling with MinGW (useful for
 those averse to Windows or who do not have a Windows machine to build on).
-
-#### CMake
 
 ``` sh
 $ ./scripts/mingw-cmake cmake . -DCMAKE_BUILD_TYPE=Release
 $ make
 ```
 
-#### Make
-
-``` sh
-$ ./scripts/mingw-make make -f Makefile.unix CFLAGS=-O3 mingw
-```
-
 ### WASI
-
-#### CMake
 
 ``` sh
 $ ./scripts/wasi-cmake cmake . -DCMAKE_BUILD_TYPE=Release
 $ make
 ```
 
-#### Make
-
-``` sh
-$ ./scripts/wasi-make make -f Makefile.unix CFLAGS=-O3 wasm
-```
-
 ### Emscripten
-
-#### CMake
 
 ``` sh
 $ emcmake cmake . -DCMAKE_BUILD_TYPE=Release
 $ make
 ```
 
-#### Make
-
-``` sh
-$ emmake make -f Makefile.unix CFLAGS=-O3 js
-```
-
 ### CMake Subprojects
 
 When CMakeLists.txt is invoked as a CMake subproject, it will expose a single
 static library target named `torsion`, skipping all other targets (tests,
-benchmarks, etc).
+benchmarks, etc). The static library is built with `-fPIC` and all symbols
+hidden, thus allowing other libraries to be built on top of a vendored
+libtorsion.
 
 Example:
 
@@ -291,6 +195,7 @@ various configuration options that torsion uses internally.
 
 Any of the following _may_ be passed as defines to the preprocessor:
 
+- `TORSION_BUILD` - Export symbols (if `-fvisibility=hidden`).
 - `TORSION_HAVE_CONFIG` - Disables preprocessor-based autoconfiguration¹.
 - `TORSION_HAVE_ASM` - GNU-flavored inline assembly is available².
 - `TORSION_HAVE_INT128` - The `__int128` type is available².
@@ -312,7 +217,7 @@ Footnotes:
 1. By default torsion will attempt to autoconfigure some options by using the
    C preprocessor to detect features.
 2. `TORSION_HAVE_CONFIG` must be defined for this option to have any effect.
-3. This option affects tests only.
+3. This option affects tests and benchmarks only.
 
 ---
 
