@@ -171,7 +171,9 @@ if(TORSION_ENABLE_ASM)
         ""
 #   endif
         : "+r" (z), "=&r" (c)
-#   if defined(__TINYC__)
+#   if defined(__wasi__) || defined(__EMSCRIPTEN__)
+        :
+#   elif defined(__TINYC__)
         : "rm" (x), "rm" (y)
 #   else
         : "%rm" (x), "rm" (y)
@@ -559,7 +561,7 @@ elseif(WASI OR EMSCRIPTEN)
 
   add_executable(torsion_reactor ${torsion_sources})
   target_compile_definitions(torsion_reactor PRIVATE ${torsion_defines}
-                                                     TORSION_BUILD)
+                                                     TORSION_EXPORT)
   target_compile_options(torsion_reactor PRIVATE ${torsion_cflags})
   target_include_directories(torsion_reactor PRIVATE ${torsion_includes})
   target_link_options(torsion_reactor PRIVATE ${torsion_ldflags}
@@ -600,7 +602,7 @@ else()
   if(TORSION_ENABLE_SHARED)
     add_library(torsion_shared SHARED ${torsion_sources})
     target_compile_definitions(torsion_shared PUBLIC ${torsion_defines}
-                                              PRIVATE TORSION_BUILD)
+                                              PRIVATE TORSION_EXPORT)
     target_compile_options(torsion_shared PUBLIC ${torsion_cflags})
     target_include_directories(torsion_shared PUBLIC ${torsion_includes})
     target_link_options(torsion_shared PUBLIC ${torsion_ldflags})

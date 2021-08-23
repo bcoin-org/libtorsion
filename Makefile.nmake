@@ -47,7 +47,7 @@ LIB_CFLAGS = /nologo            \
              /MD                \
              /O2                \
              /Ob2               \
-             /DTORSION_BUILD    \
+             /DTORSION_EXPORT   \
              /DTORSION_HAVE_MPI \
              /DTORSION_HAVE_RNG \
              $(CFLAGS)

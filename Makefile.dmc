@@ -43,7 +43,7 @@ LIB_CFLAGS = -I.\include        \
              -mn                \
              -o                 \
              -Jm                \
-             -DTORSION_BUILD    \
+             -DTORSION_EXPORT   \
              -DTORSION_HAVE_MPI \
              $(CFLAGS)
 

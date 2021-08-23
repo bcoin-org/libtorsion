@@ -56,7 +56,7 @@ LIB_OBJECTS = aead.o     \
               util.o
 
 LIB_CFLAGS = -I./include        \
-             -DTORSION_BUILD    \
+             -DTORSION_EXPORT   \
              -DTORSION_HAVE_MPI \
              -DTORSION_HAVE_RNG \
              $(PIC)             \

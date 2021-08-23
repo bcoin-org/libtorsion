@@ -164,7 +164,7 @@ endif
 
 libtorsion_la_NAME = libtorsion.la
 libtorsion_la_SOURCES = $(torsion_sources)
-libtorsion_la_CFLAGS = $(torsion_cflags) -DTORSION_BUILD
+libtorsion_la_CFLAGS = $(torsion_cflags) -DTORSION_EXPORT
 libtorsion_la_LDFLAGS = -no-undefined $(torsion_ldflags)
 
 if ENABLE_TESTS
@@ -288,7 +288,7 @@ torsion_ldflags = -Wl,--allow-undefined                  \
 
 torsion_wasm_NAME = torsion.wasm
 torsion_wasm_SOURCES = $(torsion_sources)
-torsion_wasm_CFLAGS = $(torsion_cflags) -DTORSION_BUILD
+torsion_wasm_CFLAGS = $(torsion_cflags) -DTORSION_EXPORT
 torsion_wasm_LDFLAGS = $(torsion_ldflags)   \
                        -mexec-model=reactor \
                        -Wl,--export-dynamic \
@@ -343,7 +343,7 @@ torsion_ldflags = -s SINGLE_FILE=1                    \
 
 torsion_js_NAME = torsion.js
 torsion_js_SOURCES = $(torsion_sources)
-torsion_js_CFLAGS = $(torsion_cflags) -DTORSION_BUILD
+torsion_js_CFLAGS = $(torsion_cflags) -DTORSION_EXPORT
 torsion_js_LDFLAGS = $(torsion_ldflags) -s EXPORTED_FUNCTIONS=@etc/exports.json
 
 if ENABLE_TESTS

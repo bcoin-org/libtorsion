@@ -110,21 +110,31 @@ The CMake build is fairly straightforward and offers the following options:
 - `TORSION_ENABLE_TLS=ON` - Use thread-local storage if available
 - `TORSION_ENABLE_VERIFY=OFF` - Enable scalar bounds checks
 
+To view the autoconf options, see `./configure --help`.
+
 ### Unix
 
-To build:
+CMake:
 
 ``` sh
-$ cmake . -DCMAKE_BUILD_TYPE=Release
+$ cmake -G 'Unix Makefiles' -DCMAKE_BUILD_TYPE=Release .
 $ make
+```
+
+Autotools:
+
+``` sh
+./autogen.sh
+./configure CFLAGS=-O3
+make
 ```
 
 ### Windows
 
 Builds on windows will produce both a static and shared library. To deal with
-the naming collision, the static import library is called `libtorsion.lib`
-whereas the shared import library is named `torsion.lib` (this follows
-Microsoft's new naming convention).
+the naming collision, the static library is called `libtorsion.lib` whereas the
+shared import library is named `torsion.lib` (this follows Microsoft's new
+naming convention).
 
 MSVC:
 
@@ -136,9 +146,20 @@ $ cmake --build . --config Release
 Clang (better performance):
 
 ``` sh
-$ cmake . -G 'NMake Makefiles' -DCMAKE_C_COMPILER=clang-cl \
-                               -DCMAKE_BUILD_TYPE=Release
+$ cmake -G 'NMake Makefiles' -DCMAKE_C_COMPILER=clang-cl \
+                             -DCMAKE_BUILD_TYPE=Release .
 $ nmake
+```
+
+For systems without CMake installed, a simple NMake build is also included. It
+assumes MSVC (cl), but also works with Windows Clang (clang-cl).
+
+``` sh
+$ nmake /F Makefile.nmake
+```
+
+``` sh
+$ nmake /F Makefile.nmake CC=clang-cl
 ```
 
 ### MinGW
@@ -146,23 +167,53 @@ $ nmake
 Another way to build for Windows is by cross-compiling with MinGW (useful for
 those averse to Windows or who do not have a Windows machine to build on).
 
+CMake:
+
 ``` sh
-$ ./scripts/mingw-cmake cmake . -DCMAKE_BUILD_TYPE=Release
+$ ./scripts/mingw-cmake cmake -DCMAKE_BUILD_TYPE=Release .
 $ make
+```
+
+Autotools:
+
+``` sh
+./autogen.sh
+./scripts/mingw-configure ./configure CFLAGS=-O3
+make
 ```
 
 ### WASI
 
+CMake:
+
 ``` sh
-$ ./scripts/wasi-cmake cmake . -DCMAKE_BUILD_TYPE=Release
+$ ./scripts/wasi-cmake cmake -DCMAKE_BUILD_TYPE=Release .
 $ make
+```
+
+Autotools:
+
+``` sh
+./autogen.sh
+./scripts/wasi-configure ./configure CFLAGS=-O3
+make
 ```
 
 ### Emscripten
 
+CMake:
+
 ``` sh
-$ emcmake cmake . -DCMAKE_BUILD_TYPE=Release
+$ emcmake cmake -DCMAKE_BUILD_TYPE=Release .
 $ make
+```
+
+Autotools:
+
+``` sh
+./autogen.sh
+emconfigure ./configure CFLAGS=-O3
+make
 ```
 
 ### CMake Subprojects
@@ -192,7 +243,8 @@ various configuration options that torsion uses internally.
 
 Any of the following _may_ be passed as defines to the preprocessor:
 
-- `TORSION_BUILD` - Export symbols (if `-fvisibility=hidden`).
+- `TORSION_EXPORT` - Export symbols (necessary for shared if
+  `-fvisibility=hidden` is passed).
 - `TORSION_HAVE_CONFIG` - Disables preprocessor-based autoconfiguration¹.
 - `TORSION_HAVE_ASM` - GNU-flavored inline assembly is available².
 - `TORSION_HAVE_INT128` - The `__int128` type is available².
