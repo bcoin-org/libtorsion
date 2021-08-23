@@ -21,7 +21,7 @@ EXTRA_DIST = cmake/                 \
              libtorsion-cmake.pc.in \
              Makefile.dmc           \
              Makefile.fiat          \
-             Makefile.nmake         \
+             Makefile.msvc          \
              Makefile.unix
 
 #

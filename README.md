@@ -155,11 +155,11 @@ For systems without CMake installed, a simple NMake build is also included. It
 assumes MSVC (cl), but also works with Windows Clang (clang-cl).
 
 ``` sh
-$ nmake /F Makefile.nmake
+$ nmake /F Makefile.msvc
 ```
 
 ``` sh
-$ nmake /F Makefile.nmake CC=clang-cl
+$ nmake /F Makefile.msvc CC=clang-cl
 ```
 
 ### MinGW

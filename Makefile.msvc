@@ -1,4 +1,4 @@
-# Makefile.nmake - win32 makefile for libtorsion (nmake.exe)
+# Makefile.msvc - msvc makefile for libtorsion
 # Copyright (c) 2020, Christopher Jeffrey (MIT License).
 # https://github.com/bcoin-org/libtorsion
 
