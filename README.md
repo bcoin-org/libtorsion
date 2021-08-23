@@ -180,9 +180,6 @@ add_subdirectory(deps/libtorsion)
 target_link_libraries(my_project PRIVATE torsion)
 ```
 
-Note that `torsion` will be an object library if you are doing a WASI or
-Emscripten build.
-
 ### Alternate Build Systems
 
 libtorsion was written generically enough to support any build system you might

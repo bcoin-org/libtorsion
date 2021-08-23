@@ -22,6 +22,7 @@ AC_PROG_CC
 
 AM_INIT_AUTOMAKE([1.11 foreign subdir-objects tar-v7 dist-zip])
 AM_PROG_CC_C_O
+m4_ifdef([AM_PROG_AR], [AM_PROG_AR])
 AM_SILENT_RULES([yes])
 
 LT_PREREQ([2.2.8])
@@ -141,17 +142,15 @@ AC_ARG_ENABLE(
 # Global Flags
 #
 
-AS_IF([test x"$WASI$EMSCRIPTEN" = x""], [
-  AC_COMPILE_IFELSE([
-    AC_LANG_PROGRAM([[]], [[
-#     if !defined(__GNUC__) || __GNUC__ < 4
-        choke me
-#     endif
-    ]])
-  ], [
-    AX_CHECK_COMPILE_FLAG([-fvisibility=hidden],
-                          [CFLAGS="$CFLAGS -fvisibility=hidden"])
-  ])
+AC_COMPILE_IFELSE([
+  AC_LANG_PROGRAM([[]], [[
+#   if !defined(__GNUC__) || __GNUC__ < 4
+      choke me
+#   endif
+  ]])
+], [
+  AX_CHECK_COMPILE_FLAG([-fvisibility=hidden],
+                        [CFLAGS="$CFLAGS -fvisibility=hidden"])
 ])
 
 AS_CASE([$host_os], [darwin*], [
