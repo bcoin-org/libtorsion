@@ -119,7 +119,8 @@ dist_archive() {
       git checkout "$dist_tag" > /dev/null 2>& 1
     fi
 
-    set "$dist_autogen" './configure' 'make dist-gzip' 'make dist-zip'
+    set x "$dist_autogen" './configure' 'make dist-gzip' 'make dist-zip'
+    shift
 
     dist_failed=no
 
