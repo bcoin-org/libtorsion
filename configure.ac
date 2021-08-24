@@ -254,7 +254,7 @@ AS_IF([test x"$enable_asm" = x"yes"], [
           ""
 #     endif
           : "+r" (z), "=&r" (c)
-#     if defined(__wasi__) || defined(__EMSCRIPTEN__)
+#     if defined(__wasm__) || defined(__EMSCRIPTEN__)
           :
 #     elif defined(__TINYC__)
           : "rm" (x), "rm" (y)
