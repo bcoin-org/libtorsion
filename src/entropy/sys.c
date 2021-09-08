@@ -152,6 +152,11 @@
  *   https://download.01.org/intel-sgx/
  *   https://download.01.org/intel-sgx/linux-2.6/docs/Intel_SGX_Developer_Reference_Linux_2.6_Open_Source.pdf
  *   https://github.com/intel/linux-sgx
+ *
+ * Cosmopolitan:
+ *   https://justine.lol/cosmopolitan/documentation.html#getrandom
+ *   https://github.com/jart/cosmopolitan/blob/5029e20/libc/rand/rand.h#L20
+ *   https://github.com/jart/cosmopolitan/blob/5029e20/libc/rand/getrandom.c
  */
 
 /**
@@ -406,6 +411,11 @@
  *   Support: sgx_read_rand specified in SGX <=1.5 (2016).
  *            sgx_read_rand added in intel/linux-sgx#9441de4 (2016).
  *
+ * Cosmopolitan:
+ *   Source: getrandom(2)
+ *   Fallback: none
+ *   Support: getrandom(2) added in Cosmopolitan 0.1 (2020).
+ *
  * [1] https://docs.rs/getrandom/latest/getrandom/
  */
 
@@ -457,6 +467,9 @@
 #elif defined(_TLIBC_CDECL_) /* Intel SGX */
 #  include <sgx_trts.h> /* SGX_SUCCESS, sgx_read_rand */
 #  define HAVE_SGX_READ_RAND
+#elif defined(__COSMOPOLITAN__)
+/* include "libc/rand/rand.h" */ /* getrandom */
+#  define HAVE_GETRANDOM
 #elif defined(_WIN32)
 #  include <windows.h> /* _WIN32_WINNT */
 #  if (defined(_WIN32_WINNT) && _WIN32_WINNT >= 0x0601) /* Windows 7 (2009) */ \
