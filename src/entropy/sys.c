@@ -401,7 +401,7 @@
  *
  * UEFI:
  *   Source: EFI_RNG_PROTOCOL.GetRNG
- *   Fallback: RDRAND / RDSEED
+ *   Fallback: none
  *   Support: EFI_RNG_PROTOCOL specified in UEFI 2.4 (2013).
  *            EFI_RNG_PROTOCOL added in tianocore/edk2#3aa8dc6 (2013).
  *
@@ -1065,7 +1065,7 @@ torsion_callrand(void *dst, size_t size) {
   status = gBS->LocateProtocol(&gEfiRngProtocolGuid, NULL, (VOID **)&rng);
 
   if (EFI_ERROR(status) || rng == NULL)
-    return torsion_hwrand(dst, size);
+    return 0;
 
   status = rng->GetRNG(rng, NULL, (UINTN)size, (UINT8 *)dst);
 
