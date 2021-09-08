@@ -1143,7 +1143,7 @@ torsion_devrand(void *dst, size_t size, const char *name) {
 
     close(fd);
   }
-#endif
+#endif /* DEV_RANDOM_POLL || DEV_RANDOM_SELECT */
 
 #ifdef DEV_RANDOM_RETRY
 retry:
