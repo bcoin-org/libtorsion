@@ -468,7 +468,8 @@
 #  include <sgx_trts.h> /* SGX_SUCCESS, sgx_read_rand */
 #  define HAVE_SGX_READ_RAND
 #elif defined(__COSMOPOLITAN__)
-/* include "libc/rand/rand.h" */ /* getrandom */
+/* include <cosmopolitan.h> */ /* getrandom (-include cosmopolitan.h) */
+/* include <stdlib.h> */ /* getrandom (-isystem libc/isystem) */
 #  define HAVE_GETRANDOM
 #elif defined(_WIN32)
 #  include <windows.h> /* _WIN32_WINNT */

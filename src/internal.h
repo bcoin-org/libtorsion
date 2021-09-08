@@ -306,6 +306,8 @@ static const unsigned long torsion__endian_check TORSION_UNUSED = 1;
 /* No threads in UEFI. */
 #elif defined(_TLIBC_CDECL_)
 #  define TORSION_TLS __thread
+#elif defined(__COSMOPOLITAN__)
+/* Not portable. */
 #elif defined(__clang__) || defined(__llvm__)
 #  ifdef __has_feature
 #    if __has_feature(tls)
@@ -381,6 +383,8 @@ static const unsigned long torsion__endian_check TORSION_UNUSED = 1;
 /* Requires -lsgx_pthread. We could use the
    sgx_thread API which is guaranteed to be
    available, but we don't need it. */
+#elif defined(__COSMOPOLITAN__)
+/* No pthread support (yet). */
 #elif defined(__linux__)
 #  if defined(__GLIBC__)
 #    ifdef __GLIBC_PREREQ
