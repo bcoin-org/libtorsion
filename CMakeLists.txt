@@ -129,6 +129,16 @@ if(TORSION_HAVE_NWCC)
   set(TORSION_ENABLE_SHARED OFF)
 endif()
 
+# chibicc doesn't support .so versioning.
+# Furthermore, CMake doesn't know about chibicc's -fPIC.
+check_symbol_exists(__chibicc__ "" TORSION_HAVE_CHIBICC)
+
+if(TORSION_HAVE_CHIBICC)
+  set(CMAKE_C_COMPILE_OPTIONS_PIC "-fPIC")
+  set(CMAKE_SHARED_LIBRARY_C_FLAGS "-fPIC")
+  set(TORSION_ENABLE_SHARED OFF)
+endif()
+
 # OpenWatcom-Linux can't create shared libraries.
 if(CMAKE_C_COMPILER_ID STREQUAL "OpenWatcom")
   if(CMAKE_SYSTEM_NAME STREQUAL "Linux")

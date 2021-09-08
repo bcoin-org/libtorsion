@@ -142,7 +142,7 @@
 
 #undef STATIC_ASSERT
 
-#if TORSION_STDC_VERSION >= 201112L
+#if TORSION_STDC_VERSION >= 201112L && !defined(__chibicc__)
 #  define STATIC_ASSERT(expr) _Static_assert(expr, "check failed")
 #elif TORSION_CPP_VERSION >= 201703L
 #  define STATIC_ASSERT(expr) static_assert(expr)
@@ -359,6 +359,7 @@ static const unsigned long torsion__endian_check TORSION_UNUSED = 1;
    || (defined(__HP_cc) && __HP_cc >= 53600)         \
    || (defined(__HP_aCC) && __HP_aCC >= 53600)       \
    || (defined(__PCC__) && __PCC__ >= 1)             \
+   || (defined(__chibicc__))                         \
    || (defined(__NWCC__))
 #  define TORSION_TLS __thread
 #elif defined(__xlC__) && defined(_AIX)

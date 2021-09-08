@@ -194,6 +194,11 @@ AC_CHECK_DEFINE([__NWCC__], [
   enable_shared=no
 ])
 
+# chibicc doesn't support .so versioning.
+AC_CHECK_DEFINE([__chibicc__], [
+  enable_shared=no
+])
+
 # Hack to get OpenWatcom's owcc working.
 AC_CHECK_DEFINE([__WATCOMC__], [
   grep -v '#define PACKAGE_STRING' confdefs.h > confdefs.h.tmp
