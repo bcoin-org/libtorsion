@@ -93,9 +93,9 @@ AC_ARG_ENABLE(
 AC_ARG_ENABLE(
   mpi,
   AS_HELP_STRING([--enable-mpi],
-                 [export mpi functions [default=yes]]),
+                 [export mpi functions [default=no]]),
   [enable_mpi=$enableval],
-  [enable_mpi=yes]
+  [enable_mpi=no]
 )
 
 AC_ARG_ENABLE(

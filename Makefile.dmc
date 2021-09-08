@@ -38,13 +38,12 @@ OBJ1 = aead.obj+asn1.obj+cipher.obj+ecc.obj+encoding.obj
 OBJ2 = drbg.obj+dsa.obj+hash.obj+ies.obj+internal.obj
 OBJ3 = kdf.obj+mac.obj+mpi.obj+rsa.obj+stream.obj+util.obj
 
-LIB_CFLAGS = -I.\include        \
-             -w                 \
-             -mn                \
-             -o                 \
-             -Jm                \
-             -DTORSION_EXPORT   \
-             -DTORSION_HAVE_MPI \
+LIB_CFLAGS = -I.\include      \
+             -w               \
+             -mn              \
+             -o               \
+             -Jm              \
+             -DTORSION_EXPORT \
              $(CFLAGS)
 
 LIB_LDFLAGS = /NOLOGO
