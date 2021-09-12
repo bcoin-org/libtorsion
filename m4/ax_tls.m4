@@ -15,7 +15,7 @@
 
 AC_DEFUN([AX_TLS], [
   AC_CACHE_CHECK([for thread-local storage flags], [ax_cv_tls_cflags], [
-    ax_cv_tls_cflags=""
+    ax_cv_tls_cflags=''
 
     # XL requires a special flag. Don't ask me why.
     AC_COMPILE_IFELSE([
@@ -28,7 +28,7 @@ AC_DEFUN([AX_TLS], [
       ax_tls_save_CFLAGS="$CFLAGS"
       CFLAGS="$CFLAGS -qtls"
       AC_COMPILE_IFELSE([AC_LANG_PROGRAM()],
-                        [ax_cv_tls_cflags="-qtls"])
+                        [ax_cv_tls_cflags='-qtls'])
       CFLAGS="$ax_tls_save_CFLAGS"
     ])
   ])
@@ -44,7 +44,7 @@ AC_DEFUN([AX_TLS], [
     #
     # The last keyword is not widely known, but there is evidence
     # that Compaq C for Tru64 UNIX supported it at one point.
-    ax_tls_keywords="__thread __declspec(thread) __declspec(__thread)"
+    ax_tls_keywords='__thread __declspec(thread) __declspec(__thread)'
 
     # Prepend or append _Thread_local according to the C standard.
     AC_COMPILE_IFELSE([
@@ -88,7 +88,7 @@ AC_DEFUN([AX_TLS], [
         AC_LINK_IFELSE([AC_LANG_SOURCE([[$ax_tls_c]])], [ax_tls_found=yes])
       ])
 
-      AS_IF([test x"$ax_tls_found" = x"yes"], [
+      AS_IF([test x"$ax_tls_found" = x'yes'], [
         ax_cv_tls_keyword="$ax_tls_keyword"
         break
       ])
@@ -102,7 +102,7 @@ AC_DEFUN([AX_TLS], [
 
     # See above for code rationale.
     echo "$ax_cv_tls_keyword int x;" > conftest.c
-    echo "int main(void) { x = 1; return !x; }" >> conftest.c
+    echo 'int main(void) { x = 1; return !x; }' >> conftest.c
 
     AS_IF([${CC-cc} -S -o conftest.s conftest.c $ax_cv_tls_cflags > /dev/null 2>& 1], [
       # There is evidence that some non-GNU platforms also do TLS
@@ -120,10 +120,10 @@ AC_DEFUN([AX_TLS], [
   ])
 
   # Define symbols a la the more widely used ax_tls.m4.
-  AS_IF([test x"$ax_cv_tls_keyword" != x"none"], [
+  AS_IF([test x"$ax_cv_tls_keyword" != x'none'], [
     AC_DEFINE_UNQUOTED([TLS], [$ax_cv_tls_keyword], [Define TLS keyword])
 
-    AS_IF([test x"$ax_cv_tls_emulated" = x"yes"], [
+    AS_IF([test x"$ax_cv_tls_emulated" = x'yes'], [
       AC_DEFINE([TLS_EMULATED], [1], [Define if TLS is emulated])
     ])
 
@@ -131,7 +131,7 @@ AC_DEFUN([AX_TLS], [
 
     $1
   ], [
-    AC_SUBST([TLS_CFLAGS], [""])
+    AC_SUBST([TLS_CFLAGS], [''])
 
     $2
   ])

@@ -19,11 +19,11 @@ AC_DEFUN([AX_CHECK_CC_E], [
             [ax_cv_cce_works=yes])
     ])
   ])
-  AS_IF([test x"$ax_cv_cce_works" = x"yes"], [
+  AS_IF([test x"$ax_cv_cce_works" = x'yes'], [
     AC_CACHE_CHECK([for $1 defined], [ac_cv_defined_$1], [
       AS_IF([! echo $1 | ${CC-cc} -E - 2> /dev/null | grep $1 > /dev/null],
             [ac_cv_defined_$1=yes], [ac_cv_defined_$1=no])
     ])
-    AS_IF([test x"$ac_cv_defined_$1" = x"yes"], [$2], [$3])
+    AS_IF([test x"$ac_cv_defined_$1" = x'yes'], [$2], [$3])
   ], [$4])
 ])

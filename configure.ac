@@ -33,22 +33,22 @@ LT_INIT([shared static])
 #
 
 AC_CHECK_DEFINE([__wasi__], [
-  AS_IF([test x"$WASI" = x""], [
+  AS_IF([test x"$WASI" = x''], [
     AC_MSG_ERROR([./configure must be run with ./scripts/wasi-configure])
   ])
 ], [
-  AS_IF([test x"$WASI" != x""], [
+  AS_IF([test x"$WASI" != x''], [
     AC_MSG_WARN([WASI env var set but environment is not wasi])
     AS_UNSET([WASI])
   ])
 ])
 
 AC_CHECK_DEFINE([__EMSCRIPTEN__], [
-  AS_IF([test x"$EMSCRIPTEN" = x""], [
+  AS_IF([test x"$EMSCRIPTEN" = x''], [
     AC_MSG_ERROR([./configure must be run with emconfigure])
   ])
 ], [
-  AS_IF([test x"$EMSCRIPTEN" != x""], [
+  AS_IF([test x"$EMSCRIPTEN" != x''], [
     AC_MSG_WARN([EMSCRIPTEN env var set but environment is not emscripten])
     AS_UNSET([EMSCRIPTEN])
   ])
@@ -233,7 +233,7 @@ has_tls=no
 has_memcheck=no
 has_zlib=no
 
-AS_IF([test x"$enable_asm" = x"yes"], [
+AS_IF([test x"$enable_asm" = x'yes'], [
   AC_MSG_CHECKING(for inline asm support)
   AC_LINK_IFELSE([
     AC_LANG_SOURCE([[
@@ -277,7 +277,7 @@ AS_IF([test x"$enable_asm" = x"yes"], [
   AC_MSG_RESULT([$has_asm])
 ])
 
-AS_IF([test x"$enable_tests" = x"yes"], [
+AS_IF([test x"$enable_tests" = x'yes'], [
   AS_CASE([$host_os], [darwin*], [], [
     AC_MSG_CHECKING(for clock_gettime support)
     AC_LINK_IFELSE([
@@ -297,7 +297,7 @@ AS_IF([test x"$enable_tests" = x"yes"], [
   ])
 ])
 
-AS_IF([test x"$enable_tests" = x"yes" -a x"$EMSCRIPTEN" = x""], [
+AS_IF([test x"$enable_tests" = x'yes' -a x"$EMSCRIPTEN" = x''], [
   AC_MSG_CHECKING(for fork support)
   AC_LINK_IFELSE([
     AC_LANG_SOURCE([[
@@ -326,7 +326,7 @@ AS_IF([test x"$enable_tests" = x"yes" -a x"$EMSCRIPTEN" = x""], [
   AC_MSG_RESULT([$has_fork])
 ])
 
-AS_IF([test x"$enable_tests" = x"yes"], [
+AS_IF([test x"$enable_tests" = x'yes'], [
   AC_MSG_CHECKING(for gettimeofday support)
   AC_LINK_IFELSE([
     AC_LANG_SOURCE([[
@@ -344,7 +344,7 @@ AS_IF([test x"$enable_tests" = x"yes"], [
   AC_MSG_RESULT([$has_gettimeofday])
 ])
 
-AS_IF([test x"$enable_int128" = x"yes"], [
+AS_IF([test x"$enable_int128" = x'yes'], [
   AC_MSG_CHECKING(for int128 support)
   AC_LINK_IFELSE([
     AC_LANG_SOURCE([[
@@ -366,7 +366,7 @@ AS_IF([test x"$enable_int128" = x"yes"], [
   AC_MSG_RESULT([$has_int128])
 ])
 
-AS_IF([test x"$enable_pthread" = x"yes" -a x"$EMSCRIPTEN" = x""], [
+AS_IF([test x"$enable_pthread" = x'yes' -a x"$EMSCRIPTEN" = x''], [
   AC_MSG_CHECKING(for pthread support)
   AC_LINK_IFELSE([
     AC_LANG_SOURCE([[
@@ -384,7 +384,7 @@ AS_IF([test x"$enable_pthread" = x"yes" -a x"$EMSCRIPTEN" = x""], [
   AC_MSG_RESULT([$has_pthread])
 ])
 
-AS_IF([test x"$enable_tests" = x"yes"], [
+AS_IF([test x"$enable_tests" = x'yes'], [
   AC_MSG_CHECKING(for time support)
   AC_LINK_IFELSE([
     AC_LANG_SOURCE([[
@@ -400,15 +400,15 @@ AS_IF([test x"$enable_tests" = x"yes"], [
   AC_MSG_RESULT([$has_time])
 ])
 
-AS_IF([test x"$enable_tls" = x"yes"], [
+AS_IF([test x"$enable_tls" = x'yes'], [
   AX_TLS([has_tls=yes], [has_tls=no])
-  AS_IF([test x"$ax_cv_tls_emulated$has_pthread" = x"yesyes"], [has_tls=no])
+  AS_IF([test x"$ax_cv_tls_emulated$has_pthread" = x'yesyes'], [has_tls=no])
 ])
 
-AS_IF([test x"$enable_tests" = x"yes"], [
+AS_IF([test x"$enable_tests" = x'yes'], [
   AC_CHECK_HEADER([valgrind/memcheck.h], [has_memcheck=yes])
 
-  AS_IF([test x"$enable_rng" = x"yes"], [
+  AS_IF([test x"$enable_rng" = x'yes'], [
     AC_CHECK_HEADER([zlib.h], [
       AC_CHECK_LIB([z], [compress2], [has_zlib=yes])
     ])
@@ -446,15 +446,15 @@ AC_CHECK_DEFINE([__WATCOMC__], [
   AX_CHECK_COMPILE_FLAG([-Wno-n202], [CFLAGS="$CFLAGS -Wno-n202"])
 ])
 
-AS_IF([test x"$enable_coverage" = x"yes"], [
+AS_IF([test x"$enable_coverage" = x'yes'], [
   CFLAGS="$CFLAGS -O0 --coverage"
 ])
 
-AS_IF([test x"$enable_debug" = x"yes"], [
+AS_IF([test x"$enable_debug" = x'yes'], [
   AX_CHECK_COMPILE_FLAG([-g], [CFLAGS="$CFLAGS -g"])
 ])
 
-AS_IF([test x"$has_tls" = x"yes"], [
+AS_IF([test x"$has_tls" = x'yes'], [
   CFLAGS="$CFLAGS $ax_cv_tls_cflags"
 ])
 
@@ -469,59 +469,59 @@ AS_CASE([$host_os], [mingw*], [
 
 AC_DEFINE([TORSION_HAVE_CONFIG])
 
-AS_IF([test x"$has_asm" = x"yes"], [
+AS_IF([test x"$has_asm" = x'yes'], [
   AC_DEFINE([TORSION_HAVE_ASM])
 ])
 
-AS_IF([test x"$has_clock_gettime" = x"yes"], [
+AS_IF([test x"$has_clock_gettime" = x'yes'], [
   AC_DEFINE([TORSION_HAVE_CLOCK_GETTIME])
 ])
 
-AS_IF([test x"$enable_coverage" = x"yes"], [
+AS_IF([test x"$enable_coverage" = x'yes'], [
   AC_DEFINE([TORSION_COVERAGE])
 ])
 
-AS_IF([test x"$enable_debug" = x"yes"], [
+AS_IF([test x"$enable_debug" = x'yes'], [
   AC_DEFINE([TORSION_DEBUG])
 ])
 
-AS_IF([test x"$has_fork" = x"yes"], [
+AS_IF([test x"$has_fork" = x'yes'], [
   AC_DEFINE([TORSION_HAVE_FORK])
 ])
 
-AS_IF([test x"$has_gettimeofday" = x"yes"], [
+AS_IF([test x"$has_gettimeofday" = x'yes'], [
   AC_DEFINE([TORSION_HAVE_GETTIMEOFDAY])
 ])
 
-AS_IF([test x"$has_int128" = x"yes"], [
+AS_IF([test x"$has_int128" = x'yes'], [
   AC_DEFINE([TORSION_HAVE_INT128])
 ])
 
-AS_IF([test x"$enable_mpi" = x"yes"], [
+AS_IF([test x"$enable_mpi" = x'yes'], [
   AC_DEFINE([TORSION_HAVE_MPI])
 ])
 
-AS_IF([test x"$has_pthread" = x"yes"], [
+AS_IF([test x"$has_pthread" = x'yes'], [
   AC_DEFINE([TORSION_HAVE_PTHREAD])
 ])
 
-AS_IF([test x"$enable_rng" = x"yes"], [
+AS_IF([test x"$enable_rng" = x'yes'], [
   AC_DEFINE([TORSION_HAVE_RNG])
 ])
 
-AS_IF([test x"$has_time" = x"yes"], [
+AS_IF([test x"$has_time" = x'yes'], [
   AC_DEFINE([TORSION_HAVE_TIME])
 ])
 
-AS_IF([test x"$has_tls" = x"yes"], [
+AS_IF([test x"$has_tls" = x'yes'], [
   AC_DEFINE_UNQUOTED([TORSION_TLS], [$ax_cv_tls_keyword])
 ])
 
-AS_IF([test x"$enable_verify" = x"yes"], [
+AS_IF([test x"$enable_verify" = x'yes'], [
   AC_DEFINE([TORSION_VERIFY])
 ])
 
-AS_IF([test x"$has_zlib" = x"yes"], [
+AS_IF([test x"$has_zlib" = x'yes'], [
   AC_DEFINE([TORSION_HAVE_ZLIB])
 ])
 
@@ -543,15 +543,15 @@ AS_CASE([$host_os], [aix*], [
 
 AC_SUBST([ABI_VERSION], [TORSION_ABI_VERSION])
 
-AM_CONDITIONAL([EMSCRIPTEN], [test x"$EMSCRIPTEN" != x""])
-AM_CONDITIONAL([ENABLE_CTGRIND], [test x"$has_memcheck" = x"yes"])
-AM_CONDITIONAL([ENABLE_RNG], [test x"$enable_rng" = x"yes"])
-AM_CONDITIONAL([ENABLE_SHARED], [test x"$enable_shared" = x"yes"])
-AM_CONDITIONAL([ENABLE_TESTS], [test x"$enable_tests" = x"yes"])
-AM_CONDITIONAL([ENABLE_ZLIB], [test x"$has_zlib" = x"yes"])
+AM_CONDITIONAL([EMSCRIPTEN], [test x"$EMSCRIPTEN" != x''])
+AM_CONDITIONAL([ENABLE_CTGRIND], [test x"$has_memcheck" = x'yes'])
+AM_CONDITIONAL([ENABLE_RNG], [test x"$enable_rng" = x'yes'])
+AM_CONDITIONAL([ENABLE_SHARED], [test x"$enable_shared" = x'yes'])
+AM_CONDITIONAL([ENABLE_TESTS], [test x"$enable_tests" = x'yes'])
+AM_CONDITIONAL([ENABLE_ZLIB], [test x"$has_zlib" = x'yes'])
 AM_CONDITIONAL([MINGW], [AS_CASE([$host_os], [mingw*], [true], [false])])
-AM_CONDITIONAL([NATIVE], [test x"$WASI$EMSCRIPTEN" = x""])
-AM_CONDITIONAL([WASI], [test x"$WASI" != x""])
+AM_CONDITIONAL([NATIVE], [test x"$WASI$EMSCRIPTEN" = x''])
+AM_CONDITIONAL([WASI], [test x"$WASI" != x''])
 
 AC_CONFIG_FILES([Makefile libtorsion.pc])
 
