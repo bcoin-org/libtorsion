@@ -9,6 +9,10 @@
 #ifndef TORSION_MPI_H
 #define TORSION_MPI_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <limits.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -1632,5 +1636,9 @@ mpz_urandomm(mpz_ptr z, mpz_srcptr x, mp_rng_f *rng, void *arg);
 
 TORSION_EXTERN void
 mp_run_tests(mp_rng_f *rng, void *arg);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* TORSION_MPI_H */
