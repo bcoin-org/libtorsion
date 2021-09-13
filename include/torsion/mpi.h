@@ -124,6 +124,7 @@
 #define mpz_init_set torsion__mpz_init_set
 #define mpz_init_set_ui torsion__mpz_init_set_ui
 #define mpz_init_set_si torsion__mpz_init_set_si
+#define mpz_init_set_compact torsion__mpz_init_set_compact
 #define mpz_init_set_str torsion__mpz_init_set_str
 #define mpz_clear torsion__mpz_clear
 #define mpz_clears torsion__mpz_clears
@@ -134,8 +135,10 @@
 #define mpz_roinit_n torsion__mpz_roinit_n
 #define mpz_set_ui torsion__mpz_set_ui
 #define mpz_set_si torsion__mpz_set_si
+#define mpz_set_compact torsion__mpz_set_compact
 #define mpz_get_ui torsion__mpz_get_ui
 #define mpz_get_si torsion__mpz_get_si
+#define mpz_get_compact torsion__mpz_get_compact
 #define mpz_sgn torsion__mpz_sgn
 #define mpz_cmp torsion__mpz_cmp
 #define mpz_cmp_ui torsion__mpz_cmp_ui
@@ -999,6 +1002,9 @@ mpz_init_set_ui(mpz_ptr z, mp_limb_t x);
 MP_EXTERN void
 mpz_init_set_si(mpz_ptr z, mp_long_t x);
 
+MP_EXTERN void
+mpz_init_set_compact(mpz_ptr z, mp_limb_t x);
+
 MP_EXTERN int
 mpz_init_set_str(mpz_ptr z, const char *str, int base);
 
@@ -1037,6 +1043,9 @@ mpz_set_ui(mpz_ptr z, mp_limb_t x);
 MP_EXTERN void
 mpz_set_si(mpz_ptr z, mp_long_t x);
 
+MP_EXTERN void
+mpz_set_compact(mpz_ptr z, mp_limb_t x);
+
 /*
  * Conversion
  */
@@ -1046,6 +1055,9 @@ mpz_get_ui(mpz_srcptr x);
 
 MP_EXTERN mp_long_t
 mpz_get_si(mpz_srcptr x);
+
+MP_EXTERN mp_limb_t
+mpz_get_compact(mpz_srcptr x);
 
 /*
  * Comparison
