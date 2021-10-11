@@ -3368,16 +3368,16 @@ test_encoding_bech32(drbg_t *unused) {
     {
       "bc1pw508d6qejxtdg4y5r3zarvary0c5xw7kw508d6"
       "qejxtdg4y5r3zarvary0c5xw7k7grplx",
-      "8128751e76e8199196d454941c45d1b3a323f1433b"
+      "5128751e76e8199196d454941c45d1b3a323f1433b"
       "d6751e76e8199196d454941c45d1b3a323f1433bd6"
     },
     {
       "BC1SW50QA3JX3S",
-      "9002751e"
+      "6002751e"
     },
     {
       "bc1zw508d6qejxtdg4y5r3zarvaryvg6kdaj",
-      "8210751e76e8199196d454941c45d1b3a323"
+      "5210751e76e8199196d454941c45d1b3a323"
     },
     {
       "tb1qqqqqp399et2xygdj5xreqhjjvcmzhxw4aywxecjdzew6hylgvsesrxh6hy",
@@ -3409,6 +3409,7 @@ test_encoding_bech32(drbg_t *unused) {
     "pgghm0aec23ttfstphjegfx08hwk5uhmusa7j28yrk8cx4qj"
   };
 
+  const uint32_t checksum = 1;
   char hrp[BECH32_MAX_HRP_SIZE + 1];
   unsigned int version;
   uint8_t script[BECH32_MAX_DECODE_SIZE + 2];
@@ -3427,16 +3428,16 @@ test_encoding_bech32(drbg_t *unused) {
 
     ASSERT(base16_decode(script, &script_len, hex, strlen(hex)));
 
-    ASSERT(bech32_test(addr));
-    ASSERT(bech32_is(addr));
-    ASSERT(bech32_decode(hrp, &version, data, &data_len, addr));
+    ASSERT(bech32_test(addr, checksum));
+    ASSERT(bech32_is(addr, checksum));
+    ASSERT(bech32_decode(hrp, &version, data, &data_len, addr, checksum));
     ASSERT(strlen(hrp) >= 2 && torsion_memcmp(hrp, expect[i], 2) == 0);
     ASSERT(2 + data_len == script_len);
-    ASSERT(script[0] == (version ? version + 0x80 : 0));
+    ASSERT(script[0] == (version ? version + 0x50 : 0));
     ASSERT(script[1] == data_len);
     ASSERT(torsion_memcmp(data, script + 2, data_len) == 0);
 
-    ASSERT(bech32_encode(out, hrp, version, data, data_len));
+    ASSERT(bech32_encode(out, hrp, version, data, data_len, checksum));
     ASSERT(strcmp(out, expect[i]) == 0);
   }
 
@@ -3445,8 +3446,8 @@ test_encoding_bech32(drbg_t *unused) {
 
     printf("  - Bech32 (invalid) vector #%u (%s)\n", i + 1, addr);
 
-    ASSERT(!bech32_test(addr));
-    ASSERT(!bech32_decode(hrp, &version, data, &data_len, addr));
+    ASSERT(!bech32_test(addr, checksum));
+    ASSERT(!bech32_decode(hrp, &version, data, &data_len, addr, checksum));
   }
 }
 
