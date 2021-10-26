@@ -78,7 +78,7 @@ dist_archive() {
     dist_head=`git rev-parse --abbrev-ref HEAD 2> /dev/null`
 
     if test x"$dist_head" = x'HEAD'; then
-      dist_head=`git tag -l --points-at HEAD 2> /dev/null`
+      dist_head=`git tag -l --points-at HEAD 2> /dev/null | sed 1q`
       if test x"$dist_head" = x; then
         dist_head=`git rev-parse HEAD 2> /dev/null`
       fi
