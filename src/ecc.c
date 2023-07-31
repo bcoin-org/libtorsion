@@ -10576,23 +10576,20 @@ ecdsa_privkey_grind(const wei_t *ec,
   drbg_t rng;
   sc_t a, t;
   wge_t A;
-  jge_t J;
 
   drbg_init(&rng, HASH_SHA256, entropy, ENTROPY_SIZE);
 
   sc_random(sc, a, &rng);
 
-  wei_jmul_g(ec, &J, a);
+  wei_mul_g(ec, &A, a);
 
   for (;;) {
-    wge_set_jge_var(ec, &A, &J);
-
     if (wge_export(ec, pub, &pub_len, &A, compact)) {
       if (check(pub, pub_len, arg))
         break;
     }
 
-    jge_mixed_add_var(ec, &J, &J, &ec->g);
+    wge_add_var(ec, &A, &A, &ec->g);
 
     if (++counter == MP_LIMB_MAX) {
       sc_set_word(sc, t, counter);
