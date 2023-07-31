@@ -49,6 +49,7 @@ extern "C" {
 #define ecdsa_pubkey_size torsion_ecdsa_pubkey_size
 #define ecdsa_sig_size torsion_ecdsa_sig_size
 #define ecdsa_privkey_generate torsion_ecdsa_privkey_generate
+#define ecdsa_privkey_grind torsion_ecdsa_privkey_grind
 #define ecdsa_privkey_verify torsion_ecdsa_privkey_verify
 #define ecdsa_privkey_export torsion_ecdsa_privkey_export
 #define ecdsa_privkey_import torsion_ecdsa_privkey_import
@@ -91,6 +92,7 @@ extern "C" {
 #define bip340_pubkey_size torsion_bip340_pubkey_size
 #define bip340_sig_size torsion_bip340_sig_size
 #define bip340_privkey_generate torsion_bip340_privkey_generate
+#define bip340_privkey_grind torsion_bip340_privkey_grind
 #define bip340_privkey_verify torsion_bip340_privkey_verify
 #define bip340_privkey_export torsion_bip340_privkey_export
 #define bip340_privkey_import torsion_bip340_privkey_import
@@ -119,6 +121,7 @@ extern "C" {
 #define ecdh_privkey_size torsion_ecdh_privkey_size
 #define ecdh_pubkey_size torsion_ecdh_pubkey_size
 #define ecdh_privkey_generate torsion_ecdh_privkey_generate
+#define ecdh_privkey_grind torsion_ecdh_privkey_grind
 #define ecdh_privkey_verify torsion_ecdh_privkey_verify
 #define ecdh_privkey_export torsion_ecdh_privkey_export
 #define ecdh_privkey_import torsion_ecdh_privkey_import
@@ -139,7 +142,9 @@ extern "C" {
 #define eddsa_pubkey_size torsion_eddsa_pubkey_size
 #define eddsa_sig_size torsion_eddsa_sig_size
 #define eddsa_privkey_generate torsion_eddsa_privkey_generate
+#define eddsa_privkey_grind torsion_eddsa_privkey_grind
 #define eddsa_scalar_generate torsion_eddsa_scalar_generate
+#define eddsa_scalar_grind torsion_eddsa_scalar_grind
 #define eddsa_privkey_expand torsion_eddsa_privkey_expand
 #define eddsa_privkey_convert torsion_eddsa_privkey_convert
 #define eddsa_privkey_verify torsion_eddsa_privkey_verify
@@ -184,6 +189,7 @@ extern "C" {
 #define ristretto_privkey_size torsion_ristretto_privkey_size
 #define ristretto_pubkey_size torsion_ristretto_pubkey_size
 #define ristretto_privkey_generate torsion_ristretto_privkey_generate
+#define ristretto_privkey_grind torsion_ristretto_privkey_grind
 #define ristretto_privkey_from_uniform torsion_ristretto_privkey_from_uniform
 #define ristretto_privkey_verify torsion_ristretto_privkey_verify
 #define ristretto_privkey_is_zero torsion_ristretto_privkey_is_zero
@@ -386,6 +392,16 @@ TORSION_EXTERN void
 ecdsa_privkey_generate(const wei_curve_t *ec,
                        unsigned char *out,
                        const unsigned char *entropy);
+
+TORSION_EXTERN void
+ecdsa_privkey_grind(const wei_curve_t *ec,
+                    unsigned char *out,
+                    const unsigned char *entropy,
+                    int compact,
+                    int (*check)(const unsigned char *pub,
+                                 size_t pub_len,
+                                 void *arg),
+                    void *arg);
 
 TORSION_EXTERN int
 ecdsa_privkey_verify(const wei_curve_t *ec, const unsigned char *priv);
@@ -619,6 +635,7 @@ TORSION_EXTERN size_t
 bipschnorr_sig_size(const wei_curve_t *ec);
 
 #define bipschnorr_privkey_generate ecdsa_privkey_generate
+#define bipschnorr_privkey_grind ecdsa_privkey_grind
 #define bipschnorr_privkey_verify ecdsa_privkey_verify
 #define bipschnorr_privkey_export ecdsa_privkey_export
 #define bipschnorr_privkey_import ecdsa_privkey_import
@@ -685,6 +702,14 @@ TORSION_EXTERN void
 bip340_privkey_generate(const wei_curve_t *ec,
                         unsigned char *out,
                         const unsigned char *entropy);
+
+TORSION_EXTERN void
+bip340_privkey_grind(const wei_curve_t *ec,
+                     unsigned char *out,
+                     const unsigned char *entropy,
+                     int (*check)(const unsigned char *pub,
+                                  void *arg),
+                     void *arg);
 
 TORSION_EXTERN int
 bip340_privkey_verify(const wei_curve_t *ec, const unsigned char *priv);
@@ -849,6 +874,14 @@ ecdh_privkey_generate(const mont_curve_t *ec,
                       unsigned char *out,
                       const unsigned char *entropy);
 
+TORSION_EXTERN void
+ecdh_privkey_grind(const mont_curve_t *ec,
+                   unsigned char *out,
+                   const unsigned char *entropy,
+                   int (*check)(const unsigned char *pub,
+                                void *arg),
+                   void *arg);
+
 TORSION_EXTERN int
 ecdh_privkey_verify(const mont_curve_t *ec, const unsigned char *priv);
 
@@ -947,9 +980,25 @@ eddsa_privkey_generate(const edwards_curve_t *ec,
                        const unsigned char *entropy);
 
 TORSION_EXTERN void
+eddsa_privkey_grind(const edwards_curve_t *ec,
+                    unsigned char *out,
+                    const unsigned char *entropy,
+                    int (*check)(const unsigned char *pub,
+                                 void *arg),
+                    void *arg);
+
+TORSION_EXTERN void
 eddsa_scalar_generate(const edwards_curve_t *ec,
                       unsigned char *out,
                       const unsigned char *entropy);
+
+TORSION_EXTERN void
+eddsa_scalar_grind(const edwards_curve_t *ec,
+                   unsigned char *out,
+                   const unsigned char *entropy,
+                   int (*check)(const unsigned char *pub,
+                                void *arg),
+                   void *arg);
 
 TORSION_EXTERN void
 eddsa_privkey_expand(const edwards_curve_t *ec,
@@ -1210,6 +1259,14 @@ TORSION_EXTERN void
 ristretto_privkey_generate(const edwards_curve_t *ec,
                            unsigned char *out,
                            const unsigned char *entropy);
+
+TORSION_EXTERN void
+ristretto_privkey_grind(const edwards_curve_t *ec,
+                        unsigned char *out,
+                        const unsigned char *entropy,
+                        int (*check)(const unsigned char *pub,
+                                     void *arg),
+                        void *arg);
 
 TORSION_EXTERN void
 ristretto_privkey_from_uniform(const edwards_curve_t *ec,

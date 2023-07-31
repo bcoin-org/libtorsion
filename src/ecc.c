@@ -10560,6 +10560,56 @@ ecdsa_privkey_generate(const wei_t *ec,
   cleanse(&rng, sizeof(rng));
 }
 
+void
+ecdsa_privkey_grind(const wei_t *ec,
+                    unsigned char *out,
+                    const unsigned char *entropy,
+                    int compact,
+                    int (*check)(const unsigned char *pub,
+                                 size_t pub_len,
+                                 void *arg),
+                    void *arg) {
+  const scalar_field_t *sc = &ec->sc;
+  unsigned char pub[MAX_PUB_SIZE];
+  mp_limb_t counter = 0;
+  size_t pub_len;
+  drbg_t rng;
+  sc_t a, t;
+  wge_t A;
+  jge_t J;
+
+  drbg_init(&rng, HASH_SHA256, entropy, ENTROPY_SIZE);
+
+  sc_random(sc, a, &rng);
+
+  wei_jmul_g(ec, &J, a);
+
+  for (;;) {
+    wge_set_jge_var(ec, &A, &J);
+
+    if (wge_export(ec, pub, &pub_len, &A, compact)) {
+      if (check(pub, pub_len, arg))
+        break;
+    }
+
+    jge_mixed_add_var(ec, &J, &J, &ec->g);
+
+    if (++counter == MP_LIMB_MAX) {
+      sc_set_word(sc, t, counter);
+      sc_add(sc, a, a, t);
+      counter = 0;
+    }
+  }
+
+  sc_set_word(sc, t, counter);
+  sc_add(sc, a, a, t);
+  sc_export(sc, out, a);
+  sc_cleanse(sc, a);
+  sc_cleanse(sc, t);
+
+  cleanse(&rng, sizeof(rng));
+}
+
 int
 ecdsa_privkey_verify(const wei_t *ec, const unsigned char *priv) {
   const scalar_field_t *sc = &ec->sc;
@@ -11900,6 +11950,33 @@ bip340_privkey_generate(const wei_t *ec,
   ecdsa_privkey_generate(ec, out, entropy);
 }
 
+typedef struct bip340_checker_s {
+  int (*check)(const unsigned char *pub, void *arg);
+  void *arg;
+} bip340_checker_t;
+
+static int
+bip340_check(const unsigned char *pub, size_t pub_len, void *arg) {
+  bip340_checker_t *checker = arg;
+  (void)pub_len;
+  return checker->check(pub + 1, checker->arg);
+}
+
+void
+bip340_privkey_grind(const wei_t *ec,
+                     unsigned char *out,
+                     const unsigned char *entropy,
+                     int (*check)(const unsigned char *pub,
+                                  void *arg),
+                     void *arg) {
+  bip340_checker_t checker;
+
+  checker.check = check;
+  checker.arg = arg;
+
+  ecdsa_privkey_grind(ec, out, entropy, 1, &bip340_check, &checker);
+}
+
 int
 bip340_privkey_verify(const wei_t *ec, const unsigned char *priv) {
   return ecdsa_privkey_verify(ec, priv);
@@ -12804,6 +12881,34 @@ ecdh_privkey_generate(const mont_t *ec,
   cleanse(&rng, sizeof(rng));
 }
 
+void
+ecdh_privkey_grind(const mont_t *ec,
+                   unsigned char *out,
+                   const unsigned char *entropy,
+                   int (*check)(const unsigned char *pub,
+                                void *arg),
+                   void *arg) {
+  const scalar_field_t *sc = &ec->sc;
+  unsigned char pub[MAX_PUB_SIZE];
+  drbg_t rng;
+  pge_t A;
+  sc_t a;
+
+  drbg_init(&rng, HASH_SHA256, entropy, ENTROPY_SIZE);
+
+  do {
+    drbg_generate(&rng, out, sc->size);
+    mont_clamp(ec, out, out);
+    sc_import_raw(sc, a, out);
+    mont_mul_g(ec, &A, a);
+    ASSERT(pge_export(ec, pub, &A));
+  } while (!check(pub, arg));
+
+  sc_cleanse(sc, a);
+
+  cleanse(&rng, sizeof(rng));
+}
+
 int
 ecdh_privkey_verify(const mont_t *ec, const unsigned char *priv) {
   (void)ec;
@@ -13126,6 +13231,37 @@ eddsa_privkey_generate(const edwards_t *ec,
 }
 
 void
+eddsa_privkey_grind(const edwards_t *ec,
+                    unsigned char *out,
+                    const unsigned char *entropy,
+                    int (*check)(const unsigned char *pub,
+                                 void *arg),
+                    void *arg) {
+  const scalar_field_t *sc = &ec->sc;
+  const prime_field_t *fe = &ec->fe;
+  unsigned char scalar[(MAX_FIELD_SIZE + 1) * 2];
+  unsigned char pub[MAX_PUB_SIZE];
+  drbg_t rng;
+  xge_t A;
+  sc_t a;
+
+  drbg_init(&rng, HASH_SHA256, entropy, ENTROPY_SIZE);
+
+  do {
+    drbg_generate(&rng, out, fe->adj_size);
+    eddsa_privkey_hash(ec, scalar, out);
+    sc_import_reduce(sc, a, scalar);
+    edwards_mul_g(ec, &A, a);
+    xge_export(ec, pub, &A);
+  } while (!check(pub, arg));
+
+  sc_cleanse(sc, a);
+
+  cleanse(scalar, fe->adj_size * 2);
+  cleanse(&rng, sizeof(rng));
+}
+
+void
 eddsa_scalar_generate(const edwards_t *ec,
                       unsigned char *out,
                       const unsigned char *entropy) {
@@ -13138,6 +13274,22 @@ eddsa_scalar_generate(const edwards_t *ec,
   edwards_clamp(ec, out, out);
 
   cleanse(&rng, sizeof(rng));
+}
+
+void
+eddsa_scalar_grind(const edwards_t *ec,
+                   unsigned char *out,
+                   const unsigned char *entropy,
+                   int (*check)(const unsigned char *pub,
+                                void *arg),
+                   void *arg) {
+  const prime_field_t *fe = &ec->fe;
+  unsigned char priv[MAX_FIELD_SIZE + 1];
+
+  eddsa_privkey_grind(ec, priv, entropy, check, arg);
+  eddsa_privkey_convert(ec, out, priv);
+
+  cleanse(priv, fe->adj_size);
 }
 
 void
@@ -14214,6 +14366,50 @@ ristretto_privkey_generate(const edwards_t *ec,
   sc_random(sc, a, &rng);
   sc_export(sc, out, a);
   sc_cleanse(sc, a);
+
+  cleanse(&rng, sizeof(rng));
+}
+
+void
+ristretto_privkey_grind(const edwards_t *ec,
+                        unsigned char *out,
+                        const unsigned char *entropy,
+                        int (*check)(const unsigned char *pub,
+                                     void *arg),
+                        void *arg) {
+  const scalar_field_t *sc = &ec->sc;
+  unsigned char pub[MAX_PUB_SIZE];
+  mp_limb_t counter = 0;
+  drbg_t rng;
+  sc_t a, t;
+  xge_t A;
+
+  drbg_init(&rng, HASH_SHA256, entropy, ENTROPY_SIZE);
+
+  sc_random(sc, a, &rng);
+
+  edwards_mul_g(ec, &A, a);
+
+  for (;;) {
+    rge_export(ec, pub, &A);
+
+    if (check(pub, arg))
+      break;
+
+    xge_mixed_add(ec, &A, &A, &ec->g);
+
+    if (++counter == MP_LIMB_MAX) {
+      sc_set_word(sc, t, counter);
+      sc_add(sc, a, a, t);
+      counter = 0;
+    }
+  }
+
+  sc_set_word(sc, t, counter);
+  sc_add(sc, a, a, t);
+  sc_export(sc, out, a);
+  sc_cleanse(sc, a);
+  sc_cleanse(sc, t);
 
   cleanse(&rng, sizeof(rng));
 }
