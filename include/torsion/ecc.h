@@ -58,6 +58,7 @@ extern "C" {
 #define ecdsa_privkey_negate torsion_ecdsa_privkey_negate
 #define ecdsa_privkey_invert torsion_ecdsa_privkey_invert
 #define ecdsa_pubkey_create torsion_ecdsa_pubkey_create
+#define ecdsa_pubkey_grind torsion_ecdsa_pubkey_grind
 #define ecdsa_pubkey_convert torsion_ecdsa_pubkey_convert
 #define ecdsa_pubkey_from_uniform torsion_ecdsa_pubkey_from_uniform
 #define ecdsa_pubkey_to_uniform torsion_ecdsa_pubkey_to_uniform
@@ -100,6 +101,7 @@ extern "C" {
 #define bip340_privkey_tweak_mul torsion_bip340_privkey_tweak_mul
 #define bip340_privkey_invert torsion_bip340_privkey_invert
 #define bip340_pubkey_create torsion_bip340_pubkey_create
+#define bip340_pubkey_grind torsion_bip340_pubkey_grind
 #define bip340_pubkey_from_uniform torsion_bip340_pubkey_from_uniform
 #define bip340_pubkey_to_uniform torsion_bip340_pubkey_to_uniform
 #define bip340_pubkey_from_hash torsion_bip340_pubkey_from_hash
@@ -200,6 +202,7 @@ extern "C" {
 #define ristretto_privkey_negate torsion_ristretto_privkey_negate
 #define ristretto_privkey_invert torsion_ristretto_privkey_invert
 #define ristretto_pubkey_create torsion_ristretto_pubkey_create
+#define ristretto_pubkey_grind torsion_ristretto_pubkey_grind
 #define ristretto_pubkey_from_uniform torsion_ristretto_pubkey_from_uniform
 #define ristretto_pubkey_to_uniform torsion_ristretto_pubkey_to_uniform
 #define ristretto_pubkey_from_hash torsion_ristretto_pubkey_from_hash
@@ -395,7 +398,7 @@ ecdsa_privkey_generate(const wei_curve_t *ec,
 
 TORSION_EXTERN void
 ecdsa_privkey_grind(const wei_curve_t *ec,
-                    unsigned char *out,
+                    unsigned char *priv,
                     const unsigned char *entropy,
                     int compact,
                     int (*check)(const unsigned char *pub,
@@ -445,6 +448,16 @@ ecdsa_pubkey_create(const wei_curve_t *ec,
                     size_t *pub_len,
                     const unsigned char *priv,
                     int compact);
+
+TORSION_EXTERN int
+ecdsa_pubkey_grind(const wei_curve_t *ec,
+                   unsigned char *tweak,
+                   const unsigned char *pub,
+                   size_t pub_len,
+                   int (*check)(const unsigned char *pub,
+                                size_t pub_len,
+                                void *arg),
+                   void *arg);
 
 TORSION_EXTERN int
 ecdsa_pubkey_convert(const wei_curve_t *ec,
@@ -644,6 +657,7 @@ bipschnorr_sig_size(const wei_curve_t *ec);
 #define bipschnorr_privkey_negate ecdsa_privkey_negate
 #define bipschnorr_privkey_invert ecdsa_privkey_invert
 #define bipschnorr_pubkey_create ecdsa_pubkey_create
+#define bipschnorr_pubkey_grind ecdsa_pubkey_grind
 #define bipschnorr_pubkey_convert ecdsa_pubkey_convert
 #define bipschnorr_pubkey_from_uniform ecdsa_pubkey_from_uniform
 #define bipschnorr_pubkey_to_uniform ecdsa_pubkey_to_uniform
@@ -705,7 +719,7 @@ bip340_privkey_generate(const wei_curve_t *ec,
 
 TORSION_EXTERN void
 bip340_privkey_grind(const wei_curve_t *ec,
-                     unsigned char *out,
+                     unsigned char *priv,
                      const unsigned char *entropy,
                      int (*check)(const unsigned char *pub,
                                   void *arg),
@@ -748,6 +762,14 @@ TORSION_EXTERN int
 bip340_pubkey_create(const wei_curve_t *ec,
                      unsigned char *pub,
                      const unsigned char *priv);
+
+TORSION_EXTERN int
+bip340_pubkey_grind(const wei_curve_t *ec,
+                    unsigned char *tweak,
+                    const unsigned char *pub,
+                    int (*check)(const unsigned char *pub,
+                                 void *arg),
+                    void *arg);
 
 TORSION_EXTERN void
 bip340_pubkey_from_uniform(const wei_curve_t *ec,
@@ -876,7 +898,7 @@ ecdh_privkey_generate(const mont_curve_t *ec,
 
 TORSION_EXTERN void
 ecdh_privkey_grind(const mont_curve_t *ec,
-                   unsigned char *out,
+                   unsigned char *priv,
                    const unsigned char *entropy,
                    int (*check)(const unsigned char *pub,
                                 void *arg),
@@ -981,7 +1003,7 @@ eddsa_privkey_generate(const edwards_curve_t *ec,
 
 TORSION_EXTERN void
 eddsa_privkey_grind(const edwards_curve_t *ec,
-                    unsigned char *out,
+                    unsigned char *priv,
                     const unsigned char *entropy,
                     int (*check)(const unsigned char *pub,
                                  void *arg),
@@ -994,7 +1016,7 @@ eddsa_scalar_generate(const edwards_curve_t *ec,
 
 TORSION_EXTERN void
 eddsa_scalar_grind(const edwards_curve_t *ec,
-                   unsigned char *out,
+                   unsigned char *scalar,
                    const unsigned char *entropy,
                    int (*check)(const unsigned char *pub,
                                 void *arg),
@@ -1262,7 +1284,7 @@ ristretto_privkey_generate(const edwards_curve_t *ec,
 
 TORSION_EXTERN void
 ristretto_privkey_grind(const edwards_curve_t *ec,
-                        unsigned char *out,
+                        unsigned char *priv,
                         const unsigned char *entropy,
                         int (*check)(const unsigned char *pub,
                                      void *arg),
@@ -1316,6 +1338,14 @@ TORSION_EXTERN int
 ristretto_pubkey_create(const edwards_curve_t *ec,
                         unsigned char *pub,
                         const unsigned char *priv);
+
+TORSION_EXTERN int
+ristretto_pubkey_grind(const edwards_curve_t *ec,
+                       unsigned char *tweak,
+                       const unsigned char *pub,
+                       int (*check)(const unsigned char *pub,
+                                    void *arg),
+                       void *arg);
 
 TORSION_EXTERN void
 ristretto_pubkey_from_uniform(const edwards_curve_t *ec,

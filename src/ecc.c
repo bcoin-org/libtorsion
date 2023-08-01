@@ -10562,49 +10562,22 @@ ecdsa_privkey_generate(const wei_t *ec,
 
 void
 ecdsa_privkey_grind(const wei_t *ec,
-                    unsigned char *out,
+                    unsigned char *priv,
                     const unsigned char *entropy,
                     int compact,
                     int (*check)(const unsigned char *pub,
                                  size_t pub_len,
                                  void *arg),
                     void *arg) {
-  const scalar_field_t *sc = &ec->sc;
+  unsigned char tweak[MAX_SCALAR_SIZE];
   unsigned char pub[MAX_PUB_SIZE];
-  mp_limb_t counter = 0;
   size_t pub_len;
-  drbg_t rng;
-  sc_t a, t;
-  wge_t A;
 
-  drbg_init(&rng, HASH_SHA256, entropy, ENTROPY_SIZE);
+  ecdsa_privkey_generate(ec, priv, entropy);
 
-  sc_random(sc, a, &rng);
-
-  wei_mul_g(ec, &A, a);
-
-  for (;;) {
-    if (wge_export(ec, pub, &pub_len, &A, compact)) {
-      if (check(pub, pub_len, arg))
-        break;
-    }
-
-    wge_add_var(ec, &A, &A, &ec->g);
-
-    if (++counter == MP_LIMB_MAX) {
-      sc_set_word(sc, t, counter);
-      sc_add(sc, a, a, t);
-      counter = 0;
-    }
-  }
-
-  sc_set_word(sc, t, counter);
-  sc_add(sc, a, a, t);
-  sc_export(sc, out, a);
-  sc_cleanse(sc, a);
-  sc_cleanse(sc, t);
-
-  cleanse(&rng, sizeof(rng));
+  CHECK(ecdsa_pubkey_create(ec, pub, &pub_len, priv, compact));
+  CHECK(ecdsa_pubkey_grind(ec, tweak, pub, pub_len, check, arg));
+  CHECK(ecdsa_privkey_tweak_add(ec, priv, priv, tweak));
 }
 
 int
@@ -10761,6 +10734,52 @@ ecdsa_pubkey_create(const wei_t *ec,
   wge_cleanse(ec, &A);
 
   return ret;
+}
+
+int
+ecdsa_pubkey_grind(const wei_t *ec,
+                   unsigned char *tweak,
+                   const unsigned char *pub,
+                   size_t pub_len,
+                   int (*check)(const unsigned char *pub,
+                                size_t pub_len,
+                                void *arg),
+                   void *arg) {
+  const scalar_field_t *sc = &ec->sc;
+  const prime_field_t *fe = &ec->fe;
+  int compact = (pub_len == 1 + fe->size);
+  unsigned char tmp[MAX_PUB_SIZE];
+  mp_limb_t counter = 0;
+  sc_t t, c;
+  wge_t A;
+
+  if (!wge_import(ec, &A, pub, pub_len))
+    return 0;
+
+  sc_zero(sc, t);
+
+  for (;;) {
+    wge_add_var(ec, &A, &A, &ec->g);
+
+    if (++counter == MP_LIMB_MAX) {
+      sc_set_word(sc, c, counter);
+      sc_add(sc, t, t, c);
+      counter = 0;
+    }
+
+    if (wge_export(ec, tmp, NULL, &A, compact)) {
+      if (check(tmp, pub_len, arg))
+        break;
+    }
+  }
+
+  sc_set_word(sc, c, counter);
+  sc_add(sc, t, t, c);
+  sc_export(sc, tweak, t);
+  sc_cleanse(sc, t);
+  sc_cleanse(sc, c);
+
+  return 1;
 }
 
 int
@@ -11947,31 +11966,21 @@ bip340_privkey_generate(const wei_t *ec,
   ecdsa_privkey_generate(ec, out, entropy);
 }
 
-typedef struct bip340_checker_s {
-  int (*check)(const unsigned char *pub, void *arg);
-  void *arg;
-} bip340_checker_t;
-
-static int
-bip340_check(const unsigned char *pub, size_t pub_len, void *arg) {
-  bip340_checker_t *checker = arg;
-  (void)pub_len;
-  return checker->check(pub + 1, checker->arg);
-}
-
 void
 bip340_privkey_grind(const wei_t *ec,
-                     unsigned char *out,
+                     unsigned char *priv,
                      const unsigned char *entropy,
                      int (*check)(const unsigned char *pub,
                                   void *arg),
                      void *arg) {
-  bip340_checker_t checker;
+  unsigned char tweak[MAX_SCALAR_SIZE];
+  unsigned char pub[MAX_PUB_SIZE];
 
-  checker.check = check;
-  checker.arg = arg;
+  bip340_privkey_generate(ec, priv, entropy);
 
-  ecdsa_privkey_grind(ec, out, entropy, 1, &bip340_check, &checker);
+  CHECK(bip340_pubkey_create(ec, pub, priv));
+  CHECK(bip340_pubkey_grind(ec, tweak, pub, check, arg));
+  CHECK(bip340_privkey_tweak_add(ec, priv, priv, tweak));
 }
 
 int
@@ -12089,6 +12098,48 @@ bip340_pubkey_create(const wei_t *ec,
   wge_cleanse(ec, &A);
 
   return ret;
+}
+
+int
+bip340_pubkey_grind(const wei_t *ec,
+                    unsigned char *tweak,
+                    const unsigned char *pub,
+                    int (*check)(const unsigned char *pub,
+                                 void *arg),
+                    void *arg) {
+  const scalar_field_t *sc = &ec->sc;
+  unsigned char tmp[MAX_PUB_SIZE];
+  mp_limb_t counter = 0;
+  sc_t t, c;
+  wge_t A;
+
+  if (!wge_import_even(ec, &A, pub))
+    return 0;
+
+  sc_zero(sc, t);
+
+  for (;;) {
+    wge_add_var(ec, &A, &A, &ec->g);
+
+    if (++counter == MP_LIMB_MAX) {
+      sc_set_word(sc, c, counter);
+      sc_add(sc, t, t, c);
+      counter = 0;
+    }
+
+    if (wge_export_x(ec, tmp, &A)) {
+      if (check(tmp, arg))
+        break;
+    }
+  }
+
+  sc_set_word(sc, c, counter);
+  sc_add(sc, t, t, c);
+  sc_export(sc, tweak, t);
+  sc_cleanse(sc, t);
+  sc_cleanse(sc, c);
+
+  return 1;
 }
 
 void
@@ -12880,7 +12931,7 @@ ecdh_privkey_generate(const mont_t *ec,
 
 void
 ecdh_privkey_grind(const mont_t *ec,
-                   unsigned char *out,
+                   unsigned char *priv,
                    const unsigned char *entropy,
                    int (*check)(const unsigned char *pub,
                                 void *arg),
@@ -12894,9 +12945,9 @@ ecdh_privkey_grind(const mont_t *ec,
   drbg_init(&rng, HASH_SHA256, entropy, ENTROPY_SIZE);
 
   do {
-    drbg_generate(&rng, out, sc->size);
-    mont_clamp(ec, out, out);
-    sc_import_raw(sc, a, out);
+    drbg_generate(&rng, priv, sc->size);
+    mont_clamp(ec, priv, priv);
+    sc_import_raw(sc, a, priv);
     mont_mul_g(ec, &A, a);
     ASSERT(pge_export(ec, pub, &A));
   } while (!check(pub, arg));
@@ -13229,7 +13280,7 @@ eddsa_privkey_generate(const edwards_t *ec,
 
 void
 eddsa_privkey_grind(const edwards_t *ec,
-                    unsigned char *out,
+                    unsigned char *priv,
                     const unsigned char *entropy,
                     int (*check)(const unsigned char *pub,
                                  void *arg),
@@ -13245,8 +13296,8 @@ eddsa_privkey_grind(const edwards_t *ec,
   drbg_init(&rng, HASH_SHA256, entropy, ENTROPY_SIZE);
 
   do {
-    drbg_generate(&rng, out, fe->adj_size);
-    eddsa_privkey_hash(ec, scalar, out);
+    drbg_generate(&rng, priv, fe->adj_size);
+    eddsa_privkey_hash(ec, scalar, priv);
     sc_import_reduce(sc, a, scalar);
     edwards_mul_g(ec, &A, a);
     xge_export(ec, pub, &A);
@@ -13275,7 +13326,7 @@ eddsa_scalar_generate(const edwards_t *ec,
 
 void
 eddsa_scalar_grind(const edwards_t *ec,
-                   unsigned char *out,
+                   unsigned char *scalar,
                    const unsigned char *entropy,
                    int (*check)(const unsigned char *pub,
                                 void *arg),
@@ -13284,7 +13335,7 @@ eddsa_scalar_grind(const edwards_t *ec,
   unsigned char priv[MAX_FIELD_SIZE + 1];
 
   eddsa_privkey_grind(ec, priv, entropy, check, arg);
-  eddsa_privkey_convert(ec, out, priv);
+  eddsa_privkey_convert(ec, scalar, priv);
 
   cleanse(priv, fe->adj_size);
 }
@@ -14369,46 +14420,19 @@ ristretto_privkey_generate(const edwards_t *ec,
 
 void
 ristretto_privkey_grind(const edwards_t *ec,
-                        unsigned char *out,
+                        unsigned char *priv,
                         const unsigned char *entropy,
                         int (*check)(const unsigned char *pub,
                                      void *arg),
                         void *arg) {
-  const scalar_field_t *sc = &ec->sc;
+  unsigned char tweak[MAX_SCALAR_SIZE];
   unsigned char pub[MAX_PUB_SIZE];
-  mp_limb_t counter = 0;
-  drbg_t rng;
-  sc_t a, t;
-  xge_t A;
 
-  drbg_init(&rng, HASH_SHA256, entropy, ENTROPY_SIZE);
+  ristretto_privkey_generate(ec, priv, entropy);
 
-  sc_random(sc, a, &rng);
-
-  edwards_mul_g(ec, &A, a);
-
-  for (;;) {
-    rge_export(ec, pub, &A);
-
-    if (check(pub, arg))
-      break;
-
-    xge_mixed_add(ec, &A, &A, &ec->g);
-
-    if (++counter == MP_LIMB_MAX) {
-      sc_set_word(sc, t, counter);
-      sc_add(sc, a, a, t);
-      counter = 0;
-    }
-  }
-
-  sc_set_word(sc, t, counter);
-  sc_add(sc, a, a, t);
-  sc_export(sc, out, a);
-  sc_cleanse(sc, a);
-  sc_cleanse(sc, t);
-
-  cleanse(&rng, sizeof(rng));
+  CHECK(ristretto_pubkey_create(ec, pub, priv));
+  CHECK(ristretto_pubkey_grind(ec, tweak, pub, check, arg));
+  CHECK(ristretto_privkey_tweak_add(ec, priv, priv, tweak));
 }
 
 void
@@ -14577,6 +14601,43 @@ ristretto_pubkey_create(const edwards_t *ec,
   xge_cleanse(ec, &A);
 
   return ret;
+}
+
+int
+ristretto_pubkey_grind(const edwards_t *ec,
+                       unsigned char *tweak,
+                       const unsigned char *pub,
+                       int (*check)(const unsigned char *pub,
+                                    void *arg),
+                       void *arg) {
+  const scalar_field_t *sc = &ec->sc;
+  unsigned char tmp[MAX_PUB_SIZE];
+  mp_limb_t counter = 0;
+  sc_t t, c;
+  xge_t A;
+
+  if (!rge_import(ec, &A, pub))
+    return 0;
+
+  do {
+    xge_mixed_add(ec, &A, &A, &ec->g);
+
+    if (++counter == MP_LIMB_MAX) {
+      sc_set_word(sc, c, counter);
+      sc_add(sc, t, t, c);
+      counter = 0;
+    }
+
+    rge_export(ec, tmp, &A);
+  } while (!check(tmp, arg));
+
+  sc_set_word(sc, c, counter);
+  sc_add(sc, t, t, c);
+  sc_export(sc, tweak, t);
+  sc_cleanse(sc, t);
+  sc_cleanse(sc, c);
+
+  return 1;
 }
 
 void
